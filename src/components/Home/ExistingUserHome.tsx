@@ -20,6 +20,10 @@ const ExistingUserHome = () => {
         />
       </div>
       <ClientTable search={search} />
+
+      <div className="w-full min-h-[200px] flex justify-start bg-[#f7f7f7] rounded-lg p-4">
+        <p className="font-bold text-xl">Proximos eventos</p>
+      </div>
     </>
   );
 };

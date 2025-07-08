@@ -1,15 +1,14 @@
 import { Routes, Route } from "react-router-dom";
 import HomePage from "./pages/HomePage";
-import NavBar from "./components/Layout/NavBar";
+import Layout from "./components/Layout/Layout";
 
 function App() {
   return (
-    <main className="flex flex-col min-h-screen bg-white">
-      <NavBar />
+    <Layout>
       <Routes>
         <Route path="/" element={<HomePage />} />
       </Routes>
-    </main>
+    </Layout>
   );
 }
 

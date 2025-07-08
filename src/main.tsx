@@ -7,6 +7,7 @@ import { BrowserRouter } from "react-router-dom";
 import "./index.css";
 import App from "./App.tsx";
 import { AuthProvider } from "./context/AuthContext";
+import { LayoutProvider } from "./context/LayoutContext";
 // import { ErrorBoundary } from "./ErrorBoundary.tsx";
 
 // const convex = new ConvexReactClient(import.meta.env.VITE_CONVEX_URL as string);
@@ -19,7 +20,9 @@ createRoot(document.getElementById("root")!).render(
     {/* <ConvexProviderWithClerk client={convex} useAuth={useAuth}> */}
     <BrowserRouter>
       <AuthProvider>
-        <App />
+        <LayoutProvider>
+          <App />
+        </LayoutProvider>
       </AuthProvider>
     </BrowserRouter>
     {/* </ConvexProviderWithClerk>
