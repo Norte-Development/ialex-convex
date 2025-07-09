@@ -17,8 +17,8 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
         <div className="flex">
           <Sidebar />
           <main
-            className={`flex-1 overflow-x-hidden overflow-y-auto bg-background  p-4 pt-20 transition-all duration-300 ease-in-out  ${
-              isSidebarOpen ? "mr-80" : "mr-0"
+            className={`flex-1 overflow-x-hidden overflow-y-auto bg-background   pt-20 transition-all duration-300 ease-in-out  ${
+              isSidebarOpen ? "mr-80" : "mr-0 ml-0"
             }`}
           >
             {children}

@@ -25,7 +25,7 @@ export default function CaseCard({ title, client, status }: CaseCardProps) {
         </p>
       </div>
       <div className="h-[30%]  flex justify-start items-center">
-        <Link to={`/case/${title}`} className="cursor-pointer">
+        <Link to={`/caso/${title}`} className="cursor-pointer">
           Ir a caso --&gt;
         </Link>
       </div>

@@ -8,11 +8,15 @@ import {
 } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import { useLayout } from "@/context/LayoutContext";
+import { useMatch } from "react-router-dom";
 
 export default function NavBar() {
   const { login } = useAuth();
   const { toggleSidebar } = useLayout();
+  const match = useMatch("/");
+  const path = match?.pathname;
 
+  console.log(path);
   const handleLogin = () => {
     login({
       id: "1",
@@ -23,14 +27,18 @@ export default function NavBar() {
     console.log("Logueado como usuario habitual");
   };
   return (
-    <nav className="flex px-5 justify-between items-center h-14 w-full bg-background text-foreground border-b border-border  fixed top-0 left-0 z-50">
-      <div className="flex items-center gap-4">
+    <nav
+      className={`${path === "/" ? "flex " : "flex flex-row-reverse"} px-5 justify-between items-center h-14 w-full bg-background text-foreground border-b border-border  fixed top-0 left-0 z-50`}
+    >
+      <div className={` flex  items-center gap-4`}>
         <Settings className="cursor-pointer" size={20} />
         <button onClick={handleLogin}>
           <CircleUserRound className="cursor-pointer" size={20} />
         </button>
       </div>
-      <div className="flex gap-4 justify-center items-center">
+      <div
+        className={`flex gap-4 justify-center items-center ${path === "/" ? "" : "hidden"}`}
+      >
         <button onClick={toggleSidebar}>
           <FileSearch2 className="cursor-pointer" size={20} />
         </button>
