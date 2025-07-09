@@ -6,9 +6,11 @@ interface CaseDetailLayoutProps {
 
 export default function CaseDetailLayout({ children }: CaseDetailLayoutProps) {
   return (
-    <div className="flex bg-green-400 w-full min-h-screen">
+    <div className="flex  w-full h-screen pt-14">
       <CaseSidebar />
-      <section className="w-full">{children}</section>
+      <section className="w-full h-full overflow-y-auto bg-[#f7f7f7]">
+        {children}
+      </section>
     </div>
   );
 }
