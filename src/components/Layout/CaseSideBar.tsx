@@ -8,6 +8,8 @@ import {
   Folder,
   FolderArchive,
   FolderSymlink,
+  ArrowLeft,
+  ArrowRight,
 } from "lucide-react";
 import {
   Collapsible,
@@ -15,11 +17,29 @@ import {
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 import { useState } from "react";
+import { useLayout } from "@/context/LayoutContext";
 
 export default function CaseSidebar() {
   const [open, setOpen] = useState(false);
+  const { isCaseSidebarOpen, toggleCaseSidebar } = useLayout();
   return (
-    <div className="w-1/5 h-full  bg-white  border-r border-border flex flex-col text-sm">
+    <aside
+      className={`fixed top-0 left-0 z-30 w-64 h-screen pt-14 bg-white border-r border-border flex flex-col text-sm transform transition-transform duration-300 ease-in-out ${isCaseSidebarOpen ? "translate-x-0" : "-translate-x-full"}`}
+    >
+      <button
+        className="absolute top-16 right-2 cursor-pointer"
+        onClick={toggleCaseSidebar}
+      >
+        <ArrowLeft size={15} />
+      </button>
+      {!isCaseSidebarOpen && (
+        <button
+          onClick={toggleCaseSidebar}
+          className="absolute top-1/2 -right-5 cursor-pointer"
+        >
+          <ArrowRight size={15} />
+        </button>
+      )}
       <div className={`flex gap-4 justify-center items-center h-[10%] `}>
         <button onClick={() => {}}>
           <FileSearch2 className="cursor-pointer" size={20} />
@@ -49,7 +69,7 @@ export default function CaseSidebar() {
             <CollapsibleContent>Content de documentos</CollapsibleContent>
           </Collapsible>
         </div>
-        <div className="w-full flex flex-col gap-2 h-[50%] overflow-y-auto">
+        <div className="w-full flex flex-col gap-2 h-[50%] overflow-y-auto ">
           <Collapsible className="w-full">
             <CollapsibleTrigger className="cursor-pointer flex gap-1">
               <FolderSymlink className="cursor-pointer" size={20} />
@@ -59,7 +79,7 @@ export default function CaseSidebar() {
           </Collapsible>
         </div>
       </div>
-      <div className="w-full  flex flex-col justify-center items-center h-[20%] gap-2">
+      <div className="w-full  flex flex-col justify-center  h-[20%] gap-2 pl-5">
         <div className="flex gap-4 items-center">
           <FolderX className="cursor-pointer" size={20} />
           <p>Archivados</p>
@@ -69,6 +89,6 @@ export default function CaseSidebar() {
           <p>Eliminados</p>
         </div>
       </div>
-    </div>
+    </aside>
   );
 }
