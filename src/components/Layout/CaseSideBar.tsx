@@ -18,10 +18,13 @@ import {
 } from "@/components/ui/collapsible";
 import { useState } from "react";
 import { useLayout } from "@/context/LayoutContext";
+import { useLocation } from "react-router-dom";
+import { Link } from "react-router-dom";
 
 export default function CaseSidebar() {
   const [open, setOpen] = useState(false);
   const { isCaseSidebarOpen, toggleCaseSidebar } = useLayout();
+  const location = useLocation();
   return (
     <aside
       className={`fixed top-0 left-0 z-30 w-64 h-screen pt-14 bg-white border-r border-border flex flex-col text-sm transform transition-transform duration-300 ease-in-out ${isCaseSidebarOpen ? "translate-x-0" : "-translate-x-full"}`}
@@ -44,7 +47,13 @@ export default function CaseSidebar() {
         <button onClick={() => {}}>
           <FileSearch2 className="cursor-pointer" size={20} />
         </button>
-        <UserIcon fill="currentColor" className="cursor-pointer" size={20} />
+        <Link to="/clientes">
+          <UserIcon
+            fill={location.pathname === "/clientes" ? "blue" : "black"}
+            className="cursor-pointer"
+            size={20}
+          />
+        </Link>
         <TvMinimalPlay className="cursor-pointer" size={20} />
         <UsersRound className="cursor-pointer" size={20} />
       </div>
