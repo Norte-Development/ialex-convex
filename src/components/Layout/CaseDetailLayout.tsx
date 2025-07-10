@@ -1,4 +1,4 @@
-import CaseSidebar from "../Layout/CaseSideBar";
+import CaseSidebar from "./CaseSideBar";
 import { useLayout } from "@/context/LayoutContext";
 
 interface CaseDetailLayoutProps {

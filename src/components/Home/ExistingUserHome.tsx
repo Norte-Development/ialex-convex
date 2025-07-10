@@ -1,6 +1,6 @@
 import CaseCards from "./CaseCards";
 import { Input } from "@/components/ui/input";
-import ClientTable from "./ClientTable";
+import ClientTable from "./HomeClientTable";
 import { useState } from "react";
 
 const ExistingUserHome = () => {

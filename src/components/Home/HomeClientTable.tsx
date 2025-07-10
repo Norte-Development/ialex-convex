@@ -7,11 +7,11 @@ import {
   TableRow,
 } from "@/components/ui/table";
 
-interface ClientTableProps {
+interface HomeClientTableProps {
   search: string;
 }
 
-const ClientTable = ({ search }: ClientTableProps) => {
+const HomeClientTable = ({ search }: HomeClientTableProps) => {
   console.log("search dentro de ClientTable", search);
   return (
     <Table>
@@ -33,4 +33,4 @@ const ClientTable = ({ search }: ClientTableProps) => {
   );
 };
 
-export default ClientTable;
+export default HomeClientTable;
