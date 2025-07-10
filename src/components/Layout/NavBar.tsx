@@ -10,6 +10,7 @@ import { useAuth } from "../../context/AuthContext";
 import { useLayout } from "@/context/LayoutContext";
 import { useMatch } from "react-router-dom";
 import { useLocation } from "react-router-dom";
+import Breadcrumbs from "./BreadCrumbs";
 
 export default function NavBar() {
   const { login } = useAuth();
@@ -19,12 +20,6 @@ export default function NavBar() {
   const location = useLocation();
   const isHome = location.pathname === "/";
 
-  const getTitleFromPath = (path: string) => {
-    if (path === "/") return "";
-    const pathName = path.split("/")[1];
-    return pathName.charAt(0).toUpperCase() + pathName.slice(1);
-  };
-  const pageTitle = getTitleFromPath(location.pathname);
   const handleLogin = () => {
     login({
       id: "1",
@@ -46,7 +41,9 @@ export default function NavBar() {
       </div>
       <div className={`flex gap-4 justify-center items-center `}>
         {!isHome ? (
-          <h1 className="text-xl font-bold text-black">{pageTitle}</h1>
+          <div className="text-xl font-bold text-black flex items-center gap-2">
+            <Breadcrumbs />
+          </div>
         ) : (
           <div className={`flex gap-4 ${path === "/" ? "hidden" : ""}`}>
             <button onClick={toggleSidebar}>

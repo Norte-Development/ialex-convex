@@ -7,6 +7,7 @@ interface CaseCardProps {
 }
 
 export default function CaseCard({ title, client, status }: CaseCardProps) {
+  const slug = title.toLowerCase().replace(/ /g, "-");
   return (
     <div className="w-full h-48 bg-[#f7f7f7] flex flex-col justify-start   shadow-xl rounded-lg p-4 ">
       <h1 className="text-lg font-bold h-[20%]">{title}</h1>
@@ -25,7 +26,7 @@ export default function CaseCard({ title, client, status }: CaseCardProps) {
         </p>
       </div>
       <div className="h-[30%]  flex justify-start items-center">
-        <Link to={`/caso/${title}`} className="cursor-pointer">
+        <Link to={`/caso/${slug}`} className="cursor-pointer">
           Ir a caso --&gt;
         </Link>
       </div>
