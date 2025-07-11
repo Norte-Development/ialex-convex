@@ -10,6 +10,8 @@ import {
   FolderSymlink,
   ArrowLeft,
   ArrowRight,
+  FileType2,
+  FileArchive,
 } from "lucide-react";
 import {
   Collapsible,
@@ -18,13 +20,20 @@ import {
 } from "@/components/ui/collapsible";
 import { useState } from "react";
 import { useLayout } from "@/context/LayoutContext";
-import { useLocation } from "react-router-dom";
+import { useLocation, useParams } from "react-router-dom";
 import { Link } from "react-router-dom";
 
 export default function CaseSidebar() {
   const [open, setOpen] = useState(false);
   const { isCaseSidebarOpen, toggleCaseSidebar } = useLayout();
   const location = useLocation();
+  const { title } = useParams();
+
+  const isAgreements = location.pathname.includes("acuerdos");
+  const isNameOfDocument = location.pathname.includes("nombre-del-documento");
+
+  const basePath = `/caso/${title}`;
+
   return (
     <aside
       className={`fixed top-0 left-0 z-30 w-64 h-screen pt-14 bg-white border-r border-border flex flex-col text-sm transform transition-transform duration-300 ease-in-out ${isCaseSidebarOpen ? "translate-x-0" : "-translate-x-full"}`}
@@ -68,14 +77,43 @@ export default function CaseSidebar() {
               )}{" "}
               Escritos
             </CollapsibleTrigger>
-            <CollapsibleContent>Content de escritos</CollapsibleContent>
+            <CollapsibleContent className="flex flex-col gap-1 pl-2 text-[12px] pt-1">
+              <div className="flex gap-1 items-center">
+                <FileType2 className="cursor-pointer" size={20} />
+                <Link
+                  to={`${basePath}/acuerdos`}
+                  className={isAgreements ? "text-blue-500" : ""}
+                >
+                  Acuerdos
+                </Link>
+              </div>
+              <div className="flex gap-1 items-center">
+                <FileType2 className="cursor-pointer" size={20} />
+                <Link
+                  to={`${basePath}/nombre-del-documento`}
+                  className={isNameOfDocument ? "text-blue-500" : ""}
+                >
+                  Nombre del documento
+                </Link>
+              </div>
+            </CollapsibleContent>
           </Collapsible>
           <Collapsible className="w-full">
             <CollapsibleTrigger className="cursor-pointer flex gap-1">
               <FolderArchive className="cursor-pointer" size={20} />
               Documentos
             </CollapsibleTrigger>
-            <CollapsibleContent>Content de documentos</CollapsibleContent>
+            <CollapsibleContent className="flex flex-col gap-1 pl-2 text-[12px] pt-1">
+              <div className="flex gap-1 items-center">
+                <FileArchive className="cursor-pointer" size={20} />
+                <Link
+                  to={`${basePath}/nombre-del-documento`}
+                  className={isNameOfDocument ? "text-blue-500" : ""}
+                >
+                  Nombre del documento
+                </Link>
+              </div>
+            </CollapsibleContent>
           </Collapsible>
         </div>
         <div className="w-full flex flex-col gap-2 h-[50%] overflow-y-auto ">
