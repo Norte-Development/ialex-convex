@@ -5,6 +5,12 @@ interface LayoutContextType {
   toggleSidebar: () => void;
   isCaseSidebarOpen: boolean;
   toggleCaseSidebar: () => void;
+  isEscritosOpen: boolean;
+  toggleEscritos: () => void;
+  isDocumentosOpen: boolean;
+  toggleDocumentos: () => void;
+  isHistorialOpen: boolean;
+  toggleHistorial: () => void;
 }
 
 const LayoutContext = createContext<LayoutContextType | undefined>(undefined);
@@ -24,6 +30,9 @@ interface LayoutProviderProps {
 export const LayoutProvider: React.FC<LayoutProviderProps> = ({ children }) => {
   const [isSidebarOpen, setSidebarOpen] = useState(false);
   const [isCaseSidebarOpen, setCaseSidebarOpen] = useState(true);
+  const [isEscritosOpen, setEscritosOpen] = useState(false);
+  const [isDocumentosOpen, setDocumentosOpen] = useState(false);
+  const [isHistorialOpen, setHistorialOpen] = useState(false);
 
   const toggleSidebar = () => {
     setSidebarOpen((prev) => !prev);
@@ -33,6 +42,18 @@ export const LayoutProvider: React.FC<LayoutProviderProps> = ({ children }) => {
     setCaseSidebarOpen((prev) => !prev);
   };
 
+  const toggleEscritos = () => {
+    setEscritosOpen((prev) => !prev);
+  };
+
+  const toggleDocumentos = () => {
+    setDocumentosOpen((prev) => !prev);
+  };
+
+  const toggleHistorial = () => {
+    setHistorialOpen((prev) => !prev);
+  };
+
   return (
     <LayoutContext.Provider
       value={{
@@ -40,6 +61,12 @@ export const LayoutProvider: React.FC<LayoutProviderProps> = ({ children }) => {
         toggleSidebar,
         isCaseSidebarOpen,
         toggleCaseSidebar,
+        isEscritosOpen,
+        toggleEscritos,
+        isDocumentosOpen,
+        toggleDocumentos,
+        isHistorialOpen,
+        toggleHistorial,
       }}
     >
       {children}

@@ -18,14 +18,21 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
-import { useState } from "react";
 import { useLayout } from "@/context/LayoutContext";
 import { useLocation, useParams } from "react-router-dom";
 import { Link } from "react-router-dom";
 
 export default function CaseSidebar() {
-  const [open, setOpen] = useState(false);
-  const { isCaseSidebarOpen, toggleCaseSidebar } = useLayout();
+  const {
+    isCaseSidebarOpen,
+    toggleCaseSidebar,
+    isEscritosOpen,
+    toggleEscritos,
+    isDocumentosOpen,
+    toggleDocumentos,
+    isHistorialOpen,
+    toggleHistorial,
+  } = useLayout();
   const location = useLocation();
   const { title } = useParams();
 
@@ -36,7 +43,9 @@ export default function CaseSidebar() {
 
   return (
     <aside
-      className={`fixed top-0 left-0 z-30 w-64 h-screen pt-14 bg-white border-r border-border flex flex-col text-sm transform transition-transform duration-300 ease-in-out ${isCaseSidebarOpen ? "translate-x-0" : "-translate-x-full"}`}
+      className={`fixed top-0 left-0 z-30 w-64 h-screen pt-14 bg-white border-r border-border flex flex-col text-sm transform transition-transform duration-300 ease-in-out ${
+        isCaseSidebarOpen ? "translate-x-0" : "-translate-x-full"
+      }`}
     >
       <button
         className="absolute top-16 right-2 cursor-pointer"
@@ -68,9 +77,13 @@ export default function CaseSidebar() {
       </div>
       <div className="h-[70%] w-full flex flex-col justify-start items-center overflow-y-auto pl-5">
         <div className="w-full flex flex-col gap-2 h-[50%] overflow-y-auto">
-          <Collapsible open={open} onOpenChange={setOpen} className="w-full ">
+          <Collapsible
+            open={isEscritosOpen}
+            onOpenChange={toggleEscritos}
+            className="w-full "
+          >
             <CollapsibleTrigger className="cursor-pointer flex gap-1">
-              {open ? (
+              {isEscritosOpen ? (
                 <FolderOpen className="cursor-pointer" size={20} />
               ) : (
                 <Folder className="cursor-pointer" size={20} />
@@ -98,7 +111,11 @@ export default function CaseSidebar() {
               </div>
             </CollapsibleContent>
           </Collapsible>
-          <Collapsible className="w-full">
+          <Collapsible
+            open={isDocumentosOpen}
+            onOpenChange={toggleDocumentos}
+            className="w-full"
+          >
             <CollapsibleTrigger className="cursor-pointer flex gap-1">
               <FolderArchive className="cursor-pointer" size={20} />
               Documentos
@@ -117,7 +134,11 @@ export default function CaseSidebar() {
           </Collapsible>
         </div>
         <div className="w-full flex flex-col gap-2 h-[50%] overflow-y-auto ">
-          <Collapsible className="w-full">
+          <Collapsible
+            open={isHistorialOpen}
+            onOpenChange={toggleHistorial}
+            className="w-full"
+          >
             <CollapsibleTrigger className="cursor-pointer flex gap-1">
               <FolderSymlink className="cursor-pointer" size={20} />
               Historial de chat
