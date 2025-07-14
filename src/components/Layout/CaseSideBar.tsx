@@ -12,6 +12,7 @@ import {
   ArrowRight,
   FileType2,
   FileArchive,
+  Trash,
 } from "lucide-react";
 import {
   Collapsible,
@@ -91,21 +92,17 @@ export default function CaseSidebar() {
               Escritos
             </CollapsibleTrigger>
             <CollapsibleContent className="flex flex-col gap-1 pl-2 text-[12px] pt-1">
-              <div className="flex gap-1 items-center">
+              <div
+                className={`flex gap-1 items-center ${isAgreements ? "text-blue-500" : ""}`}
+              >
                 <FileType2 className="cursor-pointer" size={20} />
-                <Link
-                  to={`${basePath}/acuerdos`}
-                  className={isAgreements ? "text-blue-500" : ""}
-                >
-                  Acuerdos
-                </Link>
+                <Link to={`${basePath}/acuerdos`}>Acuerdos</Link>
               </div>
-              <div className="flex gap-1 items-center">
+              <div
+                className={`flex gap-1 items-center ${isNameOfDocument ? "text-blue-500" : ""}`}
+              >
                 <FileType2 className="cursor-pointer" size={20} />
-                <Link
-                  to={`${basePath}/nombre-del-documento`}
-                  className={isNameOfDocument ? "text-blue-500" : ""}
-                >
+                <Link to={`${basePath}/nombre-del-documento`}>
                   Nombre del documento
                 </Link>
               </div>
@@ -121,12 +118,11 @@ export default function CaseSidebar() {
               Documentos
             </CollapsibleTrigger>
             <CollapsibleContent className="flex flex-col gap-1 pl-2 text-[12px] pt-1">
-              <div className="flex gap-1 items-center">
+              <div
+                className={`flex gap-1 items-center ${isNameOfDocument ? "text-blue-500" : ""}`}
+              >
                 <FileArchive className="cursor-pointer" size={20} />
-                <Link
-                  to={`${basePath}/nombre-del-documento`}
-                  className={isNameOfDocument ? "text-blue-500" : ""}
-                >
+                <Link to={`${basePath}/nombre-del-documento`}>
                   Nombre del documento
                 </Link>
               </div>
@@ -152,8 +148,8 @@ export default function CaseSidebar() {
           <FolderX className="cursor-pointer" size={20} />
           <p>Archivados</p>
         </div>
-        <div className="flex gap-4 items-center">
-          <FolderX className="cursor-pointer" size={20} />
+        <div className="flex gap-4 items-center text-red-400 cursor-pointer">
+          <Trash className="cursor-pointer" size={20} />
           <p>Eliminados</p>
         </div>
       </div>

@@ -9,7 +9,7 @@ interface CaseCardProps {
 export default function CaseCard({ title, client, status }: CaseCardProps) {
   const slug = title.toLowerCase().replace(/ /g, "-");
   return (
-    <div className="w-full h-48 bg-[#f7f7f7] flex flex-col justify-start   shadow-xl rounded-lg p-4 ">
+    <div className="w-full max-w-[350px] h-48 bg-[#f7f7f7] border border-gray-200 flex flex-col justify-start   shadow-md rounded-lg p-4 ">
       <h1 className="text-lg font-bold h-[20%]">{title}</h1>
       <div className="flex gap-2 items-center text-gray-500 h-[50%]">
         <p>Cliente : {client}</p>:
