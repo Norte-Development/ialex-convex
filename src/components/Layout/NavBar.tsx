@@ -45,7 +45,7 @@ export default function NavBar() {
             <Breadcrumbs />
           </div>
         ) : (
-          <div className={`flex gap-4 ${path === "/" ? "hidden" : ""}`}>
+          <div className={`flex gap-4 ${path === "/" ? "" : "hidden"}`}>
             <button onClick={toggleSidebar}>
               <FileSearch2 className="cursor-pointer" size={20} />
             </button>
