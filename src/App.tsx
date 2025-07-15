@@ -6,6 +6,7 @@ import CaseDetailPage from "./pages/CaseDetailPage";
 import ClientsPage from "./pages/ClientsPage";
 import AgreementsPage from "./pages/AgreementsPage";
 import NameOfDocumentPage from "./pages/NameOfDocumentPage";
+import ModelsPage from "./pages/ModelsPage";
 
 function App() {
   return (
@@ -20,6 +21,7 @@ function App() {
           element={<NameOfDocumentPage />}
         />
         <Route path="/clientes" element={<ClientsPage />} />
+        <Route path="/modelos" element={<ModelsPage />} />
       </Routes>
     </Layout>
   );

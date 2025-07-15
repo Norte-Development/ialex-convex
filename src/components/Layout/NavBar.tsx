@@ -3,8 +3,8 @@ import {
   Settings,
   UsersRound,
   CircleUserRound,
-  TvMinimalPlay,
   FileSearch2,
+  BookCheck,
 } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import { useLayout } from "@/context/LayoutContext";
@@ -54,7 +54,7 @@ export default function NavBar() {
               className="cursor-pointer"
               size={20}
             />
-            <TvMinimalPlay className="cursor-pointer" size={20} />
+            <BookCheck size={20} className="cursor-pointer" />
             <UsersRound className="cursor-pointer" size={20} />
           </div>
         )}

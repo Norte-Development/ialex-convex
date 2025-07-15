@@ -1,7 +1,6 @@
 import {
   FileSearch2,
   UserIcon,
-  TvMinimalPlay,
   UsersRound,
   FolderX,
   FolderOpen,
@@ -13,6 +12,7 @@ import {
   FileType2,
   FileArchive,
   Trash,
+  BookCheck,
 } from "lucide-react";
 import {
   Collapsible,
@@ -73,7 +73,13 @@ export default function CaseSidebar() {
             size={20}
           />
         </Link>
-        <TvMinimalPlay className="cursor-pointer" size={20} />
+        <Link to="/modelos">
+          <BookCheck
+            className="cursor-pointer"
+            size={20}
+            color={location.pathname === "/modelos" ? "blue" : "black"}
+          />
+        </Link>
         <UsersRound className="cursor-pointer" size={20} />
       </div>
       <div className="h-[70%] w-full flex flex-col justify-start items-center overflow-y-auto pl-5">
