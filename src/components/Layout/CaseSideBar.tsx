@@ -63,14 +63,19 @@ export default function CaseSidebar() {
         </button>
       )}
       <div className={`flex gap-4 justify-center items-center h-[10%] `}>
-        <button onClick={() => {}}>
-          <FileSearch2 className="cursor-pointer" size={20} />
-        </button>
+        <Link to="/base-de-datos">
+          <FileSearch2
+            className="cursor-pointer"
+            size={20}
+            color={location.pathname === "/base-de-datos" ? "blue" : "black"}
+          />
+        </Link>
         <Link to="/clientes">
           <UserIcon
             fill={location.pathname === "/clientes" ? "blue" : "black"}
             className="cursor-pointer"
             size={20}
+            color={location.pathname === "/clientes" ? "blue" : "black"}
           />
         </Link>
         <Link to="/modelos">

@@ -7,14 +7,12 @@ import {
   BookCheck,
 } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
-import { useLayout } from "@/context/LayoutContext";
 import { useMatch } from "react-router-dom";
 import { useLocation } from "react-router-dom";
 import Breadcrumbs from "./BreadCrumbs";
-
+import { Link } from "react-router-dom";
 export default function NavBar() {
   const { login } = useAuth();
-  const { toggleSidebar } = useLayout();
   const match = useMatch("/");
   const path = match?.pathname;
   const location = useLocation();
@@ -46,15 +44,19 @@ export default function NavBar() {
           </div>
         ) : (
           <div className={`flex gap-4 ${path === "/" ? "" : "hidden"}`}>
-            <button onClick={toggleSidebar}>
+            <Link to="/base-de-datos">
               <FileSearch2 className="cursor-pointer" size={20} />
-            </button>
-            <UserIcon
-              fill="currentColor"
-              className="cursor-pointer"
-              size={20}
-            />
-            <BookCheck size={20} className="cursor-pointer" />
+            </Link>
+            <Link to="/clientes">
+              <UserIcon
+                fill="currentColor"
+                className="cursor-pointer"
+                size={20}
+              />
+            </Link>
+            <Link to="/modelos">
+              <BookCheck size={20} className="cursor-pointer" />
+            </Link>
             <UsersRound className="cursor-pointer" size={20} />
           </div>
         )}

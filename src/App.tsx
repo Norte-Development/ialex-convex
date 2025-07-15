@@ -7,6 +7,7 @@ import ClientsPage from "./pages/ClientsPage";
 import AgreementsPage from "./pages/AgreementsPage";
 import NameOfDocumentPage from "./pages/NameOfDocumentPage";
 import ModelsPage from "./pages/ModelsPage";
+import DataBasePage from "./pages/DataBasePage";
 
 function App() {
   return (
@@ -22,6 +23,7 @@ function App() {
         />
         <Route path="/clientes" element={<ClientsPage />} />
         <Route path="/modelos" element={<ModelsPage />} />
+        <Route path="/base-de-datos" element={<DataBasePage />} />
       </Routes>
     </Layout>
   );

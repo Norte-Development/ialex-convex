@@ -7,7 +7,7 @@ import MyModelsTab from "@/components/Models/MyModelsTab";
 export default function ModelsPage() {
   return (
     <CaseDetailLayout>
-      <section className="w-full h-full flex pl-5 pt-5">
+      <section className="w-full h-full flex px-5 pt-5">
         <Tabs className="w-[100%] bg-white h-[95%]" defaultValue="Modelos">
           <TabsList className="bg-white w-full p-0">
             <div className="flex gap-4 p-2">
