@@ -5,7 +5,11 @@ import NewUserHome from "@/components/Home/NewUserHome";
 
 export default function HomePage() {
   const { user } = useAuth();
-  console.log(user);
+  
+  // This component will only render when user is authenticated and loaded
+  // Show new user experience if they're missing key info or just completed onboarding
+  const isNewUserExperience = !user?.isOnboardingComplete
+
   return (
     <section className="flex flex-col min-h-screen bg-white justify-center items-center relative pt-20">
       {/* Mancha azul decorativa */}
@@ -13,18 +17,15 @@ export default function HomePage() {
 
       <div className="w-3/4 flex flex-col gap-8 items-center justify-center">
         <div className="flex flex-col gap-8 w-full justify-center items-center">
-          <h1 className=" font-poppins  font-bold lg:text-4xl text-xl">
-            {" "}
-            {user !== null
-              ? "¡Buenos dias " + user?.name + "!"
-              : "¡Bienvenido/a a iAlex!"}
+          <h1 className="font-poppins font-bold lg:text-4xl text-xl">
+            ¡Buenos días, {user?.name}!
           </h1>
           <Textarea
             placeholder=" ¿En qué trabajamos hoy?"
             className="min-h-[100px] max-h-[250px] overflow-y-auto bg-[#f7f7f7]"
           />
         </div>
-        {user?.isNewUser || user === null ? (
+        {isNewUserExperience ? (
           <NewUserHome />
         ) : (
           <ExistingUserHome />

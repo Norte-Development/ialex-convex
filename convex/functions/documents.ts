@@ -1,5 +1,6 @@
 import { v } from "convex/values";
 import { query, mutation } from "../_generated/server";
+import { getCurrentUserFromAuth, requireCaseAccess } from "./auth_utils";
 
 // ========================================
 // DOCUMENT MANAGEMENT
@@ -22,10 +23,12 @@ export const createDocument = mutation({
     originalFileName: v.string(),
     mimeType: v.string(),
     fileSize: v.number(),
-    createdBy: v.id("users"),
     tags: v.optional(v.array(v.string())),
   },
   handler: async (ctx, args) => {
+    // Verify user has full access to the case
+    const { currentUser } = await requireCaseAccess(ctx, args.caseId, "full");
+    
     const documentId = await ctx.db.insert("documents", {
       title: args.title,
       description: args.description,
@@ -35,7 +38,7 @@ export const createDocument = mutation({
       originalFileName: args.originalFileName,
       mimeType: args.mimeType,
       fileSize: args.fileSize,
-      createdBy: args.createdBy,
+      createdBy: currentUser._id,
       tags: args.tags,
     });
     
@@ -49,6 +52,9 @@ export const getDocuments = query({
     caseId: v.id("cases"),
   },
   handler: async (ctx, args) => {
+    // Verify user has access to the case
+    await requireCaseAccess(ctx, args.caseId, "read");
+    
     const documents = await ctx.db
       .query("documents")
       .withIndex("by_case", (q) => q.eq("caseId", args.caseId))
@@ -71,9 +77,11 @@ export const createEscrito = mutation({
     presentationDate: v.optional(v.number()),
     courtName: v.optional(v.string()),
     expedientNumber: v.optional(v.string()),
-    createdBy: v.id("users"),
   },
   handler: async (ctx, args) => {
+    // Verify user has full access to the case
+    const { currentUser } = await requireCaseAccess(ctx, args.caseId, "full");
+    
     const wordCount = args.content.length; // Simple word count estimation
     
     const escritoId = await ctx.db.insert("escritos", {
@@ -86,8 +94,8 @@ export const createEscrito = mutation({
       expedientNumber: args.expedientNumber,
       wordCount: wordCount,
       lastEditedAt: Date.now(),
-      createdBy: args.createdBy,
-      lastModifiedBy: args.createdBy,
+      createdBy: currentUser._id,
+      lastModifiedBy: currentUser._id,
       isArchived: false,
     });
     
@@ -105,11 +113,19 @@ export const updateEscrito = mutation({
     presentationDate: v.optional(v.number()),
     courtName: v.optional(v.string()),
     expedientNumber: v.optional(v.string()),
-    lastModifiedBy: v.id("users"),
   },
   handler: async (ctx, args) => {
+    // Get the escrito to check case access
+    const escrito = await ctx.db.get(args.escritoId);
+    if (!escrito) {
+      throw new Error("Escrito not found");
+    }
+    
+    // Verify user has full access to the case
+    const { currentUser } = await requireCaseAccess(ctx, escrito.caseId, "full");
+    
     const updates: any = {
-      lastModifiedBy: args.lastModifiedBy,
+      lastModifiedBy: currentUser._id,
       lastEditedAt: Date.now(),
     };
     
@@ -133,6 +149,9 @@ export const getEscritos = query({
     caseId: v.id("cases"),
   },
   handler: async (ctx, args) => {
+    // Verify user has access to the case
+    await requireCaseAccess(ctx, args.caseId, "read");
+    
     const escritos = await ctx.db
       .query("escritos")
       .withIndex("by_case", (q) => q.eq("caseId", args.caseId))

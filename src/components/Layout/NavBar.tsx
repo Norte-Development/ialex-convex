@@ -2,7 +2,6 @@ import {
   UserIcon,
   Settings,
   UsersRound,
-  CircleUserRound,
   FileSearch2,
   BookCheck,
 } from "lucide-react";
@@ -11,31 +10,29 @@ import { useMatch } from "react-router-dom";
 import { useLocation } from "react-router-dom";
 import Breadcrumbs from "./BreadCrumbs";
 import { Link } from "react-router-dom";
+import { UserButton } from "@clerk/clerk-react";
+
 export default function NavBar() {
-  const { login } = useAuth();
+  const { user } = useAuth();
   const match = useMatch("/");
   const path = match?.pathname;
   const location = useLocation();
   const isHome = location.pathname === "/";
 
-  const handleLogin = () => {
-    login({
-      id: "1",
-      name: "Agus",
-      email: "agus@example.com",
-      isNewUser: false,
-    });
-    console.log("Logueado como usuario habitual");
-  };
   return (
     <nav
       className={`${path === "/" ? "flex " : "flex flex-row-reverse"} px-5 justify-between items-center h-14 w-full bg-background text-foreground border-b border-border  fixed top-0 left-0 z-50`}
     >
       <div className={` flex  items-center gap-4`}>
         <Settings className="cursor-pointer" size={20} />
-        <button onClick={handleLogin}>
-          <CircleUserRound className="cursor-pointer" size={20} />
-        </button>
+        <UserButton 
+          appearance={{
+            elements: {
+              avatarBox: "w-8 h-8"
+            }
+          }}
+          showName={false}
+        />
       </div>
       <div className={`flex gap-4 justify-center items-center `}>
         {!isHome ? (

@@ -1,6 +1,7 @@
 import { v } from "convex/values";
 import { query, mutation } from "../_generated/server";
-
+import { getCurrentUserFromAuth, requireAdmin, requireCaseAccess } from "./auth_utils";
+  
 // ========================================
 // TEAM MANAGEMENT
 // ========================================
@@ -11,15 +12,17 @@ export const createTeam = mutation({
     description: v.optional(v.string()),
     department: v.optional(v.string()),
     teamLead: v.optional(v.id("users")),
-    createdBy: v.id("users"),
   },
   handler: async (ctx, args) => {
+    // Only admins can create teams
+    const currentUser = await requireAdmin(ctx);
+    
     const teamId = await ctx.db.insert("teams", {
       name: args.name,
       description: args.description,
       teamLead: args.teamLead,
       isActive: true,
-      createdBy: args.createdBy,
+      createdBy: currentUser._id,
     });
     
     console.log("Created team with id:", teamId);
@@ -33,11 +36,13 @@ export const getTeams = query({
     isActive: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
+    // Require authentication to view teams
+    await getCurrentUserFromAuth(ctx);
+    
     const teams = await ctx.db
       .query("teams")
       .withIndex("by_active_status", (q) => q.eq("isActive", args.isActive ?? true))
       .collect();
-    
     
     return teams;
   },
@@ -52,9 +57,11 @@ export const addUserToTeam = mutation({
     teamId: v.id("teams"),
     userId: v.id("users"),
     role: v.union(v.literal("secretario"), v.literal("abogado"), v.literal("admin")),
-    addedBy: v.id("users"),
   },
   handler: async (ctx, args) => {
+    // Only admins can add users to teams
+    const currentUser = await requireAdmin(ctx);
+    
     // Check if user is already in the team
     const existing = await ctx.db
       .query("teamMemberships")
@@ -73,7 +80,7 @@ export const addUserToTeam = mutation({
       userId: args.userId,
       role: args.role,
       joinedAt: Date.now(),
-      addedBy: args.addedBy,
+      addedBy: currentUser._id,
       isActive: true,
     });
     
@@ -88,6 +95,9 @@ export const removeUserFromTeam = mutation({
     userId: v.id("users"),
   },
   handler: async (ctx, args) => {
+    // Only admins can remove users from teams
+    await requireAdmin(ctx);
+    
     const membership = await ctx.db
       .query("teamMemberships")
       .withIndex("by_team_and_user", (q) => 
@@ -110,6 +120,9 @@ export const getTeamMembers = query({
     teamId: v.id("teams"),
   },
   handler: async (ctx, args) => {
+    // Require authentication to view team members
+    await getCurrentUserFromAuth(ctx);
+    
     const memberships = await ctx.db
       .query("teamMemberships")
       .withIndex("by_team", (q) => q.eq("teamId", args.teamId))
@@ -133,12 +146,22 @@ export const getTeamMembers = query({
 
 export const getUserTeams = query({
   args: {
-    userId: v.id("users"),
+    userId: v.optional(v.id("users")),
   },
   handler: async (ctx, args) => {
+    const currentUser = await getCurrentUserFromAuth(ctx);
+    
+    // Use current user or specified user (admin can view others)
+    const userId = args.userId || currentUser._id;
+    
+    // Only allow viewing own teams unless admin
+    if (userId !== currentUser._id && currentUser.role !== "admin") {
+      throw new Error("Unauthorized: Cannot view other users' teams");
+    }
+    
     const memberships = await ctx.db
       .query("teamMemberships")
-      .withIndex("by_user", (q) => q.eq("userId", args.userId))
+      .withIndex("by_user", (q) => q.eq("userId", userId))
       .filter((q) => q.eq(q.field("isActive"), true))
       .collect();
     
@@ -166,9 +189,11 @@ export const grantTeamCaseAccess = mutation({
     caseId: v.id("cases"),
     teamId: v.id("teams"),
     accessLevel: v.union(v.literal("full"), v.literal("read")),
-    grantedBy: v.id("users"),
   },
   handler: async (ctx, args) => {
+    // Verify user has full access to the case to grant team access
+    const { currentUser } = await requireCaseAccess(ctx, args.caseId, "full");
+    
     // Check if access already exists
     const existing = await ctx.db
       .query("teamCaseAccess")
@@ -182,7 +207,7 @@ export const grantTeamCaseAccess = mutation({
       // Update existing access level
       await ctx.db.patch(existing._id, { 
         accessLevel: args.accessLevel,
-        grantedBy: args.grantedBy 
+        grantedBy: currentUser._id 
       });
       console.log("Updated team case access");
       return existing._id;
@@ -192,7 +217,7 @@ export const grantTeamCaseAccess = mutation({
         caseId: args.caseId,
         teamId: args.teamId,
         accessLevel: args.accessLevel,
-        grantedBy: args.grantedBy,
+        grantedBy: currentUser._id,
         isActive: true,
       });
       
@@ -208,6 +233,9 @@ export const revokeTeamCaseAccess = mutation({
     teamId: v.id("teams"),
   },
   handler: async (ctx, args) => {
+    // Verify user has full access to the case to revoke team access
+    await requireCaseAccess(ctx, args.caseId, "full");
+    
     const access = await ctx.db
       .query("teamCaseAccess")
       .withIndex("by_case_and_team", (q) => 
@@ -230,6 +258,9 @@ export const getTeamsWithCaseAccess = query({
     caseId: v.id("cases"),
   },
   handler: async (ctx, args) => {
+    // Verify user has access to the case to view team access
+    await requireCaseAccess(ctx, args.caseId, "read");
+    
     const accesses = await ctx.db
       .query("teamCaseAccess")
       .withIndex("by_case", (q) => q.eq("caseId", args.caseId))
@@ -256,6 +287,9 @@ export const getCasesAccessibleByTeam = query({
     teamId: v.id("teams"),
   },
   handler: async (ctx, args) => {
+    // Require authentication to view team case access
+    await getCurrentUserFromAuth(ctx);
+    
     const accesses = await ctx.db
       .query("teamCaseAccess")
       .withIndex("by_team", (q) => q.eq("teamId", args.teamId))

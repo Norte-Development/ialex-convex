@@ -4,20 +4,40 @@ import { v } from "convex/values";
 export default defineSchema({
   // Users table - for authentication and user management
   users: defineTable({
+    // Clerk integration
+    clerkId: v.string(), // Clerk user ID for auth
+    
+    // Basic user info
     name: v.string(),
     email: v.string(),
     role: v.union(v.literal("admin"), v.literal("lawyer"), v.literal("assistant")),
     isActive: v.boolean(),
     profileImage: v.optional(v.id("_storage")),
+    
+    // Onboarding and profile completion
+    isOnboardingComplete: v.boolean(),
+    onboardingStep: v.optional(v.number()), // Track current onboarding step
+    
+    // Extended profile information (collected during onboarding)
+    specializations: v.optional(v.array(v.string())), // Legal specializations
+    barNumber: v.optional(v.string()), // Bar registration number
+    firmName: v.optional(v.string()), // Law firm name
+    workLocation: v.optional(v.string()), // Work location/city
+    experienceYears: v.optional(v.number()), // Years of experience
+    bio: v.optional(v.string()), // Professional biography
+    
+    // User preferences
     preferences: v.optional(v.object({
       language: v.string(),
       timezone: v.string(),
       notifications: v.boolean(),
     })),
   })
+    .index("by_clerk_id", ["clerkId"])
     .index("by_email", ["email"])
     .index("by_role", ["role"])
-    .index("by_active_status", ["isActive"]),
+    .index("by_active_status", ["isActive"])
+    .index("by_onboarding_status", ["isOnboardingComplete"]),
 
   // Clients table - legal clients
   clients: defineTable({

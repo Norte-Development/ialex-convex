@@ -1,5 +1,6 @@
 import { v } from "convex/values";
 import { query, mutation } from "../_generated/server";
+import { getCurrentUserFromAuth } from "./auth_utils";
 
 // ========================================
 // CLIENT MANAGEMENT
@@ -15,9 +16,10 @@ export const createClient = mutation({
     address: v.optional(v.string()),
     clientType: v.union(v.literal("individual"), v.literal("company")),
     notes: v.optional(v.string()),
-    createdBy: v.id("users"),
   },
   handler: async (ctx, args) => {
+    const currentUser = await getCurrentUserFromAuth(ctx);
+    
     const clientId = await ctx.db.insert("clients", {
       name: args.name,
       email: args.email,
@@ -28,7 +30,7 @@ export const createClient = mutation({
       clientType: args.clientType,
       notes: args.notes,
       isActive: true,
-      createdBy: args.createdBy,
+      createdBy: currentUser._id,
     });
     
     console.log("Created client with id:", clientId);
@@ -41,6 +43,9 @@ export const getClients = query({
     search: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
+    // Require authentication to view clients
+    await getCurrentUserFromAuth(ctx);
+    
     const clients = await ctx.db
       .query("clients")
       .withIndex("by_active_status", (q) => q.eq("isActive", true))

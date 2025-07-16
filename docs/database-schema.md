@@ -2,6 +2,8 @@
 
 This document describes the complete database schema for the iAlex legal document management application.
 
+> **📋 Authentication Update**: This application now uses Clerk authentication with a comprehensive onboarding system. See [Authentication & Onboarding Setup](./authentication-setup.md) for complete setup instructions.
+
 ## Overview
 
 The iAlex application uses Convex as its backend database. The schema is designed to support:
@@ -10,7 +12,8 @@ The iAlex application uses Convex as its backend database. The schema is designe
 - Team-based access control system
 - AI-powered chat features
 - Independent template system (modelos)
-- User management and activity tracking
+- User management with Clerk authentication integration
+- Comprehensive user onboarding and professional profiles
 
 ## Entity Relationship Diagram
 
