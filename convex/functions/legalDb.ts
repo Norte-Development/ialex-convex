@@ -4,6 +4,17 @@ import { action } from "../_generated/server";
 import { getFirestore } from "../firebaseAdmin";
 import { NationalNormativeDocument, ProvinceNormativeDocument } from "../../types/legal_database";
 
+/**
+ * Action to fetch legal documents from Firestore based on jurisdiction and category.
+ * @param ctx - The Convex context object.
+ * @param args - The arguments object containing optional filters.
+ * @param args.jurisdiction - The jurisdiction to filter documents (e.g., 'nacional' or province name).
+ * @param args.category - The category of documents to fetch (defaults to 'ley').
+ * @param args.limit - The maximum number of documents to return (defaults to 10).
+ * @param args.offset - The number of documents to skip for pagination (defaults to 0).
+ * @returns A promise resolving to an array of national or province normative documents.
+ * @throws Error if the user is not authenticated.
+ */
 export const fetchLegalDb = action({
     args: {
         jurisdiction: v.optional(v.string()),
@@ -27,8 +38,13 @@ export const fetchLegalDb = action({
     }
 })
 
-
-
+/**
+ * Fetches national normative documents from Firestore.
+ * @param category - The category of documents to fetch.
+ * @param limit - The maximum number of documents to return.
+ * @param offset - The number of documents to skip for pagination.
+ * @returns A promise resolving to an array of NationalNormativeDocument objects.
+ */
 async function fetchNationalNormativeDocuments(category: string, limit: number, offset: number) {
     const firestore = getFirestore();
     const collectionRef = firestore.collection('legalDocuments');
@@ -46,7 +62,7 @@ async function fetchNationalNormativeDocuments(category: string, limit: number, 
             title: data.title,
             category: data.category,
             number: data.number,
-            date: convertFirestoreTimestampToDate(data.date).getTime(), // Changed from .toISOString() to .getTime()
+            date: convertFirestoreTimestampToDate(data.date).getTime(),
             id_norma: data.id_norma,
         };
     });
@@ -54,7 +70,14 @@ async function fetchNationalNormativeDocuments(category: string, limit: number, 
     return documents as NationalNormativeDocument[];
 }
 
-
+/**
+ * Fetches province-specific normative documents from Firestore.
+ * @param province - The province to filter documents.
+ * @param category - The category of documents to fetch.
+ * @param limit - The maximum number of documents to return.
+ * @param offset - The number of documents to skip for pagination.
+ * @returns A promise resolving to an array of ProvinceNormativeDocument objects.
+ */
 async function fetchProvinceNormativeDocuments(province: string, category: string, limit: number, offset: number) {
     const firestore = getFirestore();
     const collectionRef = firestore.collection(`legislacion_${province}`);
@@ -70,7 +93,7 @@ async function fetchProvinceNormativeDocuments(province: string, category: strin
         return {
             id: doc.id,
             content: data.content,
-            date: convertFirestoreTimestampToDate(data.date).getTime(), // Changed from .toISOString() to .getTime()
+            date: convertFirestoreTimestampToDate(data.date).getTime(),
             documentId: data.documentId,
             number: data.number,
             object: data.object,
@@ -84,27 +107,27 @@ async function fetchProvinceNormativeDocuments(province: string, category: strin
     return documents as ProvinceNormativeDocument[];
 }
 
-
+/**
+ * Converts a Firestore timestamp to a JavaScript Date object.
+ * @param timestamp - The Firestore timestamp or Date object to convert.
+ * @returns A JavaScript Date object, or the current date if the input is invalid.
+ */
 function convertFirestoreTimestampToDate(timestamp: any) {
     if (!timestamp || typeof timestamp !== 'object') {
         return new Date();
     }
     
-    // Handle Firestore Timestamp objects
     if (timestamp._seconds !== undefined) {
         return new Date(timestamp._seconds * 1000 + (timestamp._nanoseconds || 0) / 1000000);
     }
     
-    // Handle regular Date objects or timestamps
     if (timestamp instanceof Date) {
         return timestamp;
     }
     
-    // Handle numeric timestamps
     if (typeof timestamp === 'number') {
         return new Date(timestamp);
     }
     
-    // Fallback to current date
     return new Date();
 }
