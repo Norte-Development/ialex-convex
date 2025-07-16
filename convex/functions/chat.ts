@@ -6,6 +6,33 @@ import { getCurrentUserFromAuth, requireCaseAccess } from "./auth_utils";
 // CHAT SESSIONS MANAGEMENT
 // ========================================
 
+/**
+ * Creates a new AI chat session, optionally linked to a case.
+ * 
+ * @param {Object} args - The function arguments
+ * @param {string} [args.caseId] - Optional case ID to associate the chat session with
+ * @param {string} [args.title] - Optional custom title for the chat session
+ * @returns {Promise<string>} The created chat session's document ID
+ * @throws {Error} When not authenticated or lacking case access (if caseId provided)
+ * 
+ * @description This function creates a new chat session for AI interactions.
+ * If a case ID is provided, the user must have read access to that case.
+ * The session is linked to the current user and starts as active.
+ * 
+ * @example
+ * ```javascript
+ * // Create a general chat session
+ * const sessionId = await createChatSession({
+ *   title: "Legal Research Session"
+ * });
+ * 
+ * // Create a case-specific chat session
+ * const caseSessionId = await createChatSession({
+ *   caseId: "case_123",
+ *   title: "Contract Analysis Discussion"
+ * });
+ * ```
+ */
 export const createChatSession = mutation({
   args: {
     caseId: v.optional(v.id("cases")),
@@ -31,6 +58,31 @@ export const createChatSession = mutation({
   },
 });
 
+/**
+ * Retrieves chat sessions for a user with optional filtering by case.
+ * 
+ * @param {Object} args - The function arguments
+ * @param {string} [args.userId] - User ID to get sessions for (defaults to current user, admin can specify others)
+ * @param {string} [args.caseId] - Optional case ID to filter sessions by
+ * @returns {Promise<Object[]>} Array of active chat session documents
+ * @throws {Error} When not authenticated, unauthorized to view other users' sessions, or lacking case access
+ * 
+ * @description This function returns all active chat sessions for a user.
+ * Users can only view their own sessions unless they have admin privileges.
+ * If a case ID is provided for filtering, the user must have access to that case.
+ * 
+ * @example
+ * ```javascript
+ * // Get all my chat sessions
+ * const mySessions = await getChatSessions({});
+ * 
+ * // Get sessions for a specific case
+ * const caseSessions = await getChatSessions({ caseId: "case_123" });
+ * 
+ * // Admin getting another user's sessions
+ * const userSessions = await getChatSessions({ userId: "user_456" });
+ * ```
+ */
 export const getChatSessions = query({
   args: {
     userId: v.optional(v.id("users")),
@@ -64,6 +116,42 @@ export const getChatSessions = query({
   },
 });
 
+/**
+ * Adds a new message to an existing chat session.
+ * 
+ * @param {Object} args - The function arguments
+ * @param {string} args.sessionId - The ID of the chat session to add the message to
+ * @param {string} args.content - The message content/text
+ * @param {"user" | "assistant"} args.role - Who sent the message (user or AI assistant)
+ * @param {"text" | "document_analysis" | "template_suggestion" | "legal_advice"} args.messageType - The type of message
+ * @param {string} [args.metadata] - Optional metadata associated with the message (JSON string)
+ * @returns {Promise<string>} The created message's document ID
+ * @throws {Error} When not authenticated, session not found, or unauthorized to add messages to session
+ * 
+ * @description This function adds a message to a chat session. Users can only add
+ * messages to their own chat sessions. The message type helps categorize different
+ * kinds of AI interactions, and metadata can store additional context.
+ * 
+ * @example
+ * ```javascript
+ * // Add a user message
+ * const userMessageId = await addChatMessage({
+ *   sessionId: "session_123",
+ *   content: "Can you analyze this contract?",
+ *   role: "user",
+ *   messageType: "text"
+ * });
+ * 
+ * // Add an AI response with metadata
+ * const assistantMessageId = await addChatMessage({
+ *   sessionId: "session_123",
+ *   content: "This contract appears to have several key clauses...",
+ *   role: "assistant",
+ *   messageType: "legal_advice",
+ *   metadata: JSON.stringify({ confidence: 0.9, sources: ["clause1", "clause2"] })
+ * });
+ * ```
+ */
 export const addChatMessage = mutation({
   args: {
     sessionId: v.id("chatSessions"),
@@ -102,6 +190,27 @@ export const addChatMessage = mutation({
   },
 });
 
+/**
+ * Retrieves all messages from a specific chat session.
+ * 
+ * @param {Object} args - The function arguments
+ * @param {string} args.sessionId - The ID of the chat session to get messages from
+ * @returns {Promise<Object[]>} Array of message documents ordered chronologically (oldest first)
+ * @throws {Error} When not authenticated, session not found, or unauthorized to view session
+ * 
+ * @description This function returns all messages in a chat session in chronological
+ * order (oldest first). Users can only view messages from their own sessions unless
+ * they have admin privileges. This maintains the conversation flow for display.
+ * 
+ * @example
+ * ```javascript
+ * const messages = await getChatMessages({ sessionId: "session_123" });
+ * // Returns: [
+ * //   { content: "Hello", role: "user", messageType: "text", _creationTime: ... },
+ * //   { content: "Hi! How can I help?", role: "assistant", messageType: "text", ... }
+ * // ]
+ * ```
+ */
 export const getChatMessages = query({
   args: {
     sessionId: v.id("chatSessions"),

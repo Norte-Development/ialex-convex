@@ -6,6 +6,51 @@ import { getCurrentUserFromAuth } from "./auth_utils";
 // MODELOS (TEMPLATES) MANAGEMENT
 // ========================================
 
+/**
+ * Creates a new template (modelo) for escritos or documents.
+ * 
+ * @param {Object} args - The function arguments
+ * @param {string} args.name - The template name/title
+ * @param {string} [args.description] - Optional description of the template
+ * @param {string} args.category - The category/type of legal template (e.g., "Contract Law", "Family Law")
+ * @param {"escrito" | "document"} args.templateType - Whether this is for escritos or documents
+ * @param {string} [args.content] - Template content (required for escrito templates, Tiptap JSON format)
+ * @param {string} [args.mimeType] - MIME type for document templates
+ * @param {string} [args.originalFileName] - Original filename for document templates
+ * @param {boolean} args.isPublic - Whether this template is public (shared) or private
+ * @param {string[]} [args.tags] - Optional tags for categorizing the template
+ * @returns {Promise<string>} The created template's document ID
+ * @throws {Error} When not authenticated
+ * 
+ * @description This function creates a new template that can be used to generate
+ * escritos or documents. Templates can be either public (available to all users)
+ * or private (only available to the creator). The usage count starts at 0 and
+ * is incremented each time the template is used.
+ * 
+ * @example
+ * ```javascript
+ * // Create a public escrito template
+ * const templateId = await createModelo({
+ *   name: "Motion to Dismiss Template",
+ *   description: "Standard template for filing motions to dismiss",
+ *   category: "Civil Procedure",
+ *   templateType: "escrito",
+ *   content: '{"type":"doc","content":[...]}',
+ *   isPublic: true,
+ *   tags: ["motion", "civil"]
+ * });
+ * 
+ * // Create a private document template
+ * const docTemplateId = await createModelo({
+ *   name: "NDA Template", 
+ *   category: "Contract Law",
+ *   templateType: "document",
+ *   mimeType: "application/pdf",
+ *   originalFileName: "nda_template.pdf",
+ *   isPublic: false
+ * });
+ * ```
+ */
 export const createModelo = mutation({
   args: {
     name: v.string(),
@@ -41,6 +86,41 @@ export const createModelo = mutation({
   },
 });
 
+/**
+ * Retrieves templates accessible to the current user with optional filtering.
+ * 
+ * @param {Object} args - The function arguments
+ * @param {"escrito" | "document"} [args.templateType] - Filter by template type
+ * @param {string} [args.category] - Filter by category
+ * @param {boolean} [args.isPublic] - Filter by public/private status
+ * @returns {Promise<Object[]>} Array of template documents accessible to the user
+ * @throws {Error} When not authenticated
+ * 
+ * @description This function returns templates that the user can access, which includes:
+ * - All public templates created by any user
+ * - Private templates created by the current user
+ * 
+ * The results can be filtered by template type, category, or public status.
+ * Only active templates are returned.
+ * 
+ * @example
+ * ```javascript
+ * // Get all accessible templates
+ * const allTemplates = await getModelos({});
+ * 
+ * // Get only escrito templates
+ * const escritoTemplates = await getModelos({ templateType: "escrito" });
+ * 
+ * // Get only public contract templates
+ * const contractTemplates = await getModelos({ 
+ *   category: "Contract Law",
+ *   isPublic: true 
+ * });
+ * 
+ * // Get only my private templates
+ * const myPrivateTemplates = await getModelos({ isPublic: false });
+ * ```
+ */
 export const getModelos = query({
   args: {
     templateType: v.optional(v.union(v.literal("escrito"), v.literal("document"))),
@@ -77,6 +157,24 @@ export const getModelos = query({
   },
 });
 
+/**
+ * Increments the usage count for a template when it's used.
+ * 
+ * @param {Object} args - The function arguments
+ * @param {string} args.modeloId - The ID of the template that was used
+ * @throws {Error} When not authenticated, template not found, or unauthorized access to private template
+ * 
+ * @description This function tracks template usage by incrementing a counter each time
+ * a template is used to create an escrito or document. Users can only increment usage
+ * for public templates or their own private templates. This provides analytics on
+ * template popularity and usage patterns.
+ * 
+ * @example
+ * ```javascript
+ * // After using a template to create an escrito/document
+ * await incrementModeloUsage({ modeloId: "template_123" });
+ * ```
+ */
 export const incrementModeloUsage = mutation({
   args: {
     modeloId: v.id("modelos"),
