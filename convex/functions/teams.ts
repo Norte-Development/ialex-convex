@@ -6,6 +6,31 @@ import { getCurrentUserFromAuth, requireAdmin, requireCaseAccess } from "./auth_
 // TEAM MANAGEMENT
 // ========================================
 
+/**
+ * Creates a new team in the system (admin-only operation).
+ * 
+ * @param {Object} args - The function arguments
+ * @param {string} args.name - The team name
+ * @param {string} [args.description] - Optional description of the team
+ * @param {string} [args.department] - Optional department the team belongs to
+ * @param {string} [args.teamLead] - Optional user ID of the team lead
+ * @returns {Promise<string>} The created team's document ID
+ * @throws {Error} When not authenticated or not an admin
+ * 
+ * @description This admin-only function creates a new team for organizing users
+ * into departmental or project-based groups. Teams are used for case access
+ * control and organizational structure within the legal practice.
+ * 
+ * @example
+ * ```javascript
+ * const teamId = await createTeam({
+ *   name: "Corporate Law Team",
+ *   description: "Handles all corporate legal matters",
+ *   department: "Corporate Law",
+ *   teamLead: "user_123"
+ * });
+ * ```
+ */
 export const createTeam = mutation({
   args: {
     name: v.string(),
@@ -30,6 +55,31 @@ export const createTeam = mutation({
   },
 });
 
+/**
+ * Retrieves all teams with optional filtering.
+ * 
+ * @param {Object} args - The function arguments
+ * @param {string} [args.department] - Filter by department
+ * @param {boolean} [args.isActive] - Filter by active status (defaults to true)
+ * @returns {Promise<Object[]>} Array of team documents
+ * @throws {Error} When not authenticated
+ * 
+ * @description This function returns all teams in the system, with optional
+ * filtering by department or active status. Any authenticated user can view
+ * teams to understand the organizational structure.
+ * 
+ * @example
+ * ```javascript
+ * // Get all active teams
+ * const activeTeams = await getTeams({});
+ * 
+ * // Get teams from specific department
+ * const corpTeams = await getTeams({ department: "Corporate Law" });
+ * 
+ * // Get all teams including inactive
+ * const allTeams = await getTeams({ isActive: false });
+ * ```
+ */
 export const getTeams = query({
   args: {
     department: v.optional(v.string()),
@@ -52,6 +102,34 @@ export const getTeams = query({
 // TEAM MEMBERSHIP MANAGEMENT
 // ========================================
 
+/**
+ * Adds a user to a team with a specific role (admin-only operation).
+ * 
+ * @param {Object} args - The function arguments
+ * @param {string} args.teamId - The ID of the team to add the user to
+ * @param {string} args.userId - The ID of the user to add to the team
+ * @param {"secretario" | "abogado" | "admin"} args.role - The role to assign within the team
+ * @returns {Promise<string>} The created team membership document ID
+ * @throws {Error} When not authenticated, not an admin, or user already in team
+ * 
+ * @description This admin-only function adds a user to a team with a specific role.
+ * The role determines the user's permissions within team operations. The function
+ * prevents duplicate memberships by checking for existing active memberships.
+ * 
+ * Team roles:
+ * - "secretario": Administrative/secretarial role
+ * - "abogado": Lawyer role
+ * - "admin": Team administrative role
+ * 
+ * @example
+ * ```javascript
+ * const membershipId = await addUserToTeam({
+ *   teamId: "team_123",
+ *   userId: "user_456",
+ *   role: "abogado"
+ * });
+ * ```
+ */
 export const addUserToTeam = mutation({
   args: {
     teamId: v.id("teams"),
@@ -89,6 +167,26 @@ export const addUserToTeam = mutation({
   },
 });
 
+/**
+ * Removes a user from a team (admin-only operation).
+ * 
+ * @param {Object} args - The function arguments
+ * @param {string} args.teamId - The ID of the team to remove the user from
+ * @param {string} args.userId - The ID of the user to remove from the team
+ * @throws {Error} When not authenticated, not an admin, or user not in team
+ * 
+ * @description This admin-only function removes a user from a team by deactivating
+ * their membership. This is a soft delete that preserves the membership history
+ * while preventing future team-based access.
+ * 
+ * @example
+ * ```javascript
+ * await removeUserFromTeam({
+ *   teamId: "team_123",
+ *   userId: "user_456"
+ * });
+ * ```
+ */
 export const removeUserFromTeam = mutation({
   args: {
     teamId: v.id("teams"),
@@ -115,6 +213,24 @@ export const removeUserFromTeam = mutation({
   },
 });
 
+/**
+ * Retrieves all active members of a specific team.
+ * 
+ * @param {Object} args - The function arguments
+ * @param {string} args.teamId - The ID of the team to get members for
+ * @returns {Promise<Object[]>} Array of user documents with team role and join date
+ * @throws {Error} When not authenticated
+ * 
+ * @description This function returns all active members of a team, including
+ * their team role and when they joined. Each member object contains the full
+ * user information plus team-specific details.
+ * 
+ * @example
+ * ```javascript
+ * const members = await getTeamMembers({ teamId: "team_123" });
+ * // Returns: [{ name: "John Doe", teamRole: "abogado", joinedAt: 1234567890 }, ...]
+ * ```
+ */
 export const getTeamMembers = query({
   args: {
     teamId: v.id("teams"),
@@ -144,6 +260,28 @@ export const getTeamMembers = query({
   },
 });
 
+/**
+ * Retrieves all teams a user belongs to.
+ * 
+ * @param {Object} args - The function arguments
+ * @param {string} [args.userId] - User ID to get teams for (defaults to current user, admin can specify others)
+ * @returns {Promise<Object[]>} Array of team documents with user role and join date
+ * @throws {Error} When not authenticated or unauthorized to view other users' teams
+ * 
+ * @description This function returns all teams a user is an active member of.
+ * Users can only view their own teams unless they have admin privileges.
+ * Each team object includes the user's role within that team.
+ * 
+ * @example
+ * ```javascript
+ * // Get current user's teams
+ * const myTeams = await getUserTeams({});
+ * 
+ * // Admin getting another user's teams
+ * const userTeams = await getUserTeams({ userId: "user_456" });
+ * // Returns: [{ name: "Corporate Team", userRole: "abogado", joinedAt: 1234567890 }, ...]
+ * ```
+ */
 export const getUserTeams = query({
   args: {
     userId: v.optional(v.id("users")),
@@ -184,6 +322,41 @@ export const getUserTeams = query({
 // TEAM CASE ACCESS MANAGEMENT
 // ========================================
 
+/**
+ * Grants a team access to a specific case with defined access level.
+ * 
+ * @param {Object} args - The function arguments
+ * @param {string} args.caseId - The ID of the case to grant access to
+ * @param {string} args.teamId - The ID of the team to grant access to
+ * @param {"full" | "read"} args.accessLevel - The level of access to grant
+ * @returns {Promise<string>} The team case access document ID
+ * @throws {Error} When not authenticated or lacking full case access
+ * 
+ * @description This function grants a team access to a case with specified permissions.
+ * The user must have full access to the case to grant team access. If access already
+ * exists, the access level is updated. This enables team-based collaboration on cases.
+ * 
+ * Access levels:
+ * - "read": Team members can view case data
+ * - "full": Team members can modify case data
+ * 
+ * @example
+ * ```javascript
+ * // Grant full access to corporate team
+ * const accessId = await grantTeamCaseAccess({
+ *   caseId: "case_123",
+ *   teamId: "team_456",
+ *   accessLevel: "full"
+ * });
+ * 
+ * // Grant read-only access to support team
+ * await grantTeamCaseAccess({
+ *   caseId: "case_123", 
+ *   teamId: "team_789",
+ *   accessLevel: "read"
+ * });
+ * ```
+ */
 export const grantTeamCaseAccess = mutation({
   args: {
     caseId: v.id("cases"),
@@ -227,6 +400,26 @@ export const grantTeamCaseAccess = mutation({
   },
 });
 
+/**
+ * Revokes a team's access to a specific case.
+ * 
+ * @param {Object} args - The function arguments
+ * @param {string} args.caseId - The ID of the case to revoke access from
+ * @param {string} args.teamId - The ID of the team to revoke access from
+ * @throws {Error} When not authenticated, lacking full case access, or team doesn't have access
+ * 
+ * @description This function revokes a team's access to a case by deactivating
+ * the team case access record. The user must have full access to the case to
+ * revoke team access. This is a soft delete that preserves access history.
+ * 
+ * @example
+ * ```javascript
+ * await revokeTeamCaseAccess({
+ *   caseId: "case_123",
+ *   teamId: "team_456"
+ * });
+ * ```
+ */
 export const revokeTeamCaseAccess = mutation({
   args: {
     caseId: v.id("cases"),
@@ -253,6 +446,24 @@ export const revokeTeamCaseAccess = mutation({
   },
 });
 
+/**
+ * Retrieves all teams that have access to a specific case.
+ * 
+ * @param {Object} args - The function arguments
+ * @param {string} args.caseId - The ID of the case to get team access for
+ * @returns {Promise<Object[]>} Array of team documents with access level and granting user
+ * @throws {Error} When not authenticated or lacking case access
+ * 
+ * @description This function returns all teams that have active access to a case,
+ * including their access level and who granted the access. The user must have
+ * read access to the case to view its team access permissions.
+ * 
+ * @example
+ * ```javascript
+ * const teamsWithAccess = await getTeamsWithCaseAccess({ caseId: "case_123" });
+ * // Returns: [{ name: "Corporate Team", accessLevel: "full", grantedBy: "user_789" }, ...]
+ * ```
+ */
 export const getTeamsWithCaseAccess = query({
   args: {
     caseId: v.id("cases"),
@@ -282,6 +493,24 @@ export const getTeamsWithCaseAccess = query({
   },
 });
 
+/**
+ * Retrieves all cases accessible by a specific team.
+ * 
+ * @param {Object} args - The function arguments
+ * @param {string} args.teamId - The ID of the team to get accessible cases for
+ * @returns {Promise<Object[]>} Array of case documents with access level for each
+ * @throws {Error} When not authenticated
+ * 
+ * @description This function returns all cases that a team has active access to,
+ * including the access level for each case. This helps understand what cases
+ * team members can collaborate on.
+ * 
+ * @example
+ * ```javascript
+ * const accessibleCases = await getCasesAccessibleByTeam({ teamId: "team_123" });
+ * // Returns: [{ title: "Contract Dispute", accessLevel: "full" }, ...]
+ * ```
+ */
 export const getCasesAccessibleByTeam = query({
   args: {
     teamId: v.id("teams"),

@@ -491,3 +491,7 @@ Most entities use `isActive` or `isArchived` flags instead of hard deletes to ma
 
 ### Comprehensive Indexing
 Strategic database indexes ensure fast queries for common use cases like filtering by status, searching by user, and accessing case-related content. 
+
+## Node-only Firestore Access
+
+Firestore access is isolated to `convex/functions/legalDb.ts`, which uses the `'use node'` directive. All other Convex functions remain browser-safe and do not use Node.js APIs. Do NOT re-export node-only functions (like `fetchLegalDb`) from `index.ts` or `myFunctions.ts`. Import them directly from their files if needed. 
