@@ -11,4 +11,4 @@
 // - convex/teams.ts
 // ========================================
 
-export * from "./functions/index";
+// Do NOT re-export node-only functions (like fetchLegalDb) from here. Import them directly from their files if needed.
