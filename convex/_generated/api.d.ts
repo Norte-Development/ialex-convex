@@ -21,6 +21,7 @@ import type * as functions_clients from "../functions/clients.js";
 import type * as functions_documents from "../functions/documents.js";
 import type * as functions_index from "../functions/index.js";
 import type * as functions_legalDb from "../functions/legalDb.js";
+import type * as functions_seedCases from "../functions/seedCases.js";
 import type * as functions_teams from "../functions/teams.js";
 import type * as functions_templates from "../functions/templates.js";
 import type * as functions_users from "../functions/users.js";
@@ -42,6 +43,7 @@ declare const fullApi: ApiFromModules<{
   "functions/documents": typeof functions_documents;
   "functions/index": typeof functions_index;
   "functions/legalDb": typeof functions_legalDb;
+  "functions/seedCases": typeof functions_seedCases;
   "functions/teams": typeof functions_teams;
   "functions/templates": typeof functions_templates;
   "functions/users": typeof functions_users;

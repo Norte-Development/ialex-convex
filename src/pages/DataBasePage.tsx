@@ -9,11 +9,15 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import DataBaseTable from "@/components/DataBase/DataBaseTable";
+import { useLayout } from "@/context/LayoutContext";
 
 export default function DataBasePage() {
+  const { isInCaseContext } = useLayout();
   return (
     <ConditionalLayout>
-      <section className="w-full h-full flex pl-5 pt-5 flex-col gap-10 pr-5">
+      <section
+        className={`w-full h-full flex pl-5 ${isInCaseContext ? "pt-5" : "pt-20"} flex-col gap-5 pr-5`}
+      >
         <div className="flex gap-2">
           <Input
             placeholder="buscar palabra clave"
