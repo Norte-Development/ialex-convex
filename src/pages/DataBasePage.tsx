@@ -1,4 +1,4 @@
-import CaseDetailLayout from "@/components/Layout/CaseDetailLayout";
+import ConditionalLayout from "@/components/Layout/ConditionalLayout";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -12,7 +12,7 @@ import DataBaseTable from "@/components/DataBase/DataBaseTable";
 
 export default function DataBasePage() {
   return (
-    <CaseDetailLayout>
+    <ConditionalLayout>
       <section className="w-full h-full flex pl-5 pt-5 flex-col gap-10 pr-5">
         <div className="flex gap-2">
           <Input
@@ -36,6 +36,6 @@ export default function DataBasePage() {
         </div>
         <DataBaseTable />
       </section>
-    </CaseDetailLayout>
+    </ConditionalLayout>
   );
 }

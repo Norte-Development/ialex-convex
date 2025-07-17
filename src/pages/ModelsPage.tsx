@@ -1,12 +1,13 @@
-import CaseDetailLayout from "@/components/Layout/CaseDetailLayout";
+import ConditionalLayout from "@/components/Layout/ConditionalLayout";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import ModelsTab from "@/components/Models/ModelsTab";
 import { Input } from "@/components/ui/input";
 import { Plus } from "lucide-react";
 import MyModelsTab from "@/components/Models/MyModelsTab";
+
 export default function ModelsPage() {
   return (
-    <CaseDetailLayout>
+    <ConditionalLayout>
       <section className="w-full h-full flex px-5 pt-5">
         <Tabs className="w-[100%] bg-white h-[95%]" defaultValue="Modelos">
           <TabsList className="bg-white w-full p-0">
@@ -34,6 +35,6 @@ export default function ModelsPage() {
           <MyModelsTab />
         </Tabs>
       </section>
-    </CaseDetailLayout>
+    </ConditionalLayout>
   );
 }

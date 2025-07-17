@@ -33,6 +33,7 @@ export default function CaseSidebar() {
     toggleDocumentos,
     isHistorialOpen,
     toggleHistorial,
+    setIsInCaseContext,
   } = useLayout();
   const location = useLocation();
   const { title } = useParams();
@@ -41,6 +42,11 @@ export default function CaseSidebar() {
   const isNameOfDocument = location.pathname.includes("nombre-del-documento");
 
   const basePath = `/caso/${title}`;
+
+  // Función para manejar navegación desde CaseSideBar
+  const handleNavigationFromCase = () => {
+    setIsInCaseContext(true);
+  };
 
   return (
     <aside
@@ -63,14 +69,14 @@ export default function CaseSidebar() {
         </button>
       )}
       <div className={`flex gap-4 justify-center items-center h-[10%] `}>
-        <Link to="/base-de-datos">
+        <Link to="/base-de-datos" onClick={handleNavigationFromCase}>
           <FileSearch2
             className="cursor-pointer"
             size={20}
             color={location.pathname === "/base-de-datos" ? "blue" : "black"}
           />
         </Link>
-        <Link to="/clientes">
+        <Link to="/clientes" onClick={handleNavigationFromCase}>
           <UserIcon
             fill={location.pathname === "/clientes" ? "blue" : "black"}
             className="cursor-pointer"
@@ -78,7 +84,7 @@ export default function CaseSidebar() {
             color={location.pathname === "/clientes" ? "blue" : "black"}
           />
         </Link>
-        <Link to="/modelos">
+        <Link to="/modelos" onClick={handleNavigationFromCase}>
           <BookCheck
             className="cursor-pointer"
             size={20}

@@ -1,11 +1,12 @@
-import CaseDetailLayout from "@/components/Layout/CaseDetailLayout";
+import ConditionalLayout from "@/components/Layout/ConditionalLayout";
 import { Input } from "@/components/ui/input";
 import { useState } from "react";
 import ClientsTable from "@/components/Clients/ClientsTable";
+
 export default function ClientsPage() {
   const [search, setSearch] = useState("");
   return (
-    <CaseDetailLayout>
+    <ConditionalLayout>
       <div className="flex flex-col gap-4 w-full h-full pl-10 pt-2">
         <div className="max-w-xl flex flex-col justify-start items-center">
           <Input
@@ -18,6 +19,6 @@ export default function ClientsPage() {
           <ClientsTable search={search} />
         </div>
       </div>
-    </CaseDetailLayout>
+    </ConditionalLayout>
   );
 }
