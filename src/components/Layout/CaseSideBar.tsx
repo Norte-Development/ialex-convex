@@ -76,12 +76,12 @@ export default function CaseSidebar() {
             color={location.pathname === "/base-de-datos" ? "blue" : "black"}
           />
         </Link>
-        <Link to="/clientes" onClick={handleNavigationFromCase}>
+        <Link to={`${basePath}/clientes`} onClick={handleNavigationFromCase}>
           <UserIcon
-            fill={location.pathname === "/clientes" ? "blue" : "black"}
+            fill={location.pathname.includes("/clientes") ? "blue" : "black"}
             className="cursor-pointer"
             size={20}
-            color={location.pathname === "/clientes" ? "blue" : "black"}
+            color={location.pathname.includes("/clientes") ? "blue" : "black"}
           />
         </Link>
         <Link to="/modelos" onClick={handleNavigationFromCase}>

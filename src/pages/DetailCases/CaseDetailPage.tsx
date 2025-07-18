@@ -1,4 +1,4 @@
-import CaseDetailLayout from "../components/Layout/CaseDetailLayout";
+import CaseDetailLayout from "../../components/Layout/CaseDetailLayout";
 
 export default function CaseDetailPage() {
   return (

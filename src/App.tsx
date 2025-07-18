@@ -4,10 +4,10 @@ import { AuthLoading } from "convex/react";
 import HomePage from "./pages/HomePage";
 import Layout from "./components/Layout/Layout";
 import CasesPage from "./pages/CasesPage";
-import CaseDetailPage from "./pages/CaseDetailPage";
+import CaseDetailPage from "./pages/DetailCases/CaseDetailPage";
 import ClientsPage from "./pages/ClientsPage";
-import AgreementsPage from "./pages/AgreementsPage";
-import NameOfDocumentPage from "./pages/NameOfDocumentPage";
+import AgreementsPage from "./pages/DetailCases/AgreementsPage";
+import NameOfDocumentPage from "./pages/DetailCases/NameOfDocumentPage";
 import ModelsPage from "./pages/ModelsPage";
 import DataBasePage from "./pages/DataBasePage";
 import { AppSkeleton } from "./components/Skeletons";
@@ -16,8 +16,9 @@ import { SignInPage } from "./components/Auth/SignInPage";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 import TeamPage from "./pages/TeamPage";
+import CaseClientsPage from "./pages/DetailCases/CaseClientPage";
+import { CaseProvider } from "./context/CaseContext";
 
-// Helper component to reduce repetition
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({
   children,
 }) => {
@@ -62,27 +63,22 @@ function App() {
             </ProtectedRoute>
           }
         />
+        {/* Rutas de casos envueltas con CaseProvider */}
         <Route
-          path="/caso/:title"
+          path="/caso/:title/*"
           element={
             <ProtectedRoute>
-              <CaseDetailPage />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/caso/:title/acuerdos"
-          element={
-            <ProtectedRoute>
-              <AgreementsPage />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/caso/:title/nombre-del-documento"
-          element={
-            <ProtectedRoute>
-              <NameOfDocumentPage />
+              <CaseProvider>
+                <Routes>
+                  <Route index element={<CaseDetailPage />} />
+                  <Route path="acuerdos" element={<AgreementsPage />} />
+                  <Route
+                    path="nombre-del-documento"
+                    element={<NameOfDocumentPage />}
+                  />
+                  <Route path="clientes" element={<CaseClientsPage />} />
+                </Routes>
+              </CaseProvider>
             </ProtectedRoute>
           }
         />

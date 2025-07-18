@@ -6,19 +6,19 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { useQuery } from "convex/react";
-import { api } from "../../../convex/_generated/api";
 
 interface ClientsTableProps {
-  search: string;
+  clientsResult: any;
 }
 
-export default function ClientsTable({ search }: ClientsTableProps) {
-  const clients = useQuery(api.functions.clients.getClients, {
-    search,
-  }) as any;
+export default function ClientsTable({ clientsResult }: ClientsTableProps) {
+  if (!clientsResult) {
+    return <div>Cargando clientes...</div>;
+  }
 
-  if (!clients) {
+  const clients = clientsResult.page;
+
+  if (!clients || clients.length === 0) {
     return <div>No se encontraron clientes</div>;
   }
 
@@ -36,16 +36,19 @@ export default function ClientsTable({ search }: ClientsTableProps) {
         </TableRow>
       </TableHeader>
       <TableBody className="bg-white border border-gray-300">
-        {clients?.map((client: any, index: any) => (
-          <TableRow key={index} className="border border-gray-300">
+        {clients.map((client: any, index: number) => (
+          <TableRow
+            key={client._id || index}
+            className="border border-gray-300"
+          >
             <TableCell className="border border-gray-300">
               {client.name}
             </TableCell>
             <TableCell className="border border-gray-300">
-              {client.dni}
+              {client.dni || client.cuit || "N/A"}
             </TableCell>
             <TableCell className="cursor-pointer border border-gray-300">
-              {client.cases?.length}
+              {client.cases?.length || 0}
             </TableCell>
           </TableRow>
         ))}

@@ -4,10 +4,17 @@ import { useState } from "react";
 import ClientsTable from "@/components/Clients/ClientsTable";
 import { useLayout } from "@/context/LayoutContext";
 import CreateClientDialog from "@/components/Clients/CreateClientDialog";
+import { useQuery } from "convex/react";
+import { api } from "../../convex/_generated/api";
 
 export default function ClientsPage() {
   const [search, setSearch] = useState("");
   const { isInCaseContext } = useLayout();
+
+  const clientsResult = useQuery(api.functions.clients.getClients, {
+    search,
+  });
+
   return (
     <ConditionalLayout>
       <div
@@ -23,7 +30,7 @@ export default function ClientsPage() {
         </div>
 
         <div className="w-full   flex justify-start  rounded-lg ">
-          <ClientsTable search={search} />
+          <ClientsTable clientsResult={clientsResult} />
         </div>
       </div>
     </ConditionalLayout>
