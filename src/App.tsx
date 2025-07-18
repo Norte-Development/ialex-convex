@@ -13,17 +13,18 @@ import DataBasePage from "./pages/DataBasePage";
 import { AppSkeleton } from "./components/Skeletons";
 import { OnboardingWrapper } from "./components/Auth/OnboardingWrapper";
 import { SignInPage } from "./components/Auth/SignInPage";
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
+import TeamPage from "./pages/TeamPage";
 
 // Helper component to reduce repetition
-const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({
+  children,
+}) => {
   return (
     <Protect fallback={<SignInPage />}>
       <OnboardingWrapper>
-        <Layout>
-          {children}
-        </Layout>
+        <Layout>{children}</Layout>
       </OnboardingWrapper>
     </Protect>
   );
@@ -43,19 +44,80 @@ function App() {
       <Routes>
         {/* Public sign-in route */}
         <Route path="/signin" element={<SignInPage />} />
-        
+
         {/* Protected routes using Clerk's Protect component */}
-        <Route path="/" element={<ProtectedRoute><HomePage /></ProtectedRoute>} />
-        <Route path="/casos" element={<ProtectedRoute><CasesPage /></ProtectedRoute>} />
-        <Route path="/caso/:title" element={<ProtectedRoute><CaseDetailPage /></ProtectedRoute>} />
-        <Route path="/caso/:title/acuerdos" element={<ProtectedRoute><AgreementsPage /></ProtectedRoute>} />
+        <Route
+          path="/"
+          element={
+            <ProtectedRoute>
+              <HomePage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/casos"
+          element={
+            <ProtectedRoute>
+              <CasesPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/caso/:title"
+          element={
+            <ProtectedRoute>
+              <CaseDetailPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/caso/:title/acuerdos"
+          element={
+            <ProtectedRoute>
+              <AgreementsPage />
+            </ProtectedRoute>
+          }
+        />
         <Route
           path="/caso/:title/nombre-del-documento"
-          element={<ProtectedRoute><NameOfDocumentPage /></ProtectedRoute>}
+          element={
+            <ProtectedRoute>
+              <NameOfDocumentPage />
+            </ProtectedRoute>
+          }
         />
-        <Route path="/clientes" element={<ProtectedRoute><ClientsPage /></ProtectedRoute>} />
-        <Route path="/modelos" element={<ProtectedRoute><ModelsPage /></ProtectedRoute>} />
-        <Route path="/base-de-datos" element={<ProtectedRoute><DataBasePage /></ProtectedRoute>} />
+        <Route
+          path="/clientes"
+          element={
+            <ProtectedRoute>
+              <ClientsPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/modelos"
+          element={
+            <ProtectedRoute>
+              <ModelsPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/base-de-datos"
+          element={
+            <ProtectedRoute>
+              <DataBasePage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/equipo"
+          element={
+            <ProtectedRoute>
+              <TeamPage />
+            </ProtectedRoute>
+          }
+        />
       </Routes>
       <ReactQueryDevtools initialIsOpen={false} />
     </QueryClientProvider>

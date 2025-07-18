@@ -24,7 +24,12 @@ const ConditionalLayout: React.FC<ConditionalLayoutProps> = ({
     if (location.pathname.includes("/caso/")) {
       return true;
     }
-    const caseContextPages = ["/clientes", "/modelos", "/base-de-datos"];
+    const caseContextPages = [
+      "/clientes",
+      "/modelos",
+      "/base-de-datos",
+      "/equipo",
+    ];
     const isInCaseContextPage = caseContextPages.some(
       (page) => location.pathname === page,
     );

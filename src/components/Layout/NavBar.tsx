@@ -57,7 +57,9 @@ export default function NavBar() {
             <Link to="/modelos" onClick={handleNavigationFromNavBar}>
               <BookCheck size={20} className="cursor-pointer" />
             </Link>
-            <UsersRound className="cursor-pointer" size={20} />
+            <Link to="/equipo" onClick={handleNavigationFromNavBar}>
+              <UsersRound className="cursor-pointer" size={20} />
+            </Link>
           </div>
         ) : (
           // No mostramos nada si estamos en contexto de caso

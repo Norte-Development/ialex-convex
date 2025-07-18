@@ -14,9 +14,13 @@ interface ClientsTableProps {
 }
 
 export default function ClientsTable({ search }: ClientsTableProps) {
-  const getClients = useQuery(api.functions.clients.getClients, {
+  const clients = useQuery(api.functions.clients.getClients, {
     search,
   }) as any;
+
+  if (clients.length === 0) {
+    return <div>No se encontraron clientes</div>;
+  }
 
   return (
     <Table className="border border-gray-300 bg-white">
@@ -32,7 +36,7 @@ export default function ClientsTable({ search }: ClientsTableProps) {
         </TableRow>
       </TableHeader>
       <TableBody className="bg-white border border-gray-300">
-        {getClients?.map((client: any, index: any) => (
+        {clients?.map((client: any, index: any) => (
           <TableRow key={index} className="border border-gray-300">
             <TableCell className="border border-gray-300">
               {client.name}
