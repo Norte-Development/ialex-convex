@@ -208,15 +208,22 @@ Stores user authentication and profile information.
 **Fields:**
 - `name`: User's full name
 - `email`: Unique email address
-- `role`: User role (`admin`, `lawyer`, `assistant`)
 - `isActive`: Whether the user account is active
 - `profileImage`: Optional reference to stored profile image
+- `isOnboardingComplete`: Whether user has completed onboarding
+- `onboardingStep`: Current step in onboarding process
+- `specializations`: Legal specialization areas
+- `barNumber`: Bar registration number
+- `firmName`: Law firm name
+- `workLocation`: Work location/city
+- `experienceYears`: Years of experience
+- `bio`: Professional biography
 - `preferences`: User preferences (language, timezone, notifications)
 
 **Key Indexes:**
 - `by_email`: Fast user lookup by email
-- `by_role`: Query users by role
 - `by_active_status`: Filter active/inactive users
+- `by_onboarding_status`: Filter by onboarding completion status
 
 ### Clients (`clients`)
 Legal clients that can be associated with multiple cases.
@@ -468,10 +475,16 @@ Users inherit access to cases through team membership:
 - **Full Access**: Can view and edit all case content
 - **Read Access**: Can only view case content
 
+### Team Management
+- **Team Creation**: Any authenticated user can create teams
+- **Team Leadership**: Team creators become team leads and team admins
+- **Membership Management**: Team leads and team admins can add/remove members
+- **Self-Management**: Users can voluntarily leave teams (except team leads)
+
 ### Access Hierarchy
 1. **Direct Access**: Always takes precedence (full access)
 2. **Team Access**: Inherited through active team memberships
-3. **User Roles**: System-level permissions (`admin`, `lawyer`, `assistant`)
+3. **Team Roles**: Control permissions within team operations (`secretario`, `abogado`, `admin`)
 
 ## Key Design Principles
 

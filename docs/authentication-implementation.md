@@ -183,10 +183,14 @@ The `<Protect>` component supports advanced authorization patterns:
 
 ### Team Management (`teams.ts`)
 
-**Admin-Only Functions:**
-- `createTeam` - Only admins can create teams
-- `addUserToTeam` - Only admins can add users to teams
-- `removeUserFromTeam` - Only admins can remove users from teams
+**Team Creation:**
+- `createTeam` - Any authenticated user can create teams
+- Team creator is automatically added as an admin member
+- If no team lead is specified, creator becomes team lead
+
+**Team Membership Management:**
+- `addUserToTeam` - Team leads and team admins can add users to their teams
+- `removeUserFromTeam` - Team leads and team admins can remove users from their teams
 
 **Access-Controlled Functions:**
 - `getTeams` - Requires authentication to view teams
@@ -201,10 +205,12 @@ The `<Protect>` component supports advanced authorization patterns:
 
 ## Access Control Levels
 
-### User Roles
-- `admin` - Full system access, can manage users and teams
-- `lawyer` - Standard user access, can create cases and documents
-- `assistant` - Limited access (role-specific permissions can be added)
+### Team-Based Permissions
+The system now uses team-based permissions instead of global user roles:
+
+- **Team Roles**: Users have roles within specific teams (`"secretario"`, `"abogado"`, `"admin"`)
+- **Team Leadership**: Team leads and team admins can manage team memberships
+- **Team Creation**: Any authenticated user can create teams
 
 ### Case Access Levels
 - `full` - Can edit case, add/remove clients, create documents
@@ -222,20 +228,20 @@ The `<Protect>` component supports advanced authorization patterns:
 - Users cannot access other users' data without proper permissions
 
 ### Authorization Levels
-- Role-based access control for admin functions
+- Team-based access control for management functions
 - Case-level access control for legal data
 - Ownership validation for user-specific data (chat sessions, private templates)
 
 ### Data Filtering
 - Functions automatically filter results based on user access
 - No unauthorized data leakage through queries
-- Private templates only visible to creators and admins
+- Private templates only visible to creators
 
 ## Error Handling
 
 ### Common Error Messages
 - `"Not authenticated"` - User not logged in
-- `"Unauthorized: Admin access required"` - Admin role needed
+- `"Unauthorized: Only team leads and team admins can add members"` - Team management access required
 - `"Unauthorized: No access to this case"` - Case access required
 - `"Unauthorized: Full access required for this operation"` - Write access needed
 
@@ -252,11 +258,18 @@ The `<Protect>` component supports advanced authorization patterns:
 - Results are filtered at the database level where possible
 
 ### Extensibility
-- Role system can be extended with additional roles
+- Team role system can be extended with additional roles
 - Case access levels can be expanded
 - Team-based permissions are highly flexible
+
+### Team Management Workflow
+1. **Any user** can create a team
+2. **Team creators** become team leads and team admins automatically
+3. **Team leads and team admins** can invite users to their teams
+4. **Users** can voluntarily leave teams (except team leads)
+5. **Team leads** must transfer leadership before leaving
 
 ### Testing
 - All functions require valid authentication
 - Integration tests should use proper Clerk test tokens
-- Access control should be verified in end-to-end tests 
+- Team-based permission testing covers various team configurations 

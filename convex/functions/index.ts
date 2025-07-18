@@ -8,20 +8,16 @@
 export {
   getCurrentUserFromAuth,
   requireAuth,
-  requireAdmin,
   checkCaseAccess,
   requireCaseAccess,
 } from "./auth_utils";
 
 // User Management
 export {
-  createUser,
-  getUsers,
   // Clerk integration functions
   getOrCreateUser,
   getCurrentUser,
   updateOnboardingInfo,
-  getUsersNeedingOnboarding,
 } from "./users";
 
 // Client Management
@@ -30,7 +26,7 @@ export {
   getClients,
 } from "./clients";
 
-// Case Management & Client-Case Relationships
+// Case Management
 export {
   createCase,
   getCases,
@@ -41,7 +37,7 @@ export {
   checkUserCaseAccess,
 } from "./cases";
 
-// Document & Escrito Management
+// Document Management
 export {
   createDocument,
   getDocuments,
@@ -50,7 +46,7 @@ export {
   getEscritos,
 } from "./documents";
 
-// Template Management
+// Template Management (Modelos)
 export {
   createModelo,
   getModelos,
@@ -71,10 +67,11 @@ export {
   getTeams,
   addUserToTeam,
   removeUserFromTeam,
+  leaveTeam,
   getTeamMembers,
   getUserTeams,
   grantTeamCaseAccess,
   revokeTeamCaseAccess,
   getTeamsWithCaseAccess,
   getCasesAccessibleByTeam,
-} from "./teams"; 
+} from "./teams";

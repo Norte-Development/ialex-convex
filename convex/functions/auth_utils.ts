@@ -54,24 +54,6 @@ export async function requireAuth(ctx: QueryCtx | MutationCtx) {
 }
 
 /**
- * Ensures the current user is an administrator.
- * 
- * @param {QueryCtx | MutationCtx} ctx - The Convex context object
- * @returns {Promise<Object>} The current user document
- * @throws {Error} When user is not authenticated or not an admin
- * 
- * @description This function first authenticates the user, then verifies
- * they have admin role. Use this for operations that require admin privileges.
- */
-export async function requireAdmin(ctx: QueryCtx | MutationCtx) {
-  const currentUser = await getCurrentUserFromAuth(ctx);
-  if (currentUser.role !== "admin") {
-    throw new Error("Unauthorized: Admin access required");
-  }
-  return currentUser;
-}
-
-/**
  * Checks if a user has access to a specific case and determines the access level.
  * 
  * @param {QueryCtx | MutationCtx} ctx - The Convex context object

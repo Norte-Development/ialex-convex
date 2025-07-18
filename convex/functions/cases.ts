@@ -392,7 +392,7 @@ export const getCasesForClient = query({
  * @throws {Error} When not authenticated or unauthorized to check other users' access
  *
  * @description This function provides a way to programmatically check case access.
- * Users can only check their own access unless they have admin privileges.
+ * Users can only check their own access for privacy and security.
  * The returned object contains detailed access information including the source
  * of access (direct or team-based).
  *
@@ -400,12 +400,6 @@ export const getCasesForClient = query({
  * ```javascript
  * // Check current user's access
  * const access = await checkUserCaseAccess({ caseId: "case_123" });
- *
- * // Admin checking another user's access
- * const userAccess = await checkUserCaseAccess({
- *   userId: "user_456",
- *   caseId: "case_123"
- * });
  * ```
  */
 // Helper function to check if a user has access to a case through team membership
@@ -420,8 +414,8 @@ export const checkUserCaseAccess = query({
     // Use provided userId or current user's ID
     const userId = args.userId || currentUser._id;
 
-    // Only allow checking your own access or admin can check others
-    if (userId !== currentUser._id && currentUser.role !== "admin") {
+    // Only allow checking your own access
+    if (userId !== currentUser._id) {
       throw new Error("Unauthorized: Cannot check other users' access");
     }
 

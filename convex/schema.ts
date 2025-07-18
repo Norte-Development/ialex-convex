@@ -10,9 +10,9 @@ export default defineSchema({
     // Basic user info
     name: v.string(),
     email: v.string(),
-    role: v.union(v.literal("admin"), v.literal("lawyer"), v.literal("assistant")),
     isActive: v.boolean(),
     profileImage: v.optional(v.id("_storage")),
+    role: v.optional(v.string()),
     
     // Onboarding and profile completion
     isOnboardingComplete: v.boolean(),
@@ -35,7 +35,6 @@ export default defineSchema({
   })
     .index("by_clerk_id", ["clerkId"])
     .index("by_email", ["email"])
-    .index("by_role", ["role"])
     .index("by_active_status", ["isActive"])
     .index("by_onboarding_status", ["isOnboardingComplete"]),
 

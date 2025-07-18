@@ -1,6 +1,6 @@
 import { v } from "convex/values";
 import { query, mutation } from "../_generated/server";
-import { getCurrentUserFromAuth, requireAuth, requireAdmin } from "./auth_utils";
+import { getCurrentUserFromAuth, requireAuth } from "./auth_utils";
 
 // ========================================
 // CLERK USER SYNC FUNCTIONS
@@ -71,7 +71,6 @@ export const getOrCreateUser = mutation({
       clerkId: args.clerkId,
       name: args.name,
       email: args.email,
-      role: "lawyer", // Default role, can be changed later
       isActive: true,
       isOnboardingComplete: false,
       onboardingStep: 1,
@@ -83,24 +82,20 @@ export const getOrCreateUser = mutation({
 });
 
 /**
- * Retrieves user information by Clerk ID with admin override capability.
+ * Retrieves user information by Clerk ID.
  * 
  * @param {Object} args - The function arguments
  * @param {string} [args.clerkId] - The Clerk ID to query (optional, defaults to authenticated user)
  * @returns {Promise<Object|null>} The user document or null if not found
  * @throws {Error} When not authenticated or unauthorized to access other users' data
  * 
- * @description This function allows users to retrieve their own data, while admins
- * can query any user's data by providing a different ClerkId. The function enforces
- * proper authorization to prevent unauthorized data access.
+ * @description This function allows users to retrieve their own data. Users can
+ * only access their own user information for privacy and security.
  * 
  * @example
  * ```javascript
  * // Get current user's data
  * const user = await getCurrentUser({});
- * 
- * // Admin querying another user
- * const otherUser = await getCurrentUser({ clerkId: "user_456def" });
  * ```
  */
 // Get current user by Clerk ID
@@ -112,19 +107,12 @@ export const getCurrentUser = query({
       throw new Error("Not authenticated");
     }
     
-    // Use the authenticated user's ID or the provided one (for admin queries)
+    // Use the authenticated user's ID or the provided one
     const clerkId = args.clerkId || identity.subject;
     
-    // Only allow users to query their own data unless admin
+    // Only allow users to query their own data
     if (clerkId !== identity.subject) {
-      const currentUser = await ctx.db
-        .query("users")
-        .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
-        .first();
-      
-      if (!currentUser || currentUser.role !== "admin") {
-        throw new Error("Unauthorized: Cannot access other users' data");
-      }
+      throw new Error("Unauthorized: Cannot access other users' data");
     }
     
     const user = await ctx.db
@@ -139,45 +127,34 @@ export const getCurrentUser = query({
 /**
  * Updates user onboarding and profile information.
  * 
- * @param {Object} args - The function arguments with optional profile fields
- * @param {string} [args.clerkId] - Target user's Clerk ID (defaults to authenticated user)
- * @param {"admin" | "lawyer" | "assistant"} [args.role] - User's role in the system
- * @param {string[]} [args.specializations] - Legal specialization areas
- * @param {string} [args.barNumber] - Bar association number
+ * @param {Object} args - The function arguments
+ * @param {string} [args.clerkId] - Clerk ID (optional, defaults to current user)
+ * @param {string[]} [args.specializations] - Legal specializations
+ * @param {string} [args.barNumber] - Bar registration number
  * @param {string} [args.firmName] - Law firm name
- * @param {string} [args.workLocation] - Work location/office
- * @param {number} [args.experienceYears] - Years of legal experience
+ * @param {string} [args.workLocation] - Work location
+ * @param {number} [args.experienceYears] - Years of experience
  * @param {string} [args.bio] - Professional biography
- * @param {number} [args.onboardingStep] - Current onboarding step (1-N)
- * @param {boolean} [args.isOnboardingComplete] - Whether onboarding is finished
- * @returns {Promise<string>} The updated user's document ID
- * @throws {Error} When not authenticated, user not found, or unauthorized to update other users
+ * @param {number} [args.onboardingStep] - Current onboarding step
+ * @param {boolean} [args.isOnboardingComplete] - Whether onboarding is complete
+ * @returns {Promise<void>}
+ * @throws {Error} When not authenticated or unauthorized to update other users
  * 
- * @description This function handles both onboarding flow updates and general profile
- * updates. Users can only update their own profiles unless they have admin privileges.
- * Only provided fields are updated, allowing for partial updates.
+ * @description This function allows users to update their profile and onboarding
+ * information. Users can only update their own data for security.
  * 
  * @example
  * ```javascript
- * // Complete onboarding step
  * await updateOnboardingInfo({
- *   onboardingStep: 2,
- *   role: "lawyer",
- *   specializations: ["Corporate Law", "Contract Law"]
- * });
- * 
- * // Finish onboarding
- * await updateOnboardingInfo({
- *   isOnboardingComplete: true,
- *   bio: "Experienced corporate lawyer..."
+ *   specializations: ["Derecho Civil", "Derecho Penal"],
+ *   barNumber: "12345",
+ *   isOnboardingComplete: true
  * });
  * ```
  */
-// Update user onboarding information
 export const updateOnboardingInfo = mutation({
   args: {
     clerkId: v.optional(v.string()),
-    role: v.optional(v.union(v.literal("admin"), v.literal("lawyer"), v.literal("assistant"))),
     specializations: v.optional(v.array(v.string())),
     barNumber: v.optional(v.string()),
     firmName: v.optional(v.string()),
@@ -193,20 +170,12 @@ export const updateOnboardingInfo = mutation({
       throw new Error("Not authenticated");
     }
     
-    // Use authenticated user's ID or provided one (ensure it matches for non-admins)
+    // Use authenticated user's ID or provided one
     const clerkId = args.clerkId || identity.subject;
     
-    // Only allow users to update their own data (unless admin)
+    // Only allow users to update their own data
     if (clerkId !== identity.subject) {
-      // Check if current user is admin
-      const currentUser = await ctx.db
-        .query("users")
-        .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
-        .first();
-      
-      if (!currentUser || currentUser.role !== "admin") {
-        throw new Error("Unauthorized: Cannot update other users");
-      }
+      throw new Error("Unauthorized: Cannot update other users");
     }
 
     const user = await ctx.db
@@ -221,7 +190,6 @@ export const updateOnboardingInfo = mutation({
     const updateData: any = {};
     
     // Only update provided fields
-    if (args.role !== undefined) updateData.role = args.role;
     if (args.specializations !== undefined) updateData.specializations = args.specializations;
     if (args.barNumber !== undefined) updateData.barNumber = args.barNumber;
     if (args.firmName !== undefined) updateData.firmName = args.firmName;
@@ -232,135 +200,6 @@ export const updateOnboardingInfo = mutation({
     if (args.isOnboardingComplete !== undefined) updateData.isOnboardingComplete = args.isOnboardingComplete;
 
     await ctx.db.patch(user._id, updateData);
-    
-    return user._id;
-  },
-});
-
-// ========================================
-// LEGACY USER MANAGEMENT (Updated for Clerk)
-// ========================================
-
-/**
- * Creates a new user manually (admin-only operation).
- * 
- * @param {Object} args - The function arguments
- * @param {string} args.name - The user's display name
- * @param {string} args.email - The user's email address
- * @param {"admin" | "lawyer" | "assistant"} args.role - The user's role in the system
- * @param {string} [args.clerkId] - Optional Clerk ID for integration
- * @returns {Promise<string>} The created user's document ID
- * @throws {Error} When not authenticated or not an admin
- * 
- * @description This function allows administrators to manually create user accounts,
- * typically for system setup or special cases. Manual users skip the onboarding
- * process by default. This should be used sparingly as most users should be created
- * through the Clerk authentication flow.
- * 
- * @example
- * ```javascript
- * const userId = await createUser({
- *   name: "System Admin",
- *   email: "admin@lawfirm.com",
- *   role: "admin"
- * });
- * ```
- */
-export const createUser = mutation({
-  args: {
-    name: v.string(),
-    email: v.string(),
-    role: v.union(v.literal("admin"), v.literal("lawyer"), v.literal("assistant")),
-    clerkId: v.optional(v.string()),
-  },
-  handler: async (ctx, args) => {
-    // Only admins can create users manually
-    await requireAdmin(ctx);
-    
-    const userId = await ctx.db.insert("users", {
-      clerkId: args.clerkId || `manual_${Date.now()}`, // Fallback for manual creation
-      name: args.name,
-      email: args.email,
-      role: args.role,
-      isActive: true,
-      isOnboardingComplete: args.clerkId ? false : true, // Manual users skip onboarding
-      onboardingStep: args.clerkId ? 1 : undefined,
-    });
-    
-    console.log("Created user with id:", userId);
-    return userId;
-  },
-});
-
-/**
- * Retrieves all users with optional filtering by active status.
- * 
- * @param {Object} args - The function arguments
- * @param {boolean} [args.isActive] - Filter by active status (optional)
- * @returns {Promise<Object[]>} Array of user documents
- * @throws {Error} When not authenticated or not an admin
- * 
- * @description This admin-only function returns all users in the system.
- * Use the isActive filter to get only active or inactive users, or omit
- * it to get all users regardless of status.
- * 
- * @example
- * ```javascript
- * // Get all active users
- * const activeUsers = await getUsers({ isActive: true });
- * 
- * // Get all users
- * const allUsers = await getUsers({});
- * ```
- */
-export const getUsers = query({
-  args: {
-    isActive: v.optional(v.boolean()),
-  },
-  handler: async (ctx, args) => {
-    // Only admins can view all users
-    await requireAdmin(ctx);
-    
-    if (args.isActive !== undefined) {
-      const users = await ctx.db
-        .query("users")
-        .withIndex("by_active_status", (q) => q.eq("isActive", args.isActive!))
-        .collect();
-      return users;
-    } else {
-      const users = await ctx.db.query("users").collect();
-      return users;
-    }
-  },
-}); 
-
-/**
- * Retrieves users who have not completed the onboarding process.
- * 
- * @returns {Promise<Object[]>} Array of user documents with incomplete onboarding
- * @throws {Error} When not authenticated or not an admin
- * 
- * @description This admin-only function helps administrators track which users
- * need assistance with onboarding or may have abandoned the process. Useful for
- * user engagement and system administration.
- * 
- * @example
- * ```javascript
- * const incompleteUsers = await getUsersNeedingOnboarding();
- * console.log(`${incompleteUsers.length} users need onboarding assistance`);
- * ```
- */
-// Get users who need to complete onboarding
-export const getUsersNeedingOnboarding = query({
-  args: {},
-  handler: async (ctx) => {
-    // Only admins can view onboarding status
-    await requireAdmin(ctx);
-    
-    const users = await ctx.db
-      .query("users")
-      .withIndex("by_onboarding_status", (q) => q.eq("isOnboardingComplete", false))
-      .collect();
-    return users;
+    console.log("Updated user onboarding info");
   },
 }); 

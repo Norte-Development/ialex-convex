@@ -1,33 +1,30 @@
 import { v } from "convex/values";
 import { query, mutation } from "../_generated/server";
-import { getCurrentUserFromAuth, requireAdmin, requireCaseAccess } from "./auth_utils";
+import { getCurrentUserFromAuth, requireCaseAccess } from "./auth_utils";
   
 // ========================================
 // TEAM MANAGEMENT
 // ========================================
 
 /**
- * Creates a new team in the system (admin-only operation).
+ * Creates a new team in the system (any authenticated user can create).
  * 
  * @param {Object} args - The function arguments
  * @param {string} args.name - The team name
  * @param {string} [args.description] - Optional description of the team
- * @param {string} [args.department] - Optional department the team belongs to
- * @param {string} [args.teamLead] - Optional user ID of the team lead
  * @returns {Promise<string>} The created team's document ID
- * @throws {Error} When not authenticated or not an admin
+ * @throws {Error} When not authenticated
  * 
- * @description This admin-only function creates a new team for organizing users
+ * @description Any authenticated user can create a new team for organizing users
  * into departmental or project-based groups. Teams are used for case access
- * control and organizational structure within the legal practice.
+ * control and organizational structure within the legal practice. The creator
+ * is automatically added as an admin member of the team.
  * 
  * @example
  * ```javascript
  * const teamId = await createTeam({
  *   name: "Corporate Law Team",
  *   description: "Handles all corporate legal matters",
- *   department: "Corporate Law",
- *   teamLead: "user_123"
  * });
  * ```
  */
@@ -35,19 +32,27 @@ export const createTeam = mutation({
   args: {
     name: v.string(),
     description: v.optional(v.string()),
-    department: v.optional(v.string()),
-    teamLead: v.optional(v.id("users")),
   },
   handler: async (ctx, args) => {
-    // Only admins can create teams
-    const currentUser = await requireAdmin(ctx);
+    // Any authenticated user can create teams
+    const currentUser = await getCurrentUserFromAuth(ctx);
     
     const teamId = await ctx.db.insert("teams", {
       name: args.name,
       description: args.description,
-      teamLead: args.teamLead,
+      teamLead: currentUser._id,
       isActive: true,
       createdBy: currentUser._id,
+    });
+    
+    // Automatically add the creator as an admin member of the team
+    await ctx.db.insert("teamMemberships", {
+      teamId: teamId,
+      userId: currentUser._id,
+      role: "admin",
+      joinedAt: Date.now(),
+      addedBy: currentUser._id,
+      isActive: true,
     });
     
     console.log("Created team with id:", teamId);
@@ -59,7 +64,6 @@ export const createTeam = mutation({
  * Retrieves all teams with optional filtering.
  * 
  * @param {Object} args - The function arguments
- * @param {string} [args.department] - Filter by department
  * @param {boolean} [args.isActive] - Filter by active status (defaults to true)
  * @returns {Promise<Object[]>} Array of team documents
  * @throws {Error} When not authenticated
@@ -73,16 +77,12 @@ export const createTeam = mutation({
  * // Get all active teams
  * const activeTeams = await getTeams({});
  * 
- * // Get teams from specific department
- * const corpTeams = await getTeams({ department: "Corporate Law" });
- * 
  * // Get all teams including inactive
  * const allTeams = await getTeams({ isActive: false });
  * ```
  */
 export const getTeams = query({
   args: {
-    department: v.optional(v.string()),
     isActive: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
@@ -103,16 +103,16 @@ export const getTeams = query({
 // ========================================
 
 /**
- * Adds a user to a team with a specific role (admin-only operation).
+ * Adds a user to a team with a specific role (team lead/admin only operation).
  * 
  * @param {Object} args - The function arguments
  * @param {string} args.teamId - The ID of the team to add the user to
  * @param {string} args.userId - The ID of the user to add to the team
  * @param {"secretario" | "abogado" | "admin"} args.role - The role to assign within the team
  * @returns {Promise<string>} The created team membership document ID
- * @throws {Error} When not authenticated, not an admin, or user already in team
+ * @throws {Error} When not authenticated, not authorized, or user already in team
  * 
- * @description This admin-only function adds a user to a team with a specific role.
+ * @description This function allows team leads and team admins to add users to their teams.
  * The role determines the user's permissions within team operations. The function
  * prevents duplicate memberships by checking for existing active memberships.
  * 
@@ -137,8 +137,28 @@ export const addUserToTeam = mutation({
     role: v.union(v.literal("secretario"), v.literal("abogado"), v.literal("admin")),
   },
   handler: async (ctx, args) => {
-    // Only admins can add users to teams
-    const currentUser = await requireAdmin(ctx);
+    const currentUser = await getCurrentUserFromAuth(ctx);
+    
+    // Check if current user is team lead or team admin
+    const team = await ctx.db.get(args.teamId);
+    if (!team) {
+      throw new Error("Team not found");
+    }
+    
+    const isTeamLead = team.teamLead === currentUser._id;
+    const userMembership = await ctx.db
+      .query("teamMemberships")
+      .withIndex("by_team_and_user", (q) => 
+        q.eq("teamId", args.teamId).eq("userId", currentUser._id)
+      )
+      .filter((q) => q.eq(q.field("isActive"), true))
+      .first();
+    
+    const isTeamAdmin = userMembership?.role === "admin";
+    
+    if (!isTeamLead && !isTeamAdmin) {
+      throw new Error("Unauthorized: Only team leads and team admins can add members");
+    }
     
     // Check if user is already in the team
     const existing = await ctx.db
@@ -168,16 +188,16 @@ export const addUserToTeam = mutation({
 });
 
 /**
- * Removes a user from a team (admin-only operation).
+ * Removes a user from a team (team lead/admin only operation).
  * 
  * @param {Object} args - The function arguments
  * @param {string} args.teamId - The ID of the team to remove the user from
  * @param {string} args.userId - The ID of the user to remove from the team
- * @throws {Error} When not authenticated, not an admin, or user not in team
+ * @throws {Error} When not authenticated, not authorized, or user not in team
  * 
- * @description This admin-only function removes a user from a team by deactivating
- * their membership. This is a soft delete that preserves the membership history
- * while preventing future team-based access.
+ * @description This function allows team leads and team admins to remove users from their teams.
+ * This is a soft delete that preserves the membership history while preventing future
+ * team-based access.
  * 
  * @example
  * ```javascript
@@ -193,8 +213,28 @@ export const removeUserFromTeam = mutation({
     userId: v.id("users"),
   },
   handler: async (ctx, args) => {
-    // Only admins can remove users from teams
-    await requireAdmin(ctx);
+    const currentUser = await getCurrentUserFromAuth(ctx);
+    
+    // Check if current user is team lead or team admin
+    const team = await ctx.db.get(args.teamId);
+    if (!team) {
+      throw new Error("Team not found");
+    }
+    
+    const isTeamLead = team.teamLead === currentUser._id;
+    const userMembership = await ctx.db
+      .query("teamMemberships")
+      .withIndex("by_team_and_user", (q) => 
+        q.eq("teamId", args.teamId).eq("userId", currentUser._id)
+      )
+      .filter((q) => q.eq(q.field("isActive"), true))
+      .first();
+    
+    const isTeamAdmin = userMembership?.role === "admin";
+    
+    if (!isTeamLead && !isTeamAdmin) {
+      throw new Error("Unauthorized: Only team leads and team admins can remove members");
+    }
     
     const membership = await ctx.db
       .query("teamMemberships")
@@ -264,12 +304,12 @@ export const getTeamMembers = query({
  * Retrieves all teams a user belongs to.
  * 
  * @param {Object} args - The function arguments
- * @param {string} [args.userId] - User ID to get teams for (defaults to current user, admin can specify others)
+ * @param {string} [args.userId] - User ID to get teams for (defaults to current user)
  * @returns {Promise<Object[]>} Array of team documents with user role and join date
  * @throws {Error} When not authenticated or unauthorized to view other users' teams
  * 
  * @description This function returns all teams a user is an active member of.
- * Users can only view their own teams unless they have admin privileges.
+ * Users can only view their own teams for privacy and security.
  * Each team object includes the user's role within that team.
  * 
  * @example
@@ -277,8 +317,6 @@ export const getTeamMembers = query({
  * // Get current user's teams
  * const myTeams = await getUserTeams({});
  * 
- * // Admin getting another user's teams
- * const userTeams = await getUserTeams({ userId: "user_456" });
  * // Returns: [{ name: "Corporate Team", userRole: "abogado", joinedAt: 1234567890 }, ...]
  * ```
  */
@@ -289,11 +327,11 @@ export const getUserTeams = query({
   handler: async (ctx, args) => {
     const currentUser = await getCurrentUserFromAuth(ctx);
     
-    // Use current user or specified user (admin can view others)
+    // Use current user or specified user
     const userId = args.userId || currentUser._id;
     
-    // Only allow viewing own teams unless admin
-    if (userId !== currentUser._id && currentUser.role !== "admin") {
+    // Only allow viewing own teams
+    if (userId !== currentUser._id) {
       throw new Error("Unauthorized: Cannot view other users' teams");
     }
     
@@ -536,5 +574,60 @@ export const getCasesAccessibleByTeam = query({
     );
     
     return cases;
+  },
+}); 
+
+/**
+ * Allows a user to voluntarily leave a team.
+ * 
+ * @param {Object} args - The function arguments
+ * @param {string} args.teamId - The ID of the team to leave
+ * @throws {Error} When not authenticated or user not in team
+ * 
+ * @description This function allows users to voluntarily leave teams they are members of.
+ * This is a soft delete that preserves the membership history while preventing future
+ * team-based access. Users cannot leave a team if they are the team lead.
+ * 
+ * @example
+ * ```javascript
+ * await leaveTeam({
+ *   teamId: "team_123"
+ * });
+ * ```
+ */
+export const leaveTeam = mutation({
+  args: {
+    teamId: v.id("teams"),
+  },
+  handler: async (ctx, args) => {
+    const currentUser = await getCurrentUserFromAuth(ctx);
+    
+    // Check if team exists
+    const team = await ctx.db.get(args.teamId);
+    if (!team) {
+      throw new Error("Team not found");
+    }
+    
+    // Don't allow team lead to leave (they should transfer leadership first)
+    if (team.teamLead === currentUser._id) {
+      throw new Error("Team lead cannot leave team. Please transfer leadership first.");
+    }
+    
+    // Find user's membership in the team
+    const membership = await ctx.db
+      .query("teamMemberships")
+      .withIndex("by_team_and_user", (q) => 
+        q.eq("teamId", args.teamId).eq("userId", currentUser._id)
+      )
+      .filter((q) => q.eq(q.field("isActive"), true))
+      .first();
+    
+    if (!membership) {
+      throw new Error("You are not a member of this team");
+    }
+    
+    // Remove membership (soft delete)
+    await ctx.db.patch(membership._id, { isActive: false });
+    console.log("User left team");
   },
 }); 
