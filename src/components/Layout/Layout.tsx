@@ -19,11 +19,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
           <Sidebar />
           <main
             className={`flex-1 h-full overflow-x-hidden w-full overflow-y-auto bg-background transition-all duration-300 ease-in-out ${
-              isSidebarOpen && isCaseSidebarOpen
-                ? "mr-80"
-                : isSidebarOpen
-                  ? "mr-38"
-                  : ""
+              isSidebarOpen ? "mr-38" : ""
             }`}
           >
             {children}

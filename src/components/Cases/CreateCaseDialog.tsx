@@ -39,7 +39,10 @@ export default function CreateCaseDialog() {
 
   const createCase = useMutation(api.functions.cases.createCase);
   const addClientToCase = useMutation(api.functions.cases.addClientToCase);
-  const clients = useQuery(api.functions.clients.getClients, {});
+  const clientsResult = useQuery(api.functions.clients.getClients, {});
+
+  // Extraer clientes de la estructura paginada
+  const clients = clientsResult?.page || [];
 
   const [formData, setFormData] = useState({
     title: "",
