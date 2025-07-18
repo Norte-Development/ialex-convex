@@ -8,6 +8,8 @@ export default function CaseGrid() {
     | Case[]
     | undefined;
 
+  console.log(cases);
+
   const isLoading = cases === undefined;
 
   if (isLoading) {
@@ -22,8 +24,8 @@ export default function CaseGrid() {
       {cases?.map((caseItem) => (
         <CaseCard
           key={caseItem._id}
+          caseId={caseItem._id}
           title={caseItem.title}
-          client={caseItem.client}
           status={caseItem.status}
         />
       ))}
