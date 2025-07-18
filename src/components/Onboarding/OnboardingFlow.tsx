@@ -2,11 +2,9 @@ import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useAuth } from "@/context/AuthContext";
 
 interface OnboardingData {
-  role: "admin" | "lawyer" | "assistant";
   specializations: string[];
   barNumber?: string;
   firmName?: string;
@@ -19,7 +17,6 @@ export const OnboardingFlow: React.FC = () => {
   const { user, updateOnboarding } = useAuth();
   const [currentStep, setCurrentStep] = useState(1);
   const [formData, setFormData] = useState<OnboardingData>({
-    role: "lawyer",
     specializations: [],
   });
   const [isLoading, setIsLoading] = useState(false);
@@ -89,35 +86,17 @@ export const OnboardingFlow: React.FC = () => {
             <div className="space-y-4">
               <div>
                 <label className="block text-sm font-medium mb-2">
-                  ¿Cuál es tu rol principal?
+                  Número de matrícula (opcional)
                 </label>
-                <Select 
-                  value={formData.role} 
-                  onValueChange={(value) => setFormData({ ...formData, role: value as any })}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecciona tu rol" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="lawyer">Abogado</SelectItem>
-                    <SelectItem value="assistant">Asistente Legal</SelectItem>
-                    <SelectItem value="admin">Administrador</SelectItem>
-                  </SelectContent>
-                </Select>
+                <Input
+                  value={formData.barNumber || ""}
+                  onChange={(e) => setFormData({ ...formData, barNumber: e.target.value })}
+                  placeholder="Ingresa tu número de matrícula"
+                />
+                <p className="text-sm text-gray-500 mt-1">
+                  Si eres abogado matriculado, puedes ingresar tu número de matrícula.
+                </p>
               </div>
-
-              {formData.role === "lawyer" && (
-                <div>
-                  <label className="block text-sm font-medium mb-2">
-                    Número de matrícula (opcional)
-                  </label>
-                  <Input
-                    value={formData.barNumber || ""}
-                    onChange={(e) => setFormData({ ...formData, barNumber: e.target.value })}
-                    placeholder="Ingresa tu número de matrícula"
-                  />
-                </div>
-              )}
             </div>
           </div>
         );
@@ -229,10 +208,7 @@ export const OnboardingFlow: React.FC = () => {
             <div className="bg-gray-50 p-4 rounded-lg">
               <h3 className="font-medium mb-2">Resumen de tu perfil:</h3>
               <div className="text-sm text-gray-600 space-y-1">
-                <p><strong>Rol:</strong> {
-                  formData.role === "lawyer" ? "Abogado" :
-                  formData.role === "assistant" ? "Asistente Legal" : "Administrador"
-                }</p>
+                {formData.barNumber && <p><strong>Matrícula:</strong> {formData.barNumber}</p>}
                 {formData.specializations.length > 0 && (
                   <p><strong>Especialidades:</strong> {formData.specializations.join(", ")}</p>
                 )}

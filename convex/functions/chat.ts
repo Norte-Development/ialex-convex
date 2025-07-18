@@ -62,13 +62,13 @@ export const createChatSession = mutation({
  * Retrieves chat sessions for a user with optional filtering by case.
  * 
  * @param {Object} args - The function arguments
- * @param {string} [args.userId] - User ID to get sessions for (defaults to current user, admin can specify others)
+ * @param {string} [args.userId] - User ID to get sessions for (defaults to current user)
  * @param {string} [args.caseId] - Optional case ID to filter sessions by
  * @returns {Promise<Object[]>} Array of active chat session documents
  * @throws {Error} When not authenticated, unauthorized to view other users' sessions, or lacking case access
  * 
  * @description This function returns all active chat sessions for a user.
- * Users can only view their own sessions unless they have admin privileges.
+ * Users can only view their own sessions for privacy and security.
  * If a case ID is provided for filtering, the user must have access to that case.
  * 
  * @example
@@ -78,9 +78,6 @@ export const createChatSession = mutation({
  * 
  * // Get sessions for a specific case
  * const caseSessions = await getChatSessions({ caseId: "case_123" });
- * 
- * // Admin getting another user's sessions
- * const userSessions = await getChatSessions({ userId: "user_456" });
  * ```
  */
 export const getChatSessions = query({
@@ -91,11 +88,11 @@ export const getChatSessions = query({
   handler: async (ctx, args) => {
     const currentUser = await getCurrentUserFromAuth(ctx);
     
-    // Use current user or specified user (admin can view others)
+    // Use current user or specified user
     const userId = args.userId || currentUser._id;
     
-    // Only allow viewing own sessions unless admin
-    if (userId !== currentUser._id && currentUser.role !== "admin") {
+    // Only allow viewing own sessions
+    if (userId !== currentUser._id) {
       throw new Error("Unauthorized: Cannot view other users' chat sessions");
     }
     
@@ -199,8 +196,8 @@ export const addChatMessage = mutation({
  * @throws {Error} When not authenticated, session not found, or unauthorized to view session
  * 
  * @description This function returns all messages in a chat session in chronological
- * order (oldest first). Users can only view messages from their own sessions unless
- * they have admin privileges. This maintains the conversation flow for display.
+ * order (oldest first). Users can only view messages from their own sessions for
+ * privacy and security. This maintains the conversation flow for display.
  * 
  * @example
  * ```javascript
@@ -224,7 +221,7 @@ export const getChatMessages = query({
       throw new Error("Chat session not found");
     }
     
-    if (session.userId !== currentUser._id && currentUser.role !== "admin") {
+    if (session.userId !== currentUser._id) {
       throw new Error("Unauthorized: Cannot view other users' chat messages");
     }
     

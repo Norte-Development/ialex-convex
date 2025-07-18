@@ -8,7 +8,6 @@ interface User {
   clerkId: string;
   name: string;
   email: string;
-  role: "admin" | "lawyer" | "assistant";
   isActive: boolean;
   isOnboardingComplete: boolean;
   onboardingStep?: number;
