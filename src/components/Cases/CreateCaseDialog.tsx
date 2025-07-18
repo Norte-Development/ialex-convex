@@ -1,6 +1,7 @@
 import { useState } from "react";
-import { useMutation } from "convex/react";
+import { useMutation, useQuery } from "convex/react";
 import { api } from "../../../convex/_generated/api";
+import { Id } from "../../../convex/_generated/dataModel";
 import {
   Dialog,
   DialogContent,
@@ -21,12 +22,24 @@ import {
   SelectTrigger,
   SelectValue,
 } from "../ui/select";
-import { Plus } from "lucide-react";
+import { Checkbox } from "../ui/checkbox";
+import { Plus, Users, X } from "lucide-react";
+import { Badge } from "../ui/badge";
 
 export default function CreateCaseDialog() {
   const [open, setOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [selectedClients, setSelectedClients] = useState<
+    {
+      id: Id<"clients">;
+      name: string;
+      role?: string;
+    }[]
+  >([]);
+
   const createCase = useMutation(api.functions.cases.createCase);
+  const addClientToCase = useMutation(api.functions.cases.addClientToCase);
+  const clients = useQuery(api.functions.clients.getClients, {});
 
   const [formData, setFormData] = useState({
     title: "",
@@ -41,6 +54,29 @@ export default function CreateCaseDialog() {
       ...prev,
       [field]: value,
     }));
+  };
+
+  const handleClientToggle = (client: { _id: Id<"clients">; name: string }) => {
+    setSelectedClients((prev) => {
+      const isSelected = prev.some((c) => c.id === client._id);
+      if (isSelected) {
+        return prev.filter((c) => c.id !== client._id);
+      } else {
+        return [...prev, { id: client._id, name: client.name, role: "" }];
+      }
+    });
+  };
+
+  const handleClientRoleChange = (clientId: Id<"clients">, role: string) => {
+    setSelectedClients((prev) =>
+      prev.map((client) =>
+        client.id === clientId ? { ...client, role } : client,
+      ),
+    );
+  };
+
+  const removeClient = (clientId: Id<"clients">) => {
+    setSelectedClients((prev) => prev.filter((c) => c.id !== clientId));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -67,6 +103,20 @@ export default function CreateCaseDialog() {
       const caseId = await createCase(caseData);
       console.log("Case created with ID:", caseId);
 
+      // Vincular clientes al caso
+      if (selectedClients.length > 0) {
+        await Promise.all(
+          selectedClients.map((client) =>
+            addClientToCase({
+              clientId: client.id,
+              caseId: caseId,
+              role: client.role || undefined,
+            }),
+          ),
+        );
+        console.log(`Linked ${selectedClients.length} clients to case`);
+      }
+
       // Reset form
       setFormData({
         title: "",
@@ -75,6 +125,7 @@ export default function CreateCaseDialog() {
         category: "",
         estimatedHours: "",
       });
+      setSelectedClients([]);
 
       setOpen(false);
     } catch (error) {
@@ -96,6 +147,15 @@ export default function CreateCaseDialog() {
     "Derecho Tributario",
   ];
 
+  const clientRoles = [
+    "Demandante",
+    "Demandado",
+    "Testigo",
+    "Representante Legal",
+    "Tercero Interesado",
+    "Otro",
+  ];
+
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
@@ -105,11 +165,12 @@ export default function CreateCaseDialog() {
         </Button>
       </DialogTrigger>
 
-      <DialogContent className="sm:max-w-[600px]">
+      <DialogContent className="sm:max-w-[700px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Crear Nuevo Caso</DialogTitle>
           <DialogDescription>
-            Complete la información para crear un nuevo caso legal.
+            Complete la información para crear un nuevo caso legal y vincule los
+            clientes correspondientes.
           </DialogDescription>
         </DialogHeader>
 
@@ -197,6 +258,115 @@ export default function CreateCaseDialog() {
                 }
                 min="1"
               />
+            </div>
+
+            {/* Clientes */}
+            <div className="space-y-3">
+              <div className="flex items-center gap-2">
+                <Users className="h-4 w-4" />
+                <Label>Clientes Vinculados</Label>
+                <span className="text-sm text-muted-foreground">
+                  ({selectedClients.length} seleccionados)
+                </span>
+              </div>
+
+              {/* Clientes seleccionados */}
+              {selectedClients.length > 0 && (
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium">
+                    Clientes Seleccionados:
+                  </Label>
+                  <div className="space-y-2">
+                    {selectedClients.map((client) => (
+                      <div
+                        key={client.id}
+                        className="flex items-center gap-2 p-2 border rounded-md bg-muted/50"
+                      >
+                        <Badge variant="secondary" className="flex-shrink-0">
+                          {client.name}
+                        </Badge>
+                        <Select
+                          value={client.role || ""}
+                          onValueChange={(value) =>
+                            handleClientRoleChange(client.id, value)
+                          }
+                        >
+                          <SelectTrigger className="h-8 text-xs">
+                            <SelectValue placeholder="Rol" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {clientRoles.map((role) => (
+                              <SelectItem key={role} value={role}>
+                                {role}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => removeClient(client.id)}
+                          className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive"
+                        >
+                          <X className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Lista de clientes disponibles */}
+              {clients && clients.length > 0 && (
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium">
+                    Seleccionar Clientes:
+                  </Label>
+                  <div className="max-h-32 overflow-y-auto border rounded-md p-2 space-y-1">
+                    {clients.map((client) => {
+                      const isSelected = selectedClients.some(
+                        (c) => c.id === client._id,
+                      );
+                      return (
+                        <div
+                          key={client._id}
+                          className="flex items-center space-x-2 p-1 hover:bg-muted/50 rounded"
+                        >
+                          <Checkbox
+                            id={client._id}
+                            checked={isSelected}
+                            onCheckedChange={() => handleClientToggle(client)}
+                          />
+                          <Label
+                            htmlFor={client._id}
+                            className="text-sm cursor-pointer flex-1"
+                          >
+                            {client.name}
+                            {client.dni && (
+                              <span className="text-muted-foreground ml-2">
+                                DNI: {client.dni}
+                              </span>
+                            )}
+                            {client.cuit && (
+                              <span className="text-muted-foreground ml-2">
+                                CUIT: {client.cuit}
+                              </span>
+                            )}
+                          </Label>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {clients && clients.length === 0 && (
+                <p className="text-sm text-muted-foreground">
+                  No hay clientes disponibles. Cree clientes primero para
+                  vincularlos al caso.
+                </p>
+              )}
             </div>
           </div>
 

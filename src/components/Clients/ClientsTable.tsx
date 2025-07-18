@@ -18,7 +18,7 @@ export default function ClientsTable({ search }: ClientsTableProps) {
     search,
   }) as any;
 
-  if (clients.length === 0) {
+  if (!clients) {
     return <div>No se encontraron clientes</div>;
   }
 

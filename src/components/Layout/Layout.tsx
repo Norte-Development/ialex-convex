@@ -22,7 +22,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
               isSidebarOpen && isCaseSidebarOpen
                 ? "mr-80"
                 : isSidebarOpen
-                  ? "mr-36"
+                  ? "mr-38"
                   : ""
             }`}
           >
