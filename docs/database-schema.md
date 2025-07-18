@@ -436,13 +436,18 @@ Individual messages within chat sessions.
 **Fields:**
 - `sessionId`: Reference to chat session
 - `content`: Message content
-- `role`: Message sender (`user` or `assistant`)
-- `messageType`: Type of message (`text`, `document_analysis`, `template_suggestion`, `legal_advice`)
+- `role`: Message sender (`user`, `assistant`, `system`, `tool`, `extractor`, `validator`)
+- `messageType`: Type of message (`text`, `search_query`, `web_scrape`, `document_analysis`, `template_suggestion`, `legal_advice`, `extraction_result`, `validation_feedback`, `error`)
 - `metadata`: Optional JSON metadata
+- `toolName`: Optional name of the tool that generated this message
+- `toolCallId`: Optional ID for tracking tool call chains
+- `status`: Optional status for tool/async operations (`success`, `error`, `pending`)
 
 **Key Indexes:**
 - `by_session`: All messages in a session
 - `by_role`: Query by message sender
+- `by_message_type`: Query by message type
+- `by_status`: Query by message status
 
 ## Activity & Audit
 

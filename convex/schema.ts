@@ -190,17 +190,34 @@ export default defineSchema({
   chatMessages: defineTable({
     sessionId: v.id("chatSessions"),
     content: v.string(),
-    role: v.union(v.literal("user"), v.literal("assistant")),
+    role: v.union(
+      v.literal("user"),
+      v.literal("assistant"),
+      v.literal("system"),
+      v.literal("tool"),
+      v.literal("extractor"),
+      v.literal("validator")
+    ),
     messageType: v.union(
       v.literal("text"),
+      v.literal("search_query"),
+      v.literal("web_scrape"),
       v.literal("document_analysis"),
       v.literal("template_suggestion"),
-      v.literal("legal_advice")
+      v.literal("legal_advice"),
+      v.literal("extraction_result"),
+      v.literal("validation_feedback"),
+      v.literal("error")
     ),
     metadata: v.optional(v.string()),
+    toolName: v.optional(v.string()),
+    toolCallId: v.optional(v.string()),
+    status: v.optional(v.union(v.literal("success"), v.literal("error"), v.literal("pending"))),
   })
     .index("by_session", ["sessionId"])
-    .index("by_role", ["role"]),
+    .index("by_role", ["role"])
+    .index("by_message_type", ["messageType"])
+    .index("by_status", ["status"]),
 
   // Activity Log - audit trail for actions
   activityLog: defineTable({
