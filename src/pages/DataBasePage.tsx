@@ -10,9 +10,13 @@ import {
 } from "@/components/ui/select";
 import DataBaseTable from "@/components/DataBase/DataBaseTable";
 import { useLayout } from "@/context/LayoutContext";
+import { useState } from "react";
 
 export default function DataBasePage() {
   const { isInCaseContext } = useLayout();
+
+  const [category, setCategory] = useState("ley");
+
   return (
     <ConditionalLayout>
       <section
@@ -23,22 +27,20 @@ export default function DataBasePage() {
             placeholder="buscar palabra clave"
             className="bg-gray-200 p-1 w-[30%]"
           />
-          <Select>
+          <Select onValueChange={setCategory}>
             <SelectTrigger className="w-[30%] text-sm" size="sm">
               <SelectValue placeholder="Todas las categorías" />
             </SelectTrigger>
             <SelectContent>
               <SelectGroup>
-                <SelectItem value="1">
-                  Procesamiento de Lenguaje Natural
-                </SelectItem>
-                <SelectItem value="2">Análisis Predictivo</SelectItem>
-                <SelectItem value="3">Clustering</SelectItem>
+                <SelectItem value="ley">Ley</SelectItem>
+                <SelectItem value="reglamento">Reglamento</SelectItem>
+                <SelectItem value="decreto">Decreto</SelectItem>
               </SelectGroup>
             </SelectContent>
           </Select>
         </div>
-        <DataBaseTable />
+        <DataBaseTable category={category} />
       </section>
     </ConditionalLayout>
   );
