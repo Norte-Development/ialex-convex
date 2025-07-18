@@ -36,13 +36,20 @@ export default function CreateCaseDialog() {
       role?: string;
     }[]
   >([]);
+  const [searchQuery, setSearchQuery] = useState("");
 
   const createCase = useMutation(api.functions.cases.createCase);
   const addClientToCase = useMutation(api.functions.cases.addClientToCase);
   const clientsResult = useQuery(api.functions.clients.getClients, {});
 
-  // Extraer clientes de la estructura paginada
   const clients = clientsResult?.page || [];
+
+  const filteredClients = clients.filter(
+    (client) =>
+      client.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      client.dni?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      client.cuit?.toLowerCase().includes(searchQuery.toLowerCase()),
+  );
 
   const [formData, setFormData] = useState({
     title: "",
@@ -323,11 +330,17 @@ export default function CreateCaseDialog() {
               {/* Lista de clientes disponibles */}
               {clients && clients.length > 0 && (
                 <div className="space-y-2">
+                  <Input
+                    placeholder="Buscar cliente"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                  />
+
                   <Label className="text-sm font-medium">
                     Seleccionar Clientes:
                   </Label>
                   <div className="max-h-32 overflow-y-auto border rounded-md p-2 space-y-1">
-                    {clients.map((client) => {
+                    {filteredClients.map((client) => {
                       const isSelected = selectedClients.some(
                         (c) => c.id === client._id,
                       );
