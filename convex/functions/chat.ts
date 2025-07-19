@@ -366,3 +366,177 @@ export const archiveChatSession = mutation({
     });
   },
 }); 
+
+/**
+ * Creates a new AI chat session for LangGraph agents (bypasses user authentication).
+ * 
+ * @param {Object} args - The function arguments
+ * @param {string} args.serviceToken - Service token for agent authentication
+ * @param {string} [args.caseId] - Optional case ID to associate the chat session with
+ * @param {string} [args.title] - Optional custom title for the chat session
+ * @param {string} args.userId - The user ID to associate the session with
+ * @returns {Promise<string>} The created chat session's document ID
+ * @throws {Error} When service token is invalid or user not found
+ * 
+ * @description This function creates a new chat session for AI agents.
+ * It bypasses normal user authentication and uses a service token instead.
+ * The session is linked to the specified user ID.
+ * 
+ * @example
+ * ```javascript
+ * const sessionId = await createChatSessionForAgent({
+ *   serviceToken: "agent_service_token",
+ *   userId: "user_123",
+ *   caseId: "case_456",
+ *   title: "AI Analysis Session"
+ * });
+ * ```
+ */
+export const createChatSessionForAgent = mutation({
+  args: {
+    serviceToken: v.string(),
+    caseId: v.optional(v.id("cases")),
+    title: v.optional(v.string()),
+    userId: v.id("users"),
+  },
+  handler: async (ctx, args) => {
+    // Verify service token (you should implement proper token validation)
+    if (args.serviceToken !== process.env.LANGGRAPH_SERVICE_TOKEN) {
+      throw new Error("Invalid service token");
+    }
+    
+    // Verify user exists
+    const user = await ctx.db.get(args.userId);
+    if (!user) {
+      throw new Error("User not found");
+    }
+    
+    // If case is specified, verify it exists (agents can access any case)
+    if (args.caseId) {
+      const caseData = await ctx.db.get(args.caseId);
+      if (!caseData) {
+        throw new Error("Case not found");
+      }
+    }
+    
+    const sessionId = await ctx.db.insert("chatSessions", {
+      caseId: args.caseId,
+      userId: args.userId,
+      title: args.title,
+      isActive: true,
+    });
+    
+    console.log("Created chat session for agent with id:", sessionId);
+    return sessionId;
+  },
+});
+
+/**
+ * Adds a new message to an existing chat session for LangGraph agents.
+ * 
+ * @param {Object} args - The function arguments
+ * @param {string} args.serviceToken - Service token for agent authentication
+ * @param {string} args.sessionId - The ID of the chat session to add the message to
+ * @param {string} args.content - The message content/text
+ * @param {"user" | "assistant" | "system" | "tool" | "extractor" | "validator"} args.role - Who sent the message
+ * @param {"text" | "search_query" | "web_scrape" | "document_analysis" | "template_suggestion" | "legal_advice" | "extraction_result" | "validation_feedback" | "error"} args.messageType - The type of message
+ * @param {string} [args.metadata] - Optional metadata associated with the message (JSON string)
+ * @param {string} [args.toolName] - Optional name of the tool that generated this message
+ * @param {string} [args.toolCallId] - Optional ID for tracking tool call chains
+ * @param {"success" | "error" | "pending"} [args.status] - Optional status for tool/async operations
+ * @returns {Promise<string>} The created message's document ID
+ * @throws {Error} When service token is invalid or session not found
+ */
+export const addChatMessageForAgent = mutation({
+  args: {
+    serviceToken: v.string(),
+    sessionId: v.id("chatSessions"),
+    content: v.string(),
+    role: v.union(
+      v.literal("user"),
+      v.literal("assistant"),
+      v.literal("system"),
+      v.literal("tool"),
+      v.literal("extractor"),
+      v.literal("validator")
+    ),
+    messageType: v.union(
+      v.literal("text"),
+      v.literal("search_query"),
+      v.literal("web_scrape"),
+      v.literal("document_analysis"),
+      v.literal("template_suggestion"),
+      v.literal("legal_advice"),
+      v.literal("extraction_result"),
+      v.literal("validation_feedback"),
+      v.literal("error")
+    ),
+    metadata: v.optional(v.string()),
+    toolName: v.optional(v.string()),
+    toolCallId: v.optional(v.string()),
+    status: v.optional(v.union(v.literal("success"), v.literal("error"), v.literal("pending"))),
+  },
+  handler: async (ctx, args) => {
+    // Verify service token
+    if (args.serviceToken !== process.env.LANGGRAPH_SERVICE_TOKEN) {
+      throw new Error("Invalid service token");
+    }
+    
+    // Verify session exists
+    const session = await ctx.db.get(args.sessionId);
+    if (!session) {
+      throw new Error("Chat session not found");
+    }
+    
+    const messageId = await ctx.db.insert("chatMessages", {
+      sessionId: args.sessionId,
+      content: args.content,
+      role: args.role,
+      messageType: args.messageType,
+      metadata: args.metadata,
+      toolName: args.toolName,
+      toolCallId: args.toolCallId,
+      status: args.status,
+    });
+    
+    return messageId;
+  },
+});
+
+/**
+ * Updates the status of a chat message for LangGraph agents.
+ * 
+ * @param {Object} args - The function arguments
+ * @param {string} args.serviceToken - Service token for agent authentication
+ * @param {string} args.messageId - The ID of the message to update
+ * @param {"success" | "error" | "pending"} args.status - The new status
+ * @param {string} [args.content] - Optional updated content
+ * @returns {Promise<void>}
+ * @throws {Error} When service token is invalid or message not found
+ */
+export const updateChatMessageStatusForAgent = mutation({
+  args: {
+    serviceToken: v.string(),
+    messageId: v.id("chatMessages"),
+    status: v.union(v.literal("success"), v.literal("error"), v.literal("pending")),
+    content: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    // Verify service token
+    if (args.serviceToken !== process.env.LANGGRAPH_SERVICE_TOKEN) {
+      throw new Error("Invalid service token");
+    }
+    
+    // Get the message to verify it exists
+    const message = await ctx.db.get(args.messageId);
+    if (!message) {
+      throw new Error("Chat message not found");
+    }
+    
+    // Update the message
+    await ctx.db.patch(args.messageId, {
+      status: args.status,
+      ...(args.content && { content: args.content }),
+    });
+  },
+}); 

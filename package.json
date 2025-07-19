@@ -4,9 +4,10 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "npm-run-all --parallel dev:frontend dev:backend",
+    "dev": "npm-run-all --parallel dev:frontend dev:backend dev:copilotkit",
     "dev:frontend": "vite --open",
     "dev:backend": "convex dev",
+    "dev:copilotkit": "cd copilotKit && pnpm dev",
     "predev": "convex dev --until-success && convex dashboard",
     "build": "tsc -b && vite build",
     "lint": "tsc && eslint .  --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
@@ -15,6 +16,8 @@
   "dependencies": {
     "@clerk/clerk-react": "^5.25.0",
     "@clerk/react-router": "^1.8.1",
+    "@copilotkit/react-core": "^1.9.3",
+    "@copilotkit/react-ui": "^1.9.3",
     "@dmsnell/diff-match-patch": "^1.1.0",
     "@radix-ui/react-collapsible": "^1.1.11",
     "@radix-ui/react-dialog": "^1.1.14",
@@ -32,6 +35,7 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "convex": "^1.23.0",
+    "copilotkit": "^0.0.42",
     "firebase-admin": "^13.4.0",
     "jsondiffpatch": "^0.7.3",
     "lucide-react": "^0.525.0",

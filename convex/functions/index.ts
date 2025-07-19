@@ -59,6 +59,12 @@ export {
   getChatSessions,
   addChatMessage,
   getChatMessages,
+  updateChatMessageStatus,
+  archiveChatSession,
+  // Agent-specific functions
+  createChatSessionForAgent,
+  addChatMessageForAgent,
+  updateChatMessageStatusForAgent,
 } from "./chat";
 
 // Team Management

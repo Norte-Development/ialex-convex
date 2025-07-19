@@ -24,6 +24,7 @@ import type * as functions_legalDb from "../functions/legalDb.js";
 import type * as functions_teams from "../functions/teams.js";
 import type * as functions_templates from "../functions/templates.js";
 import type * as functions_users from "../functions/users.js";
+import type * as http from "../http.js";
 
 /**
  * A utility for referencing Convex functions in your app's API.
@@ -45,6 +46,7 @@ declare const fullApi: ApiFromModules<{
   "functions/teams": typeof functions_teams;
   "functions/templates": typeof functions_templates;
   "functions/users": typeof functions_users;
+  http: typeof http;
 }>;
 export declare const api: FilterApi<
   typeof fullApi,
