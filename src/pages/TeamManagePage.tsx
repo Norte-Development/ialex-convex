@@ -15,7 +15,7 @@ import { Badge } from "@/components/ui/badge";
 import {
   ArrowLeft,
   Users,
-  UserPlus,
+
   UserMinus,
   Trash2,
   Calendar,
@@ -24,13 +24,13 @@ import {
   Shield,
 } from "lucide-react";
 import { useState } from "react";
-import AddMemberDialog from "@/components/Teams/AddMemberDialog";
+import InviteUserDialog from "@/components/Teams/InviteUserDialog";
+import PendingInvitesTable from "@/components/Teams/PendingInvitesTable";
 
 export default function TeamManagePage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { isInCaseContext } = useLayout();
-  const [showAddMember, setShowAddMember] = useState(false);
 
   const team = useQuery(api.functions.teams.getTeams, {})?.find(
     (t) => t._id === id,
@@ -43,21 +43,32 @@ export default function TeamManagePage() {
     api.functions.teams.removeUserFromTeam,
   );
 
+  const [removingMember, setRemovingMember] = useState<string | null>(null);
+  const [actionMessage, setActionMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
+
+  const showMessage = (type: 'success' | 'error', text: string) => {
+    setActionMessage({ type, text });
+    setTimeout(() => setActionMessage(null), 3000);
+  };
+
   const handleRemoveMember = async (userId: string) => {
     if (!id) return;
 
     if (
       confirm("¿Estás seguro de que quieres remover este miembro del equipo?")
     ) {
+      setRemovingMember(userId);
       try {
         await removeUserFromTeam({
           teamId: id as any,
           userId: userId as any,
         });
-        alert("Miembro removido exitosamente");
+        showMessage('success', "Miembro removido exitosamente");
       } catch (error) {
         console.error("Error removing member:", error);
-        alert("Error al remover el miembro. Por favor, intenta de nuevo.");
+        showMessage('error', (error as Error).message);
+      } finally {
+        setRemovingMember(null);
       }
     }
   };
@@ -182,16 +193,23 @@ export default function TeamManagePage() {
                   Gestiona los miembros de este equipo
                 </CardDescription>
               </div>
-              <Button
-                onClick={() => setShowAddMember(true)}
-                className="flex items-center gap-2 cursor-pointer"
-              >
-                <UserPlus className="w-4 h-4" />
-                Agregar Miembro
-              </Button>
+              <InviteUserDialog teamId={id!} />
             </div>
           </CardHeader>
           <CardContent>
+            {actionMessage && (
+              <div className={`mb-4 border rounded-lg p-3 ${
+                actionMessage.type === 'success' 
+                  ? 'bg-green-50 border-green-200' 
+                  : 'bg-red-50 border-red-200'
+              }`}>
+                <p className={`text-sm ${
+                  actionMessage.type === 'success' ? 'text-green-800' : 'text-red-800'
+                }`}>
+                  {actionMessage.text}
+                </p>
+              </div>
+            )}
             {members === undefined ? (
               <div className="flex items-center justify-center p-8">
                 <div className="text-gray-500">Cargando miembros...</div>
@@ -236,9 +254,14 @@ export default function TeamManagePage() {
                         variant="outline"
                         size="sm"
                         onClick={() => handleRemoveMember(member._id as string)}
+                        disabled={removingMember === member._id}
                         className="text-red-600 hover:text-red-700 hover:bg-red-50 cursor-pointer"
                       >
-                        <UserMinus className="w-4 h-4" />
+                        {removingMember === member._id ? (
+                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-red-600"></div>
+                        ) : (
+                          <UserMinus className="w-4 h-4" />
+                        )}
                       </Button>
                     </div>
                   </div>
@@ -248,13 +271,8 @@ export default function TeamManagePage() {
           </CardContent>
         </Card>
 
-        {/* Add Member Dialog */}
-        {showAddMember && (
-          <AddMemberDialog
-            teamId={id!}
-            onClose={() => setShowAddMember(false)}
-          />
-        )}
+        {/* Pending Invitations */}
+        {id && <PendingInvitesTable teamId={id} />}
       </div>
     </ConditionalLayout>
   );

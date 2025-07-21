@@ -17,6 +17,8 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 import TeamPage from "./pages/TeamPage";
 import TeamManagePage from "./pages/TeamManagePage";
+import AcceptInvitePage from "./pages/AcceptInvitePage";
+import SignupInvitePage from "./pages/SignupInvitePage";
 import CaseClientsPage from "./pages/DetailCases/CaseClientPage";
 import { CaseProvider } from "./context/CaseContext";
 
@@ -46,6 +48,10 @@ function App() {
       <Routes>
         {/* Public sign-in route */}
         <Route path="/signin" element={<SignInPage />} />
+
+        {/* Public invitation routes */}
+        <Route path="/invites/accept" element={<AcceptInvitePage />} />
+        <Route path="/invites/signup" element={<SignupInvitePage />} />
 
         {/* Protected routes using Clerk's Protect component */}
         <Route
