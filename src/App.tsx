@@ -65,7 +65,7 @@ function App() {
         />
         {/* Rutas de casos envueltas con CaseProvider */}
         <Route
-          path="/caso/:title/*"
+          path="/caso/:id/*"
           element={
             <ProtectedRoute>
               <CaseProvider>

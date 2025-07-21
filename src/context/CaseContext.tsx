@@ -33,24 +33,24 @@ interface CaseProviderProps {
 }
 
 export const CaseProvider: React.FC<CaseProviderProps> = ({ children }) => {
-  const { title } = useParams<{ title: string }>();
+  const { id } = useParams<{ id: string }>();
 
-  // Obtener todos los casos para encontrar el que coincida con el title
   const cases = useQuery(api.functions.cases.getCases, {});
 
-  // Encontrar el caso actual basado en el title del URL
   const currentCase = useMemo(() => {
-    if (!cases || !title) return null;
+    if (!cases || !id) {
+      return null;
+    }
+    const found = cases.find((caseItem) => caseItem._id === id);
 
-    const slug = title.toLowerCase().replace(/-/g, " ");
-    return cases.find((caseItem) => caseItem.title.toLowerCase() === slug);
-  }, [cases, title]);
+    return found;
+  }, [cases, id]);
 
   const contextValue: CaseContextType = {
     currentCase,
     isLoading: cases === undefined,
     error:
-      title && cases && !currentCase ? `Caso no encontrado: ${title}` : null,
+      id && cases && !currentCase ? `Caso no encontrado con ID: ${id}` : null,
     caseId: currentCase?._id || null,
     caseTitle: currentCase?.title || null,
   };

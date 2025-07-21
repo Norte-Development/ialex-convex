@@ -14,8 +14,6 @@ export default function CaseClientsPage() {
   const [isSyncNewClientDialogOpen, setIsSyncNewClientDialogOpen] =
     useState(false);
 
-  console.log(currentCase);
-
   const clientsResult = useQuery(
     api.functions.cases.getClientsForCase,
     caseId ? { caseId } : "skip",

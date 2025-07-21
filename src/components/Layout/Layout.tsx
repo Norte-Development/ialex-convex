@@ -8,9 +8,8 @@ interface LayoutProps {
 }
 
 const Layout: React.FC<LayoutProps> = ({ children }) => {
-  const { isSidebarOpen, isCaseSidebarOpen } = useLayout();
+  const { isSidebarOpen } = useLayout();
 
-  console.log(isSidebarOpen, isCaseSidebarOpen);
   return (
     <div className="flex min-h-screen bg-background">
       <div className="flex-1 flex flex-col overflow-hidden">

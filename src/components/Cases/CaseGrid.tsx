@@ -8,8 +8,6 @@ export default function CaseGrid() {
     | Case[]
     | undefined;
 
-  console.log(cases);
-
   const isLoading = cases === undefined;
 
   if (isLoading) {

@@ -111,7 +111,6 @@ export default function CreateCaseDialog() {
       };
 
       const caseId = await createCase(caseData);
-      console.log("Case created with ID:", caseId);
 
       // Vincular clientes al caso
       if (selectedClients.length > 0) {

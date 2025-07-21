@@ -6,13 +6,18 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { useQuery } from "convex/react";
+import { api } from "../../../convex/_generated/api";
 
 interface HomeClientTableProps {
   search: string;
 }
 
 const HomeClientTable = ({ search }: HomeClientTableProps) => {
-  console.log("search dentro de ClientTable", search);
+  const clientsResult = useQuery(api.functions.clients.getClients, { search });
+
+  const clients = clientsResult?.page || [];
+
   return (
     <Table>
       <TableHeader className="bg-[#f7f7f7]">
@@ -23,11 +28,13 @@ const HomeClientTable = ({ search }: HomeClientTableProps) => {
         </TableRow>
       </TableHeader>
       <TableBody className="bg-[#f7f7f7]">
-        <TableRow>
-          <TableCell>John Doe Smith</TableCell>
-          <TableCell>123456789</TableCell>
-          <TableCell className="cursor-pointer">Caso Droga</TableCell>
-        </TableRow>
+        {clients?.map((client) => (
+          <TableRow key={client._id}>
+            <TableCell>{client.name}</TableCell>
+            <TableCell>{client.dni}</TableCell>
+            <TableCell className="cursor-pointer">Caso Droga</TableCell>
+          </TableRow>
+        ))}
       </TableBody>
     </Table>
   );

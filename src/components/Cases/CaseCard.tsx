@@ -11,7 +11,6 @@ interface CaseCardProps {
 
 export default function CaseCard({ caseId, title, status }: CaseCardProps) {
   const clients = useQuery(api.functions.cases.getClientsForCase, { caseId });
-  const slug = title.toLowerCase().replace(/ /g, "-");
 
   return (
     <div className="w-full max-w-[350px] h-48 bg-[#f7f7f7] border border-gray-200 flex flex-col justify-start shadow-md rounded-lg p-4">
@@ -53,7 +52,7 @@ export default function CaseCard({ caseId, title, status }: CaseCardProps) {
       </div>
       <div className="h-[10%] flex justify-start items-center">
         <Link
-          to={`/caso/${slug}`}
+          to={`/caso/${caseId}`}
           className="cursor-pointer text-blue-600 hover:text-blue-800"
         >
           Ir a caso →

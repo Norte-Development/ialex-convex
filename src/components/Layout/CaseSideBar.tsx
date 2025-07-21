@@ -36,14 +36,13 @@ export default function CaseSidebar() {
     setIsInCaseContext,
   } = useLayout();
   const location = useLocation();
-  const { title } = useParams();
+  const { id } = useParams();
 
   const isAgreements = location.pathname.includes("acuerdos");
   const isNameOfDocument = location.pathname.includes("nombre-del-documento");
 
-  const basePath = `/caso/${title}`;
+  const basePath = `/caso/${id}`;
 
-  // Función para manejar navegación desde CaseSideBar
   const handleNavigationFromCase = () => {
     setIsInCaseContext(true);
   };
