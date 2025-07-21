@@ -26,19 +26,17 @@ import {
 import { useState } from "react";
 import InviteUserDialog from "@/components/Teams/InviteUserDialog";
 import PendingInvitesTable from "@/components/Teams/PendingInvitesTable";
+import { TeamInvite } from "../../types/teams";
 
 export default function TeamManagePage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { isInCaseContext } = useLayout();
 
-  const team = useQuery(api.functions.teams.getTeams, {})?.find(
-    (t) => t._id === id,
-  );
-  const members = useQuery(
-    api.functions.teams.getTeamMembers,
-    id ? { teamId: id as any } : "skip",
-  );
+  const team = useQuery(api.functions.teams.getTeamById, { teamId: id as any });
+  const members = team?.members;
+  const pendingInvites = team?.pendingInvites;
+  
   const removeUserFromTeam = useMutation(
     api.functions.teams.removeUserFromTeam,
   );
@@ -228,7 +226,7 @@ export default function TeamManagePage() {
               <div className="grid gap-4">
                 {members.map((member) => (
                   <div
-                    key={member._id}
+                    key={member?._id}
                     className="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50"
                   >
                     <div className="flex items-center gap-4">
@@ -236,10 +234,10 @@ export default function TeamManagePage() {
                         <User className="w-5 h-5 text-blue-600" />
                       </div>
                       <div>
-                        <h4 className="font-medium">{member.name}</h4>
+                        <h4 className="font-medium">{member?.name}</h4>
                         <div className="flex items-center gap-2 text-sm text-gray-500">
                           <Mail className="w-3 h-3" />
-                          {member.email}
+                          {member?.email}
                         </div>
                       </div>
                     </div>
@@ -247,17 +245,17 @@ export default function TeamManagePage() {
                       <div className="flex items-center gap-2">
                         <Shield className="w-4 h-4 text-gray-500" />
                         <Badge variant="outline" className="capitalize">
-                          {member.teamRole}
+                          {member?.teamRole}
                         </Badge>
                       </div>
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => handleRemoveMember(member._id as string)}
-                        disabled={removingMember === member._id}
+                        onClick={() => handleRemoveMember(member?._id as string)}
+                        disabled={removingMember === member?._id}
                         className="text-red-600 hover:text-red-700 hover:bg-red-50 cursor-pointer"
                       >
-                        {removingMember === member._id ? (
+                        {removingMember === member?._id ? (
                           <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-red-600"></div>
                         ) : (
                           <UserMinus className="w-4 h-4" />
@@ -272,7 +270,7 @@ export default function TeamManagePage() {
         </Card>
 
         {/* Pending Invitations */}
-        {id && <PendingInvitesTable teamId={id} />}
+        {id && <PendingInvitesTable pendingInvites={pendingInvites as TeamInvite[]} />}
       </div>
     </ConditionalLayout>
   );

@@ -129,6 +129,109 @@ export const getTeams = query({
   },
 });
 
+
+
+/**
+ * Retrieves a team by its ID, including all active members and pending invitations.
+ *
+ * @param {Object} args - The function arguments
+ * @param {string} args.teamId - The ID of the team to retrieve
+ * @returns {Promise<Object>} The team object with members and pending invites
+ *
+ * @description
+ * This function returns the full team object for the given teamId, including:
+ * - All active members (with user info, team role, and join date)
+ * - All pending invitations (with invite info)
+ *
+ * The returned object has the following structure:
+ * {
+ *   ...team, // All team fields
+ *   members: [
+ *     {
+ *       ...user,        // All user fields
+ *       teamRole,       // Role in the team ("admin", "abogado", "secretario")
+ *       joinedAt        // Timestamp when the user joined the team
+ *     },
+ *     ...
+ *   ],
+ *   pendingInvites: [
+ *     {
+ *       _id,            // Invite document ID
+ *       email,          // Email address invited
+ *       role,           // Role to be assigned
+ *       invitedBy,      // User ID of inviter
+ *       status,         // Should be "pending"
+ *       expiresAt,      // Expiry timestamp
+ *       ...             // Other invite fields
+ *     },
+ *     ...
+ *   ]
+ * }
+ *
+ * @throws {Error} If the team is not found
+ *
+ * @example
+ * ```javascript
+ * const team = await getTeamById({ teamId: "team_123" });
+ * console.log(team.members); // Array of user objects with teamRole
+ * console.log(team.pendingInvites); // Array of pending invite objects
+ * ```
+ */
+export const getTeamById = query({
+  args: {
+    teamId: v.id("teams"),
+  },
+  handler: async (ctx, args) => {
+    const team = await ctx.db.get(args.teamId);
+    if (!team) {
+      throw new Error("Team not found");
+    }
+
+    // Get all active memberships for this team
+    const memberships = await ctx.db
+      .query("teamMemberships")
+      .withIndex("by_team", (q) => q.eq("teamId", args.teamId))
+      .filter((q) => q.eq(q.field("isActive"), true))
+      .collect();
+
+    // Fetch user info for each member
+    const members = await Promise.all(
+      memberships.map(async (membership) => {
+        const user = await ctx.db.get(membership.userId);
+        return user
+          ? {
+              ...user,
+              teamRole: membership.role,
+              joinedAt: membership.joinedAt,
+            }
+          : null;
+      })
+    );
+
+    // Filter out any nulls (in case a user was deleted)
+    const filteredMembers = members.filter(Boolean);
+
+    // Get all pending invites for this team
+    const pendingInvites = await ctx.db
+      .query("teamInvites")
+      .withIndex("by_team", (q) => q.eq("teamId", args.teamId))
+      .filter((q) => q.eq(q.field("status"), "pending"))
+      .collect();
+
+    return {
+      ...team,
+      members: filteredMembers,
+      pendingInvites: pendingInvites.map((invite) => ({
+        _id: invite._id,
+        email: invite.email,
+        role: invite.role,
+        status: invite.status,
+        expiresAt: invite.expiresAt,
+      })),
+    };
+  },
+});
+
 // ========================================
 // TEAM MEMBERSHIP MANAGEMENT
 // ========================================
