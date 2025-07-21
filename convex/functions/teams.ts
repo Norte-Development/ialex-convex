@@ -232,6 +232,64 @@ export const getTeamById = query({
   },
 });
 
+/**
+ * Deletes a team and all related data (memberships, invites, and case access).
+ *
+ * @param {Object} args - The function arguments
+ * @param {string} args.teamId - The ID of the team to delete
+ * @returns {Promise<void>}
+ *
+ * @description
+ * This mutation permanently deletes a team and all associated records:
+ * - All team memberships (`teamMemberships`)
+ * - All pending and past team invites (`teamInvites`)
+ * - All team case access records (`teamCaseAccess`)
+ * - The team itself (`teams`)
+ *
+ * This operation is irreversible and should only be performed by an authorized admin.
+ *
+ * @example
+ * ```javascript
+ * await deleteTeam({ teamId: "team_123" });
+ * ```
+ */
+export const deleteTeam = mutation({
+  args: {
+    teamId: v.id("teams"),
+  },
+  handler: async (ctx, args) => {
+    // Delete all memberships for this team
+    const memberships = await ctx.db
+      .query("teamMemberships")
+      .withIndex("by_team", (q) => q.eq("teamId", args.teamId))
+      .collect();
+    for (const membership of memberships) {
+      await ctx.db.delete(membership._id);
+    }
+
+    // Delete all invites for this team
+    const invites = await ctx.db
+      .query("teamInvites")
+      .withIndex("by_team", (q) => q.eq("teamId", args.teamId))
+      .collect();
+    for (const invite of invites) {
+      await ctx.db.delete(invite._id);
+    }
+
+    // Delete all team case access records for this team
+    const accesses = await ctx.db
+      .query("teamCaseAccess")
+      .withIndex("by_team", (q) => q.eq("teamId", args.teamId))
+      .collect();
+    for (const access of accesses) {
+      await ctx.db.delete(access._id);
+    }
+
+    // Finally, delete the team itself
+    await ctx.db.delete(args.teamId);
+  },
+});
+
 // ========================================
 // TEAM MEMBERSHIP MANAGEMENT
 // ========================================
