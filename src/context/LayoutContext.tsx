@@ -38,7 +38,7 @@ interface LayoutProviderProps {
 
 export const LayoutProvider: React.FC<LayoutProviderProps> = ({ children }) => {
   const [isSidebarOpen, setSidebarOpen] = useState(true);
-  const [isCaseSidebarOpen, setCaseSidebarOpen] = useState(false);
+  const [isCaseSidebarOpen, setCaseSidebarOpen] = useState(true);
   const [isEscritosOpen, setEscritosOpen] = useState(false);
   const [isDocumentosOpen, setDocumentosOpen] = useState(false);
   const [isHistorialOpen, setHistorialOpen] = useState(false);

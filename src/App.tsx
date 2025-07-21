@@ -16,6 +16,7 @@ import { SignInPage } from "./components/Auth/SignInPage";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 import TeamPage from "./pages/TeamPage";
+import TeamManagePage from "./pages/TeamManagePage";
 import CaseClientsPage from "./pages/DetailCases/CaseClientPage";
 import { CaseProvider } from "./context/CaseContext";
 
@@ -77,6 +78,8 @@ function App() {
                     element={<NameOfDocumentPage />}
                   />
                   <Route path="clientes" element={<CaseClientsPage />} />
+                  <Route path="modelos" element={<ModelsPage />} />
+                  <Route path="base-de-datos" element={<DataBasePage />} />
                 </Routes>
               </CaseProvider>
             </ProtectedRoute>
@@ -111,6 +114,14 @@ function App() {
           element={
             <ProtectedRoute>
               <TeamPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/equipos/:id"
+          element={
+            <ProtectedRoute>
+              <TeamManagePage />
             </ProtectedRoute>
           }
         />

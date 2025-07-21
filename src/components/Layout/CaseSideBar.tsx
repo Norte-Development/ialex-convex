@@ -68,7 +68,10 @@ export default function CaseSidebar() {
         </button>
       )}
       <div className={`flex gap-4 justify-center items-center h-[10%] `}>
-        <Link to="/base-de-datos" onClick={handleNavigationFromCase}>
+        <Link
+          to={`${basePath}/base-de-datos`}
+          onClick={handleNavigationFromCase}
+        >
           <FileSearch2
             className="cursor-pointer"
             size={20}
@@ -83,11 +86,11 @@ export default function CaseSidebar() {
             color={location.pathname.includes("/clientes") ? "blue" : "black"}
           />
         </Link>
-        <Link to="/modelos" onClick={handleNavigationFromCase}>
+        <Link to={`${basePath}/modelos`} onClick={handleNavigationFromCase}>
           <BookCheck
             className="cursor-pointer"
             size={20}
-            color={location.pathname === "/modelos" ? "blue" : "black"}
+            color={location.pathname.includes("/modelos") ? "blue" : "black"}
           />
         </Link>
         <UsersRound className="cursor-pointer" size={20} />
