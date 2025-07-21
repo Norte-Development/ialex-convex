@@ -279,4 +279,29 @@ export default defineSchema({
     .index("by_granted_by", ["grantedBy"])
     .index("by_active_status", ["isActive"]),
 
+  // Team Invitations - manages team invitations via email
+  teamInvites: defineTable({
+    teamId: v.id("teams"),
+    email: v.string(),
+    invitedBy: v.id("users"),
+    token: v.string(), // Unique invitation token
+    role: v.union(v.literal("secretario"), v.literal("abogado"), v.literal("admin")),
+    status: v.union(
+      v.literal("pending"), 
+      v.literal("accepted"), 
+      v.literal("expired"), 
+      v.literal("cancelled")
+    ),
+    expiresAt: v.number(), // Timestamp when invitation expires
+    acceptedAt: v.optional(v.number()),
+    acceptedBy: v.optional(v.id("users")),
+  })
+    .index("by_team", ["teamId"])
+    .index("by_email", ["email"])
+    .index("by_token", ["token"])
+    .index("by_status", ["status"])
+    .index("by_invited_by", ["invitedBy"])
+    .index("by_team_and_email", ["teamId", "email"])
+    .index("by_expires_at", ["expiresAt"]),
+
 });
