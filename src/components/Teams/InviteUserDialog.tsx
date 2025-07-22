@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useMutation } from "convex/react";
+import { useMutation, useQuery } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -34,39 +34,39 @@ export default function InviteUserDialog({
   const [open, setOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [email, setEmail] = useState("");
-  const [role, setRole] = useState<"secretario" | "abogado" | "admin">("secretario");
+  const [role, setRole] = useState<"secretario" | "abogado" | "admin">(
+    "secretario",
+  );
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
 
-  const sendTeamInvite = useMutation(api.functions.teams.sendTeamInvite);
+  const addUserToTeam = useMutation(api.functions.teams.addUserToTeam);
+
+  const foundUser = useQuery(api.functions.users.getUserByEmail, {
+    email: email,
+  });
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
 
-    if (!email.trim()) {
-      setError("Por favor ingresa un email");
-      return;
-    }
-
-    // Basic email validation
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) {
-      setError("Por favor ingresa un email válido");
+    if (!foundUser) {
+      setError(
+        "No se ha encontrado un usuario con ese email. Verifíquelo antes de invitar.",
+      );
       return;
     }
 
     setIsLoading(true);
     try {
-      await sendTeamInvite({
+      await addUserToTeam({
         teamId: teamId as any,
-        email: email.trim(),
+        userId: foundUser._id,
         role: role,
       });
 
       setSuccess(true);
-      
-      // Auto-close after success
+
       setTimeout(() => {
         setEmail("");
         setRole("secretario");
@@ -76,7 +76,9 @@ export default function InviteUserDialog({
       }, 2000);
     } catch (error) {
       console.error("Error sending invitation:", error);
-      setError((error as Error).message);
+      const errorMessage =
+        (error as any)?.data?.message || (error as Error).message;
+      setError(errorMessage);
     } finally {
       setIsLoading(false);
     }
@@ -107,20 +109,22 @@ export default function InviteUserDialog({
               Envía una invitación por email para que se una al equipo.
             </DialogDescription>
           </DialogHeader>
-          
+
           <div className="grid gap-4 py-4">
             {error && (
               <div className="bg-red-50 border border-red-200 rounded-lg p-3">
                 <p className="text-sm text-red-800">{error}</p>
               </div>
             )}
-            
+
             {success && (
               <div className="bg-green-50 border border-green-200 rounded-lg p-3">
-                <p className="text-sm text-green-800">¡Invitación enviada exitosamente!</p>
+                <p className="text-sm text-green-800">
+                  ¡Invitación enviada exitosamente!
+                </p>
               </div>
             )}
-            
+
             <div className="grid gap-2">
               <Label htmlFor="email">Email *</Label>
               <Input
@@ -132,12 +136,22 @@ export default function InviteUserDialog({
                 required
                 disabled={isLoading || success}
               />
+              {email.length > 3 && foundUser === null && (
+                <p className="text-xs text-yellow-600">
+                  No se encontró un usuario con este email.
+                </p>
+              )}
+              {foundUser && (
+                <div className="text-xs text-green-600 bg-green-50 p-2 rounded-md">
+                  Usuario encontrado: <strong>{foundUser.name}</strong>
+                </div>
+              )}
             </div>
-            
+
             <div className="grid gap-2">
               <Label htmlFor="role">Rol en el equipo *</Label>
-              <Select 
-                value={role} 
+              <Select
+                value={role}
                 onValueChange={(value: any) => setRole(value)}
                 disabled={isLoading || success}
               >
@@ -163,7 +177,7 @@ export default function InviteUserDialog({
               Cancelar
             </Button>
             {!success && (
-              <Button type="submit" disabled={isLoading}>
+              <Button type="submit" disabled={isLoading || !foundUser}>
                 {isLoading ? "Enviando..." : "Enviar Invitación"}
               </Button>
             )}
@@ -172,4 +186,4 @@ export default function InviteUserDialog({
       </DialogContent>
     </Dialog>
   );
-} 
+}
