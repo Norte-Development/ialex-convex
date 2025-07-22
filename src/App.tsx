@@ -50,9 +50,6 @@ const AppWithThread = () => {
       runtimeUrl="http://localhost:4000/copilotkit"
       agent="memory_agent"
       threadId={thread.threadId} 
-      properties={{
-        user_id: thread.userId,
-      }}
     >
       {/* Show authentication loading skeleton while Convex auth is initializing */}
       <AuthLoading>

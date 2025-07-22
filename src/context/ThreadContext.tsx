@@ -15,17 +15,13 @@ interface ThreadProviderProps {
 }
 
 export const ThreadProvider: React.FC<ThreadProviderProps> = ({ children }) => {
-  const { userId } = useAuth();
-  if (!userId) {
-    throw new Error("User not authenticated");
-  }
   // Generate a random UUID as the default thread ID
   const generateRandomUUID = () => crypto.randomUUID();
   
   const [thread, setThread] = useState<Thread>({
     _id: "",
     threadId: generateRandomUUID(),
-    userId: userId,
+    userId: "",
     isActive: true,
   });
 
@@ -34,7 +30,7 @@ export const ThreadProvider: React.FC<ThreadProviderProps> = ({ children }) => {
     setThread({
       _id: "",
       threadId: newId,
-      userId: userId,
+      userId: "",
       isActive: true,
     });
     return newId;
