@@ -34,7 +34,7 @@
     "@tiptap/starter-kit": "^3.0.3",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
-    "convex": "^1.23.0",
+    "convex": "^1.25.4",
     "copilotkit": "^0.0.42",
     "firebase-admin": "^13.4.0",
     "jsondiffpatch": "^0.7.3",

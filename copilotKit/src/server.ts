@@ -43,7 +43,7 @@ const serviceAdapter = new EmptyAdapter();
 app.use('/copilotkit', (req, res, next) => {
   (async () => {
     const runtime = new CopilotRuntime({
-      remoteEndpoints: [{url: 'http://localhost:8000/chat', agents: [{name: 'memory_agent', description: 'Sos un asistente IA que recuerda tus conversaciones'}]}]
+      remoteEndpoints: [{url: 'https://api.ialex.com.ar/agent/chat', agents: [{name: 'memory_agent', description: 'Sos un asistente IA que recuerda tus conversaciones'}]}]
     });
     const handler = copilotRuntimeNodeHttpEndpoint({
       endpoint: '/copilotkit',

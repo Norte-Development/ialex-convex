@@ -15,6 +15,10 @@ import { OnboardingWrapper } from "./components/Auth/OnboardingWrapper";
 import { SignInPage } from "./components/Auth/SignInPage";
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
+import { CopilotKit } from "@copilotkit/react-core";
+import { ThreadProvider, useThread } from "./context/ThreadContext";
+
+import "@copilotkit/react-ui/styles.css";
 
 // Helper component to reduce repetition
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -31,9 +35,16 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) =
 
 const queryClient = new QueryClient();
 
-function App() {
+// Component that uses the thread context
+const AppWithThread = () => {
+  const { threadId } = useThread();
+  
   return (
-    <QueryClientProvider client={queryClient}>
+    <CopilotKit
+      runtimeUrl="http://localhost:4000/copilotkit"
+      agent="memory_agent"
+      threadId={threadId} 
+    >
       {/* Show authentication loading skeleton while Convex auth is initializing */}
       <AuthLoading>
         <AppSkeleton />
@@ -57,7 +68,17 @@ function App() {
         <Route path="/modelos" element={<ProtectedRoute><ModelsPage /></ProtectedRoute>} />
         <Route path="/base-de-datos" element={<ProtectedRoute><DataBasePage /></ProtectedRoute>} />
       </Routes>
-      <ReactQueryDevtools initialIsOpen={false} />
+    </CopilotKit>
+  );
+};
+
+function App() {
+  return (
+    <QueryClientProvider client={queryClient}>
+      <ThreadProvider>
+        <AppWithThread />
+        <ReactQueryDevtools initialIsOpen={false} />
+      </ThreadProvider>
     </QueryClientProvider>
   );
 }

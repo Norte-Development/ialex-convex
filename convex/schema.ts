@@ -175,16 +175,20 @@ export default defineSchema({
     .index("by_public_status", ["isPublic"])
     .index("by_active_status", ["isActive"]),
 
-  // Chat Sessions - simplified to only associate with cases
+  // Chat Sessions/Agent Threads - metadata for conversations (actual data stored in Redis)
   chatSessions: defineTable({
+    threadId: v.optional(v.string()), // UUID for Redis storage key (optional for backward compatibility)
     caseId: v.optional(v.id("cases")), // Optional - can be case-specific or general
     userId: v.id("users"),
     title: v.optional(v.string()),
+    agentType: v.optional(v.string()), // e.g., "memory_agent", "legal_assistant"
     isActive: v.boolean(),
   })
+    .index("by_thread_id", ["threadId"])
     .index("by_case", ["caseId"])
     .index("by_user", ["userId"])
-    .index("by_active_status", ["isActive"]),
+    .index("by_active_status", ["isActive"])
+    .index("by_agent_type", ["agentType"]),
 
   // Chat Messages - individual messages in chat sessions
   chatMessages: defineTable({

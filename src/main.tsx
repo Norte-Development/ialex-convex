@@ -9,10 +9,6 @@ import App from "./App.tsx";
 import { AuthProvider } from "./context/AuthContext";
 import { LayoutProvider } from "./context/LayoutContext";
 import { ErrorBoundary } from "./ErrorBoundary.tsx";
-import { CopilotKit } from "@copilotkit/react-core";
-
-
-import "@copilotkit/react-ui/styles.css";
 
 const convex = new ConvexReactClient(import.meta.env.VITE_CONVEX_URL as string);
 
@@ -25,15 +21,9 @@ createRoot(document.getElementById("root")!).render(
         <ConvexProviderWithClerk client={convex} useAuth={useAuth}>
           <AuthProvider>
             <BrowserRouter>
-              <CopilotKit
-              runtimeUrl="http://localhost:4000/copilotkit"
-              agent="memory_agent"
-              threadId={"32cea126-3107-41d1-bc06-2609d9e3c86b"}
-              >
               <LayoutProvider>
                 <App />
               </LayoutProvider>
-              </CopilotKit>
             </BrowserRouter>
           </AuthProvider>
         </ConvexProviderWithClerk>
