@@ -1,8 +1,10 @@
 import React, { createContext, useContext, ReactNode, useState } from "react";
+import { useAuth } from "@clerk/clerk-react";
+import { Thread } from "../../types/thread";
 
 interface ThreadContextType {
-  threadId: string;
-  setThreadId: (id: string) => void;
+  thread: Thread;
+  setThread: (thread: Thread) => void;
   generateNewThreadId: () => string;
 }
 
@@ -13,20 +15,34 @@ interface ThreadProviderProps {
 }
 
 export const ThreadProvider: React.FC<ThreadProviderProps> = ({ children }) => {
+  const { userId } = useAuth();
+  if (!userId) {
+    throw new Error("User not authenticated");
+  }
   // Generate a random UUID as the default thread ID
   const generateRandomUUID = () => crypto.randomUUID();
   
-  const [threadId, setThreadId] = useState<string>(generateRandomUUID());
+  const [thread, setThread] = useState<Thread>({
+    _id: "",
+    threadId: generateRandomUUID(),
+    userId: userId,
+    isActive: true,
+  });
 
   const generateNewThreadId = () => {
     const newId = generateRandomUUID();
-    setThreadId(newId);
+    setThread({
+      _id: "",
+      threadId: newId,
+      userId: userId,
+      isActive: true,
+    });
     return newId;
   };
 
   const value = {
-    threadId,
-    setThreadId,
+    thread,
+    setThread,
     generateNewThreadId,
   };
 

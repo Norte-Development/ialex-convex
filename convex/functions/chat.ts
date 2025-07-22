@@ -64,7 +64,6 @@ export const createThreadMetadata = mutation({
       isActive: true,
     });
     
-    console.log("Created thread metadata with id:", threadDocId, "for threadId:", args.threadId);
     return threadDocId;
   },
 });

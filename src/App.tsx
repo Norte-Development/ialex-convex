@@ -37,13 +37,16 @@ const queryClient = new QueryClient();
 
 // Component that uses the thread context
 const AppWithThread = () => {
-  const { threadId } = useThread();
+  const { thread } = useThread();
   
   return (
     <CopilotKit
       runtimeUrl="http://localhost:4000/copilotkit"
       agent="memory_agent"
-      threadId={threadId} 
+      threadId={thread.threadId} 
+      properties={{
+        user_id: thread.userId,
+      }}
     >
       {/* Show authentication loading skeleton while Convex auth is initializing */}
       <AuthLoading>
