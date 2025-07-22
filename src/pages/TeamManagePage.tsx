@@ -15,7 +15,6 @@ import { Badge } from "@/components/ui/badge";
 import {
   ArrowLeft,
   Users,
-
   UserMinus,
   Trash2,
   Calendar,
@@ -26,6 +25,7 @@ import {
 import { useState } from "react";
 import InviteUserDialog from "@/components/Teams/InviteUserDialog";
 import PendingInvitesTable from "@/components/Teams/PendingInvitesTable";
+import TeamCasesView from "@/components/Cases/TeamCasesView";
 import { TeamInvite } from "../../types/teams";
 
 export default function TeamManagePage() {
@@ -36,15 +36,20 @@ export default function TeamManagePage() {
   const team = useQuery(api.functions.teams.getTeamById, { teamId: id as any });
   const members = team?.members;
   const pendingInvites = team?.pendingInvites;
-  
+
   const removeUserFromTeam = useMutation(
     api.functions.teams.removeUserFromTeam,
   );
 
-  const [removingMember, setRemovingMember] = useState<string | null>(null);
-  const [actionMessage, setActionMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
+  const deleteTeam = useMutation(api.functions.teams.deleteTeam);
 
-  const showMessage = (type: 'success' | 'error', text: string) => {
+  const [removingMember, setRemovingMember] = useState<string | null>(null);
+  const [actionMessage, setActionMessage] = useState<{
+    type: "success" | "error";
+    text: string;
+  } | null>(null);
+
+  const showMessage = (type: "success" | "error", text: string) => {
     setActionMessage({ type, text });
     setTimeout(() => setActionMessage(null), 3000);
   };
@@ -61,10 +66,10 @@ export default function TeamManagePage() {
           teamId: id as any,
           userId: userId as any,
         });
-        showMessage('success', "Miembro removido exitosamente");
+        showMessage("success", "Miembro removido exitosamente");
       } catch (error) {
         console.error("Error removing member:", error);
-        showMessage('error', (error as Error).message);
+        showMessage("error", (error as Error).message);
       } finally {
         setRemovingMember(null);
       }
@@ -79,8 +84,9 @@ export default function TeamManagePage() {
         `¿Estás seguro de que quieres eliminar el equipo "${team.name}"? Esta acción no se puede deshacer.`,
       )
     ) {
-      // TODO: Implementar función de eliminar equipo
-      alert("Funcionalidad de eliminar equipo pendiente de implementar");
+      await deleteTeam({ teamId: id as any });
+      showMessage("success", "Equipo eliminado exitosamente");
+      navigate("/equipo");
     }
   };
 
@@ -101,7 +107,7 @@ export default function TeamManagePage() {
   return (
     <ConditionalLayout>
       <div
-        className={`flex flex-col gap-6 w-full min-h-screen px-10 bg-[#f7f7f7] ${isInCaseContext ? "pt-5" : "pt-20"}`}
+        className={`flex flex-col gap-6 w-full min-h-screen px-10 bg-[#f7f7f7] pb-10 ${isInCaseContext ? "pt-5" : "pt-20"}`}
       >
         {/* Header */}
         <div className="flex items-center justify-between ">
@@ -196,14 +202,20 @@ export default function TeamManagePage() {
           </CardHeader>
           <CardContent>
             {actionMessage && (
-              <div className={`mb-4 border rounded-lg p-3 ${
-                actionMessage.type === 'success' 
-                  ? 'bg-green-50 border-green-200' 
-                  : 'bg-red-50 border-red-200'
-              }`}>
-                <p className={`text-sm ${
-                  actionMessage.type === 'success' ? 'text-green-800' : 'text-red-800'
-                }`}>
+              <div
+                className={`mb-4 border rounded-lg p-3 ${
+                  actionMessage.type === "success"
+                    ? "bg-green-50 border-green-200"
+                    : "bg-red-50 border-red-200"
+                }`}
+              >
+                <p
+                  className={`text-sm ${
+                    actionMessage.type === "success"
+                      ? "text-green-800"
+                      : "text-red-800"
+                  }`}
+                >
                   {actionMessage.text}
                 </p>
               </div>
@@ -251,7 +263,9 @@ export default function TeamManagePage() {
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => handleRemoveMember(member?._id as string)}
+                        onClick={() =>
+                          handleRemoveMember(member?._id as string)
+                        }
                         disabled={removingMember === member?._id}
                         className="text-red-600 hover:text-red-700 hover:bg-red-50 cursor-pointer"
                       >
@@ -270,7 +284,26 @@ export default function TeamManagePage() {
         </Card>
 
         {/* Pending Invitations */}
-        {id && <PendingInvitesTable pendingInvites={pendingInvites as TeamInvite[]} />}
+        {id && (
+          <PendingInvitesTable
+            pendingInvites={pendingInvites as TeamInvite[]}
+          />
+        )}
+
+        {/* Team Cases Section */}
+        {id && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Casos del Equipo</CardTitle>
+              <CardDescription>
+                Casos a los que este equipo tiene acceso
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <TeamCasesView teamId={id as any} />
+            </CardContent>
+          </Card>
+        )}
       </div>
     </ConditionalLayout>
   );

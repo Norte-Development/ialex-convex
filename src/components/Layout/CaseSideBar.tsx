@@ -93,7 +93,13 @@ export default function CaseSidebar() {
             color={location.pathname.includes("/modelos") ? "blue" : "black"}
           />
         </Link>
-        <UsersRound className="cursor-pointer" size={20} />
+        <Link to={`${basePath}/equipos`} onClick={handleNavigationFromCase}>
+          <UsersRound
+            className="cursor-pointer"
+            size={20}
+            color={location.pathname.includes("/equipos") ? "blue" : "black"}
+          />
+        </Link>
       </div>
       <div className="h-[70%] w-full flex flex-col justify-start items-center overflow-y-auto pl-5">
         <div className="w-full flex flex-col gap-2 h-[50%] overflow-y-auto">

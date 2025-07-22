@@ -3,20 +3,7 @@ import { useParams } from "react-router-dom";
 import { useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { Id } from "../../convex/_generated/dataModel";
-
-interface Case {
-  _id: Id<"cases">;
-  title: string;
-  description?: string;
-  status: string;
-  priority: string;
-  category?: string;
-  assignedLawyer: Id<"users">;
-  createdBy: Id<"users">;
-  startDate: number;
-  estimatedHours?: number;
-  isArchived: boolean;
-}
+import { Case } from "types/cases";
 
 interface CaseContextType {
   currentCase: Case | null | undefined;
