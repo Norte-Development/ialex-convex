@@ -9,6 +9,7 @@ import App from "./App.tsx";
 import { AuthProvider } from "./context/AuthContext";
 import { LayoutProvider } from "./context/LayoutContext";
 import { ErrorBoundary } from "./ErrorBoundary.tsx";
+import { Toaster } from "./components/ui/sonner.tsx";
 
 const convex = new ConvexReactClient(import.meta.env.VITE_CONVEX_URL as string);
 
@@ -23,6 +24,7 @@ createRoot(document.getElementById("root")!).render(
             <BrowserRouter>
               <LayoutProvider>
                 <App />
+                <Toaster />
               </LayoutProvider>
             </BrowserRouter>
           </AuthProvider>

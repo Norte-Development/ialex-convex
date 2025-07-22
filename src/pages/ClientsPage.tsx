@@ -1,23 +1,38 @@
-import CaseDetailLayout from "@/components/Layout/CaseDetailLayout";
+import ConditionalLayout from "@/components/Layout/ConditionalLayout";
 import { Input } from "@/components/ui/input";
 import { useState } from "react";
 import ClientsTable from "@/components/Clients/ClientsTable";
+import { useLayout } from "@/context/LayoutContext";
+import CreateClientDialog from "@/components/Clients/CreateClientDialog";
+import { useQuery } from "convex/react";
+import { api } from "../../convex/_generated/api";
+
 export default function ClientsPage() {
   const [search, setSearch] = useState("");
+  const { isInCaseContext } = useLayout();
+
+  const clientsResult = useQuery(api.functions.clients.getClients, {
+    search,
+  });
+
   return (
-    <CaseDetailLayout>
-      <div className="flex flex-col gap-4 w-full h-full pl-10 pt-2">
-        <div className="max-w-xl flex flex-col justify-start items-center">
+    <ConditionalLayout>
+      <div
+        className={`flex flex-col gap-4 w-full h-full  px-10 ${isInCaseContext ? "pt-5" : "pt-20"}`}
+      >
+        <div className="w-full  flex  justify-between items-center">
           <Input
             onChange={(e) => setSearch(e.target.value)}
-            className="p-0 text-sm h-6 bg-white"
+            className="p-1 text-sm h-6 bg-white w-[60%] placeholder:text-[12px]"
+            placeholder="Buscar cliente..."
           />
+          <CreateClientDialog />
         </div>
 
-        <div className="w-full  max-w-4xl flex justify-start  rounded-lg ">
-          <ClientsTable search={search} />
+        <div className="w-full   flex justify-start  rounded-lg ">
+          <ClientsTable clientsResult={clientsResult} />
         </div>
       </div>
-    </CaseDetailLayout>
+    </ConditionalLayout>
   );
 }

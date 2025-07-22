@@ -10,19 +10,35 @@ import { useAction } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import { useQuery } from "@tanstack/react-query";
 import { AppSkeleton } from "../Skeletons";
-import { NationalNormativeDocument, ProvinceNormativeDocument } from "../../../types/legal_database";
+import {
+  NationalNormativeDocument,
+  ProvinceNormativeDocument,
+} from "../../../types/legal_database";
 
-export default function DataBaseTable() {
+interface DataBaseTableProps {
+  category: string;
+}
+
+export default function DataBaseTable({ category }: DataBaseTableProps) {
   const fetchLegalDb = useAction(api.functions.legalDb.fetchLegalDb);
 
-  const { data: documents = [], isLoading, error } = useQuery<NationalNormativeDocument[] | ProvinceNormativeDocument[], Error>({
-    queryKey: ["legalDocuments"],
-    queryFn: () => fetchLegalDb({}),
+  const {
+    data: documents = [],
+    isLoading,
+    error,
+  } = useQuery<
+    NationalNormativeDocument[] | ProvinceNormativeDocument[],
+    Error
+  >({
+    queryKey: ["legalDocuments", category],
+    queryFn: () => fetchLegalDb({ category }),
     staleTime: 5 * 60 * 1000,
   });
 
-  const getDocumentCategory = (doc: NationalNormativeDocument | ProvinceNormativeDocument) => {
-    return 'category' in doc ? doc.category : doc.type;
+  const getDocumentCategory = (
+    doc: NationalNormativeDocument | ProvinceNormativeDocument,
+  ) => {
+    return "category" in doc ? doc.category : doc.type;
   };
 
   if (isLoading) {
@@ -47,13 +63,18 @@ export default function DataBaseTable() {
         </TableRow>
       </TableHeader>
       <TableBody>
-        {documents.map((doc: NationalNormativeDocument | ProvinceNormativeDocument, index: number) => (
-          <TableRow key={doc.id || index}>
-            <TableCell>{doc.title}</TableCell>
-            <TableCell>{getDocumentCategory(doc)}</TableCell>
-            <TableCell>{doc.number}</TableCell>
-          </TableRow>
-        ))}
+        {documents.map(
+          (
+            doc: NationalNormativeDocument | ProvinceNormativeDocument,
+            index: number,
+          ) => (
+            <TableRow key={doc.id || index}>
+              <TableCell>{doc.title}</TableCell>
+              <TableCell>{getDocumentCategory(doc)}</TableCell>
+              <TableCell>{doc.number}</TableCell>
+            </TableRow>
+          ),
+        )}
       </TableBody>
     </Table>
   );

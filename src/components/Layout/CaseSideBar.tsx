@@ -33,14 +33,19 @@ export default function CaseSidebar() {
     toggleDocumentos,
     isHistorialOpen,
     toggleHistorial,
+    setIsInCaseContext,
   } = useLayout();
   const location = useLocation();
-  const { title } = useParams();
+  const { id } = useParams();
 
   const isAgreements = location.pathname.includes("acuerdos");
   const isNameOfDocument = location.pathname.includes("nombre-del-documento");
 
-  const basePath = `/caso/${title}`;
+  const basePath = `/caso/${id}`;
+
+  const handleNavigationFromCase = () => {
+    setIsInCaseContext(true);
+  };
 
   return (
     <aside
@@ -63,29 +68,38 @@ export default function CaseSidebar() {
         </button>
       )}
       <div className={`flex gap-4 justify-center items-center h-[10%] `}>
-        <Link to="/base-de-datos">
+        <Link
+          to={`${basePath}/base-de-datos`}
+          onClick={handleNavigationFromCase}
+        >
           <FileSearch2
             className="cursor-pointer"
             size={20}
             color={location.pathname === "/base-de-datos" ? "blue" : "black"}
           />
         </Link>
-        <Link to="/clientes">
+        <Link to={`${basePath}/clientes`} onClick={handleNavigationFromCase}>
           <UserIcon
-            fill={location.pathname === "/clientes" ? "blue" : "black"}
+            fill={location.pathname.includes("/clientes") ? "blue" : "black"}
             className="cursor-pointer"
             size={20}
-            color={location.pathname === "/clientes" ? "blue" : "black"}
+            color={location.pathname.includes("/clientes") ? "blue" : "black"}
           />
         </Link>
-        <Link to="/modelos">
+        <Link to={`${basePath}/modelos`} onClick={handleNavigationFromCase}>
           <BookCheck
             className="cursor-pointer"
             size={20}
-            color={location.pathname === "/modelos" ? "blue" : "black"}
+            color={location.pathname.includes("/modelos") ? "blue" : "black"}
           />
         </Link>
-        <UsersRound className="cursor-pointer" size={20} />
+        <Link to={`${basePath}/equipos`} onClick={handleNavigationFromCase}>
+          <UsersRound
+            className="cursor-pointer"
+            size={20}
+            color={location.pathname.includes("/equipos") ? "blue" : "black"}
+          />
+        </Link>
       </div>
       <div className="h-[70%] w-full flex flex-col justify-start items-center overflow-y-auto pl-5">
         <div className="w-full flex flex-col gap-2 h-[50%] overflow-y-auto">

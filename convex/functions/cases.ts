@@ -1,6 +1,10 @@
 import { v } from "convex/values";
 import { query, mutation } from "../_generated/server";
-import { getCurrentUserFromAuth, requireCaseAccess, checkCaseAccess } from "./auth_utils";
+import {
+  getCurrentUserFromAuth,
+  requireCaseAccess,
+  checkCaseAccess,
+} from "./auth_utils";
 
 // ========================================
 // CASE MANAGEMENT
@@ -8,7 +12,7 @@ import { getCurrentUserFromAuth, requireCaseAccess, checkCaseAccess } from "./au
 
 /**
  * Creates a new legal case in the system.
- * 
+ *
  * @param {Object} args - The function arguments
  * @param {string} args.title - The case title or name
  * @param {string} [args.description] - Detailed description of the case
@@ -18,11 +22,11 @@ import { getCurrentUserFromAuth, requireCaseAccess, checkCaseAccess } from "./au
  * @param {number} [args.estimatedHours] - Estimated hours to complete the case
  * @returns {Promise<string>} The created case's document ID
  * @throws {Error} When not authenticated
- * 
+ *
  * @description This function creates a new case with the authenticated user as the creator.
  * If no lawyer is assigned, the case is automatically assigned to the current user.
  * The case starts with "pendiente" status and is not archived by default.
- * 
+ *
  * @example
  * ```javascript
  * const caseId = await createCase({
@@ -45,10 +49,10 @@ export const createCase = mutation({
   },
   handler: async (ctx, args) => {
     const currentUser = await getCurrentUserFromAuth(ctx);
-    
+
     // Auto-assign to current user if no lawyer specified
     const assignedLawyer = args.assignedLawyer || currentUser._id;
-    
+
     const caseId = await ctx.db.insert("cases", {
       title: args.title,
       description: args.description,
@@ -61,7 +65,7 @@ export const createCase = mutation({
       startDate: Date.now(),
       isArchived: false,
     });
-    
+
     console.log("Created case with id:", caseId);
     return caseId;
   },
@@ -69,48 +73,50 @@ export const createCase = mutation({
 
 /**
  * Retrieves cases accessible to the current user with optional filtering.
- * 
+ *
  * @param {Object} args - The function arguments
  * @param {"pendiente" | "en progreso" | "completado" | "archivado" | "cancelado"} [args.status] - Filter by case status
  * @param {string} [args.assignedLawyer] - Filter by assigned lawyer user ID
  * @returns {Promise<Object[]>} Array of case documents accessible to the user
  * @throws {Error} When not authenticated
- * 
+ *
  * @description This function implements comprehensive access control, returning only cases
  * the user can access through direct assignment (as assigned lawyer or creator) or team
  * membership. The function filters out archived cases and applies additional status or
  * lawyer filters if provided.
- * 
+ *
  * Access is granted through:
  * - Direct access: User is the assigned lawyer or case creator
  * - Team access: User belongs to a team with granted access to the case
- * 
+ *
  * @example
  * ```javascript
  * // Get all accessible cases
  * const allCases = await getCases({});
- * 
+ *
  * // Get only pending cases
  * const pendingCases = await getCases({ status: "pendiente" });
- * 
+ *
  * // Get cases assigned to specific lawyer
  * const lawyerCases = await getCases({ assignedLawyer: "user_id_123" });
  * ```
  */
 export const getCases = query({
   args: {
-    status: v.optional(v.union(
-      v.literal("pendiente"),
-      v.literal("en progreso"),
-      v.literal("completado"),
-      v.literal("archivado"),
-      v.literal("cancelado")
-    )),
+    status: v.optional(
+      v.union(
+        v.literal("pendiente"),
+        v.literal("en progreso"),
+        v.literal("completado"),
+        v.literal("archivado"),
+        v.literal("cancelado"),
+      ),
+    ),
     assignedLawyer: v.optional(v.id("users")),
   },
   handler: async (ctx, args) => {
     const currentUser = await getCurrentUserFromAuth(ctx);
-    
+
     // Get all cases, then filter based on access
     let cases;
     if (args.status) {
@@ -122,7 +128,9 @@ export const getCases = query({
     } else if (args.assignedLawyer) {
       cases = await ctx.db
         .query("cases")
-        .withIndex("by_assigned_lawyer", (q) => q.eq("assignedLawyer", args.assignedLawyer!))
+        .withIndex("by_assigned_lawyer", (q) =>
+          q.eq("assignedLawyer", args.assignedLawyer!),
+        )
         .filter((q) => q.eq(q.field("isArchived"), false))
         .collect();
     } else {
@@ -131,44 +139,47 @@ export const getCases = query({
         .filter((q) => q.eq(q.field("isArchived"), false))
         .collect();
     }
-    
+
     // Filter cases based on user access (direct or team-based)
     const accessibleCases = [];
     for (const caseData of cases) {
       // Check direct access
-      if (caseData.assignedLawyer === currentUser._id || caseData.createdBy === currentUser._id) {
+      if (
+        caseData.assignedLawyer === currentUser._id ||
+        caseData.createdBy === currentUser._id
+      ) {
         accessibleCases.push(caseData);
         continue;
       }
-      
+
       // Check team access
       const userMemberships = await ctx.db
         .query("teamMemberships")
         .withIndex("by_user", (q) => q.eq("userId", currentUser._id))
         .filter((q) => q.eq(q.field("isActive"), true))
         .collect();
-      
+
       let hasTeamAccess = false;
       for (const membership of userMemberships) {
         const teamAccess = await ctx.db
           .query("teamCaseAccess")
-          .withIndex("by_case_and_team", (q) => 
-            q.eq("caseId", caseData._id).eq("teamId", membership.teamId)
+          .withIndex("by_case_and_team", (q) =>
+            q.eq("caseId", caseData._id).eq("teamId", membership.teamId),
           )
           .filter((q) => q.eq(q.field("isActive"), true))
           .first();
-        
+
         if (teamAccess) {
           hasTeamAccess = true;
           break;
         }
       }
-      
+
       if (hasTeamAccess) {
         accessibleCases.push(caseData);
       }
     }
-    
+
     return accessibleCases;
   },
 });
@@ -179,24 +190,24 @@ export const getCases = query({
 
 /**
  * Associates a client with a case, creating a client-case relationship.
- * 
+ *
  * @param {Object} args - The function arguments
  * @param {string} args.clientId - The ID of the client to add to the case
  * @param {string} args.caseId - The ID of the case to add the client to
  * @param {string} [args.role] - The client's role in the case (e.g., "plaintiff", "defendant", "witness")
  * @returns {Promise<string>} The created relationship document ID
  * @throws {Error} When not authenticated, lacking case access, or relationship already exists
- * 
+ *
  * @description This function creates a many-to-many relationship between clients and cases.
  * The user must have full access to the case to add clients. The function prevents
  * duplicate relationships by checking for existing active associations.
- * 
+ *
  * @example
  * ```javascript
  * // Add a client as plaintiff
  * const relationshipId = await addClientToCase({
  *   clientId: "client_123",
- *   caseId: "case_456", 
+ *   caseId: "case_456",
  *   role: "plaintiff"
  * });
  * ```
@@ -210,20 +221,20 @@ export const addClientToCase = mutation({
   handler: async (ctx, args) => {
     // Verify user has full access to the case
     const { currentUser } = await requireCaseAccess(ctx, args.caseId, "full");
-    
+
     // Check if relationship already exists
     const existing = await ctx.db
       .query("clientCases")
-      .withIndex("by_client_and_case", (q) => 
-        q.eq("clientId", args.clientId).eq("caseId", args.caseId)
+      .withIndex("by_client_and_case", (q) =>
+        q.eq("clientId", args.clientId).eq("caseId", args.caseId),
       )
       .filter((q) => q.eq(q.field("isActive"), true))
       .first();
-    
+
     if (existing) {
       throw new Error("Client is already associated with this case");
     }
-    
+
     const relationshipId = await ctx.db.insert("clientCases", {
       clientId: args.clientId,
       caseId: args.caseId,
@@ -231,7 +242,7 @@ export const addClientToCase = mutation({
       addedBy: currentUser._id,
       isActive: true,
     });
-    
+
     console.log("Added client to case with relationship id:", relationshipId);
     return relationshipId;
   },
@@ -239,16 +250,16 @@ export const addClientToCase = mutation({
 
 /**
  * Removes a client from a case by deactivating their relationship.
- * 
+ *
  * @param {Object} args - The function arguments
  * @param {string} args.clientId - The ID of the client to remove from the case
  * @param {string} args.caseId - The ID of the case to remove the client from
  * @throws {Error} When not authenticated, lacking case access, or relationship doesn't exist
- * 
+ *
  * @description This function performs a soft delete by setting the relationship as inactive
  * rather than permanently deleting it. The user must have full access to the case to
  * remove clients.
- * 
+ *
  * @example
  * ```javascript
  * await removeClientFromCase({
@@ -265,19 +276,19 @@ export const removeClientFromCase = mutation({
   handler: async (ctx, args) => {
     // Verify user has full access to the case
     await requireCaseAccess(ctx, args.caseId, "full");
-    
+
     const relationship = await ctx.db
       .query("clientCases")
-      .withIndex("by_client_and_case", (q) => 
-        q.eq("clientId", args.clientId).eq("caseId", args.caseId)
+      .withIndex("by_client_and_case", (q) =>
+        q.eq("clientId", args.clientId).eq("caseId", args.caseId),
       )
       .filter((q) => q.eq(q.field("isActive"), true))
       .first();
-    
+
     if (!relationship) {
       throw new Error("Client is not associated with this case");
     }
-    
+
     await ctx.db.patch(relationship._id, { isActive: false });
     console.log("Removed client from case");
   },
@@ -285,16 +296,16 @@ export const removeClientFromCase = mutation({
 
 /**
  * Retrieves all clients associated with a specific case.
- * 
+ *
  * @param {Object} args - The function arguments
  * @param {string} args.caseId - The ID of the case to get clients for
  * @returns {Promise<Object[]>} Array of client documents with their roles in the case
  * @throws {Error} When not authenticated or lacking case access
- * 
+ *
  * @description This function returns all active client-case relationships for a given case.
  * Each client object includes their role in the case. The user must have read access
  * to the case to view its clients.
- * 
+ *
  * @example
  * ```javascript
  * const clients = await getClientsForCase({ caseId: "case_123" });
@@ -308,36 +319,36 @@ export const getClientsForCase = query({
   handler: async (ctx, args) => {
     // Verify user has access to the case
     await requireCaseAccess(ctx, args.caseId, "read");
-    
+
     const relationships = await ctx.db
       .query("clientCases")
       .withIndex("by_case", (q) => q.eq("caseId", args.caseId))
       .filter((q) => q.eq(q.field("isActive"), true))
       .collect();
-    
+
     const clients = await Promise.all(
       relationships.map(async (rel) => {
         const client = await ctx.db.get(rel.clientId);
         return { ...client, role: rel.role };
-      })
+      }),
     );
-    
+
     return clients;
   },
 });
 
 /**
  * Retrieves all cases associated with a specific client.
- * 
+ *
  * @param {Object} args - The function arguments
  * @param {string} args.clientId - The ID of the client to get cases for
  * @returns {Promise<Object[]>} Array of case documents the user can access, with client roles
  * @throws {Error} When not authenticated
- * 
+ *
  * @description This function returns cases associated with a client, but only those
  * the current user has access to view. Each case object includes the client's role
  * in that specific case. Access control is applied per case.
- * 
+ *
  * @example
  * ```javascript
  * const cases = await getCasesForClient({ clientId: "client_123" });
@@ -350,13 +361,13 @@ export const getCasesForClient = query({
   },
   handler: async (ctx, args) => {
     const currentUser = await getCurrentUserFromAuth(ctx);
-    
+
     const relationships = await ctx.db
       .query("clientCases")
       .withIndex("by_client", (q) => q.eq("clientId", args.clientId))
       .filter((q) => q.eq(q.field("isActive"), true))
       .collect();
-    
+
     // Filter cases based on user access
     const accessibleCases = [];
     for (const rel of relationships) {
@@ -366,25 +377,25 @@ export const getCasesForClient = query({
         accessibleCases.push({ ...caseData, clientRole: rel.role });
       }
     }
-    
+
     return accessibleCases;
   },
 });
 
 /**
  * Checks if a user has access to a specific case and returns access details.
- * 
+ *
  * @param {Object} args - The function arguments
  * @param {string} [args.userId] - The user ID to check access for (defaults to current user)
  * @param {string} args.caseId - The ID of the case to check access for
  * @returns {Promise<Object>} Access information object with hasAccess, accessLevel, and source
  * @throws {Error} When not authenticated or unauthorized to check other users' access
- * 
+ *
  * @description This function provides a way to programmatically check case access.
  * Users can only check their own access for privacy and security.
  * The returned object contains detailed access information including the source
  * of access (direct or team-based).
- * 
+ *
  * @example
  * ```javascript
  * // Check current user's access
@@ -399,16 +410,16 @@ export const checkUserCaseAccess = query({
   },
   handler: async (ctx, args) => {
     const currentUser = await getCurrentUserFromAuth(ctx);
-    
+
     // Use provided userId or current user's ID
     const userId = args.userId || currentUser._id;
-    
+
     // Only allow checking your own access
     if (userId !== currentUser._id) {
       throw new Error("Unauthorized: Cannot check other users' access");
     }
-    
+
     // Use the centralized checkCaseAccess helper
     return await checkCaseAccess(ctx, args.caseId, userId);
   },
-}); 
+});

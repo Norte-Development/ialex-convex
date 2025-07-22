@@ -8,11 +8,20 @@ import {
 } from "@/components/ui/table";
 
 interface ClientsTableProps {
-  search: string;
+  clientsResult: any;
 }
 
-export default function ClientsTable({ search }: ClientsTableProps) {
-  console.log("search dentro de ClientTable", search);
+export default function ClientsTable({ clientsResult }: ClientsTableProps) {
+  if (!clientsResult) {
+    return <div>Cargando clientes...</div>;
+  }
+
+  const clients = clientsResult.page;
+
+  if (!clients || clients.length === 0) {
+    return <div>No se encontraron clientes</div>;
+  }
+
   return (
     <Table className="border border-gray-300 bg-white">
       <TableHeader className="bg-white border border-gray-300">
@@ -27,11 +36,20 @@ export default function ClientsTable({ search }: ClientsTableProps) {
         </TableRow>
       </TableHeader>
       <TableBody className="bg-white border border-gray-300">
-        {[...Array(10)].map((_, index) => (
-          <TableRow key={index} className="border border-gray-300">
-            <TableCell className="border border-gray-300"></TableCell>
-            <TableCell className="border border-gray-300"></TableCell>
-            <TableCell className="cursor-pointer border border-gray-300"></TableCell>
+        {clients.map((client: any, index: number) => (
+          <TableRow
+            key={client._id || index}
+            className="border border-gray-300"
+          >
+            <TableCell className="border border-gray-300">
+              {client.name}
+            </TableCell>
+            <TableCell className="border border-gray-300">
+              {client.dni || client.cuit || "N/A"}
+            </TableCell>
+            <TableCell className="cursor-pointer border border-gray-300">
+              {client.cases?.length || 0}
+            </TableCell>
           </TableRow>
         ))}
       </TableBody>

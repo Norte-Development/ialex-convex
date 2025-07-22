@@ -4,30 +4,36 @@ import { AuthLoading } from "convex/react";
 import HomePage from "./pages/HomePage";
 import Layout from "./components/Layout/Layout";
 import CasesPage from "./pages/CasesPage";
-import CaseDetailPage from "./pages/CaseDetailPage";
+import CaseDetailPage from "./pages/DetailCases/CaseDetailPage";
 import ClientsPage from "./pages/ClientsPage";
-import AgreementsPage from "./pages/AgreementsPage";
-import NameOfDocumentPage from "./pages/NameOfDocumentPage";
+import AgreementsPage from "./pages/DetailCases/AgreementsPage";
+import NameOfDocumentPage from "./pages/DetailCases/NameOfDocumentPage";
 import ModelsPage from "./pages/ModelsPage";
 import DataBasePage from "./pages/DataBasePage";
 import { AppSkeleton } from "./components/Skeletons";
 import { OnboardingWrapper } from "./components/Auth/OnboardingWrapper";
 import { SignInPage } from "./components/Auth/SignInPage";
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 import { CopilotKit } from "@copilotkit/react-core";
 import { ThreadProvider, useThread } from "./context/ThreadContext";
+import TeamPage from "./pages/TeamPage";
+import TeamManagePage from "./pages/TeamManagePage";
+import AcceptInvitePage from "./pages/AcceptInvitePage";
+import SignupInvitePage from "./pages/SignupInvitePage";
+import CaseClientsPage from "./pages/DetailCases/CaseClientPage";
+import CaseTeamsPage from "./pages/DetailCases/CaseTeamsPage";
+import { CaseProvider } from "./context/CaseContext";
 
 import "@copilotkit/react-ui/styles.css";
 
-// Helper component to reduce repetition
-const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({
+  children,
+}) => {
   return (
     <Protect fallback={<SignInPage />}>
       <OnboardingWrapper>
-        <Layout>
-          {children}
-        </Layout>
+        <Layout>{children}</Layout>
       </OnboardingWrapper>
     </Protect>
   );
@@ -57,19 +63,90 @@ const AppWithThread = () => {
       <Routes>
         {/* Public sign-in route */}
         <Route path="/signin" element={<SignInPage />} />
-        
+
+        {/* Public invitation routes */}
+        <Route path="/invites/accept" element={<AcceptInvitePage />} />
+        <Route path="/invites/signup" element={<SignupInvitePage />} />
+
         {/* Protected routes using Clerk's Protect component */}
-        <Route path="/" element={<ProtectedRoute><HomePage /></ProtectedRoute>} />
-        <Route path="/casos" element={<ProtectedRoute><CasesPage /></ProtectedRoute>} />
-        <Route path="/caso/:title" element={<ProtectedRoute><CaseDetailPage /></ProtectedRoute>} />
-        <Route path="/caso/:title/acuerdos" element={<ProtectedRoute><AgreementsPage /></ProtectedRoute>} />
         <Route
-          path="/caso/:title/nombre-del-documento"
-          element={<ProtectedRoute><NameOfDocumentPage /></ProtectedRoute>}
+          path="/"
+          element={
+            <ProtectedRoute>
+              <HomePage />
+            </ProtectedRoute>
+          }
         />
-        <Route path="/clientes" element={<ProtectedRoute><ClientsPage /></ProtectedRoute>} />
-        <Route path="/modelos" element={<ProtectedRoute><ModelsPage /></ProtectedRoute>} />
-        <Route path="/base-de-datos" element={<ProtectedRoute><DataBasePage /></ProtectedRoute>} />
+        <Route
+          path="/casos"
+          element={
+            <ProtectedRoute>
+              <CasesPage />
+            </ProtectedRoute>
+          }
+        />
+        {/* Rutas de casos envueltas con CaseProvider */}
+        <Route
+          path="/caso/:id/*"
+          element={
+            <ProtectedRoute>
+              <CaseProvider>
+                <Routes>
+                  <Route index element={<CaseDetailPage />} />
+                  <Route path="acuerdos" element={<AgreementsPage />} />
+                  <Route
+                    path="nombre-del-documento"
+                    element={<NameOfDocumentPage />}
+                  />
+                  <Route path="clientes" element={<CaseClientsPage />} />
+                  <Route path="equipos" element={<CaseTeamsPage />} />
+                  <Route path="modelos" element={<ModelsPage />} />
+                  <Route path="base-de-datos" element={<DataBasePage />} />
+                </Routes>
+              </CaseProvider>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/clientes"
+          element={
+            <ProtectedRoute>
+              <ClientsPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/modelos"
+          element={
+            <ProtectedRoute>
+              <ModelsPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/base-de-datos"
+          element={
+            <ProtectedRoute>
+              <DataBasePage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/equipo"
+          element={
+            <ProtectedRoute>
+              <TeamPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/equipos/:id"
+          element={
+            <ProtectedRoute>
+              <TeamManagePage />
+            </ProtectedRoute>
+          }
+        />
       </Routes>
     </CopilotKit>
   );

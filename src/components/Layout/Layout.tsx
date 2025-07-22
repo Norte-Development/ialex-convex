@@ -1,7 +1,7 @@
 import React, { ReactNode } from "react";
-// import { useLayout } from "@/context/LayoutContext";
+import { useLayout } from "@/context/LayoutContext";
 import NavBar from "./NavBar";
-// import Sidebar from "./Sidebar";
+import Sidebar from "./Sidebar";
 import { CopilotSidebar } from "@copilotkit/react-ui";
 
 interface LayoutProps {
@@ -9,10 +9,10 @@ interface LayoutProps {
 }
 
 const Layout: React.FC<LayoutProps> = ({ children }) => {
-  // const { isSidebarOpen } = useLayout();
+  const { isCaseSidebarOpen } = useLayout();
 
   return (
-    <div className="flex h-screen bg-background">
+    <div className="flex min-h-screen bg-background">
       <div className="flex-1 flex flex-col overflow-hidden">
         <NavBar />
         <CopilotSidebar
@@ -21,17 +21,18 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
             title: "Alex",
             initial: "¿En que trabajamos hoy?"
           }}
-          >
-            <div className="flex">
-          
-              <main
-              className={`flex-1 overflow-x-hidden overflow-y-auto bg-background   transition-all duration-300 ease-in-out mr-0 ml-0 w-full  `}
-              // isSidebarOpen ? "mr-80" : "mr-0 ml-0"}`}
-              >
-                {children}
-              </main>
-            </div>
-          </CopilotSidebar>
+        >
+          <div className="flex w-full">
+            <Sidebar />
+            <main
+              className={`flex-1 h-full overflow-x-hidden w-full overflow-y-auto bg-background transition-all duration-300 ease-in-out ${
+                isCaseSidebarOpen ? "mr-38" : ""
+              }`}
+            >
+              {children}
+            </main>
+          </div>
+        </CopilotSidebar>
       </div>
     </div>
   );

@@ -1,14 +1,24 @@
-import CaseCard from "../components/Cases/CaseCard";
+import CaseGrid from "../components/Cases/CaseGrid";
+import CreateCaseDialog from "../components/Cases/CreateCaseDialog";
+import ConditionalLayout from "../components/Layout/ConditionalLayout";
+import { useLayout } from "@/context/LayoutContext";
 
 export default function CasesPage() {
+  const { isInCaseContext } = useLayout();
+
   return (
-    <div className="flex flex-col gap-4 pt-20 pl-10">
-      <h1 className="text-2xl font-bold">Casos</h1>
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-4 ">
-        <CaseCard title="Caso Droga" client="Client 1" status="completado" />
-        <CaseCard title="Caso Covid" client="Client 2" status="en progreso" />
-        <CaseCard title="Caso Falopa" client="Client 3" status="pendiente" />
+    <ConditionalLayout>
+      <div
+        className={`flex flex-col gap-4 w-full h-full px-5 ${isInCaseContext ? "pt-5" : "pt-20"}`}
+      >
+        <div className="w-full flex justify-between items-center">
+          <h1 className="text-2xl font-bold">Casos</h1>
+          <CreateCaseDialog />
+        </div>
+        <div className="w-full flex justify-start">
+          <CaseGrid />
+        </div>
       </div>
-    </div>
+    </ConditionalLayout>
   );
 }
