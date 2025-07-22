@@ -28,6 +28,7 @@ createRoot(document.getElementById("root")!).render(
               <CopilotKit
               runtimeUrl="http://localhost:4000/copilotkit"
               agent="memory_agent"
+              threadId={"32cea126-3107-41d1-bc06-2609d9e3c86b"}
               >
               <LayoutProvider>
                 <App />
