@@ -1,4 +1,3 @@
-import CaseDetailLayout from "@/components/Layout/CaseDetailLayout";
 import ClientsTable from "@/components/Clients/ClientsTable";
 import { useQuery } from "convex/react";
 import { api } from "../../../convex/_generated/api";
@@ -8,6 +7,7 @@ import SyncNewClientDialog from "@/components/Cases/SyncNewClientDialog";
 import { useState } from "react";
 import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import CaseLayout from "@/components/Cases/CaseLayout";
 
 export default function CaseClientsPage() {
   const { currentCase, isLoading, error, caseId } = useCase();
@@ -31,27 +31,27 @@ export default function CaseClientsPage() {
 
   if (isLoading) {
     return (
-      <CaseDetailLayout>
+      <CaseLayout>
         <section className=" w-full h-full flex flex-col pl-5 pt-5">
           <h1 className="text-2xl font-bold">Cargando caso...</h1>
         </section>
-      </CaseDetailLayout>
+      </CaseLayout>
     );
   }
 
   if (error || !currentCase) {
     return (
-      <CaseDetailLayout>
+      <CaseLayout>
         <section className=" w-full h-full flex flex-col pl-5 pt-5">
           <h1 className="text-2xl font-bold">Error</h1>
           <p>{error || "Caso no encontrado"}</p>
         </section>
-      </CaseDetailLayout>
+      </CaseLayout>
     );
   }
 
   return (
-    <CaseDetailLayout>
+    <CaseLayout>
       <section className=" w-full h-full flex flex-col px-5 pt-5 gap-2">
         <div className="flex justify-between items-center">
           <h1 className="text-2xl font-bold">Clientes </h1>
@@ -65,6 +65,6 @@ export default function CaseClientsPage() {
           onOpenChange={setIsSyncNewClientDialogOpen}
         />
       </section>
-    </CaseDetailLayout>
+    </CaseLayout>
   );
 }

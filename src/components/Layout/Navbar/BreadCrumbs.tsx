@@ -2,7 +2,7 @@ import { useLocation } from "react-router-dom";
 import React from "react";
 import { Link } from "react-router-dom";
 import { useQuery } from "convex/react";
-import { api } from "../../../convex/_generated/api";
+import { api } from "../../../../convex/_generated/api";
 
 export default function Breadcrumbs() {
   const location = useLocation();

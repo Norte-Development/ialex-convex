@@ -1,5 +1,5 @@
 import { useCase } from "@/context/CaseContext";
-import CaseDetailLayout from "../../components/Layout/CaseDetailLayout";
+import CaseLayout from "@/components/Cases/CaseLayout";
 import CaseTeamsSummary from "../../components/Cases/CaseTeamsSummary";
 import {
   Card,
@@ -51,16 +51,16 @@ export default function CaseDetailPage() {
 
   if (!currentCase) {
     return (
-      <CaseDetailLayout>
+      <CaseLayout>
         <div className="flex items-center justify-center h-64">
           <div className="text-gray-500">Cargando caso...</div>
         </div>
-      </CaseDetailLayout>
+      </CaseLayout>
     );
   }
 
   return (
-    <CaseDetailLayout>
+    <CaseLayout>
       <div className="space-y-6 min-h-screen pt-60 pl-5 pb-10">
         <div className="space-y-2">
           <h1 className="text-3xl font-bold text-gray-900">
@@ -243,6 +243,6 @@ export default function CaseDetailPage() {
           </CardContent>
         </Card>
       </div>
-    </CaseDetailLayout>
+    </CaseLayout>
   );
 }

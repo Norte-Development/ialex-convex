@@ -1,6 +1,6 @@
 import React, { ReactNode } from "react";
 import { useLayout } from "@/context/LayoutContext";
-import NavBar from "./NavBar";
+import NavBar from "./Navbar/NavBar";
 import Sidebar from "./Sidebar";
 
 interface LayoutProps {
