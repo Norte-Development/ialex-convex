@@ -49,7 +49,6 @@ const AppWithThread = () => {
     <CopilotKit
       runtimeUrl={import.meta.env.VITE_COPILOTKIT_RUNTIME_URL}
       agent="memory_agent"
-      threadId={thread.threadId} 
     >
       {/* Show authentication loading skeleton while Convex auth is initializing */}
       <AuthLoading>

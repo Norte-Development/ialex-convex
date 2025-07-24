@@ -22,6 +22,7 @@ import {
 import { useLayout } from "@/context/LayoutContext";
 import { useLocation, useParams } from "react-router-dom";
 import { Link } from "react-router-dom";
+import { useCopilotContext } from "@copilotkit/react-core";
 
 export default function CaseSidebar() {
   const {
@@ -46,6 +47,10 @@ export default function CaseSidebar() {
   const handleNavigationFromCase = () => {
     setIsInCaseContext(true);
   };
+
+  const { threadId, setThreadId } = useCopilotContext();
+
+  console.log(threadId);
 
   return (
     <aside
@@ -126,6 +131,7 @@ export default function CaseSidebar() {
               <div
                 className={`flex gap-1 items-center ${isNameOfDocument ? "text-blue-500" : ""}`}
               >
+                <button onClick={() => setThreadId(crypto.randomUUID())}>Nuevo thread</button>
                 <FileType2 className="cursor-pointer" size={20} />
                 <Link to={`${basePath}/nombre-del-documento`}>
                   Nombre del documento

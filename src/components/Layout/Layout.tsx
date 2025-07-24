@@ -2,18 +2,21 @@ import React, { ReactNode } from "react";
 import NavBar from "./NavBar";
 import { CopilotSidebar } from "@copilotkit/react-ui";
 
+
 interface LayoutProps {
   children: ReactNode;
 }
 
 const Layout: React.FC<LayoutProps> = ({ children }) => {
-
   return (
     <div className="flex min-h-screen bg-background">
       <div className="flex-1 flex flex-col overflow-hidden">
         <NavBar />
         <CopilotSidebar
           defaultOpen={false}
+          clickOutsideToClose={false}
+          hitEscapeToClose={true}
+          shortcut="k"
           labels={{
             title: "Alex",
             initial: "¿En que trabajamos hoy?"

@@ -1,5 +1,4 @@
 import React, { createContext, useContext, ReactNode, useState } from "react";
-import { useAuth } from "@clerk/clerk-react";
 import { Thread } from "../../types/thread";
 
 interface ThreadContextType {
@@ -21,7 +20,6 @@ export const ThreadProvider: React.FC<ThreadProviderProps> = ({ children }) => {
   const [thread, setThread] = useState<Thread>({
     _id: "",
     threadId: generateRandomUUID(),
-    userId: "",
     isActive: true,
   });
 
@@ -30,7 +28,6 @@ export const ThreadProvider: React.FC<ThreadProviderProps> = ({ children }) => {
     setThread({
       _id: "",
       threadId: newId,
-      userId: "",
       isActive: true,
     });
     return newId;
