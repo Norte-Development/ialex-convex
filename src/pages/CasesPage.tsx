@@ -1,13 +1,11 @@
 import CaseGrid from "../components/Cases/CaseGrid";
 import CreateCaseDialog from "../components/Cases/CreateCaseDialog";
-import ConditionalLayout from "../components/Layout/ConditionalLayout";
 import { useLayout } from "@/context/LayoutContext";
 
 export default function CasesPage() {
   const { isInCaseContext } = useLayout();
 
   return (
-    <ConditionalLayout>
       <div
         className={`flex flex-col gap-4 w-full h-full px-5 ${isInCaseContext ? "pt-5" : "pt-20"}`}
       >
@@ -19,6 +17,5 @@ export default function CasesPage() {
           <CaseGrid />
         </div>
       </div>
-    </ConditionalLayout>
   );
 }
