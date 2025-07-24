@@ -51,7 +51,7 @@ export default function CaseLayout({ children }: CaseDetailLayoutProps) {
           <CaseSidebar />
         </div>
         {/* Main content - scrollable */}
-        <main className="flex-1 bg-[#f7f7f7] overflow-y-auto h-full pt-5 px-2">
+        <main className="flex-1 bg-[#f7f7f7] overflow-y-auto h-full pt-5 px-2 overflow-x-hidden">
           {children}
         </main>
         <Sidebar />

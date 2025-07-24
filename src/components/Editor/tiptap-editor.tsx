@@ -26,7 +26,6 @@ import {
   Quote,
   Undo,
   Redo,
-  FileText,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
@@ -124,142 +123,131 @@ export function Tiptap({
 
   return (
     <div className="legal-editor-container">
-      {/* Header */}
-      <div className="legal-editor-header">
-        <div className="flex items-center gap-2 mb-4">
-          <FileText className="h-6 w-6 text-blue-900" />
-          <h2 className="text-xl font-semibold text-gray-800">
-            Legal Document Editor
-          </h2>
-        </div>
-
-        {/* Toolbar */}
-        <div className="legal-editor-toolbar">
-          <div className="toolbar-group">
-            <Button
-              variant={editor.isActive("bold") ? "default" : "ghost"}
-              size="sm"
-              onClick={() => editor.chain().focus().toggleBold().run()}
-              className="toolbar-button"
-            >
-              <Bold className="h-4 w-4" />
-            </Button>
-            <Button
-              variant={editor.isActive("italic") ? "default" : "ghost"}
-              size="sm"
-              onClick={() => editor.chain().focus().toggleItalic().run()}
-              className="toolbar-button"
-            >
-              <Italic className="h-4 w-4" />
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => editor.chain().focus().toggleUnderline?.().run()}
-              className="toolbar-button"
-            >
-              <UnderlineIcon className="h-4 w-4" />
-            </Button>
-          </div>
-
-          <Separator orientation="vertical" className="h-6" />
-
-          <div className="toolbar-group">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => editor.chain().focus().setTextAlign("left").run()}
-              className="toolbar-button"
-            >
-              <AlignLeft className="h-4 w-4" />
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() =>
-                editor.chain().focus().setTextAlign("center").run()
-              }
-              className="toolbar-button"
-            >
-              <AlignCenter className="h-4 w-4" />
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => editor.chain().focus().setTextAlign("right").run()}
-              className="toolbar-button"
-            >
-              <AlignRight className="h-4 w-4" />
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() =>
-                editor.chain().focus().setTextAlign("justify").run()
-              }
-              className="toolbar-button"
-            >
-              <AlignJustify className="h-4 w-4" />
-            </Button>
-          </div>
-
-          <Separator orientation="vertical" className="h-6" />
-
-          <div className="toolbar-group">
-            <Button
-              variant={editor.isActive("bulletList") ? "default" : "ghost"}
-              size="sm"
-              onClick={() => editor.chain().focus().toggleBulletList().run()}
-              className="toolbar-button"
-            >
-              <List className="h-4 w-4" />
-            </Button>
-            <Button
-              variant={editor.isActive("orderedList") ? "default" : "ghost"}
-              size="sm"
-              onClick={() => editor.chain().focus().toggleOrderedList().run()}
-              className="toolbar-button"
-            >
-              <ListOrdered className="h-4 w-4" />
-            </Button>
-            <Button
-              variant={editor.isActive("blockquote") ? "default" : "ghost"}
-              size="sm"
-              onClick={() => editor.chain().focus().toggleBlockquote().run()}
-              className="toolbar-button"
-            >
-              <Quote className="h-4 w-4" />
-            </Button>
-          </div>
-
-          <Separator orientation="vertical" className="h-6" />
-
-          <div className="toolbar-group">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => editor.chain().focus().undo().run()}
-              disabled={!editor.can().undo()}
-              className="toolbar-button"
-            >
-              <Undo className="h-4 w-4" />
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => editor.chain().focus().redo().run()}
-              disabled={!editor.can().redo()}
-              className="toolbar-button"
-            >
-              <Redo className="h-4 w-4" />
-            </Button>
-          </div>
-        </div>
-      </div>
-
-      {/* Document Container */}
       <div className="legal-document-container">
         <div className="legal-document-page">
+          <div className="legal-editor-header">
+            <div className="flex items-center gap-1 p-2 border-b border-gray-200 bg-white mb-4">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => editor.chain().focus().undo().run()}
+                disabled={!editor.can().undo()}
+                className="h-8 w-8 p-0 hover:bg-gray-100"
+              >
+                <Undo className="h-4 w-4" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => editor.chain().focus().redo().run()}
+                disabled={!editor.can().redo()}
+                className="h-8 w-8 p-0 hover:bg-gray-100"
+              >
+                <Redo className="h-4 w-4" />
+              </Button>
+
+              <Separator orientation="vertical" className="h-6 mx-1" />
+
+              {/* Text Formatting */}
+              <Button
+                variant={editor.isActive("bold") ? "secondary" : "ghost"}
+                size="sm"
+                onClick={() => editor.chain().focus().toggleBold().run()}
+                className="h-8 w-8 p-0 hover:bg-gray-100"
+              >
+                <Bold className="h-4 w-4" />
+              </Button>
+              <Button
+                variant={editor.isActive("italic") ? "secondary" : "ghost"}
+                size="sm"
+                onClick={() => editor.chain().focus().toggleItalic().run()}
+                className="h-8 w-8 p-0 hover:bg-gray-100"
+              >
+                <Italic className="h-4 w-4" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => editor.chain().focus().toggleUnderline?.().run()}
+                className="h-8 w-8 p-0 hover:bg-gray-100"
+              >
+                <UnderlineIcon className="h-4 w-4" />
+              </Button>
+
+              <Separator orientation="vertical" className="h-6 mx-1" />
+
+              {/* Text Alignment */}
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() =>
+                  editor.chain().focus().setTextAlign("left").run()
+                }
+                className="h-8 w-8 p-0 hover:bg-gray-100"
+              >
+                <AlignLeft className="h-4 w-4" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() =>
+                  editor.chain().focus().setTextAlign("center").run()
+                }
+                className="h-8 w-8 p-0 hover:bg-gray-100"
+              >
+                <AlignCenter className="h-4 w-4" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() =>
+                  editor.chain().focus().setTextAlign("right").run()
+                }
+                className="h-8 w-8 p-0 hover:bg-gray-100"
+              >
+                <AlignRight className="h-4 w-4" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() =>
+                  editor.chain().focus().setTextAlign("justify").run()
+                }
+                className="h-8 w-8 p-0 hover:bg-gray-100"
+              >
+                <AlignJustify className="h-4 w-4" />
+              </Button>
+
+              <Separator orientation="vertical" className="h-6 mx-1" />
+
+              {/* Lists */}
+              <Button
+                variant={editor.isActive("bulletList") ? "secondary" : "ghost"}
+                size="sm"
+                onClick={() => editor.chain().focus().toggleBulletList().run()}
+                className="h-8 w-8 p-0 hover:bg-gray-100"
+              >
+                <List className="h-4 w-4" />
+              </Button>
+              <Button
+                variant={editor.isActive("orderedList") ? "secondary" : "ghost"}
+                size="sm"
+                onClick={() => editor.chain().focus().toggleOrderedList().run()}
+                className="h-8 w-8 p-0 hover:bg-gray-100"
+              >
+                <ListOrdered className="h-4 w-4" />
+              </Button>
+              <Button
+                variant={editor.isActive("blockquote") ? "secondary" : "ghost"}
+                size="sm"
+                onClick={() => editor.chain().focus().toggleBlockquote().run()}
+                className="h-8 w-8 p-0 hover:bg-gray-100"
+              >
+                <Quote className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+
           <EditorContent
             editor={editor}
             className="legal-editor-content-wrapper"

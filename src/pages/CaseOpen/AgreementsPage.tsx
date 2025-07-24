@@ -6,7 +6,7 @@ export default function AgreementsPage() {
   const { currentCase } = useCase();
   return (
     <CaseLayout>
-      <div className="w-[75%] h-full flex flex-col  bg-transparent">
+      <div className="w-full h-full flex flex-col  bg-transparent">
         {/* <HeaderOfDocument /> */}
         <div className="w-full h-full flex flex-col  bg-white">
           <Tiptap documentId={currentCase?._id} />
