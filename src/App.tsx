@@ -22,6 +22,7 @@ import SignupInvitePage from "./pages/SignupInvitePage";
 import CaseClientsPage from "./pages/CaseOpen/CaseClientPage";
 import CaseTeamsPage from "./pages/CaseOpen/CaseTeamsPage";
 import { CaseProvider } from "./context/CaseContext";
+import CaseModelPage from "./pages/CaseOpen/CaseModelPage";
 
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({
   children,
@@ -86,7 +87,7 @@ function App() {
                   />
                   <Route path="clientes" element={<CaseClientsPage />} />
                   <Route path="equipos" element={<CaseTeamsPage />} />
-                  <Route path="modelos" element={<ModelsPage />} />
+                  <Route path="modelos" element={<CaseModelPage />} />
                   <Route path="base-de-datos" element={<DataBasePage />} />
                 </Routes>
               </CaseProvider>
