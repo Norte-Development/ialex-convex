@@ -61,7 +61,7 @@ export default function CaseDetailPage() {
 
   return (
     <CaseLayout>
-      <div className="space-y-6 min-h-screen pt-60 pl-5 pb-10">
+      <div className="space-y-6 min-h-screen   pb-10">
         <div className="space-y-2">
           <h1 className="text-3xl font-bold text-gray-900">
             {currentCase.title}

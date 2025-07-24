@@ -59,7 +59,7 @@ export default function CaseTeamsPage() {
 
   return (
     <CaseLayout>
-      <div className="space-y-6 min-h-screen pt-10 pl-5 pb-10">
+      <div className="space-y-6 min-h-screen  pl-5 pb-10">
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>

@@ -33,7 +33,6 @@ export default function CaseSidebar() {
     toggleDocumentos,
     isHistorialOpen,
     toggleHistorial,
-    setIsInCaseContext,
   } = useLayout();
   const location = useLocation();
   const { id } = useParams();
@@ -43,14 +42,10 @@ export default function CaseSidebar() {
 
   const basePath = `/caso/${id}`;
 
-  const handleNavigationFromCase = () => {
-    setIsInCaseContext(true);
-  };
-
   return (
     <aside
-      className={`fixed top-0 left-0 z-30 w-64 h-screen pt-14 bg-white border-r border-border flex flex-col text-sm transform transition-transform duration-300 ease-in-out ${
-        isCaseSidebarOpen ? "translate-x-0" : "-translate-x-full"
+      className={`relative z-30 h-full border-r border-border flex flex-col text-sm transition-all duration-300 ease-in-out overflow-hidden ${
+        isCaseSidebarOpen ? "w-64" : "w-0"
       }`}
     >
       <button
@@ -62,23 +57,20 @@ export default function CaseSidebar() {
       {!isCaseSidebarOpen && (
         <button
           onClick={toggleCaseSidebar}
-          className="absolute top-1/2 -right-5 cursor-pointer"
+          className="fixed top-1/2 left-2 z-40 cursor-pointer bg-white border border-gray-300 rounded-full p-2 shadow-md hover:shadow-lg transition-shadow"
         >
           <ArrowRight size={15} />
         </button>
       )}
       <div className={`flex gap-4 justify-center items-center h-[10%] `}>
-        <Link
-          to={`${basePath}/base-de-datos`}
-          onClick={handleNavigationFromCase}
-        >
+        <Link to={`${basePath}/base-de-datos`}>
           <FileSearch2
             className="cursor-pointer"
             size={20}
             color={location.pathname === "/base-de-datos" ? "blue" : "black"}
           />
         </Link>
-        <Link to={`${basePath}/clientes`} onClick={handleNavigationFromCase}>
+        <Link to={`${basePath}/clientes`}>
           <UserIcon
             fill={location.pathname.includes("/clientes") ? "blue" : "black"}
             className="cursor-pointer"
@@ -86,14 +78,14 @@ export default function CaseSidebar() {
             color={location.pathname.includes("/clientes") ? "blue" : "black"}
           />
         </Link>
-        <Link to={`${basePath}/modelos`} onClick={handleNavigationFromCase}>
+        <Link to={`${basePath}/modelos`}>
           <BookCheck
             className="cursor-pointer"
             size={20}
             color={location.pathname.includes("/modelos") ? "blue" : "black"}
           />
         </Link>
-        <Link to={`${basePath}/equipos`} onClick={handleNavigationFromCase}>
+        <Link to={`${basePath}/equipos`}>
           <UsersRound
             className="cursor-pointer"
             size={20}

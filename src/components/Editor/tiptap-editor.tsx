@@ -45,8 +45,6 @@ export function Tiptap({
 }: TiptapProps) {
   const sync = useTiptapSync(api.prosemirror, documentId);
 
-  console.log("Sync state:", sync);
-
   const editor = useEditor(
     {
       extensions: [

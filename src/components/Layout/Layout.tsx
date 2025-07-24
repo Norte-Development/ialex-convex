@@ -1,5 +1,4 @@
 import React, { ReactNode } from "react";
-import { useLayout } from "@/context/LayoutContext";
 import NavBar from "./Navbar/NavBar";
 import Sidebar from "./Sidebar";
 
@@ -8,18 +7,14 @@ interface LayoutProps {
 }
 
 const Layout: React.FC<LayoutProps> = ({ children }) => {
-  const { isSidebarOpen } = useLayout();
-
   return (
     <div className="flex min-h-screen bg-background">
       <div className="flex-1 flex flex-col overflow-hidden">
         <NavBar />
-        <div className="flex w-full">
+        <div className="flex w-full h-full">
           <Sidebar />
           <main
-            className={`flex-1 h-full overflow-x-hidden w-full overflow-y-auto bg-background transition-all duration-300 ease-in-out ${
-              isSidebarOpen ? "mr-38" : ""
-            }`}
+            className={` h-full flex bg-[#f7f7f7] justify-center items-center overflow-x-hidden w-full overflow-y-auto  transition-all duration-300 ease-in-out `}
           >
             {children}
           </main>

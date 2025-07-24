@@ -52,7 +52,7 @@ export default function CaseClientsPage() {
 
   return (
     <CaseLayout>
-      <section className=" w-full h-full flex flex-col px-5 pt-5 gap-2">
+      <section className=" w-full h-full flex flex-col px-5  gap-2">
         <div className="flex justify-between items-center">
           <h1 className="text-2xl font-bold">Clientes </h1>
           <Button onClick={() => setIsSyncNewClientDialogOpen(true)}>
