@@ -16,44 +16,42 @@ export default function CaseLayout({ children }: CaseDetailLayoutProps) {
   const { thread } = useThread();
   const createThread = useMutation(api.functions.chat.createThreadMetadata);
 
-
   const onSubmitMessageCallback = (message: string) => {
-
     const truncatedMessage = message.slice(0, 50);
-
     createThread({
-        caseId: caseId || undefined,
-        title: truncatedMessage,
-        threadId: thread.threadId,
-      });
-
+      caseId: caseId || undefined,
+      title: truncatedMessage,
+      threadId: thread.threadId,
+    });
     return Promise.resolve();
-  }
-
+  };
 
   return (
-    <>
     <CopilotSidebar
-          defaultOpen={true}
-          clickOutsideToClose={false}
-          hitEscapeToClose={true}
-          shortcut="k"
-          labels={{
-            title: "Alex",
-            initial: "¿En que trabajamos hoy?"
-          }}
-          onSubmitMessage={onSubmitMessageCallback}
-        >
-    <div className="flex w-full h-screen pt-14">
-      <CaseSidebar />
-      <section
-        className={`w-full h-full flex justify-center items-center overflow-y-auto bg-[#f7f7f7] transition-all duration-300 ease-in-out ${
-          isCaseSidebarOpen ? "ml-64" : "ml-0"}`}
+      defaultOpen={true}
+      clickOutsideToClose={false}
+      hitEscapeToClose={true}
+      shortcut="k"
+      labels={{
+        title: "Alex",
+        initial: "¿En que trabajamos hoy?",
+      }}
+      onSubmitMessage={onSubmitMessageCallback}
+    >
+      {/* Sidebar - fixed */}
+      {isCaseSidebarOpen && (
+        <div className="fixed top-14 left-0 h-[calc(100vh-56px)] w-64 z-20">
+          <CaseSidebar />
+        </div>
+      )}
+      {/* Main content - scrollable */}
+      <main
+        className={`transition-all duration-300 ease-in-out bg-[#f7f7f7] pt-14 ${
+          isCaseSidebarOpen ? "ml-64" : "ml-0"
+        } h-[calc(100vh-56px)] overflow-y-auto`}
       >
         {children}
-      </section>
-    </div>
+      </main>
     </CopilotSidebar>
-    </>
   );
 }
