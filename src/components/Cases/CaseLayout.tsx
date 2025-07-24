@@ -41,7 +41,7 @@ export default function CaseLayout({ children }: CaseDetailLayoutProps) {
     //   onSubmitMessage={onSubmitMessageCallback}
     // >
     <>
-      <div className="flex w-full min-h-screen pt-14">
+      <div className="flex w-full h-full pt-14">
         {/* Sidebar - dynamic width */}
         <div
           className={`transition-all duration-300 ease-in-out ${
@@ -51,7 +51,7 @@ export default function CaseLayout({ children }: CaseDetailLayoutProps) {
           <CaseSidebar />
         </div>
         {/* Main content - scrollable */}
-        <main className="flex-1 bg-[#f7f7f7] overflow-y-auto pt-5 px-2">
+        <main className="flex-1 bg-[#f7f7f7] overflow-y-auto h-full pt-5 px-2">
           {children}
         </main>
         <Sidebar />

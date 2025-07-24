@@ -13,7 +13,7 @@ export default function ClientsPage() {
   });
 
   return (
-    <div className={`flex flex-col gap-4 w-full h-full pt-5  px-10`}>
+    <div className={`flex flex-col gap-4 w-full h-full pt-20  px-10`}>
       <div className="w-full  flex  justify-between items-center">
         <Input
           onChange={(e) => setSearch(e.target.value)}

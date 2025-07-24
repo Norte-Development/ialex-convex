@@ -4,7 +4,7 @@ import CreateTeamDialog from "@/components/Teams/CreateTeamDialog";
 export default function TeamPage() {
   return (
     <div
-      className={`flex flex-col pt-5 gap-4 w-full min-h-screen px-10 bg-[#f7f7f7] `}
+      className={`flex flex-col pt-20 gap-4 w-full h-full px-10 bg-[#f7f7f7] `}
     >
       <section className="w-full flex justify-between items-center">
         <h1 className="text-2xl font-bold text-black">Equipos</h1>

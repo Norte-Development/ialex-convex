@@ -17,8 +17,6 @@ export default function ModelsPage() {
               Mis modelos
             </TabsTrigger>
           </div>
-
-          <div className="w-full h-full bg-[#f7f7f7]"> </div>
         </TabsList>
         <div className="flex gap-2 w-[40%] pl-2">
           <Input
