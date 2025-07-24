@@ -3,234 +3,222 @@ import { query, mutation } from "../_generated/server";
 import { getCurrentUserFromAuth, requireCaseAccess } from "./auth_utils";
 
 // ========================================
-// CHAT SESSIONS MANAGEMENT
+// THREAD MANAGEMENT
 // ========================================
 
 /**
- * Creates a new AI chat session, optionally linked to a case.
+ * Creates a new agent thread metadata entry, optionally linked to a case.
+ * The actual conversation data is stored in Redis using the threadId.
  * 
  * @param {Object} args - The function arguments
- * @param {string} [args.caseId] - Optional case ID to associate the chat session with
- * @param {string} [args.title] - Optional custom title for the chat session
- * @returns {Promise<string>} The created chat session's document ID
+ * @param {string} args.threadId - The UUID thread identifier for Redis storage
+ * @param {string} [args.caseId] - Optional case ID to associate the thread with
+ * @param {string} [args.title] - Optional custom title for the thread
+ * @param {string} [args.agentType] - Type of agent (e.g., "memory_agent", "legal_assistant")
+ * @returns {Promise<string>} The created thread metadata document ID
  * @throws {Error} When not authenticated or lacking case access (if caseId provided)
  * 
- * @description This function creates a new chat session for AI interactions.
- * If a case ID is provided, the user must have read access to that case.
- * The session is linked to the current user and starts as active.
+ * @description This function creates metadata for an agent thread. The threadId
+ * is used as the key for storing conversation data in Redis. Only metadata
+ * for organization and access control is stored in Convex.
  * 
  * @example
  * ```javascript
- * // Create a general chat session
- * const sessionId = await createChatSession({
- *   title: "Legal Research Session"
+ * // Create a general thread
+ * const threadDocId = await createThreadMetadata({
+ *   threadId: "uuid-generated-thread-id",
+ *   title: "Legal Research Session",
+ *   agentType: "memory_agent"
  * });
  * 
- * // Create a case-specific chat session
- * const caseSessionId = await createChatSession({
+ * // Create a case-specific thread
+ * const caseThreadDocId = await createThreadMetadata({
+ *   threadId: "uuid-generated-thread-id",
  *   caseId: "case_123",
- *   title: "Contract Analysis Discussion"
+ *   title: "Contract Analysis Discussion",
+ *   agentType: "legal_assistant"
  * });
  * ```
  */
-export const createChatSession = mutation({
+export const createThreadMetadata = mutation({
   args: {
+    threadId: v.string(),
     caseId: v.optional(v.id("cases")),
     title: v.optional(v.string()),
+    agentType: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const currentUser = await getCurrentUserFromAuth(ctx);
-    
+
+    const existingThread = await ctx.db.query("chatSessions").withIndex("by_thread_id", (q) => q.eq("threadId", args.threadId)).first();
+
+    if (existingThread) {
+      return existingThread._id;
+    }
+
     // If case is specified, verify user has access
     if (args.caseId) {
       await requireCaseAccess(ctx, args.caseId, "read");
     }
     
-    const sessionId = await ctx.db.insert("chatSessions", {
+    const threadDocId = await ctx.db.insert("chatSessions", {
+      threadId: args.threadId,
       caseId: args.caseId,
       userId: currentUser._id,
       title: args.title,
+      agentType: args.agentType || "memory_agent",
       isActive: true,
     });
     
-    console.log("Created chat session with id:", sessionId);
-    return sessionId;
+    return threadDocId;
   },
 });
 
 /**
- * Retrieves chat sessions for a user with optional filtering by case.
+ * Retrieves thread metadata for a user with optional filtering by case or agent type.
  * 
  * @param {Object} args - The function arguments
- * @param {string} [args.userId] - User ID to get sessions for (defaults to current user)
- * @param {string} [args.caseId] - Optional case ID to filter sessions by
- * @returns {Promise<Object[]>} Array of active chat session documents
- * @throws {Error} When not authenticated, unauthorized to view other users' sessions, or lacking case access
+ * @param {string} [args.userId] - User ID to get threads for (defaults to current user)
+ * @param {string} [args.caseId] - Optional case ID to filter threads by
+ * @param {string} [args.agentType] - Optional agent type to filter by
+ * @returns {Promise<Object[]>} Array of active thread metadata documents
+ * @throws {Error} When not authenticated, unauthorized to view other users' threads, or lacking case access
  * 
- * @description This function returns all active chat sessions for a user.
- * Users can only view their own sessions for privacy and security.
+ * @description This function returns all active thread metadata for a user.
+ * Users can only view their own threads for privacy and security.
  * If a case ID is provided for filtering, the user must have access to that case.
  * 
  * @example
  * ```javascript
- * // Get all my chat sessions
- * const mySessions = await getChatSessions({});
+ * // Get all my threads
+ * const myThreads = await getThreadMetadata({});
  * 
- * // Get sessions for a specific case
- * const caseSessions = await getChatSessions({ caseId: "case_123" });
+ * // Get threads for a specific case
+ * const caseThreads = await getThreadMetadata({ caseId: "case_123" });
+ * 
+ * // Get threads for a specific agent type
+ * const memoryAgentThreads = await getThreadMetadata({ agentType: "memory_agent" });
  * ```
  */
-export const getChatSessions = query({
+export const getThreadMetadata = query({
   args: {
-    userId: v.optional(v.id("users")),
     caseId: v.optional(v.id("cases")),
+    agentType: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const currentUser = await getCurrentUserFromAuth(ctx);
     
     // Use current user or specified user
-    const userId = args.userId || currentUser._id;
+    const userId = currentUser._id;
     
-    // Only allow viewing own sessions
+    // Only allow viewing own threads
     if (userId !== currentUser._id) {
-      throw new Error("Unauthorized: Cannot view other users' chat sessions");
+      throw new Error("Unauthorized: Cannot view other users' threads");
     }
     
-    let sessionsQuery = ctx.db
+    let threadsQuery = ctx.db
       .query("chatSessions")
       .withIndex("by_user", (q) => q.eq("userId", userId))
       .filter((q) => q.eq(q.field("isActive"), true));
     
-    const sessions = await sessionsQuery.collect();
+    const threads = await threadsQuery.collect();
+    
+    let filteredThreads = threads;
     
     if (args.caseId) {
       // If filtering by case, verify user has access to that case
       await requireCaseAccess(ctx, args.caseId, "read");
-      return sessions.filter(s => s.caseId === args.caseId);
+      filteredThreads = filteredThreads.filter(t => t.caseId === args.caseId);
     }
     
-    return sessions;
+    if (args.agentType) {
+      filteredThreads = filteredThreads.filter(t => t.agentType === args.agentType);
+    }
+    
+    return filteredThreads;
   },
 });
 
+
 /**
- * Adds a new message to an existing chat session.
+ * Gets thread metadata by threadId.
  * 
  * @param {Object} args - The function arguments
- * @param {string} args.sessionId - The ID of the chat session to add the message to
- * @param {string} args.content - The message content/text
- * @param {"user" | "assistant"} args.role - Who sent the message (user or AI assistant)
- * @param {"text" | "document_analysis" | "template_suggestion" | "legal_advice"} args.messageType - The type of message
- * @param {string} [args.metadata] - Optional metadata associated with the message (JSON string)
- * @returns {Promise<string>} The created message's document ID
- * @throws {Error} When not authenticated, session not found, or unauthorized to add messages to session
- * 
- * @description This function adds a message to a chat session. Users can only add
- * messages to their own chat sessions. The message type helps categorize different
- * kinds of AI interactions, and metadata can store additional context.
+ * @param {string} args.threadId - The UUID thread identifier
+ * @returns {Promise<Object>} Thread metadata document
+ * @throws {Error} When not authenticated, thread not found, or unauthorized to view thread
  * 
  * @example
  * ```javascript
- * // Add a user message
- * const userMessageId = await addChatMessage({
- *   sessionId: "session_123",
- *   content: "Can you analyze this contract?",
- *   role: "user",
- *   messageType: "text"
- * });
- * 
- * // Add an AI response with metadata
- * const assistantMessageId = await addChatMessage({
- *   sessionId: "session_123",
- *   content: "This contract appears to have several key clauses...",
- *   role: "assistant",
- *   messageType: "legal_advice",
- *   metadata: JSON.stringify({ confidence: 0.9, sources: ["clause1", "clause2"] })
- * });
+ * const threadMeta = await getThreadMetadataByThreadId({ threadId: "uuid-thread-id" });
  * ```
  */
-export const addChatMessage = mutation({
+export const getThreadMetadataByThreadId = query({
   args: {
-    sessionId: v.id("chatSessions"),
-    content: v.string(),
-    role: v.union(v.literal("user"), v.literal("assistant")),
-    messageType: v.union(
-      v.literal("text"),
-      v.literal("document_analysis"),
-      v.literal("template_suggestion"),
-      v.literal("legal_advice")
-    ),
-    metadata: v.optional(v.string()),
+    threadId: v.string(),
   },
   handler: async (ctx, args) => {
     const currentUser = await getCurrentUserFromAuth(ctx);
     
-    // Verify user owns the chat session
-    const session = await ctx.db.get(args.sessionId);
-    if (!session) {
-      throw new Error("Chat session not found");
+    const thread = await ctx.db
+      .query("chatSessions")
+      .withIndex("by_thread_id", (q) => q.eq("threadId", args.threadId))
+      .filter((q) => q.eq(q.field("isActive"), true))
+      .first();
+    
+    if (!thread) {
+      throw new Error("Thread not found");
     }
     
-    if (session.userId !== currentUser._id) {
-      throw new Error("Unauthorized: Cannot add messages to other users' chat sessions");
+    if (thread.userId !== currentUser._id) {
+      throw new Error("Unauthorized: Cannot view other users' threads");
     }
     
-    const messageId = await ctx.db.insert("chatMessages", {
-      sessionId: args.sessionId,
-      content: args.content,
-      role: args.role,
-      messageType: args.messageType,
-      metadata: args.metadata,
+    return thread;
+  },
+});
+
+/**
+ * Archives a thread (soft delete).
+ * 
+ * @param {Object} args - The function arguments
+ * @param {string} args.threadId - The UUID thread identifier to archive
+ * @returns {Promise<void>}
+ * @throws {Error} When not authenticated, thread not found, or unauthorized to archive thread
+ * 
+ * @description This function archives a thread by setting isActive to false.
+ * Users can only archive their own threads. Archived threads are not
+ * returned by getThreadMetadata but can be restored if needed.
+ * 
+ * @example
+ * ```javascript
+ * await archiveThread({ threadId: "uuid-thread-id" });
+ * ```
+ */
+export const archiveThread = mutation({
+  args: {
+    threadId: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const currentUser = await getCurrentUserFromAuth(ctx);
+    
+    // Find the thread by threadId
+    const thread = await ctx.db
+      .query("chatSessions")
+      .withIndex("by_thread_id", (q) => q.eq("threadId", args.threadId))
+      .filter((q) => q.eq(q.field("isActive"), true))
+      .first();
+    
+    if (!thread) {
+      throw new Error("Thread not found");
+    }
+    
+    if (thread.userId !== currentUser._id) {
+      throw new Error("Unauthorized: Cannot archive other users' threads");
+    }
+    
+    await ctx.db.patch(thread._id, {
+      isActive: false,
     });
-    
-    return messageId;
-  },
-});
-
-/**
- * Retrieves all messages from a specific chat session.
- * 
- * @param {Object} args - The function arguments
- * @param {string} args.sessionId - The ID of the chat session to get messages from
- * @returns {Promise<Object[]>} Array of message documents ordered chronologically (oldest first)
- * @throws {Error} When not authenticated, session not found, or unauthorized to view session
- * 
- * @description This function returns all messages in a chat session in chronological
- * order (oldest first). Users can only view messages from their own sessions for
- * privacy and security. This maintains the conversation flow for display.
- * 
- * @example
- * ```javascript
- * const messages = await getChatMessages({ sessionId: "session_123" });
- * // Returns: [
- * //   { content: "Hello", role: "user", messageType: "text", _creationTime: ... },
- * //   { content: "Hi! How can I help?", role: "assistant", messageType: "text", ... }
- * // ]
- * ```
- */
-export const getChatMessages = query({
-  args: {
-    sessionId: v.id("chatSessions"),
-  },
-  handler: async (ctx, args) => {
-    const currentUser = await getCurrentUserFromAuth(ctx);
-    
-    // Verify user owns the chat session
-    const session = await ctx.db.get(args.sessionId);
-    if (!session) {
-      throw new Error("Chat session not found");
-    }
-    
-    if (session.userId !== currentUser._id) {
-      throw new Error("Unauthorized: Cannot view other users' chat messages");
-    }
-    
-    const messages = await ctx.db
-      .query("chatMessages")
-      .withIndex("by_session", (q) => q.eq("sessionId", args.sessionId))
-      .order("asc")
-      .collect();
-    
-    return messages;
   },
 }); 

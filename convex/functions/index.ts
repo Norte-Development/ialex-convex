@@ -55,10 +55,9 @@ export {
 
 // Chat Management
 export {
-  createChatSession,
-  getChatSessions,
-  addChatMessage,
-  getChatMessages,
+  createThreadMetadata,
+  getThreadMetadata,
+  archiveThread,
 } from "./chat";
 
 // Team Management

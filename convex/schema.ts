@@ -175,32 +175,53 @@ export default defineSchema({
     .index("by_public_status", ["isPublic"])
     .index("by_active_status", ["isActive"]),
 
-  // Chat Sessions - simplified to only associate with cases
+  // Chat Sessions/Agent Threads - metadata for conversations (actual data stored in Redis)
   chatSessions: defineTable({
+    threadId: v.optional(v.string()), // UUID for Redis storage key (optional for backward compatibility)
     caseId: v.optional(v.id("cases")), // Optional - can be case-specific or general
     userId: v.id("users"),
     title: v.optional(v.string()),
+    agentType: v.optional(v.string()), // e.g., "memory_agent", "legal_assistant"
     isActive: v.boolean(),
   })
+    .index("by_thread_id", ["threadId"])
     .index("by_case", ["caseId"])
     .index("by_user", ["userId"])
-    .index("by_active_status", ["isActive"]),
+    .index("by_active_status", ["isActive"])
+    .index("by_agent_type", ["agentType"]),
 
   // Chat Messages - individual messages in chat sessions
   chatMessages: defineTable({
     sessionId: v.id("chatSessions"),
     content: v.string(),
-    role: v.union(v.literal("user"), v.literal("assistant")),
+    role: v.union(
+      v.literal("user"),
+      v.literal("assistant"),
+      v.literal("system"),
+      v.literal("tool"),
+      v.literal("extractor"),
+      v.literal("validator")
+    ),
     messageType: v.union(
       v.literal("text"),
+      v.literal("search_query"),
+      v.literal("web_scrape"),
       v.literal("document_analysis"),
       v.literal("template_suggestion"),
-      v.literal("legal_advice")
+      v.literal("legal_advice"),
+      v.literal("extraction_result"),
+      v.literal("validation_feedback"),
+      v.literal("error")
     ),
     metadata: v.optional(v.string()),
+    toolName: v.optional(v.string()),
+    toolCallId: v.optional(v.string()),
+    status: v.optional(v.union(v.literal("success"), v.literal("error"), v.literal("pending"))),
   })
     .index("by_session", ["sessionId"])
-    .index("by_role", ["role"]),
+    .index("by_role", ["role"])
+    .index("by_message_type", ["messageType"])
+    .index("by_status", ["status"]),
 
   // Activity Log - audit trail for actions
   activityLog: defineTable({

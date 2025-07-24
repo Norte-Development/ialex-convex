@@ -1,21 +1,20 @@
-import { useLayout } from "@/context/LayoutContext";
+// import { useLayout } from "@/context/LayoutContext";
 import { ArrowRight, SendIcon } from "lucide-react";
 import TextareaAutosize from "react-textarea-autosize";
 
 const Sidebar = () => {
-  const { isSidebarOpen, toggleSidebar } = useLayout();
+  // const { isSidebarOpen, toggleSidebar } = useLayout();
 
   return (
     <aside
-      className={`bg-white border-l border-border w-80 min-h-screen p-4 transform transition-transform duration-300 ease-in-out pt-15 flex flex-col justify-end ${
-        isSidebarOpen ? "translate-x-0" : "translate-x-full"
-      } fixed top-0 right-0 z-40`}
+      className={`bg-white border-l border-border w-80 min-h-screen p-4 transform transition-transform duration-300 ease-in-out pt-15 flex flex-col justify-end fixed top-0 right-0 z-40`}
+      // isSidebarOpen ? "translate-x-0" : "translate-x-full"
     >
       <button
         className="absolute top-16 left-2 cursor-pointer"
-        onClick={() => {
-          toggleSidebar();
-        }}
+        onClick={() => {}}
+        // toggleSidebar();
+        // }
       >
         <ArrowRight size={15} />
       </button>
