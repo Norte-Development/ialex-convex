@@ -6,6 +6,7 @@ import { useLayout } from "@/context/LayoutContext";
 import { useCase } from "@/context/CaseContext";
 import { useThread } from "@/context/ThreadContext";
 import { ArrowRight } from "lucide-react";
+import Sidebar from "../Layout/Sidebar";
 
 interface CaseDetailLayoutProps {
   children: React.ReactNode;
@@ -28,17 +29,18 @@ export default function CaseLayout({ children }: CaseDetailLayoutProps) {
   };
 
   return (
-    <CopilotSidebar
-      defaultOpen={true}
-      clickOutsideToClose={false}
-      hitEscapeToClose={true}
-      shortcut="k"
-      labels={{
-        title: "Alex",
-        initial: "¿En que trabajamos hoy?",
-      }}
-      onSubmitMessage={onSubmitMessageCallback}
-    >
+    // <CopilotSidebar
+    //   defaultOpen={true}
+    //   clickOutsideToClose={false}
+    //   hitEscapeToClose={true}
+    //   shortcut="k"
+    //   labels={{
+    //     title: "Alex",
+    //     initial: "¿En que trabajamos hoy?",
+    //   }}
+    //   onSubmitMessage={onSubmitMessageCallback}
+    // >
+    <>
       <div className="flex h-screen pt-14">
         {/* Sidebar - dynamic width */}
         <div
@@ -52,6 +54,7 @@ export default function CaseLayout({ children }: CaseDetailLayoutProps) {
         <main className="flex-1 bg-[#f7f7f7] overflow-y-auto pt-5 pl-2">
           {children}
         </main>
+        <Sidebar />
       </div>
 
       {/* Botón de abrir cuando sidebar está cerrada */}
@@ -63,6 +66,7 @@ export default function CaseLayout({ children }: CaseDetailLayoutProps) {
           <ArrowRight size={15} />
         </button>
       )}
-    </CopilotSidebar>
+    </>
+    // </CopilotSidebar>
   );
 }
