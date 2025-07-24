@@ -513,3 +513,9 @@ Strategic database indexes ensure fast queries for common use cases like filteri
 ## Node-only Firestore Access
 
 Firestore access is isolated to `convex/functions/legalDb.ts`, which uses the `'use node'` directive. All other Convex functions remain browser-safe and do not use Node.js APIs. Do NOT re-export node-only functions (like `fetchLegalDb`) from `index.ts` or `myFunctions.ts`. Import them directly from their files if needed. 
+
+---
+
+## UI Components
+
+- **CaseThreadSelector**: A shadcn-based dropdown UI for selecting and creating chat threads within a case, integrated in the case sidebar. (UI only, no backend logic yet) 

@@ -48,4 +48,20 @@ export const useThread = () => {
     throw new Error("useThread debe ser usado dentro de un ThreadProvider");
   }
   return context;
+};
+
+export const useSetThread = () => {
+  const context = useContext(ThreadContext);
+  if (context === undefined) {
+    throw new Error("useSetThread debe ser usado dentro de un ThreadProvider");
+  }
+  return context.setThread;
+};
+
+export const useGenerateNewThreadId = () => {
+  const context = useContext(ThreadContext);
+  if (context === undefined) {
+    throw new Error("useGenerateNewThreadId debe ser usado dentro de un ThreadProvider");
+  }
+  return context.generateNewThreadId;
 }; 

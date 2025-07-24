@@ -1,19 +1,4 @@
-import {
-  FileSearch2,
-  UserIcon,
-  UsersRound,
-  FolderX,
-  FolderOpen,
-  Folder,
-  FolderArchive,
-  FolderSymlink,
-  ArrowLeft,
-  ArrowRight,
-  FileType2,
-  FileArchive,
-  Trash,
-  BookCheck,
-} from "lucide-react";
+import { FileSearch2, UserIcon, UsersRound, FolderX, FolderOpen, Folder, FolderArchive, FolderSymlink, ArrowLeft, ArrowRight, FileType2, FileArchive, Trash, BookCheck, Plus } from 'lucide-react';
 import {
   Collapsible,
   CollapsibleContent,
@@ -22,7 +7,8 @@ import {
 import { useLayout } from "@/context/LayoutContext";
 import { useLocation, useParams } from "react-router-dom";
 import { Link } from "react-router-dom";
-import { useCopilotContext } from "@copilotkit/react-core";
+import { AIAgentThreadSelector } from "./CaseThreadSelector";
+import { useGenerateNewThreadId } from '@/context/ThreadContext';
 
 export default function CaseSidebar() {
   const {
@@ -36,21 +22,19 @@ export default function CaseSidebar() {
     toggleHistorial,
     setIsInCaseContext,
   } = useLayout();
+
   const location = useLocation();
   const { id } = useParams();
 
   const isAgreements = location.pathname.includes("acuerdos");
   const isNameOfDocument = location.pathname.includes("nombre-del-documento");
-
   const basePath = `/caso/${id}`;
 
   const handleNavigationFromCase = () => {
     setIsInCaseContext(true);
   };
 
-  const { threadId, setThreadId } = useCopilotContext();
-
-  console.log(threadId);
+  const generateNewThreadId = useGenerateNewThreadId();
 
   return (
     <aside
@@ -64,6 +48,7 @@ export default function CaseSidebar() {
       >
         <ArrowLeft size={15} />
       </button>
+
       {!isCaseSidebarOpen && (
         <button
           onClick={toggleCaseSidebar}
@@ -72,6 +57,7 @@ export default function CaseSidebar() {
           <ArrowRight size={15} />
         </button>
       )}
+
       <div className={`flex gap-4 justify-center items-center h-[10%] `}>
         <Link
           to={`${basePath}/base-de-datos`}
@@ -106,8 +92,9 @@ export default function CaseSidebar() {
           />
         </Link>
       </div>
-      <div className="h-[70%] w-full flex flex-col justify-start items-center overflow-y-auto pl-5">
-        <div className="w-full flex flex-col gap-2 h-[50%] overflow-y-auto">
+
+      <div className="h-[70%] w-full flex flex-col justify-start items-center pl-5">
+        <div className="w-full flex flex-col gap-2 h-[50%]">
           <Collapsible
             open={isEscritosOpen}
             onOpenChange={toggleEscritos}
@@ -121,17 +108,20 @@ export default function CaseSidebar() {
               )}{" "}
               Escritos
             </CollapsibleTrigger>
-            <CollapsibleContent className="flex flex-col gap-1 pl-2 text-[12px] pt-1">
+            <CollapsibleContent className="flex flex-col gap-1 pl-2 text-[12px] pt-1 overflow-y-auto max-h-32">
               <div
-                className={`flex gap-1 items-center ${isAgreements ? "text-blue-500" : ""}`}
+                className={`flex gap-1 items-center ${
+                  isAgreements ? "text-blue-500" : ""
+                }`}
               >
                 <FileType2 className="cursor-pointer" size={20} />
                 <Link to={`${basePath}/acuerdos`}>Acuerdos</Link>
               </div>
               <div
-                className={`flex gap-1 items-center ${isNameOfDocument ? "text-blue-500" : ""}`}
+                className={`flex gap-1 items-center ${
+                  isNameOfDocument ? "text-blue-500" : ""
+                }`}
               >
-                <button onClick={() => setThreadId(crypto.randomUUID())}>Nuevo thread</button>
                 <FileType2 className="cursor-pointer" size={20} />
                 <Link to={`${basePath}/nombre-del-documento`}>
                   Nombre del documento
@@ -139,6 +129,7 @@ export default function CaseSidebar() {
               </div>
             </CollapsibleContent>
           </Collapsible>
+
           <Collapsible
             open={isDocumentosOpen}
             onOpenChange={toggleDocumentos}
@@ -148,9 +139,11 @@ export default function CaseSidebar() {
               <FolderArchive className="cursor-pointer" size={20} />
               Documentos
             </CollapsibleTrigger>
-            <CollapsibleContent className="flex flex-col gap-1 pl-2 text-[12px] pt-1">
+            <CollapsibleContent className="flex flex-col gap-1 pl-2 text-[12px] pt-1 overflow-y-auto max-h-32">
               <div
-                className={`flex gap-1 items-center ${isNameOfDocument ? "text-blue-500" : ""}`}
+                className={`flex gap-1 items-center ${
+                  isNameOfDocument ? "text-blue-500" : ""
+                }`}
               >
                 <FileArchive className="cursor-pointer" size={20} />
                 <Link to={`${basePath}/nombre-del-documento`}>
@@ -160,20 +153,31 @@ export default function CaseSidebar() {
             </CollapsibleContent>
           </Collapsible>
         </div>
-        <div className="w-full flex flex-col gap-2 h-[50%] overflow-y-auto ">
+
+        <div className="w-full flex flex-col gap-2 h-[50%] ">
           <Collapsible
             open={isHistorialOpen}
             onOpenChange={toggleHistorial}
             className="w-full"
           >
-            <CollapsibleTrigger className="cursor-pointer flex gap-1">
-              <FolderSymlink className="cursor-pointer" size={20} />
-              Historial de chat
+            <CollapsibleTrigger className="cursor-pointer flex justify-between items-center gap-1 w-full">
+              <span className="flex items-center gap-1">
+                <FolderSymlink className="cursor-pointer" size={20} />
+                Historial de chat
+              </span>
+              <Plus
+                className="cursor-pointer transition-colors rounded-full p-1 hover:bg-blue-100 hover:text-blue-600"
+                size={25}
+                onClick={generateNewThreadId}
+              />
             </CollapsibleTrigger>
-            <CollapsibleContent>Content de historial</CollapsibleContent>
+            <CollapsibleContent className="flex flex-col gap-1 pl-2 text-[12px] pt-1 overflow-y-auto max-h-40">
+              <AIAgentThreadSelector />
+            </CollapsibleContent>
           </Collapsible>
         </div>
       </div>
+
       <div className="w-full  flex flex-col justify-center  h-[20%] gap-2 pl-5">
         <div className="flex gap-4 items-center">
           <FolderX className="cursor-pointer" size={20} />

@@ -44,11 +44,15 @@ const queryClient = new QueryClient();
 // Component that uses the thread context
 const AppWithThread = () => {
   const { thread } = useThread();
+
+  console.log(thread);
   
   return (
     <CopilotKit
+      key={thread.threadId}
       runtimeUrl={import.meta.env.VITE_COPILOTKIT_RUNTIME_URL}
       agent="memory_agent"
+      threadId={"8bc652d2-f3db-49c2-82fc-cdf72c9159a8"}
     >
       {/* Show authentication loading skeleton while Convex auth is initializing */}
       <AuthLoading>

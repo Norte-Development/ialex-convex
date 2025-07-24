@@ -49,7 +49,13 @@ export const createThreadMetadata = mutation({
   },
   handler: async (ctx, args) => {
     const currentUser = await getCurrentUserFromAuth(ctx);
-    
+
+    const existingThread = await ctx.db.query("chatSessions").withIndex("by_thread_id", (q) => q.eq("threadId", args.threadId)).first();
+
+    if (existingThread) {
+      return existingThread._id;
+    }
+
     // If case is specified, verify user has access
     if (args.caseId) {
       await requireCaseAccess(ctx, args.caseId, "read");
@@ -96,7 +102,6 @@ export const createThreadMetadata = mutation({
  */
 export const getThreadMetadata = query({
   args: {
-    userId: v.optional(v.id("users")),
     caseId: v.optional(v.id("cases")),
     agentType: v.optional(v.string()),
   },
@@ -104,7 +109,7 @@ export const getThreadMetadata = query({
     const currentUser = await getCurrentUserFromAuth(ctx);
     
     // Use current user or specified user
-    const userId = args.userId || currentUser._id;
+    const userId = currentUser._id;
     
     // Only allow viewing own threads
     if (userId !== currentUser._id) {
