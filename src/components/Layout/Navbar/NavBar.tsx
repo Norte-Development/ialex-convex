@@ -31,7 +31,7 @@ export default function NavBar() {
         />
       </div>
       <div className={`flex gap-4 justify-center items-center `}>
-        {isInCaseRoute ? (
+        {isInCaseContext ? (
           <div className="text-xl font-bold text-black flex items-center gap-2">
             <Breadcrumbs />
           </div>
