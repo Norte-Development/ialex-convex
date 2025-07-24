@@ -15,6 +15,8 @@ import { OnboardingWrapper } from "./components/Auth/OnboardingWrapper";
 import { SignInPage } from "./components/Auth/SignInPage";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
+import { CopilotKit } from "@copilotkit/react-core";
+import { ThreadProvider, useThread } from "./context/ThreadContext";
 import TeamPage from "./pages/TeamPage";
 import TeamManagePage from "./pages/TeamManagePage";
 import AcceptInvitePage from "./pages/AcceptInvitePage";
@@ -22,6 +24,8 @@ import SignupInvitePage from "./pages/SignupInvitePage";
 import CaseClientsPage from "./pages/CaseOpen/CaseClientPage";
 import CaseTeamsPage from "./pages/CaseOpen/CaseTeamsPage";
 import { CaseProvider } from "./context/CaseContext";
+
+import "@copilotkit/react-ui/styles.css";
 
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({
   children,
@@ -37,9 +41,19 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({
 
 const queryClient = new QueryClient();
 
-function App() {
+// Component that uses the thread context
+const AppWithThread = () => {
+  const { thread } = useThread();
+
+  console.log(thread);
+  
   return (
-    <QueryClientProvider client={queryClient}>
+    <CopilotKit
+      key={thread.threadId}
+      runtimeUrl={"http://localhost:4000/copilotkit"}
+      agent="memory_agent"
+      threadId={thread.threadId}
+    >
       {/* Show authentication loading skeleton while Convex auth is initializing */}
       <AuthLoading>
         <AppSkeleton />
@@ -134,7 +148,17 @@ function App() {
           }
         />
       </Routes>
-      <ReactQueryDevtools initialIsOpen={false} />
+    </CopilotKit>
+  );
+};
+
+function App() {
+  return (
+    <QueryClientProvider client={queryClient}>
+      <ThreadProvider>
+        <AppWithThread />
+        <ReactQueryDevtools initialIsOpen={false} />
+      </ThreadProvider>
     </QueryClientProvider>
   );
 }

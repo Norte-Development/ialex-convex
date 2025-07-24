@@ -177,9 +177,11 @@ The `<Protect>` component supports advanced authorization patterns:
 
 **Ownership-Protected Functions:**
 - `createChatSession` - Auto-assigns to current user, validates case access if specified
-- `getChatSessions` - Users can only view their own sessions (admins can view others)
-- `addChatMessage` - Validates session ownership
-- `getChatMessages` - Validates session ownership (admins can view others)
+- `getChatSessions` - Users can only view their own sessions
+- `addChatMessage` - Validates session ownership, supports new role types and message types
+- `getChatMessages` - Validates session ownership
+- `updateChatMessageStatus` - Validates session ownership, updates message status for async operations
+- `archiveChatSession` - Validates session ownership, soft deletes chat sessions
 
 ### Team Management (`teams.ts`)
 

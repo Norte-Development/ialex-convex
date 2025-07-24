@@ -24,7 +24,7 @@ export default function NavBar() {
 
   return (
     <nav
-      className={`${isInCaseContext ? "flex flex-row-reverse" : "flex "} px-5 justify-between items-center h-14 w-full bg-background text-foreground border-b border-border  fixed top-0 left-0 z-50`}
+      className={`${isInCaseContext ? "flex flex-row-reverse" : "flex "} fixed px-5 justify-between items-center h-14 w-full bg-background text-foreground border-b border-border top-0 left-0 z-50 mb-5`}
     >
       <div className={` flex  items-center gap-4`}>
         <Settings className="cursor-pointer" size={20} />
