@@ -50,7 +50,7 @@ const AppWithThread = () => {
   return (
     <CopilotKit
       key={thread.threadId}
-      runtimeUrl={"http://localhost:4000/copilotkit"}
+      runtimeUrl={import.meta.env.VITE_COPILOTKIT_RUNTIME_URL}
       agent="memory_agent"
       threadId={thread.threadId}
     >

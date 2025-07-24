@@ -2,12 +2,27 @@ import { api } from "../../../convex/_generated/api";
 import { useQuery } from "convex/react"
 import { useCase } from "@/context/CaseContext"
 import { useSetThread } from "@/context/ThreadContext";
+import { useCopilotChat } from "@copilotkit/react-core";
+import { Role, TextMessage } from "@copilotkit/runtime-client-gql";
 
 export function AIAgentThreadSelector() {
 
   const { caseId } = useCase();
   const setThread = useSetThread();
   const threads = useQuery(api.functions.chat.getThreadMetadata, { caseId: caseId || undefined });
+
+  const { appendMessage } = useCopilotChat();
+
+  const handleThreadClick = (thread: any) => {
+    setThread(thread);
+  //   appendMessage(
+  //     new TextMessage({
+  //       content: "<<<loading>>>",
+  //       role: Role.System,
+  //     }),
+  //     { followUp: true }
+  // );
+  }
 
 
   return (
@@ -22,13 +37,7 @@ export function AIAgentThreadSelector() {
               hover:bg-accent/50
               ${thread.isActive ? "bg-accent" : ""}
             `}
-            onClick={() => setThread({
-              threadId: thread.threadId || "",
-              title: thread.title || "",
-              agentType: thread.agentType || "",
-              isActive: thread.isActive,
-              _id: thread._id,
-            })}
+              onClick={() => handleThreadClick(thread)}
           >
             <div className="flex items-center justify-between">
               <span

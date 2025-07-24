@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { CopilotSidebar } from "@copilotkit/react-ui";
 import { api } from "../../../convex/_generated/api";
 import { useMutation } from "convex/react";
@@ -5,6 +6,8 @@ import CaseSidebar from "./CaseSideBar";
 import { useLayout } from "@/context/LayoutContext";
 import { useCase } from "@/context/CaseContext";
 import { useThread } from "@/context/ThreadContext";
+import { Role, TextMessage } from "@copilotkit/runtime-client-gql";
+import { useCopilotChat } from "@copilotkit/react-core";
 
 interface CaseDetailLayoutProps {
   children: React.ReactNode;
@@ -15,7 +18,7 @@ export default function CaseLayout({ children }: CaseDetailLayoutProps) {
   const { caseId } = useCase();
   const { thread } = useThread();
   const createThread = useMutation(api.functions.chat.createThreadMetadata);
-
+  const { setMessages } = useCopilotChat();
   const onSubmitMessageCallback = (message: string) => {
     const truncatedMessage = message.slice(0, 50);
     createThread({
@@ -25,6 +28,12 @@ export default function CaseLayout({ children }: CaseDetailLayoutProps) {
     });
     return Promise.resolve();
   };
+
+  useEffect(() => {
+    if (thread.threadId) {
+      setMessages([new TextMessage({ content: "Hola, ¿en que puedo ayudarte?", role: Role.Assistant })]);
+    }
+  }, [thread.threadId]);
 
   return (
     <CopilotSidebar
