@@ -21,6 +21,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { UserPlus } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 
 interface InviteUserDialogProps {
   teamId: string;
@@ -40,7 +41,7 @@ export default function InviteUserDialog({
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
 
-  const addUserToTeam = useMutation(api.functions.teams.addUserToTeam);
+  const sendTeamInvite = useMutation(api.functions.teams.sendTeamInvite);
 
   const foundUser = useQuery(api.functions.users.getUserByEmail, {
     email: email,
@@ -50,18 +51,17 @@ export default function InviteUserDialog({
     e.preventDefault();
     setError(null);
 
-    if (!foundUser) {
-      setError(
-        "No se ha encontrado un usuario con ese email. Verifíquelo antes de invitar.",
-      );
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      setError("Por favor ingresa un email válido");
       return;
     }
 
     setIsLoading(true);
     try {
-      await addUserToTeam({
+      await sendTeamInvite({
         teamId: teamId as any,
-        userId: foundUser._id,
+        email: email.trim(),
         role: role,
       });
 
@@ -75,7 +75,7 @@ export default function InviteUserDialog({
         onClose?.();
       }, 2000);
     } catch (error) {
-      console.error("Error sending invitation:", error);
+      console.error("Error processing invitation:", error);
       const errorMessage =
         (error as any)?.data?.message || (error as Error).message;
       setError(errorMessage);
@@ -137,14 +137,18 @@ export default function InviteUserDialog({
                 disabled={isLoading || success}
               />
               {email.length > 3 && foundUser === null && (
-                <p className="text-xs text-yellow-600">
-                  No se encontró un usuario con este email.
-                </p>
+                <Badge className="text-xs text-blue-600 bg-blue-50 p-2 rounded-md mt-2 w-full  flex flex-col">
+                  Este usuario no está registrado.
+                  <strong>Se le enviará una invitación para unirse.</strong>
+                </Badge>
               )}
               {foundUser && (
-                <div className="text-xs text-green-600 bg-green-50 p-2 rounded-md">
-                  Usuario encontrado: <strong>{foundUser.name}</strong>
-                </div>
+                <Badge className="text-xs text-green-600 bg-green-50 p-2 rounded-md mt-2 w-full flex flex-col">
+                  Este usuario ya está en la plataforma.{" "}
+                  <strong>
+                    Se le enviará una invitación para unirse al equipo.
+                  </strong>
+                </Badge>
               )}
             </div>
 
@@ -177,7 +181,11 @@ export default function InviteUserDialog({
               Cancelar
             </Button>
             {!success && (
-              <Button type="submit" disabled={isLoading || !foundUser}>
+              <Button
+                type="submit"
+                disabled={isLoading || !email.includes("@")}
+                className="cursor-pointer"
+              >
                 {isLoading ? "Enviando..." : "Enviar Invitación"}
               </Button>
             )}

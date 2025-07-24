@@ -1,7 +1,7 @@
 import React, { ReactNode } from "react";
-import NavBar from "./NavBar";
-import { CopilotSidebar } from "@copilotkit/react-ui";
-
+import { useLayout } from "@/context/LayoutContext";
+import NavBar from "./Navbar/NavBar";
+import Sidebar from "./Sidebar";
 
 interface LayoutProps {
   children: ReactNode;

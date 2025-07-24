@@ -1,5 +1,5 @@
 import { useCase } from "@/context/CaseContext";
-import CaseDetailLayout from "../../components/Layout/CaseDetailLayout";
+import CaseLayout from "@/components/Cases/CaseLayout";
 import TeamAccessDialog from "../../components/Cases/TeamAccessDialog";
 import { useQuery } from "convex/react";
 import { api } from "../../../convex/_generated/api";
@@ -49,16 +49,16 @@ export default function CaseTeamsPage() {
 
   if (!currentCase) {
     return (
-      <CaseDetailLayout>
+      <CaseLayout>
         <div className="flex items-center justify-center h-64">
           <div className="text-gray-500">Caso no encontrado</div>
         </div>
-      </CaseDetailLayout>
+      </CaseLayout>
     );
   }
 
   return (
-    <CaseDetailLayout>
+    <CaseLayout>
       <div className="space-y-6 min-h-screen pt-10 pl-5 pb-10">
         {/* Header */}
         <div className="flex items-center justify-between">
@@ -240,6 +240,6 @@ export default function CaseTeamsPage() {
           </CardContent>
         </Card>
       </div>
-    </CaseDetailLayout>
+    </CaseLayout>
   );
 }

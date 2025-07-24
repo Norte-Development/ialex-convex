@@ -5,7 +5,7 @@ interface CaseDetailLayoutProps {
   children: React.ReactNode;
 }
 
-export default function CaseDetailLayout({ children }: CaseDetailLayoutProps) {
+export default function CaseLayout({ children }: CaseDetailLayoutProps) {
   const { isCaseSidebarOpen, isSidebarOpen } = useLayout();
   return (
     <div className="flex w-full h-screen pt-14">

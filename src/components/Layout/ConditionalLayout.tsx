@@ -2,7 +2,7 @@ import React, { ReactNode } from "react";
 import { useLayout } from "@/context/LayoutContext";
 import { useLocation } from "react-router-dom";
 import Layout from "./Layout";
-import CaseDetailLayout from "./CaseDetailLayout";
+import CaseLayout from "../Cases/CaseLayout";
 
 interface ConditionalLayoutProps {
   children: ReactNode;
@@ -38,7 +38,7 @@ const ConditionalLayout: React.FC<ConditionalLayoutProps> = ({
   };
 
   if (shouldUseCaseLayout()) {
-    return <CaseDetailLayout>{children}</CaseDetailLayout>;
+    return <CaseLayout>{children}</CaseLayout>;
   }
 
   return <Layout>{children}</Layout>;
