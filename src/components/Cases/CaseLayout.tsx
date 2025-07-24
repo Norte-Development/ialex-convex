@@ -1,10 +1,10 @@
-import { CopilotSidebar } from "@copilotkit/react-ui";
-import { api } from "../../../convex/_generated/api";
-import { useMutation } from "convex/react";
+// import { CopilotSidebar } from "@copilotkit/react-ui";
+// import { api } from "../../../convex/_generated/api";
+// import { useMutation } from "convex/react";
 import CaseSidebar from "./CaseSideBar";
 import { useLayout } from "@/context/LayoutContext";
-import { useCase } from "@/context/CaseContext";
-import { useThread } from "@/context/ThreadContext";
+// import { useCase } from "@/context/CaseContext";
+// import { useThread } from "@/context/ThreadContext";
 import { ArrowRight } from "lucide-react";
 import Sidebar from "../Layout/Sidebar";
 
@@ -14,19 +14,19 @@ interface CaseDetailLayoutProps {
 
 export default function CaseLayout({ children }: CaseDetailLayoutProps) {
   const { isCaseSidebarOpen, toggleCaseSidebar } = useLayout();
-  const { caseId } = useCase();
-  const { thread } = useThread();
-  const createThread = useMutation(api.functions.chat.createThreadMetadata);
+  // const { caseId } = useCase();
+  // const { thread } = useThread();
+  // const createThread = useMutation(api.functions.chat.createThreadMetadata);
 
-  const onSubmitMessageCallback = (message: string) => {
-    const truncatedMessage = message.slice(0, 50);
-    createThread({
-      caseId: caseId || undefined,
-      title: truncatedMessage,
-      threadId: thread.threadId,
-    });
-    return Promise.resolve();
-  };
+  // const onSubmitMessageCallback = (message: string) => {
+  //   const truncatedMessage = message.slice(0, 50);
+  //   createThread({
+  //     caseId: caseId || undefined,
+  //     title: truncatedMessage,
+  //     threadId: thread.threadId,
+  //   });
+  //   return Promise.resolve();
+  // };
 
   return (
     // <CopilotSidebar
@@ -41,7 +41,7 @@ export default function CaseLayout({ children }: CaseDetailLayoutProps) {
     //   onSubmitMessage={onSubmitMessageCallback}
     // >
     <>
-      <div className="flex h-screen pt-14">
+      <div className="flex w-full min-h-screen pt-14">
         {/* Sidebar - dynamic width */}
         <div
           className={`transition-all duration-300 ease-in-out ${
@@ -51,7 +51,7 @@ export default function CaseLayout({ children }: CaseDetailLayoutProps) {
           <CaseSidebar />
         </div>
         {/* Main content - scrollable */}
-        <main className="flex-1 bg-[#f7f7f7] overflow-y-auto pt-5 pl-2">
+        <main className="flex-1 bg-[#f7f7f7] overflow-y-auto pt-5 px-2">
           {children}
         </main>
         <Sidebar />

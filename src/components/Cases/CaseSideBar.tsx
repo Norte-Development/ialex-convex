@@ -46,7 +46,7 @@ export default function CaseSidebar() {
 
   return (
     <aside
-      className={`relative z-30 h-full border-r border-border flex flex-col text-sm transition-all duration-300 ease-in-out overflow-hidden ${
+      className={`relative z-30 h-full border-r bg-white border-border flex flex-col text-sm transition-all duration-300 ease-in-out overflow-hidden ${
         isCaseSidebarOpen ? "w-64" : "w-0"
       }`}
     >

@@ -15,7 +15,7 @@ export default function DataBasePage() {
 
   return (
     <section
-      className={`w-[70%] h-full bg-white flex pt-5  flex-col gap-5 px-5`}
+      className={`w-[70%] h-full bg-white mt-25 flex py-5 px-5 flex-col gap-5 `}
     >
       <div className="flex gap-2">
         <Input

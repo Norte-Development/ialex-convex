@@ -1,7 +1,9 @@
 import CaseGrid from "../components/Cases/CaseGrid";
 import CreateCaseDialog from "../components/Cases/CreateCaseDialog";
 import { useCase } from "@/context/CaseContext";
-export default function CasesPage() {
+import { CaseProvider } from "@/context/CaseContext";
+
+function CasesContent() {
   const { currentCase } = useCase();
 
   return (
@@ -16,5 +18,13 @@ export default function CasesPage() {
         <CaseGrid />
       </div>
     </div>
+  );
+}
+
+export default function CasesPage() {
+  return (
+    <CaseProvider>
+      <CasesContent />
+    </CaseProvider>
   );
 }

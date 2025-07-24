@@ -7,10 +7,10 @@ interface LayoutProps {
 
 const Layout: React.FC<LayoutProps> = ({ children }) => {
   return (
-    <div className=" flex flex-col overflow-hidden">
+    <div className=" flex flex-col overflow-hidden min-h-screen w-screen">
       <NavBar />
-      <div className="flex w-full">
-        <main className="flex-1 h-full overflow-x-hidden w-full overflow-y-auto bg-background transition-all duration-300 ease-in-out">
+      <div className="flex w-full h-full">
+        <main className=" min-h-screen justify-center bg-[#f7f7f7] flex items-center  overflow-x-hidden w-full overflow-y-auto transition-all duration-300 ease-in-out">
           {children}
         </main>
       </div>
