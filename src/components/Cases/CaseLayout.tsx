@@ -5,13 +5,14 @@ import CaseSidebar from "./CaseSideBar";
 import { useLayout } from "@/context/LayoutContext";
 import { useCase } from "@/context/CaseContext";
 import { useThread } from "@/context/ThreadContext";
+import { ArrowRight } from "lucide-react";
 
 interface CaseDetailLayoutProps {
   children: React.ReactNode;
 }
 
 export default function CaseLayout({ children }: CaseDetailLayoutProps) {
-  const { isCaseSidebarOpen } = useLayout();
+  const { isCaseSidebarOpen, toggleCaseSidebar } = useLayout();
   const { caseId } = useCase();
   const { thread } = useThread();
   const createThread = useMutation(api.functions.chat.createThreadMetadata);
@@ -38,20 +39,30 @@ export default function CaseLayout({ children }: CaseDetailLayoutProps) {
       }}
       onSubmitMessage={onSubmitMessageCallback}
     >
-      {/* Sidebar - fixed */}
-      {isCaseSidebarOpen && (
-        <div className="fixed top-14 left-0 h-[calc(100vh-56px)] w-64 z-20">
+      <div className="flex h-screen pt-14">
+        {/* Sidebar - dynamic width */}
+        <div
+          className={`transition-all duration-300 ease-in-out ${
+            isCaseSidebarOpen ? "w-64" : "w-0"
+          }`}
+        >
           <CaseSidebar />
         </div>
+        {/* Main content - scrollable */}
+        <main className="flex-1 bg-[#f7f7f7] overflow-y-auto pt-5 pl-2">
+          {children}
+        </main>
+      </div>
+
+      {/* Botón de abrir cuando sidebar está cerrada */}
+      {!isCaseSidebarOpen && (
+        <button
+          onClick={toggleCaseSidebar}
+          className="fixed top-1/2 left-2 z-40 cursor-pointer bg-white border border-gray-300 rounded-full p-2 shadow-md hover:shadow-lg transition-shadow"
+        >
+          <ArrowRight size={15} />
+        </button>
       )}
-      {/* Main content - scrollable */}
-      <main
-        className={`transition-all duration-300 ease-in-out bg-[#f7f7f7] pt-14 ${
-          isCaseSidebarOpen ? "ml-64" : "ml-0"
-        } h-[calc(100vh-56px)] overflow-y-auto`}
-      >
-        {children}
-      </main>
     </CopilotSidebar>
   );
 }

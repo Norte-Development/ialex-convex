@@ -1,7 +1,6 @@
 import { useCase } from "@/context/CaseContext";
 import CaseLayout from "@/components/Cases/CaseLayout";
 import TeamAccessDialog from "../../components/Cases/TeamAccessDialog";
-import { useQuery } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import {
   Card,
@@ -12,6 +11,7 @@ import {
 import { Badge } from "../../components/ui/badge";
 import { Button } from "../../components/ui/button";
 import { Users, Shield, Eye, Plus } from "lucide-react";
+import { useQuery } from "convex/react";
 
 export default function CaseTeamsPage() {
   const { currentCase } = useCase();

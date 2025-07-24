@@ -8,7 +8,6 @@ import {
   FolderArchive,
   FolderSymlink,
   ArrowLeft,
-  ArrowRight,
   FileType2,
   FileArchive,
   Trash,
@@ -52,20 +51,11 @@ export default function CaseSidebar() {
       }`}
     >
       <button
-        className="absolute top-16 right-2 cursor-pointer"
+        className="absolute top-4 right-2 cursor-pointer"
         onClick={toggleCaseSidebar}
       >
         <ArrowLeft size={15} />
       </button>
-
-      {!isCaseSidebarOpen && (
-        <button
-          onClick={toggleCaseSidebar}
-          className="fixed top-1/2 left-2 z-40 cursor-pointer bg-white border border-gray-300 rounded-full p-2 shadow-md hover:shadow-lg transition-shadow"
-        >
-          <ArrowRight size={15} />
-        </button>
-      )}
 
       <div className={`flex gap-4 justify-center items-center h-[10%] `}>
         <Link to={`${basePath}/base-de-datos`}>
