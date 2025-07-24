@@ -1,14 +1,19 @@
-"use client"
+"use client";
 
-import { useEditor, EditorContent } from "@tiptap/react"
-import type { Editor } from "@tiptap/core"
-import { useEffect } from "react"
-import StarterKit from "@tiptap/starter-kit"
-import TextAlign from "@tiptap/extension-text-align"
-import Underline from "@tiptap/extension-underline"
-import { Underline as UnderlineIcon } from "lucide-react"
-import { InlineChange, BlockChange, LineBreakChange } from "./extensions/changeNode"
-import { TrackingExtension } from "./extensions/tracking"
+import { useEditor, EditorContent } from "@tiptap/react";
+import type { Editor } from "@tiptap/core";
+import { useEffect } from "react";
+import StarterKit from "@tiptap/starter-kit";
+import TextAlign from "@tiptap/extension-text-align";
+import Underline from "@tiptap/extension-underline";
+import { useTiptapSync } from "@convex-dev/prosemirror-sync/tiptap";
+import { Underline as UnderlineIcon } from "lucide-react";
+import {
+  InlineChange,
+  BlockChange,
+  LineBreakChange,
+} from "./extensions/changeNode";
+import { TrackingExtension } from "./extensions/tracking";
 import {
   Bold,
   Italic,
@@ -22,66 +27,101 @@ import {
   Undo,
   Redo,
   FileText,
-} from "lucide-react"
-import { Button } from "@/components/ui/button"
-import { Separator } from "@/components/ui/separator"
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Separator } from "@/components/ui/separator";
+import { api } from "../../../convex/_generated/api";
 
 interface TiptapProps {
-  onReady?: (editor: Editor) => void
-  onDestroy?: () => void
+  documentId?: string;
+  onReady?: (editor: Editor) => void;
+  onDestroy?: () => void;
 }
 
-export function Tiptap({ onReady, onDestroy }: TiptapProps) {
-  const editor = useEditor({
-    extensions: [
-      StarterKit,
-      InlineChange,
-      BlockChange,
-      LineBreakChange,
-      TrackingExtension,
-      TextAlign.configure({
-        types: ['heading', 'paragraph'],
-      }),
-      Underline,
-    ],
-    content: `
+export function Tiptap({
+  documentId = "default-document",
+  onReady,
+  onDestroy,
+}: TiptapProps) {
+  const sync = useTiptapSync(api.prosemirror, documentId);
+
+  console.log("Sync state:", sync);
+
+  const editor = useEditor(
+    {
+      extensions: [
+        StarterKit,
+        InlineChange,
+        BlockChange,
+        LineBreakChange,
+        TrackingExtension,
+        TextAlign.configure({
+          types: ["heading", "paragraph"],
+        }),
+        Underline,
+        ...(sync.extension ? [sync.extension] : []),
+      ],
+      content:
+        sync.initialContent ||
+        `
       <h1>LEGAL DOCUMENT</h1>
       <p><strong>Date:</strong> ${new Date().toLocaleDateString()}</p>
       <p><strong>Matter:</strong> [Case/Matter Reference]</p>
       <br>
       <p>Begin drafting your legal document here...</p>
     `,
-    editorProps: {
-      attributes: {
-        class: "legal-editor-content",
+      editorProps: {
+        attributes: {
+          class: "legal-editor-content",
+        },
       },
     },
-  })
+    [sync.initialContent, sync.extension],
+  );
 
   // Handle editor ready callback
   useEffect(() => {
     if (editor && onReady) {
-      console.log("TipTap editor ready")
-      onReady(editor)
+      console.log("TipTap editor ready");
+      onReady(editor);
     }
-  }, [editor, onReady])
+  }, [editor, onReady]);
 
   // Handle cleanup
   useEffect(() => {
     return () => {
       if (onDestroy) {
-        console.log("TipTap component unmounting")
-        onDestroy()
+        console.log("TipTap component unmounting");
+        onDestroy();
       }
-    }
-  }, [onDestroy])
+    };
+  }, [onDestroy]);
+
+  if (sync.isLoading) {
+    return (
+      <div className="flex items-center justify-center h-96 bg-gray-50">
+        <div className="text-gray-500">Loading document...</div>
+      </div>
+    );
+  }
+
+  if (sync.initialContent === null) {
+    return (
+      <div className="flex flex-col items-center justify-center h-96 bg-gray-50 gap-4">
+        <div className="text-gray-500">No document found</div>
+        <Button onClick={() => sync.create({ type: "doc", content: [] })}>
+          Create document
+        </Button>
+      </div>
+    );
+  }
 
   if (!editor) {
     return (
       <div className="flex items-center justify-center h-96 bg-gray-50">
         <div className="text-gray-500">Loading editor...</div>
       </div>
-    )
+    );
   }
 
   return (
@@ -90,7 +130,9 @@ export function Tiptap({ onReady, onDestroy }: TiptapProps) {
       <div className="legal-editor-header">
         <div className="flex items-center gap-2 mb-4">
           <FileText className="h-6 w-6 text-blue-900" />
-          <h2 className="text-xl font-semibold text-gray-800">Legal Document Editor</h2>
+          <h2 className="text-xl font-semibold text-gray-800">
+            Legal Document Editor
+          </h2>
         </div>
 
         {/* Toolbar */}
@@ -136,7 +178,9 @@ export function Tiptap({ onReady, onDestroy }: TiptapProps) {
             <Button
               variant="ghost"
               size="sm"
-              onClick={() => editor.chain().focus().setTextAlign("center").run()}
+              onClick={() =>
+                editor.chain().focus().setTextAlign("center").run()
+              }
               className="toolbar-button"
             >
               <AlignCenter className="h-4 w-4" />
@@ -152,7 +196,9 @@ export function Tiptap({ onReady, onDestroy }: TiptapProps) {
             <Button
               variant="ghost"
               size="sm"
-              onClick={() => editor.chain().focus().setTextAlign("justify").run()}
+              onClick={() =>
+                editor.chain().focus().setTextAlign("justify").run()
+              }
               className="toolbar-button"
             >
               <AlignJustify className="h-4 w-4" />
@@ -216,7 +262,10 @@ export function Tiptap({ onReady, onDestroy }: TiptapProps) {
       {/* Document Container */}
       <div className="legal-document-container">
         <div className="legal-document-page">
-          <EditorContent editor={editor} className="legal-editor-content-wrapper" />
+          <EditorContent
+            editor={editor}
+            className="legal-editor-content-wrapper"
+          />
         </div>
       </div>
 
@@ -227,8 +276,6 @@ export function Tiptap({ onReady, onDestroy }: TiptapProps) {
           {editor.storage.characterCount?.characters() || 0}
         </div>
       </div>
-
-      
     </div>
-  )
+  );
 }

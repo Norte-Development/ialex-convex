@@ -3,7 +3,7 @@ import { ProsemirrorSync } from "@convex-dev/prosemirror-sync";
 
 const prosemirrorSync = new ProsemirrorSync(components.prosemirrorSync);
 
-export const syncApi = prosemirrorSync.syncApi({
+const syncApi = prosemirrorSync.syncApi({
   checkRead(ctx, id) {
     // Validate that the user can read this document
     // You can implement your authorization logic here
