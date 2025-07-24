@@ -25,6 +25,7 @@ import CaseClientsPage from "./pages/CaseOpen/CaseClientPage";
 import CaseTeamsPage from "./pages/CaseOpen/CaseTeamsPage";
 import { CaseProvider } from "./context/CaseContext";
 import CaseModelPage from "./pages/CaseOpen/CaseModelPage";
+import CaseDataBasePage from "./pages/CaseOpen/CaseDataBase";
 
 import "@copilotkit/react-ui/styles.css";
 
@@ -47,7 +48,7 @@ const AppWithThread = () => {
   const { thread } = useThread();
 
   console.log(thread);
-  
+
   return (
     <CopilotKit
       key={thread.threadId}
@@ -102,7 +103,7 @@ const AppWithThread = () => {
                   <Route path="clientes" element={<CaseClientsPage />} />
                   <Route path="equipos" element={<CaseTeamsPage />} />
                   <Route path="modelos" element={<CaseModelPage />} />
-                  <Route path="base-de-datos" element={<DataBasePage />} />
+                  <Route path="base-de-datos" element={<CaseDataBasePage />} />
                 </Routes>
               </CaseProvider>
             </ProtectedRoute>
