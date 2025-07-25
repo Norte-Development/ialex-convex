@@ -10,7 +10,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
     <div className=" flex flex-col overflow-hidden min-h-screen w-screen">
       <NavBar />
       <div className="flex w-full h-full">
-        <main className=" h-full justify-center bg-[#f7f7f7] flex items-center  overflow-x-hidden w-full overflow-y-auto transition-all duration-300 ease-in-out">
+        <main className=" h-full min-h-screen justify-center bg-[#f7f7f7] flex items-center  overflow-x-hidden w-full overflow-y-auto transition-all duration-300 ease-in-out">
           {children}
         </main>
       </div>

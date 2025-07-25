@@ -6,14 +6,17 @@ import MyModelsTab from "@/components/Models/MyModelsTab";
 
 export default function ModelsPage() {
   return (
-    <section className="w-full h-full flex   pt-5">
-      <Tabs className="w-full bg-white h-[95%]" defaultValue="Modelos">
-        <TabsList className="bg-white w-full p-0">
-          <div className="flex gap-4 p-2">
-            <TabsTrigger value="Modelos" className="cursor-pointer">
+    <section className="w-[70%] h-full mt-20 min-h-screen flex  ">
+      <Tabs
+        className="w-full bg-white h-[95%] min-h-screen"
+        defaultValue="Modelos"
+      >
+        <TabsList className="bg-white w-[50%] p-0 h-full">
+          <div className="flex gap-4 p-2 w-full">
+            <TabsTrigger value="Modelos" className="cursor-pointer w-fit">
               Modelos
             </TabsTrigger>
-            <TabsTrigger value="Mis Modelos" className="cursor-pointer">
+            <TabsTrigger value="Mis Modelos" className="cursor-pointer w-fit">
               Mis modelos
             </TabsTrigger>
           </div>
