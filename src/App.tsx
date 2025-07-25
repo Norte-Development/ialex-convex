@@ -6,8 +6,7 @@ import Layout from "./components/Layout/Layout";
 import CasesPage from "./pages/CasesPage";
 import CaseDetailPage from "./pages/CaseOpen/CaseDetailPage";
 import ClientsPage from "./pages/ClientsPage";
-import AgreementsPage from "./pages/CaseOpen/AgreementsPage";
-import NameOfDocumentPage from "./pages/CaseOpen/NameOfDocumentPage";
+import EscritosPage from "./pages/CaseOpen/EscritosPage";
 import ModelsPage from "./pages/ModelsPage";
 import DataBasePage from "./pages/DataBasePage";
 import { AppSkeleton } from "./components/Skeletons";
@@ -95,10 +94,9 @@ const AppWithThread = () => {
               <CaseProvider>
                 <Routes>
                   <Route index element={<CaseDetailPage />} />
-                  <Route path="acuerdos" element={<AgreementsPage />} />
                   <Route
-                    path="nombre-del-documento"
-                    element={<NameOfDocumentPage />}
+                    path="escritos/:escritoId"
+                    element={<EscritosPage />}
                   />
                   <Route path="clientes" element={<CaseClientsPage />} />
                   <Route path="equipos" element={<CaseTeamsPage />} />

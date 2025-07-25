@@ -1,15 +1,14 @@
 import CaseLayout from "@/components/Cases/CaseLayout";
 import { Tiptap } from "@/components/Editor/tiptap-editor";
-import { useCase } from "@/context/CaseContext";
+import { useParams } from "react-router-dom";
 
-export default function AgreementsPage() {
-  const { currentCase } = useCase();
+export default function EscritoPage() {
+  const { escritoId } = useParams();
   return (
     <CaseLayout>
       <div className="w-full h-full flex flex-col  bg-transparent">
-        {/* <HeaderOfDocument /> */}
         <div className="w-full h-full flex flex-col  bg-white">
-          <Tiptap documentId={currentCase?._id} />
+          <Tiptap documentId={escritoId} />
         </div>
       </div>
     </CaseLayout>
