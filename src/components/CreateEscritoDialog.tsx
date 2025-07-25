@@ -9,24 +9,20 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import { FileText, Plus } from "lucide-react";
+import { FileText } from "lucide-react";
 
 import { useCase } from "@/context/CaseContext";
 
 interface CreateEscritoDialogProps {
-  children?: React.ReactNode;
   open?: boolean;
   setOpen: (open: boolean) => void;
 }
 
 export function CreateEscritoDialog({
-  children,
   open,
   setOpen,
 }: CreateEscritoDialogProps) {
@@ -103,14 +99,6 @@ export function CreateEscritoDialog({
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        {children || (
-          <Button>
-            <Plus className="w-4 h-4 mr-2" />
-            Crear Escrito
-          </Button>
-        )}
-      </DialogTrigger>
       <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
@@ -132,17 +120,6 @@ export function CreateEscritoDialog({
               value={formData.title}
               onChange={(e) => handleInputChange("title", e.target.value)}
               required
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="content">Contenido inicial (opcional)</Label>
-            <Textarea
-              id="content"
-              placeholder="Contenido inicial del escrito..."
-              value={formData.content}
-              onChange={(e) => handleInputChange("content", e.target.value)}
-              rows={3}
             />
           </div>
 

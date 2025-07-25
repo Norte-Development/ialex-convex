@@ -105,24 +105,29 @@ export default function CaseSidebar() {
               onOpenChange={toggleEscritos}
               className="w-full "
             >
-              <CollapsibleTrigger className="cursor-pointer flex pr-2 gap-1 justify-between items-center w-full">
-                {isEscritosOpen ? (
-                  <span className="flex gap-1 items-center">
-                    <FolderOpen className="cursor-pointer" size={20} />
-                    Escritos
-                  </span>
-                ) : (
-                  <span className="flex gap-1 items-center">
-                    <Folder className="cursor-pointer" size={20} />
-                    Escritos
-                  </span>
-                )}
+              <div className="cursor-pointer flex pr-2 gap-1 justify-between items-center w-full">
+                <CollapsibleTrigger className="flex gap-1 items-center">
+                  {isEscritosOpen ? (
+                    <>
+                      <FolderOpen className="cursor-pointer" size={20} />
+                      Escritos
+                    </>
+                  ) : (
+                    <>
+                      <Folder className="cursor-pointer" size={20} />
+                      Escritos
+                    </>
+                  )}
+                </CollapsibleTrigger>
                 <Plus
                   className="cursor-pointer transition-colors rounded-full p-1 hover:bg-blue-100 hover:text-blue-600"
                   size={25}
-                  onClick={() => setOpenCreateDialog(true)}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setOpenCreateDialog(true);
+                  }}
                 />
-              </CollapsibleTrigger>
+              </div>
               <CollapsibleContent className="flex flex-col gap-1 pl-2 text-[12px] pt-1 overflow-y-auto max-h-32">
                 {escritos?.length === 0 ? (
                   <p className="text-center">No hay escritos</p>

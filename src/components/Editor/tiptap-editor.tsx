@@ -2,7 +2,7 @@
 
 import { useEditor, EditorContent } from "@tiptap/react";
 import type { Editor } from "@tiptap/core";
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import StarterKit from "@tiptap/starter-kit";
 import TextAlign from "@tiptap/extension-text-align";
 import Underline from "@tiptap/extension-underline";
@@ -43,6 +43,7 @@ export function Tiptap({
   onDestroy,
 }: TiptapProps) {
   const sync = useTiptapSync(api.prosemirror, documentId);
+  const createdDocsRef = useRef<Set<string>>(new Set());
 
   const editor = useEditor(
     {
@@ -58,15 +59,7 @@ export function Tiptap({
         Underline,
         ...(sync.extension ? [sync.extension] : []),
       ],
-      content:
-        sync.initialContent ||
-        `
-      <h1>LEGAL DOCUMENT</h1>
-      <p><strong>Date:</strong> ${new Date().toLocaleDateString()}</p>
-      <p><strong>Matter:</strong> [Case/Matter Reference]</p>
-      <br>
-      <p>Begin drafting your legal document here...</p>
-    `,
+      content: sync.initialContent,
       editorProps: {
         attributes: {
           class: "legal-editor-content",
@@ -84,7 +77,19 @@ export function Tiptap({
     }
   }, [editor, onReady]);
 
-  // Handle cleanup
+  // Handle document creation
+  useEffect(() => {
+    if (
+      sync &&
+      sync.create &&
+      sync.initialContent === null &&
+      !createdDocsRef.current.has(documentId)
+    ) {
+      sync.create({ type: "doc", content: [] });
+      createdDocsRef.current.add(documentId);
+    }
+  }, [sync, sync.initialContent, documentId]);
+
   useEffect(() => {
     return () => {
       if (onDestroy) {
