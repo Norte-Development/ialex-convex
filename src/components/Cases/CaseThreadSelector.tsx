@@ -1,45 +1,46 @@
 import { api } from "../../../convex/_generated/api";
 import { useQuery } from "convex/react"
-import { useCase } from "@/context/CaseContext"
-import { useSetThread } from "@/context/ThreadContext";
+import { useThread } from "@/context/ThreadContext";
+import { useCase } from "@/context/CaseContext";
 
 export function AIAgentThreadSelector() {
-
+  const { threadId, setThreadId } = useThread();
   const { caseId } = useCase();
-  const setThread = useSetThread();
-  const threads = useQuery(api.functions.chat.getThreadMetadata, { caseId: caseId || undefined });
-
+  // Get threads from Convex agent (not the old chat system)
+  const threads = useQuery(api.agent.threads.listThreads, { 
+    paginationOpts: { numItems: 50, cursor: null as any },
+    caseId: caseId || undefined
+  });
 
   return (
-    <div className="flex flex-col">
+    <div className="flex flex-col" onClick={(e) => e.stopPropagation()}>
       {/* Thread List */}
       <div className="flex flex-col">
-        {threads?.map((thread) => (
+        {threads?.page?.map((thread) => (
           <div
             key={thread._id}
             className={`
               px-3 py-2.5 cursor-pointer transition-colors border-b border-border/20 last:border-b-0
               hover:bg-accent/50
-              ${thread.isActive ? "bg-accent" : ""}
+              ${thread._id === threadId ? "bg-accent" : ""}
             `}
-            onClick={() => setThread({
-              threadId: thread.threadId || "",
-              title: thread.title || "",
-              agentType: thread.agentType || "",
-              isActive: thread.isActive,
-              _id: thread._id,
-            })}
+            onClick={(e) => {
+              e.stopPropagation();
+              setThreadId(thread._id);
+            }}
           >
             <div className="flex items-center justify-between">
               <span
                 className={`
                   text-sm font-medium truncate
-                  ${thread.isActive ? "text-foreground" : "text-foreground/80"}
+                  ${thread._id === threadId ? "text-foreground" : "text-foreground/80"}
                 `}
               >
-                {thread.title}
+                {thread.title || "Untitled Thread"}
               </span>
-              <span className="text-xs text-muted-foreground ml-2 shrink-0">{thread._creationTime}</span>
+              <span className="text-xs text-muted-foreground ml-2 shrink-0">
+                {new Date(thread._creationTime).toLocaleDateString()}
+              </span>
             </div>
           </div>
         ))}

@@ -1,6 +1,6 @@
 import { v } from "convex/values";
 import { query, mutation, action } from "../_generated/server";
-import { getCurrentUserFromAuth, requireAuth } from "./auth_utils";
+import { getCurrentUserFromAuth, requireAuth } from "../auth_utils";
 
 // ========================================
 // CLERK USER SYNC FUNCTIONS
