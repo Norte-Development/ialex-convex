@@ -1,19 +1,19 @@
 import { api } from "../../../convex/_generated/api";
 import { useQuery } from "convex/react"
-import { useCase } from "@/context/CaseContext"
 import { useThread } from "@/context/ThreadContext";
+import { useCase } from "@/context/CaseContext";
 
 export function AIAgentThreadSelector() {
-  const { caseId } = useCase();
   const { threadId, setThreadId } = useThread();
-  
+  const { caseId } = useCase();
   // Get threads from Convex agent (not the old chat system)
   const threads = useQuery(api.agent.threads.listThreads, { 
-    paginationOpts: { numItems: 50, cursor: null as any } 
+    paginationOpts: { numItems: 50, cursor: null as any },
+    caseId: caseId || undefined
   });
 
   return (
-    <div className="flex flex-col">
+    <div className="flex flex-col" onClick={(e) => e.stopPropagation()}>
       {/* Thread List */}
       <div className="flex flex-col">
         {threads?.page?.map((thread) => (
@@ -24,7 +24,10 @@ export function AIAgentThreadSelector() {
               hover:bg-accent/50
               ${thread._id === threadId ? "bg-accent" : ""}
             `}
-            onClick={() => setThreadId(thread._id)}
+            onClick={(e) => {
+              e.stopPropagation();
+              setThreadId(thread._id);
+            }}
           >
             <div className="flex items-center justify-between">
               <span

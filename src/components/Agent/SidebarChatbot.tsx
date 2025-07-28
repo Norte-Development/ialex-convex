@@ -11,8 +11,9 @@ import {
 } from "@convex-dev/agent/react"
 import { useCallback, useEffect, useState, useRef } from "react"
 import { cn } from "@/lib/utils"
-import { MessageCircle, X, Send, Square, RotateCcw, GripVertical } from "lucide-react"
+import { MessageCircle, X, Send, Square, GripVertical } from "lucide-react"
 import { useThread } from "@/context/ThreadContext"
+import { useCase } from "@/context/CaseContext"
 
 interface SidebarChatbotProps {
   isOpen: boolean
@@ -31,17 +32,8 @@ export default function SidebarChatbot({
   onResizeStart,
   onResizeEnd,
 }: SidebarChatbotProps) {
-  const { threadId, resetThread } = useThread()
   const [isResizing, setIsResizing] = useState(false)
   const sidebarRef = useRef<HTMLDivElement>(null)
-
-  // On mount or when threadId changes, if no threadId, create one and set hash
-  useEffect(() => {
-    if (!threadId && isOpen) {
-      void resetThread()
-    }
-  }, [resetThread, threadId, isOpen])
-
   // Resize functionality
   const handleMouseDown = useCallback(
     (e: React.MouseEvent) => {
@@ -129,11 +121,7 @@ export default function SidebarChatbot({
 
         {/* Chat Content */}
         <div className="flex-1 flex flex-col min-h-0">
-          {threadId ? (
-            <ChatContent />
-          ) : (
-            <div className="flex-1 flex items-center justify-center text-gray-500 text-sm">Initializing chat...</div>
-          )}
+          <ChatContent />
         </div>
       </div>
 
@@ -144,19 +132,12 @@ export default function SidebarChatbot({
 }
 
 function ChatContent() {
-  const { threadId, resetThread } = useThread()
-  
-  if (!threadId) {
-    return (
-      <div className="flex-1 flex items-center justify-center text-gray-500 text-sm">
-        Initializing chat...
-      </div>
-    )
-  }
-
+  const { threadId, createThreadWithTitle } = useThread()
+  const { caseId } = useCase()
+  console.log("caseId", caseId)
   const messages = useThreadMessages(
     api.agent.streaming.listMessages,
-    { threadId },
+    threadId ? { threadId } : "skip",
     { initialNumItems: 10, stream: true },
   )
 
@@ -169,9 +150,25 @@ function ChatContent() {
   const [prompt, setPrompt] = useState("")
 
   function onSendClicked() {
-    if (prompt.trim() === "" || !threadId) return
-    void sendMessage({ threadId, prompt }).catch(() => setPrompt(prompt))
+    if (prompt.trim() === "") return
+    
+    const trimmedPrompt = prompt.trim()
     setPrompt("")
+
+    // If no thread exists, create one with the truncated message as title
+    if (!threadId) {
+      const truncatedTitle = trimmedPrompt.length > 50 
+        ? trimmedPrompt.substring(0, 50) + "..." 
+        : trimmedPrompt
+      
+      createThreadWithTitle(truncatedTitle, caseId || undefined).then((newThreadId) => {
+        // Send the message after thread is created
+        void sendMessage({ threadId: newThreadId, prompt: trimmedPrompt }).catch(() => setPrompt(trimmedPrompt))
+      }).catch(() => setPrompt(trimmedPrompt))
+    } else {
+      // Thread exists, send message normally
+      void sendMessage({ threadId, prompt: trimmedPrompt }).catch(() => setPrompt(trimmedPrompt))
+    }
   }
 
   const isStreaming = messages.results?.some((m) => m.streaming)
@@ -211,7 +208,7 @@ function ChatContent() {
               className="p-2 rounded-lg bg-red-100 text-red-600 hover:bg-red-200 transition-colors"
               onClick={() => {
                 const order = messages.results.find((m) => m.streaming)?.order ?? 0
-                void abortStreamByOrder({ threadId, order })
+                void abortStreamByOrder({ threadId: threadId || "", order })
               }}
               type="button"
             >
@@ -227,20 +224,6 @@ function ChatContent() {
             </button>
           )}
         </form>
-
-        {messages.results?.length > 0 && (
-          <button
-            className="mt-2 w-full flex items-center justify-center gap-2 px-3 py-2 text-xs text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-lg transition-colors"
-            onClick={() => {
-              resetThread()
-              setPrompt("")
-            }}
-            type="button"
-          >
-            <RotateCcw className="w-3 h-3" />
-            Reset conversation
-          </button>
-        )}
       </div>
     </>
   )

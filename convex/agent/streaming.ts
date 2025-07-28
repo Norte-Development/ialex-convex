@@ -12,7 +12,17 @@ import { v } from "convex/values";
 import { authorizeThreadAccess } from "./threads";
 import { agent } from "./agent";
 
-
+/**
+ * Initiates asynchronous streaming for a message in a thread.
+ * 
+ * This mutation saves the user's message and schedules an asynchronous
+ * streaming response from the AI agent. The streaming is handled in a
+ * separate action to avoid blocking the mutation.
+ * 
+ * @param prompt - The user's message to send to the AI agent
+ * @param threadId - The ID of the thread to add the message to
+ * @throws {Error} When user doesn't have access to the thread
+ */
 export const initiateAsyncStreaming = mutation({
     args: { prompt: v.string(), threadId: v.string() },
     handler: async (ctx, { prompt, threadId }) => {
@@ -31,6 +41,15 @@ export const initiateAsyncStreaming = mutation({
     },
   });
 
+/**
+ * Internal action that handles the actual streaming of AI responses.
+ * 
+ * This action is scheduled by initiateAsyncStreaming and runs asynchronously
+ * to generate and stream the AI's response to the user's message.
+ * 
+ * @param promptMessageId - The ID of the user's message that triggered the stream
+ * @param threadId - The ID of the thread containing the conversation
+ */
 export const streamAsync = internalAction({
     args: { promptMessageId: v.string(), threadId: v.string() },
     handler: async (ctx, { promptMessageId, threadId }) => {
@@ -46,7 +65,20 @@ export const streamAsync = internalAction({
     },
   });
 
-  export const listMessages = query({
+/**
+ * Lists messages in a thread with streaming support.
+ * 
+ * This query returns both paginated messages and active streams for a thread.
+ * It supports real-time streaming updates and can filter messages based on
+ * various criteria.
+ * 
+ * @param threadId - The ID of the thread to list messages from
+ * @param paginationOpts - Pagination options for the message list
+ * @param streamArgs - Arguments for streaming message updates
+ * @returns Promise resolving to paginated messages and active streams
+ * @throws {Error} When user doesn't have access to the thread
+ */
+export const listMessages = query({
     args: {
       // These arguments are required:
       threadId: v.string(),

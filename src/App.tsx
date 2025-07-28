@@ -25,7 +25,6 @@ import CaseTeamsPage from "./pages/CaseOpen/CaseTeamsPage";
 import { CaseProvider } from "./context/CaseContext";
 
 import "@copilotkit/react-ui/styles.css";
-import ChatStreaming from "./components/Agent/ChatStreaming";
 
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({
   children,
@@ -139,14 +138,6 @@ const AppWithThread = () => {
             </ProtectedRoute>
           }
         />
-        <Route
-          path="/agente"
-          element={
-            <ProtectedRoute>
-              <ChatStreaming/>
-            </ProtectedRoute>
-          }
-          />
       </Routes>
     </div>
   );
@@ -157,7 +148,7 @@ function App() {
     <QueryClientProvider client={queryClient}>
       <ThreadProvider>
         <AppWithThread />
-        <ReactQueryDevtools initialIsOpen={false} />
+        {/* <ReactQueryDevtools initialIsOpen={false} /> */}
       </ThreadProvider>
     </QueryClientProvider>
   );

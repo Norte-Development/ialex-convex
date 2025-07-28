@@ -13,7 +13,14 @@ import { smoothStream } from "ai";
 import { authorizeThreadAccess } from "./threads";
 
 /**
- * Abort a stream by its order
+ * Aborts a stream by its order number within a thread.
+ * 
+ * This mutation allows users to cancel ongoing AI streaming responses
+ * by specifying the stream's order in the thread.
+ * 
+ * @param threadId - The ID of the thread containing the stream
+ * @param order - The order number of the stream to abort
+ * @throws {Error} When user doesn't have access to the thread
  */
 export const abortStreamByOrder = mutation({
   args: { threadId: v.string(), order: v.number() },
@@ -33,7 +40,14 @@ export const abortStreamByOrder = mutation({
   },
 });
 
-// Test it out by streaming a message and then aborting it
+/**
+ * Test action that demonstrates streaming and aborting functionality.
+ * 
+ * This action creates a new thread, starts streaming a response, and then
+ * immediately aborts it to demonstrate the abort functionality.
+ * 
+ * NOTE: This is a test/demo function and should not be used in production.
+ */
 export const streamThenAbortAsync = action({
   args: {},
   handler: async (ctx) => {
@@ -70,9 +84,14 @@ export const streamThenAbortAsync = action({
 });
 
 /**
- * Abort a stream by its streamId
+ * Lists all active streams for a given thread.
+ * 
+ * This query returns information about all streams (active, aborted, completed)
+ * associated with a specific thread.
+ * 
+ * @param threadId - The ID of the thread to list streams for
+ * @returns Promise resolving to an array of stream information
  */
-
 export const list = query({
   args: { threadId: v.string() },
   handler: async (ctx, { threadId }) => {
@@ -80,6 +99,14 @@ export const list = query({
   },
 });
 
+/**
+ * Aborts all streams in a thread by their stream IDs.
+ * 
+ * This internal mutation finds all active streams in a thread and aborts them.
+ * It's typically used for cleanup operations or when a thread is being deleted.
+ * 
+ * @param threadId - The ID of the thread to abort all streams in
+ */
 export const abortStreamByStreamId = internalMutation({
   args: { threadId: v.string() },
   handler: async (ctx, { threadId }) => {
@@ -98,9 +125,14 @@ export const abortStreamByStreamId = internalMutation({
 });
 
 /**
- * Abort a stream with the abortSignal parameter
+ * Demonstrates streaming with abort signal functionality.
+ * 
+ * This action creates a thread and starts streaming, then uses an AbortController
+ * to cancel the stream after 1 second. This demonstrates how to use the
+ * abortSignal parameter for programmatic stream cancellation.
+ * 
+ * NOTE: This is a test/demo function and should not be used in production.
  */
-
 export const streamThenUseAbortSignal = action({
   args: {},
   handler: async (ctx) => {

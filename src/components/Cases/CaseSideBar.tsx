@@ -8,6 +8,7 @@ import { useLayout } from "@/context/LayoutContext";
 import { useLocation, useParams } from "react-router-dom";
 import { Link } from "react-router-dom";
 import { AIAgentThreadSelector } from "./CaseThreadSelector";
+import { useThread } from "@/context/ThreadContext";
 
 export default function CaseSidebar() {
   const {
@@ -24,7 +25,7 @@ export default function CaseSidebar() {
 
   const location = useLocation();
   const { id } = useParams();
-
+  const { setThreadId } = useThread();
   const isAgreements = location.pathname.includes("acuerdos");
   const isNameOfDocument = location.pathname.includes("nombre-del-documento");
   const basePath = `/caso/${id}`;
@@ -165,10 +166,16 @@ export default function CaseSidebar() {
               <Plus
                 className="cursor-pointer transition-colors rounded-full p-1 hover:bg-blue-100 hover:text-blue-600"
                 size={25}
-                onClick={() => {}}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setThreadId(undefined);
+                }}
               />
             </CollapsibleTrigger>
-            <CollapsibleContent className="flex flex-col gap-1 pl-2 text-[12px] pt-1 overflow-y-auto max-h-40">
+            <CollapsibleContent 
+              className="flex flex-col gap-1 pl-2 text-[12px] pt-1 overflow-y-auto max-h-40"
+              onClick={(e) => e.stopPropagation()}
+            >
               <AIAgentThreadSelector />
             </CollapsibleContent>
           </Collapsible>
