@@ -23,6 +23,9 @@ importers:
       '@convex-dev/agent-playground':
         specifier: ^0.0.16
         version: 0.0.16(@convex-dev/agent@0.1.16(ai@4.3.19(react@19.1.0)(zod@3.25.76))(convex-helpers@0.1.99(convex@1.25.4(@clerk/clerk-react@5.32.4(react-dom@19.1.0(react@19.1.0))(react@19.1.0))(react@19.1.0))(react@19.1.0)(typescript@5.7.3)(zod@3.25.76))(convex@1.25.4(@clerk/clerk-react@5.32.4(react-dom@19.1.0(react@19.1.0))(react@19.1.0))(react@19.1.0))(react@19.1.0))(@swc/helpers@0.5.17)(@types/node@22.16.0)(@types/react-dom@19.1.6(@types/react@19.1.8))(@types/react@19.1.8)(convex-helpers@0.1.99(convex@1.25.4(@clerk/clerk-react@5.32.4(react-dom@19.1.0(react@19.1.0))(react@19.1.0))(react@19.1.0))(react@19.1.0)(typescript@5.7.3)(zod@3.25.76))(convex@1.25.4(@clerk/clerk-react@5.32.4(react-dom@19.1.0(react@19.1.0))(react@19.1.0))(react@19.1.0))(jiti@2.4.2)(lightningcss@1.30.1)(yaml@2.8.0)(zod@3.25.76)
+      '@convex-dev/prosemirror-sync':
+        specifier: ^0.1.26
+        version: 0.1.26(@tiptap/core@3.0.3(@tiptap/pm@3.0.3))(convex@1.25.4(@clerk/clerk-react@5.32.4(react-dom@19.1.0(react@19.1.0))(react@19.1.0))(react@19.1.0))(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
       '@convex-dev/resend':
         specifier: ^0.1.4
         version: 0.1.4(convex-helpers@0.1.99(convex@1.25.4(@clerk/clerk-react@5.32.4(react-dom@19.1.0(react@19.1.0))(react@19.1.0))(react@19.1.0))(react@19.1.0)(typescript@5.7.3)(zod@3.25.76))(convex@1.25.4(@clerk/clerk-react@5.32.4(react-dom@19.1.0(react@19.1.0))(react@19.1.0))(react@19.1.0))(react@19.1.0)
@@ -397,6 +400,24 @@ packages:
       react: ^18.3.1 || ^19.0.0
     peerDependenciesMeta:
       react:
+        optional: true
+
+  '@convex-dev/prosemirror-sync@0.1.26':
+    resolution: {integrity: sha512-TXaHZuolZdRe+/PWfFrv3U0cg018VCtCxLtFq0skLV1qhBTWbbjRf1YctGNrTTmiKOoRMLpVAxL8RXS7ixu7VQ==}
+    peerDependencies:
+      '@blocknote/core': '>=0.31.0 <=1.0.0'
+      '@blocknote/mantine': '>=0.31.0 <=1.0.0'
+      '@blocknote/react': '>=0.31.0 <=1.0.0'
+      '@tiptap/core': ^2.7.0
+      convex: '>=1.21.0 <1.35.0'
+      react: ^18.3.1 || ^19.0.0
+      react-dom: ^18.3.1 || ^19.0.0
+    peerDependenciesMeta:
+      '@blocknote/core':
+        optional: true
+      '@blocknote/mantine':
+        optional: true
+      '@blocknote/react':
         optional: true
 
   '@convex-dev/rate-limiter@0.2.11':
@@ -6434,6 +6455,13 @@ snapshots:
       convex-helpers: 0.1.99(convex@1.25.4(@clerk/clerk-react@5.32.4(react-dom@19.1.0(react@19.1.0))(react@19.1.0))(react@19.1.0))(react@19.1.0)(typescript@5.7.3)(zod@3.25.76)
     optionalDependencies:
       react: 19.1.0
+
+  '@convex-dev/prosemirror-sync@0.1.26(@tiptap/core@3.0.3(@tiptap/pm@3.0.3))(convex@1.25.4(@clerk/clerk-react@5.32.4(react-dom@19.1.0(react@19.1.0))(react@19.1.0))(react@19.1.0))(react-dom@19.1.0(react@19.1.0))(react@19.1.0)':
+    dependencies:
+      '@tiptap/core': 3.0.3(@tiptap/pm@3.0.3)
+      convex: 1.25.4(@clerk/clerk-react@5.32.4(react-dom@19.1.0(react@19.1.0))(react@19.1.0))(react@19.1.0)
+      react: 19.1.0
+      react-dom: 19.1.0(react@19.1.0)
 
   '@convex-dev/rate-limiter@0.2.11(convex@1.25.4(@clerk/clerk-react@5.32.4(react-dom@19.1.0(react@19.1.0))(react@19.1.0))(react@19.1.0))(react@19.1.0)':
     dependencies:

@@ -9,18 +9,11 @@ import { useLocation } from "react-router-dom";
 import Breadcrumbs from "./BreadCrumbs";
 import { Link } from "react-router-dom";
 import { UserButton } from "@clerk/clerk-react";
-import { useLayout } from "@/context/LayoutContext";
 
 export default function NavBar() {
   const location = useLocation();
-  const isHome = location.pathname === "/";
-  const { setIsInCaseContext, isInCaseContext } = useLayout();
 
-  const handleNavigationFromNavBar = () => {
-    setIsInCaseContext(false);
-  };
-
-  const isInCaseRoute = location.pathname.includes("/caso/");
+  const isInCaseContext = location.pathname.includes("/caso/");
 
   return (
     <nav
@@ -38,32 +31,29 @@ export default function NavBar() {
         />
       </div>
       <div className={`flex gap-4 justify-center items-center `}>
-        {isInCaseRoute ? (
+        {isInCaseContext ? (
           <div className="text-xl font-bold text-black flex items-center gap-2">
             <Breadcrumbs />
           </div>
-        ) : isHome || !isInCaseContext ? (
+        ) : (
           <div className="flex gap-4">
-            <Link to="/base-de-datos" onClick={handleNavigationFromNavBar}>
+            <Link to="/base-de-datos">
               <FileSearch2 className="cursor-pointer" size={20} />
             </Link>
-            <Link to="/clientes" onClick={handleNavigationFromNavBar}>
+            <Link to="/clientes">
               <UserIcon
                 fill="currentColor"
                 className="cursor-pointer"
                 size={20}
               />
             </Link>
-            <Link to="/modelos" onClick={handleNavigationFromNavBar}>
+            <Link to="/modelos">
               <BookCheck size={20} className="cursor-pointer" />
             </Link>
-            <Link to="/equipo" onClick={handleNavigationFromNavBar}>
+            <Link to="/equipo">
               <UsersRound className="cursor-pointer" size={20} />
             </Link>
           </div>
-        ) : (
-          // No mostramos nada si estamos en contexto de caso
-          <div></div>
         )}
       </div>
     </nav>

@@ -11,7 +11,7 @@ export default function HomePage() {
   const isNewUserExperience = !user?.isOnboardingComplete;
 
   return (
-    <section className="flex flex-col min-h-screen overflow-y-hidden bg-white justify-center items-center relative pt-20">
+    <section className="flex flex-col min-h-screen w-full overflow-y-hidden bg-white justify-center items-center relative pt-20">
       {/* Mancha azul decorativa */}
       <div className="absolute -bottom-20 -left-20 w-72 h-72 bg-blue-500 rounded-full blur-3xl opacity-30 z-10"></div>
 

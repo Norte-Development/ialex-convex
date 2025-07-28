@@ -1,7 +1,6 @@
 import { useCase } from "@/context/CaseContext";
 import CaseLayout from "@/components/Cases/CaseLayout";
 import TeamAccessDialog from "../../components/Cases/TeamAccessDialog";
-import { useQuery } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import {
   Card,
@@ -12,6 +11,7 @@ import {
 import { Badge } from "../../components/ui/badge";
 import { Button } from "../../components/ui/button";
 import { Users, Shield, Eye, Plus } from "lucide-react";
+import { useQuery } from "convex/react";
 
 export default function CaseTeamsPage() {
   const { currentCase } = useCase();
@@ -59,7 +59,7 @@ export default function CaseTeamsPage() {
 
   return (
     <CaseLayout>
-      <div className="space-y-6 min-h-screen pt-10 pl-5 pb-10">
+      <div className="space-y-6 min-h-screen  pl-5 pb-10">
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>

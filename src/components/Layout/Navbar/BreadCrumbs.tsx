@@ -3,6 +3,7 @@ import React from "react";
 import { Link } from "react-router-dom";
 import { useQuery } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
+import { Id } from "../../../../convex/_generated/dataModel";
 
 export default function Breadcrumbs() {
   const location = useLocation();
@@ -13,11 +14,31 @@ export default function Breadcrumbs() {
   const cases = casesResult || [];
   const currentCase = caseId ? cases.find((c) => c._id === caseId) : null;
 
+  const escritoId =
+    pathnames[0] === "caso" && pathnames[2] === "escritos" && pathnames[3]
+      ? pathnames[3]
+      : null;
+  const escrito = useQuery(
+    api.functions.documents.getEscrito,
+    escritoId ? { escritoId: escritoId as Id<"escritos"> } : "skip",
+  );
+
   if (pathnames.length === 0) return null;
 
   const formatBreadcrumb = (str: string, index: number) => {
+    // Mostrar título del caso
     if (pathnames[0] === "caso" && index === 1 && currentCase) {
       return currentCase.title;
+    }
+
+    // Mostrar título del escrito
+    if (
+      pathnames[0] === "caso" &&
+      pathnames[2] === "escritos" &&
+      index === 3 &&
+      escrito
+    ) {
+      return escrito.title;
     }
 
     const decoded = decodeURIComponent(str);

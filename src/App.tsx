@@ -6,8 +6,7 @@ import Layout from "./components/Layout/Layout";
 import CasesPage from "./pages/CasesPage";
 import CaseDetailPage from "./pages/CaseOpen/CaseDetailPage";
 import ClientsPage from "./pages/ClientsPage";
-import AgreementsPage from "./pages/CaseOpen/AgreementsPage";
-import NameOfDocumentPage from "./pages/CaseOpen/NameOfDocumentPage";
+import EscritosPage from "./pages/CaseOpen/EscritosPage";
 import ModelsPage from "./pages/ModelsPage";
 import DataBasePage from "./pages/DataBasePage";
 import { AppSkeleton } from "./components/Skeletons";
@@ -23,6 +22,8 @@ import SignupInvitePage from "./pages/SignupInvitePage";
 import CaseClientsPage from "./pages/CaseOpen/CaseClientPage";
 import CaseTeamsPage from "./pages/CaseOpen/CaseTeamsPage";
 import { CaseProvider } from "./context/CaseContext";
+import CaseModelPage from "./pages/CaseOpen/CaseModelPage";
+import CaseDataBasePage from "./pages/CaseOpen/CaseDataBase";
 
 import "@copilotkit/react-ui/styles.css";
 
@@ -84,15 +85,14 @@ const AppWithThread = () => {
               <CaseProvider>
                 <Routes>
                   <Route index element={<CaseDetailPage />} />
-                  <Route path="acuerdos" element={<AgreementsPage />} />
                   <Route
-                    path="nombre-del-documento"
-                    element={<NameOfDocumentPage />}
+                    path="escritos/:escritoId"
+                    element={<EscritosPage />}
                   />
                   <Route path="clientes" element={<CaseClientsPage />} />
                   <Route path="equipos" element={<CaseTeamsPage />} />
-                  <Route path="modelos" element={<ModelsPage />} />
-                  <Route path="base-de-datos" element={<DataBasePage />} />
+                  <Route path="modelos" element={<CaseModelPage />} />
+                  <Route path="base-de-datos" element={<CaseDataBasePage />} />
                 </Routes>
               </CaseProvider>
             </ProtectedRoute>
