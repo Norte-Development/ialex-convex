@@ -4,14 +4,6 @@
 // for backward compatibility and centralized access
 // ========================================
 
-// Authentication Utilities
-export {
-  getCurrentUserFromAuth,
-  requireAuth,
-  checkCaseAccess,
-  requireCaseAccess,
-} from "./auth_utils";
-
 // User Management
 export {
   // Clerk integration functions

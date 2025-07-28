@@ -4,7 +4,7 @@ import {
   getCurrentUserFromAuth,
   requireCaseAccess,
   checkCaseAccess,
-} from "./auth_utils";
+} from "../auth_utils";
 
 // ========================================
 // CASE MANAGEMENT

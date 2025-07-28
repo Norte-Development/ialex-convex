@@ -1,72 +1,77 @@
-// import { CopilotSidebar } from "@copilotkit/react-ui";
-// import { api } from "../../../convex/_generated/api";
-// import { useMutation } from "convex/react";
-import CaseSidebar from "./CaseSideBar";
-import { useLayout } from "@/context/LayoutContext";
-// import { useCase } from "@/context/CaseContext";
-// import { useThread } from "@/context/ThreadContext";
-import { ArrowRight } from "lucide-react";
-import Sidebar from "../Layout/Sidebar";
+
+import type React from "react"
+
+import CaseSidebar from "./CaseSideBar"
+import SidebarChatbot from "../Agent/SidebarChatbot"
+import { useLayout } from "@/context/LayoutContext"
+import { useState, useEffect } from "react"
 
 interface CaseDetailLayoutProps {
-  children: React.ReactNode;
+  children: React.ReactNode
 }
 
 export default function CaseLayout({ children }: CaseDetailLayoutProps) {
-  const { isCaseSidebarOpen, toggleCaseSidebar } = useLayout();
-  // const { caseId } = useCase();
-  // const { thread } = useThread();
-  // const createThread = useMutation(api.functions.chat.createThreadMetadata);
+  const { isCaseSidebarOpen } = useLayout()
+  const [isChatbotOpen, setIsChatbotOpen] = useState(false)
+  const [chatbotWidth, setChatbotWidth] = useState(380)
+  const [isResizing, setIsResizing] = useState(false)
 
-  // const onSubmitMessageCallback = (message: string) => {
-  //   const truncatedMessage = message.slice(0, 50);
-  //   createThread({
-  //     caseId: caseId || undefined,
-  //     title: truncatedMessage,
-  //     threadId: thread.threadId,
-  //   });
-  //   return Promise.resolve();
-  // };
+  // Load saved width from localStorage
+  useEffect(() => {
+    const savedWidth = localStorage.getItem("chatbot-width")
+    if (savedWidth) {
+      setChatbotWidth(Number.parseInt(savedWidth, 10))
+    }
+  }, [])
+
+  // Save width to localStorage
+  const handleWidthChange = (newWidth: number) => {
+    setChatbotWidth(newWidth)
+    localStorage.setItem("chatbot-width", newWidth.toString())
+  }
+
+  const toggleChatbot = () => {
+    setIsChatbotOpen(!isChatbotOpen)
+  }
+
+  const handleResizeStart = () => {
+    setIsResizing(true)
+  }
+
+  const handleResizeEnd = () => {
+    setIsResizing(false)
+  }
 
   return (
-    // <CopilotSidebar
-    //   defaultOpen={true}
-    //   clickOutsideToClose={false}
-    //   hitEscapeToClose={true}
-    //   shortcut="k"
-    //   labels={{
-    //     title: "Alex",
-    //     initial: "¿En que trabajamos hoy?",
-    //   }}
-    //   onSubmitMessage={onSubmitMessageCallback}
-    // >
-    <>
-      <div className="flex w-full h-full pt-14">
-        {/* Sidebar - dynamic width */}
-        <div
-          className={`transition-all duration-300 ease-in-out ${
-            isCaseSidebarOpen ? "w-64" : "w-0"
-          }`}
-        >
+    <div className="relative">
+      {/* Left Sidebar - fixed */}
+      {isCaseSidebarOpen && (
+        <div className="fixed top-14 left-0 h-[calc(100vh-56px)] w-64 z-20">
           <CaseSidebar />
         </div>
-        {/* Main content - scrollable */}
-        <main className="flex-1 bg-[#f7f7f7] overflow-y-auto h-full pt-5 px-2 overflow-x-hidden">
-          {children}
-        </main>
-        <Sidebar />
-      </div>
-
-      {/* Botón de abrir cuando sidebar está cerrada */}
-      {!isCaseSidebarOpen && (
-        <button
-          onClick={toggleCaseSidebar}
-          className="fixed top-1/2 left-2 z-40 cursor-pointer bg-white border border-gray-300 rounded-full p-2 shadow-md hover:shadow-lg transition-shadow"
-        >
-          <ArrowRight size={15} />
-        </button>
       )}
-    </>
-    // </CopilotSidebar>
-  );
+
+      {/* Main content - scrollable */}
+      <main
+        className={`bg-[#f7f7f7] pt-14 ${isCaseSidebarOpen ? "ml-64" : "ml-0"} h-[calc(100vh-56px)] overflow-y-auto ${
+          isResizing ? "transition-none" : "transition-all duration-300 ease-in-out"
+        }`}
+        style={{
+          marginRight: isChatbotOpen ? `${chatbotWidth}px` : "0px",
+        }}
+      >
+        {children}
+      </main>
+
+      {/* Right Sidebar Chatbot */}
+      <SidebarChatbot
+        isOpen={isChatbotOpen}
+        onToggle={toggleChatbot}
+        width={chatbotWidth}
+        onWidthChange={handleWidthChange}
+        onResizeStart={handleResizeStart}
+        onResizeEnd={handleResizeEnd}
+      />
+    </div>
+  )
 }

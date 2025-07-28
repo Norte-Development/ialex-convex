@@ -1,4 +1,4 @@
-import { QueryCtx, MutationCtx } from "../_generated/server";
+import { QueryCtx, MutationCtx, ActionCtx } from "./_generated/server";
 
 // ========================================
 // AUTHENTICATION UTILITIES

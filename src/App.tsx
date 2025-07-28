@@ -14,8 +14,7 @@ import { OnboardingWrapper } from "./components/Auth/OnboardingWrapper";
 import { SignInPage } from "./components/Auth/SignInPage";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
-import { CopilotKit } from "@copilotkit/react-core";
-import { ThreadProvider, useThread } from "./context/ThreadContext";
+import { ThreadProvider } from "./context/ThreadContext";
 import TeamPage from "./pages/TeamPage";
 import TeamManagePage from "./pages/TeamManagePage";
 import AcceptInvitePage from "./pages/AcceptInvitePage";
@@ -44,17 +43,9 @@ const queryClient = new QueryClient();
 
 // Component that uses the thread context
 const AppWithThread = () => {
-  const { thread } = useThread();
-
-  console.log(thread);
 
   return (
-    <CopilotKit
-      key={thread.threadId}
-      runtimeUrl={"http://localhost:4000/copilotkit"}
-      agent="memory_agent"
-      threadId={thread.threadId}
-    >
+    <div>
       {/* Show authentication loading skeleton while Convex auth is initializing */}
       <AuthLoading>
         <AppSkeleton />
@@ -148,7 +139,7 @@ const AppWithThread = () => {
           }
         />
       </Routes>
-    </CopilotKit>
+    </div>
   );
 };
 
@@ -157,7 +148,7 @@ function App() {
     <QueryClientProvider client={queryClient}>
       <ThreadProvider>
         <AppWithThread />
-        <ReactQueryDevtools initialIsOpen={false} />
+        {/* <ReactQueryDevtools initialIsOpen={false} /> */}
       </ThreadProvider>
     </QueryClientProvider>
   );
