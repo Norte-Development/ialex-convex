@@ -1,67 +1,67 @@
-import React, { createContext, useContext, ReactNode, useState } from "react";
-import { Thread } from "../../types/thread";
+"use client"
+
+import React, { createContext, useContext, useState, useEffect, useCallback } from "react"
+import { useMutation } from "convex/react"
+import { api } from "../../convex/_generated/api"
 
 interface ThreadContextType {
-  thread: Thread;
-  setThread: (thread: Thread) => void;
-  generateNewThreadId: () => string;
+  threadId: string | undefined
+  isResetting: boolean
+  resetThread: () => Promise<void>
+  setThreadId: (id: string | undefined) => void
 }
 
-const ThreadContext = createContext<ThreadContextType | undefined>(undefined);
+const ThreadContext = createContext<ThreadContextType | undefined>(undefined)
 
-interface ThreadProviderProps {
-  children: ReactNode;
+function getThreadIdFromHash() {
+  return window.location.hash.replace(/^#chatbot-/, "") || undefined
 }
 
-export const ThreadProvider: React.FC<ThreadProviderProps> = ({ children }) => {
-  // Generate a random UUID as the default thread ID
-  const generateRandomUUID = () => crypto.randomUUID();
-  
-  const [thread, setThread] = useState<Thread>({
-    _id: "",
-    threadId: generateRandomUUID(),
-    isActive: true,
-  });
+export function ThreadProvider({ children }: { children: React.ReactNode }) {
+  const createThread = useMutation(api.agent.threads.createNewThread)
+  const [threadId, setThreadId] = useState<string | undefined>(
+    typeof window !== "undefined" ? getThreadIdFromHash() : undefined,
+  )
+  const [isResetting, setIsResetting] = useState(false)
 
-  const generateNewThreadId = () => {
-    const newId = generateRandomUUID();
-    setThread({
-      _id: "",
-      threadId: newId,
-      isActive: true,
-    });
-    return newId;
-  };
+  // Listen for hash changes
+  useEffect(() => {
+    function onHashChange() {
+      setThreadId(getThreadIdFromHash())
+    }
+    window.addEventListener("hashchange", onHashChange)
+    return () => window.removeEventListener("hashchange", onHashChange)
+  }, [])
 
-  const value = {
-    thread,
-    setThread,
-    generateNewThreadId,
-  };
+  const resetThread = useCallback(async () => {
+    setIsResetting(true)
+    try {
+      const newId = await createThread({
+        title: "Alex - Tu agente legal",
+      })
+      window.location.hash = `chatbot-${newId}`
+      setThreadId(newId)
+    } catch (error) {
+      console.error("Failed to create new thread:", error)
+    } finally {
+      setIsResetting(false)
+    }
+  }, [createThread])
 
-  return <ThreadContext.Provider value={value}>{children}</ThreadContext.Provider>;
-};
-
-export const useThread = () => {
-  const context = useContext(ThreadContext);
-  if (context === undefined) {
-    throw new Error("useThread debe ser usado dentro de un ThreadProvider");
+  const value: ThreadContextType = {
+    threadId,
+    isResetting,
+    resetThread,
+    setThreadId,
   }
-  return context;
-};
 
-export const useSetThread = () => {
-  const context = useContext(ThreadContext);
-  if (context === undefined) {
-    throw new Error("useSetThread debe ser usado dentro de un ThreadProvider");
-  }
-  return context.setThread;
-};
+  return <ThreadContext.Provider value={value}>{children}</ThreadContext.Provider>
+}
 
-export const useGenerateNewThreadId = () => {
-  const context = useContext(ThreadContext);
+export function useThread() {
+  const context = useContext(ThreadContext)
   if (context === undefined) {
-    throw new Error("useGenerateNewThreadId debe ser usado dentro de un ThreadProvider");
+    throw new Error("useThread must be used within a ThreadProvider")
   }
-  return context.generateNewThreadId;
-}; 
+  return context
+} 
