@@ -1,14 +1,28 @@
-import { FileSearch2, UserIcon, UsersRound, FolderX, FolderOpen, Folder, FolderArchive, FolderSymlink, ArrowLeft, ArrowRight, FileType2, FileArchive, Trash, BookCheck, Plus } from 'lucide-react';
+import { FileSearch2, UserIcon, UsersRound, FolderX, FolderOpen, Folder, FolderArchive, FolderSymlink, ArrowLeft, ArrowRight, FileType2, FileArchive, Trash, BookCheck, Plus, Archive, RotateCcw } from 'lucide-react';
 import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 import { useLayout } from "@/context/LayoutContext";
-import { useLocation, useParams } from "react-router-dom";
+import { useLocation, useParams, useNavigate } from "react-router-dom";
 import { Link } from "react-router-dom";
 import { AIAgentThreadSelector } from "./CaseThreadSelector";
 import { useThread } from "@/context/ThreadContext";
+import { useCase } from "@/context/CaseContext";
+import { useQuery, useMutation } from "convex/react";
+import { api } from "../../../convex/_generated/api";
+import { CreateEscritoDialog } from "../CreateEscritoDialog";
+import { useState } from "react";
+import { Badge } from "../ui/badge";
+import { Button } from "../ui/button";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "../ui/tooltip";
+import { Id } from "../../../convex/_generated/dataModel";
 
 export default function CaseSidebar() {
   const {
@@ -24,14 +38,64 @@ export default function CaseSidebar() {
   } = useLayout();
 
   const location = useLocation();
+  const navigate = useNavigate();
   const { id } = useParams();
   const { setThreadId } = useThread();
-  const isAgreements = location.pathname.includes("acuerdos");
-  const isNameOfDocument = location.pathname.includes("nombre-del-documento");
+  const { currentCase } = useCase();
+  const [isCreateEscritoOpen, setIsCreateEscritoOpen] = useState(false);
+  const [isArchivadosOpen, setIsArchivadosOpen] = useState(false);
+  
   const basePath = `/caso/${id}`;
+
+  // Fetch actual escritos for the current case
+  const escritos = useQuery(
+    api.functions.documents.getEscritos,
+    currentCase ? { caseId: currentCase._id } : "skip"
+  );
+
+  // Fetch archived escritos for the current case
+  const archivedEscritos = useQuery(
+    api.functions.documents.getArchivedEscritos,
+    currentCase ? { caseId: currentCase._id } : "skip"
+  );
+
+  // Archive mutation
+  const archiveEscrito = useMutation(api.functions.documents.archiveEscrito);
 
   const handleNavigationFromCase = () => {
     setIsInCaseContext(true);
+  };
+
+  const handleEscritoCreated = (escritoId: Id<"escritos">) => {
+    // Navigate to the newly created escrito
+    navigate(`${basePath}/escritos/${escritoId}`);
+  };
+
+  const handleArchiveEscrito = async (escritoId: string, isArchived: boolean) => {
+    try {
+      await archiveEscrito({
+        escritoId: escritoId as any,
+        isArchived: isArchived,
+      });
+    } catch (error) {
+      console.error("Error archiving/unarchiving escrito:", error);
+      alert("Error al archivar/desarchivar el escrito. Por favor intenta de nuevo.");
+    }
+  };
+
+  const getStatusColor = (status: string) => {
+    return status === "terminado" ? "bg-green-100 text-green-800" : "bg-yellow-100 text-yellow-800";
+  };
+
+  const getStatusText = (status: string) => {
+    return status === "terminado" ? "Terminado" : "Borrador";
+  };
+
+  const formatDate = (timestamp: number) => {
+    return new Date(timestamp).toLocaleDateString("es-ES", {
+      month: "short",
+      day: "numeric",
+    });
   };
 
   return (
@@ -98,33 +162,73 @@ export default function CaseSidebar() {
             onOpenChange={toggleEscritos}
             className="w-full "
           >
-            <CollapsibleTrigger className="cursor-pointer flex gap-1">
-              {isEscritosOpen ? (
-                <FolderOpen className="cursor-pointer" size={20} />
-              ) : (
-                <Folder className="cursor-pointer" size={20} />
-              )}{" "}
-              Escritos
+            <CollapsibleTrigger className="cursor-pointer flex justify-between items-center gap-1 w-full">
+              <span className="flex items-center gap-1">
+                {isEscritosOpen ? (
+                  <FolderOpen className="cursor-pointer" size={20} />
+                ) : (
+                  <Folder className="cursor-pointer" size={20} />
+                )}
+                Escritos
+              </span>
+              <Plus
+                className="cursor-pointer transition-colors rounded-full p-1 hover:bg-blue-100 hover:text-blue-600"
+                size={20}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setIsCreateEscritoOpen(true);
+                }}
+              />
             </CollapsibleTrigger>
             <CollapsibleContent className="flex flex-col gap-1 pl-2 text-[12px] pt-1 overflow-y-auto max-h-32">
-              <div
-                className={`flex gap-1 items-center ${
-                  isAgreements ? "text-blue-500" : ""
-                }`}
-              >
-                <FileType2 className="cursor-pointer" size={20} />
-                <Link to={`${basePath}/acuerdos`}>Acuerdos</Link>
-              </div>
-              <div
-                className={`flex gap-1 items-center ${
-                  isNameOfDocument ? "text-blue-500" : ""
-                }`}
-              >
-                <FileType2 className="cursor-pointer" size={20} />
-                <Link to={`${basePath}/nombre-del-documento`}>
-                  Nombre del documento
-                </Link>
-              </div>
+              {escritos && escritos.length > 0 ? (
+                escritos.map((escrito) => (
+                  <div
+                    key={escrito._id}
+                    className={`flex flex-col gap-1 p-2 rounded hover:bg-gray-50 ${
+                      location.pathname.includes(`/escritos/${escrito._id}`) ? "bg-blue-50 border-l-2 border-blue-500" : ""
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <Link 
+                        to={`${basePath}/escritos/${escrito._id}`}
+                        className="flex items-center gap-1 text-foreground hover:text-blue-600 flex-1"
+                        onClick={handleNavigationFromCase}
+                      >
+                        <FileType2 className="cursor-pointer" size={16} />
+                        <span className="truncate">{escrito.title}</span>
+                      </Link>
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-6 w-6 p-0 hover:bg-gray-200"
+                              onClick={() => handleArchiveEscrito(escrito._id, true)}
+                            >
+                              <Archive size={12} className="text-gray-500" />
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <p>Archivar escrito</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                    </div>
+                    <div className="flex items-center justify-between text-xs text-muted-foreground">
+                      <Badge variant="secondary" className={`text-xs ${getStatusColor(escrito.status)}`}>
+                        {getStatusText(escrito.status)}
+                      </Badge>
+                      <span>{formatDate(escrito.lastEditedAt)}</span>
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div className="text-muted-foreground text-xs p-2">
+                  No hay escritos
+                </div>
+              )}
             </CollapsibleContent>
           </Collapsible>
 
@@ -138,15 +242,9 @@ export default function CaseSidebar() {
               Documentos
             </CollapsibleTrigger>
             <CollapsibleContent className="flex flex-col gap-1 pl-2 text-[12px] pt-1 overflow-y-auto max-h-32">
-              <div
-                className={`flex gap-1 items-center ${
-                  isNameOfDocument ? "text-blue-500" : ""
-                }`}
-              >
+              <div className="flex gap-1 items-center">
                 <FileArchive className="cursor-pointer" size={20} />
-                <Link to={`${basePath}/nombre-del-documento`}>
-                  Nombre del documento
-                </Link>
+                <span className="text-muted-foreground">Funcionalidad próximamente</span>
               </div>
             </CollapsibleContent>
           </Collapsible>
@@ -182,16 +280,78 @@ export default function CaseSidebar() {
         </div>
       </div>
 
-      <div className="w-full  flex flex-col justify-center  h-[20%] gap-2 pl-5">
-        <div className="flex gap-4 items-center">
-          <FolderX className="cursor-pointer" size={20} />
-          <p>Archivados</p>
-        </div>
+      <div className="w-full flex flex-col justify-center h-[20%] gap-2 pl-5">
+        <Collapsible
+          open={isArchivadosOpen}
+          onOpenChange={setIsArchivadosOpen}
+          className="w-full"
+        >
+          <CollapsibleTrigger className="cursor-pointer flex gap-4 items-center">
+            <FolderX className="cursor-pointer" size={20} />
+            <p>Archivados</p>
+          </CollapsibleTrigger>
+          <CollapsibleContent className="flex flex-col gap-1 pl-6 text-[12px] pt-1 overflow-y-auto max-h-32">
+            {archivedEscritos && archivedEscritos.length > 0 ? (
+              archivedEscritos.map((escrito) => (
+                <div
+                  key={escrito._id}
+                  className="flex flex-col gap-1 p-2 rounded hover:bg-gray-50"
+                >
+                  <div className="flex items-center justify-between">
+                    <Link 
+                      to={`${basePath}/escritos/${escrito._id}`}
+                      className="flex items-center gap-1 text-foreground hover:text-blue-600 flex-1"
+                      onClick={handleNavigationFromCase}
+                    >
+                      <FileType2 className="cursor-pointer" size={16} />
+                      <span className="truncate">{escrito.title}</span>
+                    </Link>
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-6 w-6 p-0 hover:bg-gray-200"
+                            onClick={() => handleArchiveEscrito(escrito._id, false)}
+                          >
+                            <RotateCcw size={12} className="text-gray-500" />
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p>Restaurar escrito</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  </div>
+                  <div className="flex items-center justify-between text-xs text-muted-foreground">
+                    <Badge variant="secondary" className={`text-xs ${getStatusColor(escrito.status)}`}>
+                      {getStatusText(escrito.status)}
+                    </Badge>
+                    <span>{formatDate(escrito.lastEditedAt)}</span>
+                  </div>
+                </div>
+              ))
+            ) : (
+              <div className="text-muted-foreground text-xs p-2">
+                No hay escritos archivados
+              </div>
+            )}
+          </CollapsibleContent>
+        </Collapsible>
+        
         <div className="flex gap-4 items-center text-red-400 cursor-pointer">
           <Trash className="cursor-pointer" size={20} />
           <p>Eliminados</p>
         </div>
       </div>
+
+      {/* Create Escrito Dialog */}
+      <CreateEscritoDialog 
+        open={isCreateEscritoOpen} 
+        setOpen={setIsCreateEscritoOpen}
+        onEscritoCreated={handleEscritoCreated}
+      />
     </aside>
   );
 }

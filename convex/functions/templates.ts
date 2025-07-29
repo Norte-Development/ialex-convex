@@ -57,7 +57,7 @@ export const createModelo = mutation({
     description: v.optional(v.string()),
     category: v.string(),
     templateType: v.union(v.literal("escrito"), v.literal("document")),
-    content: v.optional(v.string()), // For escrito templates
+    prosemirrorId: v.optional(v.string()), // For escrito templates
     mimeType: v.optional(v.string()),
     originalFileName: v.optional(v.string()),
     isPublic: v.boolean(),
@@ -71,7 +71,7 @@ export const createModelo = mutation({
       description: args.description,
       category: args.category,
       templateType: args.templateType,
-      content: args.content,
+      prosemirrorId: args.prosemirrorId,
       mimeType: args.mimeType,
       originalFileName: args.originalFileName,
       isPublic: args.isPublic,

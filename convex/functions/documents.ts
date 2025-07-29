@@ -1,6 +1,11 @@
 import { v } from "convex/values";
 import { query, mutation } from "../_generated/server";
-import { getCurrentUserFromAuth, requireCaseAccess } from "../auth_utils";
+import { requireCaseAccess } from "../auth_utils";
+import { prosemirrorSync } from "../prosemirror";
+
+
+
+
 
 // ========================================
 // DOCUMENT MANAGEMENT
@@ -155,7 +160,6 @@ export const getDocuments = query({
 export const createEscrito = mutation({
   args: {
     title: v.string(),
-    content: v.string(), // Tiptap JSON
     caseId: v.id("cases"),
     presentationDate: v.optional(v.number()),
     courtName: v.optional(v.string()),
@@ -165,17 +169,23 @@ export const createEscrito = mutation({
     // Verify user has full access to the case
     const { currentUser } = await requireCaseAccess(ctx, args.caseId, "full");
 
-    const wordCount = args.content.length; // Simple word count estimation
+    const prosemirrorId = crypto.randomUUID();
 
+    await prosemirrorSync.create(ctx, prosemirrorId, {
+      content: {
+        type: "doc",
+        content: [],
+      },
+    })
+    
     const escritoId = await ctx.db.insert("escritos", {
       title: args.title,
-      content: args.content,
       caseId: args.caseId,
       status: "borrador",
       presentationDate: args.presentationDate,
       courtName: args.courtName,
       expedientNumber: args.expedientNumber,
-      wordCount: wordCount,
+      prosemirrorId: prosemirrorId,
       lastEditedAt: Date.now(),
       createdBy: currentUser._id,
       lastModifiedBy: currentUser._id,
@@ -183,7 +193,7 @@ export const createEscrito = mutation({
     });
 
     console.log("Created escrito with id:", escritoId);
-    return escritoId;
+    return {escritoId, prosemirrorId};
   },
 });
 
@@ -336,5 +346,98 @@ export const getEscrito = query({
     }
 
     return escrito;
+  },
+});
+
+/**
+ * Archives or unarchives an escrito.
+ *
+ * @param {Object} args - The function arguments
+ * @param {string} args.escritoId - The ID of the escrito to archive/unarchive
+ * @param {boolean} args.isArchived - Whether to archive (true) or unarchive (false) the escrito
+ * @throws {Error} When not authenticated, escrito not found, or lacking full case access
+ *
+ * @description This function toggles the archived status of an escrito. When archived,
+ * the escrito will no longer appear in the main escritos list but can be restored later.
+ * The user must have full access to the case to archive/unarchive escritos.
+ *
+ * @example
+ * ```javascript
+ * // Archive an escrito
+ * await archiveEscrito({
+ *   escritoId: "escrito_123",
+ *   isArchived: true
+ * });
+ *
+ * // Unarchive an escrito
+ * await archiveEscrito({
+ *   escritoId: "escrito_123",
+ *   isArchived: false
+ * });
+ * ```
+ */
+export const archiveEscrito = mutation({
+  args: {
+    escritoId: v.id("escritos"),
+    isArchived: v.boolean(),
+  },
+  handler: async (ctx, args) => {
+    // Get the escrito to check case access
+    const escrito = await ctx.db.get(args.escritoId);
+    if (!escrito) {
+      throw new Error("Escrito not found");
+    }
+
+    // Verify user has full access to the case
+    const { currentUser } = await requireCaseAccess(
+      ctx,
+      escrito.caseId,
+      "full",
+    );
+
+    await ctx.db.patch(args.escritoId, {
+      isArchived: args.isArchived,
+      lastModifiedBy: currentUser._id,
+      lastEditedAt: Date.now(),
+    });
+
+    console.log(`Escrito ${args.escritoId} ${args.isArchived ? 'archived' : 'unarchived'}`);
+  },
+});
+
+/**
+ * Retrieves all archived escritos for a specific case.
+ *
+ * @param {Object} args - The function arguments
+ * @param {string} args.caseId - The ID of the case to get archived escritos for
+ * @returns {Promise<Object[]>} Array of archived escrito records ordered by creation date (newest first)
+ * @throws {Error} When not authenticated or lacking case access
+ *
+ * @description This function returns all archived escritos belonging to a case,
+ * ordered by creation date with the most recent first. The user must have read
+ * access to the case to view its archived escritos.
+ *
+ * @example
+ * ```javascript
+ * const archivedEscritos = await getArchivedEscritos({ caseId: "case_123" });
+ * // Returns: [{ title: "Old Motion", status: "terminado", isArchived: true }, ...]
+ * ```
+ */
+export const getArchivedEscritos = query({
+  args: {
+    caseId: v.id("cases"),
+  },
+  handler: async (ctx, args) => {
+    // Verify user has access to the case
+    await requireCaseAccess(ctx, args.caseId, "read");
+
+    const archivedEscritos = await ctx.db
+      .query("escritos")
+      .withIndex("by_case", (q) => q.eq("caseId", args.caseId))
+      .filter((q) => q.eq(q.field("isArchived"), true))
+      .order("desc")
+      .collect();
+
+    return archivedEscritos;
   },
 });

@@ -36,6 +36,9 @@ export {
   createEscrito,
   updateEscrito,
   getEscritos,
+  getEscrito,
+  archiveEscrito,
+  getArchivedEscritos,
 } from "./documents";
 
 // Template Management (Modelos)
