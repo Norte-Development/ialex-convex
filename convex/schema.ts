@@ -128,7 +128,7 @@ export default defineSchema({
   // Simplified: removed parentEscritoId (no version control)
   escritos: defineTable({
     title: v.string(),
-    content: v.string(), // Required Tiptap JSON content
+    prosemirrorId: v.string(), // Required Tiptap JSON content
     caseId: v.id("cases"),
     status: v.union(
       v.literal("borrador"),
@@ -160,7 +160,7 @@ export default defineSchema({
       v.literal("document") // File-based template for documents
     ),
     // For escrito templates (Tiptap JSON)
-    content: v.optional(v.string()), // Tiptap JSON template content
+    prosemirrorId: v.optional(v.string()), // Tiptap JSON template content
     mimeType: v.optional(v.string()),
     originalFileName: v.optional(v.string()),
     isPublic: v.boolean(), // False = only team can access, True = anyone can access

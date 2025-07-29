@@ -1,6 +1,6 @@
+"use client"
 
 import type React from "react"
-
 import CaseSidebar from "./CaseSideBar"
 import SidebarChatbot from "../Agent/SidebarChatbot"
 import { useLayout } from "@/context/LayoutContext"
@@ -53,10 +53,11 @@ export default function CaseLayout({ children }: CaseDetailLayoutProps) {
 
       {/* Main content - scrollable */}
       <main
-        className={`bg-[#f7f7f7] pt-14 ${isCaseSidebarOpen ? "ml-64" : "ml-0"} h-[calc(100vh-56px)] overflow-y-auto ${
+        className={`bg-[#f7f7f7] pt-14 h-[calc(100vh-56px)] overflow-y-auto ${
           isResizing ? "transition-none" : "transition-all duration-300 ease-in-out"
         }`}
         style={{
+          marginLeft: isCaseSidebarOpen ? "256px" : "0px",
           marginRight: isChatbotOpen ? `${chatbotWidth}px` : "0px",
         }}
       >

@@ -1,6 +1,11 @@
 import { v } from "convex/values";
 import { query, mutation } from "../_generated/server";
-import { getCurrentUserFromAuth, requireCaseAccess } from "../auth_utils";
+import { requireCaseAccess } from "../auth_utils";
+import { prosemirrorSync } from "../prosemirror";
+
+
+
+
 
 // ========================================
 // DOCUMENT MANAGEMENT
@@ -155,7 +160,6 @@ export const getDocuments = query({
 export const createEscrito = mutation({
   args: {
     title: v.string(),
-    content: v.string(), // Tiptap JSON
     caseId: v.id("cases"),
     presentationDate: v.optional(v.number()),
     courtName: v.optional(v.string()),
@@ -165,17 +169,23 @@ export const createEscrito = mutation({
     // Verify user has full access to the case
     const { currentUser } = await requireCaseAccess(ctx, args.caseId, "full");
 
-    const wordCount = args.content.length; // Simple word count estimation
+    const prosemirrorId = crypto.randomUUID();
 
+    await prosemirrorSync.create(ctx, prosemirrorId, {
+      content: {
+        type: "doc",
+        content: [],
+      },
+    })
+    
     const escritoId = await ctx.db.insert("escritos", {
       title: args.title,
-      content: args.content,
       caseId: args.caseId,
       status: "borrador",
       presentationDate: args.presentationDate,
       courtName: args.courtName,
       expedientNumber: args.expedientNumber,
-      wordCount: wordCount,
+      prosemirrorId: prosemirrorId,
       lastEditedAt: Date.now(),
       createdBy: currentUser._id,
       lastModifiedBy: currentUser._id,
@@ -183,7 +193,7 @@ export const createEscrito = mutation({
     });
 
     console.log("Created escrito with id:", escritoId);
-    return escritoId;
+    return {escritoId, prosemirrorId};
   },
 });
 

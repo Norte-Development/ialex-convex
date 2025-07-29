@@ -35,7 +35,6 @@ export function CreateEscritoDialog({
 
   const [formData, setFormData] = useState({
     title: "",
-    content: "",
     presentationDate: "",
     courtName: "",
     expedientNumber: "",
@@ -51,7 +50,6 @@ export function CreateEscritoDialog({
   const resetForm = () => {
     setFormData({
       title: "",
-      content: "",
       presentationDate: "",
       courtName: "",
       expedientNumber: "",
@@ -76,9 +74,6 @@ export function CreateEscritoDialog({
     try {
       const escritoData = {
         title: formData.title.trim(),
-        content:
-          formData.content.trim() ||
-          '{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":""}]}]}', // Default Tiptap JSON
         caseId: currentCase._id as Id<"cases">,
         presentationDate: formData.presentationDate
           ? new Date(formData.presentationDate).getTime()
@@ -87,7 +82,7 @@ export function CreateEscritoDialog({
         expedientNumber: formData.expedientNumber.trim() || undefined,
       };
 
-      const escritoId = await createEscrito(escritoData);
+      const {escritoId} = await createEscrito(escritoData);
 
       resetForm();
       setOpen(false);

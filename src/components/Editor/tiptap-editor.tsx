@@ -1,19 +1,13 @@
-"use client";
-
-import { useEditor, EditorContent } from "@tiptap/react";
-import type { Editor } from "@tiptap/core";
-import { useEffect, useRef } from "react";
-import StarterKit from "@tiptap/starter-kit";
-import TextAlign from "@tiptap/extension-text-align";
-import Underline from "@tiptap/extension-underline";
-import { useTiptapSync } from "@convex-dev/prosemirror-sync/tiptap";
-import { Underline as UnderlineIcon } from "lucide-react";
-import {
-  InlineChange,
-  BlockChange,
-  LineBreakChange,
-} from "./extensions/changeNode";
-import { TrackingExtension } from "./extensions/tracking";
+import { useEditor, EditorContent } from "@tiptap/react"
+import type { Editor } from "@tiptap/core"
+import { useEffect } from "react"
+import StarterKit from "@tiptap/starter-kit"
+import TextAlign from "@tiptap/extension-text-align"
+import Underline from "@tiptap/extension-underline"
+import { useTiptapSync } from "@convex-dev/prosemirror-sync/tiptap"
+import { UnderlineIcon } from "lucide-react"
+import { InlineChange, BlockChange, LineBreakChange } from "./extensions/changeNode"
+import { TrackingExtension } from "./extensions/tracking"
 import {
   Bold,
   Italic,
@@ -26,24 +20,19 @@ import {
   Quote,
   Undo,
   Redo,
-} from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Separator } from "@/components/ui/separator";
-import { api } from "../../../convex/_generated/api";
+} from "lucide-react"
+import { Button } from "@/components/ui/button"
+import { Separator } from "@/components/ui/separator"
+import { api } from "../../../convex/_generated/api"
 
 interface TiptapProps {
-  documentId?: string;
-  onReady?: (editor: Editor) => void;
-  onDestroy?: () => void;
+  documentId?: string
+  onReady?: (editor: Editor) => void
+  onDestroy?: () => void
 }
 
-export function Tiptap({
-  documentId = "default-document",
-  onReady,
-  onDestroy,
-}: TiptapProps) {
-  const sync = useTiptapSync(api.prosemirror, documentId);
-  const createdDocsRef = useRef<Set<string>>(new Set());
+export function Tiptap({ documentId = "default-document", onReady, onDestroy }: TiptapProps) {
+  const sync = useTiptapSync(api.prosemirror, documentId)
 
   const editor = useEditor(
     {
@@ -62,211 +51,187 @@ export function Tiptap({
       content: sync.initialContent,
       editorProps: {
         attributes: {
-          class: "legal-editor-content",
+          class: "focus:outline-none  w-full",
         },
       },
     },
     [sync.initialContent, sync.extension],
-  );
+  )
 
-  // Handle editor ready callback
   useEffect(() => {
     if (editor && onReady) {
-      console.log("TipTap editor ready");
-      onReady(editor);
+      console.log("TipTap editor ready")
+      onReady(editor)
     }
-  }, [editor, onReady]);
-
-  // Handle document creation
-  useEffect(() => {
-    if (
-      sync &&
-      sync.create &&
-      sync.initialContent === null &&
-      !createdDocsRef.current.has(documentId)
-    ) {
-      sync.create({ type: "doc", content: [] });
-      createdDocsRef.current.add(documentId);
-    }
-  }, [sync, sync.initialContent, documentId]);
+  }, [editor, onReady])
 
   useEffect(() => {
     return () => {
       if (onDestroy) {
-        console.log("TipTap component unmounting");
-        onDestroy();
+        console.log("TipTap component unmounting")
+        onDestroy()
       }
-    };
-  }, [onDestroy]);
+    }
+  }, [onDestroy])
 
   if (sync.isLoading) {
     return (
-      <div className="flex items-center justify-center h-96 bg-gray-50">
+      <div className="flex items-center justify-center h-96 bg-white rounded-lg shadow-sm border border-gray-200">
         <div className="text-gray-500">Loading document...</div>
       </div>
-    );
+    )
   }
 
   if (sync.initialContent === null) {
     return (
-      <div className="flex flex-col items-center justify-center h-96 bg-gray-50 gap-4">
-        <div className="text-gray-500">No document found</div>
-        <Button onClick={() => sync.create({ type: "doc", content: [] })}>
-          Create document
-        </Button>
+      <div className="flex flex-col items-center justify-center h-96 bg-white rounded-lg shadow-sm border border-gray-200 gap-4 w-full">
+        <div className="text-gray-500">Document not found</div>
+        <div className="text-sm text-gray-400">Document ID: {documentId}</div>
       </div>
-    );
+    )
   }
 
   if (!editor) {
     return (
-      <div className="flex items-center justify-center h-96 bg-gray-50">
+      <div className="flex items-center justify-center h-96 bg-white rounded-lg shadow-sm border border-gray-200">
         <div className="text-gray-500">Loading editor...</div>
       </div>
-    );
+    )
   }
 
   return (
-    <div className="legal-editor-container">
-      <div className="legal-document-container">
-        <div className="legal-document-page">
-          <div className="legal-editor-header">
-            <div className="flex items-center gap-1 p-2 border-b border-gray-200 bg-white mb-4">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => editor.chain().focus().undo().run()}
-                disabled={!editor.can().undo()}
-                className="h-8 w-8 p-0 hover:bg-gray-100"
-              >
-                <Undo className="h-4 w-4" />
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => editor.chain().focus().redo().run()}
-                disabled={!editor.can().redo()}
-                className="h-8 w-8 p-0 hover:bg-gray-100"
-              >
-                <Redo className="h-4 w-4" />
-              </Button>
+    <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden w-full">
+      {/* Toolbar */}
+      <div className="border-b border-gray-200 bg-gray-50/50 px-4 py-3">
+        <div className="flex items-center gap-1">
+          {/* Undo/Redo */}
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => editor.chain().focus().undo().run()}
+            disabled={!editor.can().undo()}
+            className="h-8 w-8 p-0 hover:bg-gray-100 disabled:opacity-50"
+          >
+            <Undo className="h-4 w-4" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => editor.chain().focus().redo().run()}
+            disabled={!editor.can().redo()}
+            className="h-8 w-8 p-0 hover:bg-gray-100 disabled:opacity-50"
+          >
+            <Redo className="h-4 w-4" />
+          </Button>
 
-              <Separator orientation="vertical" className="h-6 mx-1" />
+          <Separator orientation="vertical" className="h-6 mx-2" />
 
-              {/* Text Formatting */}
-              <Button
-                variant={editor.isActive("bold") ? "secondary" : "ghost"}
-                size="sm"
-                onClick={() => editor.chain().focus().toggleBold().run()}
-                className="h-8 w-8 p-0 hover:bg-gray-100"
-              >
-                <Bold className="h-4 w-4" />
-              </Button>
-              <Button
-                variant={editor.isActive("italic") ? "secondary" : "ghost"}
-                size="sm"
-                onClick={() => editor.chain().focus().toggleItalic().run()}
-                className="h-8 w-8 p-0 hover:bg-gray-100"
-              >
-                <Italic className="h-4 w-4" />
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => editor.chain().focus().toggleUnderline?.().run()}
-                className="h-8 w-8 p-0 hover:bg-gray-100"
-              >
-                <UnderlineIcon className="h-4 w-4" />
-              </Button>
+          {/* Text Formatting */}
+          <Button
+            variant={editor.isActive("bold") ? "secondary" : "ghost"}
+            size="sm"
+            onClick={() => editor.chain().focus().toggleBold().run()}
+            className="h-8 w-8 p-0 hover:bg-gray-100"
+          >
+            <Bold className="h-4 w-4" />
+          </Button>
+          <Button
+            variant={editor.isActive("italic") ? "secondary" : "ghost"}
+            size="sm"
+            onClick={() => editor.chain().focus().toggleItalic().run()}
+            className="h-8 w-8 p-0 hover:bg-gray-100"
+          >
+            <Italic className="h-4 w-4" />
+          </Button>
+          <Button
+            variant={editor.isActive("underline") ? "secondary" : "ghost"}
+            size="sm"
+            onClick={() => editor.chain().focus().toggleUnderline?.().run()}
+            className="h-8 w-8 p-0 hover:bg-gray-100"
+          >
+            <UnderlineIcon className="h-4 w-4" />
+          </Button>
 
-              <Separator orientation="vertical" className="h-6 mx-1" />
+          <Separator orientation="vertical" className="h-6 mx-2" />
 
-              {/* Text Alignment */}
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() =>
-                  editor.chain().focus().setTextAlign("left").run()
-                }
-                className="h-8 w-8 p-0 hover:bg-gray-100"
-              >
-                <AlignLeft className="h-4 w-4" />
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() =>
-                  editor.chain().focus().setTextAlign("center").run()
-                }
-                className="h-8 w-8 p-0 hover:bg-gray-100"
-              >
-                <AlignCenter className="h-4 w-4" />
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() =>
-                  editor.chain().focus().setTextAlign("right").run()
-                }
-                className="h-8 w-8 p-0 hover:bg-gray-100"
-              >
-                <AlignRight className="h-4 w-4" />
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() =>
-                  editor.chain().focus().setTextAlign("justify").run()
-                }
-                className="h-8 w-8 p-0 hover:bg-gray-100"
-              >
-                <AlignJustify className="h-4 w-4" />
-              </Button>
+          {/* Text Alignment */}
+          <Button
+            variant={editor.isActive({ textAlign: "left" }) ? "secondary" : "ghost"}
+            size="sm"
+            onClick={() => editor.chain().focus().setTextAlign("left").run()}
+            className="h-8 w-8 p-0 hover:bg-gray-100"
+          >
+            <AlignLeft className="h-4 w-4" />
+          </Button>
+          <Button
+            variant={editor.isActive({ textAlign: "center" }) ? "secondary" : "ghost"}
+            size="sm"
+            onClick={() => editor.chain().focus().setTextAlign("center").run()}
+            className="h-8 w-8 p-0 hover:bg-gray-100"
+          >
+            <AlignCenter className="h-4 w-4" />
+          </Button>
+          <Button
+            variant={editor.isActive({ textAlign: "right" }) ? "secondary" : "ghost"}
+            size="sm"
+            onClick={() => editor.chain().focus().setTextAlign("right").run()}
+            className="h-8 w-8 p-0 hover:bg-gray-100"
+          >
+            <AlignRight className="h-4 w-4" />
+          </Button>
+          <Button
+            variant={editor.isActive({ textAlign: "justify" }) ? "secondary" : "ghost"}
+            size="sm"
+            onClick={() => editor.chain().focus().setTextAlign("justify").run()}
+            className="h-8 w-8 p-0 hover:bg-gray-100"
+          >
+            <AlignJustify className="h-4 w-4" />
+          </Button>
 
-              <Separator orientation="vertical" className="h-6 mx-1" />
+          <Separator orientation="vertical" className="h-6 mx-2" />
 
-              {/* Lists */}
-              <Button
-                variant={editor.isActive("bulletList") ? "secondary" : "ghost"}
-                size="sm"
-                onClick={() => editor.chain().focus().toggleBulletList().run()}
-                className="h-8 w-8 p-0 hover:bg-gray-100"
-              >
-                <List className="h-4 w-4" />
-              </Button>
-              <Button
-                variant={editor.isActive("orderedList") ? "secondary" : "ghost"}
-                size="sm"
-                onClick={() => editor.chain().focus().toggleOrderedList().run()}
-                className="h-8 w-8 p-0 hover:bg-gray-100"
-              >
-                <ListOrdered className="h-4 w-4" />
-              </Button>
-              <Button
-                variant={editor.isActive("blockquote") ? "secondary" : "ghost"}
-                size="sm"
-                onClick={() => editor.chain().focus().toggleBlockquote().run()}
-                className="h-8 w-8 p-0 hover:bg-gray-100"
-              >
-                <Quote className="h-4 w-4" />
-              </Button>
-            </div>
-          </div>
-
-          <EditorContent
-            editor={editor}
-            className="legal-editor-content-wrapper"
-          />
+          {/* Lists */}
+          <Button
+            variant={editor.isActive("bulletList") ? "secondary" : "ghost"}
+            size="sm"
+            onClick={() => editor.chain().focus().toggleBulletList().run()}
+            className="h-8 w-8 p-0 hover:bg-gray-100"
+          >
+            <List className="h-4 w-4" />
+          </Button>
+          <Button
+            variant={editor.isActive("orderedList") ? "secondary" : "ghost"}
+            size="sm"
+            onClick={() => editor.chain().focus().toggleOrderedList().run()}
+            className="h-8 w-8 p-0 hover:bg-gray-100"
+          >
+            <ListOrdered className="h-4 w-4" />
+          </Button>
+          <Button
+            variant={editor.isActive("blockquote") ? "secondary" : "ghost"}
+            size="sm"
+            onClick={() => editor.chain().focus().toggleBlockquote().run()}
+            className="h-8 w-8 p-0 hover:bg-gray-100"
+          >
+            <Quote className="h-4 w-4" />
+          </Button>
         </div>
+      </div>
+
+      {/* Editor Content */}
+      <div className="bg-white min-h-[600px] w-full">
+        <EditorContent editor={editor} className="legal-editor-content-wrapper w-full" />
       </div>
 
       {/* Footer */}
-      <div className="legal-editor-footer">
-        <div className="text-sm text-gray-500">
-          Words: {editor.storage.characterCount?.words() || 0} | Characters:{" "}
-          {editor.storage.characterCount?.characters() || 0}
+      <div className="border-t border-gray-200 bg-gray-50/50 px-4 py-2">
+        <div className="text-xs text-gray-500 flex justify-between items-center">
+          <span>
+            Words: {editor.storage.characterCount?.words() || 0} | Characters:{" "}
+            {editor.storage.characterCount?.characters() || 0}
+          </span>
         </div>
       </div>
     </div>
-  );
+  )
 }
