@@ -26,7 +26,6 @@ import CaseModelPage from "./pages/CaseOpen/CaseModelPage";
 import CaseDataBasePage from "./pages/CaseOpen/CaseDataBase";
 
 import "@copilotkit/react-ui/styles.css";
-
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({
   children,
 }) => {
@@ -85,6 +84,10 @@ const AppWithThread = () => {
               <CaseProvider>
                 <Routes>
                   <Route index element={<CaseDetailPage />} />
+                  <Route
+                    path="escritos"
+                    element={<EscritosPage />}
+                  />
                   <Route
                     path="escritos/:escritoId"
                     element={<EscritosPage />}
