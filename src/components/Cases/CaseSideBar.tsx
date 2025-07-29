@@ -8,6 +8,7 @@ import { useLayout } from "@/context/LayoutContext";
 import { useLocation, useParams, useNavigate } from "react-router-dom";
 import { Link } from "react-router-dom";
 import { AIAgentThreadSelector } from "./CaseThreadSelector";
+import { CaseDocuments } from "./CaseDocuments";
 import { useThread } from "@/context/ThreadContext";
 import { useCase } from "@/context/CaseContext";
 import { useQuery, useMutation } from "convex/react";
@@ -242,10 +243,7 @@ export default function CaseSidebar() {
               Documentos
             </CollapsibleTrigger>
             <CollapsibleContent className="flex flex-col gap-1 pl-2 text-[12px] pt-1 overflow-y-auto max-h-32">
-              <div className="flex gap-1 items-center">
-                <FileArchive className="cursor-pointer" size={20} />
-                <span className="text-muted-foreground">Funcionalidad próximamente</span>
-              </div>
+              <CaseDocuments basePath={basePath} />
             </CollapsibleContent>
           </Collapsible>
         </div>

@@ -4,7 +4,11 @@ import { requireCaseAccess } from "../auth_utils";
 import { prosemirrorSync } from "../prosemirror";
 
 
-
+export const generateUploadUrl = mutation({
+  handler: async (ctx) => {
+    return await ctx.storage.generateUploadUrl();
+  },
+});
 
 
 // ========================================

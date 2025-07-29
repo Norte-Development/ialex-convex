@@ -4,7 +4,8 @@ import type React from "react"
 import CaseSidebar from "./CaseSideBar"
 import SidebarChatbot from "../Agent/SidebarChatbot"
 import { useLayout } from "@/context/LayoutContext"
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
+import { useDropzone } from "react-dropzone"
 
 interface CaseDetailLayoutProps {
   children: React.ReactNode
@@ -42,8 +43,41 @@ export default function CaseLayout({ children }: CaseDetailLayoutProps) {
     setIsResizing(false)
   }
 
+  // Document upload handlers
+  const [isDragActive, setIsDragActive] = useState(false)
+
+  const onDrop = useCallback((acceptedFiles: File[]) => {
+    setIsDragActive(false)
+    console.log("Files dropped:", acceptedFiles)
+    // TODO: Implement document upload functionality
+    // You can define the upload action here
+  }, [])
+
+  const onDragEnter = useCallback(() => {
+    setIsDragActive(true)
+  }, [])
+
+  const onDragLeave = useCallback(() => {
+    setIsDragActive(false)
+  }, [])
+
+  const { getRootProps } = useDropzone({
+    onDrop,
+    onDragEnter,
+    onDragLeave,
+    accept: {
+      'application/pdf': ['.pdf'],
+      'application/msword': ['.doc'],
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document': ['.docx'],
+      'image/*': ['.png', '.jpg', '.jpeg', '.gif'],
+      'text/plain': ['.txt'],
+    },
+    multiple: true,
+    noClick: true, // Don't trigger on click, only drag
+  })
+
   return (
-    <div className="relative">
+    <div {...getRootProps()} className="relative h-full w-full">
       {/* Left Sidebar - fixed */}
       {isCaseSidebarOpen && (
         <div className="fixed top-14 left-0 h-[calc(100vh-56px)] w-64 z-20">
