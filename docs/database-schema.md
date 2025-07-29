@@ -366,20 +366,20 @@ File-based documents stored in Convex storage.
 - `by_file_id`: Lookup by storage file ID
 
 ### Escritos (`escritos`)
-Tiptap JSON documents for legal writings/briefs.
+Tiptap JSON documents for legal writings/briefs with Prosemirror sync integration.
 
 **Fields:**
 - `title`: Escrito title
-- `content`: Tiptap JSON content
+- `prosemirrorId`: Unique identifier for Prosemirror sync document
 - `caseId`: Reference to case
 - `status`: Current status (`borrador`, `terminado`)
 - `presentationDate`: When escrito was presented
 - `courtName`: Court where escrito was presented
 - `expedientNumber`: Court expedient number
-- `wordCount`: Calculated word count
-- `lastEditedAt`: When content was last modified
+- `wordCount`: Calculated word count (auto-updated by sync)
+- `lastEditedAt`: When content was last modified (auto-updated by sync)
 - `createdBy`: User who created the escrito
-- `lastModifiedBy`: User who last modified the escrito
+- `lastModifiedBy`: User who last modified the escrito (auto-updated by sync)
 - `isArchived`: Whether escrito is archived
 
 **Key Indexes:**
@@ -387,8 +387,15 @@ Tiptap JSON documents for legal writings/briefs.
 - `by_status`: Query by escrito status
 - `by_created_by`: Escritos created by specific users
 - `by_archived_status`: Filter archived escritos
+- `by_prosemirror_id`: Lookup by Prosemirror sync document ID
 - `by_presentation_date`: Query by presentation date
 - `by_last_edited`: Query by last edit time
+
+**Content Management:**
+- Document content is handled by Prosemirror sync system
+- `prosemirrorId` links metadata to sync document
+- Content changes automatically update `wordCount`, `lastEditedAt`, and `lastModifiedBy`
+- Real-time collaboration supported through Prosemirror sync
 
 ### Modelos (Templates) (`modelos`)
 Independent reusable templates for documents and escritos.

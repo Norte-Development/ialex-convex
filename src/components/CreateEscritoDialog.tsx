@@ -20,11 +20,13 @@ import { useCase } from "@/context/CaseContext";
 interface CreateEscritoDialogProps {
   open?: boolean;
   setOpen: (open: boolean) => void;
+  onEscritoCreated?: (escritoId: Id<"escritos">) => void;
 }
 
 export function CreateEscritoDialog({
   open,
   setOpen,
+  onEscritoCreated,
 }: CreateEscritoDialogProps) {
   const [isLoading, setIsLoading] = useState(false);
   const { currentCase } = useCase();
@@ -85,10 +87,15 @@ export function CreateEscritoDialog({
         expedientNumber: formData.expedientNumber.trim() || undefined,
       };
 
-      await createEscrito(escritoData);
+      const escritoId = await createEscrito(escritoData);
 
       resetForm();
       setOpen(false);
+      
+      // Call the callback with the new escrito ID
+      if (onEscritoCreated) {
+        onEscritoCreated(escritoId);
+      }
     } catch (error) {
       console.error("Error creating escrito:", error);
       alert("Error al crear el escrito. Por favor intenta de nuevo.");

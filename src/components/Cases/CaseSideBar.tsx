@@ -5,7 +5,7 @@ import {
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 import { useLayout } from "@/context/LayoutContext";
-import { useLocation, useParams } from "react-router-dom";
+import { useLocation, useParams, useNavigate } from "react-router-dom";
 import { Link } from "react-router-dom";
 import { AIAgentThreadSelector } from "./CaseThreadSelector";
 import { useThread } from "@/context/ThreadContext";
@@ -22,6 +22,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "../ui/tooltip";
+import { Id } from "../../../convex/_generated/dataModel";
 
 export default function CaseSidebar() {
   const {
@@ -37,6 +38,7 @@ export default function CaseSidebar() {
   } = useLayout();
 
   const location = useLocation();
+  const navigate = useNavigate();
   const { id } = useParams();
   const { setThreadId } = useThread();
   const { currentCase } = useCase();
@@ -62,6 +64,11 @@ export default function CaseSidebar() {
 
   const handleNavigationFromCase = () => {
     setIsInCaseContext(true);
+  };
+
+  const handleEscritoCreated = (escritoId: Id<"escritos">) => {
+    // Navigate to the newly created escrito
+    navigate(`${basePath}/escritos/${escritoId}`);
   };
 
   const handleArchiveEscrito = async (escritoId: string, isArchived: boolean) => {
@@ -342,7 +349,8 @@ export default function CaseSidebar() {
       {/* Create Escrito Dialog */}
       <CreateEscritoDialog 
         open={isCreateEscritoOpen} 
-        setOpen={setIsCreateEscritoOpen} 
+        setOpen={setIsCreateEscritoOpen}
+        onEscritoCreated={handleEscritoCreated}
       />
     </aside>
   );
