@@ -92,10 +92,10 @@ export function CaseDocuments({ basePath }: CaseDocumentsProps) {
             <div className="flex items-center justify-between">
               <Link 
                 to={`${basePath}/documentos/${document._id}`}
-                className="flex items-center gap-1 text-foreground hover:text-blue-600 flex-1"
+                className="flex items-center gap-1 text-foreground hover:text-blue-600 flex-1 min-w-0"
               >
-                <FileText size={16} />
-                <span className="truncate">{document.title}</span>
+                <FileText size={16} className="flex-shrink-0" />
+                <span className="truncate min-w-0">{document.title}</span>
               </Link>
               <div className="flex items-center gap-1">
                 <TooltipProvider>
