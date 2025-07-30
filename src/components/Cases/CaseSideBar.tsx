@@ -1,4 +1,4 @@
-import { FileSearch2, UserIcon, UsersRound, FolderX, FolderOpen, Folder, FolderArchive, FolderSymlink, ArrowLeft, ArrowRight, FileType2, FileArchive, Trash, BookCheck, Plus, Archive, RotateCcw } from 'lucide-react';
+import { FileSearch2, UserIcon, UsersRound, FolderX, FolderOpen, Folder, FolderArchive, FolderSymlink, ArrowLeft, ArrowRight, FileType2, Trash, BookCheck, Plus, Archive, RotateCcw } from 'lucide-react';
 import {
   Collapsible,
   CollapsibleContent,
