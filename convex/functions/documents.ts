@@ -129,6 +129,67 @@ export const getDocuments = query({
   },
 });
 
+/**
+ * Retrieves a specific document by ID.
+ *
+ * @param {Object} args - The function arguments
+ * @param {string} args.documentId - The ID of the document to retrieve
+ * @returns {Promise<Object|null>} The document record or null if not found
+ * @throws {Error} When not authenticated or lacking case access
+ *
+ * @description This function returns a specific document by its ID. The user must
+ * have read access to the case that the document belongs to.
+ */
+export const getDocument = query({
+  args: {
+    documentId: v.id("documents"),
+  },
+  handler: async (ctx, args) => {
+    const document = await ctx.db.get(args.documentId);
+    
+    if (!document) {
+      return null;
+    }
+
+    // Verify user has access to the case
+    await requireCaseAccess(ctx, document.caseId, "read");
+
+    return document;
+  },
+});
+
+/**
+ * Gets a signed URL for downloading a document from Convex storage.
+ *
+ * @param {Object} args - The function arguments
+ * @param {string} args.documentId - The ID of the document to get URL for
+ * @returns {Promise<string|null>} The signed URL or null if document not found
+ * @throws {Error} When not authenticated or lacking case access
+ *
+ * @description This function generates a signed URL for downloading a document
+ * from Convex storage. The user must have read access to the case that the
+ * document belongs to.
+ */
+export const getDocumentUrl = query({
+  args: {
+    documentId: v.id("documents"),
+  },
+  handler: async (ctx, args) => {
+    const document = await ctx.db.get(args.documentId);
+    
+    if (!document) {
+      return null;
+    }
+
+    // Verify user has access to the case
+    await requireCaseAccess(ctx, document.caseId, "read");
+
+    // Get the signed URL from Convex storage
+    const url = await ctx.storage.getUrl(document.fileId);
+    return url;
+  },
+});
+
 // ========================================
 // ESCRITO MANAGEMENT (Simplified)
 // ========================================

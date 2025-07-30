@@ -1,0 +1,184 @@
+import { useParams } from "react-router-dom";
+import { useQuery } from "convex/react";
+import { api } from "../../../convex/_generated/api";
+import { Id } from "../../../convex/_generated/dataModel";
+import CaseLayout from "@/components/Cases/CaseLayout";
+import { useCase } from "@/context/CaseContext";
+import { FileText, Download, AlertCircle } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
+
+export default function CaseDocumentPage() {
+  const { documentId } = useParams();
+  const { currentCase } = useCase();
+
+  // Fetch the specific document
+  const document = useQuery(
+    api.functions.documents.getDocument,
+    documentId ? { documentId: documentId as Id<"documents"> } : "skip"
+  );
+
+  // Get the document URL from Convex storage
+  const documentUrl = useQuery(
+    api.functions.documents.getDocumentUrl,
+    documentId ? { documentId: documentId as Id<"documents"> } : "skip"
+  );
+
+  const getDocumentTypeColor = (documentType: string) => {
+    switch (documentType) {
+      case "contract":
+        return "bg-blue-100 text-blue-800";
+      case "evidence":
+        return "bg-green-100 text-green-800";
+      case "correspondence":
+        return "bg-purple-100 text-purple-800";
+      case "legal_brief":
+        return "bg-orange-100 text-orange-800";
+      case "court_filing":
+        return "bg-red-100 text-red-800";
+      default:
+        return "bg-gray-100 text-gray-800";
+    }
+  };
+
+  const getDocumentTypeText = (documentType: string) => {
+    switch (documentType) {
+      case "contract":
+        return "Contrato";
+      case "evidence":
+        return "Evidencia";
+      case "correspondence":
+        return "Correspondencia";
+      case "legal_brief":
+        return "Escrito Legal";
+      case "court_filing":
+        return "Presentación Judicial";
+      default:
+        return "Otro";
+    }
+  };
+
+  const formatFileSize = (bytes: number) => {
+    if (bytes === 0) return "0 Bytes";
+    const k = 1024;
+    const sizes = ["Bytes", "KB", "MB", "GB"];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i];
+  };
+
+  const formatDate = (timestamp: number) => {
+    return new Date(timestamp).toLocaleDateString("es-ES", {
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+    });
+  };
+
+  const isImage = (mimeType: string) => mimeType.startsWith("image/");
+  const isPdf = (mimeType: string) => mimeType === "application/pdf";
+  const isSupported = (mimeType: string) => isImage(mimeType) || isPdf(mimeType);
+
+  if (!document) {
+    return (
+      <CaseLayout>
+        <div className="flex items-center justify-center h-96">
+          <div className="text-center">
+            <Skeleton className="h-8 w-64 mb-4" />
+            <Skeleton className="h-4 w-32" />
+          </div>
+        </div>
+      </CaseLayout>
+    );
+  }
+
+  return (
+    <CaseLayout>
+      {/* Document Header */}
+      <div className="bg-white border-b border-gray-200 px-6 py-4">
+        <div className="w-full">
+          <div className="flex items-center justify-between mb-2">
+            <h1 className="text-2xl font-semibold text-gray-900">{document.title}</h1>
+            <div className="flex items-center gap-2">
+              <Badge 
+                variant="secondary" 
+                className={getDocumentTypeColor(document.documentType || "other")}
+              >
+                {getDocumentTypeText(document.documentType || "other")}
+              </Badge>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => window.open(documentUrl || "", "_blank")}
+                disabled={!documentUrl}
+              >
+                <Download className="h-4 w-4 mr-2" />
+                Descargar
+              </Button>
+            </div>
+          </div>
+          <div className="flex flex-wrap gap-4 text-sm text-gray-600">
+            <div className="flex items-center gap-2">
+              <span className="font-medium">Tamaño:</span>
+              <span>{formatFileSize(document.fileSize)}</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="font-medium">Subido:</span>
+              <span>{formatDate(document._creationTime)}</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="font-medium">Tipo:</span>
+              <span>{document.mimeType}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Document Viewer */}
+      <div className="flex-1 p-6 bg-gray-50">
+        {!documentUrl ? (
+          <div className="flex items-center justify-center h-96">
+            <div className="text-center">
+              <Skeleton className="h-64 w-96 mb-4" />
+              <Skeleton className="h-4 w-32" />
+            </div>
+          </div>
+        ) : isSupported(document.mimeType) ? (
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+            {isPdf(document.mimeType) ? (
+              <iframe
+                src={documentUrl}
+                className="w-full h-[calc(100vh-200px)] border-0"
+                title={document.title}
+              />
+            ) : isImage(document.mimeType) ? (
+              <div className="flex justify-center p-4">
+                <img
+                  src={documentUrl}
+                  alt={document.title}
+                  className="max-w-full h-auto rounded shadow-sm"
+                  style={{ maxHeight: "calc(100vh - 200px)" }}
+                />
+              </div>
+            ) : null}
+          </div>
+        ) : (
+          <div className="flex flex-col items-center justify-center h-96 bg-white rounded-lg shadow-sm border border-gray-200">
+            <AlertCircle className="h-16 w-16 text-yellow-500 mb-4" />
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">
+              Vista previa no disponible
+            </h3>
+            <p className="text-gray-600 text-center mb-6 max-w-md">
+              Actualmente no soportamos la vista previa de archivos {document.mimeType}. 
+              Puedes descargar el archivo para verlo en tu aplicación local.
+            </p>
+            <div className="flex items-center gap-2 text-sm text-gray-500">
+              <FileText className="h-4 w-4" />
+              <span>{document.originalFileName}</span>
+            </div>
+          </div>
+        )}
+      </div>
+    </CaseLayout>
+  );
+} 

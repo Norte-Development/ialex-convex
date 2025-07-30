@@ -108,27 +108,6 @@ export function CaseDocuments({ basePath }: CaseDocumentsProps) {
                         onClick={(e) => {
                           e.preventDefault();
                           e.stopPropagation();
-                          // TODO: Implement download functionality
-                        }}
-                      >
-                        <Download size={12} className="text-gray-500" />
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      <p>Descargar documento</p>
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-6 w-6 p-0 hover:bg-gray-200"
-                        onClick={(e) => {
-                          e.preventDefault();
-                          e.stopPropagation();
                           // TODO: Implement delete functionality
                         }}
                       >
