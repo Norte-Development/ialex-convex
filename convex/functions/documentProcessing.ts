@@ -4,7 +4,7 @@ import { v } from "convex/values";
 import { internal } from "../_generated/api";
 import { rag } from "../rag/rag";
 import { Id } from "../_generated/dataModel";
-import { extractDocumentText, chunkDocumentContent } from "../rag/utils";
+import { chunkDocumentContent } from "../rag/utils";
 
 // ========================================
 // RAG CHUNKER ACTION
@@ -33,47 +33,54 @@ export const chunkDocument = rag.defineChunkerAction(async (ctx, args) => {
     throw new Error("File not found");
   }
   
-  // This is a placeholder - replace with actual document text extraction
-  const documentContent = await extractDocumentText(file);
+  // Extract document text using HTTP action (Node.js runtime)
+  const documentContent = await extractDocumentTextViaHttp(file);
   
   // TODO: IMPLEMENT CHUNKING STRATEGY
   // This is a placeholder - replace with actual chunking logic
-  const chunks = await chunkDocumentContent(documentContent, {
-    chunkSize: 1000,
-    overlap: 200,
-    strategy: "semantic"
-  });
+  const chunks = await chunkDocumentContent(documentContent);
 
   // Return chunks in RAG format with proper metadata
   const ragChunks = chunks.map((chunk, index) => {
     const metadata: Record<string, any> = {
       chunkIndex: index,
-      chunkType: chunk.type,
-      wordCount: chunk.wordCount,
-      charCount: chunk.charCount,
-      // Add filters for search
       caseId,
       documentId,
       documentType: (documentType as string) || "other",
       createdBy,
     };
 
-    // Only add optional fields if they have values
-    if (chunk.pageNumber !== undefined) {
-      metadata.pageNumber = chunk.pageNumber;
-    }
-    if (chunk.sectionTitle !== undefined) {
-      metadata.sectionTitle = chunk.sectionTitle;
-    }
-
     return {
-      text: chunk.text,
+      text: chunk,
       metadata,
     };
   });
 
   return { chunks: ragChunks };
 });
+
+/**
+ * Extracts document text by calling the HTTP action endpoint.
+ * This ensures the text extraction runs in the Node.js runtime.
+ */
+async function extractDocumentTextViaHttp(file: Blob): Promise<string> {
+  const formData = new FormData();
+  formData.append("file", file);
+  formData.append("mimeType", file.type);
+  
+  const response = await fetch(`${process.env.CONVEX_SITE_URL}/extract-document-text`, {
+    method: "POST",
+    body: formData,
+  });
+  
+  if (!response.ok) {
+    const errorData = await response.json();
+    throw new Error(errorData.error || `HTTP ${response.status}: ${response.statusText}`);
+  }
+  
+  const result = await response.json();
+  return result.text;
+}
 
 // ========================================
 // DOCUMENT PROCESSING FUNCTIONS

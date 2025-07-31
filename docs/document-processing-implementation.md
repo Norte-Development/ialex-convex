@@ -87,17 +87,56 @@ documentProcessingJobs: defineTable({
 
 ## Processing Pipeline
 
-### Current Implementation (Placeholders)
+### Current Implementation
 
-The processing pipeline is currently implemented with placeholders:
+The processing pipeline is now fully implemented with HTTP action-based text extraction:
 
 1. **Document Upload** ✅ Implemented
 2. **Job Creation** ✅ Implemented
 3. **Status Updates** ✅ Implemented
-4. **Text Extraction** 🔄 Placeholder
-5. **Text Chunking** 🔄 Placeholder
-6. **Embedding Generation** 🔄 Placeholder
-7. **Chunk Storage** 🔄 Placeholder
+4. **Text Extraction** ✅ Implemented (HTTP Action)
+5. **Text Chunking** ✅ Implemented
+6. **Embedding Generation** ✅ Implemented (RAG System)
+7. **Chunk Storage** ✅ Implemented (RAG System)
+
+### HTTP Action Text Extraction
+
+To resolve Node.js runtime compatibility issues with the `mammoth` library, text extraction is now handled via HTTP actions:
+
+#### HTTP Endpoint: `/extract-document-text`
+
+**Method:** POST  
+**Content-Type:** multipart/form-data
+
+**Request Body:**
+- `file`: The document file (File object)
+- `mimeType`: The MIME type of the file
+
+**Response:**
+```json
+{
+  "text": "Extracted text content"
+}
+```
+
+**Error Response:**
+```json
+{
+  "error": "Error message"
+}
+```
+
+#### Supported File Types
+
+- **TXT files** (`text/plain`) - Direct text extraction
+- **DOCX files** (`application/vnd.openxmlformats-officedocument.wordprocessingml.document`) - Using mammoth library
+- **Legacy DOC files** - Not supported (conversion required)
+- **PDF files** - Placeholder (not yet implemented)
+- **Video/Audio files** - Placeholder (not yet implemented)
+
+#### Implementation Details
+
+The HTTP action runs in the Node.js runtime, allowing the use of Node.js-specific libraries like `mammoth` for DOCX processing. The document processing functions call this HTTP endpoint to extract text before proceeding with chunking and embedding.
 
 ### TODO: Implement Core Processing Logic
 
