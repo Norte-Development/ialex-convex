@@ -6,20 +6,7 @@ import { internalAction } from "../_generated/server";
 import { v } from 'convex/values';
 import { Mistral } from '@mistralai/mistralai';
 import { PDFDocument } from 'pdf-lib';
-
-async function encodePdf(pdfFile: Blob) {
-    try {
-        // Read the PDF file as a buffer
-        const pdfBuffer = await pdfFile.arrayBuffer();
-
-        // Convert the buffer to a Base64-encoded string
-        const base64Pdf = Buffer.from(pdfBuffer).toString('base64');
-        return base64Pdf;
-    } catch (error) {
-        console.error(`Error: ${error}`);
-        return null;
-    }
-}
+import { createClient } from '@deepgram/sdk'
 
 const mistral = new Mistral({
     apiKey: process.env.MISTRAL_API_KEY,
@@ -170,16 +157,8 @@ async function extractTextFromDocx(file: Blob): Promise<string> {
  */
 async function extractTextFromVideo(file: Blob): Promise<string> {
     try {
-        // TODO: Implement video transcription
-        // This should handle:
-        // - Video file format detection
-        // - Audio extraction from video
-        // - Transcription using OpenAI Whisper or similar service
-        // - Timestamp alignment if needed
-        // - Speaker diarization if needed
-        
-        console.warn("Video transcription not yet implemented");
-        throw new Error("Video transcription requires OpenAI Whisper or similar service. Please install and configure transcription dependencies.");
+       
+        return await extractTextFromAudio(file);
         
     } catch (error) {
         console.error("Error extracting text from video file:", error);
@@ -195,16 +174,23 @@ async function extractTextFromVideo(file: Blob): Promise<string> {
  */
 async function extractTextFromAudio(file: Blob): Promise<string> {
     try {
-        // TODO: Implement audio transcription
-        // This should handle:
-        // - Audio file format detection
-        // - Transcription using OpenAI Whisper or similar service
-        // - Timestamp alignment if needed
-        // - Speaker diarization if needed
+        const deepgram = createClient(process.env.DEEPGRAM_API_KEY);
+
+        const arrayBuffer = await file.arrayBuffer();
+        const buffer = Buffer.from(arrayBuffer);
+
+        const {result, error} = await deepgram.listen.prerecorded.transcribeFile(buffer, {
+            model: 'nova-3',
+            smart_format: true,
+            language: 'es',
+        });
         
-        console.warn("Audio transcription not yet implemented");
-        throw new Error("Audio transcription requires OpenAI Whisper or similar service. Please install and configure transcription dependencies.");
-        
+        if (error) {
+            throw new Error(`Error transcribing video: ${error.message}`);
+        }
+
+        return result.results?.channels[0]?.alternatives[0]?.transcript || '';
+
     } catch (error) {
         console.error("Error extracting text from audio file:", error);
         throw new Error(`Failed to transcribe audio file: ${error instanceof Error ? error.message : 'Unknown error'}`);
