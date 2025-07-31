@@ -4,7 +4,6 @@ import { v } from "convex/values";
 import { internal } from "../_generated/api";
 import { rag } from "../rag/rag";
 import { Id } from "../_generated/dataModel";
-import { chunkDocumentContent } from "../rag/utils";
 
 // ========================================
 // RAG CHUNKER ACTION
@@ -14,7 +13,7 @@ import { chunkDocumentContent } from "../rag/utils";
  * RAG chunker action that processes document content into chunks.
  * This is called by the RAG system to split documents into searchable chunks.
  */
-export const chunkDocument = rag.defineChunkerAction(async (ctx, args) => {
+export const chunkDocument = rag.defineChunkerAction(async (ctx, args): Promise<{ chunks: Array<{ text: string; metadata: Record<string, any> }> }> => {
   const { namespace, entry } = args;
   
   // Extract document information from entry metadata
@@ -33,15 +32,18 @@ export const chunkDocument = rag.defineChunkerAction(async (ctx, args) => {
     throw new Error("File not found");
   }
   
-  // Extract document text using HTTP action (Node.js runtime)
-  const documentContent = await extractDocumentTextViaHttp(file);
+  // Extract text from the document
+  const documentContent: string = await ctx.runAction(internal.rag.utils.extractDocumentText, {
+    file: fileId as Id<"_storage">,
+  });
   
-  // TODO: IMPLEMENT CHUNKING STRATEGY
-  // This is a placeholder - replace with actual chunking logic
-  const chunks = await chunkDocumentContent(documentContent);
+  // Chunk the document content
+  const chunks: string[] = await ctx.runAction(internal.rag.utils.chunkDocumentContent, {
+    content: documentContent,
+  });
 
   // Return chunks in RAG format with proper metadata
-  const ragChunks = chunks.map((chunk, index) => {
+  const ragChunks: Array<{ text: string; metadata: Record<string, any> }> = chunks.map((chunk: string, index: number) => {
     const metadata: Record<string, any> = {
       chunkIndex: index,
       caseId,
@@ -58,29 +60,6 @@ export const chunkDocument = rag.defineChunkerAction(async (ctx, args) => {
 
   return { chunks: ragChunks };
 });
-
-/**
- * Extracts document text by calling the HTTP action endpoint.
- * This ensures the text extraction runs in the Node.js runtime.
- */
-async function extractDocumentTextViaHttp(file: Blob): Promise<string> {
-  const formData = new FormData();
-  formData.append("file", file);
-  formData.append("mimeType", file.type);
-  
-  const response = await fetch(`${process.env.CONVEX_SITE_URL}/extract-document-text`, {
-    method: "POST",
-    body: formData,
-  });
-  
-  if (!response.ok) {
-    const errorData = await response.json();
-    throw new Error(errorData.error || `HTTP ${response.status}: ${response.statusText}`);
-  }
-  
-  const result = await response.json();
-  return result.text;
-}
 
 // ========================================
 // DOCUMENT PROCESSING FUNCTIONS
