@@ -1,7 +1,8 @@
 import { v } from "convex/values";
-import { query, mutation } from "../_generated/server";
+import { query, mutation, internalAction, internalQuery, internalMutation } from "../_generated/server";
 import { requireCaseAccess } from "../auth_utils";
 import { prosemirrorSync } from "../prosemirror";
+import { internal } from "../_generated/api";
 
 
 export const generateUploadUrl = mutation({
@@ -86,6 +87,13 @@ export const createDocument = mutation({
       fileSize: args.fileSize,
       createdBy: currentUser._id,
       tags: args.tags,
+      // Set initial processing status
+      processingStatus: "pending",
+    });
+
+    // Schedule the RAG processing to run asynchronously
+    await ctx.scheduler.runAfter(0, internal.functions.documentProcessing.processDocument, {
+      documentId,
     });
 
     console.log("Created document with id:", documentId);
@@ -189,6 +197,7 @@ export const getDocumentUrl = query({
     return url;
   },
 });
+
 
 // ========================================
 // ESCRITO MANAGEMENT (Simplified)
@@ -506,3 +515,4 @@ export const getArchivedEscritos = query({
     return archivedEscritos;
   },
 });
+

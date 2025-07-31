@@ -118,11 +118,59 @@ export default defineSchema({
     fileSize: v.number(),
     createdBy: v.id("users"),
     tags: v.optional(v.array(v.string())),
+    // Processing status fields
+    processingStatus: v.optional(v.union(
+      v.literal("pending"),    // Document uploaded, waiting to be processed
+      v.literal("processing"), // Currently being chunked and embedded
+      v.literal("completed"),  // Successfully processed with chunks
+      v.literal("failed")      // Processing failed
+    )),
+    processingStartedAt: v.optional(v.number()),
+    processingCompletedAt: v.optional(v.number()),
+    processingError: v.optional(v.string()),
+    totalChunks: v.optional(v.number()), // Number of chunks created
   })
     .index("by_case", ["caseId"])
     .index("by_type", ["documentType"])
     .index("by_created_by", ["createdBy"])
-    .index("by_file_id", ["fileId"]),
+    .index("by_file_id", ["fileId"])
+    .index("by_processing_status", ["processingStatus"]),
+
+  // Document chunks for vector search
+  documentChunks: defineTable({
+    documentId: v.id("documents"),
+    caseId: v.id("cases"),
+    chunkIndex: v.number(), // Position in document (0, 1, 2, ...)
+    chunkText: v.string(), // The actual text content of this chunk
+    chunkType: v.optional(v.union(
+      v.literal("paragraph"),
+      v.literal("section"),
+      v.literal("table"),
+      v.literal("list"),
+      v.literal("header"),
+      v.literal("footer")
+    )),
+    pageNumber: v.optional(v.number()), // For PDFs
+    sectionTitle: v.optional(v.string()), // e.g., "Introduction", "Conclusion"
+    embedding: v.array(v.float64()),
+    metadata: v.optional(v.object({
+      wordCount: v.number(),
+      charCount: v.number(),
+      hasTables: v.optional(v.boolean()),
+      hasImages: v.optional(v.boolean()),
+      language: v.optional(v.string()),
+      confidence: v.optional(v.number()), // OCR confidence if applicable
+    })),
+    createdBy: v.id("users"),
+  })
+    .index("by_document", ["documentId"])
+    .index("by_case", ["caseId"])
+    .index("by_chunk_index", ["documentId", "chunkIndex"])
+    .vectorIndex("by_embedding", {
+      vectorField: "embedding",
+      dimensions: 1536,
+      filterFields: ["caseId", "documentId", "chunkType", "pageNumber"],
+    }),
 
   // Escritos table - Tiptap JSON documents (legal writings/briefs)
   // Simplified: removed parentEscritoId (no version control)

@@ -3,15 +3,14 @@ import { useQuery } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import { Id } from "../../../convex/_generated/dataModel";
 import CaseLayout from "@/components/Cases/CaseLayout";
-import { useCase } from "@/context/CaseContext";
-import { FileText, Download, AlertCircle } from "lucide-react";
+import { FileText, Download, AlertCircle, Clock, Loader2, CheckCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 
 export default function CaseDocumentPage() {
   const { documentId } = useParams();
-  const { currentCase } = useCase();
+  
 
   // Fetch the specific document
   const document = useQuery(
@@ -79,6 +78,47 @@ export default function CaseDocumentPage() {
   const isPdf = (mimeType: string) => mimeType === "application/pdf";
   const isSupported = (mimeType: string) => isImage(mimeType) || isPdf(mimeType);
 
+  const getProcessingStatusConfig = (status: string | undefined) => {
+    switch (status) {
+      case "pending":
+        return {
+          icon: Clock,
+          color: "bg-yellow-100 text-yellow-800 border-yellow-200",
+          text: "Pendiente de indexación",
+          description: "El documento está esperando ser procesado para búsqueda"
+        };
+      case "processing":
+        return {
+          icon: Loader2,
+          color: "bg-blue-100 text-blue-800 border-blue-200",
+          text: "Indexando documento",
+          description: "Analizando el contenido para hacerlo buscable",
+          animate: true
+        };
+      case "completed":
+        return {
+          icon: CheckCircle,
+          color: "bg-green-100 text-green-800 border-green-200",
+          text: "Indexado",
+          description: "El documento está listo para búsqueda"
+        };
+      case "failed":
+        return {
+          icon: AlertCircle,
+          color: "bg-red-100 text-red-800 border-red-200",
+          text: "Error de indexación",
+          description: "No se pudo procesar el documento"
+        };
+      default:
+        return {
+          icon: Clock,
+          color: "bg-gray-100 text-gray-800 border-gray-200",
+          text: "Estado desconocido",
+          description: "No se puede determinar el estado del documento"
+        };
+    }
+  };
+
   if (!document) {
     return (
       <CaseLayout>
@@ -100,12 +140,37 @@ export default function CaseDocumentPage() {
           <div className="flex items-center justify-between mb-2">
             <h1 className="text-2xl font-semibold text-gray-900">{document.title}</h1>
             <div className="flex items-center gap-2">
+              {/* Processing Status Badge - Prominent Display */}
+              {document.processingStatus && (
+                <div className="flex items-center gap-2">
+                  {(() => {
+                    const statusConfig = getProcessingStatusConfig(document.processingStatus);
+                    const StatusIcon = statusConfig.icon;
+                    return (
+                      <Badge 
+                        variant="outline" 
+                        className={`${statusConfig.color} flex items-center gap-2 px-3 py-1 text-sm font-medium ${
+                          statusConfig.animate ? "animate-pulse" : ""
+                        }`}
+                      >
+                        <StatusIcon 
+                          size={16} 
+                          className={statusConfig.animate ? "animate-spin" : ""} 
+                        />
+                        {statusConfig.text}
+                      </Badge>
+                    );
+                  })()}
+                </div>
+              )}
+              
               <Badge 
                 variant="secondary" 
                 className={getDocumentTypeColor(document.documentType || "other")}
               >
                 {getDocumentTypeText(document.documentType || "other")}
               </Badge>
+              
               <Button
                 variant="outline"
                 size="sm"
@@ -117,6 +182,31 @@ export default function CaseDocumentPage() {
               </Button>
             </div>
           </div>
+          
+          {/* Processing Status Description */}
+          {document.processingStatus && (
+            <div className="mb-3">
+              {(() => {
+                const statusConfig = getProcessingStatusConfig(document.processingStatus);
+                return (
+                  <p className={`text-sm ${statusConfig.color.replace('bg-', 'text-').replace(' text-', '')}`}>
+                    {statusConfig.description}
+                    {document.processingError && (
+                      <span className="block mt-1 text-red-600">
+                        Error: {document.processingError}
+                      </span>
+                    )}
+                    {document.totalChunks && document.processingStatus === "completed" && (
+                      <span className="block mt-1 text-gray-600">
+                        Fragmentos procesados: {document.totalChunks}
+                      </span>
+                    )}
+                  </p>
+                );
+              })()}
+            </div>
+          )}
+          
           <div className="flex flex-wrap gap-4 text-sm text-gray-600">
             <div className="flex items-center gap-2">
               <span className="font-medium">Tamaño:</span>

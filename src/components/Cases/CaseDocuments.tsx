@@ -5,7 +5,7 @@ import { Link } from "react-router-dom";
 import { useLocation } from "react-router-dom";
 import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
-import { FileText, Download, Trash2 } from "lucide-react";
+import { FileText, Trash2, AlertCircle, CheckCircle, Clock, Loader2 } from "lucide-react";
 import {
   Tooltip,
   TooltipContent,
@@ -61,6 +61,47 @@ export function CaseDocuments({ basePath }: CaseDocumentsProps) {
     }
   };
 
+  const getProcessingStatusConfig = (status: string | undefined) => {
+    switch (status) {
+      case "pending":
+        return {
+          icon: Clock,
+          color: "bg-yellow-100 text-yellow-800",
+          text: "Pendiente",
+          description: "Esperando indexación"
+        };
+      case "processing":
+        return {
+          icon: Loader2,
+          color: "bg-blue-100 text-blue-800",
+          text: "Indexando",
+          description: "Analizando documento para búsqueda",
+          animate: true
+        };
+      case "completed":
+        return {
+          icon: CheckCircle,
+          color: "bg-green-100 text-green-800",
+          text: "Indexado",
+          description: "Listo para búsqueda"
+        };
+      case "failed":
+        return {
+          icon: AlertCircle,
+          color: "bg-red-100 text-red-800",
+          text: "Error",
+          description: "Error en indexación"
+        };
+      default:
+        return {
+          icon: Clock,
+          color: "bg-gray-100 text-gray-800",
+          text: "Desconocido",
+          description: "Estado no disponible"
+        };
+    }
+  };
+
   const formatFileSize = (bytes: number) => {
     if (bytes === 0) return "0 Bytes";
     const k = 1024;
@@ -80,61 +121,99 @@ export function CaseDocuments({ basePath }: CaseDocumentsProps) {
     <div className="flex flex-col gap-1 pl-2 text-[12px] pt-1 overflow-y-auto max-h-32">
       {/* Documents List */}
       {documents && documents.length > 0 ? (
-        documents.map((document) => (
-          <div
-            key={document._id}
-            className={`flex flex-col gap-1 p-2 rounded hover:bg-gray-50 ${
-              location.pathname.includes(`/documentos/${document._id}`) 
-                ? "bg-blue-50 border-l-2 border-blue-500" 
-                : ""
-            }`}
-          >
-            <div className="flex items-center justify-between">
-              <Link 
-                to={`${basePath}/documentos/${document._id}`}
-                className="flex items-center gap-1 text-foreground hover:text-blue-600 flex-1 min-w-0"
-              >
-                <FileText size={16} className="flex-shrink-0" />
-                <span className="truncate min-w-0">{document.title}</span>
-              </Link>
-              <div className="flex items-center gap-1">
+        documents.map((document) => {
+          const statusConfig = getProcessingStatusConfig(document.processingStatus);
+          const StatusIcon = statusConfig.icon;
+          
+          return (
+            <div
+              key={document._id}
+              className={`flex flex-col gap-1 p-2 rounded hover:bg-gray-50 ${
+                location.pathname.includes(`/documentos/${document._id}`) 
+                  ? "bg-blue-50 border-l-2 border-blue-500" 
+                  : ""
+              }`}
+            >
+              <div className="flex items-center justify-between">
+                <Link 
+                  to={`${basePath}/documentos/${document._id}`}
+                  className="flex items-center gap-1 text-foreground hover:text-blue-600 flex-1 min-w-0"
+                >
+                  <FileText size={16} className="flex-shrink-0" />
+                  <span className="truncate min-w-0">{document.title}</span>
+                </Link>
+                <div className="flex items-center gap-1">
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-6 w-6 p-0 hover:bg-gray-200"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            // TODO: Implement delete functionality
+                          }}
+                        >
+                          <Trash2 size={12} className="text-gray-500" />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>Eliminar documento</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                </div>
+              </div>
+              
+              {/* Processing Status */}
+              <div className="flex items-center gap-2">
                 <TooltipProvider>
                   <Tooltip>
                     <TooltipTrigger asChild>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-6 w-6 p-0 hover:bg-gray-200"
-                        onClick={(e) => {
-                          e.preventDefault();
-                          e.stopPropagation();
-                          // TODO: Implement delete functionality
-                        }}
+                      <Badge 
+                        variant="secondary" 
+                        className={`text-xs ${statusConfig.color} flex items-center gap-1 ${
+                          statusConfig.animate ? "animate-pulse" : ""
+                        }`}
                       >
-                        <Trash2 size={12} className="text-gray-500" />
-                      </Button>
+                        <StatusIcon 
+                          size={10} 
+                          className={statusConfig.animate ? "animate-spin" : ""} 
+                        />
+                        {statusConfig.text}
+                      </Badge>
                     </TooltipTrigger>
                     <TooltipContent>
-                      <p>Eliminar documento</p>
+                      <p>{statusConfig.description}</p>
+                      {document.processingError && (
+                        <p className="text-red-600 mt-1">Error: {document.processingError}</p>
+                      )}
+                      {document.totalChunks && (
+                        <p className="text-gray-600 mt-1">Fragmentos: {document.totalChunks}</p>
+                      )}
                     </TooltipContent>
                   </Tooltip>
                 </TooltipProvider>
-              </div>
-            </div>
-            <div className="flex items-center justify-between text-xs text-muted-foreground">
-              <div className="flex items-center gap-2">
+                
+                {/* Document Type Badge */}
                 <Badge 
                   variant="secondary" 
                   className={`text-xs ${getDocumentTypeColor(document.documentType || "other")}`}
                 >
                   {getDocumentTypeText(document.documentType || "other")}
                 </Badge>
-                <span>{formatFileSize(document.fileSize)}</span>
               </div>
-              <span>{formatDate(document._creationTime)}</span>
+              
+              {/* File Info */}
+              <div className="flex items-center justify-between text-xs text-muted-foreground">
+                <span>{formatFileSize(document.fileSize)}</span>
+                <span>{formatDate(document._creationTime)}</span>
+              </div>
             </div>
-          </div>
-        ))
+          );
+        })
       ) : (
         <div className="text-muted-foreground text-xs p-2 text-center">
           No hay documentos
