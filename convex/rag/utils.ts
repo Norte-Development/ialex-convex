@@ -4,6 +4,26 @@ import mammoth from 'mammoth';
 import { defaultChunker, guessMimeTypeFromContents } from "@convex-dev/rag";
 import { internalAction } from "../_generated/server";
 import { v } from 'convex/values';
+import { Mistral } from '@mistralai/mistralai';
+import { PDFDocument } from 'pdf-lib';
+
+async function encodePdf(pdfFile: Blob) {
+    try {
+        // Read the PDF file as a buffer
+        const pdfBuffer = await pdfFile.arrayBuffer();
+
+        // Convert the buffer to a Base64-encoded string
+        const base64Pdf = Buffer.from(pdfBuffer).toString('base64');
+        return base64Pdf;
+    } catch (error) {
+        console.error(`Error: ${error}`);
+        return null;
+    }
+}
+
+const mistral = new Mistral({
+    apiKey: process.env.MISTRAL_API_KEY,
+});
 
 /**
  * Extracts text content from various document formats.
@@ -43,7 +63,7 @@ export const extractDocumentText = internalAction({
 
         // Handle PDF files (placeholder for future implementation)
         if (mimeType === 'application/pdf') {
-            throw new Error("PDF text extraction not yet implemented. Please convert to .txt or .docx format.");
+            return await extractTextFromPdf(file);
         }
 
         // Handle video files (placeholder for future implementation)
@@ -190,6 +210,121 @@ async function extractTextFromAudio(file: Blob): Promise<string> {
         throw new Error(`Failed to transcribe audio file: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
 }
+
+
+
+/**
+ * Extracts text from a PDF file.
+ * 
+ * @param file - The PDF file blob
+ * @returns Promise<string> - The extracted text content
+ */
+async function extractTextFromPdf(file: Blob): Promise<string> {
+    try {
+        const pageCount = await getPdfPageCount(file);
+        const CHUNK_SIZE = 500;
+        
+        console.log(`Processing PDF with ${pageCount} pages in chunks of ${CHUNK_SIZE}`);
+        
+        // If PDF has 500 pages or less, process normally
+        if (pageCount <= CHUNK_SIZE) {
+            return await processPdfChunk(file, 0, pageCount - 1);
+        }
+        
+        // Process PDF in chunks of 500 pages
+        const chunks: string[] = [];
+        for (let startPage = 0; startPage < pageCount; startPage += CHUNK_SIZE) {
+            const endPage = Math.min(startPage + CHUNK_SIZE - 1, pageCount - 1);
+            console.log(`Processing pages ${startPage + 1} to ${endPage + 1} of ${pageCount}`);
+            
+            const chunkText = await processPdfChunk(file, startPage, endPage);
+            chunks.push(chunkText);
+        }
+        
+        // Combine all chunks
+        const totalContent = chunks.join("\n\n--- Page Break ---\n\n");
+        console.log(`Successfully processed PDF in ${chunks.length} chunks`);
+        
+        return totalContent;
+
+    } catch (error) {
+        console.error("Error extracting text from PDF file:", error);
+        throw new Error(`Failed to extract text from PDF file: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+}
+
+/**
+ * Processes a specific range of pages from a PDF file.
+ * 
+ * @param file - The PDF file blob
+ * @param startPage - Starting page index (0-based)
+ * @param endPage - Ending page index (0-based)
+ * @returns Promise<string> - The extracted text content for the page range
+ */
+async function processPdfChunk(file: Blob, startPage: number, endPage: number): Promise<string> {
+    try {
+        // Create a new PDF with only the specified page range
+        const arrayBuffer = await file.arrayBuffer();
+        const pdfDoc = await PDFDocument.load(arrayBuffer);
+        
+        // Create a new PDF document for the chunk
+        const chunkPdf = await PDFDocument.create();
+        
+        // Copy pages from startPage to endPage
+        const pagesToCopy = [];
+        for (let i = startPage; i <= endPage; i++) {
+            pagesToCopy.push(i);
+        }
+        
+        const copiedPages = await chunkPdf.copyPages(pdfDoc, pagesToCopy);
+        copiedPages.forEach((page) => chunkPdf.addPage(page));
+        
+        // Convert the chunk PDF to base64
+        const chunkPdfBytes = await chunkPdf.save();
+        const chunkBase64 = Buffer.from(chunkPdfBytes).toString('base64');
+        
+        // Process with Mistral OCR
+        const ocrResponse = await mistral.ocr.process({
+            model: "mistral-ocr-latest",
+            document: {
+                type: "document_url",
+                documentUrl: "data:application/pdf;base64," + chunkBase64
+            },
+            includeImageBase64: false,
+        });
+        
+        const chunkContent = ocrResponse.pages.map((page) => page.markdown).join("\n\n");
+        
+        console.log(`Processed pages ${startPage + 1}-${endPage + 1}: ${chunkContent.length} characters`);
+        return chunkContent;
+        
+    } catch (error) {
+        console.error(`Error processing PDF chunk (pages ${startPage + 1}-${endPage + 1}):`, error);
+        throw new Error(`Failed to process PDF chunk: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+}
+
+
+async function getPdfPageCount(file: Blob): Promise<number> {
+    try {
+        // Convert blob to array buffer
+        const arrayBuffer = await file.arrayBuffer();
+        
+        // Load the PDF document using pdf-lib
+        const pdfDoc = await PDFDocument.load(arrayBuffer);
+        
+        // Get the page count
+        const pageCount = pdfDoc.getPageCount();
+        
+        console.log(`PDF contains ${pageCount} pages`);
+        return pageCount;
+        
+    } catch (error) {
+        console.error("Error getting PDF page count:", error);
+        throw new Error(`Failed to get PDF page count: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+}
+
 
 /**
  * TODO: IMPLEMENT DOCUMENT CHUNKING STRATEGY
