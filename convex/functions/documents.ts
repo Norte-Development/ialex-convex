@@ -3,6 +3,7 @@ import { query, mutation, internalAction, internalQuery, internalMutation } from
 import { requireCaseAccess } from "../auth_utils";
 import { prosemirrorSync } from "../prosemirror";
 import { internal } from "../_generated/api";
+import { rag } from "../rag/rag";
 
 
 export const generateUploadUrl = mutation({
@@ -195,6 +196,59 @@ export const getDocumentUrl = query({
     // Get the signed URL from Convex storage
     const url = await ctx.storage.getUrl(document.fileId);
     return url;
+  },
+});
+
+
+
+/**
+ * Deletes a document and all associated data (file, RAG chunks, and database entry).
+ *
+ * @param {Object} args - The function arguments
+ * @param {string} args.documentId - The ID of the document to delete
+ * @throws {Error} When not authenticated, document not found, or lacking full case access
+ *
+ * @description This function completely removes a document from the system:
+ * 1. Verifies user has full access to the case
+ * 2. Deletes the file from Convex storage
+ * 3. Removes all RAG chunks associated with the document
+ * 4. Deletes the document record from the database
+ *
+ * This operation is irreversible and permanently removes all document data.
+ *
+ * @example
+ * ```javascript
+ * await deleteDocument({ documentId: "document_123" });
+ * ```
+ */
+export const deleteDocument = mutation({
+  args: {
+    documentId: v.id("documents"),
+  },
+  handler: async (ctx, args) => {
+    const document = await ctx.db.get(args.documentId);
+    if (!document) {
+      throw new Error("Document not found");
+    }
+
+    await requireCaseAccess(ctx, document.caseId, "full");
+    const namespace = await rag.getNamespace(ctx, {namespace: `case-${document.caseId}`});
+    if (!namespace) {
+      throw new Error("Namespace not found");
+    }
+
+    
+    await rag.deleteByKeyAsync(ctx, {
+      key: `document-${args.documentId}`,
+      namespaceId: namespace?.namespaceId
+      ,
+    });
+
+
+    await ctx.storage.delete(document.fileId);
+    await ctx.db.delete(args.documentId);
+
+    console.log("Deleted document:", args.documentId);
   },
 });
 

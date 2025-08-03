@@ -1,4 +1,4 @@
-import { useQuery } from "convex/react";
+import { useMutation, useQuery } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import { useCase } from "@/context/CaseContext";
 import { Link } from "react-router-dom";
@@ -12,6 +12,8 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "../ui/tooltip";
+import { useState } from "react";
+import { Id } from "convex/_generated/dataModel";
 
 interface CaseDocumentsProps {
   basePath: string;
@@ -20,12 +22,24 @@ interface CaseDocumentsProps {
 export function CaseDocuments({ basePath }: CaseDocumentsProps) {
   const { currentCase } = useCase();
   const location = useLocation();
+  const [deletingDocumentId, setDeletingDocumentId] = useState<string | null>(null);
 
   // Fetch documents for the current case
   const documents = useQuery(
     api.functions.documents.getDocuments,
     currentCase ? { caseId: currentCase._id } : "skip"
   );
+
+  const deleteDocument = useMutation(api.functions.documents.deleteDocument);
+
+  const handleDeleteDocument = async (documentId: Id<"documents">) => {
+    setDeletingDocumentId(documentId);
+    try {
+      await deleteDocument({ documentId });
+    } finally {
+      setDeletingDocumentId(null);
+    }
+  };
 
   const getDocumentTypeColor = (documentType: string) => {
     switch (documentType) {
@@ -124,6 +138,7 @@ export function CaseDocuments({ basePath }: CaseDocumentsProps) {
         documents.map((document) => {
           const statusConfig = getProcessingStatusConfig(document.processingStatus);
           const StatusIcon = statusConfig.icon;
+          const isDeleting = deletingDocumentId === document._id;
           
           return (
             <div
@@ -153,14 +168,19 @@ export function CaseDocuments({ basePath }: CaseDocumentsProps) {
                           onClick={(e) => {
                             e.preventDefault();
                             e.stopPropagation();
-                            // TODO: Implement delete functionality
+                            handleDeleteDocument(document._id);
                           }}
+                          disabled={isDeleting}
                         >
-                          <Trash2 size={12} className="text-gray-500" />
+                          {isDeleting ? (
+                            <Loader2 size={12} className="text-gray-500 animate-spin" />
+                          ) : (
+                            <Trash2 size={12} className="text-gray-500" />
+                          )}
                         </Button>
                       </TooltipTrigger>
                       <TooltipContent>
-                        <p>Eliminar documento</p>
+                        <p>{isDeleting ? "Eliminando..." : "Eliminar documento"}</p>
                       </TooltipContent>
                     </Tooltip>
                   </TooltipProvider>

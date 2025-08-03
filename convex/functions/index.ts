@@ -39,6 +39,7 @@ export {
   getEscrito,
   archiveEscrito,
   getArchivedEscritos,
+  deleteDocument,
 } from "./documents";
 
 // Template Management (Modelos)

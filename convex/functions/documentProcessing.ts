@@ -158,7 +158,8 @@ export const processDocument = internalAction({
             caseId: document.caseId,
             documentType: document.documentType || 'other',
             createdBy: document.createdBy,
-            fileId: document.fileId
+            fileId: document.fileId,
+            fileName: document.originalFileName  // Add this line
           },
           filterValues: [
             { name: "caseId", value: document.caseId },
@@ -246,18 +247,37 @@ export const processDocument = internalAction({
 
 /**
  * RAG onComplete handler that updates document processing status when RAG processing finishes.
+ * This handler is called regardless of success or failure, so we need to check args.error.
  */
 export const onDocumentProcessingComplete = rag.defineOnComplete(
   async (ctx, args) => {
     // Extract documentId from the entry metadata
     const documentId = args.entry.metadata?.documentId;
-    if (documentId) {
+    
+    if (!documentId) {
+      console.error("No documentId found in entry metadata");
+      return;
+    }
+
+    // Check if the processing was successful (args.error is undefined on success)
+    if (!args.error) {
       // Update document status to completed
       await ctx.runMutation(internal.functions.documentProcessing.updateDocumentProcessingStatus, {
         documentId: documentId as Id<"documents">,
         status: "completed",
         processingCompletedAt: Date.now(),
       });
+      console.log(`Document processing completed successfully for document: ${documentId}`);
+    } else {
+      // Processing failed - update status to failed
+      const errorMessage = args.error || "Unknown processing error";
+      await ctx.runMutation(internal.functions.documentProcessing.updateDocumentProcessingStatus, {
+        documentId: documentId as Id<"documents">,
+        status: "failed",
+        processingError: errorMessage,
+        processingCompletedAt: Date.now(),
+      });
+      console.error(`Document processing failed for document: ${documentId}`, args.error);
     }
   }
 );
