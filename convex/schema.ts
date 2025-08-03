@@ -136,42 +136,6 @@ export default defineSchema({
     .index("by_file_id", ["fileId"])
     .index("by_processing_status", ["processingStatus"]),
 
-  // Document chunks for vector search
-  documentChunks: defineTable({
-    documentId: v.id("documents"),
-    caseId: v.id("cases"),
-    chunkIndex: v.number(), // Position in document (0, 1, 2, ...)
-    chunkText: v.string(), // The actual text content of this chunk
-    chunkType: v.optional(v.union(
-      v.literal("paragraph"),
-      v.literal("section"),
-      v.literal("table"),
-      v.literal("list"),
-      v.literal("header"),
-      v.literal("footer")
-    )),
-    pageNumber: v.optional(v.number()), // For PDFs
-    sectionTitle: v.optional(v.string()), // e.g., "Introduction", "Conclusion"
-    embedding: v.array(v.float64()),
-    metadata: v.optional(v.object({
-      wordCount: v.number(),
-      charCount: v.number(),
-      hasTables: v.optional(v.boolean()),
-      hasImages: v.optional(v.boolean()),
-      language: v.optional(v.string()),
-      confidence: v.optional(v.number()), // OCR confidence if applicable
-    })),
-    createdBy: v.id("users"),
-  })
-    .index("by_document", ["documentId"])
-    .index("by_case", ["caseId"])
-    .index("by_chunk_index", ["documentId", "chunkIndex"])
-    .vectorIndex("by_embedding", {
-      vectorField: "embedding",
-      dimensions: 1536,
-      filterFields: ["caseId", "documentId", "chunkType", "pageNumber"],
-    }),
-
   // Escritos table - Tiptap JSON documents (legal writings/briefs)
   // Simplified: removed parentEscritoId (no version control)
   escritos: defineTable({
@@ -222,82 +186,6 @@ export default defineSchema({
     .index("by_created_by", ["createdBy"])
     .index("by_public_status", ["isPublic"])
     .index("by_active_status", ["isActive"]),
-
-  // Chat Sessions/Agent Threads - metadata for conversations (actual data stored in Redis)
-  chatSessions: defineTable({
-    threadId: v.optional(v.string()), // UUID for Redis storage key (optional for backward compatibility)
-    caseId: v.optional(v.id("cases")), // Optional - can be case-specific or general
-    userId: v.id("users"),
-    title: v.optional(v.string()),
-    agentType: v.optional(v.string()), // e.g., "memory_agent", "legal_assistant"
-    isActive: v.boolean(),
-  })
-    .index("by_thread_id", ["threadId"])
-    .index("by_case", ["caseId"])
-    .index("by_user", ["userId"])
-    .index("by_active_status", ["isActive"])
-    .index("by_agent_type", ["agentType"]),
-
-  // Chat Messages - individual messages in chat sessions
-  chatMessages: defineTable({
-    sessionId: v.id("chatSessions"),
-    content: v.string(),
-    role: v.union(
-      v.literal("user"),
-      v.literal("assistant"),
-      v.literal("system"),
-      v.literal("tool"),
-      v.literal("extractor"),
-      v.literal("validator")
-    ),
-    messageType: v.union(
-      v.literal("text"),
-      v.literal("search_query"),
-      v.literal("web_scrape"),
-      v.literal("document_analysis"),
-      v.literal("template_suggestion"),
-      v.literal("legal_advice"),
-      v.literal("extraction_result"),
-      v.literal("validation_feedback"),
-      v.literal("error")
-    ),
-    metadata: v.optional(v.string()),
-    toolName: v.optional(v.string()),
-    toolCallId: v.optional(v.string()),
-    status: v.optional(v.union(v.literal("success"), v.literal("error"), v.literal("pending"))),
-  })
-    .index("by_session", ["sessionId"])
-    .index("by_role", ["role"])
-    .index("by_message_type", ["messageType"])
-    .index("by_status", ["status"]),
-
-  // Activity Log - audit trail for actions
-  activityLog: defineTable({
-    entityType: v.union(
-      v.literal("case"),
-      v.literal("document"),
-      v.literal("escrito"),
-      v.literal("client"),
-      v.literal("user")
-    ),
-    entityId: v.string(),
-    action: v.union(
-      v.literal("created"),
-      v.literal("updated"),
-      v.literal("deleted"),
-      v.literal("viewed"),
-      v.literal("shared"),
-      v.literal("archived"),
-      v.literal("restored")
-    ),
-    userId: v.id("users"),
-    details: v.optional(v.string()),
-    ipAddress: v.optional(v.string()),
-    userAgent: v.optional(v.string()),
-  })
-    .index("by_entity", ["entityType", "entityId"])
-    .index("by_user", ["userId"])
-    .index("by_action", ["action"]),
 
   // Teams - organizational teams/departments for firm management
   teams: defineTable({

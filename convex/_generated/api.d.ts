@@ -15,7 +15,6 @@ import type * as agent_threads from "../agent/threads.js";
 import type * as auth_utils from "../auth_utils.js";
 import type * as firebaseAdmin from "../firebaseAdmin.js";
 import type * as functions_cases from "../functions/cases.js";
-import type * as functions_chat from "../functions/chat.js";
 import type * as functions_clients from "../functions/clients.js";
 import type * as functions_documentProcessing from "../functions/documentProcessing.js";
 import type * as functions_documents from "../functions/documents.js";
@@ -53,7 +52,6 @@ declare const fullApi: ApiFromModules<{
   auth_utils: typeof auth_utils;
   firebaseAdmin: typeof firebaseAdmin;
   "functions/cases": typeof functions_cases;
-  "functions/chat": typeof functions_chat;
   "functions/clients": typeof functions_clients;
   "functions/documentProcessing": typeof functions_documentProcessing;
   "functions/documents": typeof functions_documents;

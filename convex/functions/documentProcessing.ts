@@ -35,6 +35,7 @@ export const chunkDocument = rag.defineChunkerAction(async (ctx, args): Promise<
   // Extract text from the document
   const documentContent: string = await ctx.runAction(internal.rag.utils.extractDocumentText, {
     file: fileId as Id<"_storage">,
+    fileName: entry.metadata?.fileName as string,
   });
   
   // Chunk the document content

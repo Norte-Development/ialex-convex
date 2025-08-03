@@ -1,7 +1,7 @@
 'use node'
 
 import mammoth from 'mammoth';
-import { defaultChunker, guessMimeTypeFromContents } from "@convex-dev/rag";
+import { defaultChunker, guessMimeTypeFromContents, guessMimeTypeFromExtension } from "@convex-dev/rag";
 import { internalAction } from "../_generated/server";
 import { v } from 'convex/values';
 import { Mistral } from '@mistralai/mistralai';
@@ -21,6 +21,7 @@ const mistral = new Mistral({
 export const extractDocumentText = internalAction({
     args: {
       file: v.id("_storage"),
+      fileName: v.string(),
     },
     handler: async (ctx, args) => {
     try {
@@ -30,7 +31,7 @@ export const extractDocumentText = internalAction({
             throw new Error("File not found");
         }
 
-        const mimeType = await guessMimeTypeFromContents(await file.arrayBuffer());
+        const mimeType = guessMimeTypeFromExtension(args.fileName);
         console.log("Extracting text from document with MIME type:", mimeType);
 
         // Handle TXT files
@@ -54,12 +55,12 @@ export const extractDocumentText = internalAction({
         }
 
         // Handle video files (placeholder for future implementation)
-        if (mimeType.startsWith('video/')) {
+        if (mimeType?.startsWith('video/')) {
             return await extractTextFromVideo(file);
         }
 
         // Handle audio files (placeholder for future implementation)
-        if (mimeType.startsWith('audio/')) {
+        if (mimeType?.startsWith('audio/')) {
             return await extractTextFromAudio(file);
         }
 
@@ -181,8 +182,6 @@ async function extractTextFromAudio(file: Blob): Promise<string> {
 
         const {result, error} = await deepgram.listen.prerecorded.transcribeFile(buffer, {
             model: 'nova-3',
-            smart_format: true,
-            language: 'es',
         });
         
         if (error) {

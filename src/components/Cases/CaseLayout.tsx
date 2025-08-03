@@ -173,6 +173,8 @@ export default function CaseLayout({ children }: CaseDetailLayoutProps) {
       'application/vnd.openxmlformats-officedocument.wordprocessingml.document': ['.docx'],
       'image/*': ['.png', '.jpg', '.jpeg', '.gif'],
       'text/plain': ['.txt'],
+      'audio/*': ['.mp3', '.wav'],
+      'video/*': ['.mp4', '.mov'],
     },
     multiple: true,
     noClick: true, // Don't trigger on click, only drag
