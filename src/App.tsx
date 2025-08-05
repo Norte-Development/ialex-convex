@@ -13,7 +13,7 @@ import { AppSkeleton } from "./components/Skeletons";
 import { OnboardingWrapper } from "./components/Auth/OnboardingWrapper";
 import { SignInPage } from "./components/Auth/SignInPage";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
+// import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 import { ThreadProvider } from "./context/ThreadContext";
 import TeamPage from "./pages/TeamPage";
 import TeamManagePage from "./pages/TeamManagePage";

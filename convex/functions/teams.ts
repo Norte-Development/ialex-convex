@@ -1,6 +1,10 @@
 import { v } from "convex/values";
 import { query, mutation, action } from "../_generated/server";
-import { getCurrentUserFromAuth, requireCaseAccess } from "../auth_utils";
+import { 
+  getCurrentUserFromAuth, 
+  requireTeamPermission,
+  requireCaseAccess 
+} from "../auth_utils";
 import { internal } from "../_generated/api";
   
 // ========================================
@@ -594,8 +598,8 @@ export const grantTeamCaseAccess = mutation({
     accessLevel: v.union(v.literal("full"), v.literal("read")),
   },
   handler: async (ctx, args) => {
-    // Verify user has full access to the case to grant team access
-    const { currentUser } = await requireCaseAccess(ctx, args.caseId, "full");
+    // Verify user has team write permission to grant team access
+    const { currentUser } = await requireTeamPermission(ctx, args.caseId, "write");
     
     // Check if access already exists
     const existing = await ctx.db
@@ -656,8 +660,8 @@ export const revokeTeamCaseAccess = mutation({
     teamId: v.id("teams"),
   },
   handler: async (ctx, args) => {
-    // Verify user has full access to the case to revoke team access
-    await requireCaseAccess(ctx, args.caseId, "full");
+    // Verify user has team write permission to revoke team access
+    await requireTeamPermission(ctx, args.caseId, "write");
     
     const access = await ctx.db
       .query("teamCaseAccess")
@@ -699,8 +703,8 @@ export const getTeamsWithCaseAccess = query({
     caseId: v.id("cases"),
   },
   handler: async (ctx, args) => {
-    // Verify user has access to the case to view team access
-    await requireCaseAccess(ctx, args.caseId, "read");
+    // Verify user has team read permission to view team access
+    await requireTeamPermission(ctx, args.caseId, "read");
     
     const accesses = await ctx.db
       .query("teamCaseAccess")

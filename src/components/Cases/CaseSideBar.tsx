@@ -1,4 +1,4 @@
-import { FileSearch2, UserIcon, UsersRound, FolderX, FolderOpen, Folder, FolderArchive, FolderSymlink, ArrowLeft, ArrowRight, FileType2, Trash, BookCheck, Plus, Archive, RotateCcw } from 'lucide-react';
+import { FileSearch2, FolderX, FolderOpen, Folder, FolderArchive, FolderSymlink, ArrowLeft, ArrowRight, FileType2, Trash, BookCheck, Plus, Archive, RotateCcw } from 'lucide-react';
 import {
   Collapsible,
   CollapsibleContent,
@@ -24,6 +24,9 @@ import {
   TooltipTrigger,
 } from "../ui/tooltip";
 import { Id } from "../../../convex/_generated/dataModel";
+import { useContextPermissionAwareNavigation } from "@/hooks/useContextPermissionAwareNavigation";
+import { PERMISSIONS } from "@/permissions/types";
+import { ContextCan } from "@/components/Permissions/ContextCan";
 
 export default function CaseSidebar() {
   const {
@@ -43,6 +46,7 @@ export default function CaseSidebar() {
   const { id } = useParams();
   const { setThreadId } = useThread();
   const { currentCase } = useCase();
+  const { navigationItems } = useContextPermissionAwareNavigation(currentCase?._id || null);
   const [isCreateEscritoOpen, setIsCreateEscritoOpen] = useState(false);
   const [isArchivadosOpen, setIsArchivadosOpen] = useState(false);
   
@@ -122,6 +126,7 @@ export default function CaseSidebar() {
       )}
 
       <div className={`flex gap-4 justify-center items-center h-[10%] `}>
+        {/* Base de datos - always show for now as it's not permission-dependent */}
         <Link
           to={`${basePath}/base-de-datos`}
           onClick={handleNavigationFromCase}
@@ -132,37 +137,42 @@ export default function CaseSidebar() {
             color={location.pathname === "/base-de-datos" ? "blue" : "black"}
           />
         </Link>
-        <Link to={`${basePath}/clientes`} onClick={handleNavigationFromCase}>
-          <UserIcon
-            fill={location.pathname.includes("/clientes") ? "blue" : "black"}
-            className="cursor-pointer"
-            size={20}
-            color={location.pathname.includes("/clientes") ? "blue" : "black"}
-          />
-        </Link>
-        <Link to={`${basePath}/modelos`} onClick={handleNavigationFromCase}>
-          <BookCheck
-            className="cursor-pointer"
-            size={20}
-            color={location.pathname.includes("/modelos") ? "blue" : "black"}
-          />
-        </Link>
-        <Link to={`${basePath}/equipos`} onClick={handleNavigationFromCase}>
-          <UsersRound
-            className="cursor-pointer"
-            size={20}
-            color={location.pathname.includes("/equipos") ? "blue" : "black"}
-          />
-        </Link>
+        
+        {/* Permission-aware navigation items */}
+        {navigationItems.map((item) => (
+          <Link 
+            key={item.path}
+            to={item.path} 
+            onClick={handleNavigationFromCase}
+          >
+            <item.icon
+              className="cursor-pointer"
+              size={20}
+              color={location.pathname.includes(item.path.split('/').pop() || '') ? "blue" : "black"}
+            />
+          </Link>
+        ))}
+        
+        {/* Modelos - always show for now as it's template-related */}
+        <ContextCan permission={PERMISSIONS.CASE_VIEW} fallback={null}>
+          <Link to={`${basePath}/modelos`} onClick={handleNavigationFromCase}>
+            <BookCheck
+              className="cursor-pointer"
+              size={20}
+              color={location.pathname.includes("/modelos") ? "blue" : "black"}
+            />
+          </Link>
+        </ContextCan>
       </div>
 
       <div className="h-[70%] w-full flex flex-col justify-start items-center pl-5">
         <div className="w-full flex flex-col gap-2 h-[50%]">
-          <Collapsible
-            open={isEscritosOpen}
-            onOpenChange={toggleEscritos}
-            className="w-full "
-          >
+          <ContextCan permission={PERMISSIONS.ESCRITO_READ} fallback={null}>
+            <Collapsible
+              open={isEscritosOpen}
+              onOpenChange={toggleEscritos}
+              className="w-full "
+            >
             <CollapsibleTrigger className="cursor-pointer flex justify-between items-center gap-1 w-full">
               <span className="flex items-center gap-1">
                 {isEscritosOpen ? (
@@ -172,14 +182,16 @@ export default function CaseSidebar() {
                 )}
                 Escritos
               </span>
-              <Plus
-                className="cursor-pointer transition-colors rounded-full p-1 hover:bg-blue-100 hover:text-blue-600"
-                size={20}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setIsCreateEscritoOpen(true);
-                }}
-              />
+              <ContextCan permission={PERMISSIONS.ESCRITO_WRITE} fallback={null}>
+                <Plus
+                  className="cursor-pointer transition-colors rounded-full p-1 hover:bg-blue-100 hover:text-blue-600"
+                  size={20}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setIsCreateEscritoOpen(true);
+                  }}
+                />
+              </ContextCan>
             </CollapsibleTrigger>
             <CollapsibleContent className="flex flex-col gap-1 pl-2 text-[12px] pt-1 overflow-y-auto max-h-32">
               {escritos && escritos.length > 0 ? (
@@ -199,23 +211,25 @@ export default function CaseSidebar() {
                         <FileType2 className="cursor-pointer" size={16} />
                         <span className="truncate">{escrito.title}</span>
                       </Link>
-                      <TooltipProvider>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="h-6 w-6 p-0 hover:bg-gray-200"
-                              onClick={() => handleArchiveEscrito(escrito._id, true)}
-                            >
-                              <Archive size={12} className="text-gray-500" />
-                            </Button>
-                          </TooltipTrigger>
-                          <TooltipContent>
-                            <p>Archivar escrito</p>
-                          </TooltipContent>
-                        </Tooltip>
-                      </TooltipProvider>
+                      <ContextCan permission={PERMISSIONS.ESCRITO_DELETE} fallback={null}>
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-6 w-6 p-0 hover:bg-gray-200"
+                                onClick={() => handleArchiveEscrito(escrito._id, true)}
+                              >
+                                <Archive size={12} className="text-gray-500" />
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p>Archivar escrito</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      </ContextCan>
                     </div>
                     <div className="flex items-center justify-between text-xs text-muted-foreground">
                       <Badge variant="secondary" className={`text-xs ${getStatusColor(escrito.status)}`}>
@@ -232,6 +246,7 @@ export default function CaseSidebar() {
               )}
             </CollapsibleContent>
           </Collapsible>
+          </ContextCan>
 
           <Collapsible
             open={isDocumentosOpen}

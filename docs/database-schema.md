@@ -482,10 +482,30 @@ Users have direct access to cases if they are:
 - The assigned lawyer (`cases.assignedLawyer`)
 - The case creator (`cases.createdBy`)
 
-### Team-Based Access
+### Granular Permission System
+The application uses a comprehensive granular permission system with specific permissions for different resources:
+
+#### Individual User Case Access (`userCaseAccess`)
+Users can be granted specific permissions for individual cases:
+- **Case Permissions**: `case.view`, `case.edit`, `case.delete`
+- **Document Permissions**: `documents.read`, `documents.write`, `documents.delete`
+- **Escrito Permissions**: `escritos.read`, `escritos.write`, `escritos.delete`
+- **Client Permissions**: `clients.read`, `clients.write`, `clients.delete`
+- **Team Permissions**: `teams.read`, `teams.write`
+- **Chat Permissions**: `chat.access`
+- **Full Access**: `full` (grants all permissions)
+
+#### Team Member Case Access (`teamMemberCaseAccess`)
+Team members can have specific permissions on cases, overriding general team access:
+- Uses the same granular permission system as individual user access
+- Allows fine-grained control over what team members can do on specific cases
+- Can have expiration dates for temporary access
+
+#### Team-Based Access
 Users inherit access to cases through team membership:
 - **Full Access**: Can view and edit all case content
 - **Read Access**: Can only view case content
+- **Granular Access**: Through `teamMemberCaseAccess` for specific permissions
 
 ### Team Management
 - **Team Creation**: Any authenticated user can create teams
@@ -495,8 +515,10 @@ Users inherit access to cases through team membership:
 
 ### Access Hierarchy
 1. **Direct Access**: Always takes precedence (full access)
-2. **Team Access**: Inherited through active team memberships
-3. **Team Roles**: Control permissions within team operations (`secretario`, `abogado`, `admin`)
+2. **Individual User Access**: Specific permissions granted to individual users
+3. **Team Member Access**: Granular permissions for team members on specific cases
+4. **General Team Access**: Inherited through active team memberships
+5. **Team Roles**: Control permissions within team operations (`secretario`, `abogado`, `admin`)
 
 ## Key Design Principles
 

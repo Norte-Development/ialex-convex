@@ -1,6 +1,6 @@
 import { v } from "convex/values";
 import { query, mutation, action } from "../_generated/server";
-import { getCurrentUserFromAuth, requireAuth } from "../auth_utils";
+import { getCurrentUserFromAuth, requireAuth, requireCaseAccess } from "../auth_utils";
 
 // ========================================
 // CLERK USER SYNC FUNCTIONS
@@ -146,6 +146,39 @@ export const getUserByEmail = query({
 });
 
 /**
+ * Search users by email or name
+ */
+export const searchUsers = query({
+  args: { searchTerm: v.string() },
+  handler: async (ctx, args) => {
+    const currentUser = await getCurrentUserFromAuth(ctx);
+    
+    const term = args.searchTerm.toLowerCase();
+    
+    // Search by email (exact match or contains)
+    const emailResults = await ctx.db
+      .query("users")
+      .withIndex("by_email")
+      .collect();
+    
+    const filteredResults = emailResults.filter(user => 
+      user._id !== currentUser._id && (
+        user.email.toLowerCase().includes(term) ||
+        (user.name && user.name.toLowerCase().includes(term))
+      )
+    );
+    
+    // Limit results and return only necessary fields
+    return filteredResults.slice(0, 10).map(user => ({
+      _id: user._id,
+      email: user.email,
+      name: user.name,
+      role: user.role,
+    }));
+  },
+});
+
+/**
  * Updates user onboarding and profile information.
  *
  * @param {Object} args - The function arguments
@@ -247,3 +280,135 @@ export const updateOnboardingInfo = mutation({
 //     return user;
 //   },
 // });
+
+/**
+ * Search for users available to be granted access to a specific case
+ * Returns users that match the search term but don't already have access to the case
+ */
+export const searchAvailableUsersForCase = query({
+  args: {
+    searchTerm: v.string(),
+    caseId: v.id("cases"),
+  },
+  handler: async (ctx, args) => {
+    // Require case access to search for users
+    await requireCaseAccess(ctx, args.caseId, "read");
+    
+    // Get current user to exclude from results
+    const currentUser = await getCurrentUserFromAuth(ctx);
+    
+    const trimmedSearch = args.searchTerm.trim();
+    if (trimmedSearch.length === 0) {
+      return [];
+    }
+
+    // Get all users that match the search term (using same logic as searchUsers)
+    const term = trimmedSearch.toLowerCase();
+    
+    // Get all users and filter by search term
+    const allUsers = await ctx.db
+      .query("users")
+      .collect();
+    
+    const matchingUsers = allUsers.filter(user => 
+      user._id !== currentUser._id && (
+        user.email.toLowerCase().includes(term) ||
+        (user.name && user.name.toLowerCase().includes(term))
+      )
+    );
+
+    const searchResults = matchingUsers.slice(0, 20);
+    
+    console.log(`Search term: "${term}", Total users: ${allUsers.length}, Matching users: ${matchingUsers.length}, Search results: ${searchResults.length}`);
+
+    if (searchResults.length === 0) {
+      return [];
+    }
+
+    // Get case data for direct access check
+    const caseData = await ctx.db.get(args.caseId);
+    if (!caseData) {
+      throw new Error("Case not found");
+    }
+
+    // Collect all user IDs that have access to this case
+    const usersWithAccess = new Set<string>();
+
+    // 1. Add direct access users (assigned lawyer and creator)
+    if (caseData.assignedLawyer) {
+      usersWithAccess.add(caseData.assignedLawyer);
+    }
+    if (caseData.createdBy) {
+      usersWithAccess.add(caseData.createdBy);
+    }
+
+    // 2. Add users with individual permissions
+    const individualAccesses = await ctx.db
+      .query("userCaseAccess")
+      .withIndex("by_case", (q) => q.eq("caseId", args.caseId))
+      .filter((q) => q.eq(q.field("isActive"), true))
+      .filter((q) => q.or(
+        q.eq(q.field("expiresAt"), undefined),
+        q.gt(q.field("expiresAt"), Date.now())
+      ))
+      .collect();
+
+    for (const access of individualAccesses) {
+      usersWithAccess.add(access.userId);
+    }
+
+    // 3. Add users with team access
+    const teamAccesses = await ctx.db
+      .query("teamCaseAccess")
+      .withIndex("by_case", (q) => q.eq("caseId", args.caseId))
+      .filter((q) => q.eq(q.field("isActive"), true))
+      .collect();
+
+    for (const teamAccess of teamAccesses) {
+      // Get all team members
+      const teamMembers = await ctx.db
+        .query("teamMemberships")
+        .withIndex("by_team", (q) => q.eq("teamId", teamAccess.teamId))
+        .filter((q) => q.eq(q.field("isActive"), true))
+        .collect();
+
+      for (const member of teamMembers) {
+        usersWithAccess.add(member.userId);
+      }
+    }
+
+    // 4. Add users with specific team member permissions
+    const teamMemberAccesses = await ctx.db
+      .query("teamMemberCaseAccess")
+      .withIndex("by_case", (q) => q.eq("caseId", args.caseId))
+      .filter((q) => q.eq(q.field("isActive"), true))
+      .filter((q) => q.or(
+        q.eq(q.field("expiresAt"), undefined),
+        q.gt(q.field("expiresAt"), Date.now())
+      ))
+      .collect();
+
+    for (const access of teamMemberAccesses) {
+      usersWithAccess.add(access.userId);
+    }
+
+    console.log(`Users with access to case: ${Array.from(usersWithAccess).length}`);
+    
+    // Filter out users that already have access and return in same format as searchUsers
+    const availableUsers = searchResults
+      .filter(user => !usersWithAccess.has(user._id))
+      .map(user => ({
+        _id: user._id,
+        email: user.email,
+        name: user.name,
+        role: user.role,
+      }));
+
+    console.log(`Available users after filtering: ${availableUsers.length}`);
+    return availableUsers;
+  },
+});
+
+/**
+ * Search for users by name or email
+ */
