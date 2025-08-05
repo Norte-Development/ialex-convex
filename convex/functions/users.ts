@@ -294,21 +294,32 @@ export const searchAvailableUsersForCase = query({
     // Require case access to search for users
     await requireCaseAccess(ctx, args.caseId, "read");
     
+    // Get current user to exclude from results
+    const currentUser = await getCurrentUserFromAuth(ctx);
+    
     const trimmedSearch = args.searchTerm.trim();
     if (trimmedSearch.length === 0) {
       return [];
     }
 
-    // Get all users that match the search term
-    const searchResults = await ctx.db
+    // Get all users that match the search term (using same logic as searchUsers)
+    const term = trimmedSearch.toLowerCase();
+    
+    // Get all users and filter by search term
+    const allUsers = await ctx.db
       .query("users")
-      .filter((q) =>
-        q.or(
-          q.eq(q.field("email"), trimmedSearch),
-          q.eq(q.field("name"), trimmedSearch)
-        )
+      .collect();
+    
+    const matchingUsers = allUsers.filter(user => 
+      user._id !== currentUser._id && (
+        user.email.toLowerCase().includes(term) ||
+        (user.name && user.name.toLowerCase().includes(term))
       )
-      .take(20);
+    );
+
+    const searchResults = matchingUsers.slice(0, 20);
+    
+    console.log(`Search term: "${term}", Total users: ${allUsers.length}, Matching users: ${matchingUsers.length}, Search results: ${searchResults.length}`);
 
     if (searchResults.length === 0) {
       return [];
@@ -381,11 +392,19 @@ export const searchAvailableUsersForCase = query({
       usersWithAccess.add(access.userId);
     }
 
-    // Filter out users that already have access
-    const availableUsers = searchResults.filter(user => 
-      !usersWithAccess.has(user._id)
-    );
+    console.log(`Users with access to case: ${Array.from(usersWithAccess).length}`);
+    
+    // Filter out users that already have access and return in same format as searchUsers
+    const availableUsers = searchResults
+      .filter(user => !usersWithAccess.has(user._id))
+      .map(user => ({
+        _id: user._id,
+        email: user.email,
+        name: user.name,
+        role: user.role,
+      }));
 
+    console.log(`Available users after filtering: ${availableUsers.length}`);
     return availableUsers;
   },
 });

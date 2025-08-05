@@ -468,12 +468,14 @@ export const getEscrito = query({
     escritoId: v.id("escritos"),
   },
   handler: async (ctx, args) => {
-    await requireEscritoPermission(ctx, args.escritoId, "read");
-
+    // First get the escrito to access its caseId
     const escrito = await ctx.db.get(args.escritoId);
     if (!escrito) {
       throw new Error("Escrito not found");
     }
+
+    // Verify user has escrito read permission using the case ID
+    await requireEscritoPermission(ctx, escrito.caseId, "read");
 
     return escrito;
   },
