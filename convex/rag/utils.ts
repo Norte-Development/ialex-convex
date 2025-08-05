@@ -207,30 +207,30 @@ async function extractTextFromAudio(file: Blob): Promise<string> {
 async function extractTextFromPdf(file: Blob): Promise<string> {
     try {
         const pageCount = await getPdfPageCount(file);
-        const CHUNK_SIZE = 500;
-        
-        console.log(`Processing PDF with ${pageCount} pages in chunks of ${CHUNK_SIZE}`);
-        
-        // If PDF has 500 pages or less, process normally
-        if (pageCount <= CHUNK_SIZE) {
-            return await processPdfChunk(file, 0, pageCount - 1);
+        if (pageCount > 100) {
+            throw new Error("PDF has more than 100 pages. Please split into smaller chunks.");
         }
         
-        // Process PDF in chunks of 500 pages
-        const chunks: string[] = [];
-        for (let startPage = 0; startPage < pageCount; startPage += CHUNK_SIZE) {
-            const endPage = Math.min(startPage + CHUNK_SIZE - 1, pageCount - 1);
-            console.log(`Processing pages ${startPage + 1} to ${endPage + 1} of ${pageCount}`);
-            
-            const chunkText = await processPdfChunk(file, startPage, endPage);
-            chunks.push(chunkText);
-        }
+        console.log(`Processing PDF with ${pageCount} pages`);
         
-        // Combine all chunks
-        const totalContent = chunks.join("\n\n--- Page Break ---\n\n");
-        console.log(`Successfully processed PDF in ${chunks.length} chunks`);
+        // Convert PDF to base64 and process with Mistral OCR
+        const arrayBuffer = await file.arrayBuffer();
+        const base64 = Buffer.from(arrayBuffer).toString('base64');
         
-        return totalContent;
+        // Process with Mistral OCR
+        const ocrResponse = await mistral.ocr.process({
+            model: "mistral-ocr-latest",
+            document: {
+                type: "document_url",
+                documentUrl: "data:application/pdf;base64," + base64
+            },
+            includeImageBase64: false,
+        });
+        
+        const content = ocrResponse.pages.map((page) => page.markdown).join("\n\n");
+        
+        console.log(`Successfully processed PDF: ${content.length} characters`);
+        return content;
 
     } catch (error) {
         console.error("Error extracting text from PDF file:", error);
@@ -238,56 +238,7 @@ async function extractTextFromPdf(file: Blob): Promise<string> {
     }
 }
 
-/**
- * Processes a specific range of pages from a PDF file.
- * 
- * @param file - The PDF file blob
- * @param startPage - Starting page index (0-based)
- * @param endPage - Ending page index (0-based)
- * @returns Promise<string> - The extracted text content for the page range
- */
-async function processPdfChunk(file: Blob, startPage: number, endPage: number): Promise<string> {
-    try {
-        // Create a new PDF with only the specified page range
-        const arrayBuffer = await file.arrayBuffer();
-        const pdfDoc = await PDFDocument.load(arrayBuffer);
-        
-        // Create a new PDF document for the chunk
-        const chunkPdf = await PDFDocument.create();
-        
-        // Copy pages from startPage to endPage
-        const pagesToCopy = [];
-        for (let i = startPage; i <= endPage; i++) {
-            pagesToCopy.push(i);
-        }
-        
-        const copiedPages = await chunkPdf.copyPages(pdfDoc, pagesToCopy);
-        copiedPages.forEach((page) => chunkPdf.addPage(page));
-        
-        // Convert the chunk PDF to base64
-        const chunkPdfBytes = await chunkPdf.save();
-        const chunkBase64 = Buffer.from(chunkPdfBytes).toString('base64');
-        
-        // Process with Mistral OCR
-        const ocrResponse = await mistral.ocr.process({
-            model: "mistral-ocr-latest",
-            document: {
-                type: "document_url",
-                documentUrl: "data:application/pdf;base64," + chunkBase64
-            },
-            includeImageBase64: false,
-        });
-        
-        const chunkContent = ocrResponse.pages.map((page) => page.markdown).join("\n\n");
-        
-        console.log(`Processed pages ${startPage + 1}-${endPage + 1}: ${chunkContent.length} characters`);
-        return chunkContent;
-        
-    } catch (error) {
-        console.error(`Error processing PDF chunk (pages ${startPage + 1}-${endPage + 1}):`, error);
-        throw new Error(`Failed to process PDF chunk: ${error instanceof Error ? error.message : 'Unknown error'}`);
-    }
-}
+
 
 
 async function getPdfPageCount(file: Blob): Promise<number> {
