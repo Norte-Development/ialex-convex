@@ -1,10 +1,16 @@
 import { v } from "convex/values";
-import { query, mutation } from "../_generated/server";
+import { query, mutation, internalAction, internalQuery, internalMutation } from "../_generated/server";
 import { requireCaseAccess } from "../auth_utils";
 import { prosemirrorSync } from "../prosemirror";
+import { internal } from "../_generated/api";
+import { rag } from "../rag/rag";
 
 
-
+export const generateUploadUrl = mutation({
+  handler: async (ctx) => {
+    return await ctx.storage.generateUploadUrl();
+  },
+});
 
 
 // ========================================
@@ -82,6 +88,13 @@ export const createDocument = mutation({
       fileSize: args.fileSize,
       createdBy: currentUser._id,
       tags: args.tags,
+      // Set initial processing status
+      processingStatus: "pending",
+    });
+
+    // Schedule the RAG processing to run asynchronously
+    await ctx.scheduler.runAfter(0, internal.functions.documentProcessing.processDocument, {
+      documentId,
     });
 
     console.log("Created document with id:", documentId);
@@ -124,6 +137,121 @@ export const getDocuments = query({
     return documents;
   },
 });
+
+/**
+ * Retrieves a specific document by ID.
+ *
+ * @param {Object} args - The function arguments
+ * @param {string} args.documentId - The ID of the document to retrieve
+ * @returns {Promise<Object|null>} The document record or null if not found
+ * @throws {Error} When not authenticated or lacking case access
+ *
+ * @description This function returns a specific document by its ID. The user must
+ * have read access to the case that the document belongs to.
+ */
+export const getDocument = query({
+  args: {
+    documentId: v.id("documents"),
+  },
+  handler: async (ctx, args) => {
+    const document = await ctx.db.get(args.documentId);
+    
+    if (!document) {
+      return null;
+    }
+
+    // Verify user has access to the case
+    await requireCaseAccess(ctx, document.caseId, "read");
+
+    return document;
+  },
+});
+
+/**
+ * Gets a signed URL for downloading a document from Convex storage.
+ *
+ * @param {Object} args - The function arguments
+ * @param {string} args.documentId - The ID of the document to get URL for
+ * @returns {Promise<string|null>} The signed URL or null if document not found
+ * @throws {Error} When not authenticated or lacking case access
+ *
+ * @description This function generates a signed URL for downloading a document
+ * from Convex storage. The user must have read access to the case that the
+ * document belongs to.
+ */
+export const getDocumentUrl = query({
+  args: {
+    documentId: v.id("documents"),
+  },
+  handler: async (ctx, args) => {
+    const document = await ctx.db.get(args.documentId);
+    
+    if (!document) {
+      return null;
+    }
+
+    // Verify user has access to the case
+    await requireCaseAccess(ctx, document.caseId, "read");
+
+    // Get the signed URL from Convex storage
+    const url = await ctx.storage.getUrl(document.fileId);
+    return url;
+  },
+});
+
+
+
+/**
+ * Deletes a document and all associated data (file, RAG chunks, and database entry).
+ *
+ * @param {Object} args - The function arguments
+ * @param {string} args.documentId - The ID of the document to delete
+ * @throws {Error} When not authenticated, document not found, or lacking full case access
+ *
+ * @description This function completely removes a document from the system:
+ * 1. Verifies user has full access to the case
+ * 2. Deletes the file from Convex storage
+ * 3. Removes all RAG chunks associated with the document
+ * 4. Deletes the document record from the database
+ *
+ * This operation is irreversible and permanently removes all document data.
+ *
+ * @example
+ * ```javascript
+ * await deleteDocument({ documentId: "document_123" });
+ * ```
+ */
+export const deleteDocument = mutation({
+  args: {
+    documentId: v.id("documents"),
+  },
+  handler: async (ctx, args) => {
+    const document = await ctx.db.get(args.documentId);
+    if (!document) {
+      throw new Error("Document not found");
+    }
+
+    await requireCaseAccess(ctx, document.caseId, "full");
+    const namespace = await rag.getNamespace(ctx, {namespace: `case-${document.caseId}`});
+    if (!namespace) {
+      throw new Error("Namespace not found");
+    }
+
+    
+    await rag.deleteByKeyAsync(ctx, {
+      key: `document-${args.documentId}`,
+      namespaceId: namespace?.namespaceId
+      ,
+    });
+
+
+    await ctx.storage.delete(document.fileId);
+    await ctx.db.delete(args.documentId);
+
+    console.log("Deleted document:", args.documentId);
+  },
+});
+
 
 // ========================================
 // ESCRITO MANAGEMENT (Simplified)
@@ -441,3 +569,4 @@ export const getArchivedEscritos = query({
     return archivedEscritos;
   },
 });
+

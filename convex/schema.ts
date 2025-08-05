@@ -118,11 +118,23 @@ export default defineSchema({
     fileSize: v.number(),
     createdBy: v.id("users"),
     tags: v.optional(v.array(v.string())),
+    // Processing status fields
+    processingStatus: v.optional(v.union(
+      v.literal("pending"),    // Document uploaded, waiting to be processed
+      v.literal("processing"), // Currently being chunked and embedded
+      v.literal("completed"),  // Successfully processed with chunks
+      v.literal("failed")      // Processing failed
+    )),
+    processingStartedAt: v.optional(v.number()),
+    processingCompletedAt: v.optional(v.number()),
+    processingError: v.optional(v.string()),
+    totalChunks: v.optional(v.number()), // Number of chunks created
   })
     .index("by_case", ["caseId"])
     .index("by_type", ["documentType"])
     .index("by_created_by", ["createdBy"])
-    .index("by_file_id", ["fileId"]),
+    .index("by_file_id", ["fileId"])
+    .index("by_processing_status", ["processingStatus"]),
 
   // Escritos table - Tiptap JSON documents (legal writings/briefs)
   // Simplified: removed parentEscritoId (no version control)
@@ -174,82 +186,6 @@ export default defineSchema({
     .index("by_created_by", ["createdBy"])
     .index("by_public_status", ["isPublic"])
     .index("by_active_status", ["isActive"]),
-
-  // Chat Sessions/Agent Threads - metadata for conversations (actual data stored in Redis)
-  chatSessions: defineTable({
-    threadId: v.optional(v.string()), // UUID for Redis storage key (optional for backward compatibility)
-    caseId: v.optional(v.id("cases")), // Optional - can be case-specific or general
-    userId: v.id("users"),
-    title: v.optional(v.string()),
-    agentType: v.optional(v.string()), // e.g., "memory_agent", "legal_assistant"
-    isActive: v.boolean(),
-  })
-    .index("by_thread_id", ["threadId"])
-    .index("by_case", ["caseId"])
-    .index("by_user", ["userId"])
-    .index("by_active_status", ["isActive"])
-    .index("by_agent_type", ["agentType"]),
-
-  // Chat Messages - individual messages in chat sessions
-  chatMessages: defineTable({
-    sessionId: v.id("chatSessions"),
-    content: v.string(),
-    role: v.union(
-      v.literal("user"),
-      v.literal("assistant"),
-      v.literal("system"),
-      v.literal("tool"),
-      v.literal("extractor"),
-      v.literal("validator")
-    ),
-    messageType: v.union(
-      v.literal("text"),
-      v.literal("search_query"),
-      v.literal("web_scrape"),
-      v.literal("document_analysis"),
-      v.literal("template_suggestion"),
-      v.literal("legal_advice"),
-      v.literal("extraction_result"),
-      v.literal("validation_feedback"),
-      v.literal("error")
-    ),
-    metadata: v.optional(v.string()),
-    toolName: v.optional(v.string()),
-    toolCallId: v.optional(v.string()),
-    status: v.optional(v.union(v.literal("success"), v.literal("error"), v.literal("pending"))),
-  })
-    .index("by_session", ["sessionId"])
-    .index("by_role", ["role"])
-    .index("by_message_type", ["messageType"])
-    .index("by_status", ["status"]),
-
-  // Activity Log - audit trail for actions
-  activityLog: defineTable({
-    entityType: v.union(
-      v.literal("case"),
-      v.literal("document"),
-      v.literal("escrito"),
-      v.literal("client"),
-      v.literal("user")
-    ),
-    entityId: v.string(),
-    action: v.union(
-      v.literal("created"),
-      v.literal("updated"),
-      v.literal("deleted"),
-      v.literal("viewed"),
-      v.literal("shared"),
-      v.literal("archived"),
-      v.literal("restored")
-    ),
-    userId: v.id("users"),
-    details: v.optional(v.string()),
-    ipAddress: v.optional(v.string()),
-    userAgent: v.optional(v.string()),
-  })
-    .index("by_entity", ["entityType", "entityId"])
-    .index("by_user", ["userId"])
-    .index("by_action", ["action"]),
 
   // Teams - organizational teams/departments for firm management
   teams: defineTable({

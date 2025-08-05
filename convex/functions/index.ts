@@ -39,6 +39,7 @@ export {
   getEscrito,
   archiveEscrito,
   getArchivedEscritos,
+  deleteDocument,
 } from "./documents";
 
 // Template Management (Modelos)
@@ -48,12 +49,6 @@ export {
   incrementModeloUsage,
 } from "./templates";
 
-// Chat Management
-export {
-  createThreadMetadata,
-  getThreadMetadata,
-  archiveThread,
-} from "./chat";
 
 // Team Management
 export {

@@ -24,6 +24,7 @@ import CaseTeamsPage from "./pages/CaseOpen/CaseTeamsPage";
 import { CaseProvider } from "./context/CaseContext";
 import CaseModelPage from "./pages/CaseOpen/CaseModelPage";
 import CaseDataBasePage from "./pages/CaseOpen/CaseDataBase";
+import CaseDocumentPage from "./pages/CaseOpen/CaseDocumentPage";
 
 import "@copilotkit/react-ui/styles.css";
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({
@@ -96,6 +97,7 @@ const AppWithThread = () => {
                   <Route path="equipos" element={<CaseTeamsPage />} />
                   <Route path="modelos" element={<CaseModelPage />} />
                   <Route path="base-de-datos" element={<CaseDataBasePage />} />
+                  <Route path="documentos/:documentId" element={<CaseDocumentPage />} />
                 </Routes>
               </CaseProvider>
             </ProtectedRoute>

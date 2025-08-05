@@ -74,7 +74,7 @@ function MenuBar({ editor }: { editor: Editor }) {
   })
 
   return (
-    <div className="border-b border-gray-200 bg-gray-50/50 px-4 py-3">
+    <div className="border-b border-gray-200 bg-gray-50/50 px-4 py-3 ">
       <div className="flex items-center gap-1 flex-wrap">
         {/* Undo/Redo */}
         <Button
