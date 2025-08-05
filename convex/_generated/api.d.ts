@@ -20,6 +20,7 @@ import type * as functions_documentProcessing from "../functions/documentProcess
 import type * as functions_documents from "../functions/documents.js";
 import type * as functions_index from "../functions/index.js";
 import type * as functions_legalDb from "../functions/legalDb.js";
+import type * as functions_permissions from "../functions/permissions.js";
 import type * as functions_seedCases from "../functions/seedCases.js";
 import type * as functions_teams from "../functions/teams.js";
 import type * as functions_templates from "../functions/templates.js";
@@ -29,6 +30,7 @@ import type * as prosemirror from "../prosemirror.js";
 import type * as rag_rag from "../rag/rag.js";
 import type * as rag_utils from "../rag/utils.js";
 import type * as utils_resend from "../utils/resend.js";
+import type * as validation_test from "../validation_test.js";
 
 import type {
   ApiFromModules,
@@ -57,6 +59,7 @@ declare const fullApi: ApiFromModules<{
   "functions/documents": typeof functions_documents;
   "functions/index": typeof functions_index;
   "functions/legalDb": typeof functions_legalDb;
+  "functions/permissions": typeof functions_permissions;
   "functions/seedCases": typeof functions_seedCases;
   "functions/teams": typeof functions_teams;
   "functions/templates": typeof functions_templates;
@@ -66,6 +69,7 @@ declare const fullApi: ApiFromModules<{
   "rag/rag": typeof rag_rag;
   "rag/utils": typeof rag_utils;
   "utils/resend": typeof utils_resend;
+  validation_test: typeof validation_test;
 }>;
 declare const fullApiWithMounts: typeof fullApi;
 

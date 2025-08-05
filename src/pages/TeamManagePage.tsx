@@ -23,7 +23,7 @@ import {
 import { useState } from "react";
 import InviteUserDialog from "@/components/Teams/InviteUserDialog";
 import PendingInvitesTable from "@/components/Teams/PendingInvitesTable";
-import TeamCasesView from "@/components/Cases/TeamCasesView";
+import TeamCasesList from "@/components/Cases/TeamCasesList";
 import { TeamInvite } from "../../types/teams";
 
 export default function TeamManagePage() {
@@ -288,7 +288,7 @@ export default function TeamManagePage() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <TeamCasesView teamId={id as any} />
+            <TeamCasesList teamId={id as any} />
           </CardContent>
         </Card>
       )}

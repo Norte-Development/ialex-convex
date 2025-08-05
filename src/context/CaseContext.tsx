@@ -1,4 +1,4 @@
-import React, { createContext, useContext, ReactNode, useMemo } from "react";
+import React, { createContext, useContext, ReactNode } from "react";
 import { useParams } from "react-router-dom";
 import { useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
@@ -22,22 +22,15 @@ interface CaseProviderProps {
 export const CaseProvider: React.FC<CaseProviderProps> = ({ children }) => {
   const { id } = useParams<{ id: string }>();
 
-  const cases = useQuery(api.functions.cases.getCases, {});
-
-  const currentCase = useMemo(() => {
-    if (!cases || !id) {
-      return null;
-    }
-    const found = cases.find((caseItem) => caseItem._id === id);
-
-    return found;
-  }, [cases, id]);
+  const currentCase = useQuery(
+    api.functions.cases.getCaseById,
+    id ? { caseId: id as Id<"cases"> } : "skip"
+  );
 
   const contextValue: CaseContextType = {
     currentCase,
-    isLoading: cases === undefined,
-    error:
-      id && cases && !currentCase ? `Caso no encontrado con ID: ${id}` : null,
+    isLoading: currentCase === undefined,
+    error: currentCase === null && id ? `Caso no encontrado con ID: ${id}` : null,
     caseId: currentCase?._id || null,
     caseTitle: currentCase?.title || null,
   };

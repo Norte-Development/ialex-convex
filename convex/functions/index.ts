@@ -22,12 +22,24 @@ export {
 export {
   createCase,
   getCases,
+  getCaseById,
   addClientToCase,
   removeClientFromCase,
   getClientsForCase,
   getCasesForClient,
   checkUserCaseAccess,
 } from "./cases";
+
+// Permission Management
+export {
+  grantUserCaseAccess,
+  revokeUserCaseAccess,
+  getUsersWithCaseAccess,
+  getUserCasePermissions,
+  hasPermission,
+  grantTeamMemberCaseAccess,
+  getTeamMembersWithCaseAccess,
+} from "./permissions";
 
 // Document Management
 export {

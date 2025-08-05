@@ -3,31 +3,19 @@ import { api } from "../../../convex/_generated/api";
 import { Id } from "../../../convex/_generated/dataModel";
 import { Badge } from "../ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
-import { Shield, Eye, Calendar, FileText, Users, Settings } from "lucide-react";
+import { Shield, Eye, Calendar, FileText } from "lucide-react";
 import { Link } from "react-router-dom";
-import { useCase } from "@/context/CaseContext";
-import { useCasePermissions } from "@/hooks/useCasePermissions";
-import TeamMemberPermissionsDialog from "./TeamMemberPermissionsDialog";
 
-interface TeamCasesViewProps {
+interface TeamCasesListProps {
   teamId: Id<"teams">;
 }
 
 type AccessLevel = "read" | "full";
 
-export default function TeamCasesView({ teamId }: TeamCasesViewProps) {
-  const { currentCase } = useCase();
-  const { canManageTeams } = useCasePermissions(currentCase?._id || null);
-  
+export default function TeamCasesList({ teamId }: TeamCasesListProps) {
   const casesWithAccess = useQuery(
     api.functions.teams.getCasesAccessibleByTeam,
     { teamId },
-  );
-
-  // If we're in a case context, show team members with their permissions
-  const teamMembers = useQuery(
-    api.functions.permissions.getTeamMembersWithCaseAccess,
-    currentCase ? { caseId: currentCase._id, teamId } : "skip"
   );
 
   const getAccessLevelIcon = (level: AccessLevel) => {
@@ -104,99 +92,6 @@ export default function TeamCasesView({ teamId }: TeamCasesViewProps) {
     );
   }
 
-  // Helper function to get permission icons
-  const getPermissionIcon = (permission: string) => {
-    switch (permission) {
-      case "full": return <Shield className="h-3 w-3" />;
-      case "teams": return <Users className="h-3 w-3" />;
-      case "documents": return <FileText className="h-3 w-3" />;
-      case "escritos": return <FileText className="h-3 w-3" />;
-      case "chat": return <Settings className="h-3 w-3" />;
-      default: return <Eye className="h-3 w-3" />;
-    }
-  };
-
-  // If we're in a case context, show team member permissions
-  if (currentCase && teamMembers) {
-    return (
-      <div className="space-y-4">
-        <div className="flex items-center justify-between">
-          <h3 className="text-lg font-semibold">Miembros del Equipo</h3>
-          <Badge variant="outline">
-            {teamMembers.length} {teamMembers.length === 1 ? "miembro" : "miembros"}
-          </Badge>
-        </div>
-
-        {teamMembers.length === 0 ? (
-          <Card>
-            <CardContent className="flex flex-col items-center justify-center py-8">
-              <Users className="h-12 w-12 text-gray-400 mb-4" />
-              <p className="text-gray-500 text-center">
-                Este equipo no tiene miembros asignados
-              </p>
-            </CardContent>
-          </Card>
-        ) : (
-          <div className="grid gap-3">
-            {teamMembers.map((member) => (
-              <Card key={member.user._id} className="hover:shadow-sm transition-shadow">
-                <CardContent className="p-4">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className="flex flex-col">
-                        <span className="font-medium">{member.user.name}</span>
-                        <span className="text-sm text-gray-500 capitalize">{member.teamRole}</span>
-                      </div>
-                    </div>
-                    
-                                         <div className="flex flex-col gap-2 items-end">
-                       <div className="flex items-center gap-2">
-                         {member.hasSpecificPermissions && member.specificAccess ? (
-                           <div className="flex flex-wrap gap-1">
-                             {member.specificAccess.permissions.map((permission) => (
-                               <Badge key={permission} variant="secondary" className="text-xs flex items-center gap-1">
-                                 {getPermissionIcon(permission)}
-                                 {permission}
-                               </Badge>
-                             ))}
-                           </div>
-                         ) : (
-                           <Badge variant="outline" className="text-xs">
-                             Permisos del equipo
-                           </Badge>
-                         )}
-                         
-                         {canManageTeams && (
-                           <TeamMemberPermissionsDialog
-                             member={{
-                               _id: member.user._id,
-                               name: member.user.name,
-                               email: member.user.email,
-                               role: member.teamRole
-                             }}
-                             caseId={currentCase._id}
-                             teamId={teamId}
-                           />
-                         )}
-                       </div>
-                       
-                       {member.specificAccess?.expiresAt && (
-                         <span className="text-xs text-gray-500">
-                           Expira: {formatDate(member.specificAccess.expiresAt)}
-                         </span>
-                       )}
-                     </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        )}
-      </div>
-    );
-  }
-
-  // Default view: show cases accessible by team
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
@@ -297,4 +192,4 @@ export default function TeamCasesView({ teamId }: TeamCasesViewProps) {
       )}
     </div>
   );
-}
+} 

@@ -1,6 +1,39 @@
 import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
 
+// Define granular permission types matching frontend constants
+const granularPermissionType = v.union(
+  // Case-level permissions
+  v.literal("case.view"),
+  v.literal("case.edit"),
+  v.literal("case.delete"),
+  
+  // Document permissions
+  v.literal("documents.read"),
+  v.literal("documents.write"),
+  v.literal("documents.delete"),
+  
+  // Escrito permissions
+  v.literal("escritos.read"),
+  v.literal("escritos.write"),
+  v.literal("escritos.delete"),
+  
+  // Client permissions
+  v.literal("clients.read"),
+  v.literal("clients.write"),
+  v.literal("clients.delete"),
+  
+  // Team permissions
+  v.literal("teams.read"),
+  v.literal("teams.write"),
+  
+  // Chat permissions
+  v.literal("chat.access"),
+  
+  // Full access
+  v.literal("full")
+);
+
 export default defineSchema({
   // Users table - for authentication and user management
   users: defineTable({
@@ -234,6 +267,41 @@ export default defineSchema({
     .index("by_case_and_team", ["caseId", "teamId"])
     .index("by_access_level", ["accessLevel"])
     .index("by_granted_by", ["grantedBy"])
+    .index("by_active_status", ["isActive"]),
+
+  // User Case Access - individual user permissions for cases
+  userCaseAccess: defineTable({
+    caseId: v.id("cases"),
+    userId: v.id("users"),
+    permissions: v.array(granularPermissionType),
+    grantedBy: v.id("users"),
+    grantedAt: v.number(),
+    expiresAt: v.optional(v.number()),
+    isActive: v.boolean(),
+  })
+    .index("by_user_and_case", ["userId", "caseId"])
+    .index("by_case", ["caseId"])
+    .index("by_user", ["userId"])
+    .index("by_active_status", ["isActive"])
+    .index("by_expires_at", ["expiresAt"]),
+
+  // Team Member Case Access - granular permissions for team members on specific cases
+  teamMemberCaseAccess: defineTable({
+    caseId: v.id("cases"),
+    teamId: v.id("teams"),
+    userId: v.id("users"),
+    permissions: v.array(granularPermissionType),
+    grantedBy: v.id("users"),
+    grantedAt: v.number(),
+    expiresAt: v.optional(v.number()),
+    isActive: v.boolean(),
+  })
+    .index("by_team_and_case", ["teamId", "caseId"])
+    .index("by_user_and_case", ["userId", "caseId"])
+    .index("by_team_user_case", ["teamId", "userId", "caseId"])
+    .index("by_case", ["caseId"])
+    .index("by_team", ["teamId"])
+    .index("by_user", ["userId"])
     .index("by_active_status", ["isActive"]),
 
   // Team Invitations - manages team invitations via email

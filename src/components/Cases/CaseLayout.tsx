@@ -9,7 +9,10 @@ import { useDropzone } from "react-dropzone"
 import { useMutation } from "convex/react"
 import { api } from "../../../convex/_generated/api"
 import { useCase } from "@/context/CaseContext"
-import { Loader2, CheckCircle, XCircle, FileText } from "lucide-react"
+import { Loader2, CheckCircle, XCircle, FileText, Shield, ArrowLeft } from "lucide-react"
+import { CasePermissionsProvider, useCasePerms } from "@/contexts/CasePermissionsContext"
+import { PERMISSIONS } from "@/permissions/types"
+import { Button } from "@/components/ui/button"
 
 interface CaseDetailLayoutProps {
   children: React.ReactNode
@@ -24,8 +27,20 @@ interface UploadFile {
 }
 
 export default function CaseLayout({ children }: CaseDetailLayoutProps) {
+  const { currentCase } = useCase()
+  const caseId = currentCase?._id || null
+
+  return (
+    <CasePermissionsProvider caseId={caseId}>
+      <InnerCaseLayout>{children}</InnerCaseLayout>
+    </CasePermissionsProvider>
+  )
+}
+
+function InnerCaseLayout({ children }: CaseDetailLayoutProps) {
   const { isCaseSidebarOpen } = useLayout()
   const { currentCase } = useCase()
+  const { hasAccess, isLoading, can } = useCasePerms()
   const [isChatbotOpen, setIsChatbotOpen] = useState(false)
   const [chatbotWidth, setChatbotWidth] = useState(380)
   const [isResizing, setIsResizing] = useState(false)
@@ -65,6 +80,11 @@ export default function CaseLayout({ children }: CaseDetailLayoutProps) {
   const uploadFile = useCallback(async (file: File) => {
     if (!currentCase) {
       console.error("No case selected")
+      return
+    }
+
+    if (!can.docs.write) {
+      console.error("No permission to upload documents")
       return
     }
 
@@ -178,7 +198,50 @@ export default function CaseLayout({ children }: CaseDetailLayoutProps) {
     },
     multiple: true,
     noClick: true, // Don't trigger on click, only drag
+    disabled: !can.docs.write, // Disable dropzone if no write permission
   })
+
+  // Loading state
+  if (isLoading) {
+    return (
+      <div className="h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4" />
+          <p className="text-gray-600">Cargando permisos...</p>
+        </div>
+      </div>
+    )
+  }
+
+  // Access denied state
+  if (!hasAccess) {
+    return (
+      <div className="flex items-center justify-center h-screen bg-gray-50">
+        <div className="text-center max-w-md">
+          <Shield className="h-16 w-16 text-gray-400 mx-auto mb-4" />
+          <h2 className="text-xl font-semibold text-gray-900 mb-2">
+            Acceso Denegado
+          </h2>
+          <p className="text-gray-600 mb-6">
+            No tienes los permisos necesarios para acceder a este caso.
+          </p>
+          
+          <div className="flex flex-col sm:flex-row gap-3 justify-center">
+            <Button variant="outline" onClick={() => window.history.back()}>
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Volver
+            </Button>
+          </div>
+          
+          <div className="mt-6 p-3 bg-blue-50 rounded-lg">
+            <p className="text-sm text-blue-700">
+              Contacta al administrador del caso para solicitar acceso.
+            </p>
+          </div>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div {...getRootProps()} className="relative h-full w-full">

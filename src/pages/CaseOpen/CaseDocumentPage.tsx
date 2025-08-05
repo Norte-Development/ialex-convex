@@ -7,6 +7,9 @@ import { FileText, Download, AlertCircle, Clock, Loader2, CheckCircle } from "lu
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { ContextPermissionButton } from "@/components/Permissions/ContextPermissionButton";
+import { ContextCan } from "@/components/Permissions/ContextCan";
+import { PERMISSIONS } from "@/permissions/types";
 
 export default function CaseDocumentPage() {
   const { documentId } = useParams();
@@ -171,15 +174,17 @@ export default function CaseDocumentPage() {
                 {getDocumentTypeText(document.documentType || "other")}
               </Badge>
               
-              <Button
+              <ContextPermissionButton
+                permission={PERMISSIONS.DOC_READ}
                 variant="outline"
                 size="sm"
                 onClick={() => window.open(documentUrl || "", "_blank")}
                 disabled={!documentUrl}
+                disabledMessage="No tienes permisos para descargar documentos"
               >
                 <Download className="h-4 w-4 mr-2" />
                 Descargar
-              </Button>
+              </ContextPermissionButton>
             </div>
           </div>
           

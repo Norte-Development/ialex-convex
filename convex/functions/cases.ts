@@ -3,7 +3,9 @@ import { query, mutation } from "../_generated/server";
 import {
   getCurrentUserFromAuth,
   requireCaseAccess,
+  requireClientPermission,
   checkCaseAccess,
+  hasClientPermission,
 } from "../auth_utils";
 
 // ========================================
@@ -184,6 +186,23 @@ export const getCases = query({
   },
 });
 
+/**
+ * Get a specific case by ID with access validation
+ */
+export const getCaseById = query({
+  args: { caseId: v.id("cases") },
+  handler: async (ctx, args) => {
+    await requireCaseAccess(ctx, args.caseId, "read");
+    
+    const caseData = await ctx.db.get(args.caseId);
+    if (!caseData) {
+      throw new Error("Case not found");
+    }
+    
+    return caseData;
+  },
+});
+
 // ========================================
 // CLIENT-CASE RELATIONSHIP MANAGEMENT
 // ========================================
@@ -219,8 +238,8 @@ export const addClientToCase = mutation({
     role: v.optional(v.string()), // e.g., "plaintiff", "defendant", "witness"
   },
   handler: async (ctx, args) => {
-    // Verify user has full access to the case
-    const { currentUser } = await requireCaseAccess(ctx, args.caseId, "full");
+    // Verify user has client write permission
+    const { currentUser } = await requireClientPermission(ctx, args.caseId, "write");
 
     // Check if relationship already exists
     const existing = await ctx.db
@@ -274,8 +293,8 @@ export const removeClientFromCase = mutation({
     caseId: v.id("cases"),
   },
   handler: async (ctx, args) => {
-    // Verify user has full access to the case
-    await requireCaseAccess(ctx, args.caseId, "full");
+    // Verify user has client delete permission
+    await requireClientPermission(ctx, args.caseId, "delete");
 
     const relationship = await ctx.db
       .query("clientCases")
@@ -317,8 +336,8 @@ export const getClientsForCase = query({
     caseId: v.id("cases"),
   },
   handler: async (ctx, args) => {
-    // Verify user has access to the case
-    await requireCaseAccess(ctx, args.caseId, "read");
+    // Verify user has client read permission
+    await requireClientPermission(ctx, args.caseId, "read");
 
     const relationships = await ctx.db
       .query("clientCases")
@@ -368,11 +387,11 @@ export const getCasesForClient = query({
       .filter((q) => q.eq(q.field("isActive"), true))
       .collect();
 
-    // Filter cases based on user access
+    // Filter cases based on user access - only include cases where user has client read permission
     const accessibleCases = [];
     for (const rel of relationships) {
-      const access = await checkCaseAccess(ctx, rel.caseId, currentUser._id);
-      if (access.hasAccess) {
+      const hasAccess = await hasClientPermission(ctx, rel.caseId, currentUser._id, "read");
+      if (hasAccess) {
         const caseData = await ctx.db.get(rel.caseId);
         accessibleCases.push({ ...caseData, clientRole: rel.role });
       }

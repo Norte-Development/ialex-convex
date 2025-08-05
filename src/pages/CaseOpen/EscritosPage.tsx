@@ -11,6 +11,9 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { FileText, Calendar, Building, Hash, ArrowRight } from "lucide-react"
+import { ContextPermissionButton } from "@/components/Permissions/ContextPermissionButton"
+import { ContextCan } from "@/components/Permissions/ContextCan"
+import { PERMISSIONS } from "@/permissions/types"
 
 export default function EscritoPage() {
   const { escritoId } = useParams()
@@ -73,9 +76,14 @@ export default function EscritoPage() {
           )}
 
           {/* Escritos Grid */}
-          {all_escritos && all_escritos.length > 0 && (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {all_escritos.map((escrito) => (
+          <ContextCan permission={PERMISSIONS.ESCRITO_READ} fallback={
+            <div className="text-center py-12">
+              <p className="text-gray-500">No tienes permisos para ver los escritos de este caso.</p>
+            </div>
+          }>
+            {all_escritos && all_escritos.length > 0 && (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {all_escritos.map((escrito) => (
                 <Card 
                   key={escrito._id} 
                   className="hover:shadow-lg transition-all duration-200 cursor-pointer group"
@@ -119,20 +127,23 @@ export default function EscritoPage() {
                       </div>
                     )}
                     <div className="pt-2">
-                      <Button 
+                      <ContextPermissionButton
+                        permission={PERMISSIONS.ESCRITO_READ}
                         variant="outline" 
                         size="sm" 
                         className="w-full group-hover:bg-blue-50 group-hover:border-blue-200 transition-colors"
+                        disabledMessage="No tienes permisos para ver escritos"
                       >
                         <FileText className="h-4 w-4 mr-2" />
                         Abrir escrito
-                      </Button>
+                      </ContextPermissionButton>
                     </div>
                   </CardContent>
                 </Card>
               ))}
             </div>
           )}
+          </ContextCan>
         </div>
       </CaseLayout>
     )

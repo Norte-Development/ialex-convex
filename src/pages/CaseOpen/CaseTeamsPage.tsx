@@ -1,6 +1,9 @@
 import { useCase } from "@/context/CaseContext";
 import CaseLayout from "@/components/Cases/CaseLayout";
 import TeamAccessDialog from "../../components/Cases/TeamAccessDialog";
+import TeamCasesView from "../../components/Cases/TeamCasesView";
+import IndividualUserPermissionsDialog from "../../components/Cases/IndividualUserPermissionsDialog";
+import { IndividualUserPermissionsTable } from "../../components/Cases/IndividualUserPermissionsTable";
 import { api } from "../../../convex/_generated/api";
 import {
   Card,
@@ -10,16 +13,35 @@ import {
 } from "../../components/ui/card";
 import { Badge } from "../../components/ui/badge";
 import { Button } from "../../components/ui/button";
-import { Users, Shield, Eye, Plus } from "lucide-react";
+import { Users, Shield, Eye, Plus, ChevronDown, ChevronRight, UserPlus } from "lucide-react";
 import { useQuery } from "convex/react";
+import { useState } from "react";
+import { useCasePermissions } from "@/hooks/useCasePermissions";
 
 export default function CaseTeamsPage() {
   const { currentCase } = useCase();
+  const permissions = useCasePermissions(currentCase?._id || null);
+  const { canManageTeams } = permissions;
+  const [expandedTeams, setExpandedTeams] = useState<Set<string>>(new Set());
+
+  // Debug logging
+  console.log("CaseTeamsPage - canManageTeams:", canManageTeams);
+  console.log("CaseTeamsPage - permissions:", permissions);
 
   const teamsWithAccess = useQuery(
     api.functions.teams.getTeamsWithCaseAccess,
     currentCase ? { caseId: currentCase._id } : "skip",
   );
+
+  const toggleTeamExpansion = (teamId: string) => {
+    const newExpanded = new Set(expandedTeams);
+    if (newExpanded.has(teamId)) {
+      newExpanded.delete(teamId);
+    } else {
+      newExpanded.add(teamId);
+    }
+    setExpandedTeams(newExpanded);
+  };
 
   const getAccessLevelIcon = (level: "read" | "full") => {
     return level === "full" ? (
@@ -183,41 +205,62 @@ export default function CaseTeamsPage() {
             ) : (
               <div className="space-y-4">
                 {teamsWithAccess.map((team) => (
-                  <div
-                    key={team._id}
-                    className="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50 transition-colors"
-                  >
-                    <div className="flex items-center gap-4">
-                      <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
-                        <Users className="h-5 w-5 text-blue-600" />
-                      </div>
-                      <div>
-                        <h4 className="font-medium text-gray-900">
-                          {team.name}
-                        </h4>
-                        <div className="flex items-center gap-2 text-sm text-gray-500">
-                          {team.description && <span>{team.description}</span>}
-                          {team.description && <span>•</span>}
-                          <span>
-                            Creado {formatDate(team._creationTime as number)}
-                          </span>
+                  <div key={team._id} className="border rounded-lg">
+                    {/* Team Header */}
+                    <div 
+                      className="flex items-center justify-between p-4 hover:bg-gray-50 transition-colors cursor-pointer"
+                      onClick={() => team._id && toggleTeamExpansion(team._id)}
+                    >
+                      <div className="flex items-center gap-4">
+                        <Button
+                          variant="ghost" 
+                          size="sm"
+                          className="h-8 w-8 p-0"
+                        >
+                          {team._id && expandedTeams.has(team._id) ? (
+                            <ChevronDown className="h-4 w-4" />
+                          ) : (
+                            <ChevronRight className="h-4 w-4" />
+                          )}
+                        </Button>
+                        <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
+                          <Users className="h-5 w-5 text-blue-600" />
+                        </div>
+                        <div>
+                          <h4 className="font-medium text-gray-900">
+                            {team.name}
+                          </h4>
+                          <div className="flex items-center gap-2 text-sm text-gray-500">
+                            {team.description && <span>{team.description}</span>}
+                            {team.description && <span>•</span>}
+                            <span>
+                              Creado {formatDate(team._creationTime as number)}
+                            </span>
+                          </div>
                         </div>
                       </div>
+
+                      <div className="flex items-center gap-3">
+                        <Badge
+                          variant="outline"
+                          className={`flex items-center gap-1 ${getAccessLevelColor(team.accessLevel)}`}
+                        >
+                          {getAccessLevelIcon(team.accessLevel)}
+                          {getAccessLevelText(team.accessLevel)}
+                        </Badge>
+
+                        <Badge variant="outline">
+                          {team.isActive ? "Activo" : "Inactivo"}
+                        </Badge>
+                      </div>
                     </div>
 
-                    <div className="flex items-center gap-3">
-                      <Badge
-                        variant="outline"
-                        className={`flex items-center gap-1 ${getAccessLevelColor(team.accessLevel)}`}
-                      >
-                        {getAccessLevelIcon(team.accessLevel)}
-                        {getAccessLevelText(team.accessLevel)}
-                      </Badge>
-
-                      <Badge variant="outline">
-                        {team.isActive ? "Activo" : "Inactivo"}
-                      </Badge>
-                    </div>
+                    {/* Team Members - Expandible */}
+                    {team._id && expandedTeams.has(team._id) && (
+                      <div className="border-t bg-gray-50 p-4">
+                        <TeamCasesView teamId={team._id} />
+                      </div>
+                    )}
                   </div>
                 ))}
 
@@ -239,6 +282,40 @@ export default function CaseTeamsPage() {
             )}
           </CardContent>
         </Card>
+
+        {/* Individual User Permissions Section */}
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <UserPlus className="h-5 w-5 text-green-600" />
+                  Usuarios Individuales
+                </CardTitle>
+                <p className="text-sm text-gray-600 mt-1">
+                  Otorga permisos específicos a usuarios individuales
+                </p>
+              </div>
+              {canManageTeams && (
+                <IndividualUserPermissionsDialog
+                  caseId={currentCase._id}
+                  trigger={
+                    <Button className="cursor-pointer">
+                      <Plus className="h-4 w-4 mr-2" />
+                      Agregar Usuario
+                    </Button>
+                  }
+                />
+              )}
+            </div>
+          </CardHeader>
+          <CardContent>
+            <IndividualUserPermissionsTable
+              caseId={currentCase._id}
+            />
+          </CardContent>
+        </Card>
+
       </div>
     </CaseLayout>
   );

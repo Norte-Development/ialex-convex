@@ -1,6 +1,10 @@
 import { v } from "convex/values";
 import { query, mutation, internalAction, internalQuery, internalMutation } from "../_generated/server";
-import { requireCaseAccess } from "../auth_utils";
+import { 
+  requireDocumentPermission, 
+  requireEscritoPermission,
+  getCurrentUserFromAuth 
+} from "../auth_utils";
 import { prosemirrorSync } from "../prosemirror";
 import { internal } from "../_generated/api";
 import { rag } from "../rag/rag";
@@ -74,8 +78,8 @@ export const createDocument = mutation({
     tags: v.optional(v.array(v.string())),
   },
   handler: async (ctx, args) => {
-    // Verify user has full access to the case
-    const { currentUser } = await requireCaseAccess(ctx, args.caseId, "full");
+    // Verify user has document write permission
+    const { currentUser } = await requireDocumentPermission(ctx, args.caseId, "write");
 
     const documentId = await ctx.db.insert("documents", {
       title: args.title,
@@ -125,8 +129,8 @@ export const getDocuments = query({
     caseId: v.id("cases"),
   },
   handler: async (ctx, args) => {
-    // Verify user has access to the case
-    await requireCaseAccess(ctx, args.caseId, "read");
+    // Verify user has document read permission
+    await requireDocumentPermission(ctx, args.caseId, "read");
 
     const documents = await ctx.db
       .query("documents")
@@ -160,8 +164,8 @@ export const getDocument = query({
       return null;
     }
 
-    // Verify user has access to the case
-    await requireCaseAccess(ctx, document.caseId, "read");
+    // Verify user has document read permission
+    await requireDocumentPermission(ctx, document.caseId, "read");
 
     return document;
   },
@@ -190,8 +194,8 @@ export const getDocumentUrl = query({
       return null;
     }
 
-    // Verify user has access to the case
-    await requireCaseAccess(ctx, document.caseId, "read");
+    // Verify user has document read permission
+    await requireDocumentPermission(ctx, document.caseId, "read");
 
     // Get the signed URL from Convex storage
     const url = await ctx.storage.getUrl(document.fileId);
@@ -231,7 +235,9 @@ export const deleteDocument = mutation({
       throw new Error("Document not found");
     }
 
-    await requireCaseAccess(ctx, document.caseId, "full");
+    // Verify user has document delete permission
+    await requireDocumentPermission(ctx, document.caseId, "delete");
+    
     const namespace = await rag.getNamespace(ctx, {namespace: `case-${document.caseId}`});
     if (!namespace) {
       throw new Error("Namespace not found");
@@ -294,8 +300,8 @@ export const createEscrito = mutation({
     expedientNumber: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    // Verify user has full access to the case
-    const { currentUser } = await requireCaseAccess(ctx, args.caseId, "full");
+    // Verify user has escrito write permission
+    const { currentUser } = await requireEscritoPermission(ctx, args.caseId, "write");
 
     const prosemirrorId = crypto.randomUUID();
 
@@ -376,12 +382,8 @@ export const updateEscrito = mutation({
       throw new Error("Escrito not found");
     }
 
-    // Verify user has full access to the case
-    const { currentUser } = await requireCaseAccess(
-      ctx,
-      escrito.caseId,
-      "full",
-    );
+    // Verify user has escrito write permission
+    const { currentUser } = await requireEscritoPermission(ctx, escrito.caseId, "write");
 
     const updates: any = {
       lastModifiedBy: currentUser._id,
@@ -428,8 +430,8 @@ export const getEscritos = query({
     caseId: v.id("cases"),
   },
   handler: async (ctx, args) => {
-    // Verify user has access to the case
-    await requireCaseAccess(ctx, args.caseId, "read");
+    // Verify user has escrito read permission
+    await requireEscritoPermission(ctx, args.caseId, "read");
 
     const escritos = await ctx.db
       .query("escritos")
@@ -466,7 +468,7 @@ export const getEscrito = query({
     escritoId: v.id("escritos"),
   },
   handler: async (ctx, args) => {
-    await requireCaseAccess(ctx, args.escritoId, "read");
+    await requireEscritoPermission(ctx, args.escritoId, "read");
 
     const escrito = await ctx.db.get(args.escritoId);
     if (!escrito) {
@@ -510,26 +512,19 @@ export const archiveEscrito = mutation({
     isArchived: v.boolean(),
   },
   handler: async (ctx, args) => {
-    // Get the escrito to check case access
     const escrito = await ctx.db.get(args.escritoId);
     if (!escrito) {
       throw new Error("Escrito not found");
     }
 
-    // Verify user has full access to the case
-    const { currentUser } = await requireCaseAccess(
-      ctx,
-      escrito.caseId,
-      "full",
+    // Verify user has escrito delete permission for archiving
+    await requireEscritoPermission(ctx, escrito.caseId, "delete");
+
+    await ctx.db.patch(args.escritoId, { isArchived: args.isArchived });
+    console.log(
+      `${args.isArchived ? "Archived" : "Unarchived"} escrito:`,
+      args.escritoId,
     );
-
-    await ctx.db.patch(args.escritoId, {
-      isArchived: args.isArchived,
-      lastModifiedBy: currentUser._id,
-      lastEditedAt: Date.now(),
-    });
-
-    console.log(`Escrito ${args.escritoId} ${args.isArchived ? 'archived' : 'unarchived'}`);
   },
 });
 
@@ -556,8 +551,8 @@ export const getArchivedEscritos = query({
     caseId: v.id("cases"),
   },
   handler: async (ctx, args) => {
-    // Verify user has access to the case
-    await requireCaseAccess(ctx, args.caseId, "read");
+    // Verify user has escrito read permission
+    await requireEscritoPermission(ctx, args.caseId, "read");
 
     const archivedEscritos = await ctx.db
       .query("escritos")
