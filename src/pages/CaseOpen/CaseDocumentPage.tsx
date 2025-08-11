@@ -3,13 +3,13 @@ import { useQuery } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import { Id } from "../../../convex/_generated/dataModel";
 import CaseLayout from "@/components/Cases/CaseLayout";
-import { FileText, Download, AlertCircle, Clock, Loader2, CheckCircle } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { Download, AlertCircle, Clock, Loader2, CheckCircle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ContextPermissionButton } from "@/components/Permissions/ContextPermissionButton";
 import { ContextCan } from "@/components/Permissions/ContextCan";
 import { PERMISSIONS } from "@/permissions/types";
+import DocumentViewer from "@/components/Documents/DocumentViewer";
 
 export default function CaseDocumentPage() {
   const { documentId } = useParams();
@@ -77,9 +77,7 @@ export default function CaseDocumentPage() {
     });
   };
 
-  const isImage = (mimeType: string) => mimeType.startsWith("image/");
-  const isPdf = (mimeType: string) => mimeType === "application/pdf";
-  const isSupported = (mimeType: string) => isImage(mimeType) || isPdf(mimeType);
+  // Viewer helpers handled in DocumentViewer
 
   const getProcessingStatusConfig = (status: string | undefined) => {
     switch (status) {
@@ -231,48 +229,32 @@ export default function CaseDocumentPage() {
 
       {/* Document Viewer */}
       <div className="flex-1 p-6 bg-gray-50">
-        {!documentUrl ? (
-          <div className="flex items-center justify-center h-96">
-            <div className="text-center">
-              <Skeleton className="h-64 w-96 mb-4" />
-              <Skeleton className="h-4 w-32" />
-            </div>
-          </div>
-        ) : isSupported(document.mimeType) ? (
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-            {isPdf(document.mimeType) ? (
-              <iframe
-                src={documentUrl}
-                className="w-full h-[calc(100vh-200px)] border-0"
-                title={document.title}
-              />
-            ) : isImage(document.mimeType) ? (
-              <div className="flex justify-center p-4">
-                <img
-                  src={documentUrl}
-                  alt={document.title}
-                  className="max-w-full h-auto rounded shadow-sm"
-                  style={{ maxHeight: "calc(100vh - 200px)" }}
-                />
+        <ContextCan
+          permission={PERMISSIONS.DOC_READ}
+          fallback={
+            <div className="flex items-center justify-center h-96">
+              <div className="text-center text-gray-600">
+                No te han dado permisos para ver este documento.
               </div>
-            ) : null}
-          </div>
-        ) : (
-          <div className="flex flex-col items-center justify-center h-96 bg-white rounded-lg shadow-sm border border-gray-200">
-            <AlertCircle className="h-16 w-16 text-yellow-500 mb-4" />
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">
-              Vista previa no disponible
-            </h3>
-            <p className="text-gray-600 text-center mb-6 max-w-md">
-              Actualmente no soportamos la vista previa de archivos {document.mimeType}. 
-              Puedes descargar el archivo para verlo en tu aplicación local.
-            </p>
-            <div className="flex items-center gap-2 text-sm text-gray-500">
-              <FileText className="h-4 w-4" />
-              <span>{document.originalFileName}</span>
             </div>
-          </div>
-        )}
+          }
+        >
+          {!documentUrl ? (
+            <div className="flex items-center justify-center h-96">
+              <div className="text-center">
+                <Skeleton className="h-64 w-96 mb-4" />
+                <Skeleton className="h-4 w-32" />
+              </div>
+            </div>
+          ) : (
+            <DocumentViewer
+              url={documentUrl}
+              mimeType={document.mimeType}
+              title={document.title}
+              fileSize={document.fileSize}
+            />
+          )}
+        </ContextCan>
       </div>
     </CaseLayout>
   );

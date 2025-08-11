@@ -11,8 +11,8 @@ import { api } from "../../../convex/_generated/api"
 import { useCase } from "@/context/CaseContext"
 import { Loader2, CheckCircle, XCircle, FileText, Shield, ArrowLeft } from "lucide-react"
 import { CasePermissionsProvider, useCasePerms } from "@/contexts/CasePermissionsContext"
-import { PERMISSIONS } from "@/permissions/types"
 import { Button } from "@/components/ui/button"
+import { toast } from "sonner"
 
 interface CaseDetailLayoutProps {
   children: React.ReactNode
@@ -45,6 +45,7 @@ function InnerCaseLayout({ children }: CaseDetailLayoutProps) {
   const [chatbotWidth, setChatbotWidth] = useState(380)
   const [isResizing, setIsResizing] = useState(false)
   const [uploadFiles, setUploadFiles] = useState<UploadFile[]>([])
+  const [isGlobalDragActive, setIsGlobalDragActive] = useState(false)
 
   // Convex mutations
   const generateUploadUrl = useMutation(api.functions.documents.generateUploadUrl)
@@ -178,19 +179,33 @@ function InnerCaseLayout({ children }: CaseDetailLayoutProps) {
   }, [uploadFile])
 
   const onDragEnter = useCallback(() => {
+    setIsGlobalDragActive(true)
   }, [])
 
   const onDragLeave = useCallback(() => {
+    setIsGlobalDragActive(false)
   }, [])
 
-  const { getRootProps } = useDropzone({
+  const { getRootProps, isDragActive } = useDropzone({
     onDrop,
+    onDropRejected: (fileRejections) => {
+      fileRejections.forEach(({ file, errors }) => {
+        const reason = errors.map((e) => e.message).filter(Boolean).join(", ")
+        toast.error(`Archivo no permitido: ${file.name}${reason ? ` (${reason})` : ""}`)
+      })
+    },
     onDragEnter,
     onDragLeave,
     accept: {
       'application/pdf': ['.pdf'],
       'application/msword': ['.doc'],
       'application/vnd.openxmlformats-officedocument.wordprocessingml.document': ['.docx'],
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx'],
+      'application/vnd.openxmlformats-officedocument.presentationml.presentation': ['.pptx'],
+      'text/csv': ['.csv'],
+      'application/csv': ['.csv'],
+      // Treat some CSV uploads that use the legacy Excel MIME
+      'application/vnd.ms-excel': ['.csv'],
       'image/*': ['.png', '.jpg', '.jpeg', '.gif'],
       'text/plain': ['.txt'],
       'audio/*': ['.mp3', '.wav'],
@@ -200,6 +215,40 @@ function InnerCaseLayout({ children }: CaseDetailLayoutProps) {
     noClick: true, // Don't trigger on click, only drag
     disabled: !can.docs.write, // Disable dropzone if no write permission
   })
+
+  // Global drag listeners to detect drags over iframes and nested viewers
+  useEffect(() => {
+    const handleWindowDragOver = (e: DragEvent) => {
+      // Necessary to allow drop
+      e.preventDefault()
+      if (!can.docs.write) return
+      setIsGlobalDragActive(true)
+    }
+    const handleWindowDragEnter = (e: DragEvent) => {
+      e.preventDefault()
+      if (!can.docs.write) return
+      setIsGlobalDragActive(true)
+    }
+    const handleWindowDrop = (e: DragEvent) => {
+      e.preventDefault()
+      setIsGlobalDragActive(false)
+    }
+    const handleWindowDragLeave = (e: DragEvent) => {
+      if (!e.relatedTarget) {
+        setIsGlobalDragActive(false)
+      }
+    }
+    window.addEventListener('dragover', handleWindowDragOver)
+    window.addEventListener('dragenter', handleWindowDragEnter)
+    window.addEventListener('drop', handleWindowDrop)
+    window.addEventListener('dragleave', handleWindowDragLeave)
+    return () => {
+      window.removeEventListener('dragover', handleWindowDragOver)
+      window.removeEventListener('dragenter', handleWindowDragEnter)
+      window.removeEventListener('drop', handleWindowDrop)
+      window.removeEventListener('dragleave', handleWindowDragLeave)
+    }
+  }, [can.docs.write])
 
   // Loading state
   if (isLoading) {
@@ -339,6 +388,19 @@ function InnerCaseLayout({ children }: CaseDetailLayoutProps) {
         onResizeStart={handleResizeStart}
         onResizeEnd={handleResizeEnd}
       />
+
+      {/* Global drag overlay to capture drops over iframes/viewers */}
+      {can.docs.write && (isGlobalDragActive || isDragActive) && (
+        <div
+          {...getRootProps()}
+          className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/40"
+          onDragLeave={onDragLeave}
+        >
+          <div className="pointer-events-none select-none bg-white/90 border border-dashed border-gray-400 rounded-xl px-6 py-4 text-gray-700 shadow">
+            Suelta archivos para subirlos…
+          </div>
+        </div>
+      )}
     </div>
   )
 }

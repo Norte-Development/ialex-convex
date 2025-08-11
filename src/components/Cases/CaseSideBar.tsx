@@ -248,19 +248,21 @@ export default function CaseSidebar() {
           </Collapsible>
           </ContextCan>
 
-          <Collapsible
-            open={isDocumentosOpen}
-            onOpenChange={toggleDocumentos}
-            className="w-full"
-          >
-            <CollapsibleTrigger className="cursor-pointer flex gap-1">
-              <FolderArchive className="cursor-pointer" size={20} />
-              Documentos
-            </CollapsibleTrigger>
-            <CollapsibleContent className="flex flex-col gap-1 pl-2 text-[12px] pt-1 overflow-y-auto max-h-32">
-              <CaseDocuments basePath={basePath} />
-            </CollapsibleContent>
-          </Collapsible>
+          <ContextCan permission={PERMISSIONS.DOC_READ} fallback={null}>
+            <Collapsible
+              open={isDocumentosOpen}
+              onOpenChange={toggleDocumentos}
+              className="w-full"
+            >
+              <CollapsibleTrigger className="cursor-pointer flex gap-1">
+                <FolderArchive className="cursor-pointer" size={20} />
+                Documentos
+              </CollapsibleTrigger>
+              <CollapsibleContent className="flex flex-col gap-1 pl-2 text-[12px] pt-1 overflow-y-auto max-h-32">
+                <CaseDocuments basePath={basePath} />
+              </CollapsibleContent>
+            </Collapsible>
+          </ContextCan>
         </div>
 
         <div className="w-full flex flex-col gap-2 h-[50%] ">
