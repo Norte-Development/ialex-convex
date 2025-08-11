@@ -55,9 +55,16 @@ export const streamAsync = internalAction({
     handler: async (ctx, { promptMessageId, threadId }) => {
       const { thread } = await agent.continueThread(ctx, { threadId });
       const result = await thread.streamText(
-        { promptMessageId },
+        { 
+          promptMessageId,
+           maxSteps: 10,
+           },
         // more custom delta options (`true` uses defaults)
-        { saveStreamDeltas: { chunking: "word", throttleMs: 100 } },
+        { saveStreamDeltas: { chunking: "word", throttleMs: 100 },
+          contextOptions: {
+            searchOtherThreads: true,
+          }
+       },
       );
       // We need to make sure the stream finishes - by awaiting each chunk
       // or using this call to consume it all.

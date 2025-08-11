@@ -12,6 +12,7 @@ import type * as agent_agent from "../agent/agent.js";
 import type * as agent_streamAbort from "../agent/streamAbort.js";
 import type * as agent_streaming from "../agent/streaming.js";
 import type * as agent_threads from "../agent/threads.js";
+import type * as agent_tools from "../agent/tools.js";
 import type * as auth_utils from "../auth_utils.js";
 import type * as firebaseAdmin from "../firebaseAdmin.js";
 import type * as functions_cases from "../functions/cases.js";
@@ -51,6 +52,7 @@ declare const fullApi: ApiFromModules<{
   "agent/streamAbort": typeof agent_streamAbort;
   "agent/streaming": typeof agent_streaming;
   "agent/threads": typeof agent_threads;
+  "agent/tools": typeof agent_tools;
   auth_utils: typeof auth_utils;
   firebaseAdmin: typeof firebaseAdmin;
   "functions/cases": typeof functions_cases;

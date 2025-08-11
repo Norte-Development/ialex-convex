@@ -57,6 +57,7 @@
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "react-dropzone": "^14.3.8",
+    "react-markdown": "^10.1.0",
     "react-router-dom": "^7.6.3",
     "react-textarea-autosize": "^8.5.9",
     "sonner": "^2.0.6",
