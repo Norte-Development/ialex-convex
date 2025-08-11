@@ -7,6 +7,8 @@ import { v } from 'convex/values';
 import { Mistral } from '@mistralai/mistralai';
 import { PDFDocument } from 'pdf-lib';
 import { createClient } from '@deepgram/sdk'
+import XLSX from 'xlsx'
+import JSZip from 'jszip'
 
 const mistral = new Mistral({
     apiKey: process.env.MISTRAL_API_KEY,
@@ -26,12 +28,17 @@ export const extractDocumentText = internalAction({
     handler: async (ctx, args) => {
     try {
         const file = await ctx.storage.get(args.file);
+        let fileType = file?.type;
 
         if (!file) {
             throw new Error("File not found");
         }
 
-        const mimeType = guessMimeTypeFromExtension(args.fileName);
+        if (!fileType) {
+            fileType = guessMimeTypeFromExtension(args.fileName);
+        }
+
+        const mimeType = fileType;
         console.log("Extracting text from document with MIME type:", mimeType);
 
         // Handle TXT files
@@ -52,6 +59,25 @@ export const extractDocumentText = internalAction({
         // Handle PDF files (placeholder for future implementation)
         if (mimeType === 'application/pdf') {
             return await extractTextFromPdf(file);
+        }
+
+        // Handle CSV files
+        if (
+            mimeType === 'text/csv' ||
+            mimeType === 'application/csv' ||
+            mimeType === 'application/vnd.ms-excel'
+        ) {
+            return await extractTextFromCsv(file);
+        }
+
+        // Handle XLSX files
+        if (mimeType === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet') {
+            return await extractTextFromXlsx(file);
+        }
+
+        // Handle PPTX files
+        if (mimeType === 'application/vnd.openxmlformats-officedocument.presentationml.presentation') {
+            return await extractTextFromPptx(file);
         }
 
         // Handle video files (placeholder for future implementation)
@@ -240,6 +266,64 @@ async function extractTextFromPdf(file: Blob): Promise<string> {
 
 
 
+
+async function extractTextFromCsv(file: Blob): Promise<string> {
+    try {
+        const text = await file.text();
+        const normalized = text
+            .replace(/\r\n/g, '\n')
+            .replace(/\r/g, '\n')
+            .trim();
+        return normalized;
+    } catch (error) {
+        console.error("Error extracting text from CSV file:", error);
+        throw new Error(`Failed to read CSV file: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+}
+
+async function extractTextFromXlsx(file: Blob): Promise<string> {
+    try {
+        const arrayBuffer = await file.arrayBuffer();
+        const workbook = XLSX.read(arrayBuffer, { type: 'array' });
+        const texts: string[] = [];
+        for (const sheetName of workbook.SheetNames) {
+            const sheet = workbook.Sheets[sheetName];
+            const rows = XLSX.utils.sheet_to_json<any[]>(sheet, { header: 1, raw: true });
+            texts.push(`# ${sheetName}`);
+            for (const row of rows) {
+                const cells = (row || []).map((c) => (c === null || c === undefined) ? '' : String(c));
+                texts.push(cells.join('\t'));
+            }
+            texts.push('');
+        }
+        return texts.join('\n');
+    } catch (error) {
+        console.error("Error extracting text from XLSX file:", error);
+        throw new Error(`Failed to read XLSX file: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+}
+
+async function extractTextFromPptx(file: Blob): Promise<string> {
+    try {
+        const arrayBuffer = await file.arrayBuffer();
+        const zip = await JSZip.loadAsync(arrayBuffer);
+        const slideFiles = Object.keys(zip.files)
+            .filter((name) => name.startsWith('ppt/slides/slide') && name.endsWith('.xml'))
+            .sort();
+        const texts: string[] = [];
+        for (const slideName of slideFiles) {
+            const xml = await zip.file(slideName)!.async('string');
+            // Extract text nodes inside <a:t>...</a:t>
+            const matches = Array.from(xml.matchAll(/<a:t>([\s\S]*?)<\/a:t>/g));
+            const slideText = matches.map((m) => m[1]).join(' ');
+            texts.push(slideText.trim());
+        }
+        return texts.join('\n\n');
+    } catch (error) {
+        console.error("Error extracting text from PPTX file:", error);
+        throw new Error(`Failed to read PPTX file: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+}
 
 async function getPdfPageCount(file: Blob): Promise<number> {
     try {

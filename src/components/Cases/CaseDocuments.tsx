@@ -13,6 +13,8 @@ import {
   TooltipTrigger,
 } from "../ui/tooltip";
 import { useState } from "react";
+import { ContextCan } from "@/components/Permissions/ContextCan";
+import { PERMISSIONS } from "@/permissions/types";
 import { Id } from "convex/_generated/dataModel";
 
 interface CaseDocumentsProps {
@@ -158,32 +160,34 @@ export function CaseDocuments({ basePath }: CaseDocumentsProps) {
                   <span className="truncate min-w-0">{document.title}</span>
                 </Link>
                 <div className="flex items-center gap-1">
-                  <TooltipProvider>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-6 w-6 p-0 hover:bg-gray-200"
-                          onClick={(e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            handleDeleteDocument(document._id);
-                          }}
-                          disabled={isDeleting}
-                        >
-                          {isDeleting ? (
-                            <Loader2 size={12} className="text-gray-500 animate-spin" />
-                          ) : (
-                            <Trash2 size={12} className="text-gray-500" />
-                          )}
-                        </Button>
-                      </TooltipTrigger>
-                      <TooltipContent>
-                        <p>{isDeleting ? "Eliminando..." : "Eliminar documento"}</p>
-                      </TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
+                  <ContextCan permission={PERMISSIONS.DOC_DELETE} fallback={null}>
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-6 w-6 p-0 hover:bg-gray-200"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              handleDeleteDocument(document._id);
+                            }}
+                            disabled={isDeleting}
+                          >
+                            {isDeleting ? (
+                              <Loader2 size={12} className="text-gray-500 animate-spin" />
+                            ) : (
+                              <Trash2 size={12} className="text-gray-500" />
+                            )}
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p>{isDeleting ? "Eliminando..." : "Eliminar documento"}</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  </ContextCan>
                 </div>
               </div>
               
