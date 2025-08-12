@@ -1,0 +1,16 @@
+{
+  "name": "application",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "npm-run-all --parallel dev:web dev:convex",
+    "dev:web": "vite --open",
+    "dev:convex": "npx convex dev",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "convex": "^1.25.4",
+    "logger": "^0.0.1"
+  }
+}
