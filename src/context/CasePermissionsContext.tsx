@@ -20,10 +20,10 @@ export function CasePermissionsProvider({
   );
 }
 
-export function useCasePerms() {
+export function usePermissions() {
   const ctx = useContext(CasePermissionsContext);
   if (!ctx) {
-    throw new Error("useCasePerms must be used within CasePermissionsProvider. Use useCasePermissions directly if outside case routes.");
+    throw new Error("usePermissions must be used within CasePermissionsProvider.");
   }
   return ctx;
-} 
+}

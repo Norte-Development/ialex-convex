@@ -28,55 +28,49 @@ export function useCasePermissions(caseId: Id<"cases"> | null) {
     );
   };
 
+  const hasFullAccess = normalized.accessLevel === "full" || hasPermission(PERMISSIONS.FULL);
+
   // Granular capability object for better semantics
   const can: PermissionCapabilities = {
     // Case capabilities
-    viewCase: hasPermission(PERMISSIONS.CASE_VIEW),
-    editCase: hasPermission(PERMISSIONS.CASE_EDIT) || hasPermission(PERMISSIONS.FULL),
-    deleteCase: hasPermission(PERMISSIONS.CASE_DELETE) || hasPermission(PERMISSIONS.FULL),
+    viewCase: hasPermission(PERMISSIONS.CASE_VIEW) || hasFullAccess,
+    editCase: hasPermission(PERMISSIONS.CASE_EDIT) || hasFullAccess,
+    deleteCase: hasPermission(PERMISSIONS.CASE_DELETE) || hasFullAccess,
     
     // Document capabilities
     docs: {
-      read: hasPermission(PERMISSIONS.DOC_READ),
-      write: hasPermission(PERMISSIONS.DOC_WRITE),
-      delete: hasPermission(PERMISSIONS.DOC_DELETE),
+      read: hasPermission(PERMISSIONS.DOC_READ) || hasFullAccess,
+      write: hasPermission(PERMISSIONS.DOC_WRITE) || hasFullAccess,
+      delete: hasPermission(PERMISSIONS.DOC_DELETE) || hasFullAccess,
     },
     
     // Escrito capabilities
     escritos: {
-      read: hasPermission(PERMISSIONS.ESCRITO_READ),
-      write: hasPermission(PERMISSIONS.ESCRITO_WRITE),
-      delete: hasPermission(PERMISSIONS.ESCRITO_DELETE),
+      read: hasPermission(PERMISSIONS.ESCRITO_READ) || hasFullAccess,
+      write: hasPermission(PERMISSIONS.ESCRITO_WRITE) || hasFullAccess,
+      delete: hasPermission(PERMISSIONS.ESCRITO_DELETE) || hasFullAccess,
     },
     
     // Client capabilities
     clients: {
-      read: hasPermission(PERMISSIONS.CLIENT_READ),
-      write: hasPermission(PERMISSIONS.CLIENT_WRITE),
-      delete: hasPermission(PERMISSIONS.CLIENT_DELETE),
+      read: hasPermission(PERMISSIONS.CLIENT_READ) || hasFullAccess,
+      write: hasPermission(PERMISSIONS.CLIENT_WRITE) || hasFullAccess,
+      delete: hasPermission(PERMISSIONS.CLIENT_DELETE) || hasFullAccess,
     },
     
     // Team capabilities
     teams: {
-      read: hasPermission(PERMISSIONS.TEAM_READ),
-      write: hasPermission(PERMISSIONS.TEAM_WRITE),
+      read: hasPermission(PERMISSIONS.TEAM_READ) || hasFullAccess,
+      write: hasPermission(PERMISSIONS.TEAM_WRITE) || hasFullAccess,
     },
     
     // Chat capability
-    chat: hasPermission(PERMISSIONS.CHAT_ACCESS),
+    chat: hasPermission(PERMISSIONS.CHAT_ACCESS) || hasFullAccess,
   };
 
-  return { 
-    ...normalized, 
-    hasPermission, 
+  return {
+    ...normalized,
+    hasPermission,
     can,
-    // Backward compatibility aliases
-    canView: can.viewCase,
-    canAccessDocuments: can.docs.read,
-    canAccessEscritos: can.escritos.read,
-    canManageClients: can.clients.write,
-    canAccessChat: can.chat,
-    canManageTeams: can.teams.write,
-    canDoEverything: hasPermission(PERMISSIONS.FULL),
   };
 } 

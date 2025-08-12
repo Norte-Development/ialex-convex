@@ -1,5 +1,5 @@
-import { PERMISSIONS, type Permission } from "@/permissions/types";
-import { useCasePerms } from "@/contexts/CasePermissionsContext";
+import { type Permission } from "@/permissions/types";
+import { usePermissions } from "@/context/CasePermissionsContext";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { VariantProps } from "class-variance-authority";
@@ -20,7 +20,7 @@ export function ContextPermissionButton({
   onClick,
   ...props 
 }: ContextPermissionButtonProps) {
-  const { hasPermission, isLoading } = useCasePerms();
+  const { hasPermission, isLoading } = usePermissions();
   const allowed = hasPermission(permission);
 
   const handleClick = (e: React.MouseEvent<HTMLButtonElement>) => {

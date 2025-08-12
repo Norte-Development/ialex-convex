@@ -26,6 +26,7 @@ import type * as functions_seedCases from "../functions/seedCases.js";
 import type * as functions_teams from "../functions/teams.js";
 import type * as functions_templates from "../functions/templates.js";
 import type * as functions_users from "../functions/users.js";
+import type * as http from "../http.js";
 import type * as playground from "../playground.js";
 import type * as prosemirror from "../prosemirror.js";
 import type * as rag_rag from "../rag/rag.js";
@@ -66,6 +67,7 @@ declare const fullApi: ApiFromModules<{
   "functions/teams": typeof functions_teams;
   "functions/templates": typeof functions_templates;
   "functions/users": typeof functions_users;
+  http: typeof http;
   playground: typeof playground;
   prosemirror: typeof prosemirror;
   "rag/rag": typeof rag_rag;

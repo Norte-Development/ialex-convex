@@ -25,3 +25,33 @@ dist-ssr
 
 # Ignored for the template, you probably want to remove it:
 package-lock.json
+
+# Environment files
+.env
+.env.local
+.env.development
+.env.test
+.env.production
+.env.*.local
+
+# Secrets and sensitive files
+*.pem
+*.key
+*.crt
+*.p12
+*.pfx
+
+# Build outputs
+build/
+out/
+.next/
+.nuxt/
+.vuepress/dist/
+
+# Coverage reports
+coverage/
+*.lcov
+
+# Temporary files
+.tmp/
+.temp/

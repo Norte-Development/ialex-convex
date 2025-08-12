@@ -1,4 +1,3 @@
-"use client"
 
 import type React from "react"
 import CaseSidebar from "./CaseSideBar"
@@ -10,7 +9,7 @@ import { useMutation } from "convex/react"
 import { api } from "../../../convex/_generated/api"
 import { useCase } from "@/context/CaseContext"
 import { Loader2, CheckCircle, XCircle, FileText, Shield, ArrowLeft } from "lucide-react"
-import { CasePermissionsProvider, useCasePerms } from "@/contexts/CasePermissionsContext"
+import { CasePermissionsProvider, usePermissions } from "@/context/CasePermissionsContext"
 import { Button } from "@/components/ui/button"
 import { toast } from "sonner"
 
@@ -40,12 +39,14 @@ export default function CaseLayout({ children }: CaseDetailLayoutProps) {
 function InnerCaseLayout({ children }: CaseDetailLayoutProps) {
   const { isCaseSidebarOpen } = useLayout()
   const { currentCase } = useCase()
-  const { hasAccess, isLoading, can } = useCasePerms()
+  const { hasAccess, isLoading, can } = usePermissions()
   const [isChatbotOpen, setIsChatbotOpen] = useState(false)
   const [chatbotWidth, setChatbotWidth] = useState(380)
   const [isResizing, setIsResizing] = useState(false)
   const [uploadFiles, setUploadFiles] = useState<UploadFile[]>([])
   const [isGlobalDragActive, setIsGlobalDragActive] = useState(false)
+
+  const enqueuedUploads = new Set<string>();
 
   // Convex mutations
   const generateUploadUrl = useMutation(api.functions.documents.generateUploadUrl)
@@ -89,6 +90,13 @@ function InnerCaseLayout({ children }: CaseDetailLayoutProps) {
       return
     }
 
+    const dedupeKey = `${currentCase._id}:${file.name}:${file.size}`
+    if (enqueuedUploads.has(dedupeKey)) {
+      console.warn("Skipping duplicate upload in session", { name: file.name, size: file.size })
+      return
+    }
+    enqueuedUploads.add(dedupeKey)
+
     const fileId = `${Date.now()}-${Math.random()}`
     
     // Add file to upload queue
@@ -128,7 +136,7 @@ function InnerCaseLayout({ children }: CaseDetailLayoutProps) {
         f.id === fileId ? { ...f, progress: 75 } : f
       ))
       
-      // Step 3: Save the newly allocated storage id to the database
+      // Step 3: Save the newly allocated storage id to the database (idempotent on backend)
       await createDocument({
         title: file.name,
         caseId: currentCase._id,
@@ -166,8 +174,10 @@ function InnerCaseLayout({ children }: CaseDetailLayoutProps) {
       setTimeout(() => {
         setUploadFiles(prev => prev.filter(f => f.id !== fileId))
       }, 5000)
+    } finally {
+      enqueuedUploads.delete(dedupeKey)
     }
-  }, [currentCase, generateUploadUrl, createDocument])
+  }, [currentCase, generateUploadUrl, createDocument, can.docs.write])
 
   const onDrop = useCallback(async (acceptedFiles: File[]) => {
     console.log("Files dropped:", acceptedFiles)

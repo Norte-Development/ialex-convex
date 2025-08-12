@@ -78,8 +78,17 @@ export const createDocument = mutation({
     tags: v.optional(v.array(v.string())),
   },
   handler: async (ctx, args) => {
-    // Verify user has document write permission
+    // Verify user has document write permission; FULL access bypasses via hasPermission
     const { currentUser } = await requireDocumentPermission(ctx, args.caseId, "write");
+
+    // Idempotency: avoid duplicate records for the same storage file
+    const existing = await ctx.db
+      .query("documents")
+      .withIndex("by_file_id", q => q.eq("fileId", args.fileId))
+      .first();
+    if (existing) {
+      return existing._id;
+    }
 
     const documentId = await ctx.db.insert("documents", {
       title: args.title,

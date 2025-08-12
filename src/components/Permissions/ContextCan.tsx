@@ -1,5 +1,5 @@
-import { PERMISSIONS, type Permission } from "@/permissions/types";
-import { useCasePerms } from "@/contexts/CasePermissionsContext";
+import { type Permission } from "@/permissions/types";
+import { usePermissions } from "@/context/CasePermissionsContext";
 
 interface ContextCanProps {
   permission: Permission;
@@ -8,7 +8,7 @@ interface ContextCanProps {
 }
 
 export function ContextCan({ permission, children, fallback = null }: ContextCanProps) {
-  const { hasPermission, isLoading } = useCasePerms();
+  const { hasPermission, isLoading } = usePermissions();
   
   if (isLoading || !hasPermission(permission)) {
     return <>{fallback}</>;

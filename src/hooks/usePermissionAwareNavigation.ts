@@ -1,43 +1,18 @@
 import { useMemo } from "react";
-import { useCasePermissions } from "@/hooks/useCasePermissions";
+import { usePermissions } from "@/context/CasePermissionsContext";
 import { PERMISSIONS } from "@/permissions/types";
-import { Home, FileText, BookOpen, Users, Shield, MessageSquare } from "lucide-react";
+import { Users, Shield } from "lucide-react";
 import { Id } from "../../convex/_generated/dataModel";
 
 export function usePermissionAwareNavigation(caseId: Id<"cases"> | null) {
-  const { can, isLoading } = useCasePermissions(caseId);
+  const { can, isLoading } = usePermissions();
 
   const navigationItems = useMemo(() => {
     if (isLoading) return [];
     
-    const items = [];
+    const items: Array<{ path: string; label: string; icon: any; permission: string }>= [];
     
-    if (can.viewCase) {
-      items.push({
-        path: `/caso/${caseId}`,
-        label: "Resumen",
-        icon: Home,
-        permission: PERMISSIONS.CASE_VIEW
-      });
-    }
     
-    if (can.docs.read) {
-      items.push({
-        path: `/caso/${caseId}/documentos`,
-        label: "Documentos",
-        icon: FileText,
-        permission: PERMISSIONS.DOC_READ
-      });
-    }
-    
-    if (can.escritos.read) {
-      items.push({
-        path: `/caso/${caseId}/escritos`,
-        label: "Escritos",
-        icon: BookOpen,
-        permission: PERMISSIONS.ESCRITO_READ
-      });
-    }
     
     if (can.clients.read) {
       items.push({
@@ -57,14 +32,6 @@ export function usePermissionAwareNavigation(caseId: Id<"cases"> | null) {
       });
     }
     
-    if (can.chat) {
-      items.push({
-        path: `/caso/${caseId}/chat`,
-        label: "Chat IA",
-        icon: MessageSquare,
-        permission: PERMISSIONS.CHAT_ACCESS
-      });
-    }
     
     return items;
   }, [caseId, can, isLoading]);

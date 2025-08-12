@@ -1,5 +1,5 @@
-import { PERMISSIONS, type Permission } from "@/permissions/types";
-import { useCasePerms } from "@/contexts/CasePermissionsContext";
+import { type Permission } from "@/permissions/types";
+import { usePermissions } from "@/context/CasePermissionsContext";
 
 interface ContextPermissionGuardProps {
   children: React.ReactNode;
@@ -14,7 +14,7 @@ export function ContextPermissionGuard({
   fallback = null,
   loadingFallback = <div className="animate-pulse bg-gray-200 h-4 w-20 rounded" />
 }: ContextPermissionGuardProps) {
-  const { hasPermission, isLoading } = useCasePerms();
+  const { hasPermission, isLoading } = usePermissions();
   
   if (isLoading) {
     return <>{loadingFallback}</>;

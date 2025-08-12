@@ -24,9 +24,9 @@ import {
   TooltipTrigger,
 } from "../ui/tooltip";
 import { Id } from "../../../convex/_generated/dataModel";
-import { useContextPermissionAwareNavigation } from "@/hooks/useContextPermissionAwareNavigation";
+import { usePermissionAwareNavigation } from "@/hooks/usePermissionAwareNavigation";
 import { PERMISSIONS } from "@/permissions/types";
-import { ContextCan } from "@/components/Permissions/ContextCan";
+import { IfCan } from "@/components/Permissions";
 
 export default function CaseSidebar() {
   const {
@@ -46,7 +46,7 @@ export default function CaseSidebar() {
   const { id } = useParams();
   const { setThreadId } = useThread();
   const { currentCase } = useCase();
-  const { navigationItems } = useContextPermissionAwareNavigation(currentCase?._id || null);
+  const { navigationItems } = usePermissionAwareNavigation(currentCase?._id || null);
   const [isCreateEscritoOpen, setIsCreateEscritoOpen] = useState(false);
   const [isArchivadosOpen, setIsArchivadosOpen] = useState(false);
   
@@ -154,7 +154,7 @@ export default function CaseSidebar() {
         ))}
         
         {/* Modelos - always show for now as it's template-related */}
-        <ContextCan permission={PERMISSIONS.CASE_VIEW} fallback={null}>
+        <IfCan permission={PERMISSIONS.CASE_VIEW} fallback={null}>
           <Link to={`${basePath}/modelos`} onClick={handleNavigationFromCase}>
             <BookCheck
               className="cursor-pointer"
@@ -162,12 +162,12 @@ export default function CaseSidebar() {
               color={location.pathname.includes("/modelos") ? "blue" : "black"}
             />
           </Link>
-        </ContextCan>
+        </IfCan>
       </div>
 
       <div className="h-[70%] w-full flex flex-col justify-start items-center pl-5">
         <div className="w-full flex flex-col gap-2 h-[50%]">
-          <ContextCan permission={PERMISSIONS.ESCRITO_READ} fallback={null}>
+          <IfCan permission={PERMISSIONS.ESCRITO_READ} fallback={null}>
             <Collapsible
               open={isEscritosOpen}
               onOpenChange={toggleEscritos}
@@ -182,7 +182,7 @@ export default function CaseSidebar() {
                 )}
                 Escritos
               </span>
-              <ContextCan permission={PERMISSIONS.ESCRITO_WRITE} fallback={null}>
+              <IfCan permission={PERMISSIONS.ESCRITO_WRITE} fallback={null}>
                 <Plus
                   className="cursor-pointer transition-colors rounded-full p-1 hover:bg-blue-100 hover:text-blue-600"
                   size={20}
@@ -191,7 +191,7 @@ export default function CaseSidebar() {
                     setIsCreateEscritoOpen(true);
                   }}
                 />
-              </ContextCan>
+              </IfCan>
             </CollapsibleTrigger>
             <CollapsibleContent className="flex flex-col gap-1 pl-2 text-[12px] pt-1 overflow-y-auto max-h-32">
               {escritos && escritos.length > 0 ? (
@@ -211,7 +211,7 @@ export default function CaseSidebar() {
                         <FileType2 className="cursor-pointer" size={16} />
                         <span className="truncate">{escrito.title}</span>
                       </Link>
-                      <ContextCan permission={PERMISSIONS.ESCRITO_DELETE} fallback={null}>
+                      <IfCan permission={PERMISSIONS.ESCRITO_DELETE} fallback={null}>
                         <TooltipProvider>
                           <Tooltip>
                             <TooltipTrigger asChild>
@@ -229,7 +229,7 @@ export default function CaseSidebar() {
                             </TooltipContent>
                           </Tooltip>
                         </TooltipProvider>
-                      </ContextCan>
+                      </IfCan>
                     </div>
                     <div className="flex items-center justify-between text-xs text-muted-foreground">
                       <Badge variant="secondary" className={`text-xs ${getStatusColor(escrito.status)}`}>
@@ -246,9 +246,9 @@ export default function CaseSidebar() {
               )}
             </CollapsibleContent>
           </Collapsible>
-          </ContextCan>
+          </IfCan>
 
-          <ContextCan permission={PERMISSIONS.DOC_READ} fallback={null}>
+          <IfCan permission={PERMISSIONS.DOC_READ} fallback={null}>
             <Collapsible
               open={isDocumentosOpen}
               onOpenChange={toggleDocumentos}
@@ -262,7 +262,7 @@ export default function CaseSidebar() {
                 <CaseDocuments basePath={basePath} />
               </CollapsibleContent>
             </Collapsible>
-          </ContextCan>
+          </IfCan>
         </div>
 
         <div className="w-full flex flex-col gap-2 h-[50%] ">

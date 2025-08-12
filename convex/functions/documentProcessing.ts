@@ -149,29 +149,31 @@ export const processDocument = internalAction({
           processingStartedAt: Date.now(),
         });
         
-        // Add document to RAG system with proper filters
-        const { entryId } = await rag.addAsync(ctx, {
-          namespace: `case-${document.caseId}`,
-          key: `document-${args.documentId}`,
-          metadata: { 
-            documentId: args.documentId,
-            caseId: document.caseId,
-            documentType: document.documentType || 'other',
-            createdBy: document.createdBy,
-            fileId: document.fileId,
-            fileName: document.originalFileName  // Add this line
-          },
-          filterValues: [
-            { name: "caseId", value: document.caseId },
-            { name: "documentId", value: args.documentId },
-            { name: "documentType", value: document.documentType || "other" },
-            { name: "createdBy", value: document.createdBy }
-          ],
-          chunkerAction: internal.functions.documentProcessing.chunkDocument,
-          onComplete: internal.functions.documentProcessing.onDocumentProcessingComplete,
+        // Offload to external microservice instead of internal RAG processing
+        const signedUrl = await ctx.storage.getUrl(document.fileId);
+        const callbackUrl = `${process.env.CONVEX_SITE_URL || ''}/webhooks/document-processed`;
+        const body = {
+          signedUrl,
+          contentType: document.mimeType,
+          tenantId: String(document.createdBy),
+          caseId: String(document.caseId),
+          documentId: String(args.documentId),
+          originalFileName: document.originalFileName,
+          callbackUrl,
+          hmacSecret: process.env.HMAC_SECRET,
+          chunking: { maxTokens: 400, overlapRatio: 0.15, pageWindow: 50 },
+        };
+        const resp = await fetch(`${process.env.DOC_PROCESSOR_URL}/process-document`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body)
         });
-        
-        console.log("Document processing initiated for document:", args.documentId, "entryId:", entryId);
+        if (!resp.ok) {
+          const t = await resp.text();
+          throw new Error(`Processor enqueue failed ${resp.status}: ${t}`);
+        }
+        const { jobId } = await resp.json();
+        console.log("Enqueued external processing job", { jobId, documentId: args.documentId });
         
       } catch (error) {
         console.error("Document processing failed for document:", args.documentId, error);

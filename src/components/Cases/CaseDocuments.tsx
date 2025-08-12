@@ -13,7 +13,7 @@ import {
   TooltipTrigger,
 } from "../ui/tooltip";
 import { useState } from "react";
-import { ContextCan } from "@/components/Permissions/ContextCan";
+import { IfCan } from "@/components/Permissions";
 import { PERMISSIONS } from "@/permissions/types";
 import { Id } from "convex/_generated/dataModel";
 
@@ -160,7 +160,7 @@ export function CaseDocuments({ basePath }: CaseDocumentsProps) {
                   <span className="truncate min-w-0">{document.title}</span>
                 </Link>
                 <div className="flex items-center gap-1">
-                  <ContextCan permission={PERMISSIONS.DOC_DELETE} fallback={null}>
+                  <IfCan permission={PERMISSIONS.DOC_DELETE} fallback={null}>
                     <TooltipProvider>
                       <Tooltip>
                         <TooltipTrigger asChild>
@@ -187,7 +187,7 @@ export function CaseDocuments({ basePath }: CaseDocumentsProps) {
                         </TooltipContent>
                       </Tooltip>
                     </TooltipProvider>
-                  </ContextCan>
+                  </IfCan>
                 </div>
               </div>
               

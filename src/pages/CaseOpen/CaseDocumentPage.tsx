@@ -6,8 +6,7 @@ import CaseLayout from "@/components/Cases/CaseLayout";
 import { Download, AlertCircle, Clock, Loader2, CheckCircle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ContextPermissionButton } from "@/components/Permissions/ContextPermissionButton";
-import { ContextCan } from "@/components/Permissions/ContextCan";
+import { PermissionButton, IfCan } from "@/components/Permissions";
 import { PERMISSIONS } from "@/permissions/types";
 import DocumentViewer from "@/components/Documents/DocumentViewer";
 
@@ -172,7 +171,7 @@ export default function CaseDocumentPage() {
                 {getDocumentTypeText(document.documentType || "other")}
               </Badge>
               
-              <ContextPermissionButton
+              <PermissionButton
                 permission={PERMISSIONS.DOC_READ}
                 variant="outline"
                 size="sm"
@@ -182,7 +181,7 @@ export default function CaseDocumentPage() {
               >
                 <Download className="h-4 w-4 mr-2" />
                 Descargar
-              </ContextPermissionButton>
+              </PermissionButton>
             </div>
           </div>
           
@@ -229,7 +228,7 @@ export default function CaseDocumentPage() {
 
       {/* Document Viewer */}
       <div className="flex-1 p-6 bg-gray-50">
-        <ContextCan
+        <IfCan
           permission={PERMISSIONS.DOC_READ}
           fallback={
             <div className="flex items-center justify-center h-96">
@@ -254,7 +253,7 @@ export default function CaseDocumentPage() {
               fileSize={document.fileSize}
             />
           )}
-        </ContextCan>
+        </IfCan>
       </div>
     </CaseLayout>
   );

@@ -16,21 +16,46 @@ import { Button } from "../../components/ui/button";
 import { Users, Shield, Eye, Plus, ChevronDown, ChevronRight, UserPlus } from "lucide-react";
 import { useQuery } from "convex/react";
 import { useState } from "react";
-import { useCasePermissions } from "@/hooks/useCasePermissions";
+import { usePermissions } from "@/context/CasePermissionsContext";
 
 export default function CaseTeamsPage() {
   const { currentCase } = useCase();
-  const permissions = useCasePermissions(currentCase?._id || null);
-  const { canManageTeams } = permissions;
+
+  if (!currentCase) {
+    return (
+      <CaseLayout>
+        <div className="flex items-center justify-center h-64">
+          <div className="text-gray-500">Caso no encontrado</div>
+        </div>
+      </CaseLayout>
+    );
+  }
+
+  return (
+    <CaseLayout>
+      <CaseTeamsPageInner />
+    </CaseLayout>
+  );
+}
+
+function CaseTeamsPageInner() {
+  const { currentCase } = useCase();
+  const { can } = usePermissions();
+  const canManageTeams = can.teams.write;
   const [expandedTeams, setExpandedTeams] = useState<Set<string>>(new Set());
+
+  if (!currentCase) {
+    return null;
+  }
+
+  const caseId = currentCase._id;
 
   // Debug logging
   console.log("CaseTeamsPage - canManageTeams:", canManageTeams);
-  console.log("CaseTeamsPage - permissions:", permissions);
 
   const teamsWithAccess = useQuery(
     api.functions.teams.getTeamsWithCaseAccess,
-    currentCase ? { caseId: currentCase._id } : "skip",
+    { caseId },
   );
 
   const toggleTeamExpansion = (teamId: string) => {
@@ -69,18 +94,7 @@ export default function CaseTeamsPage() {
     });
   };
 
-  if (!currentCase) {
-    return (
-      <CaseLayout>
-        <div className="flex items-center justify-center h-64">
-          <div className="text-gray-500">Caso no encontrado</div>
-        </div>
-      </CaseLayout>
-    );
-  }
-
   return (
-    <CaseLayout>
       <div className="space-y-6 min-h-screen  pl-5 pb-10">
         {/* Header */}
         <div className="flex items-center justify-between">
@@ -107,7 +121,7 @@ export default function CaseTeamsPage() {
         {/* Case Info Card */}
         <Card>
           <CardHeader>
-            <CardTitle className="text-lg">{currentCase.title}</CardTitle>
+             <CardTitle className="text-lg">{currentCase.title}</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -193,7 +207,7 @@ export default function CaseTeamsPage() {
                   caso.
                 </p>
                 <TeamAccessDialog
-                  caseId={currentCase._id}
+            caseId={caseId}
                   trigger={
                     <Button variant="outline" className="cursor-pointer">
                       <Plus className="h-4 w-4 mr-2 " />
@@ -258,7 +272,7 @@ export default function CaseTeamsPage() {
                     {/* Team Members - Expandible */}
                     {team._id && expandedTeams.has(team._id) && (
                       <div className="border-t bg-gray-50 p-4">
-                        <TeamCasesView teamId={team._id} />
+                       <TeamCasesView teamId={team._id} />
                       </div>
                     )}
                   </div>
@@ -266,7 +280,7 @@ export default function CaseTeamsPage() {
 
                 <div className="pt-4 border-t">
                   <TeamAccessDialog
-                    caseId={currentCase._id}
+                    caseId={caseId}
                     trigger={
                       <Button
                         variant="outline"
@@ -310,13 +324,11 @@ export default function CaseTeamsPage() {
             </div>
           </CardHeader>
           <CardContent>
-            <IndividualUserPermissionsTable
-              caseId={currentCase._id}
-            />
+             <IndividualUserPermissionsTable caseId={caseId} />
           </CardContent>
         </Card>
 
       </div>
-    </CaseLayout>
+    
   );
 }

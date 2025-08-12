@@ -11,8 +11,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { FileText, Calendar, Building, Hash, ArrowRight } from "lucide-react"
-import { ContextPermissionButton } from "@/components/Permissions/ContextPermissionButton"
-import { ContextCan } from "@/components/Permissions/ContextCan"
+import { PermissionButton, IfCan } from "@/components/Permissions"
 import { PERMISSIONS } from "@/permissions/types"
 
 export default function EscritoPage() {
@@ -76,7 +75,7 @@ export default function EscritoPage() {
           )}
 
           {/* Escritos Grid */}
-          <ContextCan permission={PERMISSIONS.ESCRITO_READ} fallback={
+          <IfCan permission={PERMISSIONS.ESCRITO_READ} fallback={
             <div className="text-center py-12">
               <p className="text-gray-500">No tienes permisos para ver los escritos de este caso.</p>
             </div>
@@ -127,7 +126,7 @@ export default function EscritoPage() {
                       </div>
                     )}
                     <div className="pt-2">
-                      <ContextPermissionButton
+                      <PermissionButton
                         permission={PERMISSIONS.ESCRITO_READ}
                         variant="outline" 
                         size="sm" 
@@ -136,14 +135,14 @@ export default function EscritoPage() {
                       >
                         <FileText className="h-4 w-4 mr-2" />
                         Abrir escrito
-                      </ContextPermissionButton>
+                      </PermissionButton>
                     </div>
                   </CardContent>
                 </Card>
               ))}
             </div>
           )}
-          </ContextCan>
+          </IfCan>
         </div>
       </CaseLayout>
     )

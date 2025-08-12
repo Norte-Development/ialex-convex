@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
 import { Shield, Eye, Calendar, FileText, Users, Settings } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useCase } from "@/context/CaseContext";
-import { useCasePermissions } from "@/hooks/useCasePermissions";
+import { usePermissions } from "@/context/CasePermissionsContext";
 import TeamMemberPermissionsDialog from "./TeamMemberPermissionsDialog";
 
 interface TeamCasesViewProps {
@@ -17,7 +17,8 @@ type AccessLevel = "read" | "full";
 
 export default function TeamCasesView({ teamId }: TeamCasesViewProps) {
   const { currentCase } = useCase();
-  const { canManageTeams } = useCasePermissions(currentCase?._id || null);
+  const { can } = usePermissions();
+  const canManageTeams = can.teams.write;
   
   const casesWithAccess = useQuery(
     api.functions.teams.getCasesAccessibleByTeam,
