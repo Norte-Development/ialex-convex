@@ -347,17 +347,17 @@ export const deleteDocument = mutation({
     // Verify user has document delete permission
     await requireDocumentPermission(ctx, document.caseId, "delete");
     
-    const namespace = await rag.getNamespace(ctx, {namespace: `case-${document.caseId}`});
-    if (!namespace) {
-      throw new Error("Namespace not found");
+    const namespace = await rag.getNamespace(ctx, { namespace: `case-${document.caseId}` });
+    if (namespace) {
+      try {
+        await rag.deleteByKeyAsync(ctx, {
+          key: `document-${args.documentId}`,
+          namespaceId: namespace.namespaceId,
+        });
+      } catch {
+        // Ignore RAG deletion failure; continue deleting storage and DB record
+      }
     }
-
-    
-    await rag.deleteByKeyAsync(ctx, {
-      key: `document-${args.documentId}`,
-      namespaceId: namespace?.namespaceId
-      ,
-    });
 
 
     if (document.storageBackend === "gcs" && document.gcsBucket && document.gcsObject) {
