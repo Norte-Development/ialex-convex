@@ -14,12 +14,14 @@ import { upsertChunks } from "../services/qdrantService";
 type JobPayload = {
   signedUrl: string;
   contentType?: string;
-  tenantId: string;
+  tenantId: string; // deprecated alias; keep reading but map to createdBy
+  createdBy?: string;
   caseId: string;
   documentId: string;
   originalFileName?: string;
   callbackUrl: string;
   hmacSecret?: string;
+  documentType?: string;
   chunking?: {
     maxTokens: number;
     overlapRatio: number;
@@ -65,7 +67,10 @@ export function processDocumentJob(queue: Queue) {
 
         console.log("upserting chunks");
 
-        await upsertChunks(payload.tenantId, payload.caseId, payload.documentId, embeddings);
+        const createdBy = payload.createdBy ?? payload.tenantId;
+        await upsertChunks(createdBy, payload.caseId, payload.documentId, embeddings, {
+          documentType: payload.documentType,
+        });
 
         console.log("callback");
 

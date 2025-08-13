@@ -161,9 +161,12 @@ export const processDocument = internalAction({
         const body = {
           signedUrl: url,
           contentType: document.mimeType,
+          // kept for legacy worker field name; worker maps to createdBy
           tenantId: String(document.createdBy),
+          createdBy: String(document.createdBy),
           caseId: String(document.caseId),
           documentId: String(args.documentId),
+          documentType: document.documentType || "other",
           originalFileName: document.originalFileName,
           callbackUrl,
           hmacSecret: process.env.HMAC_SECRET,

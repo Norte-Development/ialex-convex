@@ -3,6 +3,7 @@ import express, { Request, Response } from "express";
 import crypto from "crypto";
 import { z } from "zod";
 import { queue } from "./services/queueService";
+import { initQdrant } from "./services/qdrantService";
 import { logger } from "./middleware/logging";
 import { processDocumentJob } from "./jobs/processDocumentJob";
 
@@ -18,9 +19,12 @@ app.get("/health", (_req: Request, res: Response) => {
 const ingestSchema = z.object({
   signedUrl: z.string().url(),
   contentType: z.string().optional(),
+  // Backwards compatibility: accept tenantId but prefer createdBy
   tenantId: z.string(),
+  createdBy: z.string().optional(),
   caseId: z.string(),
   documentId: z.string(),
+  documentType: z.string().optional(),
   originalFileName: z.string().optional(),
   callbackUrl: z.string().url(),
   hmacSecret: z.string().optional(),
@@ -81,7 +85,13 @@ try {
 }
 
 const port = process.env.PORT || 4001;
-app.listen(port, () => {
+app.listen(port, async () => {
+  try {
+    await initQdrant();
+    logger.info("Qdrant initialized");
+  } catch (e) {
+    logger.error("Qdrant init failed", { error: String(e) });
+  }
   logger.info(`document-processor listening on ${port}`);
 });
 

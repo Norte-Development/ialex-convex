@@ -11,7 +11,8 @@ export const rag = new RAG(components.rag, {
     "caseId",
     "documentId", 
     "documentType",
-    "createdBy"
+    "createdBy",
+    "folder"
   ],
 });
 
