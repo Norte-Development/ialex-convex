@@ -10,6 +10,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@google-cloud/storage": "^7.16.0",
     "convex": "^1.25.4",
     "logger": "^0.0.1"
   }

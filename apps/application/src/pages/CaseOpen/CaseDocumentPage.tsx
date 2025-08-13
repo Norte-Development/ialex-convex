@@ -1,5 +1,6 @@
 import { useParams } from "react-router-dom";
-import { useQuery } from "convex/react";
+import { useAction, useQuery } from "convex/react";
+import { useEffect, useState } from "react";
 import { api } from "../../../convex/_generated/api";
 import { Id } from "../../../convex/_generated/dataModel";
 import CaseLayout from "@/components/Cases/CaseLayout";
@@ -20,11 +21,24 @@ export default function CaseDocumentPage() {
     documentId ? { documentId: documentId as Id<"documents"> } : "skip"
   );
 
-  // Get the document URL from Convex storage
-  const documentUrl = useQuery(
-    api.functions.documents.getDocumentUrl,
-    documentId ? { documentId: documentId as Id<"documents"> } : "skip"
-  );
+  // Action to get a signed URL for viewing/downloading the document
+  const getDocumentUrlAction = useAction(api.functions.documents.getDocumentUrl);
+  const [documentUrl, setDocumentUrl] = useState<string | undefined>(undefined);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function loadUrl() {
+      if (!documentId) return;
+      try {
+        const url = await getDocumentUrlAction({ documentId: documentId as Id<"documents"> });
+        if (!cancelled) setDocumentUrl(url || undefined);
+      } catch (e) {
+        if (!cancelled) setDocumentUrl(undefined);
+      }
+    }
+    loadUrl();
+    return () => { cancelled = true; };
+  }, [documentId, getDocumentUrlAction]);
 
   const getDocumentTypeColor = (documentType: string) => {
     switch (documentType) {

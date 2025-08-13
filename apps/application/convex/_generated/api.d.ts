@@ -31,6 +31,7 @@ import type * as playground from "../playground.js";
 import type * as prosemirror from "../prosemirror.js";
 import type * as rag_rag from "../rag/rag.js";
 import type * as rag_utils from "../rag/utils.js";
+import type * as utils_gcs from "../utils/gcs.js";
 import type * as utils_resend from "../utils/resend.js";
 import type * as validation_test from "../validation_test.js";
 
@@ -72,6 +73,7 @@ declare const fullApi: ApiFromModules<{
   prosemirror: typeof prosemirror;
   "rag/rag": typeof rag_rag;
   "rag/utils": typeof rag_utils;
+  "utils/gcs": typeof utils_gcs;
   "utils/resend": typeof utils_resend;
   validation_test: typeof validation_test;
 }>;

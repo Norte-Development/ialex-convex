@@ -132,7 +132,7 @@ export default defineSchema({
     .index("by_added_by", ["addedBy"])
     .index("by_active_status", ["isActive"]),
 
-  // Documents table - file-based documents stored in Convex storage
+  // Documents table - file-based documents stored in Convex storage or GCS
   documents: defineTable({
     title: v.string(),
     description: v.optional(v.string()),
@@ -145,7 +145,12 @@ export default defineSchema({
       v.literal("court_filing"),
       v.literal("other")
     )),
-    fileId: v.id("_storage"),
+    // Convex storage file id (legacy/backward compatible)
+    fileId: v.optional(v.id("_storage")),
+    // GCS metadata (new path)
+    storageBackend: v.optional(v.union(v.literal("convex"), v.literal("gcs"))),
+    gcsBucket: v.optional(v.string()),
+    gcsObject: v.optional(v.string()),
     originalFileName: v.string(),
     mimeType: v.string(),
     fileSize: v.number(),
@@ -166,7 +171,8 @@ export default defineSchema({
     .index("by_case", ["caseId"])
     .index("by_type", ["documentType"])
     .index("by_created_by", ["createdBy"])
-    .index("by_file_id", ["fileId"])
+    .index("by_file_id", ["fileId"]) 
+    .index("by_gcs_object", ["gcsObject"]) 
     .index("by_processing_status", ["processingStatus"]),
 
   // Escritos table - Tiptap JSON documents (legal writings/briefs)

@@ -5,7 +5,7 @@ import SidebarChatbot from "../Agent/SidebarChatbot"
 import { useLayout } from "@/context/LayoutContext"
 import { useState, useEffect, useCallback } from "react"
 import { useDropzone } from "react-dropzone"
-import { useMutation } from "convex/react"
+import { useAction, useMutation } from "convex/react"
 import { api } from "../../../convex/_generated/api"
 import { useCase } from "@/context/CaseContext"
 import { Loader2, CheckCircle, XCircle, FileText, Shield, ArrowLeft } from "lucide-react"
@@ -49,7 +49,7 @@ function InnerCaseLayout({ children }: CaseDetailLayoutProps) {
   const enqueuedUploads = new Set<string>();
 
   // Convex mutations
-  const generateUploadUrl = useMutation(api.functions.documents.generateUploadUrl)
+  const generateUploadUrl = useAction(api.functions.documents.generateUploadUrl)
   const createDocument = useMutation(api.functions.documents.createDocument)
 
   // Load saved width from localStorage
@@ -114,33 +114,40 @@ function InnerCaseLayout({ children }: CaseDetailLayoutProps) {
         f.id === fileId ? { ...f, progress: 25 } : f
       ))
       
-      // Step 1: Get a short-lived upload URL
-      const postUrl = await generateUploadUrl()
+      // Step 1: Get a short-lived upload URL (GCS signed URL for PUT)
+      const postUrl = await generateUploadUrl({
+        caseId: currentCase._id,
+        originalFileName: file.name,
+        mimeType: file.type,
+        fileSize: file.size,
+      })
       
       // Update progress to 50%
       setUploadFiles(prev => prev.map(f => 
         f.id === fileId ? { ...f, progress: 50 } : f
       ))
       
-      // Step 2: POST the file to the URL
-      const result = await fetch(postUrl, {
-        method: "POST",
+      // Step 2: PUT the file to the signed URL
+      const putResp = await fetch(postUrl.url, {
+        method: "PUT",
         headers: { "Content-Type": file.type },
         body: file,
       })
-      
-      const { storageId } = await result.json()
+      if (!putResp.ok) {
+        throw new Error(`Upload failed: ${putResp.status}`)
+      }
       
       // Update progress to 75%
       setUploadFiles(prev => prev.map(f => 
         f.id === fileId ? { ...f, progress: 75 } : f
       ))
       
-      // Step 3: Save the newly allocated storage id to the database (idempotent on backend)
+      // Step 3: Save the GCS metadata to the database (idempotent on backend)
       await createDocument({
         title: file.name,
         caseId: currentCase._id,
-        fileId: storageId,
+        gcsBucket: postUrl.bucket,
+        gcsObject: postUrl.object,
         originalFileName: file.name,
         mimeType: file.type,
         fileSize: file.size,

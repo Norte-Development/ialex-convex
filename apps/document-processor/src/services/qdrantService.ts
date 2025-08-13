@@ -37,6 +37,8 @@ export async function upsertChunks(
   documentId: string,
   embedded: Array<{ id: string; vector: number[]; text: string; metadata: Record<string, any> }>
 ) {
+  console.log("upserting chunks", embedded.length);
+  try{
   await ensureCollection();
   await qdrant.upsert(COLLECTION, {
     wait: true,
@@ -49,9 +51,13 @@ export async function upsertChunks(
         documentId,
         text: e.text,
         ...e.metadata,
-      },
-    })),
-  });
+        },
+      })),
+    });
+  } catch (err) {
+    console.error("Error upserting chunks", err);
+    throw err;
+  }
 }
 
 

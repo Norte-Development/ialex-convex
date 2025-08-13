@@ -1,18 +1,80 @@
 import { v } from "convex/values";
-import { query, mutation, internalAction, internalQuery, internalMutation } from "../_generated/server";
+import { query, mutation, action } from "../_generated/server";
 import { 
   requireDocumentPermission, 
   requireEscritoPermission,
   getCurrentUserFromAuth 
 } from "../auth_utils";
 import { prosemirrorSync } from "../prosemirror";
-import { internal } from "../_generated/api";
+import { internal, api } from "../_generated/api";
 import { rag } from "../rag/rag";
 
 
-export const generateUploadUrl = mutation({
-  handler: async (ctx) => {
-    return await ctx.storage.generateUploadUrl();
+
+
+/**
+ * Generates a Google Cloud Storage V4 signed URL for client-side uploads.
+ *
+ * Auth: requires an authenticated user.
+ *
+ * @param {Object} args - The function arguments
+ * @param {string} args.caseId - The case ID the uploaded file will be associated with
+ * @param {string} args.originalFileName - Original filename; used to construct the object path
+ * @param {string} args.mimeType - MIME type to be enforced by the signed request
+ * @param {number} args.fileSize - Size in bytes (informational for clients; not enforced server-side)
+ * @returns {Promise<{url: string, bucket: string, object: string, contentType: string, expiresAt: number}>}
+ * A payload containing the signed upload URL and target object metadata.
+ * @throws {Error} If the user is unauthenticated or GCS configuration is missing
+ */
+export const generateUploadUrl = action({
+  args: {
+    caseId: v.id("cases"),
+    originalFileName: v.string(),
+    mimeType: v.string(),
+    fileSize: v.number(),
+  },
+  handler: async (ctx, args): Promise<{
+    url: string;
+    bucket: string;
+    object: string;
+    contentType: string;
+    expiresAt: number;
+  }> => {
+    const user = await ctx.auth.getUserIdentity();
+    if (!user) {
+      throw new Error("User not authenticated");
+    }
+    
+    const bucket = process.env.GCS_BUCKET as string;
+    const ttl = Number(process.env.GCS_UPLOAD_URL_TTL_SECONDS || 900);
+
+    if (!bucket) {
+      throw new Error("Missing GCS bucket configuration");
+    }
+
+    const timestamp = Date.now();
+    const objectPath = `cases/${args.caseId}/documents/${crypto.randomUUID()}/${timestamp}-${args.originalFileName}`;
+
+    const { url, bucket: returnedBucket, object, expiresSeconds }: {
+      url: string;
+      bucket: string;
+      object: string;
+      expiresSeconds: number;
+    } = await ctx.runAction(internal.utils.gcs.generateGcsV4SignedUrlAction, {
+      bucket,
+      object: objectPath,
+      expiresSeconds: ttl,
+      method: "PUT",
+      contentType: args.mimeType,
+    });
+
+    return {
+      url,
+      bucket: returnedBucket,
+      object,
+      contentType: args.mimeType,
+      expiresAt: Date.now() + expiresSeconds * 1000,
+    };
   },
 });
 
@@ -24,35 +86,48 @@ export const generateUploadUrl = mutation({
 /**
  * Creates a new document record associated with a case.
  *
+ * Supports two storage backends:
+ * - Convex storage via `fileId`
+ * - Google Cloud Storage via `gcsBucket` and `gcsObject`
+ *
  * @param {Object} args - The function arguments
  * @param {string} args.title - The document title or name
  * @param {string} [args.description] - Optional description of the document
  * @param {string} args.caseId - The ID of the case this document belongs to
  * @param {"contract" | "evidence" | "correspondence" | "legal_brief" | "court_filing" | "other"} [args.documentType] - The type/category of document
- * @param {string} args.fileId - The Convex storage file ID
+ * @param {string} [args.fileId] - Convex storage file ID (legacy backend)
+ * @param {string} [args.gcsBucket] - GCS bucket name when using the GCS backend
+ * @param {string} [args.gcsObject] - GCS object path when using the GCS backend
  * @param {string} args.originalFileName - The original name of the uploaded file
  * @param {string} args.mimeType - The MIME type of the file (e.g., "application/pdf")
  * @param {number} args.fileSize - The size of the file in bytes
  * @param {string[]} [args.tags] - Optional tags for categorizing the document
- * @returns {Promise<string>} The created document's document ID
+ * @returns {Promise<string>} The created document's ID
  * @throws {Error} When not authenticated or lacking full case access
- *
- * @description This function creates a document record linked to a case and stored file.
- * The user must have full access to the case to add documents. The function stores
- * metadata about the file including its original name, size, and type for later retrieval.
  *
  * @example
  * ```javascript
+ * // Using Convex storage
  * const documentId = await createDocument({
  *   title: "Settlement Agreement Draft",
- *   description: "Initial draft of settlement terms",
  *   caseId: "case_123",
  *   documentType: "contract",
  *   fileId: "storage_file_456",
  *   originalFileName: "settlement_draft_v1.pdf",
  *   mimeType: "application/pdf",
- *   fileSize: 245760,
- *   tags: ["settlement", "draft"]
+ *   fileSize: 245760
+ * });
+ *
+ * // Using GCS
+ * const documentId = await createDocument({
+ *   title: "Settlement Agreement Draft",
+ *   caseId: "case_123",
+ *   documentType: "contract",
+ *   gcsBucket: "my-bucket",
+ *   gcsObject: "cases/case_123/documents/abc/file.pdf",
+ *   originalFileName: "file.pdf",
+ *   mimeType: "application/pdf",
+ *   fileSize: 245760
  * });
  * ```
  */
@@ -71,7 +146,10 @@ export const createDocument = mutation({
         v.literal("other"),
       ),
     ),
-    fileId: v.id("_storage"),
+    // Either legacy Convex storage or new GCS metadata
+    fileId: v.optional(v.id("_storage")),
+    gcsBucket: v.optional(v.string()),
+    gcsObject: v.optional(v.string()),
     originalFileName: v.string(),
     mimeType: v.string(),
     fileSize: v.number(),
@@ -81,13 +159,20 @@ export const createDocument = mutation({
     // Verify user has document write permission; FULL access bypasses via hasPermission
     const { currentUser } = await requireDocumentPermission(ctx, args.caseId, "write");
 
-    // Idempotency: avoid duplicate records for the same storage file
-    const existing = await ctx.db
-      .query("documents")
-      .withIndex("by_file_id", q => q.eq("fileId", args.fileId))
-      .first();
-    if (existing) {
-      return existing._id;
+    // Idempotency: avoid duplicate records for the same backing object
+    if (args.fileId) {
+      const existing = await ctx.db
+        .query("documents")
+        .withIndex("by_file_id", q => q.eq("fileId", args.fileId!))
+        .first();
+      if (existing) return existing._id;
+    }
+    if (args.gcsObject) {
+      const existingGcs = await ctx.db
+        .query("documents")
+        .withIndex("by_gcs_object", q => q.eq("gcsObject", args.gcsObject!))
+        .first();
+      if (existingGcs) return existingGcs._id;
     }
 
     const documentId = await ctx.db.insert("documents", {
@@ -95,7 +180,10 @@ export const createDocument = mutation({
       description: args.description,
       caseId: args.caseId,
       documentType: args.documentType,
-      fileId: args.fileId,
+      fileId: args.fileId ?? undefined,
+      storageBackend: args.gcsBucket && args.gcsObject ? "gcs" : "convex",
+      gcsBucket: args.gcsBucket,
+      gcsObject: args.gcsObject,
       originalFileName: args.originalFileName,
       mimeType: args.mimeType,
       fileSize: args.fileSize,
@@ -192,23 +280,35 @@ export const getDocument = query({
  * from Convex storage. The user must have read access to the case that the
  * document belongs to.
  */
-export const getDocumentUrl = query({
+export const getDocumentUrl = action({
   args: {
     documentId: v.id("documents"),
   },
-  handler: async (ctx, args) => {
-    const document = await ctx.db.get(args.documentId);
-    
-    if (!document) {
-      return null;
+  handler: async (ctx, args): Promise<string | null> => {
+    // Fetch document via query to leverage DB and permission checks
+    const document = await ctx.runQuery(api.functions.documents.getDocument, {
+      documentId: args.documentId,
+    });
+    if (!document) return null;
+
+    if (document.storageBackend === "gcs" && document.gcsBucket && document.gcsObject) {
+      const bucket = document.gcsBucket as string;
+      const object = document.gcsObject as string;
+      const ttl = Number(process.env.GCS_DOWNLOAD_URL_TTL_SECONDS || 900);
+      if (!bucket || !object) throw new Error("Missing GCS signing configuration");
+
+      const { url: signedUrl }: { url: string } = await ctx.runAction(
+        internal.utils.gcs.generateGcsV4SignedUrlAction,
+        { bucket, object, expiresSeconds: ttl, method: "GET" }
+      );
+      return signedUrl;
     }
 
-    // Verify user has document read permission
-    await requireDocumentPermission(ctx, document.caseId, "read");
-
-    // Get the signed URL from Convex storage
-    const url = await ctx.storage.getUrl(document.fileId);
-    return url;
+    if (document.fileId) {
+      const legacyUrl = await ctx.storage.getUrl(document.fileId);
+      return legacyUrl;
+    }
+    return null;
   },
 });
 
@@ -260,12 +360,21 @@ export const deleteDocument = mutation({
     });
 
 
-    await ctx.storage.delete(document.fileId);
+    if (document.storageBackend === "gcs" && document.gcsBucket && document.gcsObject) {
+      await ctx.scheduler.runAfter(0, internal.utils.gcs.deleteGcsObjectAction, {
+        bucket: document.gcsBucket,
+        object: document.gcsObject,
+      });
+    } else if (document.fileId) {
+      await ctx.storage.delete(document.fileId);
+    }
     await ctx.db.delete(args.documentId);
 
     console.log("Deleted document:", args.documentId);
   },
 });
+
+
 
 
 // ========================================
@@ -275,25 +384,22 @@ export const deleteDocument = mutation({
 /**
  * Creates a new escrito (legal writing/brief) for a case.
  *
+ * The initial rich-text content is created and tracked via ProseMirror; no content
+ * string is required at creation time.
+ *
  * @param {Object} args - The function arguments
  * @param {string} args.title - The escrito title
- * @param {string} args.content - The escrito content in Tiptap JSON format
  * @param {string} args.caseId - The ID of the case this escrito belongs to
  * @param {number} [args.presentationDate] - Optional timestamp for when this will be presented
  * @param {string} [args.courtName] - Name of the court where this will be filed
  * @param {string} [args.expedientNumber] - Court expedient/case number
- * @returns {Promise<string>} The created escrito's document ID
+ * @returns {Promise<{escritoId: string, prosemirrorId: string}>} IDs for the created escrito and its ProseMirror document
  * @throws {Error} When not authenticated or lacking full case access
- *
- * @description This function creates a new legal writing (escrito) associated with a case.
- * The content is stored as Tiptap JSON for rich text editing. The escrito starts in
- * "borrador" (draft) status and tracks word count and modification timestamps.
  *
  * @example
  * ```javascript
- * const escritoId = await createEscrito({
+ * const { escritoId, prosemirrorId } = await createEscrito({
  *   title: "Motion to Dismiss",
- *   content: '{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"Motion content..."}]}]}',
  *   caseId: "case_123",
  *   courtName: "Supreme Court",
  *   expedientNumber: "SC-2024-001"
@@ -454,21 +560,20 @@ export const getEscritos = query({
 });
 
 /**
- * Retrieves an especific escrito for a specific case.
+ * Retrieves a specific escrito by ID.
  *
  * @param {Object} args - The function arguments
- * @param {string} args.escritoId - The ID of the escrito to get documents for
- * @returns {Promise<Object[]>} Array of document records ordered by creation date (newest first)
- * @throws {Error} When not authenticated or lacking case access
+ * @param {string} args.escritoId - The ID of the escrito to retrieve
+ * @returns {Promise<Object>} The escrito record
+ * @throws {Error} When not authenticated, the escrito is not found, or access is denied
  *
- * @description This function returns an especific escrito belonging to a case,
- * ordered by creation date with the most recent first. The user must have read
- * access to the case to view its escrito.
+ * @description Fetches an escrito and validates the requester has read access to the
+ * corresponding case.
  *
  * @example
  * ```javascript
  * const escrito = await getEscrito({ escritoId: "escrito_123" });
- * // Returns: [{ title: "Motion", status: "borrador", wordCount: 1500 }, ...]
+ * // Returns: { title: "Motion", status: "borrador", ... }
  * ```
  */
 

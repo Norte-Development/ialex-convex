@@ -150,10 +150,16 @@ export const processDocument = internalAction({
         });
         
         // Offload to external microservice instead of internal RAG processing
-        const signedUrl = await ctx.storage.getUrl(document.fileId);
+        const {url} = await ctx.runAction(internal.utils.gcs.generateGcsV4SignedUrlAction, {
+          bucket: document.gcsBucket as string,
+          object: document.gcsObject as string,
+          expiresSeconds: 300, // 5 minutes
+          method: "GET",
+        });
+        
         const callbackUrl = `${process.env.CONVEX_SITE_URL || ''}/webhooks/document-processed`;
         const body = {
-          signedUrl,
+          signedUrl: url,
           contentType: document.mimeType,
           tenantId: String(document.createdBy),
           caseId: String(document.caseId),

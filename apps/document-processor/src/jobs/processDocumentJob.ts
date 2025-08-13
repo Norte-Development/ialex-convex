@@ -40,7 +40,6 @@ export function processDocumentJob(queue: Queue) {
 
       try {
         logger.info("downloading file", { documentId: payload.documentId });
-        console.log("payload.signedUrl", payload.signedUrl);
         const res = await fetch(payload.signedUrl);
         if (!res.ok || !res.body) throw new Error(`download failed: ${res.status}`);
         const arrayBuffer = await res.arrayBuffer();
@@ -51,19 +50,24 @@ export function processDocumentJob(queue: Queue) {
         let fullText = "";
         let method = "mistral-ocr-latest";
         try {
-          fullText = await extractWithMistralOCR(buffer, { pageWindow });
+          fullText = await extractWithMistralOCR(payload.signedUrl, { pageWindow });
         } catch (err) {
           logger.warn("mistral ocr failed, using fallback", { err: String(err) });
           method = "pdf-fallback";
           fullText = await extractWithPdfFallback(buffer, { pageWindow });
         }
-
+        console.log("chunking");
         const chunks = await chunkText(fullText);
 
+        console.log("embedding");
         const embeddings = await embedChunks(chunks);
         const totalChunks = embeddings.length;
 
+        console.log("upserting chunks");
+
         await upsertChunks(payload.tenantId, payload.caseId, payload.documentId, embeddings);
+
+        console.log("callback");
 
         // Success callback to Convex
         const callbackBody = JSON.stringify({
@@ -85,6 +89,8 @@ export function processDocumentJob(queue: Queue) {
           headers: { "Content-Type": "application/json", ...(hmac ? { "X-Signature": hmac } : {}) },
           body: callbackBody,
         });
+
+        console.log("done");
 
         return { totalChunks };
       } catch (error) {
