@@ -9,22 +9,36 @@ const mistral = new Mistral({
   apiKey: process.env.MISTRAL_API_KEY,
 });
 
+async function encodePdf(file: Buffer) {
+  try {
+      // Read the PDF file as a buffer
+      const pdfBuffer = file;
+
+      // Convert the buffer to a Base64-encoded string
+      const base64Pdf = pdfBuffer.toString('base64');
+      return base64Pdf;
+  } catch (error) {
+      console.error(`Error: ${error}`);
+      return null;
+  }
+}
+
 export async function extractWithMistralOCR(buffer: Buffer, _opts: Options): Promise<string> {
   const apiKey = process.env.MISTRAL_API_KEY;
   if (!apiKey) throw new Error("Missing Mistral OCR config");
 
   try {
     // Convert PDF buffer to a data URL so it can be passed via the SDK
-    const base64 = buffer.toString("base64");
+    const base64 = await encodePdf(buffer);
 
     const ocrResponse = await mistral.ocr.process({
-      model: 'mistral-ocr-latest',
+      model: "mistral-ocr-latest",
       document: {
-        type: "document_url",
-        documentUrl: `data:application/pdf;base64,${base64}`,
+          type: "document_url",
+          documentUrl: "data:application/pdf;base64," + base64
       },
-      includeImageBase64: false,
-    });
+      includeImageBase64: true
+  });
 
     const text = (ocrResponse.pages || [])
       .map((page) => page.markdown || "")
