@@ -5,11 +5,10 @@ import fetch from "node-fetch";
 import { pipeline } from "stream/promises";
 import { Readable } from "stream";
 import { logger } from "../middleware/logging";
-import { extractWithMistralOCR } from "../services/mistralOcrService";
-import { extractWithPdfFallback } from "../services/pdfFallbackService";
 import { chunkText } from "../utils/chunking";
 import { embedChunks } from "../services/embeddingService";
 import { upsertChunks } from "../services/qdrantService";
+import { extractDocumentText } from "../services/documentExtractionService";
 
 type JobPayload = {
   signedUrl: string;
@@ -41,23 +40,39 @@ export function processDocumentJob(queue: Queue) {
       const payload = job.data;
 
       try {
-        logger.info("downloading file", { documentId: payload.documentId });
+        logger.info("downloading file", { 
+          documentId: payload.documentId,
+          fileName: payload.originalFileName,
+          contentType: payload.contentType
+        });
+        
         const res = await fetch(payload.signedUrl);
         if (!res.ok || !res.body) throw new Error(`download failed: ${res.status}`);
         const arrayBuffer = await res.arrayBuffer();
         const buffer = Buffer.from(arrayBuffer);
 
         const pageWindow = payload.chunking?.pageWindow ?? 50;
-        // Try OCR first, fall back to PDF text extraction on error
-        let fullText = "";
-        let method = "mistral-ocr-latest";
-        try {
-          fullText = await extractWithMistralOCR(payload.signedUrl, { pageWindow });
-        } catch (err) {
-          logger.warn("mistral ocr failed, using fallback", { err: String(err) });
-          method = "pdf-fallback";
-          fullText = await extractWithPdfFallback(buffer, { pageWindow });
-        }
+        
+        // Extract text using the new multi-format service
+        logger.info("extracting text", { 
+          documentId: payload.documentId,
+          contentType: payload.contentType,
+          fileName: payload.originalFileName
+        });
+        
+        const { text: fullText, method } = await extractDocumentText(
+          buffer,
+          payload.signedUrl,
+          payload.originalFileName,
+          payload.contentType,
+          { pageWindow }
+        );
+
+        logger.info("text extraction completed", {
+          documentId: payload.documentId,
+          method,
+          textLength: fullText.length
+        });
         console.log("chunking");
         const chunks = await chunkText(fullText);
 

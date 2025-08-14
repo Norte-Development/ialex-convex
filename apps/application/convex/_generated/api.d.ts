@@ -29,6 +29,7 @@ import type * as functions_users from "../functions/users.js";
 import type * as http from "../http.js";
 import type * as playground from "../playground.js";
 import type * as prosemirror from "../prosemirror.js";
+import type * as rag_qdrant from "../rag/qdrant.js";
 import type * as rag_rag from "../rag/rag.js";
 import type * as rag_utils from "../rag/utils.js";
 import type * as utils_gcs from "../utils/gcs.js";
@@ -71,6 +72,7 @@ declare const fullApi: ApiFromModules<{
   http: typeof http;
   playground: typeof playground;
   prosemirror: typeof prosemirror;
+  "rag/qdrant": typeof rag_qdrant;
   "rag/rag": typeof rag_rag;
   "rag/utils": typeof rag_utils;
   "utils/gcs": typeof utils_gcs;

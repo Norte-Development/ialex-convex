@@ -1,8 +1,7 @@
 import { createTool, ToolCtx, getThreadMetadata} from "@convex-dev/agent";
 import { components } from "../_generated/api";
 import { z } from "zod";
-import { rag } from "../rag/rag";
-import { getCurrentUserFromAuth } from "../auth_utils";
+import { api } from "../_generated/api";
 
 export const searchLegislationTool = createTool({
     description: "Search legal legislation using hybrid search (dense + sparse embeddings). Supports filtering by category, date range, and jurisdiction.",
@@ -100,12 +99,13 @@ export const searchFallosTool = createTool({
 
 
 export const searchCaseDocumentsTool = createTool({
-  description: "Search case documents using dense embeddings. Useful for finding relevant case documents.",
+  description: "Search case documents using dense embeddings with semantic chunk clustering. Provides coherent context by grouping related chunks and expanding context windows.",
   args: z.object({
     query: z.string().describe("The search query text to find relevant case documents"),
-    limit: z.number().optional().default(10).describe("Maximum number of results to return (default: 10)")
+    limit: z.number().optional().default(10).describe("Maximum number of initial results to return (default: 10)"),
+    contextWindow: z.number().optional().default(4).describe("Number of adjacent chunks to include for context expansion (default: 4)")
   }),
-  handler: async (ctx: ToolCtx, {query, limit}: {query: string, limit: number}) => {
+  handler: async (ctx: ToolCtx, {query, limit, contextWindow}: {query: string, limit: number, contextWindow: number}) => {
     // Use userId directly from ctx instead of getCurrentUserFromAuth
     if (!ctx.userId) {
       throw new Error("Not authenticated");
@@ -122,12 +122,15 @@ export const searchCaseDocumentsTool = createTool({
     if (!threadUserId?.startsWith("case:")) {
       throw new Error("This tool can only be used within a case context");
     }
-    
+
     const caseId = threadUserId.substring(5).split("_")[0]; // Remove "case:" prefix and get caseId part
-    console.log("caseId", caseId);
-    // Construct the case-specific namespace using the same pattern as other functions
-    const namespace = `case-${caseId}`;
-    const context = await rag.search(ctx, {namespace, query});
-    return context.text;
+
+    // Call the action to perform the search with clustering
+    return await ctx.runAction(api.rag.qdrant.searchCaseDocumentsWithClustering, {
+      query,
+      caseId,
+      limit,
+      contextWindow
+    });
   }
 } as any);
