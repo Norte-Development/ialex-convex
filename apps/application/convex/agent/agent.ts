@@ -3,7 +3,7 @@ import { Agent } from "@convex-dev/agent";
 import { openai } from "@ai-sdk/openai";
 import { v } from "convex/values";
 import { action } from "../_generated/server";
-import { searchLegislationTool, searchCaseDocumentsTool } from "./tools";
+import { searchLegislationTool, searchFallosTool, searchCaseDocumentsTool, readDocumentTool, listCaseDocumentsTool } from "./tools";
 
 /**
  * Main agent instance for the legal assistant system.
@@ -21,7 +21,10 @@ export const agent = new Agent(components.agent, {
   chat: openai.chat("gpt-4o-mini"),
   tools: {
     searchLegislation: searchLegislationTool,
-    searchCaseDocuments: searchCaseDocumentsTool
+    searchFallos: searchFallosTool,
+    searchCaseDocuments: searchCaseDocumentsTool,
+    readDocument: readDocumentTool,
+    listCaseDocuments: listCaseDocumentsTool
   }
 });
 

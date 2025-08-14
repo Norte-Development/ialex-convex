@@ -195,4 +195,139 @@ export const searchCaseDocumentsWithClustering = action({
   }
 });
 
+/**
+ * Action that retrieves a specific document chunk by index from Qdrant.
+ * Used for progressive document reading instead of similarity search.
+ */
+export const getDocumentChunkByIndex = action({
+  args: {
+    documentId: v.string(),
+    caseId: v.string(),
+    chunkIndex: v.number()
+  },
+  returns: v.union(v.string(), v.null()),
+  handler: async (ctx, args) => {
+    const { documentId, caseId, chunkIndex } = args;
+
+    try {
+      console.log("Fetching chunk by index:", { documentId, caseId, chunkIndex });
+
+      // Test connection first
+      try {
+        await client.getCollections();
+      } catch (connError) {
+        console.error("Qdrant connection failed:", connError);
+        const errorMessage = connError instanceof Error ? connError.message : String(connError);
+        throw new Error(`Cannot connect to Qdrant: ${errorMessage}`);
+      }
+
+      const collectionName = `ialex_documents`;
+
+      // Use scroll API with metadata filters to find specific chunk
+      const results = await client.scroll(collectionName, {
+        filter: {
+          must: [
+            {
+              key: "documentId",
+              match: { value: documentId }
+            },
+            {
+              key: "chunkIndex", 
+              match: { value: chunkIndex }
+            }
+          ]
+        },
+        with_payload: true,
+        with_vector: false // We don't need vectors for content retrieval
+      });
+
+      console.log("Qdrant scroll results:", {
+        pointsFound: results.points?.length || 0,
+        chunkIndex
+      });
+
+      if (!results.points || results.points.length === 0) {
+        console.log("No chunk found for index:", chunkIndex);
+        return null;
+      }
+
+      const chunk = results.points[0];
+      const chunkText = chunk.payload?.text;
+
+      if (typeof chunkText !== 'string') {
+        console.error("Invalid chunk text format:", typeof chunkText);
+        return null;
+      }
+
+      console.log("Successfully retrieved chunk:", {
+        chunkIndex,
+        textLength: chunkText.length
+      });
+
+      return chunkText;
+
+    } catch (error) {
+      console.error("Error fetching chunk by index:", error);
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      throw new Error(`Failed to fetch chunk: ${errorMessage}`);
+    }
+  }
+});
+
+/**
+ * Action that gets the total number of chunks for a document from Qdrant.
+ * Used to determine document length for progressive reading.
+ */
+export const getDocumentChunkCount = action({
+  args: {
+    documentId: v.string(),
+    caseId: v.string()
+  },
+  returns: v.number(),
+  handler: async (ctx, args) => {
+    const { documentId, caseId } = args;
+
+    try {
+      console.log("Getting chunk count for document:", { documentId, caseId });
+
+      // Test connection first
+      try {
+        await client.getCollections();
+      } catch (connError) {
+        console.error("Qdrant connection failed:", connError);
+        const errorMessage = connError instanceof Error ? connError.message : String(connError);
+        throw new Error(`Cannot connect to Qdrant: ${errorMessage}`);
+      }
+
+      const collectionName = `case-${caseId}`;
+
+      // Use scroll API to count all chunks for this document
+      const results = await client.scroll(collectionName, {
+        filter: {
+          must: [
+            {
+              key: "documentId",
+              match: { value: documentId }
+            }
+          ]
+        },
+        limit: 10000, // Large limit to get all chunks
+        with_payload: false, // Only need count, not content
+        with_vector: false
+      });
+
+      const count = results.points?.length || 0;
+      
+      console.log("Document chunk count:", { documentId, count });
+      
+      return count;
+
+    } catch (error) {
+      console.error("Error getting chunk count:", error);
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      throw new Error(`Failed to get chunk count: ${errorMessage}`);
+    }
+  }
+});
+
 export default client;

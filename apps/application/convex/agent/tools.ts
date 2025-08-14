@@ -1,7 +1,7 @@
 import { createTool, ToolCtx, getThreadMetadata} from "@convex-dev/agent";
 import { components } from "../_generated/api";
 import { z } from "zod";
-import { api } from "../_generated/api";
+import { api, internal } from "../_generated/api";
 
 export const searchLegislationTool = createTool({
     description: "Search legal legislation using hybrid search (dense + sparse embeddings). Supports filtering by category, date range, and jurisdiction.",
@@ -132,5 +132,148 @@ export const searchCaseDocumentsTool = createTool({
       limit,
       contextWindow
     });
+  }
+} as any);
+
+export const readDocumentTool = createTool({
+  description: "Read a document progressively, chunk by chunk. Use this to read through entire documents sequentially without overwhelming token limits. Perfect for systematic document analysis.",
+  args: z.object({
+    documentId: z.string().describe("The ID of the document to read"),
+    chunkIndex: z.number().optional().default(0).describe("Which chunk to read (0-based index). Start with 0 for the beginning.")
+  }),
+  handler: async (ctx: ToolCtx, { documentId, chunkIndex }: { documentId: string, chunkIndex: number }) => {
+    // Verify authentication using agent context
+    if (!ctx.userId) {
+      throw new Error("Not authenticated");
+    }
+    
+    // Extract caseId from thread metadata
+    if (!ctx.threadId) {
+      throw new Error("No thread context available");
+    }
+    
+    const { userId: threadUserId } = await getThreadMetadata(ctx, components.agent, { threadId: ctx.threadId });
+    
+    // Extract caseId from threadUserId format: "case:${caseId}_${userId}"
+    if (!threadUserId?.startsWith("case:")) {
+      throw new Error("This tool can only be used within a case context");
+    }
+
+    const caseId = threadUserId.substring(5).split("_")[0]; // Remove "case:" prefix and get caseId part
+
+    // Get document metadata using internal helper (bypasses permission checks)
+    const document = await ctx.runQuery(internal.functions.documents.getDocumentForAgent, { 
+      documentId: documentId as any
+    });
+    
+    if (!document) {
+      throw new Error("Document not found");
+    }
+
+    // Verify document belongs to the current case
+    if (document.caseId !== caseId) {
+      throw new Error("Document does not belong to the current case");
+    }
+
+    // Check if document is processed
+    if (document.processingStatus !== "completed") {
+      throw new Error(`Document is not ready for reading. Status: ${document.processingStatus}`);
+    }
+
+    // Get total chunks (prefer DB field, fallback to Qdrant count)
+    let totalChunks = document.totalChunks || 0;
+    if (totalChunks === 0) {
+      totalChunks = await ctx.runAction(api.rag.qdrant.getDocumentChunkCount, {
+        documentId,
+        caseId
+      });
+    }
+
+    // Validate chunk index
+    if (chunkIndex < 0) {
+      throw new Error("Chunk index cannot be negative");
+    }
+    
+    if (chunkIndex >= totalChunks) {
+      throw new Error(`Chunk index ${chunkIndex} is beyond document length (${totalChunks} chunks)`);
+    }
+
+    // Fetch the specific chunk from Qdrant
+    const chunkContent = await ctx.runAction(api.rag.qdrant.getDocumentChunkByIndex, {
+      documentId,
+      caseId,
+      chunkIndex
+    });
+
+    if (!chunkContent) {
+      throw new Error(`Chunk ${chunkIndex} not found in document`);
+    }
+
+    return {
+      documentId,
+      documentTitle: document.title,
+      chunkIndex,
+      totalChunks,
+      content: chunkContent,
+      hasMoreChunks: chunkIndex < totalChunks - 1,
+      nextChunkIndex: chunkIndex + 1,
+      progress: `${chunkIndex + 1}/${totalChunks}`,
+      isLastChunk: chunkIndex === totalChunks - 1
+    };
+  }
+} as any);
+
+export const listCaseDocumentsTool = createTool({
+  description: "List all documents in the current case with their processing status and chunk counts. Use this to see what documents are available for reading.",
+  args: z.object({}),
+  handler: async (ctx: ToolCtx, {}) => {
+    // Verify authentication using agent context
+    if (!ctx.userId) {
+      throw new Error("Not authenticated");
+    }
+    
+    // Extract caseId from thread metadata
+    if (!ctx.threadId) {
+      throw new Error("No thread context available");
+    }
+    
+    const { userId: threadUserId } = await getThreadMetadata(ctx, components.agent, { threadId: ctx.threadId });
+    
+    // Extract caseId from threadUserId format: "case:${caseId}_${userId}"
+    if (!threadUserId?.startsWith("case:")) {
+      throw new Error("This tool can only be used within a case context");
+    }
+
+    const caseId = threadUserId.substring(5).split("_")[0]; // Remove "case:" prefix and get caseId part
+
+    // Get all documents for this case using internal helper (bypasses permission checks)
+    const documents = await ctx.runQuery(internal.functions.documents.getDocumentsForAgent, { 
+      caseId: caseId as any
+    });
+
+    // Format document information for the agent
+    const documentList = documents.map(doc => ({
+      documentId: doc._id,
+      title: doc.title,
+      fileName: doc.originalFileName,
+      documentType: doc.documentType || "other",
+      processingStatus: doc.processingStatus,
+      totalChunks: doc.totalChunks || 0,
+      canRead: doc.processingStatus === "completed" && (doc.totalChunks || 0) > 0,
+      fileSize: doc.fileSize,
+      createdAt: new Date(doc._creationTime).toISOString()
+    }));
+
+    const summary = {
+      totalDocuments: documentList.length,
+      readableDocuments: documentList.filter(d => d.canRead).length,
+      processingDocuments: documentList.filter(d => d.processingStatus === "processing").length,
+      failedDocuments: documentList.filter(d => d.processingStatus === "failed").length
+    };
+
+    return {
+      summary,
+      documents: documentList
+    };
   }
 } as any);
