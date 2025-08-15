@@ -380,18 +380,15 @@ export const deleteDocument = mutation({
     // Verify user has document delete permission
     await requireDocumentPermission(ctx, document.caseId, "delete");
     
-    const namespace = await rag.getNamespace(ctx, { namespace: `case-${document.caseId}` });
-    if (namespace) {
-      try {
-        await rag.deleteByKeyAsync(ctx, {
-          key: `document-${args.documentId}`,
-          namespaceId: namespace.namespaceId,
-        });
-      } catch {
-        // Ignore RAG deletion failure; continue deleting storage and DB record
-      }
+    // Delete document chunks from Qdrant
+    try {
+      await ctx.scheduler.runAfter(0, internal.rag.qdrant.deleteDocumentChunks, {
+        documentId: args.documentId,
+        caseId: document.caseId,
+      });
+    } catch {
+      // Ignore Qdrant deletion failure; continue deleting storage and DB record
     }
-
 
     if (document.storageBackend === "gcs" && document.gcsBucket && document.gcsObject) {
       await ctx.scheduler.runAfter(0, internal.utils.gcs.deleteGcsObjectAction, {

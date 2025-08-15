@@ -1,6 +1,6 @@
 'use node'
 import {QdrantClient} from '@qdrant/js-client-rest';
-import { action } from "../_generated/server";
+import { action, internalAction } from "../_generated/server";
 import { v } from "convex/values";
 import { embed } from "ai";
 import { openai } from "@ai-sdk/openai";
@@ -326,6 +326,79 @@ export const getDocumentChunkCount = action({
       console.error("Error getting chunk count:", error);
       const errorMessage = error instanceof Error ? error.message : String(error);
       throw new Error(`Failed to get chunk count: ${errorMessage}`);
+    }
+  }
+});
+
+/**
+ * Action that deletes all chunks for a specific document from Qdrant.
+ * Used when a document is deleted from the system.
+ */
+export const deleteDocumentChunks = internalAction({
+  args: {
+    documentId: v.string(),
+    caseId: v.string()
+  },
+  returns: v.boolean(),
+  handler: async (ctx, args) => {
+    const { documentId, caseId } = args;
+
+    try {
+      console.log("Deleting document chunks from Qdrant:", { documentId, caseId });
+
+      // Test connection first
+      try {
+        await client.getCollections();
+      } catch (connError) {
+        console.error("Qdrant connection failed:", connError);
+        const errorMessage = connError instanceof Error ? connError.message : String(connError);
+        throw new Error(`Cannot connect to Qdrant: ${errorMessage}`);
+      }
+
+      const collectionName = `ialex_documents`;
+
+      // First, find all points for this document
+      const results = await client.scroll(collectionName, {
+        filter: {
+          must: [
+            {
+              key: "documentId",
+              match: { value: documentId }
+            },
+            {
+              key: "caseId",
+              match: { value: caseId }
+            }
+          ]
+        },
+        limit: 10000, // Large limit to get all chunks
+        with_payload: false,
+        with_vector: false
+      });
+
+      if (!results.points || results.points.length === 0) {
+        console.log("No chunks found for document:", documentId);
+        return true;
+      }
+
+      // Extract point IDs for deletion
+      const pointIds = results.points.map(point => point.id);
+      
+      console.log(`Found ${pointIds.length} chunks to delete for document:`, documentId);
+
+      // Delete all points for this document
+      await client.delete(collectionName, {
+        wait: true,
+        points: pointIds
+      });
+
+      console.log("Successfully deleted document chunks:", { documentId, chunksDeleted: pointIds.length });
+      return true;
+
+    } catch (error) {
+      console.error("Error deleting document chunks:", error);
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      throw new Error(`Failed to delete document chunks: ${errorMessage}`);
     }
   }
 });
