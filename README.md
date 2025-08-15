@@ -33,6 +33,32 @@ Then:
 
 If you want to sync Clerk user data via webhooks, check out this [example repo](https://github.com/thomasballinger/convex-clerk-users-table/).
 
+## Document Processor Microservice
+
+Run the external processor (Express) alongside Convex during development in another terminal:
+
+```
+pnpm dev:processor
+```
+
+### Environment Setup for Document Processor
+
+1. Copy the environment template:
+```bash
+cp apps/document-processor/env.example apps/document-processor/.env
+```
+
+2. Configure the required environment variables in `apps/document-processor/.env`:
+   - `OPENAI_API_KEY`: Your OpenAI API key for embeddings
+   - `QDRANT_URL`: Qdrant vector database URL (default: http://localhost:6333)
+   - `QDRANT_API_KEY`: Qdrant API key (if required)
+   - `MISTRAL_API_KEY`: Your Mistral API key for OCR
+   - `MISTRAL_OCR_ENDPOINT`: Mistral OCR endpoint URL
+   - `REDIS_URL`: Redis connection URL (default: redis://localhost:6379)
+   - `HMAC_SECRET`: Secret for webhook signature verification
+
+3. Ensure Redis and Qdrant are running locally or update the URLs to point to your services.
+
 ## Learn more
 
 To learn more about developing your project with Convex, check out:

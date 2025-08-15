@@ -4,7 +4,7 @@ This document outlines the implementation of asynchronous document processing fo
 
 ## Overview
 
-The system processes uploaded documents asynchronously to avoid blocking the UI. Documents go through a pipeline of text extraction, chunking, and embedding generation before becoming searchable by the AI agent.
+The system now offloads heavy processing to an external Express microservice (`apps/document-processor`) using Mistral OCR as the primary extractor and PDF text extraction as a fallback. Convex acts as orchestrator/UI and receives completion callbacks at `/webhooks/document-processed` with HMAC verification. Chunks and embeddings are stored in Qdrant with payload filters by `tenantId`, `caseId`, and `documentId`.
 
 ## Schema Changes
 
