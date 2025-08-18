@@ -7,31 +7,31 @@ const granularPermissionType = v.union(
   v.literal("case.view"),
   v.literal("case.edit"),
   v.literal("case.delete"),
-  
+
   // Document permissions
   v.literal("documents.read"),
   v.literal("documents.write"),
   v.literal("documents.delete"),
-  
+
   // Escrito permissions
   v.literal("escritos.read"),
   v.literal("escritos.write"),
   v.literal("escritos.delete"),
-  
+
   // Client permissions
   v.literal("clients.read"),
   v.literal("clients.write"),
   v.literal("clients.delete"),
-  
+
   // Team permissions
   v.literal("teams.read"),
   v.literal("teams.write"),
-  
+
   // Chat permissions
   v.literal("chat.access"),
-  
+
   // Full access
-  v.literal("full")
+  v.literal("full"),
 );
 
 export default defineSchema({
@@ -39,18 +39,18 @@ export default defineSchema({
   users: defineTable({
     // Clerk integration
     clerkId: v.string(), // Clerk user ID for auth
-    
+
     // Basic user info
     name: v.string(),
     email: v.string(),
     isActive: v.boolean(),
     profileImage: v.optional(v.id("_storage")),
     role: v.optional(v.string()),
-    
+
     // Onboarding and profile completion
     isOnboardingComplete: v.boolean(),
     onboardingStep: v.optional(v.number()), // Track current onboarding step
-    
+
     // Extended profile information (collected during onboarding)
     specializations: v.optional(v.array(v.string())), // Legal specializations
     barNumber: v.optional(v.string()), // Bar registration number
@@ -58,13 +58,15 @@ export default defineSchema({
     workLocation: v.optional(v.string()), // Work location/city
     experienceYears: v.optional(v.number()), // Years of experience
     bio: v.optional(v.string()), // Professional biography
-    
+
     // User preferences
-    preferences: v.optional(v.object({
-      language: v.string(),
-      timezone: v.string(),
-      notifications: v.boolean(),
-    })),
+    preferences: v.optional(
+      v.object({
+        language: v.string(),
+        timezone: v.string(),
+        notifications: v.boolean(),
+      }),
+    ),
   })
     .index("by_clerk_id", ["clerkId"])
     .index("by_email", ["email"])
@@ -96,10 +98,10 @@ export default defineSchema({
     description: v.optional(v.string()),
     status: v.union(
       v.literal("pendiente"),
-      v.literal("en progreso"), 
+      v.literal("en progreso"),
       v.literal("completado"),
       v.literal("archivado"),
-      v.literal("cancelado")
+      v.literal("cancelado"),
     ),
     category: v.optional(v.string()), // e.g., "Derecho Civil", "Derecho Mercantil"
     priority: v.union(v.literal("low"), v.literal("medium"), v.literal("high")),
@@ -132,19 +134,39 @@ export default defineSchema({
     .index("by_added_by", ["addedBy"])
     .index("by_active_status", ["isActive"]),
 
+  // Folders table - organizational folders
+  folders: defineTable({
+    name: v.string(),
+    description: v.optional(v.string()),
+    caseId: v.id("cases"),
+    parentFolderId: v.optional(v.id("folders")), // subfolder support
+    color: v.optional(v.string()), // color optional for ui
+    isArchived: v.boolean(),
+    createdBy: v.id("users"),
+    sortOrder: v.optional(v.number()),
+  })
+    .index("by_case", ["caseId"])
+    .index("by_parent", ["parentFolderId"])
+    .index("by_case_and_parent", ["caseId", "parentFolderId"])
+    .index("by_created_by", ["createdBy"])
+    .index("by_archived_status", ["isArchived"]),
+
   // Documents table - file-based documents stored in Convex storage or GCS
   documents: defineTable({
     title: v.string(),
     description: v.optional(v.string()),
     caseId: v.id("cases"),
-    documentType: v.optional(v.union(
-      v.literal("contract"),
-      v.literal("evidence"),
-      v.literal("correspondence"),
-      v.literal("legal_brief"),
-      v.literal("court_filing"),
-      v.literal("other")
-    )),
+    folderId: v.optional(v.id("folders")),
+    documentType: v.optional(
+      v.union(
+        v.literal("contract"),
+        v.literal("evidence"),
+        v.literal("correspondence"),
+        v.literal("legal_brief"),
+        v.literal("court_filing"),
+        v.literal("other"),
+      ),
+    ),
     // Convex storage file id (legacy/backward compatible)
     fileId: v.optional(v.id("_storage")),
     // GCS metadata (new path)
@@ -157,22 +179,26 @@ export default defineSchema({
     createdBy: v.id("users"),
     tags: v.optional(v.array(v.string())),
     // Processing status fields
-    processingStatus: v.optional(v.union(
-      v.literal("pending"),    // Document uploaded, waiting to be processed
-      v.literal("processing"), // Currently being chunked and embedded
-      v.literal("completed"),  // Successfully processed with chunks
-      v.literal("failed")      // Processing failed
-    )),
+    processingStatus: v.optional(
+      v.union(
+        v.literal("pending"), // Document uploaded, waiting to be processed
+        v.literal("processing"), // Currently being chunked and embedded
+        v.literal("completed"), // Successfully processed with chunks
+        v.literal("failed"), // Processing failed
+      ),
+    ),
     processingStartedAt: v.optional(v.number()),
     processingCompletedAt: v.optional(v.number()),
     processingError: v.optional(v.string()),
     totalChunks: v.optional(v.number()), // Number of chunks created
   })
     .index("by_case", ["caseId"])
+    .index("by_folder", ["folderId"])
+    .index("by_case_and_folder", ["caseId", "folderId"])
     .index("by_type", ["documentType"])
     .index("by_created_by", ["createdBy"])
-    .index("by_file_id", ["fileId"]) 
-    .index("by_gcs_object", ["gcsObject"]) 
+    .index("by_file_id", ["fileId"])
+    .index("by_gcs_object", ["gcsObject"])
     .index("by_processing_status", ["processingStatus"]),
 
   // Escritos table - Tiptap JSON documents (legal writings/briefs)
@@ -181,10 +207,7 @@ export default defineSchema({
     title: v.string(),
     prosemirrorId: v.string(), // Required Tiptap JSON content
     caseId: v.id("cases"),
-    status: v.union(
-      v.literal("borrador"),
-      v.literal("terminado")
-    ),
+    status: v.union(v.literal("borrador"), v.literal("terminado")),
     presentationDate: v.optional(v.number()),
     courtName: v.optional(v.string()),
     expedientNumber: v.optional(v.string()),
@@ -208,7 +231,7 @@ export default defineSchema({
     category: v.string(), // e.g., "Derecho Civil", "Derecho Mercantil"
     templateType: v.union(
       v.literal("escrito"), // Tiptap JSON template for escritos
-      v.literal("document") // File-based template for documents
+      v.literal("document"), // File-based template for documents
     ),
     // For escrito templates (Tiptap JSON)
     prosemirrorId: v.optional(v.string()), // Tiptap JSON template content
@@ -245,7 +268,7 @@ export default defineSchema({
     role: v.union(
       v.literal("secretario"),
       v.literal("abogado"),
-      v.literal("admin")
+      v.literal("admin"),
     ),
     joinedAt: v.number(),
     addedBy: v.id("users"),
@@ -263,7 +286,7 @@ export default defineSchema({
     teamId: v.id("teams"),
     accessLevel: v.union(
       v.literal("full"), // Full access - can see and edit everything
-      v.literal("read")  // Read-only access - can only view
+      v.literal("read"), // Read-only access - can only view
     ),
     grantedBy: v.id("users"),
     isActive: v.boolean(),
@@ -316,12 +339,16 @@ export default defineSchema({
     email: v.string(),
     invitedBy: v.id("users"),
     token: v.string(), // Unique invitation token
-    role: v.union(v.literal("secretario"), v.literal("abogado"), v.literal("admin")),
+    role: v.union(
+      v.literal("secretario"),
+      v.literal("abogado"),
+      v.literal("admin"),
+    ),
     status: v.union(
-      v.literal("pending"), 
-      v.literal("accepted"), 
-      v.literal("expired"), 
-      v.literal("cancelled")
+      v.literal("pending"),
+      v.literal("accepted"),
+      v.literal("expired"),
+      v.literal("cancelled"),
     ),
     expiresAt: v.number(), // Timestamp when invitation expires
     acceptedAt: v.optional(v.number()),
@@ -334,5 +361,4 @@ export default defineSchema({
     .index("by_invited_by", ["invitedBy"])
     .index("by_team_and_email", ["teamId", "email"])
     .index("by_expires_at", ["expiresAt"]),
-
 });
