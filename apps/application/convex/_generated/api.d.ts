@@ -19,7 +19,6 @@ import type * as functions_cases from "../functions/cases.js";
 import type * as functions_clients from "../functions/clients.js";
 import type * as functions_documentProcessing from "../functions/documentProcessing.js";
 import type * as functions_documents from "../functions/documents.js";
-import type * as functions_folders from "../functions/folders.js";
 import type * as functions_index from "../functions/index.js";
 import type * as functions_legalDb from "../functions/legalDb.js";
 import type * as functions_permissions from "../functions/permissions.js";
@@ -63,7 +62,6 @@ declare const fullApi: ApiFromModules<{
   "functions/clients": typeof functions_clients;
   "functions/documentProcessing": typeof functions_documentProcessing;
   "functions/documents": typeof functions_documents;
-  "functions/folders": typeof functions_folders;
   "functions/index": typeof functions_index;
   "functions/legalDb": typeof functions_legalDb;
   "functions/permissions": typeof functions_permissions;
@@ -112,18 +110,6 @@ export declare const components: {
         "internal",
         { olderThan?: number },
         null
-      >;
-      createManualEmail: FunctionReference<
-        "mutation",
-        "internal",
-        {
-          from: string;
-          headers?: Array<{ name: string; value: string }>;
-          replyTo?: Array<string>;
-          subject: string;
-          to: string;
-        },
-        string
       >;
       get: FunctionReference<
         "query",
@@ -200,25 +186,6 @@ export declare const components: {
           to: string;
         },
         string
-      >;
-      updateManualEmail: FunctionReference<
-        "mutation",
-        "internal",
-        {
-          emailId: string;
-          errorMessage?: string;
-          resendId?: string;
-          status:
-            | "waiting"
-            | "queued"
-            | "cancelled"
-            | "sent"
-            | "delivered"
-            | "delivery_delayed"
-            | "bounced"
-            | "failed";
-        },
-        null
       >;
     };
   };
