@@ -14,6 +14,8 @@ import {
   Plus,
   Archive,
   RotateCcw,
+  Check,
+  X,
 } from "lucide-react";
 import {
   Collapsible,
@@ -67,9 +69,23 @@ export default function CaseSidebar() {
   );
   const [isCreateEscritoOpen, setIsCreateEscritoOpen] = useState(false);
   const [isArchivadosOpen, setIsArchivadosOpen] = useState(false);
+  const [isCreatingFolder, setIsCreatingFolder] = useState(false);
+  const [newFolderName, setNewFolderName] = useState("");
+  const [editingFolderId, setEditingFolderId] = useState<Id<"folders"> | null>(
+    null,
+  );
+  const [editingFolderName, setEditingFolderName] = useState("");
+
+  // Folder hierarchy states
+  const [currentParentFolder, setCurrentParentFolder] =
+    useState<Id<"folders"> | null>(null);
+  const [expandedFolders, setExpandedFolders] = useState<Set<string>>(
+    new Set(),
+  );
+  const [creatingInFolder, setCreatingInFolder] =
+    useState<Id<"folders"> | null>(null);
 
   // For document Trigger
-
   const [showAddDocument, setShowAddDocument] = useState(false);
 
   const basePath = `/caso/${id}`;
@@ -88,6 +104,21 @@ export default function CaseSidebar() {
 
   // Archive mutation
   const archiveEscrito = useMutation(api.functions.documents.archiveEscrito);
+
+  // Folder mutations
+  const createFolder = useMutation(api.functions.folders.createFolder);
+  const updateFolder = useMutation(api.functions.folders.updateFolder);
+
+  // Fetch folders for the current case and current parent folder
+  const folders = useQuery(
+    api.functions.folders.getFoldersForCase,
+    currentCase
+      ? {
+          caseId: currentCase._id,
+          parentFolderId: currentParentFolder || undefined,
+        }
+      : "skip",
+  );
 
   const handleNavigationFromCase = () => {
     setIsInCaseContext(true);
@@ -113,6 +144,73 @@ export default function CaseSidebar() {
         "Error al archivar/desarchivar el escrito. Por favor intenta de nuevo.",
       );
     }
+  };
+
+  const handleCreateFolder = async () => {
+    if (!currentCase) return;
+
+    try {
+      const folderName = newFolderName.trim() || "Nueva carpeta";
+      await createFolder({
+        name: folderName,
+        caseId: currentCase._id,
+      });
+
+      // Reset states
+      setIsCreatingFolder(false);
+      setNewFolderName("");
+      setShowAddDocument(false);
+    } catch (error) {
+      console.error("Error creating folder:", error);
+      alert("Error al crear la carpeta. Por favor intenta de nuevo.");
+    }
+  };
+
+  const handleCancelCreateFolder = () => {
+    setIsCreatingFolder(false);
+    setNewFolderName("");
+  };
+
+  const handleStartCreateFolder = () => {
+    setIsCreatingFolder(true);
+    setNewFolderName("");
+  };
+
+  const handleStartEditFolder = (
+    folderId: Id<"folders">,
+    currentName: string,
+  ) => {
+    setEditingFolderId(folderId);
+    setEditingFolderName(currentName);
+  };
+
+  const handleSaveEditFolder = async () => {
+    if (!editingFolderId) return;
+
+    try {
+      const newName = editingFolderName.trim();
+      if (!newName) {
+        handleCancelEditFolder();
+        return;
+      }
+
+      await updateFolder({
+        folderId: editingFolderId,
+        name: newName,
+      });
+
+      // Reset editing states
+      setEditingFolderId(null);
+      setEditingFolderName("");
+    } catch (error) {
+      console.error("Error updating folder:", error);
+      alert("Error al actualizar la carpeta. Por favor intenta de nuevo.");
+    }
+  };
+
+  const handleCancelEditFolder = () => {
+    setEditingFolderId(null);
+    setEditingFolderName("");
   };
 
   const getStatusColor = (status: string) => {
@@ -322,7 +420,10 @@ export default function CaseSidebar() {
 
                   {showAddDocument && (
                     <div className="flex justify-center bg-gray-200 rounded-md px-3 flex-col items-center gap-1">
-                      <button className="cursor-pointer hover:text-blue-700">
+                      <button
+                        className="cursor-pointer hover:text-blue-700"
+                        onClick={handleStartCreateFolder}
+                      >
                         Crear Carpeta
                       </button>
                       <button className="cursor-pointer hover:text-blue-700">
@@ -331,6 +432,100 @@ export default function CaseSidebar() {
                     </div>
                   )}
                 </div>
+
+                {/* Create folder input */}
+                {isCreatingFolder && (
+                  <div className="flex items-center gap-1 p-2 bg-blue-50 rounded border">
+                    <Folder size={16} className="text-black" />
+                    <input
+                      type="text"
+                      value={newFolderName}
+                      onChange={(e) => setNewFolderName(e.target.value)}
+                      placeholder="Nueva carpeta"
+                      className="flex-1 text-xs border-none outline-none bg-transparent"
+                      autoFocus
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          handleCreateFolder();
+                        } else if (e.key === "Escape") {
+                          handleCancelCreateFolder();
+                        }
+                      }}
+                    />
+                    <button
+                      onClick={handleCreateFolder}
+                      className="p-1 hover:bg-green-100 rounded"
+                    >
+                      <Check size={12} className="text-green-600" />
+                    </button>
+                    <button
+                      onClick={handleCancelCreateFolder}
+                      className="p-1 hover:bg-red-100 rounded"
+                    >
+                      <X size={12} className="text-red-600" />
+                    </button>
+                  </div>
+                )}
+
+                {/* Display folders */}
+                {folders && folders.length > 0 && (
+                  <div className="flex flex-col gap-1">
+                    {folders.map((folder) => (
+                      <div
+                        key={folder._id}
+                        className="flex items-center gap-1 p-1 rounded hover:bg-gray-50"
+                      >
+                        <Folder size={16} className="text-blue-600" />
+                        {editingFolderId === folder._id ? (
+                          // Edit mode
+                          <>
+                            <input
+                              type="text"
+                              value={editingFolderName}
+                              onChange={(e) =>
+                                setEditingFolderName(e.target.value)
+                              }
+                              className="flex-1 text-xs border-none outline-none bg-transparent"
+                              autoFocus
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter") {
+                                  handleSaveEditFolder();
+                                } else if (e.key === "Escape") {
+                                  handleCancelEditFolder();
+                                }
+                              }}
+                              onBlur={handleSaveEditFolder}
+                            />
+                            <button
+                              onClick={handleSaveEditFolder}
+                              className="p-1 hover:bg-green-100 rounded"
+                            >
+                              <Check size={12} className="text-green-600" />
+                            </button>
+                            <button
+                              onClick={handleCancelEditFolder}
+                              className="p-1 hover:bg-red-100 rounded"
+                            >
+                              <X size={12} className="text-red-600" />
+                            </button>
+                          </>
+                        ) : (
+                          // View mode
+                          <span
+                            className="text-xs truncate flex-1 cursor-pointer"
+                            onDoubleClick={() =>
+                              handleStartEditFolder(folder._id, folder.name)
+                            }
+                            title="Doble clic para editar"
+                          >
+                            {folder.name}
+                          </span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+
                 <CaseDocuments basePath={basePath} />
               </CollapsibleContent>
             </Collapsible>
