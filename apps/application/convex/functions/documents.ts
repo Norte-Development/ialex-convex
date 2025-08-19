@@ -1,16 +1,13 @@
 import { v } from "convex/values";
 import { query, mutation, action, internalQuery } from "../_generated/server";
-import { 
-  requireDocumentPermission, 
+import {
+  requireDocumentPermission,
   requireEscritoPermission,
-  getCurrentUserFromAuth 
+  getCurrentUserFromAuth,
 } from "../auth_utils";
 import { prosemirrorSync } from "../prosemirror";
 import { internal, api } from "../_generated/api";
 import { rag } from "../rag/rag";
-
-
-
 
 /**
  * Generates a Google Cloud Storage V4 signed URL for client-side uploads.
@@ -33,7 +30,10 @@ export const generateUploadUrl = action({
     mimeType: v.string(),
     fileSize: v.number(),
   },
-  handler: async (ctx, args): Promise<{
+  handler: async (
+    ctx,
+    args,
+  ): Promise<{
     url: string;
     bucket: string;
     object: string;
@@ -44,7 +44,7 @@ export const generateUploadUrl = action({
     if (!user) {
       throw new Error("User not authenticated");
     }
-    
+
     const bucket = process.env.GCS_BUCKET as string;
     const ttl = Number(process.env.GCS_UPLOAD_URL_TTL_SECONDS || 900);
 
@@ -55,7 +55,12 @@ export const generateUploadUrl = action({
     const timestamp = Date.now();
     const objectPath = `cases/${args.caseId}/documents/${crypto.randomUUID()}/${timestamp}-${args.originalFileName}`;
 
-    const { url, bucket: returnedBucket, object, expiresSeconds }: {
+    const {
+      url,
+      bucket: returnedBucket,
+      object,
+      expiresSeconds,
+    }: {
       url: string;
       bucket: string;
       object: string;
@@ -77,7 +82,6 @@ export const generateUploadUrl = action({
     };
   },
 });
-
 
 // ========================================
 // DOCUMENT MANAGEMENT
@@ -157,20 +161,24 @@ export const createDocument = mutation({
   },
   handler: async (ctx, args) => {
     // Verify user has document write permission; FULL access bypasses via hasPermission
-    const { currentUser } = await requireDocumentPermission(ctx, args.caseId, "write");
+    const { currentUser } = await requireDocumentPermission(
+      ctx,
+      args.caseId,
+      "write",
+    );
 
     // Idempotency: avoid duplicate records for the same backing object
     if (args.fileId) {
       const existing = await ctx.db
         .query("documents")
-        .withIndex("by_file_id", q => q.eq("fileId", args.fileId!))
+        .withIndex("by_file_id", (q) => q.eq("fileId", args.fileId!))
         .first();
       if (existing) return existing._id;
     }
     if (args.gcsObject) {
       const existingGcs = await ctx.db
         .query("documents")
-        .withIndex("by_gcs_object", q => q.eq("gcsObject", args.gcsObject!))
+        .withIndex("by_gcs_object", (q) => q.eq("gcsObject", args.gcsObject!))
         .first();
       if (existingGcs) return existingGcs._id;
     }
@@ -194,9 +202,13 @@ export const createDocument = mutation({
     });
 
     // Schedule the RAG processing to run asynchronously
-    await ctx.scheduler.runAfter(0, internal.functions.documentProcessing.processDocument, {
-      documentId,
-    });
+    await ctx.scheduler.runAfter(
+      0,
+      internal.functions.documentProcessing.processDocument,
+      {
+        documentId,
+      },
+    );
 
     console.log("Created document with id:", documentId);
     return documentId;
@@ -240,6 +252,31 @@ export const getDocuments = query({
 });
 
 /**
+ * Retrieves documents for a specific case filtered by folder.
+ * If folderId is omitted, returns documents without any folder (root level).
+ */
+export const getDocumentsInFolder = query({
+  args: {
+    caseId: v.id("cases"),
+    folderId: v.optional(v.id("folders")),
+  },
+  handler: async (ctx, args) => {
+    // Verify user has document read permission
+    await requireDocumentPermission(ctx, args.caseId, "read");
+
+    const documents = await ctx.db
+      .query("documents")
+      .withIndex("by_case_and_folder", (q) =>
+        q.eq("caseId", args.caseId).eq("folderId", args.folderId ?? undefined),
+      )
+      .order("desc")
+      .collect();
+
+    return documents;
+  },
+});
+
+/**
  * Retrieves a specific document by ID.
  *
  * @param {Object} args - The function arguments
@@ -256,7 +293,7 @@ export const getDocument = query({
   },
   handler: async (ctx, args) => {
     const document = await ctx.db.get(args.documentId);
-    
+
     if (!document) {
       return null;
     }
@@ -324,15 +361,20 @@ export const getDocumentUrl = action({
     });
     if (!document) return null;
 
-    if (document.storageBackend === "gcs" && document.gcsBucket && document.gcsObject) {
+    if (
+      document.storageBackend === "gcs" &&
+      document.gcsBucket &&
+      document.gcsObject
+    ) {
       const bucket = document.gcsBucket as string;
       const object = document.gcsObject as string;
       const ttl = Number(process.env.GCS_DOWNLOAD_URL_TTL_SECONDS || 900);
-      if (!bucket || !object) throw new Error("Missing GCS signing configuration");
+      if (!bucket || !object)
+        throw new Error("Missing GCS signing configuration");
 
       const { url: signedUrl }: { url: string } = await ctx.runAction(
         internal.utils.gcs.generateGcsV4SignedUrlAction,
-        { bucket, object, expiresSeconds: ttl, method: "GET" }
+        { bucket, object, expiresSeconds: ttl, method: "GET" },
       );
       return signedUrl;
     }
@@ -344,8 +386,6 @@ export const getDocumentUrl = action({
     return null;
   },
 });
-
-
 
 /**
  * Deletes a document and all associated data (file, RAG chunks, and database entry).
@@ -379,22 +419,34 @@ export const deleteDocument = mutation({
 
     // Verify user has document delete permission
     await requireDocumentPermission(ctx, document.caseId, "delete");
-    
+
     // Delete document chunks from Qdrant
     try {
-      await ctx.scheduler.runAfter(0, internal.rag.qdrant.deleteDocumentChunks, {
-        documentId: args.documentId,
-        caseId: document.caseId,
-      });
+      await ctx.scheduler.runAfter(
+        0,
+        internal.rag.qdrant.deleteDocumentChunks,
+        {
+          documentId: args.documentId,
+          caseId: document.caseId,
+        },
+      );
     } catch {
       // Ignore Qdrant deletion failure; continue deleting storage and DB record
     }
 
-    if (document.storageBackend === "gcs" && document.gcsBucket && document.gcsObject) {
-      await ctx.scheduler.runAfter(0, internal.utils.gcs.deleteGcsObjectAction, {
-        bucket: document.gcsBucket,
-        object: document.gcsObject,
-      });
+    if (
+      document.storageBackend === "gcs" &&
+      document.gcsBucket &&
+      document.gcsObject
+    ) {
+      await ctx.scheduler.runAfter(
+        0,
+        internal.utils.gcs.deleteGcsObjectAction,
+        {
+          bucket: document.gcsBucket,
+          object: document.gcsObject,
+        },
+      );
     } else if (document.fileId) {
       await ctx.storage.delete(document.fileId);
     }
@@ -403,9 +455,6 @@ export const deleteDocument = mutation({
     console.log("Deleted document:", args.documentId);
   },
 });
-
-
-
 
 // ========================================
 // ESCRITO MANAGEMENT (Simplified)
@@ -446,7 +495,11 @@ export const createEscrito = mutation({
   },
   handler: async (ctx, args) => {
     // Verify user has escrito write permission
-    const { currentUser } = await requireEscritoPermission(ctx, args.caseId, "write");
+    const { currentUser } = await requireEscritoPermission(
+      ctx,
+      args.caseId,
+      "write",
+    );
 
     const prosemirrorId = crypto.randomUUID();
 
@@ -455,8 +508,8 @@ export const createEscrito = mutation({
         type: "doc",
         content: [],
       },
-    })
-    
+    });
+
     const escritoId = await ctx.db.insert("escritos", {
       title: args.title,
       caseId: args.caseId,
@@ -472,7 +525,7 @@ export const createEscrito = mutation({
     });
 
     console.log("Created escrito with id:", escritoId);
-    return {escritoId, prosemirrorId};
+    return { escritoId, prosemirrorId };
   },
 });
 
@@ -528,7 +581,11 @@ export const updateEscrito = mutation({
     }
 
     // Verify user has escrito write permission
-    const { currentUser } = await requireEscritoPermission(ctx, escrito.caseId, "write");
+    const { currentUser } = await requireEscritoPermission(
+      ctx,
+      escrito.caseId,
+      "write",
+    );
 
     const updates: any = {
       lastModifiedBy: currentUser._id,
@@ -710,4 +767,3 @@ export const getArchivedEscritos = query({
     return archivedEscritos;
   },
 });
-
