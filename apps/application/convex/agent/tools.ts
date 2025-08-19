@@ -3,6 +3,28 @@ import { components } from "../_generated/api";
 import { z } from "zod";
 import { api, internal } from "../_generated/api";
 
+/**
+ * Tool for searching legal legislation using hybrid search (dense + sparse embeddings).
+ * Supports filtering by category, date range, and jurisdiction.
+ * 
+ * @description Searches legal legislation using hybrid search (dense + sparse embeddings). Supports filtering by category, date range, and jurisdiction.
+ * @param {Object} args - Search parameters
+ * @param {string} args.query - The search query text
+ * @param {string} [args.jurisdiccion="nacional"] - Jurisdiction to search in (e.g., 'nacional', 'provincial'). Defaults to 'nacional'
+ * @param {string|string[]} [args.category] - Category or categories to filter by (e.g., 'disposicion', 'ley', 'decreto')
+ * @param {string} [args.startDate] - Start date for date range filter (ISO format or parseable date string)
+ * @param {string} [args.endDate] - End date for date range filter (ISO format or parseable date string)
+ * @returns {Promise<Object>} Search results with legislation data or error information
+ * @throws {Error} When the search API request fails
+ * 
+ * @example
+ * // Search for contract law in national jurisdiction
+ * await searchLegislationTool.handler(ctx, {
+ *   query: "contract law",
+ *   jurisdiccion: "nacional",
+ *   category: ["ley", "decreto"]
+ * });
+ */
 export const searchLegislationTool = createTool({
     description: "Search legal legislation using hybrid search (dense + sparse embeddings). Supports filtering by category, date range, and jurisdiction.",
     args: z.object({
@@ -13,8 +35,8 @@ export const searchLegislationTool = createTool({
             z.array(z.string())
         ]).optional().describe("Category or categories to filter by (e.g., 'disposicion', 'ley', 'decreto')"),
         startDate: z.string().optional().describe("Start date for date range filter (ISO format or parseable date string)"),
-        endDate: z.string().optional().describe("End date for date range filter (ISO format or parseable date string)")
-    }),
+        endDate: z.string().optional().describe("End date for date range filter (ISO format or parseable date string)")  
+    }).required({query: true}),
     handler: async (ctx: any, args: any) => {
       try {
         const response = await fetch(`${process.env.SEARCH_API_URL}/search`, {
@@ -45,39 +67,30 @@ export const searchLegislationTool = createTool({
     },
 } as any);
 
-// export const searchDocumentsTool = createTool({
-//     description: "Search user and team documents using hybrid search. Useful for finding specific documents within the legal case management system.",
-//     args: z.object({
-//         query: z.string().describe("The search query text to find relevant documents"),
-//         user_id: z.string().optional().describe("Filter documents by specific user ID"),
-//         team_id: z.string().optional().describe("Filter documents by specific team ID"),
-//         limit: z.number().optional().default(30).describe("Maximum number of results to return (default: 30)")
-//     }),
-//     handler: async (ctx: any, args: any) => {
-//         const response = await fetch(`${process.env.FLASK_API_URL}/search_documents`, {
-//             method: 'POST',
-//             headers: {
-//                 'Content-Type': 'application/json',
-//                 'X-API-Key': process.env.SEARCH_API_KEY!
-//             },
-//             body: JSON.stringify(args)
-//         });
-        
-//         if (!response.ok) {
-//             throw new Error(`Document search failed: ${response.statusText}`);
-//         }
-        
-//         const data = await response.json();
-//         return data;
-//     },
-// } as any);
-
+/**
+ * Tool for searching court decisions and legal precedents (fallos) using dense embeddings.
+ * Useful for finding relevant case law and judicial decisions.
+ * 
+ * @description Searches court decisions and legal precedents (fallos) using dense embeddings. Useful for finding relevant case law and judicial decisions.
+ * @param {Object} args - Search parameters
+ * @param {string} args.query - The search query text to find relevant court decisions
+ * @param {number} [args.limit=10] - Maximum number of results to return (default: 10)
+ * @returns {Promise<Object>} Search results with court decisions data
+ * @throws {Error} When the fallos search API request fails
+ * 
+ * @example
+ * // Search for contract dispute precedents
+ * await searchFallosTool.handler(ctx, {
+ *   query: "contract dispute resolution",
+ *   limit: 5
+ * });
+ */
 export const searchFallosTool = createTool({
     description: "Search court decisions and legal precedents (fallos) using dense embeddings. Useful for finding relevant case law and judicial decisions.",
     args: z.object({
         query: z.string().describe("The search query text to find relevant court decisions"),
         limit: z.number().optional().default(10).describe("Maximum number of results to return (default: 10)")
-    }),
+    }).required({query: true}),
     handler: async (ctx: any, args: any) => {
         const response = await fetch(`${process.env.SEARCH_API_URL}/search_fallos`, {
             method: 'POST',
@@ -97,14 +110,33 @@ export const searchFallosTool = createTool({
     },
 } as any);
 
-
+/**
+ * Tool for searching case documents using dense embeddings with semantic chunk clustering.
+ * Provides coherent context by grouping related chunks and expanding context windows.
+ * 
+ * @description Searches case documents using dense embeddings with semantic chunk clustering. Provides coherent context by grouping related chunks and expanding context windows.
+ * @param {Object} args - Search parameters
+ * @param {string} args.query - The search query text to find relevant case documents
+ * @param {number} [args.limit=10] - Maximum number of initial results to return (default: 10)
+ * @param {number} [args.contextWindow=4] - Number of adjacent chunks to include for context expansion (default: 4)
+ * @returns {Promise<Object>} Search results with clustered document chunks and context
+ * @throws {Error} When user is not authenticated or not in a case context
+ * 
+ * @example
+ * // Search for contract-related documents in current case
+ * await searchCaseDocumentsTool.handler(ctx, {
+ *   query: "contract terms and conditions",
+ *   limit: 15,
+ *   contextWindow: 6
+ * });
+ */
 export const searchCaseDocumentsTool = createTool({
   description: "Search case documents using dense embeddings with semantic chunk clustering. Provides coherent context by grouping related chunks and expanding context windows.",
   args: z.object({
     query: z.string().describe("The search query text to find relevant case documents"),
     limit: z.number().optional().default(10).describe("Maximum number of initial results to return (default: 10)"),
     contextWindow: z.number().optional().default(4).describe("Number of adjacent chunks to include for context expansion (default: 4)")
-  }),
+  }).required({query: true}),
   handler: async (ctx: ToolCtx, {query, limit, contextWindow}: {query: string, limit: number, contextWindow: number}) => {
     // Use userId directly from ctx instead of getCurrentUserFromAuth
     if (!ctx.userId) {
@@ -135,13 +167,41 @@ export const searchCaseDocumentsTool = createTool({
   }
 } as any);
 
+/**
+ * Tool for reading a document progressively, chunk by chunk.
+ * Use this to read through entire documents sequentially without overwhelming token limits.
+ * Perfect for systematic document analysis.
+ * 
+ * @description Reads a document progressively, chunk by chunk. Use this to read through entire documents sequentially without overwhelming token limits. Perfect for systematic document analysis.
+ * @param {Object} args - Reading parameters
+ * @param {string} args.documentId - The ID of the document to read
+ * @param {number} [args.chunkIndex=0] - Which chunk to read (0-based index). Start with 0 for the beginning.
+ * @param {number} [args.chunkCount=1] - Number of consecutive chunks to read (default: 1). Use higher values to read multiple chunks at once.
+ * @returns {Promise<Object>} Document chunk information including content, progress, and navigation details
+ * @throws {Error} When user is not authenticated, not in case context, document not found, or chunk index is invalid
+ * 
+ * @example
+ * // Read the first chunk of a document
+ * await readDocumentTool.handler(ctx, {
+ *   documentId: "doc_123",
+ *   chunkIndex: 0
+ * });
+ * 
+ * // Read multiple chunks starting from index 5
+ * await readDocumentTool.handler(ctx, {
+ *   documentId: "doc_123",
+ *   chunkIndex: 5,
+ *   chunkCount: 3
+ * });
+ */
 export const readDocumentTool = createTool({
   description: "Read a document progressively, chunk by chunk. Use this to read through entire documents sequentially without overwhelming token limits. Perfect for systematic document analysis.",
   args: z.object({
     documentId: z.string().describe("The ID of the document to read"),
-    chunkIndex: z.number().optional().default(0).describe("Which chunk to read (0-based index). Start with 0 for the beginning.")
-  }),
-  handler: async (ctx: ToolCtx, { documentId, chunkIndex }: { documentId: string, chunkIndex: number }) => {
+    chunkIndex: z.number().optional().default(0).describe("Which chunk to read (0-based index). Start with 0 for the beginning."),
+    chunkCount: z.number().optional().default(1).describe("Number of consecutive chunks to read (default: 1). Use higher values to read multiple chunks at once.")
+  }).required({documentId: true}),
+  handler: async (ctx: ToolCtx, { documentId, chunkIndex, chunkCount }: { documentId: string, chunkIndex: number, chunkCount: number }) => {
     // Verify authentication using agent context
     if (!ctx.userId) {
       throw new Error("Not authenticated");
@@ -180,6 +240,15 @@ export const readDocumentTool = createTool({
       throw new Error(`Document is not ready for reading. Status: ${document.processingStatus}`);
     }
 
+    // Validate chunkCount
+    if (chunkCount < 1) {
+      throw new Error("Chunk count must be at least 1");
+    }
+    
+    if (chunkCount > 10) {
+      throw new Error("Cannot read more than 10 chunks at once to avoid overwhelming token limits");
+    }
+
     // Get total chunks (prefer DB field, fallback to Qdrant count)
     let totalChunks = document.totalChunks || 0;
     if (totalChunks === 0) {
@@ -198,31 +267,181 @@ export const readDocumentTool = createTool({
       throw new Error(`Chunk index ${chunkIndex} is beyond document length (${totalChunks} chunks)`);
     }
 
-    // Fetch the specific chunk from Qdrant
-    const chunkContent = await ctx.runAction(api.rag.qdrant.getDocumentChunkByIndex, {
+    // Calculate the actual number of chunks to read
+    const actualChunkCount = Math.min(chunkCount, totalChunks - chunkIndex);
+
+    // Fetch multiple chunks from Qdrant
+    const chunksContent = await ctx.runAction(api.rag.qdrant.getDocumentChunksByRange, {
       documentId,
       caseId,
-      chunkIndex
+      startIndex: chunkIndex,
+      endIndex: chunkIndex + actualChunkCount - 1
     });
 
-    if (!chunkContent) {
-      throw new Error(`Chunk ${chunkIndex} not found in document`);
+    if (!chunksContent || chunksContent.length === 0) {
+      throw new Error(`No chunks found in range ${chunkIndex} to ${chunkIndex + actualChunkCount - 1}`);
     }
+
+    // Combine chunks content
+    const combinedContent = chunksContent.join('\n\n');
 
     return {
       documentId,
       documentTitle: document.title,
       chunkIndex,
+      chunkCount: actualChunkCount,
       totalChunks,
-      content: chunkContent,
-      hasMoreChunks: chunkIndex < totalChunks - 1,
-      nextChunkIndex: chunkIndex + 1,
-      progress: `${chunkIndex + 1}/${totalChunks}`,
-      isLastChunk: chunkIndex === totalChunks - 1
+      content: combinedContent,
+      hasMoreChunks: chunkIndex + actualChunkCount < totalChunks,
+      nextChunkIndex: chunkIndex + actualChunkCount,
+      progress: `${chunkIndex + actualChunkCount}/${totalChunks}`,
+      isLastChunk: chunkIndex + actualChunkCount >= totalChunks,
+      chunksRead: actualChunkCount
     };
   }
 } as any);
 
+/**
+ * Tool for querying a specific document using semantic search.
+ * Searches within a single document to find the most relevant chunks based on a query.
+ * Perfect for finding specific information within a large document.
+ * 
+ * @description Queries a specific document using semantic search. Searches within a single document to find the most relevant chunks based on a query. Perfect for finding specific information within a large document.
+ * @param {Object} args - Query parameters
+ * @param {string} args.documentId - The ID of the document to search within
+ * @param {string} args.query - The search query to find relevant content within the document
+ * @param {number} [args.limit=5] - Maximum number of relevant chunks to return (default: 5)
+ * @returns {Promise<Object>} Search results with relevant document chunks and metadata
+ * @throws {Error} When user is not authenticated, not in case context, document not found, or search fails
+ * 
+ * @example
+ * // Search for contract terms in a specific document
+ * await queryDocumentTool.handler(ctx, {
+ *   documentId: "doc_123",
+ *   query: "payment terms and conditions",
+ *   limit: 3
+ * });
+ */
+export const queryDocumentTool = createTool({
+  description: "Query a specific document using semantic search. Searches within a single document to find the most relevant chunks based on a query. Perfect for finding specific information within a large document.",
+  args: z.object({
+    documentId: z.string().describe("The ID of the document to search within"),
+    query: z.string().describe("The search query to find relevant content within the document"),
+    limit: z.number().optional().default(5).describe("Maximum number of relevant chunks to return (default: 5)")
+  }).required({documentId: true, query: true}),
+  handler: async (ctx: ToolCtx, { documentId, query, limit }: { documentId: string, query: string, limit: number }) => {
+    // Verify authentication using agent context
+    if (!ctx.userId) {
+      throw new Error("Not authenticated");
+    }
+    
+    // Extract caseId from thread metadata
+    if (!ctx.threadId) {
+      throw new Error("No thread context available");
+    }
+    
+    const { userId: threadUserId } = await getThreadMetadata(ctx, components.agent, { threadId: ctx.threadId });
+    
+    // Extract caseId from threadUserId format: "case:${caseId}_${userId}"
+    if (!threadUserId?.startsWith("case:")) {
+      throw new Error("This tool can only be used within a case context");
+    }
+
+    const caseId = threadUserId.substring(5).split("_")[0]; // Remove "case:" prefix and get caseId part
+
+    // Get document metadata using internal helper (bypasses permission checks)
+    const document = await ctx.runQuery(internal.functions.documents.getDocumentForAgent, { 
+      documentId: documentId as any
+    });
+    
+    if (!document) {
+      throw new Error("Document not found");
+    }
+
+    // Verify document belongs to the current case
+    if (document.caseId !== caseId) {
+      throw new Error("Document does not belong to the current case");
+    }
+
+    // Check if document is processed
+    if (document.processingStatus !== "completed") {
+      throw new Error(`Document is not ready for querying. Status: ${document.processingStatus}`);
+    }
+
+    // Validate limit
+    if (limit < 1) {
+      throw new Error("Limit must be at least 1");
+    }
+    
+    if (limit > 20) {
+      throw new Error("Cannot return more than 20 chunks at once to avoid overwhelming token limits");
+    }
+
+    // Perform semantic search within the specific document
+    const searchResults = await ctx.runAction(api.rag.qdrant.searchDocumentChunks, {
+      documentId,
+      caseId,
+      query,
+      limit
+    });
+
+    if (!searchResults || searchResults.length === 0) {
+      return {
+        documentId,
+        documentTitle: document.title,
+        query,
+        results: [],
+        message: "No relevant content found for the given query in this document."
+      };
+    }
+
+    return {
+      documentId,
+      documentTitle: document.title,
+      query,
+      results: searchResults,
+      totalResults: searchResults.length,
+      message: `Found ${searchResults.length} relevant chunk(s) in the document.`
+    };
+  }
+} as any);
+
+/**
+ * Tool for listing all documents in the current case with their processing status and chunk counts.
+ * Use this to see what documents are available for reading.
+ * 
+ * @description Lists all documents in the current case with their processing status and chunk counts. Use this to see what documents are available for reading.
+ * @param {Object} args - No parameters required
+ * @returns {Promise<Object>} Summary and list of all documents in the current case
+ * @throws {Error} When user is not authenticated or not in a case context
+ * 
+ * @example
+ * // List all documents in the current case
+ * await listCaseDocumentsTool.handler(ctx, {});
+ * 
+ * // Returns:
+ * // {
+ * //   summary: {
+ * //     totalDocuments: 5,
+ * //     readableDocuments: 3,
+ * //     processingDocuments: 1,
+ * //     failedDocuments: 1
+ * //   },
+ * //   documents: [
+ * //     {
+ * //       documentId: "doc_123",
+ * //       title: "Contract Agreement",
+ * //       fileName: "contract.pdf",
+ * //       documentType: "contract",
+ * //       processingStatus: "completed",
+ * //       totalChunks: 15,
+ * //       canRead: true,
+ * //       fileSize: 1024000,
+ * //       createdAt: "2024-01-15T10:30:00.000Z"
+ * //     }
+ * //   ]
+ * // }
+ */
 export const listCaseDocumentsTool = createTool({
   description: "List all documents in the current case with their processing status and chunk counts. Use this to see what documents are available for reading.",
   args: z.object({}),
