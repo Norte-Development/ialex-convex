@@ -8,7 +8,6 @@ import { PERMISSIONS } from "@/permissions/types";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import {
-  FolderOpen,
   ChevronRight,
   Plus,
   Folder,
@@ -30,79 +29,150 @@ export function FolderTree({
   onFolderChange,
   className,
 }: Props) {
-  const [isCreatingFolder, setIsCreatingFolder] = useState(false);
-  const [newFolderName, setNewFolderName] = useState("");
-  const newFolderInputRef = useRef<HTMLInputElement | null>(null);
-  const [editingFolderId, setEditingFolderId] = useState<Id<"folders"> | null>(
-    null,
-  );
-  const [editingName, setEditingName] = useState("");
-  const [menuOpenFor, setMenuOpenFor] = useState<Id<"folders"> | null>(null);
-
-  // Fetch folders for current level
-  const folders = useQuery(api.functions.folders.getFoldersForCase, {
-    caseId,
-    parentFolderId: currentFolderId,
-  }) as FolderType[] | undefined;
-
-  // Breadcrumb for current folder
-  const breadcrumb = useQuery(
+  const path = useQuery(
     api.functions.folders.getFolderPath,
     currentFolderId ? { folderId: currentFolderId } : "skip",
   ) as FolderType[] | undefined;
+  const pathIds = (path ?? []).map((f) => f._id as Id<"folders">);
 
-  const createFolder = useMutation(api.functions.folders.createFolder);
+  return (
+    <div className={className}>
+      {/* Tree starting at root */}
+      <FolderList
+        caseId={caseId}
+        parentFolderId={undefined}
+        currentFolderId={currentFolderId}
+        onFolderChange={onFolderChange}
+        pathIds={pathIds}
+      />
+    </div>
+  );
+}
+
+export default FolderTree;
+
+function FolderList({
+  caseId,
+  parentFolderId,
+  currentFolderId,
+  onFolderChange,
+  pathIds,
+}: {
+  caseId: Id<"cases">;
+  parentFolderId: Id<"folders"> | undefined;
+  currentFolderId?: Id<"folders">;
+  onFolderChange: (id: Id<"folders"> | undefined) => void;
+  pathIds: Id<"folders">[];
+}) {
+  const args: any = parentFolderId ? { caseId, parentFolderId } : { caseId };
+  const folders = useQuery(api.functions.folders.getFoldersForCase, args) as
+    | FolderType[]
+    | undefined;
+
+  if (folders === undefined) {
+    return (
+      <div className="ml-6 text-[11px] text-muted-foreground">Cargando…</div>
+    );
+  }
+  if (!folders || folders.length === 0) return null;
+
+  return (
+    <div className="ml-2">
+      {folders.map((folder) => (
+        <FolderItem
+          key={folder._id}
+          folder={folder}
+          caseId={caseId}
+          currentFolderId={currentFolderId}
+          onFolderChange={onFolderChange}
+          pathIds={pathIds}
+        />
+      ))}
+    </div>
+  );
+}
+
+function FolderItem({
+  folder,
+  caseId,
+  currentFolderId,
+  onFolderChange,
+  pathIds,
+}: {
+  folder: FolderType;
+  caseId: Id<"cases">;
+  currentFolderId?: Id<"folders">;
+  onFolderChange: (id: Id<"folders"> | undefined) => void;
+  pathIds: Id<"folders">[];
+}) {
+  const [open, setOpen] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [name, setName] = useState(folder.name);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [isCreatingChild, setIsCreatingChild] = useState(false);
+  const [newChildName, setNewChildName] = useState("");
+  const newChildRef = useRef<HTMLInputElement | null>(null);
+
   const updateFolder = useMutation(api.functions.folders.updateFolder);
   const archiveFolder = useMutation(api.functions.folders.archiveFolder);
+  const createFolder = useMutation(api.functions.folders.createFolder);
 
   useEffect(() => {
-    if (isCreatingFolder) {
-      const t = setTimeout(() => newFolderInputRef.current?.focus(), 0);
-      return () => clearTimeout(t);
+    if (pathIds.includes(folder._id as Id<"folders">)) {
+      setOpen(true);
     }
-  }, [isCreatingFolder]);
+  }, [pathIds, folder._id]);
 
-  const submitCreateFolder = async () => {
-    const name = (newFolderName || "").trim() || "Nueva Carpeta";
-    try {
-      await createFolder({
-        name,
-        caseId,
-        parentFolderId: currentFolderId,
-      } as any);
-      setNewFolderName("");
-      setIsCreatingFolder(false);
-    } catch (err) {
-      console.error("Error creating folder:", err);
-      alert(err instanceof Error ? err.message : "No se pudo crear la carpeta");
-    }
-  };
+  useEffect(() => {
+    if (!menuOpen) return;
+    const onDocClick = (e: MouseEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (!target) return;
+      if (
+        target.closest("[data-folder-menu]") ||
+        target.closest("[data-folder-menu-trigger]")
+      )
+        return;
+      setMenuOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setMenuOpen(false);
+    };
+    document.addEventListener("mousedown", onDocClick, true);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDocClick, true);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [menuOpen]);
 
-  const cancelEditing = () => {
-    setEditingFolderId(null);
-    setEditingName("");
-  };
-
-  const submitRename = async (folderId: Id<"folders">) => {
-    const name = editingName.trim();
-    if (!name) {
-      cancelEditing();
+  const submitRename = async () => {
+    const trimmed = name.trim();
+    if (!trimmed) {
+      setIsEditing(false);
+      setName(folder.name);
       return;
     }
     try {
-      await updateFolder({ folderId, name } as any);
-      cancelEditing();
+      await updateFolder({
+        folderId: folder._id as Id<"folders">,
+        name: trimmed,
+      } as any);
+      setIsEditing(false);
     } catch (err) {
       console.error("Error renaming folder:", err);
       alert(
         err instanceof Error ? err.message : "No se pudo renombrar la carpeta",
       );
+      setIsEditing(false);
+      setName(folder.name);
     }
   };
 
-  const handleArchive = async (folderId: Id<"folders">) => {
+  const handleArchive = async () => {
     try {
-      await archiveFolder({ folderId } as any);
+      await archiveFolder({ folderId: folder._id as Id<"folders"> } as any);
+      setMenuOpen(false);
     } catch (err) {
       console.error("Error archiving folder:", err);
       alert(
@@ -111,163 +181,166 @@ export function FolderTree({
     }
   };
 
+  useEffect(() => {
+    if (isCreatingChild) {
+      const t = setTimeout(() => newChildRef.current?.focus(), 0);
+      return () => clearTimeout(t);
+    }
+  }, [isCreatingChild]);
+
+  const submitCreateChild = async () => {
+    const name = (newChildName || "").trim() || "Nueva Carpeta";
+    try {
+      await createFolder({
+        name,
+        caseId,
+        parentFolderId: folder._id as Id<"folders">,
+      } as any);
+      setIsCreatingChild(false);
+      setNewChildName("");
+      setOpen(true);
+    } catch (err) {
+      console.error("Error creating folder:", err);
+      alert(err instanceof Error ? err.message : "No se pudo crear la carpeta");
+    }
+  };
+
   return (
-    <div className={className}>
-      {/* Breadcrumb + Create */}
-      <div className="flex items-center justify-between gap-1 text-[12px] text-muted-foreground">
-        <div className="flex items-center gap-1">
+    <div className="relative">
+      <div
+        className={`flex items-center justify-between px-2 py-1 rounded hover:bg-gray-50 ${
+          currentFolderId === (folder._id as Id<"folders">) ? "bg-blue-50" : ""
+        }`}
+      >
+        <div className="flex items-center gap-1 min-w-0">
           <button
-            className={`flex items-center gap-1 hover:text-foreground ${!currentFolderId ? "text-foreground font-medium" : ""}`}
-            onClick={() => onFolderChange(undefined)}
+            className="h-5 w-5 flex items-center justify-center text-gray-600 hover:text-gray-800"
+            onClick={() => setOpen((o) => !o)}
+            aria-label={open ? "Contraer" : "Expandir"}
           >
-            <FolderOpen size={14} /> Raíz
+            <ChevronRight
+              size={14}
+              className={
+                open
+                  ? "transform rotate-90 transition-transform"
+                  : "transform transition-transform"
+              }
+            />
           </button>
-          {breadcrumb && breadcrumb.length > 0 && (
-            <>
-              {breadcrumb.map((f, idx) => (
-                <span key={f._id} className="flex items-center gap-1">
-                  <ChevronRight size={12} />
-                  <button
-                    className={`hover:text-foreground ${idx === breadcrumb.length - 1 ? "text-foreground font-medium" : "text-muted-foreground"}`}
-                    onClick={() => onFolderChange(f._id)}
-                  >
-                    {f.name}
-                  </button>
-                </span>
-              ))}
-            </>
+          <Folder size={16} className="text-black flex-shrink-0" />
+          {isEditing ? (
+            <Input
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") submitRename();
+                if (e.key === "Escape") {
+                  setIsEditing(false);
+                  setName(folder.name);
+                }
+              }}
+              onBlur={submitRename}
+              className="h-5 text-xs"
+              autoFocus
+            />
+          ) : (
+            <button
+              className="truncate text-left px-1 hover:text-foreground"
+              title={folder.name}
+              onClick={() => onFolderChange(folder._id as Id<"folders">)}
+            >
+              {folder.name}
+            </button>
           )}
         </div>
-        <IfCan permission={PERMISSIONS.DOC_WRITE} fallback={null}>
-          {!isCreatingFolder && (
+        <div className="flex items-center gap-1">
+          {folder.description && (
+            <span className="text-xs text-muted-foreground truncate max-w-[40%] mr-2">
+              {folder.description}
+            </span>
+          )}
+          <IfCan permission={PERMISSIONS.DOC_WRITE} fallback={null}>
             <Button
               variant="ghost"
               size="sm"
-              className="h-6 px-2 py-0 hover:bg-gray-100"
-              onClick={() => setIsCreatingFolder(true)}
+              className="h-6 w-6 p-0 hover:bg-gray-200"
+              onClick={(e) => {
+                e.stopPropagation();
+                setOpen(true);
+                setIsCreatingChild(true);
+              }}
+              aria-label="Nueva subcarpeta"
             >
-              <Plus size={14} />
+              <Plus size={14} className="text-gray-600" />
             </Button>
-          )}
-        </IfCan>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-6 w-6 p-0 hover:bg-gray-200"
+              data-folder-menu-trigger
+              onClick={(e) => {
+                e.stopPropagation();
+                setMenuOpen((m) => !m);
+              }}
+              aria-label="Acciones de carpeta"
+            >
+              <MoreHorizontal size={14} className="text-gray-600" />
+            </Button>
+          </IfCan>
+        </div>
       </div>
-
-      {/* Inline new folder input */}
-      {isCreatingFolder && (
-        <div className="flex items-center gap-2 p-1">
-          <Input
-            ref={newFolderInputRef}
-            placeholder="Nombre de la carpeta"
-            value={newFolderName}
-            onChange={(e) => setNewFolderName(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") {
-                submitCreateFolder();
-              } else if (e.key === "Escape") {
-                setIsCreatingFolder(false);
-                setNewFolderName("");
-              }
+      {menuOpen && (
+        <div
+          className="absolute right-2 top-7 z-10 w-36 rounded-md border bg-white shadow-md text-xs"
+          data-folder-menu
+          onClick={(e) => e.stopPropagation()}
+        >
+          <button
+            className="w-full flex items-center gap-2 px-3 py-2 hover:bg-gray-100 text-left"
+            onClick={() => {
+              setMenuOpen(false);
+              setIsEditing(true);
             }}
-            className="h-4 text-xs placeholder:text-xs"
-          />
+          >
+            <Pencil size={12} /> Renombrar
+          </button>
+          <button
+            className="w-full flex items-center gap-2 px-3 py-2 hover:bg-gray-100 text-left text-red-600"
+            onClick={handleArchive}
+          >
+            <Archive size={12} /> Archivar
+          </button>
         </div>
       )}
-
-      {/* Folders List */}
-      {folders && folders.length > 0 && (
-        <div className="flex flex-col ">
-          {folders.map((folder) => {
-            const isEditing = editingFolderId === (folder._id as Id<"folders">);
-            const isMenuOpen = menuOpenFor === (folder._id as Id<"folders">);
-            return (
-              <div
-                key={folder._id}
-                className="relative flex items-center justify-between px-2 py-1 rounded hover:bg-gray-50"
-              >
-                <div
-                  className="flex items-center gap-2 min-w-0 cursor-pointer"
-                  onClick={() => {
-                    if (isEditing) return;
-                    onFolderChange(folder._id);
-                  }}
-                >
-                  <Folder size={16} className="text-black flex-shrink-0" />
-                  {isEditing ? (
-                    <Input
-                      value={editingName}
-                      onChange={(e) => setEditingName(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter")
-                          submitRename(folder._id as Id<"folders">);
-                        if (e.key === "Escape") cancelEditing();
-                      }}
-                      onBlur={() => submitRename(folder._id as Id<"folders">)}
-                      className="h-4 text-xs placeholder:text-xs"
-                      onClick={(e) => e.stopPropagation()}
-                      autoFocus
-                    />
-                  ) : (
-                    <span className="truncate" title={folder.name}>
-                      {folder.name}
-                    </span>
-                  )}
-                </div>
-                <div className="flex items-center gap-1">
-                  {folder.description && (
-                    <span className="text-xs text-muted-foreground truncate max-w-[40%] mr-2">
-                      {folder.description}
-                    </span>
-                  )}
-                  <IfCan permission={PERMISSIONS.DOC_WRITE} fallback={null}>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-6 w-6 p-0 hover:bg-gray-200"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setMenuOpenFor(
-                          isMenuOpen ? null : (folder._id as Id<"folders">),
-                        );
-                      }}
-                      aria-label="Acciones de carpeta"
-                    >
-                      <MoreHorizontal size={14} className="text-gray-600" />
-                    </Button>
-                  </IfCan>
-                </div>
-                {isMenuOpen && (
-                  <div
-                    className="absolute right-2 top-8 z-10 w-32 rounded-md border bg-white shadow-md text-xs"
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    <button
-                      className="w-full flex items-center gap-2 px-3 py-2 hover:bg-gray-100 text-left"
-                      onClick={() => {
-                        setMenuOpenFor(null);
-                        setEditingFolderId(folder._id as Id<"folders">);
-                        setEditingName(folder.name);
-                      }}
-                    >
-                      <Pencil size={12} /> Renombrar
-                    </button>
-                    <button
-                      className="w-full flex items-center gap-2 px-3 py-2 hover:bg-gray-100 text-left text-red-600"
-                      onClick={() => {
-                        setMenuOpenFor(null);
-                        handleArchive(folder._id as Id<"folders">);
-                      }}
-                    >
-                      <Archive size={12} /> Archivar
-                    </button>
-                  </div>
-                )}
-              </div>
-            );
-          })}
+      {open && (
+        <div className="ml-4">
+          {isCreatingChild && (
+            <div className="flex items-center gap-2 p-1">
+              <Input
+                ref={newChildRef}
+                placeholder="Nombre de la carpeta"
+                value={newChildName}
+                onChange={(e) => setNewChildName(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") submitCreateChild();
+                  else if (e.key === "Escape") {
+                    setIsCreatingChild(false);
+                    setNewChildName("");
+                  }
+                }}
+                className="h-5 text-xs placeholder:text-xs"
+              />
+            </div>
+          )}
+          <FolderList
+            caseId={caseId}
+            parentFolderId={folder._id as Id<"folders">}
+            currentFolderId={currentFolderId}
+            onFolderChange={onFolderChange}
+            pathIds={pathIds}
+          />
         </div>
       )}
     </div>
   );
 }
-
-export default FolderTree;
