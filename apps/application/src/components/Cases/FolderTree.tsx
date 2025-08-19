@@ -74,7 +74,12 @@ function FolderList({
       <div className="ml-6 text-[11px] text-muted-foreground">Cargando…</div>
     );
   }
-  if (!folders || folders.length === 0) return null;
+  if (!folders || folders.length === 0)
+    return (
+      <div className="ml-6 text-[11px] text-muted-foreground">
+        No hay documentos dentro de esta carpeta
+      </div>
+    );
 
   return (
     <div className="ml-2">
@@ -240,7 +245,7 @@ function FolderItem({
                 }
               }}
               onBlur={submitRename}
-              className="h-5 text-xs"
+              className="h-4 text-xs placeholder:text-xs"
               autoFocus
             />
           ) : (
@@ -328,7 +333,7 @@ function FolderItem({
                     setNewChildName("");
                   }
                 }}
-                className="h-5 text-xs placeholder:text-xs"
+                className="h-4 text-xs placeholder:text-xs"
               />
             </div>
           )}
