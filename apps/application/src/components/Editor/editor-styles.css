@@ -1,4 +1,3 @@
-/* TipTap Editor Styles */
 .legal-editor-content {
   width: 800px;
   max-width: 800px;
@@ -220,4 +219,190 @@
   .legal-editor-content h3 {
     font-size: 1.125rem;
   }
-} 
+}
+
+.diff-added {
+  background-color: #d4f7d4;
+}
+
+.diff-deleted {
+  background-color: #f8d4d4;
+  text-decoration: line-through;
+}
+
+/* Styles for change nodes */
+[data-change] {
+  position: relative;
+  display: inline-block;
+  padding-right: 4px;
+  line-height: 1.4;
+}
+
+/* Block change nodes should display as block but keep same button styling */
+[data-semantic-type="block_change"] {
+  display: block !important;
+  margin: 4px 0;
+}
+
+/* Line break change nodes styling */
+[data-semantic-type="line_break"] {
+  display: inline-block !important;
+  position: relative;
+  margin: 0 4px !important;
+  vertical-align: middle;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+[data-semantic-type="line_break"][data-change="added"] {
+  background-color: #d4f7d4 !important;
+  border: 2px solid #10b981 !important;
+  color: #047857 !important;
+}
+
+[data-semantic-type="line_break"][data-change="deleted"] {
+  background-color: #f8d4d4 !important;
+  border: 2px solid #ef4444 !important;
+  color: #dc2626 !important;
+}
+
+[data-semantic-type="line_break"][data-change="deleted"]::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background-color: #ef4444;
+  transform: translateY(-50%);
+}
+
+.change-buttons {
+  position: absolute;
+  top: 100%;
+  left: 100%;
+  transform: translateY(-30%) translateX(-50px);
+  display: flex;
+  gap: 4px;
+  opacity: 1;
+  transition: all 0.2s ease-in-out;
+  pointer-events: auto;
+  z-index: 20;
+  margin-left: 0;
+}
+
+.change-button {
+  display: flex !important;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: none;
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 500;
+  transition: all 0.15s ease-in-out;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  backdrop-filter: blur(4px);
+  position: relative;
+}
+
+.change-button::before {
+  content: attr(data-tooltip);
+  position: absolute;
+  top: -28px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(0, 0, 0, 0.8);
+  color: white;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 10px;
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s ease-in-out;
+}
+
+.change-button:hover::before {
+  opacity: 1;
+}
+
+.change-button.accept {
+  background: linear-gradient(135deg, #10b981, #059669);
+  color: white;
+}
+
+.change-button.accept:hover {
+  background: linear-gradient(135deg, #059669, #047857);
+  transform: scale(1.1);
+  box-shadow: 0 4px 8px rgba(16, 185, 129, 0.3);
+}
+
+.change-button.reject {
+  background: linear-gradient(135deg, #ef4444, #dc2626);
+  color: white;
+}
+
+.change-button.reject:hover {
+  background: linear-gradient(135deg, #dc2626, #b91c1c);
+  transform: scale(1.1);
+  box-shadow: 0 4px 8px rgba(239, 68, 68, 0.3);
+}
+
+/* Group indicator styling */
+.change-group-indicator {
+  position: absolute;
+  top: -4px;
+  right: -6px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: rgba(107, 114, 128, 0.6);
+  font-size: 0;
+  transition: all 0.2s ease-in-out;
+}
+
+[data-change]:hover .change-group-indicator {
+  background: rgba(107, 114, 128, 0.8);
+  transform: scale(1.2);
+}
+
+/* Block change specific styles */
+[data-semantic-type="block_change"] {
+  padding: 8px 12px;
+  margin: 4px 0;
+  border-radius: 6px;
+  position: relative;
+}
+
+[data-semantic-type="block_change"][data-change="added"] {
+  background-color: #d4f7d4;
+  border: 2px solid #10b981;
+}
+
+[data-semantic-type="block_change"][data-change="deleted"] {
+  background-color: #f8d4d4;
+  border: 2px solid #ef4444;
+  text-decoration: line-through;
+}
+
+/* List-specific block change styles */
+[data-semantic-type="block_change"][data-change="deleted"]:has(li) {
+  border-left: 4px solid #ef4444;
+  padding-left: 16px;
+}
+
+[data-semantic-type="block_change"][data-change="added"]:has(li) {
+  border-left: 4px solid #10b981;
+  padding-left: 16px;
+}
+
+[data-semantic-type="block_change"][data-change="deleted"]:has(li) li {
+  color: #dc2626;
+  text-decoration: line-through;
+}
+
+[data-semantic-type="block_change"][data-change="added"]:has(li) li {
+  color: #047857;
+}

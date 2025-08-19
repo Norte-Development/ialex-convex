@@ -1,4 +1,4 @@
-import { CHANGE_TYPES } from './types';
+import { CHANGE_TYPES } from '../types';
 import { handleTextDelta } from './textDiff';
 import { detectFormattingChanges, createFormattingDiff } from './formattingChanges';
 import { applyJsonDelta } from './deltaUtils';

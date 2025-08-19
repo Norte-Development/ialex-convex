@@ -11,3 +11,4 @@ export const INLINE_NODE_TYPES = ['text', 'em', 'strong', 'code', 'link', 'itali
 export const BLOCK_NODE_TYPES = ['paragraph', 'heading', 'blockquote', 'orderedList', 'bulletList', 'codeBlock', 'listItem'];
   
 export type ChangeType = typeof CHANGE_TYPES[keyof typeof CHANGE_TYPES];
+

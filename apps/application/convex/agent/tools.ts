@@ -68,6 +68,32 @@ export const searchLegislationTool = createTool({
 } as any);
 
 /**
+ * Tool: Apply structured edits to an Escrito using server-side ProseMirror transform with diff rendering.
+ * Persisted diffs will be visible to all clients and can be accepted/rejected via the editor UI.
+ */
+export const editEscritoTool = createTool({
+  description: "Apply structured operations to an Escrito. Server computes and persists diff change nodes.",
+  args: z.object({
+    escritoId: z.string().describe("The Escrito ID (Convex doc id)"),
+    operations: z.array(
+      z.union([
+        z.object({ type: z.literal("insert_text"), pos: z.number(), text: z.string() }),
+        z.object({ type: z.literal("replace_range"), from: z.number(), to: z.number(), text: z.string() }),
+      ])
+    ).min(1)
+  }).required({escritoId: true, operations: true}),
+  handler: async (ctx: ToolCtx, { escritoId, operations }: { escritoId: string; operations: any[] }) => {
+    if (!ctx.userId) throw new Error("Not authenticated");
+    // Rely on Convex-side permission checks (requireEscritoPermission)
+    await ctx.runMutation(api.functions.escritosTransforms.applyEscritoOperations, {
+      escritoId: escritoId as any,
+      operations,
+    });
+    return { ok: true };
+  }
+} as any);
+
+/**
  * Tool for searching court decisions and legal precedents (fallos) using dense embeddings.
  * Useful for finding relevant case law and judicial decisions.
  * 

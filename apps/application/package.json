@@ -11,10 +11,16 @@
   },
   "dependencies": {
     "@google-cloud/storage": "^7.16.0",
+    "@ialex/shared": "workspace:*",
     "@qdrant/js-client-rest": "^1.15.0",
+    "@tiptap/core": "2.7.0",
+    "@tiptap/pm": "^2.7.0",
     "convex": "^1.25.4",
     "i": "^0.3.7",
     "logger": "^0.0.1",
-    "npm": "^11.5.2"
+    "lucide-react": "^0.525.0",
+    "npm": "^11.5.2",
+    "prosemirror-state": "^1.4.3",
+    "state": "link:@tiptap/pm/state"
   }
 }

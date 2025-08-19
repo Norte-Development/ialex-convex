@@ -9,7 +9,8 @@ import {
   searchCaseDocumentsTool, 
   readDocumentTool, 
   listCaseDocumentsTool, 
-  queryDocumentTool 
+  queryDocumentTool,
+  editEscritoTool
 } from "./tools";
 
 /**
@@ -32,7 +33,8 @@ export const agent = new Agent(components.agent, {
     searchCaseDocuments: searchCaseDocumentsTool,
     readDocument: readDocumentTool,
     listCaseDocuments: listCaseDocumentsTool,
-    queryDocument: queryDocumentTool
+    queryDocument: queryDocumentTool,
+    editEscrito: editEscritoTool
   }
 });
 

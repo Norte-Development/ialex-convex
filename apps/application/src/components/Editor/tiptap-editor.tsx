@@ -4,10 +4,10 @@ import { useEffect } from "react"
 import StarterKit from "@tiptap/starter-kit"
 import TextAlign from "@tiptap/extension-text-align"
 import Underline from "@tiptap/extension-underline"
-import {TextStyleKit} from "@tiptap/extension-text-style"
+import { TextStyle } from "@tiptap/extension-text-style"
 import { useTiptapSync } from "@convex-dev/prosemirror-sync/tiptap"
 import { UnderlineIcon } from "lucide-react"
-import { InlineChange, BlockChange, LineBreakChange } from "./extensions/changeNode"
+import { InlineChange, BlockChange, LineBreakChange } from '../../../../../packages/shared/src/tiptap/changeNodes'
 import { TrackingExtension } from "./extensions/tracking"
 import "./editor-styles.css"
 import {
@@ -46,13 +46,13 @@ function MenuBar({ editor }: { editor: Editor }) {
     selector: ctx => {
       return {
         isBold: ctx.editor.isActive('bold') ?? false,
-        canBold: ctx.editor.can().chain().toggleBold().run() ?? false,
+        canBold: ctx.editor.can().toggleMark('bold') ?? false,
         isItalic: ctx.editor.isActive('italic') ?? false,
-        canItalic: ctx.editor.can().chain().toggleItalic().run() ?? false,
+        canItalic: ctx.editor.can().toggleMark('italic') ?? false,
         isStrike: ctx.editor.isActive('strike') ?? false,
-        canStrike: ctx.editor.can().chain().toggleStrike().run() ?? false,
+        canStrike: ctx.editor.can().toggleMark('strike') ?? false,
         isCode: ctx.editor.isActive('code') ?? false,
-        canCode: ctx.editor.can().chain().toggleCode().run() ?? false,
+        canCode: ctx.editor.can().toggleMark('code') ?? false,
         isUnderline: ctx.editor.isActive('underline') ?? false,
         canUnderline: ctx.editor.can().chain().toggleUnderline?.().run() ?? false,
         isParagraph: ctx.editor.isActive('paragraph') ?? false,
@@ -67,8 +67,8 @@ function MenuBar({ editor }: { editor: Editor }) {
         textAlignCenter: ctx.editor.isActive({ textAlign: 'center' }) ?? false,
         textAlignRight: ctx.editor.isActive({ textAlign: 'right' }) ?? false,
         textAlignJustify: ctx.editor.isActive({ textAlign: 'justify' }) ?? false,
-        canUndo: ctx.editor.can().chain().undo().run() ?? false,
-        canRedo: ctx.editor.can().chain().redo().run() ?? false,
+        canUndo: true,
+        canRedo: true,
       }
     },
   })
@@ -77,16 +77,16 @@ function MenuBar({ editor }: { editor: Editor }) {
     <div className="border-b border-gray-200 bg-gray-50/50 px-4 py-3 ">
       <div className="flex items-center gap-1 flex-wrap">
         {/* Undo/Redo */}
-        <Button
+        {/* <Button
           variant="ghost"
           size="sm"
-          onClick={() => editor.chain().focus().undo().run()}
+          onClick={() => editor.chain().focus().}
           disabled={!editorState.canUndo}
           className="h-8 w-8 p-0 hover:bg-gray-100 disabled:opacity-50"
         >
           <Undo className="h-4 w-4" />
-        </Button>
-        <Button
+        </Button> */}
+        {/* <Button
           variant="ghost"
           size="sm"
           onClick={() => editor.chain().focus().redo().run()}
@@ -94,7 +94,7 @@ function MenuBar({ editor }: { editor: Editor }) {
           className="h-8 w-8 p-0 hover:bg-gray-100 disabled:opacity-50"
         >
           <Redo className="h-4 w-4" />
-        </Button>
+        </Button> */}
 
         <Separator orientation="vertical" className="h-6 mx-2" />
 
@@ -102,7 +102,7 @@ function MenuBar({ editor }: { editor: Editor }) {
         <Button
           variant={editorState.isBold ? "secondary" : "ghost"}
           size="sm"
-          onClick={() => editor.chain().focus().toggleBold().run()}
+          onClick={() => editor.chain().focus().toggleMark('bold').run()}
           disabled={!editorState.canBold}
           className="h-8 w-8 p-0 hover:bg-gray-100"
         >
@@ -111,7 +111,7 @@ function MenuBar({ editor }: { editor: Editor }) {
         <Button
           variant={editorState.isItalic ? "secondary" : "ghost"}
           size="sm"
-          onClick={() => editor.chain().focus().toggleItalic().run()}
+          onClick={() => editor.chain().focus().toggleMark('italic').run()}
           disabled={!editorState.canItalic}
           className="h-8 w-8 p-0 hover:bg-gray-100"
         >
@@ -129,7 +129,7 @@ function MenuBar({ editor }: { editor: Editor }) {
         <Button
           variant={editorState.isStrike ? "secondary" : "ghost"}
           size="sm"
-          onClick={() => editor.chain().focus().toggleStrike().run()}
+          onClick={() => editor.chain().focus().toggleMark('strike').run()}
           disabled={!editorState.canStrike}
           className="h-8 w-8 p-0 hover:bg-gray-100"
         >
@@ -138,7 +138,7 @@ function MenuBar({ editor }: { editor: Editor }) {
         <Button
           variant={editorState.isCode ? "secondary" : "ghost"}
           size="sm"
-          onClick={() => editor.chain().focus().toggleCode().run()}
+          onClick={() => editor.chain().focus().toggleMark('code').run()}
           disabled={!editorState.canCode}
           className="h-8 w-8 p-0 hover:bg-gray-100"
         >
@@ -151,7 +151,7 @@ function MenuBar({ editor }: { editor: Editor }) {
         <Button
           variant={editorState.isHeading1 ? "secondary" : "ghost"}
           size="sm"
-          onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}
+          onClick={() => editor.chain().focus().toggleMark('heading', { level: 1 }).run()}
           className="h-8 px-2 hover:bg-gray-100 text-xs font-bold"
         >
           H1
@@ -159,7 +159,7 @@ function MenuBar({ editor }: { editor: Editor }) {
         <Button
           variant={editorState.isHeading2 ? "secondary" : "ghost"}
           size="sm"
-          onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}
+          onClick={() => editor.chain().focus().toggleMark('heading', { level: 2 }).run()}
           className="h-8 px-2 hover:bg-gray-100 text-xs font-bold"
         >
           H2
@@ -167,7 +167,7 @@ function MenuBar({ editor }: { editor: Editor }) {
         <Button
           variant={editorState.isHeading3 ? "secondary" : "ghost"}
           size="sm"
-          onClick={() => editor.chain().focus().toggleHeading({ level: 3 }).run()}
+          onClick={() => editor.chain().focus().toggleMark('heading', { level: 3 }).run()}
           className="h-8 px-2 hover:bg-gray-100 text-xs font-bold"
         >
           H3
@@ -212,26 +212,26 @@ function MenuBar({ editor }: { editor: Editor }) {
         <Separator orientation="vertical" className="h-6 mx-2" />
 
         {/* Lists and Blocks */}
-        <Button
+        {/* <Button
           variant={editorState.isBulletList ? "secondary" : "ghost"}
           size="sm"
-          onClick={() => editor.chain().focus().toggleBulletList().run()}
+          onClick={() => editor.chain().focus().toggleList('bullet').run()}
           className="h-8 w-8 p-0 hover:bg-gray-100"
         >
           <List className="h-4 w-4" />
-        </Button>
-        <Button
+        </Button> */}
+        {/* <Button
           variant={editorState.isOrderedList ? "secondary" : "ghost"}
           size="sm"
           onClick={() => editor.chain().focus().toggleOrderedList().run()}
           className="h-8 w-8 p-0 hover:bg-gray-100"
-        >
-          <ListOrdered className="h-4 w-4" />
-        </Button>
+        > */}
+          {/* <ListOrdered className="h-4 w-4" />
+        </Button> */}
         <Button
           variant={editorState.isBlockquote ? "secondary" : "ghost"}
           size="sm"
-          onClick={() => editor.chain().focus().toggleBlockquote().run()}
+          onClick={() => editor.chain().focus().toggleMark('blockquote').run()}
           className="h-8 w-8 p-0 hover:bg-gray-100"
         >
           <Quote className="h-4 w-4" />
@@ -239,7 +239,7 @@ function MenuBar({ editor }: { editor: Editor }) {
         <Button
           variant={editorState.isCodeBlock ? "secondary" : "ghost"}
           size="sm"
-          onClick={() => editor.chain().focus().toggleCodeBlock().run()}
+          onClick={() => editor.chain().focus().toggleMark('codeBlock').run()}
           className="h-8 w-8 p-0 hover:bg-gray-100"
         >
           <Code className="h-4 w-4" />
@@ -248,14 +248,14 @@ function MenuBar({ editor }: { editor: Editor }) {
         <Separator orientation="vertical" className="h-6 mx-2" />
 
         {/* Additional formatting */}
-        <Button
+        {/* <Button
           variant="ghost"
           size="sm"
           onClick={() => editor.chain().focus().setHorizontalRule().run()}
           className="h-8 w-8 p-0 hover:bg-gray-100"
         >
           <Minus className="h-4 w-4" />
-        </Button>
+        </Button> */}
       </div>
     </div>
   )
@@ -267,8 +267,10 @@ export function Tiptap({ documentId = "default-document", onReady, onDestroy }: 
   const editor = useEditor(
     {
       extensions: [
-        StarterKit,
-        TextStyleKit,
+        StarterKit.configure({
+          horizontalRule: false,
+        }),
+        TextStyle,
         InlineChange,
         BlockChange,
         LineBreakChange,

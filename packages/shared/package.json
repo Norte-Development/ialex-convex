@@ -5,7 +5,16 @@
   "type": "module",
   "main": "dist/index.js",
   "scripts": {
-    "build": "tsup src/index.ts --dts --format esm,cjs --sourcemap --out-dir dist"
+    "build": "tsup src/index.ts --format esm,cjs --sourcemap --out-dir dist"
+  },
+  "dependencies": {
+    "@tiptap/core": "2.7.0",
+    "@tiptap/extension-text-align": "2.7.0",
+    "@tiptap/extension-text-style": "2.7.0",
+    "@tiptap/extension-underline": "2.7.0",
+    "@tiptap/starter-kit": "2.7.0",
+    "jsondiffpatch": "^0.7.3",
+    "@dmsnell/diff-match-patch": "^1.1.0"
   },
   "devDependencies": {
     "tsup": "^8.3.5",

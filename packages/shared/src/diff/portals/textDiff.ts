@@ -1,5 +1,5 @@
 import { diff_match_patch } from '@dmsnell/diff-match-patch';
-import { CHANGE_TYPES, type ChangeType } from './types';
+import { CHANGE_TYPES, type ChangeType } from '../types';
 
 /**
  * Creates a granular text diff using diff-match-patch
@@ -91,4 +91,3 @@ export function handleTextDelta(textNode: any, oldText: string, newText: string,
     
     return null;
   }
-  
