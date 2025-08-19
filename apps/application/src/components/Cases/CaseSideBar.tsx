@@ -76,15 +76,6 @@ export default function CaseSidebar() {
   );
   const [editingFolderName, setEditingFolderName] = useState("");
 
-  // Folder hierarchy states
-  const [currentParentFolder, setCurrentParentFolder] =
-    useState<Id<"folders"> | null>(null);
-  const [expandedFolders, setExpandedFolders] = useState<Set<string>>(
-    new Set(),
-  );
-  const [creatingInFolder, setCreatingInFolder] =
-    useState<Id<"folders"> | null>(null);
-
   // For document Trigger
   const [showAddDocument, setShowAddDocument] = useState(false);
 
@@ -109,15 +100,10 @@ export default function CaseSidebar() {
   const createFolder = useMutation(api.functions.folders.createFolder);
   const updateFolder = useMutation(api.functions.folders.updateFolder);
 
-  // Fetch folders for the current case and current parent folder
+  // Fetch folders for the current case
   const folders = useQuery(
     api.functions.folders.getFoldersForCase,
-    currentCase
-      ? {
-          caseId: currentCase._id,
-          parentFolderId: currentParentFolder || undefined,
-        }
-      : "skip",
+    currentCase ? { caseId: currentCase._id } : "skip",
   );
 
   const handleNavigationFromCase = () => {
