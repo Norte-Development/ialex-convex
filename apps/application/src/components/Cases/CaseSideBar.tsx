@@ -29,9 +29,10 @@ import { useCase } from "@/context/CaseContext";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import { CreateEscritoDialog } from "../CreateEscritoDialog";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
+import { Input } from "../ui/input";
 import {
   Tooltip,
   TooltipContent,
@@ -66,6 +67,9 @@ export default function CaseSidebar() {
   );
   const [isCreateEscritoOpen, setIsCreateEscritoOpen] = useState(false);
   const [isArchivadosOpen, setIsArchivadosOpen] = useState(false);
+  const [isCreatingRootFolder, setIsCreatingRootFolder] = useState(false);
+  const [newRootFolderName, setNewRootFolderName] = useState("");
+  const rootInputRef = useRef<HTMLInputElement | null>(null);
 
   const basePath = `/caso/${id}`;
 
@@ -83,6 +87,8 @@ export default function CaseSidebar() {
 
   // Archive mutation
   const archiveEscrito = useMutation(api.functions.documents.archiveEscrito);
+  // Create root folder mutation
+  const createFolder = useMutation(api.functions.folders.createFolder);
 
   const handleNavigationFromCase = () => {
     setIsInCaseContext(true);
@@ -125,6 +131,26 @@ export default function CaseSidebar() {
       month: "short",
       day: "numeric",
     });
+  };
+
+  useEffect(() => {
+    if (isCreatingRootFolder) {
+      const t = setTimeout(() => rootInputRef.current?.focus(), 0);
+      return () => clearTimeout(t);
+    }
+  }, [isCreatingRootFolder]);
+
+  const submitCreateRootFolder = async () => {
+    if (!currentCase?._id) return;
+    const name = (newRootFolderName || "").trim() || "Nueva Carpeta";
+    try {
+      await createFolder({ name, caseId: currentCase._id } as any);
+      setNewRootFolderName("");
+      setIsCreatingRootFolder(false);
+    } catch (err) {
+      console.error("Error creating root folder:", err);
+      alert(err instanceof Error ? err.message : "No se pudo crear la carpeta");
+    }
   };
 
   return (
@@ -295,11 +321,41 @@ export default function CaseSidebar() {
               onOpenChange={toggleDocumentos}
               className="w-full"
             >
-              <CollapsibleTrigger className="cursor-pointer flex gap-1">
-                <FolderArchive className="cursor-pointer" size={20} />
-                Documentos
+              <CollapsibleTrigger className="cursor-pointer flex justify-between items-center gap-1 w-full">
+                <span className="flex items-center gap-1">
+                  <FolderArchive className="cursor-pointer" size={20} />
+                  Documentos
+                </span>
+                <IfCan permission={PERMISSIONS.DOC_WRITE} fallback={null}>
+                  <Plus
+                    className="cursor-pointer transition-colors rounded-full p-1 hover:bg-blue-100 hover:text-blue-600"
+                    size={20}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setIsCreatingRootFolder(true);
+                    }}
+                  />
+                </IfCan>
               </CollapsibleTrigger>
               <CollapsibleContent className="flex flex-col gap-1 pl-2 text-[12px] pt-1 overflow-y-auto max-h-32">
+                {isCreatingRootFolder && (
+                  <div className="flex items-center gap-2 p-1 pr-3">
+                    <Input
+                      ref={rootInputRef}
+                      placeholder="Nombre de la carpeta"
+                      value={newRootFolderName}
+                      onChange={(e) => setNewRootFolderName(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") submitCreateRootFolder();
+                        else if (e.key === "Escape") {
+                          setIsCreatingRootFolder(false);
+                          setNewRootFolderName("");
+                        }
+                      }}
+                      className="h-4 text-xs placeholder:text-xs"
+                    />
+                  </div>
+                )}
                 <CaseDocuments basePath={basePath} />
               </CollapsibleContent>
             </Collapsible>
