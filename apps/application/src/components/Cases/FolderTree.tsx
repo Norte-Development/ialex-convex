@@ -7,6 +7,7 @@ import { IfCan } from "@/components/Permissions";
 import { PERMISSIONS } from "@/permissions/types";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
+import { Link } from "react-router-dom";
 import {
   ChevronRight,
   Plus,
@@ -15,6 +16,8 @@ import {
   MoreHorizontal,
   Pencil,
   FileText,
+  Trash2,
+  Loader2,
 } from "lucide-react";
 
 type Props = {
@@ -22,6 +25,7 @@ type Props = {
   currentFolderId?: Id<"folders">;
   onFolderChange: (folderId: Id<"folders"> | undefined) => void;
   className?: string;
+  basePath?: string; // for linking to documents
 };
 
 export function FolderTree({
@@ -29,6 +33,7 @@ export function FolderTree({
   currentFolderId,
   onFolderChange,
   className,
+  basePath,
 }: Props) {
   const path = useQuery(
     api.functions.folders.getFolderPath,
@@ -45,6 +50,7 @@ export function FolderTree({
         currentFolderId={currentFolderId}
         onFolderChange={onFolderChange}
         pathIds={pathIds}
+        basePath={basePath}
       />
     </div>
   );
@@ -58,12 +64,14 @@ function FolderList({
   currentFolderId,
   onFolderChange,
   pathIds,
+  basePath,
 }: {
   caseId: Id<"cases">;
   parentFolderId: Id<"folders"> | undefined;
   currentFolderId?: Id<"folders">;
   onFolderChange: (id: Id<"folders"> | undefined) => void;
   pathIds: Id<"folders">[];
+  basePath?: string;
 }) {
   const args: any = parentFolderId ? { caseId, parentFolderId } : { caseId };
   const folders = useQuery(api.functions.folders.getFoldersForCase, args) as
@@ -75,34 +83,71 @@ function FolderList({
     caseId,
     folderId: parentFolderId,
   } as any) as { _id: Id<"documents">; title: string }[] | undefined;
+  const isLoadingFolders = folders === undefined;
 
-  if (folders === undefined) {
-    return (
-      <div className="ml-6 text-[11px] text-muted-foreground">Cargando…</div>
-    );
-  }
-
+  const deleteDocument = useMutation(api.functions.documents.deleteDocument);
+  const [deletingId, setDeletingId] = useState<Id<"documents"> | null>(null);
+  const handleDelete = async (id: Id<"documents">) => {
+    try {
+      setDeletingId(id);
+      await deleteDocument({ documentId: id } as any);
+    } finally {
+      setDeletingId(null);
+    }
+  };
   return (
     <div className="ml-2">
+      {isLoadingFolders && (
+        <div className="ml-6 text-[11px] text-muted-foreground">Cargando…</div>
+      )}
       {/* Documents at this level */}
       {documents && documents.length > 0 && (
         <div className="ml-4 mb-1">
           {documents.map((doc) => (
             <div
-              key={doc._id}
-              className="flex items-center gap-1 px-2 py-1 rounded hover:bg-gray-50"
+              key={doc._id as any}
+              className="flex items-center justify-between gap-2 px-2 py-1 rounded hover:bg-gray-50"
             >
-              <FileText size={14} className="text-gray-700 flex-shrink-0" />
-              <span className="text-[12px] truncate" title={doc.title}>
-                {doc.title}
-              </span>
+              <Link
+                to={basePath ? `${basePath}/documentos/${doc._id}` : `#`}
+                className="flex items-center gap-1 min-w-0"
+                onClick={(e) => {
+                  if (!basePath) e.preventDefault();
+                }}
+              >
+                <FileText size={14} className="text-gray-700 flex-shrink-0" />
+                <span className="text-[12px] truncate" title={doc.title}>
+                  {doc.title}
+                </span>
+              </Link>
+              <IfCan permission={PERMISSIONS.DOC_DELETE} fallback={null}>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-6 w-6 p-0 hover:bg-gray-200 flex-shrink-0"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    handleDelete(doc._id as Id<"documents">);
+                  }}
+                  disabled={deletingId === (doc._id as Id<"documents">)}
+                  title="Eliminar documento"
+                >
+                  {deletingId === (doc._id as Id<"documents">) ? (
+                    <Loader2 size={12} className="text-gray-500 animate-spin" />
+                  ) : (
+                    <Trash2 size={12} className="text-gray-500" />
+                  )}
+                </Button>
+              </IfCan>
             </div>
           ))}
         </div>
       )}
 
       {/* Subfolders */}
-      {folders &&
+      {!isLoadingFolders &&
+        folders &&
         folders.length === 0 &&
         (!documents || documents.length === 0) && (
           <div className="ml-6 text-[11px] text-muted-foreground">
@@ -110,7 +155,7 @@ function FolderList({
           </div>
         )}
 
-      {folders.map((folder) => (
+      {(folders ?? []).map((folder) => (
         <FolderItem
           key={folder._id}
           folder={folder}
@@ -118,6 +163,7 @@ function FolderList({
           currentFolderId={currentFolderId}
           onFolderChange={onFolderChange}
           pathIds={pathIds}
+          basePath={basePath}
         />
       ))}
     </div>
@@ -130,12 +176,14 @@ function FolderItem({
   currentFolderId,
   onFolderChange,
   pathIds,
+  basePath,
 }: {
   folder: FolderType;
   caseId: Id<"cases">;
   currentFolderId?: Id<"folders">;
   onFolderChange: (id: Id<"folders"> | undefined) => void;
   pathIds: Id<"folders">[];
+  basePath?: string;
 }) {
   const [open, setOpen] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
@@ -429,6 +477,7 @@ function FolderItem({
             currentFolderId={currentFolderId}
             onFolderChange={onFolderChange}
             pathIds={pathIds}
+            basePath={basePath}
           />
           {/* Nested subfolders are rendered by the FolderList above */}
           {isCreatingChild && (
