@@ -140,6 +140,7 @@ export const createDocument = mutation({
     title: v.string(),
     description: v.optional(v.string()),
     caseId: v.id("cases"),
+    folderId: v.optional(v.id("folders")),
     documentType: v.optional(
       v.union(
         v.literal("contract"),
@@ -167,6 +168,17 @@ export const createDocument = mutation({
       "write",
     );
 
+    // If a folderId is provided, validate it exists and belongs to the same case
+    if (args.folderId) {
+      const folder = await ctx.db.get(args.folderId);
+      if (!folder) {
+        throw new Error("Folder not found");
+      }
+      if (folder.caseId !== args.caseId) {
+        throw new Error("Folder doesn't belong to the specified case");
+      }
+    }
+
     // Idempotency: avoid duplicate records for the same backing object
     if (args.fileId) {
       const existing = await ctx.db
@@ -187,6 +199,7 @@ export const createDocument = mutation({
       title: args.title,
       description: args.description,
       caseId: args.caseId,
+      folderId: args.folderId ?? undefined,
       documentType: args.documentType,
       fileId: args.fileId ?? undefined,
       storageBackend: args.gcsBucket && args.gcsObject ? "gcs" : "convex",
