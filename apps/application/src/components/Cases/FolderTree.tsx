@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { useQuery, useMutation, useAction } from "convex/react";
+import { useQuery, useMutation } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import { Id } from "convex/_generated/dataModel";
 import type { Folder as FolderType } from "../../../types/folders";
@@ -10,15 +10,14 @@ import { Input } from "../ui/input";
 import { Link } from "react-router-dom";
 import {
   ChevronRight,
-  Plus,
   Folder,
-  Archive,
   MoreHorizontal,
-  Pencil,
   FileText,
   Trash2,
   Loader2,
 } from "lucide-react";
+import FolderActionsMenu from "./FolderActionsMenu";
+import NewDocumentInput, { NewDocumentInputHandle } from "./NewDocumentInput";
 
 type Props = {
   caseId: Id<"cases">;
@@ -192,15 +191,12 @@ function FolderItem({
   const [isCreatingChild, setIsCreatingChild] = useState(false);
   const [newChildName, setNewChildName] = useState("");
   const newChildRef = useRef<HTMLInputElement | null>(null);
-  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const fileInputRef = useRef<NewDocumentInputHandle | null>(null);
 
   const updateFolder = useMutation(api.functions.folders.updateFolder);
   const archiveFolder = useMutation(api.functions.folders.archiveFolder);
   const createFolder = useMutation(api.functions.folders.createFolder);
-  const generateUploadUrl = useAction(
-    api.functions.documents.generateUploadUrl,
-  );
-  const createDocument = useMutation(api.functions.documents.createDocument);
+  // Upload and document creation handled by NewDocumentInput
 
   useEffect(() => {
     if (pathIds.includes(folder._id as Id<"folders">)) {
@@ -349,18 +345,6 @@ function FolderItem({
               variant="ghost"
               size="sm"
               className="h-6 w-6 p-0 hover:bg-gray-200"
-              onClick={(e) => {
-                e.stopPropagation();
-                setMenuOpen((m) => !m);
-              }}
-              aria-label="Nueva subcarpeta"
-            >
-              <Plus size={14} className="text-gray-600" />
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-6 w-6 p-0 hover:bg-gray-200"
               data-folder-menu-trigger
               onClick={(e) => {
                 e.stopPropagation();
@@ -374,99 +358,35 @@ function FolderItem({
         </div>
       </div>
       {menuOpen && (
-        <div
-          className="absolute right-2 top-7 z-10 w-36 rounded-md border bg-white shadow-md text-xs"
-          data-folder-menu
-          onClick={(e) => e.stopPropagation()}
-        >
-          {/* Creation options */}
-          <button
-            className="w-full flex items-center gap-2 px-3 py-2 hover:bg-gray-100 text-left"
-            onClick={() => {
-              setMenuOpen(false);
-              setOpen(true);
-              setIsCreatingChild(true);
-            }}
-          >
-            <Plus size={12} /> Nueva carpeta
-          </button>
-          <button
-            className="w-full flex items-center gap-2 px-3 py-2 hover:bg-gray-100 text-left"
-            onClick={() => {
-              setMenuOpen(false);
-              fileInputRef.current?.click();
-            }}
-          >
-            <Plus size={12} /> Nuevo documento
-          </button>
-          <div className="my-1 border-t" />
-          <button
-            className="w-full flex items-center gap-2 px-3 py-2 hover:bg-gray-100 text-left"
-            onClick={() => {
-              setMenuOpen(false);
-              setIsEditing(true);
-            }}
-          >
-            <Pencil size={12} /> Renombrar
-          </button>
-          <button
-            className="w-full flex items-center gap-2 px-3 py-2 hover:bg-gray-100 text-left text-red-600"
-            onClick={handleArchive}
-          >
-            <Archive size={12} /> Archivar
-          </button>
-        </div>
-      )}
-      {/* Hidden file input for "Nuevo documento" */}
-      <input
-        ref={fileInputRef}
-        type="file"
-        className="hidden"
-        onChange={async (e) => {
-          const file = e.target.files?.[0];
-          if (!file) return;
-          try {
-            // 1) Get signed URL for upload
-            const signed = await generateUploadUrl({
-              caseId,
-              originalFileName: file.name,
-              mimeType: file.type || "application/octet-stream",
-              fileSize: file.size,
-            } as any);
-            // 2) Upload file to GCS
-            const putResp = await fetch(signed.url, {
-              method: "PUT",
-              headers: {
-                "Content-Type": file.type || "application/octet-stream",
-              },
-              body: file,
-            });
-            if (!putResp.ok)
-              throw new Error(`Upload failed: ${putResp.status}`);
-            // 3) Create document in DB with folderId
-            await createDocument({
-              title: file.name,
-              caseId,
-              folderId: folder._id as Id<"folders">,
-              gcsBucket: signed.bucket,
-              gcsObject: signed.object,
-              originalFileName: file.name,
-              mimeType: file.type || "application/octet-stream",
-              fileSize: file.size,
-            } as any);
-            if (fileInputRef.current) {
-              fileInputRef.current.value = "";
-            }
+        <FolderActionsMenu
+          onCreateFolder={() => {
+            setMenuOpen(false);
             setOpen(true);
-          } catch (err) {
-            console.error("Error uploading document:", err);
-            alert(
-              err instanceof Error
-                ? err.message
-                : "No se pudo subir el documento",
-            );
-          }
-        }}
+            setIsCreatingChild(true);
+          }}
+          onCreateDocument={() => {
+            setMenuOpen(false);
+            fileInputRef.current?.open();
+          }}
+          onRename={() => {
+            setMenuOpen(false);
+            setIsEditing(true);
+          }}
+          onArchive={handleArchive}
+        />
+      )}
+      <NewDocumentInput
+        ref={fileInputRef}
+        caseId={caseId}
+        folderId={folder._id as Id<"folders">}
+        onSuccess={() => setOpen(true)}
+        onError={(err) =>
+          alert(
+            err instanceof Error
+              ? err.message
+              : "No se pudo subir el documento",
+          )
+        }
       />
       {open && (
         <div className="ml-4">
