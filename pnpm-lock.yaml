@@ -276,6 +276,10 @@ importers:
       state:
         specifier: link:@tiptap/pm/state
         version: link:@tiptap/pm/state
+    devDependencies:
+      tsx:
+        specifier: ^4.7.0
+        version: 4.20.4
 
   apps/document-processor:
     dependencies:

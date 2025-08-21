@@ -14,13 +14,15 @@ import { Badge } from "@/components/ui/badge"
 import { FileText, Calendar, Building, Hash, ArrowRight } from "lucide-react"
 import { PermissionButton, IfCan } from "@/components/Permissions"
 import { PERMISSIONS } from "@/permissions/types"
-import { useEffect } from "react"
+import { useEffect, useState } from "react"
+import { EscritoToolsTester } from "@/components/Editor/EscritoToolsTester"
 
 export default function EscritoPage() {
   const { escritoId } = useParams()
   const navigate = useNavigate()
   const { currentCase } = useCase()
   const { setEscritoId } = useEscrito()
+  const [showToolsTester, setShowToolsTester] = useState(false)
 
   // Set the escritoId in context when the component mounts or escritoId changes
   useEffect(() => {
@@ -165,34 +167,59 @@ export default function EscritoPage() {
     <CaseLayout>
       {/* Document Header */}
       <div className="bg-white border-b border-gray-200 px-6 py-4">
-        <div className="w-full">
-          <h1 className="text-2xl font-semibold text-gray-900 mb-2">{escrito?.title || "Untitled Document"}</h1>
-          <div className="flex flex-wrap gap-4 text-sm text-gray-600">
-            {escrito?.presentationDate && (
-              <div className="flex items-center gap-2">
-                <span className="font-medium">Fecha de presentación:</span>
-                <span>{escrito.presentationDate}</span>
-              </div>
-            )}
-            {escrito?.courtName && (
-              <div className="flex items-center gap-2">
-                <span className="font-medium">Tribunal:</span>
-                <span>{escrito.courtName}</span>
-              </div>
-            )}
-            {escrito?.expedientNumber && (
-              <div className="flex items-center gap-2">
-                <span className="font-medium">Expediente:</span>
-                <span>{escrito.expedientNumber}</span>
-              </div>
-            )}
+        <div className="w-full flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-semibold text-gray-900 mb-2">{escrito?.title || "Untitled Document"}</h1>
+            <div className="flex flex-wrap gap-4 text-sm text-gray-600">
+              {escrito?.presentationDate && (
+                <div className="flex items-center gap-2">
+                  <span className="font-medium">Fecha de presentación:</span>
+                  <span>{escrito.presentationDate}</span>
+                </div>
+              )}
+              {escrito?.courtName && (
+                <div className="flex items-center gap-2">
+                  <span className="font-medium">Tribunal:</span>
+                  <span>{escrito.courtName}</span>
+                </div>
+              )}
+              {escrito?.expedientNumber && (
+                <div className="flex items-center gap-2">
+                  <span className="font-medium">Expediente:</span>
+                  <span>{escrito.expedientNumber}</span>
+                </div>
+              )}
+            </div>
           </div>
+          
+          {/* Tools Tester Toggle */}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setShowToolsTester(!showToolsTester)}
+            className="flex items-center gap-2"
+          >
+            <FileText className="h-4 w-4" />
+            {showToolsTester ? 'Hide' : 'Show'} Tools Tester
+          </Button>
         </div>
       </div>
 
       {/* Editor Container */}
       <div className="flex-1 p-6">
-        <Tiptap documentId={escrito?.prosemirrorId} />
+        <div className="flex gap-6 h-full">
+          {/* Main Editor */}
+          <div className="flex-1">
+            <Tiptap documentId={escrito?.prosemirrorId} />
+          </div>
+          
+          {/* Tools Tester Sidebar */}
+          {showToolsTester && (
+            <div className="w-80 flex-shrink-0">
+              <EscritoToolsTester />
+            </div>
+          )}
+        </div>
       </div>
     </CaseLayout>
   )

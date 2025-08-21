@@ -2,7 +2,6 @@ import { createTool, ToolCtx, getThreadMetadata} from "@convex-dev/agent";
 import { components } from "../_generated/api";
 import { z } from "zod";
 import { api, internal } from "../_generated/api";
-import { extractTextWithMapping, processEditWithMapping } from "./escritosHelper";
 
 /**
  * Tool for searching legal legislation using hybrid search (dense + sparse embeddings).
@@ -71,7 +70,7 @@ export const searchLegislationTool = createTool({
 
 	/**
 	 * Tool for editing Escritos by text-based operations.
-	 * Uses applyEscritoOperations mutation to apply changes.
+	 * Uses applyTextBasedOperations mutation to apply changes.
 	 */
 	export const editEscritoTool = createTool({
 	  description:
@@ -122,49 +121,20 @@ export const searchLegislationTool = createTool({
 	    });
 	    if (!escrito) return { error: "Escrito not found" };
 	
-	    const documentContent = await ctx.runQuery(api.prosemirror.getSnapshot, {
-	      id: escrito.prosemirrorId,
-	    });
-	    if (!documentContent?.content) {
-	      return { error: "Document content not found" };
-	    }
-	
-	    // Extract plain text + mapping
-	    const { text: plainText, ranges } = extractTextWithMapping(
-	      documentContent.content
-	    );
-
-      console.log("plainText", plainText);
-      console.log("ranges", ranges);
-	
-	    let currentText = plainText;
-	    const operations: any[] = [];
-	
-	    for (const edit of edits) {
-	      const editResult = processEditWithMapping(edit, currentText, ranges);
-	      if (editResult.error) return { error: editResult.error };
-	
-	      operations.push(...editResult.operations);
-	      currentText = editResult.updatedText;
-	    }
-	
-	    if (operations.length === 0) {
-	      return { message: "No changes to apply" };
-	    }
-	
-	    // Apply via mutation
-	    await ctx.runMutation(
-	      api.functions.escritosTransforms.applyEscritoOperations,
+	    // Apply text-based operations directly using the new mutation
+	    const result = await ctx.runMutation(
+	      api.functions.escritosTransforms.applyTextBasedOperations,
 	      {
 	        escritoId: escritoId as any,
-	        operations,
+	        edits,
 	      }
 	    );
 	
 	    return {
 	      ok: true,
-	      message: `Applied ${operations.length} operations successfully`,
-	      operationsApplied: operations.length,
+	      message: `Applied ${edits.length} edits successfully`,
+	      editsApplied: edits.length,
+	      result,
 	    };
 	  },
 	} as any);
