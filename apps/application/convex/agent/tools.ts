@@ -112,10 +112,21 @@ export const searchLegislationTool = createTool({
 	 *     newMarkType: "bold"
 	 *   }]
 	 * });
+	 * 
+	 * // Add new paragraph
+	 * await editEscritoTool.handler(ctx, {
+	 *   escritoId: "escrito_123",
+	 *   edits: [{
+	 *     type: "add_paragraph",
+	 *     content: "This is a new paragraph",
+	 *     paragraphType: "paragraph",
+	 *     afterText: "end of section"
+	 *   }]
+	 * });
 	 */
 	export const editEscritoTool = createTool({
 	  description:
-	    "Edit an Escrito by finding and replacing text content, adding/removing formatting marks, and manipulating text. Much easier than position-based editing - just provide the text to find and what to replace it with, or specify mark operations.",
+	    "Edit an Escrito by finding and replacing text content, adding/removing formatting marks, manipulating paragraph structure, and transforming document elements. Much easier than position-based editing - just provide the text to find and what to replace it with, or specify mark/paragraph operations.",
 	  args: z
 	    .object({
 	      escritoId: z.string().describe("The Escrito ID (Convex doc id)"),
@@ -161,15 +172,24 @@ export const searchLegislationTool = createTool({
 	              contextBefore: z.string().optional().describe("Text that should appear before (for precise targeting)"),
 	              contextAfter: z.string().optional().describe("Text that should appear after (for precise targeting)"),
 	            }),
-	            // Replace Mark
-	            z.object({
-	              type: z.literal("replace_mark"),
-	              text: z.string().describe("Text to change mark on"),
-	              oldMarkType: z.enum(["bold", "italic", "code", "strike", "underline"]).describe("Current mark type"),
-	              newMarkType: z.enum(["bold", "italic", "code", "strike", "underline"]).describe("New mark type"),
-	              contextBefore: z.string().optional().describe("Text that should appear before (for precise targeting)"),
-	              contextAfter: z.string().optional().describe("Text that should appear after (for precise targeting)"),
-	            }),
+	                        // Replace Mark
+            z.object({
+              type: z.literal("replace_mark"),
+              text: z.string().describe("Text to change mark on"),
+              oldMarkType: z.enum(["bold", "italic", "code", "strike", "underline"]).describe("Current mark type"),
+              newMarkType: z.enum(["bold", "italic", "code", "strike", "underline"]).describe("New mark type"),
+              contextBefore: z.string().optional().describe("Text that should appear before (for precise targeting)"),
+              contextAfter: z.string().optional().describe("Text that should appear after (for precise targeting)"),
+            }),
+            // Add Paragraph
+            z.object({
+              type: z.literal("add_paragraph"),
+              content: z.string().describe("Content for the new paragraph"),
+              paragraphType: z.enum(["paragraph", "heading", "blockquote", "bulletList", "orderedList", "codeBlock"]).describe("Type of paragraph to create"),
+              headingLevel: z.number().min(1).max(6).optional().describe("Heading level (1-6, required for heading type)"),
+              afterText: z.string().optional().describe("Insert after this text"),
+              beforeText: z.string().optional().describe("Insert before this text"),
+            }),
 	          ])
 	        )
 	        .min(1),

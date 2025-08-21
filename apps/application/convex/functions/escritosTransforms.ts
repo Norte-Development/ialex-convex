@@ -81,6 +81,21 @@ export const applyTextBasedOperations = mutation({
         ),
         contextBefore: v.optional(v.string()),
         contextAfter: v.optional(v.string()),
+      }),
+      v.object({
+        type: v.literal("add_paragraph"),
+        content: v.string(),
+        paragraphType: v.union(
+          v.literal("paragraph"),
+          v.literal("heading"),
+          v.literal("blockquote"),
+          v.literal("bulletList"),
+          v.literal("orderedList"),
+          v.literal("codeBlock")
+        ),
+        headingLevel: v.optional(v.number()),
+        afterText: v.optional(v.string()),
+        beforeText: v.optional(v.string()),
       })
     )),
   },
@@ -167,6 +182,16 @@ export const applyTextBasedOperations = mutation({
           contextBefore: edit.contextBefore,
           contextAfter: edit.contextAfter,
         });
+        
+      } else if (edit.type === "add_paragraph") {
+        operations.push({
+          type: "add_paragraph",
+          content: edit.content,
+          paragraphType: edit.paragraphType,
+          headingLevel: edit.headingLevel,
+          afterText: edit.afterText,
+          beforeText: edit.beforeText,
+        });
       }
     }
 
@@ -245,6 +270,145 @@ export const applyTextBasedOperations = mutation({
       });
       
       return matches;
+    };
+
+    // Helper function to find blocks (paragraphs, headings, etc.) containing specific text
+    const findBlockWithText = (doc: any, text: string) => {
+      const matches: Array<{ node: any; pos: number; start: number; end: number }> = [];
+      
+      doc.descendants((node: any, pos: number) => {
+        if (node.isBlock && !node.isText) {
+          const blockText = node.textContent || "";
+          if (blockText.includes(text)) {
+            matches.push({
+              node,
+              pos,
+              start: pos,
+              end: pos + node.nodeSize
+            });
+          }
+        }
+      });
+      
+      return matches;
+    };
+
+    // Helper function to find insertion position based on text anchors
+    const findInsertPosition = (doc: any, afterText?: string, beforeText?: string) => {
+      if (afterText) {
+        // Find position after the specified text
+        let insertPos = 0;
+        let found = false;
+        doc.descendants((node: any, pos: number) => {
+          if (node.isText && !found) {
+            const text = node.text || "";
+            const index = text.indexOf(afterText);
+            if (index !== -1) {
+              // Find the end of the containing block
+              let blockEnd = pos + node.nodeSize;
+              let parent = node;
+              while (parent && !parent.isBlock) {
+                parent = parent.parent;
+                if (parent) {
+                  blockEnd = pos + parent.nodeSize;
+                }
+              }
+              insertPos = blockEnd;
+              found = true;
+            }
+          }
+        });
+        return found ? insertPos : doc.content.size;
+      } else if (beforeText) {
+        // Find position before the specified text
+        let insertPos = 0;
+        let found = false;
+        doc.descendants((node: any, pos: number) => {
+          if (node.isText && !found) {
+            const text = node.text || "";
+            const index = text.indexOf(beforeText);
+            if (index !== -1) {
+              // Find the start of the containing block
+              let blockStart = pos;
+              let parent = node;
+              while (parent && !parent.isBlock) {
+                parent = parent.parent;
+                if (parent) {
+                  blockStart = pos;
+                }
+              }
+              insertPos = blockStart;
+              found = true;
+            }
+          }
+        });
+        return found ? insertPos : 0;
+      }
+      // Default to end of document
+      return doc.content.size;
+    };
+
+    // Helper function to create nodes of different types
+    const createNodeOfType = (schema: any, type: string, content: any, headingLevel?: number) => {
+      try {
+        switch (type) {
+          case "paragraph":
+            if (typeof content === 'string') {
+              return schema.nodes.paragraph.createAndFill({}, schema.text(content));
+            }
+            return schema.nodes.paragraph.createAndFill({}, content);
+            
+          case "heading":
+            const level = headingLevel && headingLevel >= 1 && headingLevel <= 6 ? headingLevel : 1;
+            if (typeof content === 'string') {
+              return schema.nodes.heading.createAndFill({ level }, schema.text(content));
+            }
+            return schema.nodes.heading.createAndFill({ level }, content);
+            
+          case "blockquote":
+            if (typeof content === 'string') {
+              const paragraph = schema.nodes.paragraph.createAndFill({}, schema.text(content));
+              return schema.nodes.blockquote.createAndFill({}, paragraph);
+            }
+            return schema.nodes.blockquote.createAndFill({}, content);
+            
+          case "codeBlock":
+            if (typeof content === 'string') {
+              return schema.nodes.codeBlock.createAndFill({}, schema.text(content));
+            }
+            return schema.nodes.codeBlock.createAndFill({}, content);
+            
+          case "bulletList":
+            if (typeof content === 'string') {
+              const paragraph = schema.nodes.paragraph.createAndFill({}, schema.text(content));
+              const listItem = schema.nodes.listItem.createAndFill({}, paragraph);
+              return schema.nodes.bulletList.createAndFill({}, listItem);
+            }
+            return schema.nodes.bulletList.createAndFill({}, content);
+            
+          case "orderedList":
+            if (typeof content === 'string') {
+              const paragraph = schema.nodes.paragraph.createAndFill({}, schema.text(content));
+              const listItem = schema.nodes.listItem.createAndFill({}, paragraph);
+              return schema.nodes.orderedList.createAndFill({}, listItem);
+            }
+            return schema.nodes.orderedList.createAndFill({}, content);
+            
+          default:
+            // Fallback to paragraph
+            if (typeof content === 'string') {
+              return schema.nodes.paragraph.createAndFill({}, schema.text(content));
+            }
+            return schema.nodes.paragraph.createAndFill({}, content);
+        }
+      } catch (error) {
+        console.error(`Error creating node of type ${type}:`, error);
+        // Fallback to simple paragraph
+        if (typeof content === 'string') {
+          return schema.nodes.paragraph.createAndFill({}, schema.text(content));
+        }
+        return schema.nodes.paragraph.createAndFill({}, content);
+      }
     };
 
     // Apply the position-based operations using the existing mutation
@@ -538,6 +702,27 @@ export const applyTextBasedOperations = mutation({
             tr = tr.removeMark(match.start, match.end, oldMark)
                    .addMark(match.start, match.end, newMark);
           });
+          
+        } else if (op.type === "add_paragraph") {
+          // Validate node type exists in schema
+          if (!schema.nodes[op.paragraphType]) {
+            console.error(`Node type "${op.paragraphType}" not found in schema`);
+            continue;
+          }
+          
+          // Validate heading level if adding heading
+          if (op.paragraphType === "heading" && op.headingLevel && (op.headingLevel < 1 || op.headingLevel > 6)) {
+            console.error(`Invalid heading level: ${op.headingLevel}. Must be between 1 and 6.`);
+            continue;
+          }
+          
+          // Find insertion position
+          const insertPos = findInsertPosition(tr.doc, op.afterText, op.beforeText);
+          console.log(`Adding ${op.paragraphType} at position ${insertPos}`);
+          
+          // Create the new node
+          const newNode = createNodeOfType(schema, op.paragraphType, op.content, op.headingLevel);
+          tr = tr.insert(insertPos, newNode);
           
         } else {
           // Fallback to original position-based logic for regular operations

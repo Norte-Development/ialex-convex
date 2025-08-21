@@ -22,7 +22,7 @@ import {
 
 interface EditOperation {
   id: string;
-  type: 'replace' | 'insert' | 'delete' | 'add_mark' | 'remove_mark' | 'replace_mark';
+  type: 'replace' | 'insert' | 'delete' | 'add_mark' | 'remove_mark' | 'replace_mark' | 'add_paragraph';
   findText?: string;
   replaceText?: string;
   insertText?: string;
@@ -31,6 +31,10 @@ interface EditOperation {
   markType?: 'bold' | 'italic' | 'code' | 'strike' | 'underline';
   oldMarkType?: 'bold' | 'italic' | 'code' | 'strike' | 'underline';
   newMarkType?: 'bold' | 'italic' | 'code' | 'strike' | 'underline';
+  // Paragraph operations
+  paragraphType?: 'paragraph' | 'heading' | 'blockquote' | 'bulletList' | 'orderedList' | 'codeBlock';
+  headingLevel?: number;
+  content?: string;
   contextBefore?: string;
   contextAfter?: string;
   replaceAll?: boolean;
@@ -127,6 +131,9 @@ export function EscritoToolsTester() {
         } else if (op.type === 'replace_mark') {
           addLog(`  Text: "${op.text}"`);
           addLog(`  Change: ${op.oldMarkType} -> ${op.newMarkType}`);
+        } else if (op.type === 'add_paragraph') {
+          addLog(`  Content: "${op.content}"`);
+          addLog(`  Type: ${op.paragraphType}${op.headingLevel ? ` (H${op.headingLevel})` : ''}`);
         }
       });
 
@@ -232,6 +239,7 @@ export function EscritoToolsTester() {
               <SelectItem value="add_mark">Add Mark (Bold, Italic, etc.)</SelectItem>
               <SelectItem value="remove_mark">Remove Mark</SelectItem>
               <SelectItem value="replace_mark">Replace Mark</SelectItem>
+              <SelectItem value="add_paragraph">Add Paragraph</SelectItem>
             </SelectContent>
           </Select>
 
@@ -467,6 +475,76 @@ export function EscritoToolsTester() {
             </div>
           )}
 
+          {currentOperation.type === 'add_paragraph' && (
+            <div className="space-y-2">
+              <div>
+                <Label>Paragraph Content</Label>
+                <Textarea
+                  placeholder="Content for the new paragraph"
+                  value={currentOperation.content || ''}
+                  onChange={(e) => setCurrentOperation(prev => ({ ...prev, content: e.target.value }))}
+                  rows={3}
+                />
+              </div>
+              <div>
+                <Label>Paragraph Type</Label>
+                <Select 
+                  value={currentOperation.paragraphType || ''} 
+                  onValueChange={(value) => setCurrentOperation(prev => ({ ...prev, paragraphType: value as any }))}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select paragraph type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="paragraph">Paragraph</SelectItem>
+                    <SelectItem value="heading">Heading</SelectItem>
+                    <SelectItem value="blockquote">Blockquote</SelectItem>
+                    <SelectItem value="bulletList">Bullet List</SelectItem>
+                    <SelectItem value="orderedList">Ordered List</SelectItem>
+                    <SelectItem value="codeBlock">Code Block</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              {currentOperation.paragraphType === 'heading' && (
+                <div>
+                  <Label>Heading Level</Label>
+                  <Select 
+                    value={currentOperation.headingLevel?.toString() || ''} 
+                    onValueChange={(value) => setCurrentOperation(prev => ({ ...prev, headingLevel: parseInt(value) }))}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select heading level" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="1">H1</SelectItem>
+                      <SelectItem value="2">H2</SelectItem>
+                      <SelectItem value="3">H3</SelectItem>
+                      <SelectItem value="4">H4</SelectItem>
+                      <SelectItem value="5">H5</SelectItem>
+                      <SelectItem value="6">H6</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+              <div>
+                <Label>After Text (optional)</Label>
+                <Input
+                  placeholder="Insert after this text"
+                  value={currentOperation.afterText || ''}
+                  onChange={(e) => setCurrentOperation(prev => ({ ...prev, afterText: e.target.value }))}
+                />
+              </div>
+              <div>
+                <Label>Before Text (optional)</Label>
+                <Input
+                  placeholder="Insert before this text"
+                  value={currentOperation.beforeText || ''}
+                  onChange={(e) => setCurrentOperation(prev => ({ ...prev, beforeText: e.target.value }))}
+                />
+              </div>
+            </div>
+          )}
+
           <Button onClick={addOperation} size="sm" className="w-full">
             <Plus className="h-4 w-4 mr-2" />
             Add Operation
@@ -529,6 +607,14 @@ export function EscritoToolsTester() {
                     <>
                       <div><strong>Text:</strong> {op.text}</div>
                       <div><strong>Change:</strong> {op.oldMarkType} → {op.newMarkType}</div>
+                    </>
+                  )}
+                  {op.type === 'add_paragraph' && (
+                    <>
+                      <div><strong>Content:</strong> {op.content}</div>
+                      <div><strong>Type:</strong> {op.paragraphType}{op.headingLevel ? ` (H${op.headingLevel})` : ''}</div>
+                      {op.afterText && <div><strong>After:</strong> {op.afterText}</div>}
+                      {op.beforeText && <div><strong>Before:</strong> {op.beforeText}</div>}
                     </>
                   )}
                 </div>
