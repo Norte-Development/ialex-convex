@@ -32,6 +32,7 @@ import {
 import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
 import { api } from "../../../convex/_generated/api"
+import { useEscrito } from "@/context/EscritoContext"
 
 interface TiptapProps {
   documentId?: string
@@ -263,6 +264,7 @@ function MenuBar({ editor }: { editor: Editor }) {
 
 export function Tiptap({ documentId = "default-document", onReady, onDestroy }: TiptapProps) {
   const sync = useTiptapSync(api.prosemirror, documentId)
+  const { setCursorPosition, setTextAroundCursor, setEscritoId } = useEscrito()
 
   const editor = useEditor(
     {
@@ -288,16 +290,66 @@ export function Tiptap({ documentId = "default-document", onReady, onDestroy }: 
           "data-placeholder": "Start writing your legal document...",
         },
       },
+      onUpdate: ({ editor }) => {
+        // Update cursor position and text around cursor when content changes
+        updateCursorContext(editor)
+      },
+      onSelectionUpdate: ({ editor }) => {
+        // Update cursor position and text around cursor when selection changes
+        updateCursorContext(editor)
+      },
     },
     [sync.initialContent, sync.extension],
   )
+
+  const updateCursorContext = (editor: Editor) => {
+    const { from, to } = editor.state.selection
+    
+    // Get cursor position in terms of line and column
+    const pos = editor.state.doc.resolve(from)
+    const line = pos.parentOffset
+    const column = from - pos.start()
+    
+    // Set cursor position
+    setCursorPosition({ line, column })
+    
+    // Get text around cursor
+    const doc = editor.state.doc
+    const beforeText = doc.textBetween(Math.max(0, from - 100), from)
+    const afterText = doc.textBetween(to, Math.min(doc.content.size, to + 100))
+    
+    // Get current line text
+    const lineStart = pos.start()
+    const lineEnd = pos.end()
+    const currentLineText = doc.textBetween(lineStart, lineEnd)
+    
+    const textContext = {
+      before: beforeText,
+      after: afterText,
+      currentLine: currentLineText,
+    }
+    
+    setTextAroundCursor(textContext)
+    
+    // Debug logging
+    console.log('Cursor context updated:', {
+      position: { line, column },
+      textContext
+    })
+  }
 
   useEffect(() => {
     if (editor && onReady) {
       console.log("TipTap editor ready")
       onReady(editor)
+      
+      // Set the document ID as escritoId when editor is ready
+      setEscritoId(documentId)
+      
+      // Initial cursor context update
+      updateCursorContext(editor)
     }
-  }, [editor, onReady])
+  }, [editor, onReady, documentId, setEscritoId])
 
   useEffect(() => {
     return () => {

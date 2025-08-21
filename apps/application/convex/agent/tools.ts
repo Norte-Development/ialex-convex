@@ -2,6 +2,7 @@ import { createTool, ToolCtx, getThreadMetadata} from "@convex-dev/agent";
 import { components } from "../_generated/api";
 import { z } from "zod";
 import { api, internal } from "../_generated/api";
+import { extractTextWithMapping, processEditWithMapping } from "./escritosHelper";
 
 /**
  * Tool for searching legal legislation using hybrid search (dense + sparse embeddings).
@@ -67,29 +68,129 @@ export const searchLegislationTool = createTool({
     },
 } as any);
 
-/**
- * Tool: Apply structured edits to an Escrito using server-side ProseMirror transform with diff rendering.
- * Persisted diffs will be visible to all clients and can be accepted/rejected via the editor UI.
- */
-export const editEscritoTool = createTool({
-  description: "Apply structured operations to an Escrito. Server computes and persists diff change nodes.",
+
+	/**
+	 * Tool for editing Escritos by text-based operations.
+	 * Uses applyEscritoOperations mutation to apply changes.
+	 */
+	export const editEscritoTool = createTool({
+	  description:
+	    "Edit an Escrito by finding and replacing text content. Much easier than position-based editing - just provide the text to find and what to replace it with.",
+	  args: z
+	    .object({
+	      escritoId: z.string().describe("The Escrito ID (Convex doc id)"),
+	      edits: z
+	        .array(
+	          z.union([
+	            // Replace
+	            z.object({
+	              type: z.literal("replace"),
+	              findText: z.string(),
+	              replaceText: z.string(),
+	              contextBefore: z.string().optional(),
+	              contextAfter: z.string().optional(),
+	              replaceAll: z.boolean().optional().default(false),
+	            }),
+	            // Insert
+	            z.object({
+	              type: z.literal("insert"),
+	              insertText: z.string(),
+	              afterText: z.string().optional(),
+	              beforeText: z.string().optional(),
+	            }),
+	            // Delete
+	            z.object({
+	              type: z.literal("delete"),
+	              deleteText: z.string(),
+	              contextBefore: z.string().optional(),
+	              contextAfter: z.string().optional(),
+	            }),
+	          ])
+	        )
+	        .min(1),
+	    })
+	    .required({ escritoId: true, edits: true }),
+	  handler: async (
+	    ctx: ToolCtx,
+	    { escritoId, edits }: { escritoId: string; edits: any[] }
+	  ) => {
+	    if (!ctx.userId) throw new Error("Not authenticated");
+	
+	    // Load Escrito
+	    const escrito = await ctx.runQuery(api.functions.documents.getEscrito, {
+	      escritoId: escritoId as any,
+	    });
+	    if (!escrito) return { error: "Escrito not found" };
+	
+	    const documentContent = await ctx.runQuery(api.prosemirror.getSnapshot, {
+	      id: escrito.prosemirrorId,
+	    });
+	    if (!documentContent?.content) {
+	      return { error: "Document content not found" };
+	    }
+	
+	    // Extract plain text + mapping
+	    const { text: plainText, ranges } = extractTextWithMapping(
+	      documentContent.content
+	    );
+
+      console.log("plainText", plainText);
+      console.log("ranges", ranges);
+	
+	    let currentText = plainText;
+	    const operations: any[] = [];
+	
+	    for (const edit of edits) {
+	      const editResult = processEditWithMapping(edit, currentText, ranges);
+	      if (editResult.error) return { error: editResult.error };
+	
+	      operations.push(...editResult.operations);
+	      currentText = editResult.updatedText;
+	    }
+	
+	    if (operations.length === 0) {
+	      return { message: "No changes to apply" };
+	    }
+	
+	    // Apply via mutation
+	    await ctx.runMutation(
+	      api.functions.escritosTransforms.applyEscritoOperations,
+	      {
+	        escritoId: escritoId as any,
+	        operations,
+	      }
+	    );
+	
+	    return {
+	      ok: true,
+	      message: `Applied ${operations.length} operations successfully`,
+	      operationsApplied: operations.length,
+	    };
+	  },
+	} as any);
+
+
+
+export const getEscritoTool = createTool({
+  description: "Get the content of an Escrito",
   args: z.object({
     escritoId: z.string().describe("The Escrito ID (Convex doc id)"),
-    operations: z.array(
-      z.union([
-        z.object({ type: z.literal("insert_text"), pos: z.number(), text: z.string() }),
-        z.object({ type: z.literal("replace_range"), from: z.number(), to: z.number(), text: z.string() }),
-      ])
-    ).min(1)
-  }).required({escritoId: true, operations: true}),
-  handler: async (ctx: ToolCtx, { escritoId, operations }: { escritoId: string; operations: any[] }) => {
-    if (!ctx.userId) throw new Error("Not authenticated");
-    // Rely on Convex-side permission checks (requireEscritoPermission)
-    await ctx.runMutation(api.functions.escritosTransforms.applyEscritoOperations, {
-      escritoId: escritoId as any,
-      operations,
-    });
-    return { ok: true };
+  }).required({escritoId: true}),
+  handler: async (ctx: ToolCtx, { escritoId }: { escritoId: string }) => {
+    const escrito = await ctx.runQuery(api.functions.documents.getEscrito, { escritoId: escritoId as any });
+    
+    if (!escrito) {
+      return { error: "Escrito not found" };
+    }
+
+    console.log("escrito", escrito);
+
+    // Get the actual document content using prosemirror
+    const documentContent = await ctx.runQuery(api.prosemirror.getSnapshot, { id: escrito.prosemirrorId });
+    
+    return {
+      content: documentContent
+    };
   }
 } as any);
 

@@ -9,6 +9,7 @@
  */
 
 import type * as agent_agent from "../agent/agent.js";
+import type * as agent_escritosHelper from "../agent/escritosHelper.js";
 import type * as agent_streamAbort from "../agent/streamAbort.js";
 import type * as agent_streaming from "../agent/streaming.js";
 import type * as agent_threads from "../agent/threads.js";
@@ -53,6 +54,7 @@ import type {
  */
 declare const fullApi: ApiFromModules<{
   "agent/agent": typeof agent_agent;
+  "agent/escritosHelper": typeof agent_escritosHelper;
   "agent/streamAbort": typeof agent_streamAbort;
   "agent/streaming": typeof agent_streaming;
   "agent/threads": typeof agent_threads;

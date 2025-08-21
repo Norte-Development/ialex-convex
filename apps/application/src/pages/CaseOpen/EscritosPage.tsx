@@ -6,6 +6,7 @@ import { api } from "../../../convex/_generated/api"
 import type { Id } from "../../../convex/_generated/dataModel"
 import { useQuery } from "convex/react"
 import { useCase } from "@/context/CaseContext"
+import { useEscrito } from "@/context/EscritoContext"
 import { useParams, useNavigate } from "react-router-dom"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -13,11 +14,19 @@ import { Badge } from "@/components/ui/badge"
 import { FileText, Calendar, Building, Hash, ArrowRight } from "lucide-react"
 import { PermissionButton, IfCan } from "@/components/Permissions"
 import { PERMISSIONS } from "@/permissions/types"
+import { useEffect } from "react"
 
 export default function EscritoPage() {
   const { escritoId } = useParams()
   const navigate = useNavigate()
   const { currentCase } = useCase()
+  const { setEscritoId } = useEscrito()
+
+  // Set the escritoId in context when the component mounts or escritoId changes
+  useEffect(() => {
+    console.log('Setting escritoId in context:', escritoId)
+    setEscritoId(escritoId || undefined)
+  }, [escritoId, setEscritoId])
 
   if (!escritoId) {
     const all_escritos = useQuery(api.functions.documents.getEscritos, {
