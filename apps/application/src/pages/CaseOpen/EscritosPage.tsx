@@ -139,10 +139,9 @@ export default function EscritoPage() {
                     <div className="pt-2">
                       <PermissionButton
                         permission={PERMISSIONS.ESCRITO_READ}
-                        variant="outline" 
-                        size="sm" 
                         className="w-full group-hover:bg-blue-50 group-hover:border-blue-200 transition-colors"
                         disabledMessage="No tienes permisos para ver escritos"
+                        disabled={!PERMISSIONS.ESCRITO_READ}
                       >
                         <FileText className="h-4 w-4 mr-2" />
                         Abrir escrito

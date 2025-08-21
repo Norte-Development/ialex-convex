@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { api } from '../../../convex/_generated/api';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -13,24 +13,24 @@ import { useMutation, useQuery } from 'convex/react';
 import { Id } from '../../../convex/_generated/dataModel';
 import { 
   FileText, 
-  Search, 
-  Replace, 
   Plus, 
   Trash2, 
   Play, 
   RotateCcw,
-  CheckCircle,
-  XCircle,
   AlertCircle
 } from 'lucide-react';
 
 interface EditOperation {
   id: string;
-  type: 'replace' | 'insert' | 'delete';
+  type: 'replace' | 'insert' | 'delete' | 'add_mark' | 'remove_mark' | 'replace_mark';
   findText?: string;
   replaceText?: string;
   insertText?: string;
   deleteText?: string;
+  text?: string; // For mark operations
+  markType?: 'bold' | 'italic' | 'code' | 'strike' | 'underline';
+  oldMarkType?: 'bold' | 'italic' | 'code' | 'strike' | 'underline';
+  newMarkType?: 'bold' | 'italic' | 'code' | 'strike' | 'underline';
   contextBefore?: string;
   contextAfter?: string;
   replaceAll?: boolean;
@@ -38,8 +38,7 @@ interface EditOperation {
   beforeText?: string;
 }
 
-// Type for the mutation (without the id field)
-type EditOperationForMutation = Omit<EditOperation, 'id'>;
+
 
 export function EscritoToolsTester() {
   const { escritoId } = useEscrito();
@@ -119,6 +118,15 @@ export function EscritoToolsTester() {
           addLog(`  Insert: "${op.insertText}"`);
         } else if (op.type === 'delete') {
           addLog(`  Delete: "${op.deleteText}"`);
+        } else if (op.type === 'add_mark') {
+          addLog(`  Text: "${op.text}"`);
+          addLog(`  Add Mark: ${op.markType}`);
+        } else if (op.type === 'remove_mark') {
+          addLog(`  Text: "${op.text}"`);
+          addLog(`  Remove Mark: ${op.markType}`);
+        } else if (op.type === 'replace_mark') {
+          addLog(`  Text: "${op.text}"`);
+          addLog(`  Change: ${op.oldMarkType} -> ${op.newMarkType}`);
         }
       });
 
@@ -221,6 +229,9 @@ export function EscritoToolsTester() {
               <SelectItem value="replace">Replace Text</SelectItem>
               <SelectItem value="insert">Insert Text</SelectItem>
               <SelectItem value="delete">Delete Text</SelectItem>
+              <SelectItem value="add_mark">Add Mark (Bold, Italic, etc.)</SelectItem>
+              <SelectItem value="remove_mark">Remove Mark</SelectItem>
+              <SelectItem value="replace_mark">Replace Mark</SelectItem>
             </SelectContent>
           </Select>
 
@@ -297,6 +308,165 @@ export function EscritoToolsTester() {
             </div>
           )}
 
+          {currentOperation.type === 'add_mark' && (
+            <div className="space-y-2">
+              <div>
+                <Label>Text to Mark</Label>
+                <Input
+                  placeholder="Text to add mark to"
+                  value={currentOperation.text || ''}
+                  onChange={(e) => setCurrentOperation(prev => ({ ...prev, text: e.target.value }))}
+                />
+              </div>
+              <div>
+                <Label>Mark Type</Label>
+                <Select 
+                  value={currentOperation.markType || ''} 
+                  onValueChange={(value) => setCurrentOperation(prev => ({ ...prev, markType: value as any }))}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select mark type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="bold">Bold</SelectItem>
+                    <SelectItem value="italic">Italic</SelectItem>
+                    <SelectItem value="code">Code</SelectItem>
+                    <SelectItem value="strike">Strikethrough</SelectItem>
+                    <SelectItem value="underline">Underline</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label>Context Before (optional)</Label>
+                <Input
+                  placeholder="Text that should appear before"
+                  value={currentOperation.contextBefore || ''}
+                  onChange={(e) => setCurrentOperation(prev => ({ ...prev, contextBefore: e.target.value }))}
+                />
+              </div>
+              <div>
+                <Label>Context After (optional)</Label>
+                <Input
+                  placeholder="Text that should appear after"
+                  value={currentOperation.contextAfter || ''}
+                  onChange={(e) => setCurrentOperation(prev => ({ ...prev, contextAfter: e.target.value }))}
+                />
+              </div>
+            </div>
+          )}
+
+          {currentOperation.type === 'remove_mark' && (
+            <div className="space-y-2">
+              <div>
+                <Label>Text to Remove Mark From</Label>
+                <Input
+                  placeholder="Text to remove mark from"
+                  value={currentOperation.text || ''}
+                  onChange={(e) => setCurrentOperation(prev => ({ ...prev, text: e.target.value }))}
+                />
+              </div>
+              <div>
+                <Label>Mark Type to Remove</Label>
+                <Select 
+                  value={currentOperation.markType || ''} 
+                  onValueChange={(value) => setCurrentOperation(prev => ({ ...prev, markType: value as any }))}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select mark type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="bold">Bold</SelectItem>
+                    <SelectItem value="italic">Italic</SelectItem>
+                    <SelectItem value="code">Code</SelectItem>
+                    <SelectItem value="strike">Strikethrough</SelectItem>
+                    <SelectItem value="underline">Underline</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label>Context Before (optional)</Label>
+                <Input
+                  placeholder="Text that should appear before"
+                  value={currentOperation.contextBefore || ''}
+                  onChange={(e) => setCurrentOperation(prev => ({ ...prev, contextBefore: e.target.value }))}
+                />
+              </div>
+              <div>
+                <Label>Context After (optional)</Label>
+                <Input
+                  placeholder="Text that should appear after"
+                  value={currentOperation.contextAfter || ''}
+                  onChange={(e) => setCurrentOperation(prev => ({ ...prev, contextAfter: e.target.value }))}
+                />
+              </div>
+            </div>
+          )}
+
+          {currentOperation.type === 'replace_mark' && (
+            <div className="space-y-2">
+              <div>
+                <Label>Text to Change Mark</Label>
+                <Input
+                  placeholder="Text to change mark on"
+                  value={currentOperation.text || ''}
+                  onChange={(e) => setCurrentOperation(prev => ({ ...prev, text: e.target.value }))}
+                />
+              </div>
+              <div>
+                <Label>Current Mark Type</Label>
+                <Select 
+                  value={currentOperation.oldMarkType || ''} 
+                  onValueChange={(value) => setCurrentOperation(prev => ({ ...prev, oldMarkType: value as any }))}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select current mark" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="bold">Bold</SelectItem>
+                    <SelectItem value="italic">Italic</SelectItem>
+                    <SelectItem value="code">Code</SelectItem>
+                    <SelectItem value="strike">Strikethrough</SelectItem>
+                    <SelectItem value="underline">Underline</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label>New Mark Type</Label>
+                <Select 
+                  value={currentOperation.newMarkType || ''} 
+                  onValueChange={(value) => setCurrentOperation(prev => ({ ...prev, newMarkType: value as any }))}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select new mark" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="bold">Bold</SelectItem>
+                    <SelectItem value="italic">Italic</SelectItem>
+                    <SelectItem value="code">Code</SelectItem>
+                    <SelectItem value="strike">Strikethrough</SelectItem>
+                    <SelectItem value="underline">Underline</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label>Context Before (optional)</Label>
+                <Input
+                  placeholder="Text that should appear before"
+                  value={currentOperation.contextBefore || ''}
+                  onChange={(e) => setCurrentOperation(prev => ({ ...prev, contextBefore: e.target.value }))}
+                />
+              </div>
+              <div>
+                <Label>Context After (optional)</Label>
+                <Input
+                  placeholder="Text that should appear after"
+                  value={currentOperation.contextAfter || ''}
+                  onChange={(e) => setCurrentOperation(prev => ({ ...prev, contextAfter: e.target.value }))}
+                />
+              </div>
+            </div>
+          )}
+
           <Button onClick={addOperation} size="sm" className="w-full">
             <Plus className="h-4 w-4 mr-2" />
             Add Operation
@@ -342,6 +512,24 @@ export function EscritoToolsTester() {
                   )}
                   {op.type === 'delete' && (
                     <div><strong>Delete:</strong> {op.deleteText}</div>
+                  )}
+                  {op.type === 'add_mark' && (
+                    <>
+                      <div><strong>Text:</strong> {op.text}</div>
+                      <div><strong>Add Mark:</strong> {op.markType}</div>
+                    </>
+                  )}
+                  {op.type === 'remove_mark' && (
+                    <>
+                      <div><strong>Text:</strong> {op.text}</div>
+                      <div><strong>Remove Mark:</strong> {op.markType}</div>
+                    </>
+                  )}
+                  {op.type === 'replace_mark' && (
+                    <>
+                      <div><strong>Text:</strong> {op.text}</div>
+                      <div><strong>Change:</strong> {op.oldMarkType} → {op.newMarkType}</div>
+                    </>
                   )}
                 </div>
               </div>

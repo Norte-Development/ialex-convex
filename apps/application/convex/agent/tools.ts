@@ -69,12 +69,53 @@ export const searchLegislationTool = createTool({
 
 
 	/**
-	 * Tool for editing Escritos by text-based operations.
+	 * Tool for editing Escritos by text-based operations including text manipulation and mark formatting.
 	 * Uses applyTextBasedOperations mutation to apply changes.
+	 * 
+	 * @description Edit an Escrito by finding and replacing text content, adding/removing formatting marks, and manipulating text. Much easier than position-based editing - just provide the text to find and what to replace it with, or specify mark operations.
+	 * @param {Object} args - Edit parameters
+	 * @param {string} args.escritoId - The Escrito ID (Convex doc id)
+	 * @param {Array} args.edits - Array of edit operations to apply
+	 * @returns {Promise<Object>} Result of the edit operations
+	 * @throws {Error} When the edit operations fail
+	 * 
+	 * @example
+	 * // Replace text with context
+	 * await editEscritoTool.handler(ctx, {
+	 *   escritoId: "escrito_123",
+	 *   edits: [{
+	 *     type: "replace",
+	 *     findText: "old text",
+	 *     replaceText: "new text",
+	 *     contextBefore: "This is",
+	 *     contextAfter: "here"
+	 *   }]
+	 * });
+	 * 
+	 * // Add bold formatting
+	 * await editEscritoTool.handler(ctx, {
+	 *   escritoId: "escrito_123", 
+	 *   edits: [{
+	 *     type: "add_mark",
+	 *     text: "important text",
+	 *     markType: "bold"
+	 *   }]
+	 * });
+	 * 
+	 * // Change italic to bold
+	 * await editEscritoTool.handler(ctx, {
+	 *   escritoId: "escrito_123",
+	 *   edits: [{
+	 *     type: "replace_mark", 
+	 *     text: "emphasized text",
+	 *     oldMarkType: "italic",
+	 *     newMarkType: "bold"
+	 *   }]
+	 * });
 	 */
 	export const editEscritoTool = createTool({
 	  description:
-	    "Edit an Escrito by finding and replacing text content. Much easier than position-based editing - just provide the text to find and what to replace it with.",
+	    "Edit an Escrito by finding and replacing text content, adding/removing formatting marks, and manipulating text. Much easier than position-based editing - just provide the text to find and what to replace it with, or specify mark operations.",
 	  args: z
 	    .object({
 	      escritoId: z.string().describe("The Escrito ID (Convex doc id)"),
@@ -103,6 +144,31 @@ export const searchLegislationTool = createTool({
 	              deleteText: z.string(),
 	              contextBefore: z.string().optional(),
 	              contextAfter: z.string().optional(),
+	            }),
+	            // Add Mark
+	            z.object({
+	              type: z.literal("add_mark"),
+	              text: z.string().describe("Text to add mark to"),
+	              markType: z.enum(["bold", "italic", "code", "strike", "underline"]).describe("Type of mark to add"),
+	              contextBefore: z.string().optional().describe("Text that should appear before (for precise targeting)"),
+	              contextAfter: z.string().optional().describe("Text that should appear after (for precise targeting)"),
+	            }),
+	            // Remove Mark
+	            z.object({
+	              type: z.literal("remove_mark"),
+	              text: z.string().describe("Text to remove mark from"),
+	              markType: z.enum(["bold", "italic", "code", "strike", "underline"]).describe("Type of mark to remove"),
+	              contextBefore: z.string().optional().describe("Text that should appear before (for precise targeting)"),
+	              contextAfter: z.string().optional().describe("Text that should appear after (for precise targeting)"),
+	            }),
+	            // Replace Mark
+	            z.object({
+	              type: z.literal("replace_mark"),
+	              text: z.string().describe("Text to change mark on"),
+	              oldMarkType: z.enum(["bold", "italic", "code", "strike", "underline"]).describe("Current mark type"),
+	              newMarkType: z.enum(["bold", "italic", "code", "strike", "underline"]).describe("New mark type"),
+	              contextBefore: z.string().optional().describe("Text that should appear before (for precise targeting)"),
+	              contextAfter: z.string().optional().describe("Text that should appear after (for precise targeting)"),
 	            }),
 	          ])
 	        )
