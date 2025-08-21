@@ -15,14 +15,15 @@
     "dev:all": "npm-run-all --parallel dev dev:processor",
     "build": "turbo run build",
     "lint": "tsc && eslint .  --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
-    "preview": "sh -c 'cd apps/application && vite preview'"
+    "preview": "sh -c 'cd apps/application && vite preview'",
+    "ui:add": "sh -c 'cd apps/application && npx shadcn@latest add'",
+    "ui": "sh -c 'cd apps/application && npx shadcn@latest'"
   },
   "dependencies": {
-    "@ai-sdk/openai": "^1.3.23",
+    "@ai-sdk/openai": "^2.0.18",
     "@clerk/clerk-react": "^5.25.0",
     "@clerk/react-router": "^1.8.1",
-    "@convex-dev/agent": "^0.1.16",
-    "@convex-dev/agent-playground": "^0.0.16",
+    "@convex-dev/agent": "^0.2.4",
     "@convex-dev/prosemirror-sync": "^0.1.28",
     "@convex-dev/rag": "^0.3.3",
     "@convex-dev/resend": "^0.1.4",
@@ -42,14 +43,14 @@
     "@radix-ui/react-tooltip": "^1.2.7",
     "@tanstack/react-query": "^5.83.0",
     "@tanstack/react-query-devtools": "^5.83.0",
-    "@tiptap/core": "2.7.0",
-    "@tiptap/extension-horizontal-rule": "2.7.0",
-    "@tiptap/extension-text-align": "2.7.0",
-    "@tiptap/extension-text-style": "2.7.0",
-    "@tiptap/extension-underline": "2.7.0",
-    "@tiptap/pm": "2.7.0",
-    "@tiptap/react": "2.7.0",
-    "@tiptap/starter-kit": "2.7.0",
+    "@tiptap/core": "^3.2.1",
+    "@tiptap/extension-horizontal-rule": "^3.2.1",
+    "@tiptap/extension-text-align": "^3.2.1",
+    "@tiptap/extension-text-style": "^3.2.1",
+    "@tiptap/extension-underline": "^3.2.1",
+    "@tiptap/pm": "^3.2.1",
+    "@tiptap/react": "^3.2.1",
+    "@tiptap/starter-kit": "^3.2.1",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "convex": "^1.25.4",
@@ -98,6 +99,9 @@
     "onlyBuiltDependencies": [
       "esbuild",
       "@tailwindcss/oxide"
-    ]
+    ],
+    "overrides": {
+      "@convex-dev/prosemirror-sync>@tiptap/core": "^3.2.1"
+    }
   }
 }

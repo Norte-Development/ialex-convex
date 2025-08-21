@@ -27,7 +27,7 @@ import {
  */
 export const agent = new Agent(components.agent, {
   name: "Legal Assistant Agent",
-  chat: openai.chat("gpt-4o"),
+  languageModel: openai("gpt-4o"),
   tools: {
     searchLegislation: searchLegislationTool,
     searchFallos: searchFallosTool,

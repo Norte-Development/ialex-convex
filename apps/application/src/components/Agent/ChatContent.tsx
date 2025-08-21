@@ -13,6 +13,7 @@ import { ChatInput } from "./ChatInput"
 import { useEscrito } from "@/context/EscritoContext"
 import { Id } from "convex/_generated/dataModel"
 
+
 export function ChatContent() {
   const { threadId, createThreadWithTitle } = useThread()
   const { caseId } = useCase()

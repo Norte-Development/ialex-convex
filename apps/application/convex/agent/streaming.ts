@@ -67,7 +67,7 @@ export const streamAsync = internalAction({
         { 
           system: `Sos un asistente de derecho. Estas en el caso ${caseContext.caseId}. El escrito actual es ${caseContext.currentEscritoId}. El cursor esta en la posicion ${caseContext.cursorPosition}.`,
           promptMessageId,  
-          maxSteps: 25,
+          maxRetries: 3,
           onError: (error) => {
             console.error("Error streaming text", error);
             // throw error;
