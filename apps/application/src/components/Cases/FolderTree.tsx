@@ -9,6 +9,7 @@ import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import { Link } from "react-router-dom";
 import { Droppable, Draggable } from "react-beautiful-dnd";
+import { toast } from "sonner";
 import {
   ChevronRight,
   Folder,
@@ -77,7 +78,7 @@ export function FolderTree({
       } as any);
     } catch (err) {
       console.error("Error moving document:", err);
-      alert(
+      toast.error(
         err instanceof Error ? err.message : "No se pudo mover el documento",
       );
     } finally {
@@ -358,7 +359,7 @@ function FolderItem({
       setIsEditing(false);
     } catch (err) {
       console.error("Error renaming folder:", err);
-      alert(
+      toast.error(
         err instanceof Error ? err.message : "No se pudo renombrar la carpeta",
       );
       setIsEditing(false);
@@ -372,7 +373,7 @@ function FolderItem({
       setMenuOpen(false);
     } catch (err) {
       console.error("Error archiving folder:", err);
-      alert(
+      toast.error(
         err instanceof Error ? err.message : "No se pudo archivar la carpeta",
       );
     }
@@ -398,7 +399,9 @@ function FolderItem({
       setOpen(true);
     } catch (err) {
       console.error("Error creating folder:", err);
-      alert(err instanceof Error ? err.message : "No se pudo crear la carpeta");
+      toast.error(
+        err instanceof Error ? err.message : "No se pudo crear la carpeta",
+      );
     }
   };
 
@@ -497,7 +500,7 @@ function FolderItem({
         folderId={folder._id as Id<"folders">}
         onSuccess={() => setOpen(true)}
         onError={(err) =>
-          alert(
+          toast.error(
             err instanceof Error
               ? err.message
               : "No se pudo subir el documento",
