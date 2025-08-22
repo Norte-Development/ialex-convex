@@ -43,8 +43,10 @@ export function FolderTree({
   ) as FolderType[] | undefined;
   const pathIds = (path ?? []).map((f) => f._id as Id<"folders">);
 
-  // DnD handlers (no-op for move yet) + prevent global horizontal scroll while dragging
+  // DnD handlers + prevent global horizontal scroll while dragging
   const moveDocument = useMutation(api.functions.documents.moveDocument);
+  // Optimistic: hide doc from its source list immediately during move
+  const [movingFrom, setMovingFrom] = useState<Record<string, string>>({});
   const handleDragStart = () => {
     try {
       document.body.classList.add("overflow-x-hidden");
@@ -64,6 +66,11 @@ export function FolderTree({
         ? undefined
         : (destination.droppableId as unknown as Id<"folders">);
     try {
+      // Optimistically hide from source list
+      setMovingFrom((prev) => ({
+        ...prev,
+        [draggableId]: source.droppableId,
+      }));
       await moveDocument({
         documentId: draggableId as unknown as Id<"documents">,
         newFolderId,
@@ -73,6 +80,12 @@ export function FolderTree({
       alert(
         err instanceof Error ? err.message : "No se pudo mover el documento",
       );
+    } finally {
+      setMovingFrom((prev) => {
+        const cp = { ...prev };
+        delete cp[draggableId];
+        return cp;
+      });
     }
   };
 
@@ -87,6 +100,7 @@ export function FolderTree({
           onFolderChange={onFolderChange}
           pathIds={pathIds}
           basePath={basePath}
+          movingFrom={movingFrom}
         />
       </div>
     </DragDropContext>
@@ -102,6 +116,7 @@ function FolderList({
   onFolderChange,
   pathIds,
   basePath,
+  movingFrom,
 }: {
   caseId: Id<"cases">;
   parentFolderId: Id<"folders"> | undefined;
@@ -109,6 +124,7 @@ function FolderList({
   onFolderChange: (id: Id<"folders"> | undefined) => void;
   pathIds: Id<"folders">[];
   basePath?: string;
+  movingFrom: Record<string, string>;
 }) {
   const args: any = parentFolderId ? { caseId, parentFolderId } : { caseId };
   const folders = useQuery(api.functions.folders.getFoldersForCase, args) as
@@ -133,11 +149,14 @@ function FolderList({
     }
   };
   const droppableId = (parentFolderId ?? "root") as string;
+  const visibleDocuments = (documents ?? []).filter(
+    (doc) => movingFrom[(doc._id as unknown as string) ?? ""] !== droppableId,
+  );
 
   return (
     <div className="ml-2 overflow-x-hidden">
       {isLoadingFolders && (
-        <div className="ml-6 text-[11px] text-muted-foreground">Cargando…</div>
+        <div className="ml-2 text-[11px] text-muted-foreground">Cargando…</div>
       )}
       {/* Documents at this level */}
       {documents && (
@@ -157,7 +176,7 @@ function FolderList({
                   Suelta aquí para mover al nivel actual
                 </div>
               )}
-              {documents.map((doc, index) => (
+              {visibleDocuments.map((doc, index) => (
                 <Draggable
                   draggableId={doc._id as unknown as string}
                   index={index}
@@ -257,6 +276,7 @@ function FolderList({
           onFolderChange={onFolderChange}
           pathIds={pathIds}
           basePath={basePath}
+          movingFrom={movingFrom}
         />
       ))}
     </div>
@@ -270,6 +290,7 @@ function FolderItem({
   onFolderChange,
   pathIds,
   basePath,
+  movingFrom,
 }: {
   folder: FolderType;
   caseId: Id<"cases">;
@@ -277,6 +298,7 @@ function FolderItem({
   onFolderChange: (id: Id<"folders"> | undefined) => void;
   pathIds: Id<"folders">[];
   basePath?: string;
+  movingFrom: Record<string, string>;
 }) {
   const [open, setOpen] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
@@ -492,6 +514,7 @@ function FolderItem({
             onFolderChange={onFolderChange}
             pathIds={pathIds}
             basePath={basePath}
+            movingFrom={movingFrom}
           />
           {/* Nested subfolders are rendered by the FolderList above */}
           {isCreatingChild && (
