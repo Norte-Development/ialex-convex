@@ -780,3 +780,60 @@ export const getArchivedEscritos = query({
     return archivedEscritos;
   },
 });
+
+/**
+ * Moves a document to a different folder within the same case.
+ *
+ * @param {Object} args - The function arguments
+ * @param {string} args.documentId - The ID of the document to move
+ * @param {string} [args.newFolderId] - The ID of the target folder (undefined for root)
+ * @returns {Promise<void>}
+ * @throws {Error} When not authenticated, lacking permissions, or validation fails
+ *
+ * @example
+ * ```javascript
+ * // Move document to a specific folder
+ * await moveDocument({
+ *   documentId: "document_123",
+ *   newFolderId: "folder_456"
+ * });
+ *
+ * // Move document to root (no folder)
+ * await moveDocument({
+ *   documentId: "document_123",
+ *   newFolderId: undefined
+ * });
+ * ```
+ */
+export const moveDocument = mutation({
+  args: {
+    documentId: v.id("documents"),
+    newFolderId: v.optional(v.id("folders")),
+  },
+  handler: async (ctx, args) => {
+    // Get the document to verify it exists and get its case ID
+    const document = await ctx.db.get(args.documentId);
+    if (!document) {
+      throw new Error("Document not found");
+    }
+
+    // Verify user has document write permission
+    await requireDocumentPermission(ctx, document.caseId, "write");
+
+    // If a newFolderId is provided, validate it exists and belongs to the same case
+    if (args.newFolderId) {
+      const targetFolder = await ctx.db.get(args.newFolderId);
+      if (!targetFolder) {
+        throw new Error("Target folder not found");
+      }
+      if (targetFolder.caseId !== document.caseId) {
+        throw new Error("Target folder doesn't belong to the same case");
+      }
+    }
+
+    // Update the document's folderId
+    await ctx.db.patch(args.documentId, {
+      folderId: args.newFolderId,
+    });
+  },
+});

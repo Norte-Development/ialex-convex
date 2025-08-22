@@ -8,6 +8,7 @@ import { PERMISSIONS } from "@/permissions/types";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import { Link } from "react-router-dom";
+import { Droppable, Draggable } from "react-beautiful-dnd";
 import {
   ChevronRight,
   Folder,
@@ -15,9 +16,11 @@ import {
   FileText,
   Trash2,
   Loader2,
+  GripVertical,
 } from "lucide-react";
 import FolderActionsMenu from "./FolderActionsMenu";
 import NewDocumentInput, { NewDocumentInputHandle } from "./NewDocumentInput";
+import { DragDropContext, type DropResult } from "react-beautiful-dnd";
 
 type Props = {
   caseId: Id<"cases">;
@@ -40,18 +43,53 @@ export function FolderTree({
   ) as FolderType[] | undefined;
   const pathIds = (path ?? []).map((f) => f._id as Id<"folders">);
 
+  // DnD handlers (no-op for move yet) + prevent global horizontal scroll while dragging
+  const moveDocument = useMutation(api.functions.documents.moveDocument);
+  const handleDragStart = () => {
+    try {
+      document.body.classList.add("overflow-x-hidden");
+    } catch {}
+  };
+  const handleDragEnd = async (result: DropResult) => {
+    try {
+      document.body.classList.remove("overflow-x-hidden");
+    } catch {}
+    const { destination, source, draggableId, type } = result;
+    if (!destination || type !== "DOCUMENT") return;
+    // Only act when moving across different lists (folders/root)
+    if (destination.droppableId === source.droppableId) return;
+
+    const newFolderId =
+      destination.droppableId === "root"
+        ? undefined
+        : (destination.droppableId as unknown as Id<"folders">);
+    try {
+      await moveDocument({
+        documentId: draggableId as unknown as Id<"documents">,
+        newFolderId,
+      } as any);
+    } catch (err) {
+      console.error("Error moving document:", err);
+      alert(
+        err instanceof Error ? err.message : "No se pudo mover el documento",
+      );
+    }
+  };
+
   return (
-    <div className={className}>
-      {/* Tree starting at root */}
-      <FolderList
-        caseId={caseId}
-        parentFolderId={undefined}
-        currentFolderId={currentFolderId}
-        onFolderChange={onFolderChange}
-        pathIds={pathIds}
-        basePath={basePath}
-      />
-    </div>
+    <DragDropContext onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
+      <div className={`overflow-x-hidden ${className ?? ""}`}>
+        {/* Tree starting at root */}
+        <FolderList
+          caseId={caseId}
+          parentFolderId={undefined}
+          currentFolderId={currentFolderId}
+          onFolderChange={onFolderChange}
+          pathIds={pathIds}
+          basePath={basePath}
+        />
+      </div>
+    </DragDropContext>
   );
 }
 
@@ -94,64 +132,110 @@ function FolderList({
       setDeletingId(null);
     }
   };
+  const droppableId = (parentFolderId ?? "root") as string;
+
   return (
-    <div className="ml-2">
+    <div className="ml-2 overflow-x-hidden">
       {isLoadingFolders && (
         <div className="ml-6 text-[11px] text-muted-foreground">Cargando…</div>
       )}
       {/* Documents at this level */}
-      {documents && documents.length > 0 && (
-        <div className="ml-4 mb-1">
-          {documents.map((doc) => (
+      {documents && (
+        <Droppable droppableId={droppableId} type="DOCUMENT">
+          {(dropProvided, dropSnapshot) => (
             <div
-              key={doc._id as any}
-              className="flex items-center justify-between gap-2 px-2 py-1 rounded hover:bg-gray-50"
+              ref={dropProvided.innerRef}
+              {...dropProvided.droppableProps}
+              className={`pl-4 mb-2 rounded transition-colors w-full max-w-full box-border border border-transparent overflow-x-hidden ${
+                dropSnapshot.isDraggingOver
+                  ? "bg-blue-50/70 border-blue-300 border-dashed"
+                  : ""
+              }`}
             >
-              <Link
-                to={basePath ? `${basePath}/documentos/${doc._id}` : `#`}
-                className="flex items-center gap-1 min-w-0"
-                draggable={true}
-                data-document-drag="true"
-                onDragStart={(e) => {
-                  // Set drag data to identify this as an internal document drag
-                  e.dataTransfer.setData(
-                    "application/x-ialex-document",
-                    doc._id,
-                  );
-                  e.dataTransfer.effectAllowed = "move";
-                }}
-                onClick={(e) => {
-                  if (!basePath) e.preventDefault();
-                }}
-              >
-                <FileText size={14} className="text-gray-700 flex-shrink-0" />
-                <span className="text-[12px] truncate" title={doc.title}>
-                  {doc.title}
-                </span>
-              </Link>
-              <IfCan permission={PERMISSIONS.DOC_DELETE} fallback={null}>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-6 w-6 p-0 hover:bg-gray-200 flex-shrink-0"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    handleDelete(doc._id as Id<"documents">);
-                  }}
-                  disabled={deletingId === (doc._id as Id<"documents">)}
-                  title="Eliminar documento"
+              {dropSnapshot.isDraggingOver && (
+                <div className="px-2 py-1 text-[10px] text-blue-700">
+                  Suelta aquí para mover al nivel actual
+                </div>
+              )}
+              {documents.map((doc, index) => (
+                <Draggable
+                  draggableId={doc._id as unknown as string}
+                  index={index}
+                  key={doc._id as any}
                 >
-                  {deletingId === (doc._id as Id<"documents">) ? (
-                    <Loader2 size={12} className="text-gray-500 animate-spin" />
-                  ) : (
-                    <Trash2 size={12} className="text-gray-500" />
+                  {(dragProvided, dragSnapshot) => (
+                    <div
+                      ref={dragProvided.innerRef}
+                      {...dragProvided.draggableProps}
+                      className={`flex items-center justify-between gap-2 px-2 py-1 rounded hover:bg-gray-50 transition-colors w-full max-w-full min-w-0 box-border border border-transparent overflow-hidden ${
+                        dragSnapshot.isDragging
+                          ? "bg-blue-100/80 border border-blue-300 opacity-80 shadow-sm"
+                          : ""
+                      }`}
+                    >
+                      <span
+                        className="flex items-center text-gray-400 cursor-grab active:cursor-grabbing flex-shrink-0"
+                        aria-label="Arrastrar documento"
+                        title="Arrastrar documento"
+                        {...dragProvided.dragHandleProps}
+                      >
+                        <GripVertical size={12} />
+                      </span>
+                      <Link
+                        to={
+                          basePath ? `${basePath}/documentos/${doc._id}` : `#`
+                        }
+                        className="flex items-center gap-1 min-w-0 flex-1"
+                        onClick={(e) => {
+                          if (!basePath) e.preventDefault();
+                          if (dragSnapshot.isDragging) e.preventDefault();
+                        }}
+                      >
+                        <FileText
+                          size={14}
+                          className="text-gray-700 flex-shrink-0"
+                        />
+                        <span
+                          className="text-[12px] truncate"
+                          title={doc.title}
+                        >
+                          {doc.title}
+                        </span>
+                      </Link>
+                      <IfCan
+                        permission={PERMISSIONS.DOC_DELETE}
+                        fallback={null}
+                      >
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-6 w-6 p-0 hover:bg-gray-200 flex-shrink-0"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            handleDelete(doc._id as Id<"documents">);
+                          }}
+                          disabled={deletingId === (doc._id as Id<"documents">)}
+                          title="Eliminar documento"
+                        >
+                          {deletingId === (doc._id as Id<"documents">) ? (
+                            <Loader2
+                              size={12}
+                              className="text-gray-500 animate-spin"
+                            />
+                          ) : (
+                            <Trash2 size={12} className="text-gray-500" />
+                          )}
+                        </Button>
+                      </IfCan>
+                    </div>
                   )}
-                </Button>
-              </IfCan>
+                </Draggable>
+              ))}
+              {dropProvided.placeholder}
             </div>
-          ))}
-        </div>
+          )}
+        </Droppable>
       )}
 
       {/* Subfolders */}
