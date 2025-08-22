@@ -27,7 +27,20 @@ import {
  */
 export const agent = new Agent(components.agent, {
   name: "Legal Assistant Agent",
-  languageModel: openai("gpt-4o"),
+  languageModel: openai.chat("gpt-4o-mini"),
+  maxSteps: 25,
+  // Default call settings per 0.2.x: place maxRetries here
+  callSettings: {
+    maxRetries: 3,
+  },
+  // Ensure proper storage and context for v5
+  storageOptions: {
+    saveMessages: "all"
+  },
+  contextOptions: {
+    recentMessages: 50,
+    excludeToolMessages: false,
+  },
   tools: {
     searchLegislation: searchLegislationTool,
     searchFallos: searchFallosTool,

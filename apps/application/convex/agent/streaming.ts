@@ -67,22 +67,24 @@ export const streamAsync = internalAction({
         { 
           system: `Sos un asistente de derecho. Estas en el caso ${caseContext.caseId}. El escrito actual es ${caseContext.currentEscritoId}. El cursor esta en la posicion ${caseContext.cursorPosition}.`,
           promptMessageId,  
-          maxRetries: 3,
           onError: (error) => {
             console.error("Error streaming text", error);
             // throw error;
           },
            },
         // more custom delta options (`true` uses defaults)
-        { saveStreamDeltas: { chunking: "word", throttleMs: 100 },
+        { 
+          saveStreamDeltas: { 
+            chunking: "word", 
+            throttleMs: 100,
+          },
           contextOptions: {
             searchOtherThreads: true,
-          }
-       },
+          },
+        },
       );
-      // We need to make sure the stream finishes - by awaiting each chunk
-      // or using this call to consume it all.
-      await result.consumeStream();
+      // Don't return anything - the streaming is handled automatically
+      // The result object is used internally by the Convex Agent system
     },
   });
 
@@ -109,17 +111,19 @@ export const listMessages = query({
     handler: async (ctx, args) => {
       const { threadId, paginationOpts, streamArgs } = args;
       await authorizeThreadAccess(ctx, threadId);
-      const streams = await agent.syncStreams(ctx, {
-        threadId,
-        streamArgs,
-        includeStatuses: ["aborted", "streaming"],
-      });
+      
       // Here you could filter out / modify the stream of deltas / filter out
       // deltas.
   
       const paginated = await agent.listMessages(ctx, {
         threadId,
         paginationOpts,
+      });
+
+      const streams = await agent.syncStreams(ctx, {
+        threadId,
+        streamArgs,
+        includeStatuses: ["aborted", "streaming"],
       });
   
       // Here you could filter out metadata that you don't want from any optional
