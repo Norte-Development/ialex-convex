@@ -110,6 +110,16 @@ function FolderList({
               <Link
                 to={basePath ? `${basePath}/documentos/${doc._id}` : `#`}
                 className="flex items-center gap-1 min-w-0"
+                draggable={true}
+                data-document-drag="true"
+                onDragStart={(e) => {
+                  // Set drag data to identify this as an internal document drag
+                  e.dataTransfer.setData(
+                    "application/x-ialex-document",
+                    doc._id,
+                  );
+                  e.dataTransfer.effectAllowed = "move";
+                }}
                 onClick={(e) => {
                   if (!basePath) e.preventDefault();
                 }}
