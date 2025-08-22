@@ -67,8 +67,6 @@ function getToolIcon(name: string) {
     case "listCaseDocuments":
       return <FileText className="w-3.5 h-3.5" />;
     case "editescrito":
-    case "editEscrito":
-    case "getescrito":
     case "getEscrito":
       return <Code className="w-3.5 h-3.5" />;
     default:
