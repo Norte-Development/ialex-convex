@@ -1,5 +1,5 @@
-import { CHANGE_TYPES, type ChangeType } from './types';
-import { extractCombinedText, normalizeText } from './utils';
+import { CHANGE_TYPES, type ChangeType } from '../types';
+import { extractCombinedText, normalizeText } from '../utils';
 
 /**
  * Detects if a content change is actually a formatting change

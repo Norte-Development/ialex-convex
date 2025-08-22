@@ -9,7 +9,7 @@ interface SidebarMessageProps {
 
 export function SidebarMessage({ message }: SidebarMessageProps) {
   const isUser = message.role === "user"
-  const [visibleText] = useSmoothText(message.content, {
+  const [visibleText] = useSmoothText(message.text, {
     startStreaming: message.status === "streaming",
   })
 
@@ -89,7 +89,7 @@ export function SidebarMessage({ message }: SidebarMessageProps) {
           }
 
           // Handle source parts
-          if (part.type === "source") {
+          if (part.type === "source-url") {
             return (
               <div key={index} className="text-xs bg-blue-50 border border-blue-200 rounded p-2 mt-2">
                 <strong>Source:</strong> {(part as any).title || (part as any).url || "Unknown source"}
@@ -122,16 +122,17 @@ export function SidebarMessage({ message }: SidebarMessageProps) {
             )
           }
 
-          // Handle tool invocations
-          if (part.type === "tool-invocation") {
-            const toolInvocation = (part as any).toolInvocation
+          // Handle tool calls (new v5 AI SDK format)
+          if (part.type.startsWith("tool-")) {
+            const toolName = part.type.replace("tool-", "")
+            const state = (part as any).state === "output-available" ? "result" : "call"
             
             return (
               <ToolCallDisplay
                 key={index}
-                toolName={toolInvocation.toolName}
-                state={toolInvocation.state}
-                part={toolInvocation}
+                toolName={toolName}
+                state={state}
+                part={part as any}
               />
             )
           }

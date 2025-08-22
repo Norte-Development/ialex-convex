@@ -13,12 +13,18 @@ import {
 type ToolState = "call" | "result" | "error" | string;
 
 type ToolPart = {
-  args?: unknown;
-  result?: unknown;
+  input?: unknown;
+  output?: {
+    type: string;
+    value: unknown;
+  };
   error?: string;
   toolCallId?: string;
   startedAt?: string | number | Date;
   completedAt?: string | number | Date;
+  // Legacy support
+  args?: unknown;
+  result?: unknown;
 };
 
 const PREVIEW = {
@@ -49,10 +55,20 @@ function safeStringify(value: unknown, max = PREVIEW.json) {
 function getToolIcon(name: string) {
   switch (name.toLowerCase()) {
     case "searchlegislation":
-    case "displayweather":
+    case "searchfallos":
       return <Search className="w-3.5 h-3.5" />;
-    case "searchdocuments":
+    case "searchcasedocuments":
+    case "searchCaseDocuments":
+    case "readdocument":
+    case "readDocument":
+    case "querydocument":
+    case "queryDocument":
+    case "listcasedocuments":
+    case "listCaseDocuments":
       return <FileText className="w-3.5 h-3.5" />;
+    case "editescrito":
+    case "getEscrito":
+      return <Code className="w-3.5 h-3.5" />;
     default:
       return <Code className="w-3.5 h-3.5" />;
   }
@@ -61,11 +77,21 @@ function getToolIcon(name: string) {
 function getToolDisplayName(name: string) {
   switch (name.toLowerCase()) {
     case "searchlegislation":
-      return "Legislación";
-    case "searchdocuments":
-      return "Documentos";
-    case "displayweather":
-      return "Clima";
+      return "Búsqueda Legislación";
+    case "searchfallos":
+      return "Búsqueda Fallos";
+    case "searchcasedocuments":
+      return "Búsqueda Documentos";
+    case "readdocument":
+      return "Leer Documento";
+    case "querydocument":
+      return "Consultar Documento";
+    case "listcasedocuments":
+      return "Listar Documentos";
+    case "editescrito":
+      return "Editar Escrito";
+    case "getescrito":
+      return "Obtener Escrito";
     default:
       return name;
   }
@@ -187,17 +213,17 @@ export function ToolCallDisplay({
           </Row>
         )}
 
-        {part.args !== undefined && (
+        {(part.input !== undefined || part.args !== undefined) && (
           <MiniJsonPreview
             label="Parámetros"
-            value={part.args}
+            value={part.input || part.args}
             muted
             collapsed
           />
         )}
 
-        {state === "result" && part.result !== undefined && (
-          <MiniResultPreview result={part.result} />
+        {state === "result" && (part.output?.value !== undefined || part.result !== undefined) && (
+          <MiniResultPreview result={part.output?.value || part.result} />
         )}
 
         {state === "call" && (

@@ -72,8 +72,6 @@ export const InlineChange = Node.create({
       const contentDOM = document.createElement("span");
       dom.appendChild(contentDOM);
 
-
-
       // Check if this node should show buttons (only the last node with same changeId)
       const shouldShowButtons = isLastNodeWithChangeId(node, editor);
 
@@ -242,6 +240,7 @@ export const BlockChange = Node.create({
 
   renderHTML({ HTMLAttributes }) {
     const attrs: Record<string, any> = {
+      "data-change": HTMLAttributes.changeType,
       "data-change-id": HTMLAttributes.changeId,
       "data-change-type": HTMLAttributes.changeType,
       "data-change-user": HTMLAttributes.user,
@@ -260,8 +259,6 @@ export const BlockChange = Node.create({
 
       const contentDOM = document.createElement("div");
       dom.appendChild(contentDOM);
-
-
 
       // Check if this node should show buttons (only the last node with same changeId)
       const shouldShowButtons = isLastNodeWithChangeId(node, editor);
