@@ -1,4 +1,4 @@
-import { useSmoothText, type UIMessage } from "@convex-dev/agent/react";
+import { type UIMessage } from "@convex-dev/agent/react";
 import { cn } from "@/lib/utils";
 import ReactMarkdown from "react-markdown";
 import { ToolCallDisplay } from "./ToolCallDisplay";
@@ -6,6 +6,60 @@ import { Message, MessageContent, MessageAvatar } from "../ai-elements/message";
 import { Reasoning, ReasoningContent } from "../ai-elements/reasoning";
 import { Sources, SourcesTrigger, SourcesContent } from "../ai-elements/source";
 import { Tool, ToolHeader, ToolContent } from "../ai-elements/tool";
+import { useState, useEffect } from "react";
+
+/**
+ * Custom hook for typewriter effect
+ */
+function useTypewriter(
+  text: string,
+  speed: number = 50,
+  shouldStart: boolean = false,
+  messageCreationTime: number = 0,
+) {
+  const [displayText, setDisplayText] = useState(text);
+  const [isTyping, setIsTyping] = useState(false);
+
+  useEffect(() => {
+    // Si no debe hacer streaming, mostrar texto completo
+    if (!shouldStart) {
+      setDisplayText(text);
+      setIsTyping(false);
+      return;
+    }
+
+    // Solo hacer efecto typewriter si el mensaje es muy reciente (menos de 5 segundos)
+    const messageAge = Date.now() - messageCreationTime;
+    const isRecentMessage = messageAge < 5000; // 5 segundos
+
+    if (!isRecentMessage) {
+      setDisplayText(text);
+      setIsTyping(false);
+      return;
+    }
+
+    // Hacer el efecto typewriter para mensajes recientes
+    if (text && shouldStart && isRecentMessage) {
+      setDisplayText("");
+      setIsTyping(true);
+
+      let currentIndex = 0;
+      const interval = setInterval(() => {
+        if (currentIndex < text.length) {
+          setDisplayText(text.slice(0, currentIndex + 1));
+          currentIndex++;
+        } else {
+          setIsTyping(false);
+          clearInterval(interval);
+        }
+      }, 1000 / speed);
+
+      return () => clearInterval(interval);
+    }
+  }, [text, speed, shouldStart, messageCreationTime]);
+
+  return { displayText, isTyping };
+}
 
 /**
  * SidebarMessage Component
@@ -49,9 +103,20 @@ export function SidebarMessage({
       .map((part) => part.text)
       .join("") || "";
 
-  const [visibleText] = useSmoothText(messageText, {
-    startStreaming: message.status === "streaming",
-  });
+  // Determine if we should show typewriter effect
+  const shouldStream =
+    message.role === "assistant" &&
+    (message.status === "streaming" || message.status === "success");
+
+  const { displayText: visibleText } = useTypewriter(
+    messageText,
+    80, // caracteres por segundo
+    shouldStream,
+    message._creationTime || 0,
+  );
+
+  console.log("Rendering message:", message);
+  console.log("Visible text:", visibleText);
 
   return (
     <Message
@@ -77,15 +142,15 @@ export function SidebarMessage({
           // Assistant messages
           !isUser && "!bg-gray-100 !text-gray-800",
           // Status-based styling
-          !isUser &&
-            message.status === "streaming" &&
-            "!bg-green-100 !text-green-800",
+          !isUser && message.status === "streaming" && " ",
           message.status === "failed" && "!bg-red-100 !text-red-800",
         )}
       >
         {message.parts?.map((part, index) => {
           // Handle text parts with ReactMarkdown
           if (part.type === "text") {
+            const displayText = isUser ? part.text : visibleText;
+
             return (
               <div
                 key={index}
@@ -162,7 +227,7 @@ export function SidebarMessage({
                     ),
                   }}
                 >
-                  {part.text}
+                  {displayText}
                 </ReactMarkdown>
               </div>
             );
