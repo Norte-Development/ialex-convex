@@ -42,6 +42,9 @@
     "state": "link:@tiptap/pm/state",
     "streamdown": "^1.0.11",
     "tailwind-merge": "^3.3.1",
+    "tsup": "^8.3.5",
+    "tsx": "^4.19.2",
+    "typescript": "~5.7.2",
     "use-stick-to-bottom": "^1.1.1",
     "zod": "^3.24.2"
   },
