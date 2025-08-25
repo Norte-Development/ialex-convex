@@ -1,4 +1,4 @@
-import { type UIMessage } from "@convex-dev/agent/react";
+import { useSmoothText, type UIMessage } from "@convex-dev/agent/react";
 import { cn } from "@/lib/utils";
 import ReactMarkdown from "react-markdown";
 import { ToolCallDisplay } from "./ToolCallDisplay";
@@ -6,60 +6,9 @@ import { Message, MessageContent, MessageAvatar } from "../ai-elements/message";
 import { Reasoning, ReasoningContent } from "../ai-elements/reasoning";
 import { Sources, SourcesTrigger, SourcesContent } from "../ai-elements/source";
 import { Tool, ToolHeader, ToolContent } from "../ai-elements/tool";
-import { useState, useEffect } from "react";
-
-/**
- * Custom hook for typewriter effect
- */
-function useTypewriter(
-  text: string,
-  speed: number = 50,
-  shouldStart: boolean = false,
-  messageCreationTime: number = 0,
-) {
-  const [displayText, setDisplayText] = useState(text);
-  const [isTyping, setIsTyping] = useState(false);
-
-  useEffect(() => {
-    // Si no debe hacer streaming, mostrar texto completo
-    if (!shouldStart) {
-      setDisplayText(text);
-      setIsTyping(false);
-      return;
-    }
-
-    // Solo hacer efecto typewriter si el mensaje es muy reciente (menos de 5 segundos)
-    const messageAge = Date.now() - messageCreationTime;
-    const isRecentMessage = messageAge < 5000; // 5 segundos
-
-    if (!isRecentMessage) {
-      setDisplayText(text);
-      setIsTyping(false);
-      return;
-    }
-
-    // Hacer el efecto typewriter para mensajes recientes
-    if (text && shouldStart && isRecentMessage) {
-      setDisplayText("");
-      setIsTyping(true);
-
-      let currentIndex = 0;
-      const interval = setInterval(() => {
-        if (currentIndex < text.length) {
-          setDisplayText(text.slice(0, currentIndex + 1));
-          currentIndex++;
-        } else {
-          setIsTyping(false);
-          clearInterval(interval);
-        }
-      }, 1000 / speed);
-
-      return () => clearInterval(interval);
-    }
-  }, [text, speed, shouldStart, messageCreationTime]);
-
-  return { displayText, isTyping };
-}
+import { Actions, Action } from "../ai-elements/actions";
+import { Loader } from "../ai-elements/loader";
+import { Copy, ThumbsUp, ThumbsDown } from "lucide-react";
 
 /**
  * SidebarMessage Component
@@ -103,20 +52,27 @@ export function SidebarMessage({
       .map((part) => part.text)
       .join("") || "";
 
-  // Determine if we should show typewriter effect
+  // Determine if we should show typewriter effect (solo para mensajes muy recientes)
+  const messageAge = Date.now() - (message._creationTime || 0);
+  const isRecentMessage = messageAge < 5000; // 5 segundos, igual que antes
+
   const shouldStream =
     message.role === "assistant" &&
-    (message.status === "streaming" || message.status === "success");
+    (message.status === "streaming" ||
+      (message.status === "success" && isRecentMessage));
 
-  const { displayText: visibleText } = useTypewriter(
-    messageText,
-    80, // caracteres por segundo
-    shouldStream,
-    message._creationTime || 0,
-  );
+  // Use ai-sdk's useSmoothText hook
+  const [visibleText, { isStreaming }] = useSmoothText(messageText, {
+    charsPerSec: 80,
+    startStreaming: shouldStream,
+  });
+
+  // Para mensajes antiguos, mostrar texto completo inmediatamente
+  const finalText = shouldStream ? visibleText : messageText;
 
   console.log("Rendering message:", message);
-  console.log("Visible text:", visibleText);
+  console.log("Final text:", finalText);
+  console.log("Should stream:", shouldStream);
 
   return (
     <Message
@@ -136,20 +92,23 @@ export function SidebarMessage({
       {/* Message Content */}
       <MessageContent
         className={cn(
-          "!rounded-lg !px-3 !py-2 !text-sm shadow-sm space-y-2 max-w-[85%]",
+          "group relative !rounded-lg !px-3 !py-2 !text-sm shadow-sm space-y-2 max-w-[85%]",
           // User messages
           isUser && "!bg-blue-600 !text-white",
           // Assistant messages
           !isUser && "!bg-gray-100 !text-gray-800",
           // Status-based styling
-          !isUser && message.status === "streaming" && " ",
-          message.status === "failed" && "!bg-red-100 !text-red-800",
+          !isUser &&
+            message.status === "streaming" &&
+            "border-l-2 border-blue-400",
+          message.status === "failed" &&
+            "!bg-red-100 !text-red-800 border-l-2 border-red-400",
         )}
       >
         {message.parts?.map((part, index) => {
           // Handle text parts with ReactMarkdown
           if (part.type === "text") {
-            const displayText = isUser ? part.text : visibleText;
+            const displayText = isUser ? part.text : finalText;
 
             return (
               <div
@@ -229,6 +188,16 @@ export function SidebarMessage({
                 >
                   {displayText}
                 </ReactMarkdown>
+
+                {/* Loader for typing indicator */}
+                {!isUser && isStreaming && (
+                  <div className="flex items-center gap-1 mt-2">
+                    <Loader size={12} />
+                    <span className="text-xs text-gray-500">
+                      Escribiendo...
+                    </span>
+                  </div>
+                )}
               </div>
             );
           }
@@ -320,14 +289,59 @@ export function SidebarMessage({
 
         {/* Fallback for old content-based messages */}
         {!message.parts?.length && (
-          <div
-            className={cn(
-              "prose prose-sm max-w-none whitespace-pre-wrap",
-              isUser ? "text-white" : "text-gray-800",
+          <div>
+            <div
+              className={cn(
+                "prose prose-sm max-w-none whitespace-pre-wrap",
+                isUser ? "text-white" : "text-gray-800",
+              )}
+            >
+              <ReactMarkdown>{finalText}</ReactMarkdown>
+            </div>
+
+            {/* Loader for typing indicator in fallback */}
+            {!isUser && isStreaming && (
+              <div className="flex items-center gap-1 mt-2">
+                <Loader size={12} />
+                <span className="text-xs text-gray-500">Escribiendo...</span>
+              </div>
             )}
-          >
-            <ReactMarkdown>{visibleText}</ReactMarkdown>
           </div>
+        )}
+
+        {/* Status indicator */}
+        {!isUser && message.status === "failed" && (
+          <div className="flex items-center gap-1 mt-2 text-red-600">
+            <span className="text-xs">❌ Error al procesar el mensaje</span>
+          </div>
+        )}
+
+        {/* Global streaming indicator when no text parts */}
+        {!isUser &&
+          isStreaming &&
+          !message.parts?.some((part) => part.type === "text") && (
+            <div className="flex items-center gap-1 mt-2">
+              <Loader size={12} />
+              <span className="text-xs text-gray-500">Procesando...</span>
+            </div>
+          )}
+
+        {/* Actions for assistant messages */}
+        {!isUser && !isStreaming && (
+          <Actions className="mt-2 opacity-0 group-hover:opacity-100 transition-opacity">
+            <Action
+              tooltip="Copiar respuesta"
+              onClick={() => navigator.clipboard.writeText(messageText)}
+            >
+              <Copy size={14} />
+            </Action>
+            <Action tooltip="Me gusta">
+              <ThumbsUp size={14} />
+            </Action>
+            <Action tooltip="No me gusta">
+              <ThumbsDown size={14} />
+            </Action>
+          </Actions>
         )}
       </MessageContent>
     </Message>
