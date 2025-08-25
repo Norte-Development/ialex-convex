@@ -6,7 +6,7 @@
     RUN npm install -g pnpm@9.1.0
     
     # Copy monorepo root manifests
-    COPY package.json pnpm-lock.yaml ./
+    COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
     
     # Copy the service manifest
     COPY apps/document-processor/package.json ./apps/document-processor/
@@ -18,7 +18,7 @@
     COPY apps/document-processor ./apps/document-processor
     
     # Build service
-    RUN pnpm --filter apps/document-processor build
+    RUN pnpm --filter document-processor build
     
     # ---- Runtime Stage ----
     FROM node:20-slim AS runner
