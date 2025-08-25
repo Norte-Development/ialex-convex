@@ -1,3 +1,5 @@
+import type { UIMessage } from "@convex-dev/agent/react";
+
 export interface SidebarChatbotProps {
   isOpen: boolean;
   onToggle: () => void;
@@ -62,4 +64,41 @@ export interface ChatInputProps {
    * @default false
    */
   disabled?: boolean;
+}
+
+/**
+ * Props for the SidebarMessage component
+ *
+ * @interface SidebarMessageProps
+ */
+export interface SidebarMessageProps {
+  /**
+   * The message object from the AI conversation
+   * Contains message content, role, status, and parts
+   */
+  message: UIMessage;
+
+  /**
+   * Optional avatar URL for the user
+   * If not provided, will use fallback with user initials
+   */
+  userAvatar?: string;
+
+  /**
+   * Optional avatar URL for the assistant
+   * If not provided, will use fallback with assistant initials
+   */
+  assistantAvatar?: string;
+
+  /**
+   * Optional user name for avatar fallback
+   * @default "Usuario"
+   */
+  userName?: string;
+
+  /**
+   * Optional assistant name for avatar fallback
+   * @default "iAlex"
+   */
+  assistantName?: string;
 }
