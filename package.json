@@ -9,15 +9,15 @@
   },
   "scripts": {
     "dev": "npm-run-all --parallel dev:app:web dev:app:convex",
-    "dev:app:web": "sh -c 'cd apps/application && vite --open'",
-    "dev:app:convex": "sh -c 'cd apps/application && npx convex dev'",
-    "dev:processor": "sh -c 'cd apps/document-processor && tsx src/app.ts'",
+    "dev:app:web": "pnpm -C apps/application dev:web",
+    "dev:app:convex": "pnpm -C apps/application dev:convex",
+    "dev:processor": "pnpm -C apps/document-processor dev",
     "dev:all": "npm-run-all --parallel dev dev:processor",
     "build": "turbo run build",
     "lint": "tsc && eslint .  --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
-    "preview": "sh -c 'cd apps/application && vite preview'",
-    "ui:add": "sh -c 'cd apps/application && npx shadcn@latest add'",
-    "ui": "sh -c 'cd apps/application && npx shadcn@latest'"
+    "preview": "pnpm -C apps/application preview",
+    "ui:add": "pnpm -C apps/application dlx shadcn@latest add",
+    "ui": "pnpm -C apps/application dlx shadcn@latest"
   },
   "dependencies": {
     "@ai-sdk/openai": "^2.0.18",
