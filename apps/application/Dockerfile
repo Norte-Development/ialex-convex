@@ -84,7 +84,7 @@ COPY --from=build /app/apps/application/dist ./apps/application/dist
 WORKDIR /app/apps/application
 
 # Expose port 80
-EXPOSE 80
+EXPOSE 3000
 
 # Use vite preview to serve the built application
-CMD ["pnpm", "preview", "--host", "0.0.0.0", "--port", "80"]
+CMD ["pnpm", "preview", "--host", "0.0.0.0", "--port", "3000"]
