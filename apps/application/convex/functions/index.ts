@@ -56,7 +56,6 @@ export {
 
 // Escrito Transforms
 export {
-  applyEscritoOperations,
   applyTextBasedOperations,
 } from "./escritosTransforms";
 
