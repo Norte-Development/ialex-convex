@@ -134,8 +134,14 @@ export default function CaseSidebar() {
   };
 
   useEffect(() => {
-    if (isCreatingRootFolder) {
-      const t = setTimeout(() => rootInputRef.current?.focus(), 0);
+    if (isCreatingRootFolder && rootInputRef.current) {
+      const t = setTimeout(() => {
+        rootInputRef.current?.focus();
+        rootInputRef.current?.scrollIntoView({
+          behavior: "smooth",
+          block: "center",
+        });
+      }, 0);
       return () => clearTimeout(t);
     }
   }, [isCreatingRootFolder]);
@@ -339,7 +345,7 @@ export default function CaseSidebar() {
               </CollapsibleTrigger>
               <CollapsibleContent className="flex flex-col gap-1 pl-2 text-[12px] pt-1 overflow-y-auto max-h-32">
                 {isCreatingRootFolder && (
-                  <div className="flex items-center gap-2 p-1 pr-3">
+                  <div className="flex items-center gap-2 p-1 pr-3 ">
                     <Input
                       ref={rootInputRef}
                       placeholder="Nombre de la carpeta"
@@ -352,7 +358,7 @@ export default function CaseSidebar() {
                           setNewRootFolderName("");
                         }
                       }}
-                      className="h-4 text-xs placeholder:text-xs"
+                      className="h-4 text-xs placeholder:text-xs border-2 border-blue-400 animate-highlight "
                     />
                   </div>
                 )}
