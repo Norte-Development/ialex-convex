@@ -30,6 +30,12 @@ services:
       - PORT=4001
       - REDIS_URL=redis://redis:6379
       - WORKER_CONCURRENCY=2
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - QDRANT_URL=${QDRANT_URL}
+      - QDRANT_API_KEY=${QDRANT_API_KEY}
+      - HMAC_SECRET=${HMAC_SECRET}
+      - MISTRAL_API_KEY=${MISTRAL_API_KEY}
+      - DEEPGRAM_API_KEY=${DEEPGRAM_API_KEY}
     depends_on:
       redis:
         condition: service_healthy
