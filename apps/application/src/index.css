@@ -65,6 +65,11 @@ body {
   --color-sidebar-ring: var(--sidebar-ring);
 }
 
+/* Custom Breakpoints */
+@theme {
+  --breakpoint-xs: 10rem;
+}
+
 :root {
   --radius: 0.625rem;
   --background: oklch(1 0 0);

@@ -71,9 +71,8 @@ export function SidebarMessage({
   const finalText = shouldStream ? visibleText : messageText;
 
   console.log("Rendering message:", message);
-  console.log("Final text:", finalText);
-  console.log("Should stream:", shouldStream);
 
+  console.log("Final text:", finalText);
   return (
     <Message
       from={message.role}
@@ -264,19 +263,19 @@ export function SidebarMessage({
 
           // Handle tool calls
           if (part.type.startsWith("tool-")) {
-            const toolName = part.type.replace("tool-", "");
-            const state =
+            const aiSDKState =
               (part as any).state === "output-available"
                 ? "output-available"
                 : "input-available";
 
             return (
               <Tool key={index}>
-                <ToolHeader type={part.type as any} state={state as any} />
+                <ToolHeader type={part.type as any} state={aiSDKState as any} />
                 <ToolContent>
                   <ToolCallDisplay
-                    toolName={toolName}
-                    state={state === "output-available" ? "result" : "call"}
+                    state={
+                      aiSDKState === "output-available" ? "result" : "call"
+                    }
                     part={part as any}
                   />
                 </ToolContent>
