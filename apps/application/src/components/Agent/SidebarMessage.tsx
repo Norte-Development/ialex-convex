@@ -1,6 +1,5 @@
 import { useSmoothText, type UIMessage } from "@convex-dev/agent/react";
 import { cn } from "@/lib/utils";
-import ReactMarkdown from "react-markdown";
 import { ToolCallDisplay } from "./ToolCallDisplay";
 import { Message, MessageContent, MessageAvatar } from "../ai-elements/message";
 import { Reasoning, ReasoningContent } from "../ai-elements/reasoning";
@@ -13,6 +12,7 @@ import {
   TaskTrigger,
   TaskContent as TaskContentComponent,
 } from "../ai-elements/task";
+import { Response } from "../ai-elements/response";
 
 /**
  * SidebarMessage Component
@@ -165,75 +165,7 @@ export function SidebarMessage({
                 key={index}
                 className={cn("prose prose-sm max-w-none whitespace-pre-wrap")}
               >
-                <ReactMarkdown
-                  components={{
-                    p: ({ children }) => (
-                      <p className="mb-2 last:mb-0">{children}</p>
-                    ),
-                    ul: ({ children }) => (
-                      <ul className="list-disc list-inside mb-2">{children}</ul>
-                    ),
-                    ol: ({ children }) => (
-                      <ol className="list-decimal list-inside mb-2">
-                        {children}
-                      </ol>
-                    ),
-                    li: ({ children }) => <li className="mb-1">{children}</li>,
-                    code: ({ children, className }) => {
-                      const isInline = !className;
-                      return isInline ? (
-                        <code
-                          className={cn(
-                            "px-1 py-0.5 rounded text-xs font-mono",
-                            isUser
-                              ? "bg-blue-500 text-white"
-                              : "bg-gray-200 text-gray-800",
-                          )}
-                        >
-                          {children}
-                        </code>
-                      ) : (
-                        <pre
-                          className={cn(
-                            "p-2 rounded text-xs font-mono overflow-x-auto",
-                            isUser
-                              ? "bg-blue-500 text-white"
-                              : "bg-gray-200 text-gray-800",
-                          )}
-                        >
-                          <code>{children}</code>
-                        </pre>
-                      );
-                    },
-                    blockquote: ({ children }) => (
-                      <blockquote
-                        className={cn(
-                          "border-l-2 pl-2 italic",
-                          isUser ? "border-blue-300" : "border-gray-400",
-                        )}
-                      >
-                        {children}
-                      </blockquote>
-                    ),
-                    strong: ({ children }) => (
-                      <strong className="font-semibold">{children}</strong>
-                    ),
-                    em: ({ children }) => (
-                      <em className="italic">{children}</em>
-                    ),
-                    h1: ({ children }) => (
-                      <h1 className="text-lg font-bold mb-2">{children}</h1>
-                    ),
-                    h2: ({ children }) => (
-                      <h2 className="text-md font-bold mb-2">{children}</h2>
-                    ),
-                    h3: ({ children }) => (
-                      <h3 className="text-sm font-bold mb-1">{children}</h3>
-                    ),
-                  }}
-                >
-                  {displayText}
-                </ReactMarkdown>
+                <Response>{displayText}</Response>
 
                 {/* Loader for typing indicator */}
                 {!isUser && isStreaming && (
@@ -325,7 +257,7 @@ export function SidebarMessage({
                 isUser ? "text-white" : "text-gray-800",
               )}
             >
-              <ReactMarkdown>{finalText}</ReactMarkdown>
+              <Response>{finalText}</Response>
             </div>
 
             {/* Loader for typing indicator in fallback */}
