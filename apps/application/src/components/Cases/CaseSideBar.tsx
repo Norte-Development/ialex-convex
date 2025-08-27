@@ -231,8 +231,8 @@ export default function CaseSidebar() {
         </IfCan>
       </div>
 
-      <div className="h-[70%] w-full flex flex-col justify-start items-center pl-5">
-        <div className="w-full flex flex-col gap-2 h-[50%]">
+      <div className="h-[60%] w-full flex flex-col justify-start items-center pl-5 ">
+        <div className="w-full flex flex-col gap-2 h-[70%] ">
           <IfCan permission={PERMISSIONS.ESCRITO_READ} fallback={null}>
             <Collapsible
               open={isEscritosOpen}
@@ -349,7 +349,7 @@ export default function CaseSidebar() {
                   />
                 </IfCan>
               </CollapsibleTrigger>
-              <CollapsibleContent className="flex flex-col gap-1 pl-2 text-[12px] pt-1 overflow-y-auto max-h-32">
+              <CollapsibleContent className="flex flex-col gap-1 pl-2 text-[12px] pt-1 overflow-y-auto max-h-[200px]">
                 {isCreatingRootFolder && (
                   <div className="flex items-center gap-2 p-1 pr-3 ">
                     <Input
@@ -374,7 +374,7 @@ export default function CaseSidebar() {
           </IfCan>
         </div>
 
-        <div className="w-full flex flex-col gap-2 h-[50%] ">
+        <div className="w-full flex flex-col gap-2 h-[30%] ">
           <Collapsible
             open={isHistorialOpen}
             onOpenChange={toggleHistorial}
@@ -404,7 +404,7 @@ export default function CaseSidebar() {
         </div>
       </div>
 
-      <div className="w-full flex flex-col justify-center h-[20%] gap-2 pl-5">
+      <div className="w-full flex flex-col justify-center h-[30%] gap-2 pl-5">
         <Collapsible
           open={isArchivadosOpen}
           onOpenChange={setIsArchivadosOpen}

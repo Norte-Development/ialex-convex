@@ -27,7 +27,7 @@
 }
 
 .animate-pulse-once {
-  animation: pulse-bg 3.5s ease-out forwards;
+  animation: pulse-bg 5.5s ease-out forwards;
 }
 
 body {
