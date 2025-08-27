@@ -14,30 +14,11 @@ import {
 } from "../ai-elements/task";
 import { Response } from "../ai-elements/response";
 
-/**
- * SidebarMessage Component
- *
- * A modern message component built using ai-sdk elements.
- * Displays user and assistant messages with support for:
- * - Markdown rendering
- * - Tool call display
- * - Streaming text animation
- * - Multiple message parts (text, tool calls)
- * - Status indicators (streaming, failed, etc.)
- *
- * @component
- */
-
 interface SidebarMessageProps {
-  /** The message object from the AI conversation */
   message: UIMessage;
-  /** Optional avatar URL for the user */
   userAvatar?: string;
-  /** Optional avatar URL for the assistant */
   assistantAvatar?: string;
-  /** Optional user name for avatar fallback */
   userName?: string;
-  /** Optional assistant name for avatar fallback */
   assistantName?: string;
 }
 
@@ -56,27 +37,17 @@ export function SidebarMessage({
       .map((part: any) => part.text)
       .join("") || "";
 
-  // Determine if we should show typewriter effect (solo para mensajes muy recientes)
   const messageAge = Date.now() - (message._creationTime || 0);
-  const isRecentMessage = messageAge < 5000; // 5 segundos, igual que antes
-
   const shouldStream =
     message.role === "assistant" &&
     (message.status === "streaming" ||
-      (message.status === "success" && isRecentMessage));
+      (message.status === "success" && messageAge < 5000));
 
-  // Use ai-sdk's useSmoothText hook
   const [visibleText, { isStreaming }] = useSmoothText(messageText, {
     charsPerSec: 80,
     startStreaming: shouldStream,
   });
 
-  // Para mensajes antiguos, mostrar texto completo inmediatamente
-  const finalText = shouldStream ? visibleText : messageText;
-
-  console.log("Rendering message:", message);
-
-  console.log("Final text:", finalText);
   return (
     <Message
       from={message.role}
@@ -85,32 +56,26 @@ export function SidebarMessage({
         isUser ? "!flex-row-reverse" : "!flex-row",
       )}
     >
-      {/* Avatar */}
       <MessageAvatar
         src={isUser ? userAvatar || "" : assistantAvatar || ""}
         name={isUser ? userName : assistantName}
         className={cn("shrink-0", isUser ? "ml-2" : "mr-2")}
       />
 
-      {/* Message Content */}
       <MessageContent
         className={cn(
           "group relative !rounded-lg !px-3 !py-2 !text-[12px] shadow-sm space-y-2 max-w-[85%]",
-          // User messages
           isUser && "!bg-blue-600 !text-white",
-          // Assistant messages
           !isUser && "!bg-gray-100 !text-gray-800",
-
           message.status === "failed" &&
             "!bg-red-100 !text-red-800 border-l-2 border-red-400",
         )}
       >
-        {/* Group all tool calls under expandible container */}
+        {/* Tool calls container */}
         {(() => {
           const toolCalls =
             message.parts?.filter((part) => part.type.startsWith("tool-")) ||
             [];
-
           if (toolCalls.length === 0) return null;
 
           return (
@@ -141,15 +106,16 @@ export function SidebarMessage({
           );
         })()}
 
-        {/* Render message parts */}
+        {/* Message parts */}
         {message.parts?.map((part, index) => {
           if (part.type === "text") {
-            const displayText = isUser ? part.text : finalText;
+            const displayText = isUser
+              ? part.text
+              : shouldStream
+                ? visibleText
+                : messageText;
 
-            if (
-              !isUser &&
-              (!displayText || !finalText || displayText.trim() === "")
-            ) {
+            if (!isUser && (!displayText || displayText.trim() === "")) {
               return (
                 <div key={index} className="flex items-center gap-2">
                   <Loader size={12} />
@@ -166,8 +132,6 @@ export function SidebarMessage({
                 className={cn("prose prose-sm max-w-none whitespace-pre-wrap")}
               >
                 <Response>{displayText}</Response>
-
-                {/* Loader for typing indicator */}
                 {!isUser && isStreaming && (
                   <div className="flex items-center gap-1 mt-2">
                     <Loader size={12} />
@@ -180,7 +144,6 @@ export function SidebarMessage({
             );
           }
 
-          // Handle reasoning parts
           if (part.type === "reasoning") {
             return (
               <Reasoning key={index} defaultOpen={false}>
@@ -189,7 +152,6 @@ export function SidebarMessage({
             );
           }
 
-          // Handle source parts
           if (part.type === "source-url") {
             return (
               <Sources key={index}>
@@ -212,7 +174,6 @@ export function SidebarMessage({
             );
           }
 
-          // Handle file parts (images, etc.)
           if (part.type === "file") {
             const fileUrl = (part as any).url;
             const mediaType = (part as any).mediaType;
@@ -240,7 +201,6 @@ export function SidebarMessage({
             );
           }
 
-          // Handle tool calls
           if (part.type.startsWith("tool-")) {
             return null;
           }
@@ -248,38 +208,15 @@ export function SidebarMessage({
           return null;
         })}
 
-        {/* Fallback for old content-based messages */}
-        {!message.parts?.length && (
-          <div>
-            <div
-              className={cn(
-                "prose prose-sm max-w-none whitespace-pre-wrap",
-                isUser ? "text-white" : "text-gray-800",
-              )}
-            >
-              <Response>{finalText}</Response>
-            </div>
-
-            {/* Loader for typing indicator in fallback */}
-            {!isUser && isStreaming && (
-              <div className="flex items-center gap-1 mt-2">
-                <Loader size={12} />
-                <span className="text-xs text-gray-500">Escribiendo...</span>
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Status indicator */}
+        {/* Status and Actions */}
         {!isUser && message.status === "failed" && (
           <div className="flex items-center gap-1 mt-2 text-red-600">
             <span className="text-xs">❌ Error al procesar el mensaje</span>
           </div>
         )}
 
-        {/* Actions for assistant messages */}
         {!isUser && !isStreaming && (
-          <Actions className="mt-2  transition-opacity">
+          <Actions className="mt-2 transition-opacity">
             <Action
               tooltip="Copiar respuesta"
               onClick={() => navigator.clipboard.writeText(messageText)}
