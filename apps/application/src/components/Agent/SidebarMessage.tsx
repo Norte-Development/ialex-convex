@@ -115,7 +115,11 @@ export function SidebarMessage({
                 ? visibleText
                 : messageText;
 
-            if (!isUser && (!displayText || displayText.trim() === "")) {
+            if (
+              !isUser &&
+              visibleText === "" &&
+              (!displayText || displayText.trim() === "")
+            ) {
               return (
                 <div key={index} className="flex items-center gap-2">
                   <Loader size={12} />
