@@ -91,7 +91,7 @@ export function SidebarMessage({
       {/* Message Content */}
       <MessageContent
         className={cn(
-          "group relative !rounded-lg !px-3 !py-2 !text-sm shadow-sm space-y-2 max-w-[85%]",
+          "group relative !rounded-lg !px-3 !py-2 !text-[12px] shadow-sm space-y-2 max-w-[85%]",
           // User messages
           isUser && "!bg-blue-600 !text-white",
           // Assistant messages
@@ -102,12 +102,13 @@ export function SidebarMessage({
         )}
       >
         {message.parts?.map((part, index) => {
-          // Handle text parts with ReactMarkdown
           if (part.type === "text") {
             const displayText = isUser ? part.text : finalText;
 
-            // Si es asistente y no hay texto, mostrar "Pensando..."
-            if (!isUser && (!displayText || displayText.trim() === "")) {
+            if (
+              !isUser &&
+              (!displayText || !finalText || displayText.trim() === "")
+            ) {
               return (
                 <div key={index} className="flex items-center gap-2">
                   <Loader size={12} />
@@ -125,7 +126,6 @@ export function SidebarMessage({
               >
                 <ReactMarkdown
                   components={{
-                    // Customize markdown components to match chat styling
                     p: ({ children }) => (
                       <p className="mb-2 last:mb-0">{children}</p>
                     ),
@@ -321,30 +321,21 @@ export function SidebarMessage({
           </div>
         )}
 
-        {/* Global streaming indicator when no text parts */}
-        {!isUser &&
-          isStreaming &&
-          !message.parts?.some((part) => part.type === "text") && (
-            <div className="flex items-center gap-1 mt-2">
-              <Loader size={12} />
-              <span className="text-xs text-gray-500">Procesando...</span>
-            </div>
-          )}
-
         {/* Actions for assistant messages */}
         {!isUser && !isStreaming && (
-          <Actions className="mt-2 opacity-0 group-hover:opacity-100 transition-opacity">
+          <Actions className="mt-2  transition-opacity">
             <Action
               tooltip="Copiar respuesta"
               onClick={() => navigator.clipboard.writeText(messageText)}
+              className="cursor-pointer"
             >
-              <Copy size={14} />
+              <Copy size={14} className="text-gray-500" />
             </Action>
-            <Action tooltip="Me gusta">
-              <ThumbsUp size={14} />
+            <Action tooltip="Me gusta" className="cursor-pointer">
+              <ThumbsUp size={14} className="text-gray-500" />
             </Action>
-            <Action tooltip="No me gusta">
-              <ThumbsDown size={14} />
+            <Action tooltip="No me gusta" className="cursor-pointer">
+              <ThumbsDown size={14} className="text-gray-500" />
             </Action>
           </Actions>
         )}
