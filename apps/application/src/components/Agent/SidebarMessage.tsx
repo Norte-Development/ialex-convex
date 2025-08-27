@@ -5,10 +5,14 @@ import { ToolCallDisplay } from "./ToolCallDisplay";
 import { Message, MessageContent, MessageAvatar } from "../ai-elements/message";
 import { Reasoning, ReasoningContent } from "../ai-elements/reasoning";
 import { Sources, SourcesTrigger, SourcesContent } from "../ai-elements/source";
-import { Tool, ToolHeader, ToolContent } from "../ai-elements/tool";
 import { Actions, Action } from "../ai-elements/actions";
 import { Loader } from "../ai-elements/loader";
 import { Copy, ThumbsUp, ThumbsDown } from "lucide-react";
+import {
+  Task,
+  TaskTrigger,
+  TaskContent as TaskContentComponent,
+} from "../ai-elements/task";
 
 /**
  * SidebarMessage Component
@@ -101,6 +105,43 @@ export function SidebarMessage({
             "!bg-red-100 !text-red-800 border-l-2 border-red-400",
         )}
       >
+        {/* Group all tool calls under expandible container */}
+        {(() => {
+          const toolCalls =
+            message.parts?.filter((part) => part.type.startsWith("tool-")) ||
+            [];
+
+          if (toolCalls.length === 0) return null;
+
+          return (
+            <Task key="tools-container" defaultOpen={true} className="mb-2">
+              <TaskTrigger
+                title={`Herramientas usadas (${toolCalls.length})`}
+                className="mb-0"
+              />
+              <TaskContentComponent className="mt-0">
+                {toolCalls.map((part, index) => {
+                  const aiSDKState =
+                    (part as any).state === "output-available"
+                      ? "output-available"
+                      : "input-available";
+
+                  return (
+                    <ToolCallDisplay
+                      key={index}
+                      state={
+                        aiSDKState === "output-available" ? "result" : "call"
+                      }
+                      part={part as any}
+                    />
+                  );
+                })}
+              </TaskContentComponent>
+            </Task>
+          );
+        })()}
+
+        {/* Render message parts */}
         {message.parts?.map((part, index) => {
           if (part.type === "text") {
             const displayText = isUser ? part.text : finalText;
@@ -260,7 +301,7 @@ export function SidebarMessage({
             return (
               <div
                 key={index}
-                className="text-xs bg-gray-50 border border-gray-200 rounded p-2 mt-2"
+                className="text-xs bg-gray-50 border border-gray-200 rounded p-2"
               >
                 <strong>File:</strong> {filename || "Unknown file"}
               </div>
@@ -269,24 +310,7 @@ export function SidebarMessage({
 
           // Handle tool calls
           if (part.type.startsWith("tool-")) {
-            const aiSDKState =
-              (part as any).state === "output-available"
-                ? "output-available"
-                : "input-available";
-
-            return (
-              <Tool key={index}>
-                <ToolHeader type={part.type as any} state={aiSDKState as any} />
-                <ToolContent>
-                  <ToolCallDisplay
-                    state={
-                      aiSDKState === "output-available" ? "result" : "call"
-                    }
-                    part={part as any}
-                  />
-                </ToolContent>
-              </Tool>
-            );
+            return null;
           }
 
           return null;
