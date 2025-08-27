@@ -21,6 +21,7 @@ import SignupInvitePage from "./pages/SignupInvitePage";
 import CaseClientsPage from "./pages/CaseOpen/CaseClientPage";
 import CaseTeamsPage from "./pages/CaseOpen/CaseTeamsPage";
 import { CaseProvider } from "./context/CaseContext";
+import { HighlightProvider } from "./context/HighlightContext";
 import CaseModelPage from "./pages/CaseOpen/CaseModelPage";
 import CaseDataBasePage from "./pages/CaseOpen/CaseDataBase";
 import CaseDocumentPage from "./pages/CaseOpen/CaseDocumentPage";
@@ -42,7 +43,6 @@ const queryClient = new QueryClient();
 
 // Component that uses the thread context
 const AppWithThread = () => {
-
   return (
     <div>
       {/* Show authentication loading skeleton while Convex auth is initializing */}
@@ -82,22 +82,27 @@ const AppWithThread = () => {
           element={
             <ProtectedRoute>
               <CaseProvider>
-                <Routes>
-                  <Route index element={<CaseDetailPage />} />
-                  <Route
-                    path="escritos"
-                    element={<EscritosPage />}
-                  />
-                  <Route
-                    path="escritos/:escritoId"
-                    element={<EscritosPage />}
-                  />
-                  <Route path="clientes" element={<CaseClientsPage />} />
-                  <Route path="equipos" element={<CaseTeamsPage />} />
-                  <Route path="modelos" element={<CaseModelPage />} />
-                  <Route path="base-de-datos" element={<CaseDataBasePage />} />
-                  <Route path="documentos/:documentId" element={<CaseDocumentPage />} />
-                </Routes>
+                <HighlightProvider>
+                  <Routes>
+                    <Route index element={<CaseDetailPage />} />
+                    <Route path="escritos" element={<EscritosPage />} />
+                    <Route
+                      path="escritos/:escritoId"
+                      element={<EscritosPage />}
+                    />
+                    <Route path="clientes" element={<CaseClientsPage />} />
+                    <Route path="equipos" element={<CaseTeamsPage />} />
+                    <Route path="modelos" element={<CaseModelPage />} />
+                    <Route
+                      path="base-de-datos"
+                      element={<CaseDataBasePage />}
+                    />
+                    <Route
+                      path="documentos/:documentId"
+                      element={<CaseDocumentPage />}
+                    />
+                  </Routes>
+                </HighlightProvider>
               </CaseProvider>
             </ProtectedRoute>
           }

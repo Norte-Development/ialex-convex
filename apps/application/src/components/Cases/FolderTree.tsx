@@ -22,6 +22,7 @@ import {
 import FolderActionsMenu from "./FolderActionsMenu";
 import NewDocumentInput, { NewDocumentInputHandle } from "./NewDocumentInput";
 import { DragDropContext, type DropResult } from "react-beautiful-dnd";
+import { useHighlight } from "@/context/HighlightContext";
 
 type Props = {
   caseId: Id<"cases">;
@@ -309,6 +310,7 @@ function FolderItem({
   const [newChildName, setNewChildName] = useState("");
   const newChildRef = useRef<HTMLInputElement | null>(null);
   const fileInputRef = useRef<NewDocumentInputHandle | null>(null);
+  const { highlightedFolder, setHighlightedFolder } = useHighlight();
 
   const updateFolder = useMutation(api.functions.folders.updateFolder);
   const archiveFolder = useMutation(api.functions.folders.archiveFolder);
@@ -389,11 +391,12 @@ function FolderItem({
   const submitCreateChild = async () => {
     const name = (newChildName || "").trim() || "Nueva Carpeta";
     try {
-      await createFolder({
+      const newFolderId = await createFolder({
         name,
         caseId,
         parentFolderId: folder._id as Id<"folders">,
       } as any);
+      setHighlightedFolder(newFolderId);
       setIsCreatingChild(false);
       setNewChildName("");
       setOpen(true);
@@ -410,7 +413,7 @@ function FolderItem({
       <div
         className={`flex items-center justify-between px-2 py-1 rounded hover:bg-gray-50 ${
           currentFolderId === (folder._id as Id<"folders">) ? "bg-blue-50" : ""
-        }`}
+        } ${highlightedFolder === folder._id ? "animate-pulse-once " : ""}`}
       >
         <div className="flex items-center gap-1 min-w-0">
           <button

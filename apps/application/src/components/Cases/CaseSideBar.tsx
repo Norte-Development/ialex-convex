@@ -43,6 +43,7 @@ import { Id } from "../../../convex/_generated/dataModel";
 import { usePermissionAwareNavigation } from "@/hooks/usePermissionAwareNavigation";
 import { PERMISSIONS } from "@/permissions/types";
 import { IfCan } from "@/components/Permissions";
+import { useHighlight } from "@/context/HighlightContext";
 
 export default function CaseSidebar() {
   const {
@@ -62,6 +63,7 @@ export default function CaseSidebar() {
   const { id } = useParams();
   const { setThreadId } = useThread();
   const { currentCase } = useCase();
+  const { setHighlightedFolder } = useHighlight();
   const { navigationItems } = usePermissionAwareNavigation(
     currentCase?._id || null,
   );
@@ -150,7 +152,11 @@ export default function CaseSidebar() {
     if (!currentCase?._id) return;
     const name = (newRootFolderName || "").trim() || "Nueva Carpeta";
     try {
-      await createFolder({ name, caseId: currentCase._id } as any);
+      const newFolderId = await createFolder({
+        name,
+        caseId: currentCase._id,
+      } as any);
+      setHighlightedFolder(newFolderId);
       setNewRootFolderName("");
       setIsCreatingRootFolder(false);
     } catch (err) {
