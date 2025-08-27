@@ -24,6 +24,7 @@ const TeamPage = lazy(() => import("./pages/TeamPage"));
 const TeamManagePage = lazy(() => import("./pages/TeamManagePage"));
 const AcceptInvitePage = lazy(() => import("./pages/AcceptInvitePage"));
 const SignupInvitePage = lazy(() => import("./pages/SignupInvitePage"));
+const SignUpPage = lazy(() => import("./pages/SignUpPage"));
 const CaseClientsPage = lazy(() => import("./pages/CaseOpen/CaseClientPage"));
 const CaseTeamsPage = lazy(() => import("./pages/CaseOpen/CaseTeamsPage"));
 const CaseModelPage = lazy(() => import("./pages/CaseOpen/CaseModelPage"));
@@ -58,8 +59,9 @@ const AppWithThread = () => {
       {/* Main routing with Clerk's Protect component */}
       <Suspense fallback={<AppSkeleton />}>
         <Routes>
-          {/* Public sign-in route */}
+          {/* Public authentication routes */}
           <Route path="/signin" element={<SignInPage />} />
+          <Route path="/signup" element={<SignUpPage />} />
 
           {/* Public invitation routes */}
           <Route path="/invites/accept" element={<AcceptInvitePage />} />
