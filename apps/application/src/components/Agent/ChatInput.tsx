@@ -3,11 +3,8 @@ import {
   PromptInput,
   PromptInputTextarea,
   PromptInputToolbar,
-  PromptInputTools,
   PromptInputSubmit,
-  PromptInputButton,
 } from "../ai-elements/prompt-input";
-import { Square } from "lucide-react";
 import type { ChatInputProps } from "./types";
 import type { ChatStatus } from "ai";
 
@@ -39,7 +36,6 @@ import type { ChatStatus } from "ai";
 export function ChatInput({
   onSendMessage,
   isStreaming,
-  onAbortStream,
   placeholder = "¿En qué trabajamos hoy?",
   minHeight = 50,
   maxHeight = 100,
@@ -104,31 +100,7 @@ export function ChatInput({
           PromptInputToolbar: Container for action buttons and controls
           Provides consistent spacing and alignment
         */}
-        <PromptInputToolbar>
-          {/* 
-            PromptInputTools: Left-aligned tool buttons
-            Currently shows abort button when streaming
-          */}
-          <PromptInputTools>
-            {isStreaming && (
-              <PromptInputButton
-                onClick={onAbortStream}
-                variant="ghost"
-                aria-label="Detener generación"
-                disabled={disabled}
-              >
-                <Square className="w-1 h-1" />
-                Detener
-              </PromptInputButton>
-            )}
-          </PromptInputTools>
-
-          {/* 
-            PromptInputSubmit: Smart submit button
-            - Automatically shows appropriate icon based on status
-            - Handles disabled state
-            - Provides visual feedback for different states
-          */}
+        <PromptInputToolbar className=" flex justify-end">
           <PromptInputSubmit
             status={status}
             disabled={!prompt.trim() || isInputDisabled}

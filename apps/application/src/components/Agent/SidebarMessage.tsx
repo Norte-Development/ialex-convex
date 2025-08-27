@@ -49,7 +49,7 @@ export function SidebarMessage({
   const messageText =
     message.parts
       ?.filter((part) => part.type === "text")
-      .map((part) => part.text)
+      .map((part: any) => part.text)
       .join("") || "";
 
   // Determine if we should show typewriter effect (solo para mensajes muy recientes)
@@ -96,10 +96,7 @@ export function SidebarMessage({
           isUser && "!bg-blue-600 !text-white",
           // Assistant messages
           !isUser && "!bg-gray-100 !text-gray-800",
-          // Status-based styling
-          !isUser &&
-            message.status === "streaming" &&
-            "border-l-2 border-blue-400",
+
           message.status === "failed" &&
             "!bg-red-100 !text-red-800 border-l-2 border-red-400",
         )}
@@ -109,13 +106,22 @@ export function SidebarMessage({
           if (part.type === "text") {
             const displayText = isUser ? part.text : finalText;
 
+            // Si es asistente y no hay texto, mostrar "Pensando..."
+            if (!isUser && (!displayText || displayText.trim() === "")) {
+              return (
+                <div key={index} className="flex items-center gap-2">
+                  <Loader size={12} />
+                  <span className="text-xs text-gray-500 italic">
+                    Pensando...
+                  </span>
+                </div>
+              );
+            }
+
             return (
               <div
                 key={index}
-                className={cn(
-                  "prose prose-sm max-w-none whitespace-pre-wrap",
-                  isUser ? "text-white" : "text-gray-800",
-                )}
+                className={cn("prose prose-sm max-w-none whitespace-pre-wrap")}
               >
                 <ReactMarkdown
                   components={{
