@@ -94,6 +94,8 @@ export const listNormatives = action({
     })),
     limit: v.optional(v.number()),
     offset: v.optional(v.number()),
+    sortBy: v.optional(v.string()),
+    sortOrder: v.optional(v.union(v.literal("asc"), v.literal("desc")))
   },
   handler: async (ctx, args) => {
     try {
@@ -101,6 +103,8 @@ export const listNormatives = action({
         filters: args.filters as NormativeFilters,
         limit: args.limit || 50,
         offset: args.offset || 0,
+        sortBy: args.sortBy as any,
+        sortOrder: (args.sortOrder as any) || "desc",
       });
     } catch (error) {
       console.error("Error in listNormatives:", error);
@@ -147,6 +151,29 @@ export const getAvailableJurisdictions = action({
     } catch (error) {
       console.error("Error in getAvailableJurisdictions:", error);
       throw new Error(`Failed to get available jurisdictions: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  }
+});
+
+// Get facets for filters
+export const getNormativesFacets = action({
+  args: {
+    jurisdiction: v.string(),
+    filters: v.optional(v.object({
+      tipo: v.optional(v.string()),
+      provincia: v.optional(v.string()),
+      estado: v.optional(v.string()),
+      promulgacion_from: v.optional(v.string()),
+      promulgacion_to: v.optional(v.string()),
+      vigencia_actual: v.optional(v.boolean()),
+    })),
+  },
+  handler: async (ctx, args) => {
+    try {
+      return await legislationService.getNormativesFacets(args.jurisdiction, args.filters as any);
+    } catch (error) {
+      console.error("Error in getNormativesFacets:", error);
+      throw new Error(`Failed to get facets: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
 });

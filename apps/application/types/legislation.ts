@@ -81,6 +81,7 @@ export interface SearchResult {
   provincia?: string;
   estado: Estado;
   promulgacion?: string;
+  vigencia_actual?: boolean;
 }
 
 export interface ChunkSearchResult {
@@ -106,4 +107,17 @@ export interface ListNormativesParams {
   filters?: NormativeFilters;
   limit?: number;
   offset?: number;
+  sortBy?: SortBy;
+  sortOrder?: SortOrder;
+}
+
+// Sorting
+export type SortBy = "promulgacion" | "updated_at" | "created_at" | "relevancia";
+export type SortOrder = "asc" | "desc";
+
+// Facets for filters UI
+export interface NormativesFacets {
+  tipos: Record<string, number>;
+  provincias: Record<string, number>;
+  estados: Record<Estado, number>;
 }

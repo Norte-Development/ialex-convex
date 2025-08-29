@@ -13,7 +13,10 @@ import {
   Relacion,
   NormativeFilters,
   ListNormativesParams,
-  Estado
+  Estado,
+  NormativesFacets,
+  SortBy,
+  SortOrder
 } from "../../types/legislation";
 
 // External service clients - lazy initialization
@@ -35,18 +38,66 @@ const getNormativesCollectionName = (jurisdiction: string) => `legislacion_${jur
 const getChunksCollectionName = (jurisdiction: string) => `legislacion_${jurisdiction}_chunks`;
 
 // MongoDB collection naming convention
-const getMongoCollectionName = (jurisdiction: string) => `normatives_${jurisdiction}`;
+const getMongoCollectionName = (jurisdiction: string) => `legislacion_${jurisdiction}`;
 
 export class LegislationService {
   private db: any;
 
   constructor() {
-    this.db = getMongoClient().db(process.env.MONGODB_DB_NAME);
+    this.db = getMongoClient().db('ialex_legislation');
   }
 
   // Get MongoDB collection for a specific jurisdiction
   private getNormativesCollection(jurisdiction: string) {
     return this.db.collection(getMongoCollectionName(jurisdiction));
+  }
+
+  // Ensure returned objects are Convex-serializable (no ObjectId, no Date)
+  private sanitizeNormative(doc: any): NormativeDoc {
+    if (!doc) return doc;
+    const { _id, created_at, updated_at, ...rest } = doc;
+    const created = created_at instanceof Date ? created_at.toISOString() : created_at;
+    const updated = updated_at instanceof Date ? updated_at.toISOString() : updated_at;
+    return {
+      ...rest,
+      ...(created ? { created_at: created } : {}),
+      ...(updated ? { updated_at: updated } : {}),
+    } as NormativeDoc;
+  }
+
+  private buildMongoQuery(filters?: NormativeFilters) {
+    const query: any = {};
+    if (!filters) return query;
+    if (filters.tipo) query.tipo = filters.tipo;
+    if (filters.provincia) query.provincia = filters.provincia;
+    if (filters.estado) query.estado = filters.estado;
+    if (filters.vigencia_actual !== undefined) query.vigencia_actual = filters.vigencia_actual;
+    if (filters.promulgacion_from || filters.promulgacion_to) {
+      query.promulgacion = {};
+      if (filters.promulgacion_from) query.promulgacion.$gte = filters.promulgacion_from;
+      if (filters.promulgacion_to) query.promulgacion.$lte = filters.promulgacion_to;
+    }
+    return query;
+  }
+
+  private buildMongoSort(sortBy?: SortBy, sortOrder?: SortOrder) {
+    if (!sortBy) return undefined;
+    const order = sortOrder === "asc" ? 1 : -1;
+    const sort: any = {};
+    switch (sortBy) {
+      case "promulgacion":
+        sort.promulgacion = order;
+        break;
+      case "created_at":
+        sort.created_at = order;
+        break;
+      case "updated_at":
+        sort.updated_at = order;
+        break;
+      default:
+        break;
+    }
+    return sort;
   }
 
   // Corpus-level semantic search using Qdrant for a specific jurisdiction
@@ -105,6 +156,7 @@ export class LegislationService {
         provincia: result.payload?.provincia as string | undefined,
         estado: result.payload?.estado as Estado,
         promulgacion: result.payload?.promulgacion as string | undefined,
+        vigencia_actual: result.payload?.vigencia_actual as boolean | undefined,
       }));
     } catch (error) {
       console.error("Error in searchNormativesCorpus:", error);
@@ -159,7 +211,8 @@ export class LegislationService {
   async getNormative(jurisdiction: string, id: string): Promise<NormativeDoc | null> {
     try {
       const collection = this.getNormativesCollection(jurisdiction);
-      return await collection.findOne({ id });
+      const doc = await collection.findOne({ id });
+      return doc ? this.sanitizeNormative(doc) : null;
     } catch (error) {
       console.error("Error in getNormative:", error);
       throw new Error(`Failed to get normative for jurisdiction ${jurisdiction}: ${error instanceof Error ? error.message : 'Unknown error'}`);
@@ -167,33 +220,70 @@ export class LegislationService {
   }
 
   // List normatives with filters from MongoDB for a specific jurisdiction
-  async listNormatives(jurisdiction: string, params: ListNormativesParams): Promise<NormativeDoc[]> {
-    const { filters, limit = 50, offset = 0 } = params;
-    
+  async listNormatives(jurisdiction: string, params: ListNormativesParams): Promise<{ items: NormativeDoc[]; total: number }> {
+    const { filters, limit = 50, offset = 0, sortBy, sortOrder } = params;
+
     try {
       const collection = this.getNormativesCollection(jurisdiction);
-      const query: any = {};
-      
-      if (filters) {
-        if (filters.tipo) query.tipo = filters.tipo;
-        if (filters.provincia) query.provincia = filters.provincia;
-        if (filters.estado) query.estado = filters.estado;
-        if (filters.vigencia_actual !== undefined) query.vigencia_actual = filters.vigencia_actual;
-        if (filters.promulgacion_from || filters.promulgacion_to) {
-          query.promulgacion = {};
-          if (filters.promulgacion_from) query.promulgacion.$gte = filters.promulgacion_from;
-          if (filters.promulgacion_to) query.promulgacion.$lte = filters.promulgacion_to;
-        }
-      }
+      const query = this.buildMongoQuery(filters);
+      const sort = this.buildMongoSort(sortBy, sortOrder);
 
-      return await collection
-        .find(query)
-        .limit(limit)
-        .skip(offset)
-        .toArray();
+      const [rawItems, total] = await Promise.all([
+        collection
+          .find(query)
+          .sort(sort || {})
+          .limit(limit)
+          .skip(offset)
+          .toArray(),
+        collection.countDocuments(query)
+      ]);
+
+      const items = rawItems.map((doc: any) => this.sanitizeNormative(doc));
+      return { items, total };
     } catch (error) {
       console.error("Error in listNormatives:", error);
       throw new Error(`Failed to list normatives for jurisdiction ${jurisdiction}: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  }
+
+  async getNormativesFacets(jurisdiction: string, filters?: NormativeFilters): Promise<NormativesFacets> {
+    try {
+      const collection = this.getNormativesCollection(jurisdiction);
+      const match = this.buildMongoQuery(filters);
+
+      const pipeline = [
+        { $match: match },
+        {
+          $facet: {
+            tipos: [
+              { $group: { _id: "$tipo", count: { $sum: 1 } } },
+            ],
+            provincias: [
+              { $group: { _id: "$provincia", count: { $sum: 1 } } },
+            ],
+            estados: [
+              { $group: { _id: "$estado", count: { $sum: 1 } } },
+            ],
+          }
+        }
+      ];
+
+      const [result] = await collection.aggregate(pipeline).toArray();
+
+      const mapArrayToRecord = (arr: Array<{ _id: string; count: number }>) =>
+        (arr || []).reduce((acc: Record<string, number>, cur) => {
+          if (cur._id) acc[cur._id] = cur.count;
+          return acc;
+        }, {});
+
+      return {
+        tipos: mapArrayToRecord(result?.tipos || []),
+        provincias: mapArrayToRecord(result?.provincias || []),
+        estados: mapArrayToRecord(result?.estados || []),
+      } as NormativesFacets;
+    } catch (error) {
+      console.error("Error in getNormativesFacets:", error);
+      throw new Error(`Failed to get facets for jurisdiction ${jurisdiction}: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
 
@@ -238,27 +328,14 @@ export class LegislationService {
 
   // Get available jurisdictions by checking existing collections
   async getAvailableJurisdictions(): Promise<string[]> {
-    try {
-      // Test Qdrant connection first
-      await qdrantClient.getCollections();
-
-      const collections = await qdrantClient.getCollections();
-      const jurisdictionSet = new Set<string>();
-
-      // Extract jurisdictions from collection names
-      collections.collections.forEach(collection => {
-        if (collection.name.startsWith('legislacion_')) {
-          const jurisdiction = collection.name.replace('legislacion_', '').replace('_chunks', '');
-          jurisdictionSet.add(jurisdiction);
-        }
-      });
-
-      return Array.from(jurisdictionSet);
-    } catch (error) {
-      console.error("Error getting available jurisdictions:", error);
-      // Return default jurisdictions if Qdrant is not available
-      console.log("Returning default jurisdictions due to Qdrant connection issues");
-      return ["nacional", "buenos_aires", "cordoba", "santa_fe", "mendoza"];
+    // Do NOT query Qdrant for this. Use env or static defaults.
+    const envList = process.env.LEGISLATION_JURISDICTIONS;
+    if (envList && envList.trim().length > 0) {
+      return envList
+        .split(",")
+        .map((s) => s.trim())
+        .filter((s) => s.length > 0);
     }
+    return ["nacional", "buenos_aires", "caba", "cordoba", "santa_fe", "mendoza"];
   }
 }
