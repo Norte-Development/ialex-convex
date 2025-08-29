@@ -1,413 +1,373 @@
-import React, { useState } from "react";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "../../components/ui/table";
-import { useAction } from "convex/react";
-import { api } from "../../../convex/_generated/api";
-import { useQuery } from "@tanstack/react-query";
-import { AppSkeleton } from "../Skeletons";
-import { Button } from "../../components/ui/button";
-import { Input } from "../../components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "../../components/ui/select";
-import { Card, CardContent, CardHeader, CardTitle } from "../../components/ui/card";
-import { Badge } from "../../components/ui/badge";
-import { Search, Filter, X } from "lucide-react";
-import { NormativeDoc, Estado, NormativeFilters } from "../../../types/legislation";
+"use client"
 
-interface DataBaseTableProps {
-  jurisdiction: string;
+import type React from "react"
+import { useCallback, useEffect, useMemo, useState } from "react"
+import { useAction } from "convex/react"
+import { api } from "../../../convex/_generated/api"
+import { useQuery } from "@tanstack/react-query"
+import { AppSkeleton } from "../Skeletons"
+import { Button } from "../ui/button"
+import { Card, CardContent } from "../ui/card"
+import { Badge } from "../ui/badge"
+import { Filter, FileText } from "lucide-react"
+import type { NormativeDoc, Estado, NormativeFilters, SearchResult, SortBy, SortOrder } from "../../../types/legislation"
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "../ui/sheet"
+import { SearchBar } from "./SearchBar"
+import { TableControls } from "./TableControls"
+import { FiltersPanel } from "./FiltersPanel"
+import { ActiveFilters } from "./ActiveFilters"
+import { TableView } from "./TableView"
+import { PaginationControls } from "./PaginationControls"
+import { NormativeDetails } from "./NormativeDetails"
+
+
+
+interface TableState {
+  searchQuery: string
+  debouncedQuery: string
+  isSearchMode: boolean
+  showFilters: boolean
+  filters: NormativeFilters
+  page: number
+  pageSize: number
+  sortBy: SortBy
+  sortOrder: SortOrder
+  selectedNormativeId: string | null
+  isDetailsOpen: boolean
+  showChunks: boolean
+  jurisdiction: string
 }
 
-export default function DataBaseTable({ jurisdiction }: DataBaseTableProps) {
-  const [searchQuery, setSearchQuery] = useState("");
-  const [isSearchMode, setIsSearchMode] = useState(false);
-  const [showFilters, setShowFilters] = useState(false);
-  const [filters, setFilters] = useState<NormativeFilters>({});
+const initialState: TableState = {
+  searchQuery: "",
+  debouncedQuery: "",
+  isSearchMode: false,
+  showFilters: false,
+  filters: {},
+  page: 1,
+  pageSize: 25,
+  sortBy: "promulgacion",
+  sortOrder: "desc",
+  selectedNormativeId: null,
+  isDetailsOpen: false,
+  showChunks: false,
+  jurisdiction: "nacional",
+}
 
-  // Import legislation functions directly
-  const { listNormatives, searchNormatives, getAvailableJurisdictions } = api.functions.legislation;
+export default function DataBaseTable() {
+  const [state, setState] = useState<TableState>(initialState)
+  const actions = {
+    listNormatives: useAction(api.functions.legislation.listNormatives),
+    searchNormatives: useAction(api.functions.legislation.searchNormatives),
+    getAvailableJurisdictions: useAction(api.functions.legislation.getAvailableJurisdictions),
+    getFacets: useAction(api.functions.legislation.getNormativesFacets),
+    getNormative: useAction(api.functions.legislation.getNormative),
+    queryNormatives: useAction(api.functions.legislation.queryNormatives),
+  }
 
-  // Actions
-  const listNormativesAction = useAction(listNormatives);
-  const searchNormativesAction = useAction(searchNormatives);
-  const getAvailableJurisdictionsAction = useAction(getAvailableJurisdictions);
+  const effectiveJurisdiction = state.jurisdiction
 
-  // Get jurisdictions for filter options
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setState((prev) => ({ ...prev, debouncedQuery: prev.searchQuery.trim() }))
+    }, 300)
+    return () => clearTimeout(timer)
+  }, [state.searchQuery])
+
   const { data: jurisdictions = [] } = useQuery({
     queryKey: ["jurisdictions"],
-    queryFn: () => getAvailableJurisdictionsAction({}),
-    staleTime: 10 * 60 * 1000, // Cache for 10 minutes
-  });
+    queryFn: () => actions.getAvailableJurisdictions({}),
+    staleTime: 10 * 60 * 1000,
+  })
 
-  // Main query for normatives
+  const { data: facets } = useQuery({
+    queryKey: ["normatives-facets", effectiveJurisdiction, state.filters],
+    queryFn: () =>
+      actions.getFacets({
+        jurisdiction: effectiveJurisdiction,
+        filters: Object.keys(state.filters).length ? state.filters : undefined,
+      }),
+    staleTime: 5 * 60 * 1000,
+  })
+
   const {
-    data: normatives = [],
-    isLoading,
-    error,
-    refetch,
-  } = useQuery<NormativeDoc[], Error>({
+    data: listData,
+    isLoading: isListLoading,
+    error: listError,
+  } = useQuery<{ items: NormativeDoc[]; total: number }, Error>({
     queryKey: [
-      isSearchMode ? "searchNormatives" : "listNormatives",
-      jurisdiction,
-      isSearchMode ? searchQuery : filters,
-      isSearchMode ? undefined : Object.values(filters).filter(Boolean).length
+      "listNormatives",
+      effectiveJurisdiction,
+      state.filters,
+      state.page,
+      state.pageSize,
+      state.sortBy,
+      state.sortOrder,
     ],
-    queryFn: () => {
-      if (isSearchMode && searchQuery.trim()) {
-        return searchNormativesAction({
-          jurisdiction,
-          query: searchQuery.trim(),
-          filters: Object.keys(filters).length > 0 ? filters : undefined,
-          limit: 50,
-        });
+    queryFn: () =>
+      actions.listNormatives({
+        jurisdiction: effectiveJurisdiction,
+        filters: Object.keys(state.filters).length > 0 ? state.filters : undefined,
+        limit: state.pageSize,
+        offset: (state.page - 1) * state.pageSize,
+        sortBy: state.sortBy,
+        sortOrder: state.sortOrder,
+      }),
+    staleTime: 5 * 60 * 1000,
+    enabled: !state.isSearchMode,
+  })
+
+  const {
+    data: searchData = [],
+    isLoading: isSearchLoading,
+    error: searchError,
+  } = useQuery<SearchResult[], Error>({
+    queryKey: [
+      "searchNormatives",
+      effectiveJurisdiction,
+      state.debouncedQuery,
+      state.filters,
+      state.page,
+      state.pageSize,
+    ],
+    queryFn: () =>
+      actions.searchNormatives({
+        jurisdiction: effectiveJurisdiction,
+        query: state.debouncedQuery,
+        filters: Object.keys(state.filters).length > 0 ? state.filters : undefined,
+        limit: state.page * state.pageSize,
+      }),
+    staleTime: 5 * 60 * 1000,
+    enabled: state.isSearchMode && !!state.debouncedQuery,
+  })
+
+  const computedData = useMemo(() => {
+    const totalResults = state.isSearchMode ? searchData?.length || 0 : listData?.total || 0
+    const pagedSearchItems = state.isSearchMode
+      ? searchData.slice((state.page - 1) * state.pageSize, state.page * state.pageSize)
+      : []
+    const items = state.isSearchMode ? pagedSearchItems : listData?.items || []
+    const isLoading = state.isSearchMode ? isSearchLoading : isListLoading
+    const error = state.isSearchMode ? searchError : listError
+
+    return { totalResults, items, isLoading, error }
+  }, [
+    state.isSearchMode,
+    state.page,
+    state.pageSize,
+    searchData,
+    listData,
+    isSearchLoading,
+    isListLoading,
+    searchError,
+    listError,
+  ])
+
+
+
+  const handleFilterChange = useCallback((key: keyof NormativeFilters, value: string | boolean | undefined) => {
+    setState((prev) => {
+      const newFilters = { ...prev.filters }
+      if (value === "" || value === undefined || value === false) {
+        delete newFilters[key]
       } else {
-        return listNormativesAction({
-          jurisdiction,
-          filters: Object.keys(filters).length > 0 ? filters : undefined,
-          limit: 50,
-          offset: 0,
-        });
+        ;(newFilters as any)[key] = value
+      }
+      return { ...prev, filters: newFilters, page: 1 }
+    })
+  }, [])
+
+  const handleJurisdictionChange = useCallback((jurisdiction: string) => {
+    setState((prev) => ({
+      ...prev,
+      jurisdiction,
+      page: 1,
+      filters: {},
+      searchQuery: "",
+      debouncedQuery: "",
+      isSearchMode: false,
+    }))
+  }, [])
+
+  const clearFilters = useCallback(() => {
+    setState(initialState)
+  }, [])
+
+  const handleSearch = useCallback(() => {
+    const hasQuery = state.searchQuery.trim().length > 0
+    setState((prev) => ({ ...prev, isSearchMode: hasQuery, page: 1 }))
+  }, [state.searchQuery])
+
+  const handleKeyPress = useCallback(
+    (e: React.KeyboardEvent) => {
+      if (e.key === "Enter") {
+        handleSearch()
       }
     },
-    staleTime: 5 * 60 * 1000,
-  });
+    [handleSearch],
+  )
 
-  // Estado options
-  const estadoOptions: Estado[] = [
-    "vigente", "derogada", "caduca", "anulada",
-    "suspendida", "abrogada", "sin_registro_oficial"
-  ];
+  const handleRowClick = useCallback((id: string) => {
+    setState((prev) => ({
+      ...prev,
+      selectedNormativeId: id,
+      isDetailsOpen: true,
+      showChunks: false,
+    }))
+  }, [])
 
-  // Tipo options (common types)
-  const tipoOptions = [
-    "ley", "decreto", "resolución", "disposición", "circular",
-    "ordenanza", "reglamento", "acuerdo", "declaración"
-  ];
+  const handlePageChange = useCallback((newPage: number) => {
+    setState((prev) => ({ ...prev, page: newPage }))
+  }, [])
 
-  const handleFilterChange = (key: keyof NormativeFilters, value: string | boolean | undefined) => {
-    setFilters(prev => {
-      const newFilters = { ...prev };
-      if (value === "" || value === undefined || value === false) {
-        delete newFilters[key];
-      } else {
-        (newFilters as any)[key] = value;
-      }
-      return newFilters;
-    });
-  };
-
-  const clearFilters = () => {
-    setFilters({});
-    setSearchQuery("");
-    setIsSearchMode(false);
-  };
-
-  const handleSearch = () => {
-    if (searchQuery.trim()) {
-      setIsSearchMode(true);
-    } else {
-      setIsSearchMode(false);
+  const getEstadoBadgeColor = useCallback((estado: Estado) => {
+    const colors = {
+      vigente: "bg-emerald-50 text-emerald-700 border-emerald-200",
+      derogada: "bg-red-50 text-red-700 border-red-200",
+      caduca: "bg-amber-50 text-amber-700 border-amber-200",
+      anulada: "bg-gray-50 text-gray-700 border-gray-200",
+      suspendida: "bg-orange-50 text-orange-700 border-orange-200",
+      abrogada: "bg-purple-50 text-purple-700 border-purple-200",
     }
-    refetch();
-  };
+    return colors[estado as keyof typeof colors] || "bg-blue-50 text-blue-700 border-blue-200"
+  }, [])
 
-  const handleKeyPress = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter") {
-      handleSearch();
-    }
-  };
+  const formatDate = useCallback((dateString?: string) => {
+    if (!dateString) return ""
+    return new Date(dateString).toLocaleDateString("es-AR")
+  }, [])
 
-  const getEstadoBadgeColor = (estado: Estado) => {
-    switch (estado) {
-      case "vigente": return "bg-green-100 text-green-800";
-      case "derogada": return "bg-red-100 text-red-800";
-      case "caduca": return "bg-yellow-100 text-yellow-800";
-      case "anulada": return "bg-gray-100 text-gray-800";
-      case "suspendida": return "bg-orange-100 text-orange-800";
-      case "abrogada": return "bg-purple-100 text-purple-800";
-      default: return "bg-blue-100 text-blue-800";
-    }
-  };
-
-  const formatDate = (dateString?: string) => {
-    if (!dateString) return "";
-    return new Date(dateString).toLocaleDateString("es-AR");
-  };
-
-  if (isLoading) {
-    return <AppSkeleton />;
+  if (computedData.isLoading) {
+    return <AppSkeleton />
   }
 
-  if (error) {
+  if (computedData.error) {
     return (
-      <div className="flex items-center justify-center p-8 text-red-600">
-        Error loading legislation: {error.message}
+      <div className="flex items-center justify-center p-12 text-red-600 bg-red-50 rounded-lg border border-red-200">
+        <div className="text-center">
+          <FileText className="w-8 h-8 mx-auto mb-2 opacity-50" />
+          <p className="font-medium">Error loading legislation</p>
+          <p className="text-sm text-red-500 mt-1">{computedData.error.message}</p>
+        </div>
       </div>
-    );
+    )
   }
+
+  const totalPages = Math.max(1, Math.ceil(computedData.totalResults / state.pageSize))
+  const hasActiveFilters = Object.keys(state.filters).length > 0 || state.searchQuery
 
   return (
-    <div className="space-y-4">
-      {/* Search and Filter Controls */}
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-lg flex items-center justify-between">
-            Base de Datos Legislativa - {jurisdiction?.toUpperCase() || "Nacional"}
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setShowFilters(!showFilters)}
-            >
-              <Filter className="w-4 h-4 mr-2" />
-              Filtros
-            </Button>
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {/* Search Bar */}
-          <div className="flex gap-2">
-            <div className="flex-1 relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-              <Input
-                placeholder="Buscar en la legislación..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                onKeyPress={handleKeyPress}
-                className="pl-10"
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Base de Datos Legislativa</h1>
+          <p className="text-sm text-gray-600 mt-1">
+            {state.jurisdiction === "nacional" ? "Nacional" : state.jurisdiction.charAt(0).toUpperCase() + state.jurisdiction.slice(1)} • {computedData.totalResults}{" "}
+            {computedData.totalResults === 1 ? "resultado" : "resultados"}
+          </p>
+        </div>
+        <Button
+          variant="outline"
+          onClick={() => setState((prev) => ({ ...prev, showFilters: !prev.showFilters }))}
+          className="gap-2"
+        >
+          <Filter className="w-4 h-4" />
+          Filtros
+          {hasActiveFilters && (
+            <Badge variant="secondary" className="ml-1 px-1.5 py-0.5 text-xs">
+              {Object.keys(state.filters).length + (state.searchQuery ? 1 : 0)}
+            </Badge>
+          )}
+        </Button>
+      </div>
+
+      <Card className="border-0 shadow-sm bg-gradient-to-r from-blue-50 to-indigo-50">
+        <CardContent className="p-6">
+          <SearchBar
+            searchQuery={state.searchQuery}
+            onSearchQueryChange={(query) => setState((prev) => ({ ...prev, searchQuery: query }))}
+            onSearch={handleSearch}
+            onClearFilters={clearFilters}
+            onKeyPress={handleKeyPress}
+            hasActiveFilters={!!hasActiveFilters}
+          />
+
+          <TableControls
+            jurisdiction={state.jurisdiction}
+            jurisdictions={jurisdictions}
+            onJurisdictionChange={handleJurisdictionChange}
+            isSearchMode={state.isSearchMode}
+            sortBy={state.sortBy}
+            sortOrder={state.sortOrder}
+            pageSize={state.pageSize}
+            onSortChange={(sortBy, sortOrder) => {
+              if (sortBy === "relevancia") {
+                setState((prev) => ({ ...prev, isSearchMode: true, page: 1 }))
+              } else {
+                setState((prev) => ({ ...prev, isSearchMode: false, sortBy: sortBy as SortBy, sortOrder, page: 1 }))
+              }
+            }}
+            onPageSizeChange={(pageSize) => setState((prev) => ({ ...prev, pageSize, page: 1 }))}
+          />
+
+          <FiltersPanel
+            showFilters={state.showFilters}
+            onShowFiltersChange={(show) => setState((prev) => ({ ...prev, showFilters: show }))}
+            filters={state.filters}
+            onFilterChange={handleFilterChange}
+            jurisdictions={jurisdictions}
+            jurisdiction={state.jurisdiction}
+            facets={facets}
+          />
+
+          <ActiveFilters
+            searchQuery={state.searchQuery}
+            filters={state.filters}
+            onRemoveFilter={(key) => handleFilterChange(key, undefined)}
+            onClearSearch={() => setState((prev) => ({ ...prev, searchQuery: "", isSearchMode: false }))}
+          />
+        </CardContent>
+      </Card>
+
+      <TableView
+        items={computedData.items}
+        isSearchMode={state.isSearchMode}
+        onRowClick={handleRowClick}
+        getEstadoBadgeColor={getEstadoBadgeColor}
+        formatDate={formatDate}
+      />
+
+      <PaginationControls
+        totalResults={computedData.totalResults}
+        page={state.page}
+        pageSize={state.pageSize}
+        totalPages={totalPages}
+        isSearchMode={state.isSearchMode}
+        searchQuery={state.searchQuery}
+        onPageChange={handlePageChange}
+      />
+
+      {/* Details Sheet */}
+      <Sheet open={state.isDetailsOpen} onOpenChange={(open) => setState((prev) => ({ ...prev, isDetailsOpen: open }))}>
+        <SheetContent className="w-full sm:max-w-4xl">
+          <SheetHeader>
+            <SheetTitle>Detalle de normativa</SheetTitle>
+          </SheetHeader>
+          <div className="mt-6">
+            {state.selectedNormativeId && (
+              <NormativeDetails
+                jurisdiction={effectiveJurisdiction}
+                id={state.selectedNormativeId}
+                getNormativeAction={actions.getNormative}
+                queryNormativesAction={actions.queryNormatives}
+                showChunks={state.showChunks}
+                onToggleChunks={() => setState((prev) => ({ ...prev, showChunks: !prev.showChunks }))}
+                searchQuery={state.debouncedQuery}
               />
-            </div>
-            <Button onClick={handleSearch} disabled={!searchQuery.trim() && !Object.keys(filters).length}>
-              Buscar
-            </Button>
-            {(searchQuery || Object.keys(filters).length > 0) && (
-              <Button variant="outline" onClick={clearFilters}>
-                <X className="w-4 h-4" />
-              </Button>
             )}
           </div>
-
-          {/* Filters Panel */}
-          {showFilters && (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 p-4 bg-gray-50 rounded-lg">
-              {/* Tipo Filter */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Tipo
-                </label>
-                <Select
-                  value={filters.tipo || ""}
-                  onValueChange={(value) => handleFilterChange("tipo", value === "all" ? undefined : value)}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Seleccionar tipo" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Todos</SelectItem>
-                    {tipoOptions.map((tipo) => (
-                      <SelectItem key={tipo} value={tipo}>
-                        {tipo.charAt(0).toUpperCase() + tipo.slice(1)}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {/* Provincia Filter */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Provincia
-                </label>
-                <Select
-                  value={filters.provincia || ""}
-                  onValueChange={(value) => handleFilterChange("provincia", value === "all" ? undefined : value)}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Seleccionar provincia" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Todas</SelectItem>
-                    {jurisdictions
-                      .filter(j => j !== "nacional")
-                      .map((provincia) => (
-                        <SelectItem key={provincia} value={provincia}>
-                          {provincia.charAt(0).toUpperCase() + provincia.slice(1)}
-                        </SelectItem>
-                      ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {/* Estado Filter */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Estado
-                </label>
-                <Select
-                  value={filters.estado || ""}
-                  onValueChange={(value) => handleFilterChange("estado", value === "all" ? undefined : (value as Estado))}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Seleccionar estado" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Todos</SelectItem>
-                    {estadoOptions.map((estado) => (
-                      <SelectItem key={estado} value={estado}>
-                        {estado.charAt(0).toUpperCase() + estado.slice(1).replace("_", " ")}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {/* Promulgación From */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Promulgación Desde
-                </label>
-                <Input
-                  type="date"
-                  value={filters.promulgacion_from || ""}
-                  onChange={(e) => handleFilterChange("promulgacion_from", e.target.value || undefined)}
-                />
-              </div>
-
-              {/* Promulgación To */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Promulgación Hasta
-                </label>
-                <Input
-                  type="date"
-                  value={filters.promulgacion_to || ""}
-                  onChange={(e) => handleFilterChange("promulgacion_to", e.target.value || undefined)}
-                />
-              </div>
-
-              {/* Vigencia Actual */}
-              <div className="flex items-center space-x-2">
-                <input
-                  type="checkbox"
-                  id="vigencia_actual"
-                  checked={filters.vigencia_actual || false}
-                  onChange={(e) => handleFilterChange("vigencia_actual", e.target.checked || undefined)}
-                  className="rounded"
-                />
-                <label htmlFor="vigencia_actual" className="text-sm font-medium text-gray-700">
-                  Solo Vigentes
-                </label>
-              </div>
-            </div>
-          )}
-
-          {/* Active Filters Display */}
-          {Object.keys(filters).length > 0 && (
-            <div className="flex flex-wrap gap-2">
-              <span className="text-sm text-gray-600">Filtros activos:</span>
-              {Object.entries(filters).map(([key, value]) => (
-                value && (
-                  <Badge key={key} variant="secondary" className="text-xs">
-                    {key}: {String(value)}
-                    <button
-                      onClick={() => handleFilterChange(key as keyof NormativeFilters, undefined)}
-                      className="ml-1 hover:text-red-600"
-                    >
-                      ×
-                    </button>
-                  </Badge>
-                )
-              ))}
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Results Table */}
-      <Card>
-        <CardContent className="p-0">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Título</TableHead>
-                <TableHead>Tipo</TableHead>
-                <TableHead>Número</TableHead>
-                <TableHead>Provincia</TableHead>
-                <TableHead>Estado</TableHead>
-                <TableHead>Promulgación</TableHead>
-                <TableHead>Vigente</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {normatives.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={7} className="text-center py-8 text-gray-500">
-                    {isSearchMode
-                      ? "No se encontraron resultados para la búsqueda"
-                      : "No se encontraron normativas con los filtros aplicados"
-                    }
-                  </TableCell>
-                </TableRow>
-              ) : (
-                normatives.map((normative) => (
-                  <TableRow key={normative.id}>
-                    <TableCell className="font-medium">
-                      <div className="max-w-md">
-                        <div className="truncate" title={normative.titulo}>
-                          {normative.titulo}
-                        </div>
-                        {normative.resumen && (
-                          <div className="text-xs text-gray-500 truncate mt-1" title={normative.resumen}>
-                            {normative.resumen}
-                          </div>
-                        )}
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant="outline">
-                        {normative.tipo}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>{normative.numero || "-"}</TableCell>
-                    <TableCell>{normative.provincia || "-"}</TableCell>
-                    <TableCell>
-                      <Badge className={getEstadoBadgeColor(normative.estado)}>
-                        {normative.estado.replace("_", " ")}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>{formatDate(normative.promulgacion)}</TableCell>
-                    <TableCell>
-                      {normative.vigencia_actual ? (
-                        <Badge className="bg-green-100 text-green-800">Sí</Badge>
-                      ) : (
-                        <Badge className="bg-gray-100 text-gray-800">No</Badge>
-                      )}
-                    </TableCell>
-                  </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
-
-      {/* Results Summary */}
-      <div className="text-sm text-gray-600 text-center">
-        {normatives.length} {normatives.length === 1 ? "resultado" : "resultados"} encontrados
-        {isSearchMode && searchQuery && (
-          <span> para "{searchQuery}"</span>
-        )}
-      </div>
+        </SheetContent>
+      </Sheet>
     </div>
-  );
+  )
 }

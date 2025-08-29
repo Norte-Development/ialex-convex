@@ -15,8 +15,8 @@ The legislation service has been updated to support multiple jurisdictions, wher
   - Example: `legislacion_caba_chunks`, `legislacion_chaco_chunks`
 
 #### MongoDB Collections
-- **Normatives Collection**: `normatives_{jurisdiction}`
-  - Example: `normatives_caba`, `normatives_chaco`, `normatives_buenos_aires`
+- **Normatives Collection**: `legislacion_{jurisdiction}`
+  - Example: `legislacion_caba`, `legislacion_chaco`, `legislacion_buenos_aires`
 
 ### Data Structure
 
@@ -62,8 +62,8 @@ await legislationService.searchNormativesCorpus(jurisdiction, params);
 6. **testConnections(jurisdiction)**
    - Tests connections for the specified jurisdiction's collections
 
-7. **getAvailableJurisdictions()** (NEW)
-   - Returns a list of all available jurisdictions by checking existing collections
+7. **getAvailableJurisdictions()** (UPDATED)
+   - Returns jurisdictions from `LEGISLATION_JURISDICTIONS` env var, or a static default list
 
 ### Convex Functions
 
@@ -108,9 +108,9 @@ const results = await legislationService.searchNormativesCorpus("caba", {
 ### Getting Available Jurisdictions
 
 ```typescript
-// Get all available jurisdictions
+// Reads from process.env.LEGISLATION_JURISDICTIONS (comma-separated)
+// or returns a static default list
 const jurisdictions = await legislationService.getAvailableJurisdictions();
-// Returns: ["caba", "chaco", "buenos_aires", ...]
 ```
 
 ### Testing Jurisdiction Connections
@@ -146,12 +146,52 @@ If you have existing code that uses the legislation service, you'll need to:
 4. **Maintenance**: Easier to manage and update jurisdiction-specific data
 5. **Compliance**: Better support for jurisdiction-specific legal requirements
 
+## Frontend Integration
+
+### DataBaseTable Component
+
+The `DataBaseTable` component now includes jurisdiction selection functionality:
+
+#### Features
+- **Jurisdiction Selector**: Users can switch between available jurisdictions via a dropdown in the controls section
+- **State Management**: Jurisdiction changes reset pagination, filters, and search state to provide a clean experience
+- **Display Updates**: The page header dynamically shows the currently selected jurisdiction
+- **Filter Integration**: The provincia filter excludes the currently selected jurisdiction to avoid redundancy
+
+#### Implementation Details
+```typescript
+// State includes jurisdiction selection
+interface TableState {
+  // ... other state properties
+  jurisdiction: string
+}
+
+// Handler for jurisdiction changes
+const handleJurisdictionChange = useCallback((jurisdiction: string) => {
+  setState((prev) => ({
+    ...prev,
+    jurisdiction,
+    page: 1,
+    filters: {},
+    searchQuery: "",
+    debouncedQuery: "",
+    isSearchMode: false,
+  }))
+}, [])
+```
+
+#### UI Components
+- Jurisdiction selector appears in the controls row alongside sorting and pagination options
+- Dropdown displays jurisdictions with proper capitalization (e.g., "Nacional", "Buenos Aires")
+- State resets ensure clean transitions between jurisdictions
+
 ## Future Considerations
 
 1. **Cross-Jurisdiction Search**: Potential for searching across multiple jurisdictions
 2. **Jurisdiction Mapping**: Mapping between different jurisdiction naming conventions
 3. **Data Synchronization**: Tools for keeping jurisdiction data in sync
 4. **Access Control**: Jurisdiction-based access permissions
+5. **User Preferences**: Save preferred jurisdiction selection per user
 
 ## Error Handling
 
