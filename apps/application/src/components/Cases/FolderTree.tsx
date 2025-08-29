@@ -410,75 +410,169 @@ function FolderItem({
 
   return (
     <div className="relative">
-      <div
-        className={`flex items-center justify-between px-2 py-1 rounded hover:bg-gray-50 ${
-          currentFolderId === (folder._id as Id<"folders">) ? "bg-blue-50" : ""
-        } ${highlightedFolder === folder._id ? "animate-pulse-once " : ""}`}
-      >
-        <div className="flex items-center gap-1 min-w-0">
-          <button
-            className="h-5 w-5 flex items-center justify-center text-gray-600 hover:text-gray-800"
-            onClick={() => setOpen((o) => !o)}
-            aria-label={open ? "Contraer" : "Expandir"}
-          >
-            <ChevronRight
-              size={14}
-              className={
-                open
-                  ? "transform rotate-90 transition-transform"
-                  : "transform transition-transform"
-              }
-            />
-          </button>
-          <Folder size={16} className="text-black flex-shrink-0" />
-          {isEditing ? (
-            <Input
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") submitRename();
-                if (e.key === "Escape") {
-                  setIsEditing(false);
-                  setName(folder.name);
-                }
-              }}
-              onBlur={submitRename}
-              className="h-4 text-xs placeholder:text-xs"
-              autoFocus
-            />
-          ) : (
+      {open ? (
+        <div
+          className={`flex items-center justify-between px-2 py-1 rounded hover:bg-gray-50 ${
+            currentFolderId === (folder._id as Id<"folders">)
+              ? "bg-blue-50"
+              : ""
+          } ${highlightedFolder === folder._id ? "animate-pulse-once " : ""}`}
+        >
+          <div className="flex items-center gap-1 min-w-0">
             <button
-              className="truncate text-left px-1 hover:text-foreground"
-              title={folder.name}
-              onClick={() => onFolderChange(folder._id as Id<"folders">)}
+              className="h-5 w-5 flex items-center justify-center text-gray-600 hover:text-gray-800"
+              onClick={() => setOpen((o) => !o)}
+              aria-label={open ? "Contraer" : "Expandir"}
             >
-              {folder.name}
+              <ChevronRight
+                size={14}
+                className={
+                  open
+                    ? "transform rotate-90 transition-transform"
+                    : "transform transition-transform"
+                }
+              />
             </button>
-          )}
+            <Folder size={16} className="text-black flex-shrink-0" />
+            {isEditing ? (
+              <Input
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") submitRename();
+                  if (e.key === "Escape") {
+                    setIsEditing(false);
+                    setName(folder.name);
+                  }
+                }}
+                onBlur={submitRename}
+                className="h-4 text-xs placeholder:text-xs"
+                autoFocus
+              />
+            ) : (
+              <button
+                className="truncate text-left px-1 hover:text-foreground"
+                title={folder.name}
+                onClick={() => onFolderChange(folder._id as Id<"folders">)}
+              >
+                {folder.name}
+              </button>
+            )}
+          </div>
+          <div className="flex items-center gap-1">
+            {folder.description && (
+              <span className="text-xs text-muted-foreground truncate max-w-[40%] mr-2">
+                {folder.description}
+              </span>
+            )}
+            <IfCan permission={PERMISSIONS.DOC_WRITE} fallback={null}>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-6 w-6 p-0 hover:bg-gray-200"
+                data-folder-menu-trigger
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setMenuOpen((m) => !m);
+                }}
+                aria-label="Acciones de carpeta"
+              >
+                <MoreHorizontal size={14} className="text-gray-600" />
+              </Button>
+            </IfCan>
+          </div>
         </div>
-        <div className="flex items-center gap-1">
-          {folder.description && (
-            <span className="text-xs text-muted-foreground truncate max-w-[40%] mr-2">
-              {folder.description}
-            </span>
+      ) : (
+        <Droppable
+          droppableId={folder._id as unknown as string}
+          type="DOCUMENT"
+        >
+          {(dropProvided, dropSnapshot) => (
+            <div ref={dropProvided.innerRef} {...dropProvided.droppableProps}>
+              <div
+                className={`flex items-center justify-between px-2 py-1 rounded hover:bg-gray-50 ${
+                  currentFolderId === (folder._id as Id<"folders">)
+                    ? "bg-blue-50"
+                    : ""
+                } ${
+                  highlightedFolder === folder._id ? "animate-pulse-once " : ""
+                } ${
+                  dropSnapshot.isDraggingOver
+                    ? "bg-blue-50/70 border border-blue-300 border-dashed"
+                    : "border border-transparent"
+                }`}
+              >
+                <div className="flex items-center gap-1 min-w-0">
+                  <button
+                    className="h-5 w-5 flex items-center justify-center text-gray-600 hover:text-gray-800"
+                    onClick={() => setOpen((o) => !o)}
+                    aria-label={open ? "Contraer" : "Expandir"}
+                  >
+                    <ChevronRight
+                      size={14}
+                      className={
+                        open
+                          ? "transform rotate-90 transition-transform"
+                          : "transform transition-transform"
+                      }
+                    />
+                  </button>
+                  <Folder size={16} className="text-black flex-shrink-0" />
+                  {isEditing ? (
+                    <Input
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") submitRename();
+                        if (e.key === "Escape") {
+                          setIsEditing(false);
+                          setName(folder.name);
+                        }
+                      }}
+                      onBlur={submitRename}
+                      className="h-4 text-xs placeholder:text-xs"
+                      autoFocus
+                    />
+                  ) : (
+                    <button
+                      className="truncate text-left px-1 hover:text-foreground"
+                      title={folder.name}
+                      onClick={() =>
+                        onFolderChange(folder._id as Id<"folders">)
+                      }
+                    >
+                      {folder.name}
+                    </button>
+                  )}
+                </div>
+                <div className="flex items-center gap-1">
+                  {folder.description && (
+                    <span className="text-xs text-muted-foreground truncate max-w-[40%] mr-2">
+                      {folder.description}
+                    </span>
+                  )}
+                  <IfCan permission={PERMISSIONS.DOC_WRITE} fallback={null}>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-6 w-6 p-0 hover:bg-gray-200"
+                      data-folder-menu-trigger
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setMenuOpen((m) => !m);
+                      }}
+                      aria-label="Acciones de carpeta"
+                    >
+                      <MoreHorizontal size={14} className="text-gray-600" />
+                    </Button>
+                  </IfCan>
+                </div>
+              </div>
+              {dropProvided.placeholder}
+            </div>
           )}
-          <IfCan permission={PERMISSIONS.DOC_WRITE} fallback={null}>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-6 w-6 p-0 hover:bg-gray-200"
-              data-folder-menu-trigger
-              onClick={(e) => {
-                e.stopPropagation();
-                setMenuOpen((m) => !m);
-              }}
-              aria-label="Acciones de carpeta"
-            >
-              <MoreHorizontal size={14} className="text-gray-600" />
-            </Button>
-          </IfCan>
-        </div>
-      </div>
+        </Droppable>
+      )}
       {menuOpen && (
         <FolderActionsMenu
           onCreateFolder={() => {
