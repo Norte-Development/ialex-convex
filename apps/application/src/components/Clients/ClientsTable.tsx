@@ -6,12 +6,25 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { Button } from "@/components/ui/button";
+import ClientDetailDialog from "./ClientDetailDialog";
+import { useMutation } from "convex/react";
+import { api } from "../../../convex/_generated/api";
+import type { Id } from "../../../convex/_generated/dataModel";
 
 interface ClientsTableProps {
   clientsResult: any;
+  caseId?: Id<"cases">; // If provided, table adapts to case context (hide case count, enable unlink)
 }
 
-export default function ClientsTable({ clientsResult }: ClientsTableProps) {
+export default function ClientsTable({
+  clientsResult,
+  caseId,
+}: ClientsTableProps) {
+  const removeClientFromCase = useMutation(
+    api.functions.cases.removeClientFromCase,
+  );
+
   if (!clientsResult) {
     return <div>Cargando clientes...</div>;
   }
@@ -22,6 +35,16 @@ export default function ClientsTable({ clientsResult }: ClientsTableProps) {
     return <div>No se encontraron clientes</div>;
   }
 
+  const handleUnlink = async (clientId: Id<"clients">) => {
+    if (!caseId) return;
+    if (!confirm("¿Desvincular este cliente del caso?")) return;
+    try {
+      await removeClientFromCase({ clientId, caseId });
+    } catch (e) {
+      alert("Error al desvincular: " + (e as Error).message);
+    }
+  };
+
   return (
     <Table className="border border-gray-300 bg-white">
       <TableHeader className="bg-white border border-gray-300">
@@ -30,8 +53,13 @@ export default function ClientsTable({ clientsResult }: ClientsTableProps) {
             Apellido y nombre
           </TableHead>
           <TableHead className="border border-gray-300">DNI/CUIT</TableHead>
-          <TableHead className="border border-gray-300">
-            Casos vinculados
+          {!caseId && (
+            <TableHead className="border border-gray-300">
+              Casos vinculados
+            </TableHead>
+          )}
+          <TableHead className="border border-gray-300 w-[1%] whitespace-nowrap">
+            Acciones
           </TableHead>
         </TableRow>
       </TableHeader>
@@ -47,8 +75,32 @@ export default function ClientsTable({ clientsResult }: ClientsTableProps) {
             <TableCell className="border border-gray-300">
               {client.dni || client.cuit || "N/A"}
             </TableCell>
-            <TableCell className="cursor-pointer border border-gray-300">
-              {client.cases?.length || 0}
+            {!caseId && (
+              <TableCell className="cursor-pointer border border-gray-300">
+                {client.cases?.length || 0}
+              </TableCell>
+            )}
+            <TableCell className="border border-gray-300 text-right space-x-2 flex-col flex gap-1">
+              <ClientDetailDialog clientId={client._id} initialClient={client}>
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  className="text-[12px]  cursor-pointer hover:bg-gray-300"
+                >
+                  Ver / Editar
+                </Button>
+              </ClientDetailDialog>
+
+              {caseId && (
+                <Button
+                  size="sm"
+                  variant="destructive"
+                  className="text-[10px] cursor-pointer"
+                  onClick={() => handleUnlink(client._id)}
+                >
+                  Desvincular
+                </Button>
+              )}
             </TableCell>
           </TableRow>
         ))}

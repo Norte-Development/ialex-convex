@@ -59,7 +59,10 @@ export default function CaseClientsPage() {
             <Plus size={15} />
           </Button>
         </div>
-        <ClientsTable clientsResult={transformedClientsResult} />
+        <ClientsTable
+          clientsResult={transformedClientsResult}
+          caseId={caseId!}
+        />
         <SyncNewClientDialog
           open={isSyncNewClientDialogOpen}
           onOpenChange={setIsSyncNewClientDialogOpen}
