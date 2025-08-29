@@ -213,3 +213,151 @@ export const getClients = query({
     };
   },
 });
+
+/**
+ * Retrieves a single active client by ID, including related active cases and the client's role in each.
+ *
+ * @param {Object} args - The function arguments
+ * @param {import("../_generated/dataModel").Id<"clients">} args.clientId - The client document ID
+ * @returns {Promise<(Omit<any, "cases"> & { cases: Array<{ case: any; role: string; relationId: string }> }) | null>} The client with related cases, or null if not found/inactive
+ * @throws {Error} When not authenticated
+ *
+ * @example
+ * ```ts
+ * const client = await getClientById({ clientId });
+ * if (client) {
+ *   console.log(client.name, client.cases.length);
+ * }
+ * ```
+ */
+export const getClientById = query({
+  args: { clientId: v.id("clients") },
+  handler: async (ctx, args) => {
+    await getCurrentUserFromAuth(ctx);
+
+    const client = await ctx.db.get(args.clientId);
+    if (!client || client.isActive === false) return null;
+
+    const relations = await ctx.db
+      .query("clientCases")
+      .withIndex("by_client", (q) => q.eq("clientId", args.clientId))
+      .filter((q) => q.eq(q.field("isActive"), true))
+      .collect();
+
+    const cases = await Promise.all(
+      relations.map(async (relation) => {
+        const caseData = await ctx.db.get(relation.caseId);
+        return caseData
+          ? { case: caseData, role: relation.role, relationId: relation._id }
+          : null;
+      }),
+    );
+
+    return {
+      ...client,
+      cases: cases.filter(Boolean),
+    } as any;
+  },
+});
+
+/**
+ * Updates editable fields of a client document.
+ *
+ * Maintains consistency between `clientType` and identification fields:
+ * - When `clientType` is "individual", `dni` is kept and empty `cuit` is cleared.
+ * - When `clientType` is "company", `cuit` is kept and empty `dni` is cleared.
+ *
+ * @param {Object} args - The function arguments
+ * @param {import("../_generated/dataModel").Id<"clients">} args.clientId - The client document ID to update
+ * @param {string} [args.name] - The client's name
+ * @param {string} [args.email] - The client's email
+ * @param {string} [args.phone] - The client's phone
+ * @param {string} [args.dni] - DNI when clientType is "individual"
+ * @param {string} [args.cuit] - CUIT when clientType is "company"
+ * @param {string} [args.address] - Physical address
+ * @param {"individual"|"company"} [args.clientType] - Client type
+ * @param {string} [args.notes] - Additional notes
+ * @param {boolean} [args.isActive] - Active flag (soft delete uses this separately)
+ * @returns {Promise<import("../_generated/dataModel").Id<"clients">>} The updated client's ID
+ * @throws {Error} When not authenticated
+ *
+ * @example
+ * ```ts
+ * await updateClient({
+ *   clientId,
+ *   name: "Nuevo Nombre",
+ *   clientType: "company",
+ *   cuit: "20-12345678-9",
+ * });
+ * ```
+ */
+export const updateClient = mutation({
+  args: {
+    clientId: v.id("clients"),
+    name: v.optional(v.string()),
+    email: v.optional(v.string()),
+    phone: v.optional(v.string()),
+    dni: v.optional(v.string()),
+    cuit: v.optional(v.string()),
+    address: v.optional(v.string()),
+    clientType: v.optional(
+      v.union(v.literal("individual"), v.literal("company")),
+    ),
+    notes: v.optional(v.string()),
+    isActive: v.optional(v.boolean()),
+  },
+  handler: async (ctx, args) => {
+    await getCurrentUserFromAuth(ctx);
+
+    const { clientId, ...patch } = args;
+
+    // Ensure DNI vs CUIT consistency when switching clientType
+    if (patch.clientType === "individual") {
+      // keep dni, clear cuit if provided explicitly as empty
+      if (patch.cuit === "") patch.cuit = undefined as any;
+    }
+    if (patch.clientType === "company") {
+      if (patch.dni === "") patch.dni = undefined as any;
+    }
+
+    await ctx.db.patch(clientId, patch as any);
+    return clientId;
+  },
+});
+
+/**
+ * Soft-deletes a client by setting `isActive` to false and deactivates all active client-case relations.
+ *
+ * @param {Object} args - The function arguments
+ * @param {import("../_generated/dataModel").Id<"clients">} args.clientId - The client ID to soft delete
+ * @returns {Promise<{ readonly ok: true }>} Result object indicating success
+ * @throws {Error} When not authenticated
+ *
+ * @example
+ * ```ts
+ * const res = await deleteClient({ clientId });
+ * console.log(res.ok); // true
+ * ```
+ */
+export const deleteClient = mutation({
+  args: { clientId: v.id("clients") },
+  handler: async (ctx, args) => {
+    await getCurrentUserFromAuth(ctx);
+
+    // Soft delete client
+    await ctx.db.patch(args.clientId, { isActive: false } as any);
+
+    // Deactivate relations
+    const relations = await ctx.db
+      .query("clientCases")
+      .withIndex("by_client", (q) => q.eq("clientId", args.clientId))
+      .filter((q) => q.eq(q.field("isActive"), true))
+      .collect();
+
+    await Promise.all(
+      relations.map((rel) => ctx.db.patch(rel._id, { isActive: false } as any)),
+    );
+
+    return { ok: true } as const;
+  },
+});
