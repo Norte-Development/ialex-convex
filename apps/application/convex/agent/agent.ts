@@ -4,7 +4,6 @@ import { openai } from "@ai-sdk/openai";
 import { v } from "convex/values";
 import { action } from "../_generated/server";
 import { 
-  searchLegislationTool, 
   searchFallosTool, 
   searchCaseDocumentsTool, 
   readDocumentTool, 
@@ -42,14 +41,13 @@ export const agent = new Agent(components.agent, {
     excludeToolMessages: false,
   },
   tools: {
-    searchLegislation: searchLegislationTool,
     searchFallos: searchFallosTool,
     searchCaseDocuments: searchCaseDocumentsTool,
     readDocument: readDocumentTool,
     listCaseDocuments: listCaseDocumentsTool,
     queryDocument: queryDocumentTool,
     editEscrito: editEscritoTool,
-    getEscrito: getEscritoTool
+    getEscrito: getEscritoTool,
   }
 });
 
