@@ -1,271 +1,324 @@
-
-import type React from "react"
-import CaseSidebar from "./CaseSideBar"
-import SidebarChatbot from "../Agent/SidebarChatbot"
-import { useLayout } from "@/context/LayoutContext"
-import { useState, useEffect, useCallback } from "react"
-import { useDropzone } from "react-dropzone"
-import { useAction, useMutation } from "convex/react"
-import { api } from "../../../convex/_generated/api"
-import { useCase } from "@/context/CaseContext"
-import { Loader2, CheckCircle, XCircle, FileText, Shield, ArrowLeft } from "lucide-react"
-import { CasePermissionsProvider, usePermissions } from "@/context/CasePermissionsContext"
-import { Button } from "@/components/ui/button"
-import { toast } from "sonner"
+import type React from "react";
+import CaseSidebar from "./CaseSideBar";
+import SidebarChatbot from "../Agent/SidebarChatbot";
+import { useLayout } from "@/context/LayoutContext";
+import { useState, useEffect, useCallback } from "react";
+import { useDropzone } from "react-dropzone";
+import { useAction, useMutation } from "convex/react";
+import { api } from "../../../convex/_generated/api";
+import { useCase } from "@/context/CaseContext";
+import {
+  Loader2,
+  CheckCircle,
+  XCircle,
+  FileText,
+  Shield,
+  ArrowLeft,
+} from "lucide-react";
+import {
+  CasePermissionsProvider,
+  usePermissions,
+} from "@/context/CasePermissionsContext";
+import { Button } from "@/components/ui/button";
+import { toast } from "sonner";
 
 interface CaseDetailLayoutProps {
-  children: React.ReactNode
+  children: React.ReactNode;
 }
 
 interface UploadFile {
-  id: string
-  file: File
-  status: 'uploading' | 'success' | 'error'
-  progress: number
-  error?: string
+  id: string;
+  file: File;
+  status: "uploading" | "success" | "error";
+  progress: number;
+  error?: string;
 }
 
 export default function CaseLayout({ children }: CaseDetailLayoutProps) {
-  const { currentCase } = useCase()
-  const caseId = currentCase?._id || null
+  const { currentCase } = useCase();
+  const caseId = currentCase?._id || null;
 
   return (
     <CasePermissionsProvider caseId={caseId}>
       <InnerCaseLayout>{children}</InnerCaseLayout>
     </CasePermissionsProvider>
-  )
+  );
 }
 
 function InnerCaseLayout({ children }: CaseDetailLayoutProps) {
-  const { isCaseSidebarOpen } = useLayout()
-  const { currentCase } = useCase()
-  const { hasAccess, isLoading, can } = usePermissions()
-  const [isChatbotOpen, setIsChatbotOpen] = useState(false)
-  const [chatbotWidth, setChatbotWidth] = useState(380)
-  const [isResizing, setIsResizing] = useState(false)
-  const [uploadFiles, setUploadFiles] = useState<UploadFile[]>([])
-  const [isGlobalDragActive, setIsGlobalDragActive] = useState(false)
+  const { isCaseSidebarOpen } = useLayout();
+  const { currentCase } = useCase();
+  const { hasAccess, isLoading, can } = usePermissions();
+  const [isChatbotOpen, setIsChatbotOpen] = useState(false);
+  const [chatbotWidth, setChatbotWidth] = useState(380);
+  const [isResizing, setIsResizing] = useState(false);
+  const [uploadFiles, setUploadFiles] = useState<UploadFile[]>([]);
+  const [isGlobalDragActive, setIsGlobalDragActive] = useState(false);
 
   const enqueuedUploads = new Set<string>();
 
   // Convex mutations
-  const generateUploadUrl = useAction(api.functions.documents.generateUploadUrl)
-  const createDocument = useMutation(api.functions.documents.createDocument)
+  const generateUploadUrl = useAction(
+    api.functions.documents.generateUploadUrl,
+  );
+  const createDocument = useMutation(api.functions.documents.createDocument);
 
   // Load saved width from localStorage
   useEffect(() => {
-    const savedWidth = localStorage.getItem("chatbot-width")
+    const savedWidth = localStorage.getItem("chatbot-width");
     if (savedWidth) {
-      setChatbotWidth(Number.parseInt(savedWidth, 10))
+      setChatbotWidth(Number.parseInt(savedWidth, 10));
     }
-  }, [])
+  }, []);
 
   // Save width to localStorage
   const handleWidthChange = (newWidth: number) => {
-    setChatbotWidth(newWidth)
-    localStorage.setItem("chatbot-width", newWidth.toString())
-  }
+    setChatbotWidth(newWidth);
+    localStorage.setItem("chatbot-width", newWidth.toString());
+  };
 
   const toggleChatbot = () => {
-    setIsChatbotOpen(!isChatbotOpen)
-  }
+    setIsChatbotOpen(!isChatbotOpen);
+  };
 
   const handleResizeStart = () => {
-    setIsResizing(true)
-  }
+    setIsResizing(true);
+  };
 
   const handleResizeEnd = () => {
-    setIsResizing(false)
-  }
+    setIsResizing(false);
+  };
 
   // Document upload handlers
-  const uploadFile = useCallback(async (file: File) => {
-    if (!currentCase) {
-      console.error("No case selected")
-      return
-    }
-
-    if (!can.docs.write) {
-      console.error("No permission to upload documents")
-      return
-    }
-
-    const dedupeKey = `${currentCase._id}:${file.name}:${file.size}`
-    if (enqueuedUploads.has(dedupeKey)) {
-      console.warn("Skipping duplicate upload in session", { name: file.name, size: file.size })
-      return
-    }
-    enqueuedUploads.add(dedupeKey)
-
-    const fileId = `${Date.now()}-${Math.random()}`
-    
-    // Add file to upload queue
-    setUploadFiles(prev => [...prev, {
-      id: fileId,
-      file,
-      status: 'uploading',
-      progress: 0
-    }])
-
-    try {
-      
-      // Update progress to 25%
-      setUploadFiles(prev => prev.map(f => 
-        f.id === fileId ? { ...f, progress: 25 } : f
-      ))
-      
-      // Step 1: Get a short-lived upload URL (GCS signed URL for PUT)
-      const postUrl = await generateUploadUrl({
-        caseId: currentCase._id,
-        originalFileName: file.name,
-        mimeType: file.type,
-        fileSize: file.size,
-      })
-      
-      // Update progress to 50%
-      setUploadFiles(prev => prev.map(f => 
-        f.id === fileId ? { ...f, progress: 50 } : f
-      ))
-      
-      // Step 2: PUT the file to the signed URL
-      const putResp = await fetch(postUrl.url, {
-        method: "PUT",
-        headers: { "Content-Type": file.type },
-        body: file,
-      })
-      if (!putResp.ok) {
-        throw new Error(`Upload failed: ${putResp.status}`)
+  const uploadFile = useCallback(
+    async (file: File) => {
+      if (!currentCase) {
+        console.error("No case selected");
+        return;
       }
-      
-      // Update progress to 75%
-      setUploadFiles(prev => prev.map(f => 
-        f.id === fileId ? { ...f, progress: 75 } : f
-      ))
-      
-      // Step 3: Save the GCS metadata to the database (idempotent on backend)
-      await createDocument({
-        title: file.name,
-        caseId: currentCase._id,
-        gcsBucket: postUrl.bucket,
-        gcsObject: postUrl.object,
-        originalFileName: file.name,
-        mimeType: file.type,
-        fileSize: file.size,
-      })
 
-      // Update to success
-      setUploadFiles(prev => prev.map(f => 
-        f.id === fileId ? { ...f, status: 'success', progress: 100 } : f
-      ))
+      if (!can.docs.write) {
+        console.error("No permission to upload documents");
+        return;
+      }
 
-      console.log(`File "${file.name}" uploaded successfully`)
-      
-      // Remove success files after 3 seconds
-      setTimeout(() => {
-        setUploadFiles(prev => prev.filter(f => f.id !== fileId))
-      }, 3000)
-      
-    } catch (error) {
-      console.error("Error uploading file:", error)
-      
-      // Update to error
-      setUploadFiles(prev => prev.map(f => 
-        f.id === fileId ? { 
-          ...f, 
-          status: 'error', 
-          error: error instanceof Error ? error.message : 'Upload failed'
-        } : f
-      ))
-      
-      // Remove error files after 5 seconds
-      setTimeout(() => {
-        setUploadFiles(prev => prev.filter(f => f.id !== fileId))
-      }, 5000)
-    } finally {
-      enqueuedUploads.delete(dedupeKey)
-    }
-  }, [currentCase, generateUploadUrl, createDocument, can.docs.write])
+      const dedupeKey = `${currentCase._id}:${file.name}:${file.size}`;
+      if (enqueuedUploads.has(dedupeKey)) {
+        console.warn("Skipping duplicate upload in session", {
+          name: file.name,
+          size: file.size,
+        });
+        return;
+      }
+      enqueuedUploads.add(dedupeKey);
 
-  const onDrop = useCallback(async (acceptedFiles: File[]) => {
-    console.log("Files dropped:", acceptedFiles)
-    
-    // Upload each file sequentially
-    for (const file of acceptedFiles) {
-      await uploadFile(file)
-    }
-  }, [uploadFile])
+      const fileId = `${Date.now()}-${Math.random()}`;
+
+      // Add file to upload queue
+      setUploadFiles((prev) => [
+        ...prev,
+        {
+          id: fileId,
+          file,
+          status: "uploading",
+          progress: 0,
+        },
+      ]);
+
+      try {
+        // Update progress to 25%
+        setUploadFiles((prev) =>
+          prev.map((f) => (f.id === fileId ? { ...f, progress: 25 } : f)),
+        );
+
+        // Step 1: Get a short-lived upload URL (GCS signed URL for PUT)
+        const postUrl = await generateUploadUrl({
+          caseId: currentCase._id,
+          originalFileName: file.name,
+          mimeType: file.type,
+          fileSize: file.size,
+        });
+
+        // Update progress to 50%
+        setUploadFiles((prev) =>
+          prev.map((f) => (f.id === fileId ? { ...f, progress: 50 } : f)),
+        );
+
+        // Step 2: PUT the file to the signed URL
+        const putResp = await fetch(postUrl.url, {
+          method: "PUT",
+          headers: { "Content-Type": file.type },
+          body: file,
+        });
+        if (!putResp.ok) {
+          throw new Error(`Upload failed: ${putResp.status}`);
+        }
+
+        // Update progress to 75%
+        setUploadFiles((prev) =>
+          prev.map((f) => (f.id === fileId ? { ...f, progress: 75 } : f)),
+        );
+
+        // Step 3: Save the GCS metadata to the database (idempotent on backend)
+        await createDocument({
+          title: file.name,
+          caseId: currentCase._id,
+          gcsBucket: postUrl.bucket,
+          gcsObject: postUrl.object,
+          originalFileName: file.name,
+          mimeType: file.type,
+          fileSize: file.size,
+        });
+
+        // Update to success
+        setUploadFiles((prev) =>
+          prev.map((f) =>
+            f.id === fileId ? { ...f, status: "success", progress: 100 } : f,
+          ),
+        );
+
+        console.log(`File "${file.name}" uploaded successfully`);
+
+        // Remove success files after 3 seconds
+        setTimeout(() => {
+          setUploadFiles((prev) => prev.filter((f) => f.id !== fileId));
+        }, 3000);
+      } catch (error) {
+        console.error("Error uploading file:", error);
+
+        // Update to error
+        setUploadFiles((prev) =>
+          prev.map((f) =>
+            f.id === fileId
+              ? {
+                  ...f,
+                  status: "error",
+                  error:
+                    error instanceof Error ? error.message : "Upload failed",
+                }
+              : f,
+          ),
+        );
+
+        // Remove error files after 5 seconds
+        setTimeout(() => {
+          setUploadFiles((prev) => prev.filter((f) => f.id !== fileId));
+        }, 5000);
+      } finally {
+        enqueuedUploads.delete(dedupeKey);
+      }
+    },
+    [currentCase, generateUploadUrl, createDocument, can.docs.write],
+  );
+
+  const onDrop = useCallback(
+    async (acceptedFiles: File[]) => {
+      console.log("Files dropped:", acceptedFiles);
+
+      // Upload each file sequentially
+      for (const file of acceptedFiles) {
+        await uploadFile(file);
+      }
+    },
+    [uploadFile],
+  );
 
   const onDragEnter = useCallback(() => {
-    setIsGlobalDragActive(true)
-  }, [])
+    setIsGlobalDragActive(true);
+  }, []);
 
   const onDragLeave = useCallback(() => {
-    setIsGlobalDragActive(false)
-  }, [])
+    setIsGlobalDragActive(false);
+  }, []);
 
   const { getRootProps, isDragActive } = useDropzone({
     onDrop,
     onDropRejected: (fileRejections) => {
       fileRejections.forEach(({ file, errors }) => {
-        const reason = errors.map((e) => e.message).filter(Boolean).join(", ")
-        toast.error(`Archivo no permitido: ${file.name}${reason ? ` (${reason})` : ""}`)
-      })
+        const reason = errors
+          .map((e) => e.message)
+          .filter(Boolean)
+          .join(", ");
+        toast.error(
+          `Archivo no permitido: ${file.name}${reason ? ` (${reason})` : ""}`,
+        );
+      });
     },
     onDragEnter,
     onDragLeave,
     accept: {
-      'application/pdf': ['.pdf'],
-      'application/msword': ['.doc'],
-      'application/vnd.openxmlformats-officedocument.wordprocessingml.document': ['.docx'],
-      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx'],
-      'application/vnd.openxmlformats-officedocument.presentationml.presentation': ['.pptx'],
-      'text/csv': ['.csv'],
-      'application/csv': ['.csv'],
+      "application/pdf": [".pdf"],
+      "application/msword": [".doc"],
+      "application/vnd.openxmlformats-officedocument.wordprocessingml.document":
+        [".docx"],
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": [
+        ".xlsx",
+      ],
+      "application/vnd.openxmlformats-officedocument.presentationml.presentation":
+        [".pptx"],
+      "text/csv": [".csv"],
+      "application/csv": [".csv"],
       // Treat some CSV uploads that use the legacy Excel MIME
-      'application/vnd.ms-excel': ['.csv'],
-      'image/*': ['.png', '.jpg', '.jpeg', '.gif'],
-      'text/plain': ['.txt'],
-      'audio/*': ['.mp3', '.wav'],
-      'video/*': ['.mp4', '.mov'],
+      "application/vnd.ms-excel": [".csv"],
+      "image/*": [".png", ".jpg", ".jpeg", ".gif"],
+      "text/plain": [".txt"],
+      "audio/*": [".mp3", ".wav"],
+      "video/*": [".mp4", ".mov"],
     },
     multiple: true,
     noClick: true, // Don't trigger on click, only drag
     disabled: !can.docs.write, // Disable dropzone if no write permission
-  })
+  });
 
   // Global drag listeners to detect drags over iframes and nested viewers
   useEffect(() => {
     const handleWindowDragOver = (e: DragEvent) => {
       // Necessary to allow drop
-      e.preventDefault()
-      if (!can.docs.write) return
-      setIsGlobalDragActive(true)
-    }
+      e.preventDefault();
+      if (!can.docs.write) return;
+
+      // Only show overlay for external files, not internal document drags
+      if (
+        e.dataTransfer &&
+        e.dataTransfer.types.includes("Files") &&
+        !e.dataTransfer.types.includes("application/x-ialex-document")
+      ) {
+        setIsGlobalDragActive(true);
+      }
+    };
     const handleWindowDragEnter = (e: DragEvent) => {
-      e.preventDefault()
-      if (!can.docs.write) return
-      setIsGlobalDragActive(true)
-    }
+      e.preventDefault();
+      if (!can.docs.write) return;
+
+      // Only show overlay for external files, not internal document drags
+      if (
+        e.dataTransfer &&
+        e.dataTransfer.types.includes("Files") &&
+        !e.dataTransfer.types.includes("application/x-ialex-document")
+      ) {
+        setIsGlobalDragActive(true);
+      }
+    };
     const handleWindowDrop = (e: DragEvent) => {
-      e.preventDefault()
-      setIsGlobalDragActive(false)
-    }
+      e.preventDefault();
+      setIsGlobalDragActive(false);
+    };
     const handleWindowDragLeave = (e: DragEvent) => {
       if (!e.relatedTarget) {
-        setIsGlobalDragActive(false)
+        setIsGlobalDragActive(false);
       }
-    }
-    window.addEventListener('dragover', handleWindowDragOver)
-    window.addEventListener('dragenter', handleWindowDragEnter)
-    window.addEventListener('drop', handleWindowDrop)
-    window.addEventListener('dragleave', handleWindowDragLeave)
+    };
+    window.addEventListener("dragover", handleWindowDragOver);
+    window.addEventListener("dragenter", handleWindowDragEnter);
+    window.addEventListener("drop", handleWindowDrop);
+    window.addEventListener("dragleave", handleWindowDragLeave);
     return () => {
-      window.removeEventListener('dragover', handleWindowDragOver)
-      window.removeEventListener('dragenter', handleWindowDragEnter)
-      window.removeEventListener('drop', handleWindowDrop)
-      window.removeEventListener('dragleave', handleWindowDragLeave)
-    }
-  }, [can.docs.write])
+      window.removeEventListener("dragover", handleWindowDragOver);
+      window.removeEventListener("dragenter", handleWindowDragEnter);
+      window.removeEventListener("drop", handleWindowDrop);
+      window.removeEventListener("dragleave", handleWindowDragLeave);
+    };
+  }, [can.docs.write]);
 
   // Loading state
   if (isLoading) {
@@ -276,7 +329,7 @@ function InnerCaseLayout({ children }: CaseDetailLayoutProps) {
           <p className="text-gray-600">Cargando permisos...</p>
         </div>
       </div>
-    )
+    );
   }
 
   // Access denied state
@@ -291,14 +344,14 @@ function InnerCaseLayout({ children }: CaseDetailLayoutProps) {
           <p className="text-gray-600 mb-6">
             No tienes los permisos necesarios para acceder a este caso.
           </p>
-          
+
           <div className="flex flex-col sm:flex-row gap-3 justify-center">
             <Button variant="outline" onClick={() => window.history.back()}>
               <ArrowLeft className="h-4 w-4 mr-2" />
               Volver
             </Button>
           </div>
-          
+
           <div className="mt-6 p-3 bg-blue-50 rounded-lg">
             <p className="text-sm text-blue-700">
               Contacta al administrador del caso para solicitar acceso.
@@ -306,7 +359,7 @@ function InnerCaseLayout({ children }: CaseDetailLayoutProps) {
           </div>
         </div>
       </div>
-    )
+    );
   }
 
   return (
@@ -321,7 +374,9 @@ function InnerCaseLayout({ children }: CaseDetailLayoutProps) {
       {/* Main content - scrollable */}
       <main
         className={`bg-[#f7f7f7] pt-14 h-[calc(100vh-56px)] overflow-y-auto ${
-          isResizing ? "transition-none" : "transition-all duration-300 ease-in-out"
+          isResizing
+            ? "transition-none"
+            : "transition-all duration-300 ease-in-out"
         }`}
         style={{
           marginLeft: isCaseSidebarOpen ? "256px" : "0px",
@@ -338,24 +393,26 @@ function InnerCaseLayout({ children }: CaseDetailLayoutProps) {
             <div
               key={uploadFile.id}
               className={`bg-white rounded-lg shadow-lg border p-3 transition-all duration-300 ${
-                uploadFile.status === 'error' ? 'border-red-200' :
-                uploadFile.status === 'success' ? 'border-green-200' :
-                'border-blue-200'
+                uploadFile.status === "error"
+                  ? "border-red-200"
+                  : uploadFile.status === "success"
+                    ? "border-green-200"
+                    : "border-blue-200"
               }`}
             >
               <div className="flex items-center space-x-3">
                 <div className="flex-shrink-0">
-                  {uploadFile.status === 'uploading' && (
+                  {uploadFile.status === "uploading" && (
                     <Loader2 className="h-5 w-5 text-blue-500 animate-spin" />
                   )}
-                  {uploadFile.status === 'success' && (
+                  {uploadFile.status === "success" && (
                     <CheckCircle className="h-5 w-5 text-green-500" />
                   )}
-                  {uploadFile.status === 'error' && (
+                  {uploadFile.status === "error" && (
                     <XCircle className="h-5 w-5 text-red-500" />
                   )}
                 </div>
-                
+
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center space-x-2">
                     <FileText className="h-4 w-4 text-gray-400" />
@@ -363,11 +420,11 @@ function InnerCaseLayout({ children }: CaseDetailLayoutProps) {
                       {uploadFile.file.name}
                     </p>
                   </div>
-                  
-                  {uploadFile.status === 'uploading' && (
+
+                  {uploadFile.status === "uploading" && (
                     <div className="mt-1">
                       <div className="w-full bg-gray-200 rounded-full h-1.5">
-                        <div 
+                        <div
                           className="bg-blue-500 h-1.5 rounded-full transition-all duration-300"
                           style={{ width: `${uploadFile.progress}%` }}
                         />
@@ -377,16 +434,16 @@ function InnerCaseLayout({ children }: CaseDetailLayoutProps) {
                       </p>
                     </div>
                   )}
-                  
-                  {uploadFile.status === 'success' && (
+
+                  {uploadFile.status === "success" && (
                     <p className="text-xs text-green-600 mt-1">
                       Archivo subido correctamente
                     </p>
                   )}
-                  
-                  {uploadFile.status === 'error' && (
+
+                  {uploadFile.status === "error" && (
                     <p className="text-xs text-red-600 mt-1">
-                      {uploadFile.error || 'Upload failed'}
+                      {uploadFile.error || "Upload failed"}
                     </p>
                   )}
                 </div>
@@ -419,5 +476,5 @@ function InnerCaseLayout({ children }: CaseDetailLayoutProps) {
         </div>
       )}
     </div>
-  )
+  );
 }
