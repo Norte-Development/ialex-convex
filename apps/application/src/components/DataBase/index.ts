@@ -1,0 +1,8 @@
+export { default as DataBaseTable } from './DataBaseTable'
+export { SearchBar } from './SearchBar'
+export { TableControls } from './TableControls'
+export { FiltersPanel } from './FiltersPanel'
+export { ActiveFilters } from './ActiveFilters'
+export { TableView } from './TableView'
+export { PaginationControls } from './PaginationControls'
+export { NormativeDetails } from './NormativeDetails'

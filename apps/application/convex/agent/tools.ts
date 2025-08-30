@@ -3,69 +3,6 @@ import { components } from "../_generated/api";
 import { z } from "zod";
 import { api, internal } from "../_generated/api";
 
-/**
- * Tool for searching legal legislation using hybrid search (dense + sparse embeddings).
- * Supports filtering by category, date range, and jurisdiction.
- * 
- * @description Searches legal legislation using hybrid search (dense + sparse embeddings). Supports filtering by category, date range, and jurisdiction.
- * @param {Object} args - Search parameters
- * @param {string} args.query - The search query text
- * @param {string} [args.jurisdiccion="nacional"] - Jurisdiction to search in (e.g., 'nacional', 'provincial'). Defaults to 'nacional'
- * @param {string|string[]} [args.category] - Category or categories to filter by (e.g., 'disposicion', 'ley', 'decreto')
- * @param {string} [args.startDate] - Start date for date range filter (ISO format or parseable date string)
- * @param {string} [args.endDate] - End date for date range filter (ISO format or parseable date string)
- * @returns {Promise<Object>} Search results with legislation data or error information
- * @throws {Error} When the search API request fails
- * 
- * @example
- * // Search for contract law in national jurisdiction
- * await searchLegislationTool.handler(ctx, {
- *   query: "contract law",
- *   jurisdiccion: "nacional",
- *   category: ["ley", "decreto"]
- * });
- */
-export const searchLegislationTool = createTool({
-    description: "Search legal legislation using hybrid search (dense + sparse embeddings). Supports filtering by category, date range, and jurisdiction.",
-    args: z.object({
-        query: z.string().describe("The search query text"),
-        jurisdiccion: z.string().optional().default("nacional").describe("Jurisdiction to search in (e.g., 'nacional', 'provincial'). Defaults to 'nacional'"),
-        category: z.union([
-            z.string(),
-            z.array(z.string())
-        ]).optional().describe("Category or categories to filter by (e.g., 'disposicion', 'ley', 'decreto')"),
-        startDate: z.string().optional().describe("Start date for date range filter (ISO format or parseable date string)"),
-        endDate: z.string().optional().describe("End date for date range filter (ISO format or parseable date string)")  
-    }).required({query: true}),
-    handler: async (ctx: any, args: any) => {
-      try {
-        const response = await fetch(`${process.env.SEARCH_API_URL}/search`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-API-Key': process.env.SEARCH_API_KEY!
-            },
-            body: JSON.stringify(args)
-        });
-        
-        if (!response.ok) {
-            return {
-                results: [],
-                error: "Error searching legislation. Try again later."
-            }
-        }
-        
-        const data = await response.json();
-        return data;
-      } catch (error) {
-        console.error("Error searching legislation:", error);
-        return {
-          results: [],
-          error: "Error searching legislation. Try again later."
-        }
-      }
-    },
-} as any);
 
 
 	/**
