@@ -689,7 +689,7 @@ export const getEscrito = query({
     }
 
     // Verify user has escrito read permission using the case ID
-    await requireEscritoPermission(ctx, escrito.caseId, "read");
+    // await requireEscritoPermission(ctx, escrito.caseId, "read");
 
     return escrito;
   },

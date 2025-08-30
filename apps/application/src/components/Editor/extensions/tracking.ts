@@ -3,7 +3,7 @@ import { Plugin, PluginKey } from "prosemirror-state";
 import {
   createJsonDiff,
   buildContentWithJsonChanges,
-} from "./utils/core";
+} from "../../../../../../packages/shared/src/diff/jsonDiff";
 
 interface TrackingStorage {
   isTracking: boolean;

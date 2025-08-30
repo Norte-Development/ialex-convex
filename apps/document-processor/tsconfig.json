@@ -1,16 +1,9 @@
 {
-  "extends": "../../tsconfig.json",
+  "extends": "../../packages/shared/tsconfig.json",
   "compilerOptions": {
     "outDir": "dist",
     "rootDir": "src",
-    "module": "ESNext",
-    "moduleResolution": "Bundler",
-    "target": "ES2022",
-    "resolveJsonModule": true,
-    "esModuleInterop": true,
-    "strict": true,
-    "types": ["node"],
-    "skipLibCheck": true
+    "types": ["node"]
   },
   "include": ["src/**/*"]
 }

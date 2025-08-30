@@ -24,8 +24,12 @@ import { agent } from "./agent";
  * @throws {Error} When user doesn't have access to the thread
  */
 export const initiateAsyncStreaming = mutation({
-    args: { prompt: v.string(), threadId: v.string() },
-    handler: async (ctx, { prompt, threadId }) => {
+    args: { prompt: v.string(), threadId: v.string(), caseContext: v.object({
+      caseId: v.string(),
+      currentEscritoId: v.optional(v.id("escritos")),
+      cursorPosition: v.optional(v.number()),
+    }) },
+    handler: async (ctx, { prompt, threadId, caseContext }) => {
       await authorizeThreadAccess(ctx, threadId);
       const { messageId } = await agent.saveMessage(ctx, {
         threadId,
@@ -37,6 +41,7 @@ export const initiateAsyncStreaming = mutation({
       await ctx.scheduler.runAfter(0, internal.agent.streaming.streamAsync, {
         threadId,
         promptMessageId: messageId,
+        caseContext,
       });
     },
   });
@@ -51,24 +56,35 @@ export const initiateAsyncStreaming = mutation({
  * @param threadId - The ID of the thread containing the conversation
  */
 export const streamAsync = internalAction({
-    args: { promptMessageId: v.string(), threadId: v.string() },
-    handler: async (ctx, { promptMessageId, threadId }) => {
+    args: { promptMessageId: v.string(), threadId: v.string(), caseContext: v.object({
+      caseId: v.string(),
+      currentEscritoId: v.optional(v.id("escritos")),
+      cursorPosition: v.optional(v.number()),
+    }) },
+    handler: async (ctx, { promptMessageId, threadId, caseContext }) => {
       const { thread } = await agent.continueThread(ctx, { threadId });
       const result = await thread.streamText(
         { 
-          promptMessageId,
-           maxSteps: 10,
+          system: `Sos un asistente de derecho. Estas en el caso ${caseContext.caseId}. El escrito actual es ${caseContext.currentEscritoId}. El cursor esta en la posicion ${caseContext.cursorPosition}.`,
+          promptMessageId,  
+          onError: (error) => {
+            console.error("Error streaming text", error);
+            // throw error;
+          },
            },
         // more custom delta options (`true` uses defaults)
-        { saveStreamDeltas: { chunking: "word", throttleMs: 100 },
+        { 
+          saveStreamDeltas: { 
+            chunking: "word", 
+            throttleMs: 100,
+          },
           contextOptions: {
             searchOtherThreads: true,
-          }
-       },
+          },
+        },
       );
-      // We need to make sure the stream finishes - by awaiting each chunk
-      // or using this call to consume it all.
-      await result.consumeStream();
+      // Don't return anything - the streaming is handled automatically
+      // The result object is used internally by the Convex Agent system
     },
   });
 
@@ -95,17 +111,19 @@ export const listMessages = query({
     handler: async (ctx, args) => {
       const { threadId, paginationOpts, streamArgs } = args;
       await authorizeThreadAccess(ctx, threadId);
-      const streams = await agent.syncStreams(ctx, {
-        threadId,
-        streamArgs,
-        includeStatuses: ["aborted", "streaming"],
-      });
+      
       // Here you could filter out / modify the stream of deltas / filter out
       // deltas.
   
       const paginated = await agent.listMessages(ctx, {
         threadId,
         paginationOpts,
+      });
+
+      const streams = await agent.syncStreams(ctx, {
+        threadId,
+        streamArgs,
+        includeStatuses: ["aborted", "streaming"],
       });
   
       // Here you could filter out metadata that you don't want from any optional

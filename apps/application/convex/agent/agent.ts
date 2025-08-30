@@ -3,7 +3,16 @@ import { Agent } from "@convex-dev/agent";
 import { openai } from "@ai-sdk/openai";
 import { v } from "convex/values";
 import { action } from "../_generated/server";
-import { searchLegislationTool, searchFallosTool, searchCaseDocumentsTool, readDocumentTool, listCaseDocumentsTool } from "./tools";
+import { 
+  searchLegislationTool, 
+  searchFallosTool, 
+  searchCaseDocumentsTool, 
+  readDocumentTool, 
+  listCaseDocumentsTool, 
+  queryDocumentTool,
+  editEscritoTool,
+  getEscritoTool
+} from "./tools";
 
 /**
  * Main agent instance for the legal assistant system.
@@ -18,13 +27,29 @@ import { searchLegislationTool, searchFallosTool, searchCaseDocumentsTool, readD
  */
 export const agent = new Agent(components.agent, {
   name: "Legal Assistant Agent",
-  chat: openai.chat("gpt-4o-mini"),
+  languageModel: openai.chat("gpt-4o-mini"),
+  maxSteps: 25,
+  // Default call settings per 0.2.x: place maxRetries here
+  callSettings: {
+    maxRetries: 3,
+  },
+  // Ensure proper storage and context for v5
+  storageOptions: {
+    saveMessages: "all"
+  },
+  contextOptions: {
+    recentMessages: 50,
+    excludeToolMessages: false,
+  },
   tools: {
     searchLegislation: searchLegislationTool,
     searchFallos: searchFallosTool,
     searchCaseDocuments: searchCaseDocumentsTool,
     readDocument: readDocumentTool,
-    listCaseDocuments: listCaseDocumentsTool
+    listCaseDocuments: listCaseDocumentsTool,
+    queryDocument: queryDocumentTool,
+    editEscrito: editEscritoTool,
+    getEscrito: getEscritoTool
   }
 });
 

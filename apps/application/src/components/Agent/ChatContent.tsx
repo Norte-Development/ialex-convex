@@ -10,10 +10,14 @@ import { useThread } from "@/context/ThreadContext"
 import { useCase } from "@/context/CaseContext"
 import { SidebarMessage } from "./SidebarMessage"
 import { ChatInput } from "./ChatInput"
+import { useEscrito } from "@/context/EscritoContext"
+import { Id } from "convex/_generated/dataModel"
+
 
 export function ChatContent() {
   const { threadId, createThreadWithTitle } = useThread()
   const { caseId } = useCase()
+  const { escritoId, cursorPosition } = useEscrito()
 
   const messages = useThreadMessages(
     api.agent.streaming.listMessages,
@@ -36,7 +40,7 @@ export function ChatContent() {
       
       createThreadWithTitle(truncatedTitle, caseId || undefined).then((newThreadId) => {
         // Send the message after thread is created
-        void sendMessage({ threadId: newThreadId, prompt }).catch(() => {
+        void sendMessage({ threadId: newThreadId, prompt, caseContext: { caseId: caseId as Id<"cases">, currentEscritoId: escritoId as Id<"escritos">, cursorPosition: cursorPosition?.line } }).catch(() => {
           // Handle error if needed
         })
       }).catch(() => {
@@ -44,7 +48,7 @@ export function ChatContent() {
       })
     } else {
       // Thread exists, send message normally
-      void sendMessage({ threadId, prompt }).catch(() => {
+      void sendMessage({ threadId, prompt, caseContext: { caseId: caseId as Id<"cases">, currentEscritoId: escritoId as Id<"escritos">, cursorPosition: cursorPosition?.line } }).catch(() => {
         // Handle error if needed
       })
     }

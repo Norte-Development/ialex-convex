@@ -275,6 +275,185 @@ export const getDocumentChunkByIndex = action({
 });
 
 /**
+ * Action that retrieves multiple consecutive document chunks by range from Qdrant.
+ * Used for reading multiple chunks at once in progressive document reading.
+ */
+export const getDocumentChunksByRange = action({
+  args: {
+    documentId: v.string(),
+    caseId: v.string(),
+    startIndex: v.number(),
+    endIndex: v.number()
+  },
+  returns: v.array(v.string()),
+  handler: async (ctx, args) => {
+    const { documentId, caseId, startIndex, endIndex } = args;
+
+    try {
+      console.log("Fetching chunks by range:", { documentId, caseId, startIndex, endIndex });
+
+      // Test connection first
+      try {
+        await client.getCollections();
+      } catch (connError) {
+        console.error("Qdrant connection failed:", connError);
+        const errorMessage = connError instanceof Error ? connError.message : String(connError);
+        throw new Error(`Cannot connect to Qdrant: ${errorMessage}`);
+      }
+
+      const collectionName = `ialex_documents`;
+
+      // Use scroll API with metadata filters to find chunks in range
+      const results = await client.scroll(collectionName, {
+        filter: {
+          must: [
+            {
+              key: "documentId",
+              match: { value: documentId }
+            },
+            {
+              key: "chunkIndex",
+              range: {
+                gte: startIndex,
+                lte: endIndex
+              }
+            }
+          ]
+        },
+        with_payload: true,
+        with_vector: false // We don't need vectors for content retrieval
+      });
+
+      console.log("Qdrant scroll results:", {
+        pointsFound: results.points?.length || 0,
+        startIndex,
+        endIndex
+      });
+
+      if (!results.points || results.points.length === 0) {
+        console.log("No chunks found in range:", { startIndex, endIndex });
+        return [];
+      }
+
+      // Sort chunks by chunkIndex to maintain document order
+      const sortedChunks = results.points.sort((a, b) => {
+        const aIndex = (a.payload?.chunkIndex as number) || 0;
+        const bIndex = (b.payload?.chunkIndex as number) || 0;
+        return aIndex - bIndex;
+      });
+
+      // Extract text content from chunks
+      const chunksText = sortedChunks.map(chunk => {
+        const chunkText = chunk.payload?.text;
+        if (typeof chunkText !== 'string') {
+          console.error("Invalid chunk text format:", typeof chunkText);
+          return '';
+        }
+        return chunkText;
+      }).filter(text => text.length > 0);
+
+      console.log("Successfully retrieved chunks:", {
+        startIndex,
+        endIndex,
+        chunksRetrieved: chunksText.length,
+        totalTextLength: chunksText.reduce((sum, text) => sum + text.length, 0)
+      });
+
+      return chunksText;
+
+    } catch (error) {
+      console.error("Error fetching chunks by range:", error);
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      throw new Error(`Failed to fetch chunks: ${errorMessage}`);
+    }
+  }
+});
+
+/**
+ * Action that performs semantic search within a specific document.
+ * Searches for the most relevant chunks within a single document based on a query.
+ */
+export const searchDocumentChunks = action({
+  args: {
+    documentId: v.string(),
+    caseId: v.string(),
+    query: v.string(),
+    limit: v.number()
+  },
+  returns: v.array(v.object({
+    chunkIndex: v.number(),
+    text: v.string(),
+    score: v.number()
+  })),
+  handler: async (ctx, args) => {
+    const { documentId, caseId, query, limit } = args;
+
+    try {
+      console.log("Searching document chunks:", { documentId, caseId, query, limit });
+
+      // Test connection first
+      try {
+        await client.getCollections();
+      } catch (connError) {
+        console.error("Qdrant connection failed:", connError);
+        const errorMessage = connError instanceof Error ? connError.message : String(connError);
+        throw new Error(`Cannot connect to Qdrant: ${errorMessage}`);
+      }
+
+      const vector = await embed({
+        model: openai.textEmbeddingModel("text-embedding-3-small"),
+        value: query,
+      });
+
+      console.log("Generated embedding, vector length:", vector.embedding.length);
+
+      // Perform semantic search within the specific document
+      const results = await client.search('ialex_documents', {
+        vector: vector.embedding,
+        limit: limit,
+        filter: {
+          must: [
+            {
+              key: "documentId",
+              match: { value: documentId }
+            },
+            {
+              key: "caseId",
+              match: { value: caseId }
+            }
+          ]
+        }
+      });
+
+      console.log("Document search completed, results:", results.length);
+
+      // Format results
+      const formattedResults = results.map(result => ({
+        chunkIndex: (result.payload?.chunkIndex as number) || 0,
+        text: (result.payload?.text as string) || '',
+        score: result.score || 0
+      })).filter(result => result.text.length > 0);
+
+      // Sort by score (highest first)
+      formattedResults.sort((a, b) => b.score - a.score);
+
+      console.log("Returning formatted results:", {
+        query,
+        resultsCount: formattedResults.length,
+        topScore: formattedResults[0]?.score || 0
+      });
+
+      return formattedResults;
+
+    } catch (error) {
+      console.error("Error searching document chunks:", error);
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      throw new Error(`Search failed: ${errorMessage}`);
+    }
+  }
+});
+
+/**
  * Action that gets the total number of chunks for a document from Qdrant.
  * Used to determine document length for progressive reading.
  */

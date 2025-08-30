@@ -54,6 +54,11 @@ export {
   deleteDocument,
 } from "./documents";
 
+// Escrito Transforms
+export {
+  applyTextBasedOperations,
+} from "./escritosTransforms";
+
 // Template Management (Modelos)
 export {
   createModelo,

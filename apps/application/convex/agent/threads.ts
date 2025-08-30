@@ -1,12 +1,11 @@
 import { components } from "../_generated/api";
 import { v } from "convex/values";
 import { action, ActionCtx, mutation, MutationCtx, query, QueryCtx } from "../_generated/server";
-import { createThread, getThreadMetadata, saveMessage, vMessage } from "@convex-dev/agent";
+import { getThreadMetadata, vMessage } from "@convex-dev/agent";
 import { checkCaseAccess, getCurrentUserFromAuth } from "../auth_utils";
 import { agent } from "./agent";
 import z from "zod";
 import { paginationOptsValidator } from "convex/server";
-import { threadId } from "worker_threads";
 
 /**
  * Authorizes access to a thread based on user identity and thread ownership.
@@ -106,13 +105,13 @@ export const createNewThread = mutation({
             threadUserId = `user:${userId._id}`;
         }
 
-        const threadId = await createThread(ctx, components.agent, {
+        const { threadId } = await agent.createThread(ctx, {
             userId: threadUserId,
             title: args.title,
         });        
 
        if (args.initialMessage) {
-        await saveMessage(ctx, components.agent, {
+        await agent.saveMessage(ctx, {
             threadId,
             message: args.initialMessage,
         });

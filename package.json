@@ -15,19 +15,19 @@
     "dev:all": "npm-run-all --parallel dev dev:processor",
     "build": "turbo run build",
     "lint": "tsc && eslint .  --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
-    "preview": "cd apps/application && vite preview"
+    "preview": "sh -c 'cd apps/application && vite preview'",
+    "ui:add": "sh -c 'cd apps/application && npx shadcn@latest add'",
+    "ui": "sh -c 'cd apps/application && npx shadcn@latest'"
   },
   "dependencies": {
-    "@ai-sdk/openai": "^1.3.23",
+    "@ai-sdk/openai": "^2.0.18",
     "@clerk/clerk-react": "^5.25.0",
     "@clerk/react-router": "^1.8.1",
-    "@convex-dev/agent": "^0.1.16",
-    "@convex-dev/agent-playground": "^0.0.16",
-    "@convex-dev/prosemirror-sync": "^0.1.26",
+    "@convex-dev/agent": "^0.2.4",
+    "@convex-dev/prosemirror-sync": "^0.1.28",
     "@convex-dev/rag": "^0.3.3",
     "@convex-dev/resend": "^0.1.4",
-    "@copilotkit/react-core": "^1.9.3",
-    "@copilotkit/react-ui": "^1.9.3",
+
     "@deepgram/sdk": "^4.11.1",
     "@dmsnell/diff-match-patch": "^1.1.0",
     "@mistralai/mistralai": "^1.7.5",
@@ -42,16 +42,18 @@
     "@radix-ui/react-tooltip": "^1.2.7",
     "@tanstack/react-query": "^5.83.0",
     "@tanstack/react-query-devtools": "^5.83.0",
-    "@tiptap/core": "^3.0.3",
-    "@tiptap/extension-text-align": "^3.0.3",
-    "@tiptap/extension-text-style": "^3.0.7",
-    "@tiptap/extension-underline": "^3.0.3",
-    "@tiptap/react": "^3.0.3",
-    "@tiptap/starter-kit": "^3.0.3",
+    "@tiptap/core": "^3.2.1",
+    "@tiptap/extension-horizontal-rule": "^3.2.1",
+    "@tiptap/extension-text-align": "^3.2.1",
+    "@tiptap/extension-text-style": "^3.2.1",
+    "@tiptap/extension-underline": "^3.2.1",
+    "@tiptap/pm": "^3.2.1",
+    "@tiptap/react": "^3.2.1",
+    "@tiptap/starter-kit": "^3.2.1",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "convex": "^1.25.4",
-    "copilotkit": "^0.0.42",
+
     "firebase-admin": "^13.4.0",
     "jsondiffpatch": "^0.7.3",
     "jszip": "^3.10.1",
@@ -67,7 +69,7 @@
     "react-markdown": "^10.1.0",
     "react-router-dom": "^7.6.3",
     "react-textarea-autosize": "^8.5.9",
-    "sonner": "^2.0.6",
+    "sonner": "^2.0.7",
     "tailwind-merge": "^3.3.1",
     "xlsx": "^0.18.5"
   },
@@ -97,6 +99,9 @@
     "onlyBuiltDependencies": [
       "esbuild",
       "@tailwindcss/oxide"
-    ]
+    ],
+    "overrides": {
+      "@convex-dev/prosemirror-sync>@tiptap/core": "^3.2.1"
+    }
   }
 }

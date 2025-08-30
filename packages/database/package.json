@@ -5,7 +5,7 @@
   "type": "module",
   "main": "dist/index.js",
   "scripts": {
-    "build": "tsup src/index.ts --dts --format esm,cjs --sourcemap --out-dir dist"
+    "build": "tsup src/index.ts --dts --format esm,cjs --sourcemap --out-dir dist --tsconfig tsconfig.json"
   },
   "dependencies": {
     "@qdrant/js-client-rest": "^1.12.0"
