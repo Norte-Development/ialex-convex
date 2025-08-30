@@ -7,8 +7,7 @@
     "dev:web": "vite --open",
     "dev:convex": "npx convex dev",
     "build": "vite build",
-    "preview": "vite preview",
-    "seed:legislation": "tsx scripts/seed-legislation-data.ts"
+    "preview": "vite preview"
   },
   "dependencies": {
     "@ai-sdk/openai": "^2.0.18",
@@ -35,7 +34,6 @@
     "i": "^0.3.7",
     "logger": "^0.0.1",
     "lucide-react": "^0.525.0",
-    "mongodb": "^6.19.0",
     "npm": "^11.5.2",
     "prosemirror-state": "^1.4.3",
     "react-beautiful-dnd": "^13.1.1",
