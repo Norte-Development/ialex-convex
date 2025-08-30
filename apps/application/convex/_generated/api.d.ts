@@ -24,6 +24,7 @@ import type * as functions_escritosTransforms from "../functions/escritosTransfo
 import type * as functions_folders from "../functions/folders.js";
 import type * as functions_index from "../functions/index.js";
 import type * as functions_legalDb from "../functions/legalDb.js";
+import type * as functions_legislation from "../functions/legislation.js";
 import type * as functions_permissions from "../functions/permissions.js";
 import type * as functions_seedCases from "../functions/seedCases.js";
 import type * as functions_teams from "../functions/teams.js";
@@ -35,6 +36,7 @@ import type * as rag_qdrant from "../rag/qdrant.js";
 import type * as rag_rag from "../rag/rag.js";
 import type * as rag_utils from "../rag/utils.js";
 import type * as utils_gcs from "../utils/gcs.js";
+import type * as utils_legislationService from "../utils/legislationService.js";
 import type * as utils_resend from "../utils/resend.js";
 import type * as validation_test from "../validation_test.js";
 
@@ -69,6 +71,7 @@ declare const fullApi: ApiFromModules<{
   "functions/folders": typeof functions_folders;
   "functions/index": typeof functions_index;
   "functions/legalDb": typeof functions_legalDb;
+  "functions/legislation": typeof functions_legislation;
   "functions/permissions": typeof functions_permissions;
   "functions/seedCases": typeof functions_seedCases;
   "functions/teams": typeof functions_teams;
@@ -80,6 +83,7 @@ declare const fullApi: ApiFromModules<{
   "rag/rag": typeof rag_rag;
   "rag/utils": typeof rag_utils;
   "utils/gcs": typeof utils_gcs;
+  "utils/legislationService": typeof utils_legislationService;
   "utils/resend": typeof utils_resend;
   validation_test: typeof validation_test;
 }>;
