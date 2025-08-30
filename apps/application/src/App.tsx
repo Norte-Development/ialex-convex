@@ -1,3 +1,4 @@
+import React from "react";
 import { Routes, Route } from "react-router-dom";
 import { Protect } from "@clerk/clerk-react";
 import { AuthLoading } from "convex/react";
