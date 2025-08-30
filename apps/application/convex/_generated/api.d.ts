@@ -21,6 +21,7 @@ import type * as functions_clients from "../functions/clients.js";
 import type * as functions_documentProcessing from "../functions/documentProcessing.js";
 import type * as functions_documents from "../functions/documents.js";
 import type * as functions_escritosTransforms from "../functions/escritosTransforms.js";
+import type * as functions_folders from "../functions/folders.js";
 import type * as functions_index from "../functions/index.js";
 import type * as functions_legalDb from "../functions/legalDb.js";
 import type * as functions_legislation from "../functions/legislation.js";
@@ -67,6 +68,7 @@ declare const fullApi: ApiFromModules<{
   "functions/documentProcessing": typeof functions_documentProcessing;
   "functions/documents": typeof functions_documents;
   "functions/escritosTransforms": typeof functions_escritosTransforms;
+  "functions/folders": typeof functions_folders;
   "functions/index": typeof functions_index;
   "functions/legalDb": typeof functions_legalDb;
   "functions/legislation": typeof functions_legislation;
@@ -572,6 +574,37 @@ export declare const components: {
                             toolName: string;
                             type: "tool-result";
                           }
+                        | {
+                            id: string;
+                            providerMetadata?: Record<
+                              string,
+                              Record<string, any>
+                            >;
+                            providerOptions?: Record<
+                              string,
+                              Record<string, any>
+                            >;
+                            sourceType: "url";
+                            title: string;
+                            type: "source";
+                            url: string;
+                          }
+                        | {
+                            filename?: string;
+                            id: string;
+                            mediaType: string;
+                            providerMetadata?: Record<
+                              string,
+                              Record<string, any>
+                            >;
+                            providerOptions?: Record<
+                              string,
+                              Record<string, any>
+                            >;
+                            sourceType: "document";
+                            title: string;
+                            type: "source";
+                          }
                       >;
                   providerOptions?: Record<string, Record<string, any>>;
                   role: "assistant";
@@ -815,6 +848,37 @@ export declare const components: {
                             toolCallId: string;
                             toolName: string;
                             type: "tool-result";
+                          }
+                        | {
+                            id: string;
+                            providerMetadata?: Record<
+                              string,
+                              Record<string, any>
+                            >;
+                            providerOptions?: Record<
+                              string,
+                              Record<string, any>
+                            >;
+                            sourceType: "url";
+                            title: string;
+                            type: "source";
+                            url: string;
+                          }
+                        | {
+                            filename?: string;
+                            id: string;
+                            mediaType: string;
+                            providerMetadata?: Record<
+                              string,
+                              Record<string, any>
+                            >;
+                            providerOptions?: Record<
+                              string,
+                              Record<string, any>
+                            >;
+                            sourceType: "document";
+                            title: string;
+                            type: "source";
                           }
                       >;
                   providerOptions?: Record<string, Record<string, any>>;
@@ -1061,6 +1125,31 @@ export declare const components: {
                           toolCallId: string;
                           toolName: string;
                           type: "tool-result";
+                        }
+                      | {
+                          id: string;
+                          providerMetadata?: Record<
+                            string,
+                            Record<string, any>
+                          >;
+                          providerOptions?: Record<string, Record<string, any>>;
+                          sourceType: "url";
+                          title: string;
+                          type: "source";
+                          url: string;
+                        }
+                      | {
+                          filename?: string;
+                          id: string;
+                          mediaType: string;
+                          providerMetadata?: Record<
+                            string,
+                            Record<string, any>
+                          >;
+                          providerOptions?: Record<string, Record<string, any>>;
+                          sourceType: "document";
+                          title: string;
+                          type: "source";
                         }
                     >;
                 providerOptions?: Record<string, Record<string, any>>;
@@ -1324,6 +1413,37 @@ export declare const components: {
                             toolName: string;
                             type: "tool-result";
                           }
+                        | {
+                            id: string;
+                            providerMetadata?: Record<
+                              string,
+                              Record<string, any>
+                            >;
+                            providerOptions?: Record<
+                              string,
+                              Record<string, any>
+                            >;
+                            sourceType: "url";
+                            title: string;
+                            type: "source";
+                            url: string;
+                          }
+                        | {
+                            filename?: string;
+                            id: string;
+                            mediaType: string;
+                            providerMetadata?: Record<
+                              string,
+                              Record<string, any>
+                            >;
+                            providerOptions?: Record<
+                              string,
+                              Record<string, any>
+                            >;
+                            sourceType: "document";
+                            title: string;
+                            type: "source";
+                          }
                       >;
                   providerOptions?: Record<string, Record<string, any>>;
                   role: "assistant";
@@ -1555,6 +1675,31 @@ export declare const components: {
                           toolName: string;
                           type: "tool-result";
                         }
+                      | {
+                          id: string;
+                          providerMetadata?: Record<
+                            string,
+                            Record<string, any>
+                          >;
+                          providerOptions?: Record<string, Record<string, any>>;
+                          sourceType: "url";
+                          title: string;
+                          type: "source";
+                          url: string;
+                        }
+                      | {
+                          filename?: string;
+                          id: string;
+                          mediaType: string;
+                          providerMetadata?: Record<
+                            string,
+                            Record<string, any>
+                          >;
+                          providerOptions?: Record<string, Record<string, any>>;
+                          sourceType: "document";
+                          title: string;
+                          type: "source";
+                        }
                     >;
                 providerOptions?: Record<string, Record<string, any>>;
                 role: "assistant";
@@ -1774,6 +1919,31 @@ export declare const components: {
                           toolCallId: string;
                           toolName: string;
                           type: "tool-result";
+                        }
+                      | {
+                          id: string;
+                          providerMetadata?: Record<
+                            string,
+                            Record<string, any>
+                          >;
+                          providerOptions?: Record<string, Record<string, any>>;
+                          sourceType: "url";
+                          title: string;
+                          type: "source";
+                          url: string;
+                        }
+                      | {
+                          filename?: string;
+                          id: string;
+                          mediaType: string;
+                          providerMetadata?: Record<
+                            string,
+                            Record<string, any>
+                          >;
+                          providerOptions?: Record<string, Record<string, any>>;
+                          sourceType: "document";
+                          title: string;
+                          type: "source";
                         }
                     >;
                 providerOptions?: Record<string, Record<string, any>>;
@@ -2016,6 +2186,37 @@ export declare const components: {
                             toolName: string;
                             type: "tool-result";
                           }
+                        | {
+                            id: string;
+                            providerMetadata?: Record<
+                              string,
+                              Record<string, any>
+                            >;
+                            providerOptions?: Record<
+                              string,
+                              Record<string, any>
+                            >;
+                            sourceType: "url";
+                            title: string;
+                            type: "source";
+                            url: string;
+                          }
+                        | {
+                            filename?: string;
+                            id: string;
+                            mediaType: string;
+                            providerMetadata?: Record<
+                              string,
+                              Record<string, any>
+                            >;
+                            providerOptions?: Record<
+                              string,
+                              Record<string, any>
+                            >;
+                            sourceType: "document";
+                            title: string;
+                            type: "source";
+                          }
                       >;
                   providerOptions?: Record<string, Record<string, any>>;
                   role: "assistant";
@@ -2173,6 +2374,31 @@ export declare const components: {
                           toolCallId: string;
                           toolName: string;
                           type: "tool-result";
+                        }
+                      | {
+                          id: string;
+                          providerMetadata?: Record<
+                            string,
+                            Record<string, any>
+                          >;
+                          providerOptions?: Record<string, Record<string, any>>;
+                          sourceType: "url";
+                          title: string;
+                          type: "source";
+                          url: string;
+                        }
+                      | {
+                          filename?: string;
+                          id: string;
+                          mediaType: string;
+                          providerMetadata?: Record<
+                            string,
+                            Record<string, any>
+                          >;
+                          providerOptions?: Record<string, Record<string, any>>;
+                          sourceType: "document";
+                          title: string;
+                          type: "source";
                         }
                     >;
                 providerOptions?: Record<string, Record<string, any>>;
