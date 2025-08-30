@@ -1,5 +1,5 @@
 import React from "react";
-import { SignIn } from "@clerk/clerk-react";
+import { CustomSignIn } from "./CustomSignIn";
 
 export const SignInPage: React.FC = () => {
   return (
@@ -10,15 +10,7 @@ export const SignInPage: React.FC = () => {
           <p className="text-gray-600">Tu asistente legal inteligente</p>
         </div>
         <div className="flex justify-center">
-          <SignIn 
-            appearance={{
-              elements: {
-                formButtonPrimary: "bg-blue-500 hover:bg-blue-600",
-                footerActionLink: "text-blue-500 hover:text-blue-600"
-              }
-            }}
-            redirectUrl="/"
-          />
+          <CustomSignIn redirectUrl="/" />
         </div>
       </div>
     </div>

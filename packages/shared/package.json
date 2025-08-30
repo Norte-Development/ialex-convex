@@ -5,7 +5,7 @@
   "type": "module",
   "main": "dist/index.js",
   "scripts": {
-    "build": "tsup src/index.ts --format esm,cjs --sourcemap --out-dir dist"
+    "build": "tsup src/index.ts --format esm,cjs --sourcemap --out-dir dist --tsconfig tsconfig.json"
   },
   "dependencies": {
     "@tiptap/core": "^3.2.1",

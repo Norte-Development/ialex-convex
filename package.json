@@ -27,8 +27,7 @@
     "@convex-dev/prosemirror-sync": "^0.1.28",
     "@convex-dev/rag": "^0.3.3",
     "@convex-dev/resend": "^0.1.4",
-    "@copilotkit/react-core": "^1.9.3",
-    "@copilotkit/react-ui": "^1.9.3",
+
     "@deepgram/sdk": "^4.11.1",
     "@dmsnell/diff-match-patch": "^1.1.0",
     "@mistralai/mistralai": "^1.7.5",
@@ -54,7 +53,7 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "convex": "^1.25.4",
-    "copilotkit": "^0.0.42",
+
     "firebase-admin": "^13.4.0",
     "jsondiffpatch": "^0.7.3",
     "jszip": "^3.10.1",
@@ -81,6 +80,7 @@
     "@types/react": "^19.0.10",
     "@types/react-dom": "^19.0.4",
     "@vitejs/plugin-react": "^4.3.4",
+    "cross-env": "^10.0.0",
     "eslint": "^9.21.0",
     "eslint-plugin-react-hooks": "^5.1.0",
     "eslint-plugin-react-refresh": "^0.4.19",

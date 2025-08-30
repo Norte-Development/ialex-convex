@@ -17,6 +17,19 @@
   }
 }
 
+@keyframes pulse-bg {
+  0% {
+    background-color: rgba(59, 130, 246, 0.3); /* blue-400 with opacity */
+  }
+  100% {
+    background-color: transparent;
+  }
+}
+
+.animate-pulse-once {
+  animation: pulse-bg 5.5s ease-out forwards;
+}
+
 body {
   font-family: "Poppins", sans-serif;
   scrollbar-gutter: stable;
