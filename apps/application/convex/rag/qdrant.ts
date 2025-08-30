@@ -13,8 +13,6 @@ console.log("Qdrant configuration:", {
 const client = new QdrantClient({
   url: process.env.QDRANT_URL,
   apiKey: process.env.QDRANT_API_KEY,
-  // Avoid noisy warnings if minor versions differ
-  checkCompatibility: false as any,
 });
 
 /**
