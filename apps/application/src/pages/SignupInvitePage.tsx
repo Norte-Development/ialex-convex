@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { useQuery, useMutation } from "convex/react";
 import { useAuth, useUser } from "@clerk/clerk-react";
-import { SignUp } from "@clerk/clerk-react";
+import { CustomSignUp } from "@/components/Auth/CustomSignUp";
 import { api } from "../../convex/_generated/api";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -149,7 +149,7 @@ export default function SignupInvitePage() {
     );
   }
 
-  // Show Clerk signup component
+  // Show custom signup component
   if (showSignUp) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
@@ -163,15 +163,9 @@ export default function SignupInvitePage() {
             </p>
           </div>
           
-          <SignUp
-            afterSignUpUrl={window.location.href}
-            afterSignInUrl={window.location.href}
-            appearance={{
-              elements: {
-                rootBox: "w-full",
-                card: "shadow-lg",
-              },
-            }}
+          <CustomSignUp
+            redirectUrl={window.location.href}
+            teamName={inviteDetails.teamName}
           />
           
           <div className="mt-4 text-center">

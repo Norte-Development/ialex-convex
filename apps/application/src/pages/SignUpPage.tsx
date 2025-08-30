@@ -1,7 +1,7 @@
 import React from "react";
-import { CustomSignIn } from "./CustomSignIn";
+import { CustomSignUp } from "@/components/Auth/CustomSignUp";
 
-export const SignInPage: React.FC = () => {
+export default function SignUpPage() {
   return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
       <div className="max-w-md w-full">
@@ -10,9 +10,9 @@ export const SignInPage: React.FC = () => {
           <p className="text-gray-600">Tu asistente legal inteligente</p>
         </div>
         <div className="flex justify-center">
-          <CustomSignIn redirectUrl="/" />
+          <CustomSignUp redirectUrl="/" />
         </div>
       </div>
     </div>
   );
-}; 
+}
