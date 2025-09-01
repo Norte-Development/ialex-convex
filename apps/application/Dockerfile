@@ -16,15 +16,25 @@ COPY packages/shared/package.json ./packages/shared/
 COPY packages/database/package.json ./packages/database/
 COPY apps/application/package.json ./apps/application/
 
-# Install dependencies
+# Install dependencies (cached unless package.json changes)
 RUN pnpm install --frozen-lockfile
 
-# Copy source code
+# Copy shared packages
 COPY packages/shared ./packages/shared
 COPY packages/database ./packages/database
-COPY apps/application ./apps/application
 
-# Build the app
+# Build shared packages (cached unless shared code changes)
+RUN pnpm --filter "@ialex/shared" build
+RUN pnpm --filter "@ialex/database" build
+
+# Copy only application source (key change)
+COPY apps/application/src ./apps/application/src/
+COPY apps/application/tsconfig.json ./apps/application/
+COPY apps/application/package.json ./apps/application/
+COPY apps/application/index.html ./apps/application/
+COPY apps/application/vite.config.ts ./apps/application/
+
+# Build the app (only rebuilds if app or shared code changes)
 WORKDIR /app/apps/application
 ARG VITE_CONVEX_URL
 ARG VITE_CLERK_PUBLISHABLE_KEY

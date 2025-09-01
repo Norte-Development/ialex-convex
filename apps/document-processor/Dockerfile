@@ -5,31 +5,31 @@ WORKDIR /app
 # Install pnpm
 RUN npm install -g pnpm@9.1.0
 
-# Copy monorepo root manifests
+# Copy only what's needed for dependency installation
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
-
-# Copy package.json files for all workspace packages
 COPY packages/shared/package.json ./packages/shared/
 COPY packages/database/package.json ./packages/database/
 COPY apps/document-processor/package.json ./apps/document-processor/
 
-# Install all dependencies including devDeps
+# Install dependencies (this layer will be cached unless package.json changes)
 RUN pnpm install --frozen-lockfile
 
-# Copy source code for shared packages
+# Copy shared packages (only rebuild if shared code changes)
 COPY packages/shared/src ./packages/shared/src/
 COPY packages/shared/tsconfig.json ./packages/shared/
 COPY packages/database/src ./packages/database/src/
 COPY packages/database/tsconfig.json ./packages/database/
 
-# Build shared packages first
+# Build shared packages (cached unless shared code changes)
 RUN pnpm --filter "@ialex/shared" build
 RUN pnpm --filter "@ialex/database" build
 
-# Copy service source
-COPY apps/document-processor ./apps/document-processor
+# Copy only document processor source (this is the key change)
+COPY apps/document-processor/src ./apps/document-processor/src/
+COPY apps/document-processor/tsconfig.json ./apps/document-processor/
+COPY apps/document-processor/package.json ./apps/document-processor/
 
-# Build service
+# Build service (only rebuilds if document-processor or shared code changes)
 RUN pnpm --filter document-processor build
 
 # ---- Runtime Stage ----
