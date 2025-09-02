@@ -11,6 +11,7 @@ import ClientDetailDialog from "./ClientDetailDialog";
 import { useMutation } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import type { Id } from "../../../convex/_generated/dataModel";
+import { toast } from "sonner";
 
 interface ClientsTableProps {
   clientsResult: any;
@@ -41,7 +42,7 @@ export default function ClientsTable({
     try {
       await removeClientFromCase({ clientId, caseId });
     } catch (e) {
-      alert("Error al desvincular: " + (e as Error).message);
+      toast.error("Error al desvincular: " + (e as Error).message);
     }
   };
 

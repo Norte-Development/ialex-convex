@@ -25,6 +25,7 @@ import {
 import { Separator } from "../ui/separator";
 import { AlertTriangle } from "lucide-react";
 import { Link } from "react-router-dom";
+import { toast } from "sonner";
 
 interface ClientDetailDialogProps {
   clientId: Id<"clients">;
@@ -87,15 +88,15 @@ export default function ClientDetailDialog({
 
   const handleSave = async () => {
     if (!formData.name.trim()) {
-      alert("El nombre es requerido");
+      toast("El nombre es requerido");
       return;
     }
     if (formData.clientType === "individual" && !formData.dni.trim()) {
-      alert("El DNI es requerido para personas físicas");
+      toast("El DNI es requerido para personas físicas");
       return;
     }
     if (formData.clientType === "company" && !formData.cuit.trim()) {
-      alert("El CUIT es requerido para empresas");
+      toast("El CUIT es requerido para empresas");
       return;
     }
     setSaving(true);
@@ -119,7 +120,7 @@ export default function ClientDetailDialog({
       });
       setOpen(false);
     } catch (e) {
-      alert("Error al guardar: " + (e as Error).message);
+      toast.error("Error al guardar: " + (e as Error).message);
     } finally {
       setSaving(false);
     }
@@ -134,8 +135,9 @@ export default function ClientDetailDialog({
     try {
       await deleteClient({ clientId: clientId });
       setOpen(false);
+      toast.success("Cliente eliminado correctamente");
     } catch (e) {
-      alert("Error al eliminar: " + (e as Error).message);
+      toast.error("Error al eliminar: " + (e as Error).message);
     } finally {
       setDeleting(false);
     }
