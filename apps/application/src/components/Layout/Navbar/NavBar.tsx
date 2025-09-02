@@ -4,6 +4,7 @@ import {
   UsersRound,
   FileSearch2,
   BookCheck,
+  Briefcase,
 } from "lucide-react";
 import { useLocation } from "react-router-dom";
 import Breadcrumbs from "./BreadCrumbs";
@@ -37,6 +38,9 @@ export default function NavBar() {
           </div>
         ) : (
           <div className="flex gap-4">
+            <Link to="/casos">
+              <Briefcase className="cursor-pointer" size={20} />
+            </Link>
             <Link to="/base-de-datos">
               <FileSearch2 className="cursor-pointer" size={20} />
             </Link>
