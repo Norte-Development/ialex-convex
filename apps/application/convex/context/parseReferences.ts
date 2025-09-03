@@ -99,21 +99,27 @@ async function resolveClientReference(
 ): Promise<ParsedReference | null> {
   if (!caseId) {
     // Search across all accessible clients if no case context
+    // Use Convex's built-in string comparison methods
     const clients = await ctx.db
       .query("clients")
       .filter((q: any) => 
         q.or(
-          q.eq(q.field("name").toLowerCase(), searchTerm),
-          q.like(q.field("name").toLowerCase(), `%${searchTerm}%`)
+          q.eq(q.field("name"), searchTerm),
+          q.like(q.field("name"), `%${searchTerm}%`)
         )
       )
-      .take(1);
+      .take(10); // Get more to filter locally
     
-    if (clients.length > 0) {
+    // Filter by case-insensitive comparison in JavaScript
+    const matchingClient = clients.find((client: any) => 
+      client.name.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+    
+    if (matchingClient) {
       return {
         type: "client",
-        id: clients[0]._id,
-        name: clients[0].name,
+        id: matchingClient._id,
+        name: matchingClient.name,
         originalText,
       };
     }
@@ -156,18 +162,23 @@ async function resolveDocumentReference(
       q.and(
         q.eq(q.field("isArchived"), false),
         q.or(
-          q.eq(q.field("title").toLowerCase(), searchTerm),
-          q.like(q.field("title").toLowerCase(), `%${searchTerm}%`)
+          q.eq(q.field("title"), searchTerm),
+          q.like(q.field("title"), `%${searchTerm}%`)
         )
       )
     )
-    .take(1);
+    .take(10); // Get more to filter locally
 
-  if (documents.length > 0) {
+  // Filter by case-insensitive comparison in JavaScript
+  const matchingDoc = documents.find((doc: any) => 
+    doc.title.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  if (matchingDoc) {
     return {
       type: "document",
-      id: documents[0]._id,
-      name: documents[0].title,
+      id: matchingDoc._id,
+      name: matchingDoc.title,
       originalText,
     };
   }
@@ -190,18 +201,23 @@ async function resolveEscritoReference(
       q.and(
         q.eq(q.field("isArchived"), false),
         q.or(
-          q.eq(q.field("title").toLowerCase(), searchTerm),
-          q.like(q.field("title").toLowerCase(), `%${searchTerm}%`)
+          q.eq(q.field("title"), searchTerm),
+          q.like(q.field("title"), `%${searchTerm}%`)
         )
       )
     )
-    .take(1);
+    .take(10); // Get more to filter locally
 
-  if (escritos.length > 0) {
+  // Filter by case-insensitive comparison in JavaScript
+  const matchingEscrito = escritos.find((escrito: any) => 
+    escrito.title.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  if (matchingEscrito) {
     return {
       type: "escrito",
-      id: escritos[0]._id,
-      name: escritos[0].title,
+      id: matchingEscrito._id,
+      name: matchingEscrito.title,
       originalText,
     };
   }
@@ -223,15 +239,19 @@ async function resolveCaseReference(
       q.and(
         q.eq(q.field("isArchived"), false),
         q.or(
-          q.eq(q.field("title").toLowerCase(), searchTerm),
-          q.like(q.field("title").toLowerCase(), `%${searchTerm}%`)
+          q.eq(q.field("title"), searchTerm),
+          q.like(q.field("title"), `%${searchTerm}%`)
         )
       )
     )
-    .take(10); // Get more candidates to filter by permissions
+    .take(20); // Get more candidates to filter by permissions
 
-  // Filter cases by user access permissions
+  // Filter cases by user access permissions and case-insensitive search
   for (const caseData of cases) {
+    // Apply case-insensitive search filter
+    if (!caseData.title.toLowerCase().includes(searchTerm.toLowerCase())) {
+      continue;
+    }
     try {
       const access = await checkCaseAccess(ctx, caseData._id, currentUser._id);
       if (access.hasAccess) {

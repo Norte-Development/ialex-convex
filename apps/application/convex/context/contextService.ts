@@ -125,7 +125,7 @@ export class ContextService {
 
     const contextBundle: ContextBundle = {
       user: userContext,
-      case: caseContext || {} as CaseContext,
+      case: caseContext,
       clients: clientContexts,
       currentView: viewContext || {},
       recentActivity,
