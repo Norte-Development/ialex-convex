@@ -22,6 +22,7 @@ import {
   SelectValue,
 } from "../ui/select";
 import { UserPlus } from "lucide-react";
+import { toast } from "sonner";
 
 export default function CreateClientDialog() {
   const [open, setOpen] = useState(false);
@@ -50,18 +51,18 @@ export default function CreateClientDialog() {
     e.preventDefault();
 
     if (!formData.name.trim()) {
-      alert("El nombre es requerido");
+      toast("El nombre es requerido");
       return;
     }
 
     // Validación según tipo de cliente
     if (formData.clientType === "individual" && !formData.dni.trim()) {
-      alert("El DNI es requerido para personas físicas");
+      toast("El DNI es requerido para personas físicas");
       return;
     }
 
     if (formData.clientType === "company" && !formData.cuit.trim()) {
-      alert("El CUIT es requerido para empresas");
+      toast("El CUIT es requerido para empresas");
       return;
     }
 
@@ -97,7 +98,7 @@ export default function CreateClientDialog() {
       setOpen(false);
     } catch (error) {
       console.error("Error creating client:", error);
-      alert("Error al crear el cliente: " + (error as Error).message);
+      toast.error("Error al crear el cliente: " + (error as Error).message);
     } finally {
       setIsLoading(false);
     }
@@ -210,9 +211,7 @@ export default function CreateClientDialog() {
                   id="address"
                   placeholder="Ej: Av. Corrientes 1234, CABA"
                   value={formData.address}
-                  onChange={(e) =>
-                    handleInputChange("address", e.target.value)
-                  }
+                  onChange={(e) => handleInputChange("address", e.target.value)}
                 />
               </div>
             </div>
