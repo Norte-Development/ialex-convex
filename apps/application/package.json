@@ -13,6 +13,7 @@
   "dependencies": {
     "@ai-sdk/openai": "^2.0.18",
     "@ai-sdk/react": "^2.0.20",
+    "@convex-dev/agent": "^0.2.6",
     "@google-cloud/storage": "^7.16.0",
     "@ialex/shared": "workspace:*",
     "@qdrant/js-client-rest": "^1.15.0",

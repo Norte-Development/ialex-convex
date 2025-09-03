@@ -1,4 +1,4 @@
-import { useSmoothText, type UIMessage } from "@convex-dev/agent/react";
+import { useSmoothText } from "@convex-dev/agent/react";
 import { cn } from "@/lib/utils";
 import { ToolCallDisplay } from "./ToolCallDisplay";
 import { Message, MessageContent, MessageAvatar } from "../ai-elements/message";
@@ -13,14 +13,7 @@ import {
   TaskContent as TaskContentComponent,
 } from "../ai-elements/task";
 import { Response } from "../ai-elements/response";
-
-interface SidebarMessageProps {
-  message: UIMessage;
-  userAvatar?: string;
-  assistantAvatar?: string;
-  userName?: string;
-  assistantName?: string;
-}
+import type { SidebarMessageProps } from "./types/message-types";
 
 export function SidebarMessage({
   message,
@@ -38,10 +31,19 @@ export function SidebarMessage({
       .join("") || "";
 
   const messageAge = Date.now() - (message._creationTime || 0);
+  // Detect tool calls and whether they've all completed output
+  const toolCalls =
+    message.parts?.filter((part) => (part as any).type?.startsWith("tool-")) || [];
+  const allToolsCompleted =
+    toolCalls.length > 0 &&
+    toolCalls.every((part) => (part as any).state === "output-available");
+
+  // Only stream while assistant is actively streaming and tools (if any) are not all completed
   const shouldStream =
     message.role === "assistant" &&
     (message.status === "streaming" ||
-      (message.status === "success" && messageAge < 5000));
+      (message.status === "success" && messageAge < 5000)) &&
+    !allToolsCompleted;
 
   const [visibleText, { isStreaming }] = useSmoothText(messageText, {
     charsPerSec: 80,
@@ -86,16 +88,23 @@ export function SidebarMessage({
               />
               <TaskContentComponent className="mt-0">
                 {toolCalls.map((part, index) => {
-                  const aiSDKState =
-                    (part as any).state === "output-available"
-                      ? "output-available"
-                      : "input-available";
+                  const aiSDKState = (part as any).state;
+                  const outputType = (part as any)?.output?.type as
+                    | string
+                    | undefined;
+                  const isError =
+                    aiSDKState === "output-available" &&
+                    (outputType?.startsWith("error-") ?? false);
 
                   return (
                     <ToolCallDisplay
                       key={index}
                       state={
-                        aiSDKState === "output-available" ? "result" : "call"
+                        isError
+                          ? "error"
+                          : aiSDKState === "output-available"
+                            ? "result"
+                            : "call"
                       }
                       part={part as any}
                     />
@@ -117,6 +126,7 @@ export function SidebarMessage({
 
             if (
               !isUser &&
+              shouldStream &&
               visibleText === "" &&
               (!displayText || displayText.trim() === "")
             ) {
@@ -136,7 +146,7 @@ export function SidebarMessage({
                 className={cn("prose prose-sm max-w-none whitespace-pre-wrap")}
               >
                 <Response>{displayText}</Response>
-                {!isUser && isStreaming && (
+                {!isUser && isStreaming && !allToolsCompleted && (
                   <div className="flex items-center gap-1 mt-2">
                     <Loader size={12} />
                     <span className="text-xs text-gray-500">

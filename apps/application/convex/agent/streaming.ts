@@ -11,6 +11,7 @@ import {
 import { v } from "convex/values";
 import { authorizeThreadAccess } from "./threads";
 import { agent } from "./agent";
+import { ContextService } from "../context/contextService";
 
 /**
  * Initiates asynchronous streaming for a message in a thread.
@@ -24,24 +25,52 @@ import { agent } from "./agent";
  * @throws {Error} When user doesn't have access to the thread
  */
 export const initiateAsyncStreaming = mutation({
-    args: { prompt: v.string(), threadId: v.string(), caseContext: v.object({
-      caseId: v.string(),
-      currentEscritoId: v.optional(v.id("escritos")),
+    args: {
+      prompt: v.string(),
+      threadId: v.string(),
+      userId: v.id("users"),
+      caseId: v.optional(v.id("cases")),
+      currentPage: v.optional(v.string()),
+      currentView: v.optional(v.string()),
+      selectedItems: v.optional(v.array(v.string())),
       cursorPosition: v.optional(v.number()),
-    }) },
-    handler: async (ctx, { prompt, threadId, caseContext }) => {
-      await authorizeThreadAccess(ctx, threadId);
+      searchQuery: v.optional(v.string()),
+      currentEscritoId: v.optional(v.id("escritos")),
+    },
+    handler: async (ctx, args) => {
+      await authorizeThreadAccess(ctx, args.threadId);
+
+      // Gather rich context using ContextService
+      const viewContext = {
+        currentPage: args.currentPage,
+        currentView: args.currentView,
+        selectedItems: args.selectedItems,
+        cursorPosition: args.cursorPosition,
+        searchQuery: args.searchQuery,
+        currentEscritoId: args.currentEscritoId,
+      };
+
+      const contextBundle = await ContextService.gatherAutoContext(
+        ctx,
+        args.userId,
+        args.caseId,
+        viewContext
+      );
+
+      console.log("contextBundle", contextBundle);
+
       const { messageId } = await agent.saveMessage(ctx, {
-        threadId,
-        prompt,
+        threadId: args.threadId,
+        prompt: args.prompt,
         // we're in a mutation, so skip embeddings for now. They'll be generated
         // lazily when streaming text.
         skipEmbeddings: true,
       });
+
       await ctx.scheduler.runAfter(0, internal.agent.streaming.streamAsync, {
-        threadId,
+        threadId: args.threadId,
         promptMessageId: messageId,
-        caseContext,
+        contextBundle,
       });
     },
   });
@@ -56,31 +85,133 @@ export const initiateAsyncStreaming = mutation({
  * @param threadId - The ID of the thread containing the conversation
  */
 export const streamAsync = internalAction({
-    args: { promptMessageId: v.string(), threadId: v.string(), caseContext: v.object({
-      caseId: v.string(),
-      currentEscritoId: v.optional(v.id("escritos")),
-      cursorPosition: v.optional(v.number()),
-    }) },
-    handler: async (ctx, { promptMessageId, threadId, caseContext }) => {
+    args: {
+      promptMessageId: v.string(),
+      threadId: v.string(),
+      contextBundle: v.object({
+        user: v.object({
+          id: v.id("users"),
+          name: v.string(),
+          email: v.string(),
+          role: v.optional(v.string()),
+          specializations: v.optional(v.array(v.string())),
+          firmName: v.optional(v.string()),
+          experienceYears: v.optional(v.number()),
+          teams: v.optional(v.array(v.object({
+            id: v.id("teams"),
+            name: v.string(),
+            role: v.string(),
+            joinedAt: v.number(),
+          }))),
+        }),
+        case: v.union(
+          v.null(),
+          v.object({
+            id: v.id("cases"),
+            title: v.string(),
+            description: v.optional(v.string()),
+            status: v.string(),
+            priority: v.string(),
+            category: v.optional(v.string()),
+            startDate: v.number(),
+            endDate: v.optional(v.number()),
+            assignedLawyer: v.id("users"),
+            createdBy: v.id("users"),
+            isArchived: v.boolean(),
+            tags: v.optional(v.array(v.string())),
+          })
+        ),
+        clients: v.array(v.object({
+          id: v.id("clients"),
+          name: v.string(),
+          email: v.optional(v.string()),
+          phone: v.optional(v.string()),
+          dni: v.optional(v.string()),
+          cuit: v.optional(v.string()),
+          clientType: v.union(v.literal("individual"), v.literal("company")),
+          isActive: v.boolean(),
+          role: v.optional(v.string()),
+        })),
+        currentView: v.object({
+          currentPage: v.optional(v.string()),
+          currentView: v.optional(v.string()),
+          selectedItems: v.optional(v.array(v.string())),
+          cursorPosition: v.optional(v.number()),
+          searchQuery: v.optional(v.string()),
+          currentEscritoId: v.optional(v.id("escritos")),
+        }),
+        recentActivity: v.array(v.object({
+          action: v.string(),
+          entityType: v.string(),
+          entityId: v.optional(v.string()),
+          timestamp: v.number(),
+          metadata: v.optional(v.any()),
+        })),
+        rules: v.array(v.object({
+          name: v.string(),
+          description: v.string(),
+          customInstructions: v.optional(v.string()),
+          responseStyle: v.optional(v.string()),
+          citationFormat: v.optional(v.string()),
+        })),
+        metadata: v.object({
+          gatheredAt: v.number(),
+          totalTokens: v.optional(v.number()),
+          contextSources: v.array(v.string()),
+          priority: v.union(v.literal("low"), v.literal("medium"), v.literal("high")),
+        }),
+      }),
+    },
+    handler: async (ctx, { promptMessageId, threadId, contextBundle }) => {
       const { thread } = await agent.continueThread(ctx, { threadId });
+
+      // Format the rich context into a system message
+      const contextString = ContextService.formatContextForAgent(contextBundle);
+
+      const systemMessage = `You are a legal assistant AI. Here is the current context:
+
+${contextString}
+
+Guidelines:
+- Address the user by name when appropriate
+- Consider their legal specializations and experience level
+- Be aware of the current case context and client relationships
+- Provide responses appropriate to their role and jurisdiction
+- Use the current page/view context to understand what they're working on
+- Maintain professional legal language and accuracy
+
+Tool usage policy:
+- Before calling any tool, verify your arguments match the described schema exactly.
+- Prefer minimal, valid inputs; do not invent fields or enum values.
+- When tools return errors, examine the error output and decide how to proceed. You may retry with corrected arguments, ask the user for clarification, or suggest alternative approaches based on the error context.
+- After tools complete, summarize results succinctly and proceed to answer the user. Do not leave the conversation in a pending/typing state.
+
+User's question:`;
+
       const result = await thread.streamText(
-        { 
-          system: `Sos un asistente de derecho. Estas en el caso ${caseContext.caseId}. El escrito actual es ${caseContext.currentEscritoId}. El cursor esta en la posicion ${caseContext.cursorPosition}.`,
-          promptMessageId,  
+        {
+          system: systemMessage,
+          promptMessageId,
+          experimental_repairToolCall: async (...args: any[]) => {
+            console.log("Tool call repair triggered:", args);
+            return null; // Allow repair by returning null
+          },
           onError: (error) => {
             console.error("Error streaming text", error);
+            return;
             // throw error;
           },
-           },
+        },
         // more custom delta options (`true` uses defaults)
-        { 
-          saveStreamDeltas: { 
-            chunking: "word", 
+        {
+          saveStreamDeltas: {
+            chunking: "word",
             throttleMs: 100,
           },
           contextOptions: {
             searchOtherThreads: true,
           },
+
         },
       );
       // Don't return anything - the streaming is handled automatically
