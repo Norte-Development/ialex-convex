@@ -12,6 +12,7 @@ import { ThreadProvider } from "./context/ThreadContext";
 import { CaseProvider } from "./context/CaseContext";
 import { HighlightProvider } from "./context/HighlightContext";
 import { EscritoProvider } from "./context/EscritoContext";
+import { PageProvider } from "./context/PageContext";
 
 // Lazy load pages to reduce initial bundle size
 const HomePage = lazy(() => import("./pages/HomePage"));
@@ -56,8 +57,9 @@ const AppWithThread = () => {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <ThreadProvider>
-        <div>
+      <PageProvider>
+        <ThreadProvider>
+          <div>
           {/* Show authentication loading skeleton while Convex auth is initializing */}
           <AuthLoading>
             <AppSkeleton />
@@ -164,7 +166,8 @@ const AppWithThread = () => {
             </Routes>
           </Suspense>
         </div>
-      </ThreadProvider>
+        </ThreadProvider>
+      </PageProvider>
     </QueryClientProvider>
   );
 };

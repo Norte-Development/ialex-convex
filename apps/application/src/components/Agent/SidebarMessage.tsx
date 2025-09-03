@@ -1,4 +1,4 @@
-import { useSmoothText, type UIMessage } from "@convex-dev/agent/react";
+import { useSmoothText } from "@convex-dev/agent/react";
 import { cn } from "@/lib/utils";
 import { ToolCallDisplay } from "./ToolCallDisplay";
 import { Message, MessageContent, MessageAvatar } from "../ai-elements/message";
@@ -13,14 +13,7 @@ import {
   TaskContent as TaskContentComponent,
 } from "../ai-elements/task";
 import { Response } from "../ai-elements/response";
-
-interface SidebarMessageProps {
-  message: UIMessage;
-  userAvatar?: string;
-  assistantAvatar?: string;
-  userName?: string;
-  assistantName?: string;
-}
+import type { SidebarMessageProps } from "./types/message-types";
 
 export function SidebarMessage({
   message,

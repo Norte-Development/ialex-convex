@@ -1,12 +1,14 @@
-import { useState } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import {
   PromptInput,
   PromptInputTextarea,
   PromptInputToolbar,
   PromptInputSubmit,
 } from "../ai-elements/prompt-input";
-import type { ChatInputProps } from "./types";
+import type { ChatInputProps } from "./types/message-types";
 import type { ChatStatus } from "ai";
+import { ReferenceAutocomplete } from "./ReferenceAutocomplete";
+import type { Reference } from "./types/reference-types";
 
 /**
  * ChatInput Component
@@ -40,8 +42,100 @@ export function ChatInput({
   minHeight = 50,
   maxHeight = 100,
   disabled = false,
+  onReferencesChange,
 }: ChatInputProps) {
   const [prompt, setPrompt] = useState("");
+  const [cursorPosition, setCursorPosition] = useState(0);
+  const [showAutocomplete, setShowAutocomplete] = useState(false);
+  const [activeReferences, setActiveReferences] = useState<Reference[]>([]);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  // Notify parent when references change
+  useEffect(() => {
+    if (onReferencesChange) {
+      onReferencesChange(activeReferences);
+    }
+  }, [activeReferences, onReferencesChange]);
+
+  /**
+   * Handles input changes and manages autocomplete visibility
+   */
+  const handleInputChange = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const newValue = e.target.value;
+    const newCursorPos = e.target.selectionStart;
+    
+    setPrompt(newValue);
+    setCursorPosition(newCursorPos);
+    
+    // Show autocomplete if we're typing an @ reference
+    const textBeforeCursor = newValue.slice(0, newCursorPos);
+    const hasAtSymbol = /@[a-zA-Z]*:?[a-zA-Z]*$/.test(textBeforeCursor);
+    setShowAutocomplete(hasAtSymbol);
+  }, []);
+
+  /**
+   * Handles cursor position changes
+   */
+  const handleSelectionChange = useCallback(() => {
+    if (textareaRef.current) {
+      setCursorPosition(textareaRef.current.selectionStart);
+    }
+  }, []);
+
+  /**
+   * Handles reference selection from autocomplete
+   */
+  const handleSelectReference = useCallback((reference: any, startPos: number, endPos: number) => {
+    const isTypeSelection = reference.name.endsWith(':');
+    
+    if (!isTypeSelection) {
+      // Entity selection - add to context bar and remove from input
+      setActiveReferences(prev => [...prev, {
+        type: reference.type,
+        id: reference.id,
+        name: reference.name
+      }]);
+      
+      // Remove the entire @reference from input
+      const atPos = prompt.lastIndexOf('@', endPos);
+      const newText = prompt.slice(0, atPos) + prompt.slice(endPos);
+      const newCursorPos = atPos;
+      
+      setPrompt(newText);
+      setCursorPosition(newCursorPos);
+      setShowAutocomplete(false);
+      
+      // Focus back to textarea
+      setTimeout(() => {
+        if (textareaRef.current) {
+          textareaRef.current.focus();
+          textareaRef.current.setSelectionRange(newCursorPos, newCursorPos);
+          setCursorPosition(newCursorPos);
+        }
+      }, 0);
+    } else {
+      // Type selection - update input and keep autocomplete open
+      const newText = prompt.slice(0, startPos) + reference.name + prompt.slice(endPos);
+      const newCursorPos = startPos + reference.name.length;
+      
+      setPrompt(newText);
+      setCursorPosition(newCursorPos);
+      
+      // For type selection, check if we should show entity suggestions
+      const textBeforeCursor = newText.slice(0, newCursorPos);
+      const hasCompleteType = /@(client|document|escrito|case):$/.test(textBeforeCursor);
+      setShowAutocomplete(hasCompleteType);
+      
+      // Focus back to textarea and set cursor position
+      setTimeout(() => {
+        if (textareaRef.current) {
+          textareaRef.current.focus();
+          textareaRef.current.setSelectionRange(newCursorPos, newCursorPos);
+          setCursorPosition(newCursorPos);
+        }
+      }, 0);
+    }
+  }, [prompt]);
 
   /**
    * Handles form submission
@@ -49,14 +143,26 @@ export function ChatInput({
    * - Validates input (non-empty after trim)
    * - Clears input after sending
    * - Calls parent callback with trimmed message
+   * - Prevents submission when autocomplete is open
    */
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Don't submit if autocomplete is showing
+    if (showAutocomplete) return;
+    
     if (prompt.trim() === "" || disabled) return;
 
     const trimmedPrompt = prompt.trim();
+    
+    // Build message with references
+    const referencesText = activeReferences.map(ref => `@${ref.type}:${ref.name}`).join(' ');
+    const fullMessage = referencesText ? `${referencesText} ${trimmedPrompt}` : trimmedPrompt;
+    
     setPrompt(""); // Clear input immediately for better UX
-    onSendMessage(trimmedPrompt);
+    setActiveReferences([]); // Clear references
+    setShowAutocomplete(false);
+    onSendMessage(fullMessage);
   };
 
   /**
@@ -75,41 +181,56 @@ export function ChatInput({
         PromptInput: Main container component from ai-sdk
         Provides form structure and styling
       */}
-      <PromptInput onSubmit={handleSubmit}>
-        {/* 
-          PromptInputTextarea: Auto-resizing textarea with enhanced features
-          - Supports Enter to submit, Shift+Enter for new line
-          - Auto-resizes based on content within min/max bounds
-        */}
-        <PromptInputTextarea
-          value={prompt}
-          onChange={(e) => setPrompt(e.target.value)}
-          placeholder={placeholder}
-          minHeight={minHeight}
-          maxHeight={maxHeight}
-          disabled={isInputDisabled}
-          style={{
-            minHeight: `${minHeight}px`,
-            maxHeight: `${maxHeight}px`,
-            height: `${minHeight}px`,
-          }}
-          className="resize-none !min-h-0"
-        />
-
-        {/* 
-          PromptInputToolbar: Container for action buttons and controls
-          Provides consistent spacing and alignment
-        */}
-        <PromptInputToolbar className=" flex justify-end">
-          <PromptInputSubmit
-            status={status}
-            disabled={!prompt.trim() || isInputDisabled}
-            aria-label={isStreaming ? "Detener" : "Enviar mensaje"}
-            variant={"ghost"}
-            size={"sm"}
+      <div className="relative">
+        <PromptInput onSubmit={handleSubmit}>
+          {/* 
+            PromptInputTextarea: Auto-resizing textarea with enhanced features
+            - Supports Enter to submit, Shift+Enter for new line
+            - Auto-resizes based on content within min/max bounds
+          */}
+          <PromptInputTextarea
+            ref={textareaRef}
+            value={prompt}
+            onChange={handleInputChange}
+            onSelect={handleSelectionChange}
+            onKeyUp={handleSelectionChange}
+            onClick={handleSelectionChange}
+            placeholder={placeholder}
+            minHeight={minHeight}
+            maxHeight={maxHeight}
+            disabled={isInputDisabled}
+            style={{
+              minHeight: `${minHeight}px`,
+              maxHeight: `${maxHeight}px`,
+              height: `${minHeight}px`,
+            }}
+            className="resize-none !min-h-0"
           />
-        </PromptInputToolbar>
-      </PromptInput>
+
+          {/* 
+            PromptInputToolbar: Container for action buttons and controls
+            Provides consistent spacing and alignment
+          */}
+          <PromptInputToolbar className=" flex justify-end">
+            <PromptInputSubmit
+              status={status}
+              disabled={!prompt.trim() || isInputDisabled}
+              aria-label={isStreaming ? "Detener" : "Enviar mensaje"}
+              variant={"ghost"}
+              size={"sm"}
+            />
+          </PromptInputToolbar>
+        </PromptInput>
+
+        {/* Reference Autocomplete */}
+        <ReferenceAutocomplete
+          input={prompt}
+          cursorPosition={cursorPosition}
+          onSelectReference={handleSelectReference}
+          isVisible={showAutocomplete && !isInputDisabled}
+          onClose={() => setShowAutocomplete(false)}
+        />
+      </div>
     </div>
   );
 }

@@ -27,7 +27,6 @@
     "@convex-dev/prosemirror-sync": "^0.1.28",
     "@convex-dev/rag": "^0.3.3",
     "@convex-dev/resend": "^0.1.4",
-
     "@deepgram/sdk": "^4.11.1",
     "@dmsnell/diff-match-patch": "^1.1.0",
     "@mistralai/mistralai": "^1.7.5",
@@ -53,7 +52,6 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "convex": "^1.25.4",
-
     "firebase-admin": "^13.4.0",
     "jsondiffpatch": "^0.7.3",
     "jszip": "^3.10.1",
@@ -93,6 +91,7 @@
     "turbo": "^2.2.3",
     "tw-animate-css": "^1.3.5",
     "typescript": "~5.7.2",
+    "typescript-eslint": "^8.42.0",
     "vite": "^6.2.0"
   },
   "pnpm": {

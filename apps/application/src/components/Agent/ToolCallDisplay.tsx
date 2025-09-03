@@ -9,31 +9,12 @@ import {
   FileTextIcon,
   DatabaseIcon,
 } from "lucide-react";
-
-type ToolState = "call" | "result" | "error" | string;
-
-type ToolPart = {
-  input?: unknown;
-  output?: {
-    type: string;
-    value: unknown;
-  };
-  error?: string;
-  toolCallId?: string;
-  startedAt?: string | number | Date;
-  completedAt?: string | number | Date;
-  // Legacy support
-  args?: unknown;
-  result?: unknown;
-};
+import type { ToolCallDisplayProps } from "./types/tool-types";
 
 export function ToolCallDisplay({
   state,
   part,
-}: {
-  state: ToolState;
-  part: ToolPart;
-}) {
+}: ToolCallDisplayProps) {
   console.log("ToolCallDisplay render", { state, part });
 
   // Get input (either from input field or legacy args field)
