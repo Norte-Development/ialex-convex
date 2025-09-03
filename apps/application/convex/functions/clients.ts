@@ -264,8 +264,9 @@ export const getClientById = query({
  * Updates editable fields of a client document.
  *
  * Maintains consistency between `clientType` and identification fields:
- * - When `clientType` is "individual", `dni` is kept and empty `cuit` is cleared.
- * - When `clientType` is "company", `cuit` is kept and empty `dni` is cleared.
+ * - When `clientType` changes to "individual", `dni` is kept and `cuit` is automatically cleared.
+ * - When `clientType` changes to "company", `cuit` is kept and `dni` is automatically cleared.
+ * - When `clientType` is not changing, only explicitly empty identification fields are cleared.
  *
  * @param {Object} args - The function arguments
  * @param {import("../_generated/dataModel").Id<"clients">} args.clientId - The client document ID to update
@@ -312,11 +313,28 @@ export const updateClient = mutation({
     const { clientId, ...patch } = args;
 
     // Ensure DNI vs CUIT consistency when switching clientType
-    if (patch.clientType === "individual") {
-      // keep dni, clear cuit if provided explicitly as empty
+    if (patch.clientType) {
+      // Get current client data to check for existing incompatible fields
+      const currentClient = await ctx.db.get(clientId);
+      if (!currentClient) {
+        throw new Error("Client not found");
+      }
+
+      if (patch.clientType === "individual") {
+        // keep dni, clear cuit (both explicitly passed empty strings and existing values)
+        if (patch.cuit === "" || currentClient.cuit) {
+          patch.cuit = undefined as any;
+        }
+      }
+      if (patch.clientType === "company") {
+        // keep cuit, clear dni (both explicitly passed empty strings and existing values)
+        if (patch.dni === "" || currentClient.dni) {
+          patch.dni = undefined as any;
+        }
+      }
+    } else {
+      // If clientType is not being changed, only clear fields explicitly passed as empty
       if (patch.cuit === "") patch.cuit = undefined as any;
-    }
-    if (patch.clientType === "company") {
       if (patch.dni === "") patch.dni = undefined as any;
     }
 
