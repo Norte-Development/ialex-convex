@@ -180,14 +180,25 @@ Guidelines:
 - Use the current page/view context to understand what they're working on
 - Maintain professional legal language and accuracy
 
+Tool usage policy:
+- Before calling any tool, verify your arguments match the described schema exactly.
+- Prefer minimal, valid inputs; do not invent fields or enum values.
+- When tools return errors, examine the error output and decide how to proceed. You may retry with corrected arguments, ask the user for clarification, or suggest alternative approaches based on the error context.
+- After tools complete, summarize results succinctly and proceed to answer the user. Do not leave the conversation in a pending/typing state.
+
 User's question:`;
 
       const result = await thread.streamText(
         {
           system: systemMessage,
           promptMessageId,
+          experimental_repairToolCall: async (...args: any[]) => {
+            console.log("Tool call repair triggered:", args);
+            return null; // Allow repair by returning null
+          },
           onError: (error) => {
             console.error("Error streaming text", error);
+            return;
             // throw error;
           },
         },
@@ -200,6 +211,7 @@ User's question:`;
           contextOptions: {
             searchOtherThreads: true,
           },
+
         },
       );
       // Don't return anything - the streaming is handled automatically

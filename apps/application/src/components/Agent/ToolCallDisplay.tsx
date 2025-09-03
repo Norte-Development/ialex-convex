@@ -1,5 +1,4 @@
 import { TaskItemFile } from "../ai-elements/task";
-import { Badge } from "@/components/ui/badge";
 import {
   CheckCircleIcon,
   ClockIcon,
@@ -17,8 +16,8 @@ export function ToolCallDisplay({
 }: ToolCallDisplayProps) {
   console.log("ToolCallDisplay render", { state, part });
 
-  // Get input (either from input field or legacy args field)
-  const input = part.input || part.args;
+  // Get input (new AI SDK)
+  const input = part.input;
 
   // Get tool name from part type or default
   const toolName = (part as any).type?.replace("tool-", "") || "Tool";
@@ -56,9 +55,7 @@ export function ToolCallDisplay({
       return `${toolName} completado`;
     }
 
-    if (state === "error") {
-      return `Error en ${toolName}`;
-    }
+    if (state === "error") return `Error en ${toolName}`;
 
     return toolName;
   };
@@ -122,12 +119,29 @@ export function ToolCallDisplay({
     }
   };
 
+  // Extract output/error for rendering
+  const outputValue = (part as any)?.output?.value;
+  const outputType = (part as any)?.output?.type as string | undefined;
+  const isErrorOutput = outputType?.startsWith("error-");
+
   return (
     <div className="flex items-center gap-2  text-[11px] text-muted-foreground">
       {getToolIcon()}
       <span>{getDescriptiveText()}</span>
       {getParameterBadge()}
       {getStatusIndicator()}
+      {state !== "call" && outputValue != null && (
+        <span
+          className={
+            "ml-2 truncate max-w-[50ch] " + (state === "error" || isErrorOutput ? "text-red-600" : "text-gray-600")
+          }
+          title={typeof outputValue === "string" ? outputValue : JSON.stringify(outputValue)}
+        >
+          {typeof outputValue === "string"
+            ? outputValue
+            : JSON.stringify(outputValue)}
+        </span>
+      )}
     </div>
   );
 }

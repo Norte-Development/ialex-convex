@@ -22,9 +22,6 @@ export type ToolPart = {
   toolCallId?: string;
   startedAt?: string | number | Date;
   completedAt?: string | number | Date;
-  // Legacy support
-  args?: unknown;
-  result?: unknown;
 };
 
 /**

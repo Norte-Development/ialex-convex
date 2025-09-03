@@ -234,6 +234,9 @@ importers:
       '@ai-sdk/react':
         specifier: ^2.0.20
         version: 2.0.22(react@19.1.1)(zod@3.25.76)
+      '@convex-dev/agent':
+        specifier: ^0.2.6
+        version: 0.2.6(@ai-sdk/provider-utils@3.0.5(zod@3.25.76))(ai@5.0.22(zod@3.25.76))(convex-helpers@0.1.104(@standard-schema/spec@1.0.0)(convex@1.25.4(@clerk/clerk-react@5.43.1(react-dom@19.1.1(react@19.1.1))(react@19.1.1))(react@19.1.1))(react@19.1.1)(typescript@5.7.3)(zod@3.25.76))(convex@1.25.4(@clerk/clerk-react@5.43.1(react-dom@19.1.1(react@19.1.1))(react@19.1.1))(react@19.1.1))(react@19.1.1)
       '@google-cloud/storage':
         specifier: ^7.16.0
         version: 7.17.0
@@ -674,6 +677,18 @@ packages:
     peerDependencies:
       '@ai-sdk/provider-utils': ^3.0.1
       ai: ^5.0.10
+      convex: ^1.23.0
+      convex-helpers: ^0.1.103
+      react: ^18.3.1 || ^19.0.0
+    peerDependenciesMeta:
+      react:
+        optional: true
+
+  '@convex-dev/agent@0.2.6':
+    resolution: {integrity: sha512-OWEcezLO6MF7uUzu8/NrzTXhJN5dE0nF2Ca/WGb+5HH1vm7nmlMM5OSZagWedp7NlOfI/gvInGDE2aoD+JICBQ==}
+    peerDependencies:
+      '@ai-sdk/provider-utils': ^3.0.1
+      ai: ^5.0.20
       convex: ^1.23.0
       convex-helpers: ^0.1.103
       react: ^18.3.1 || ^19.0.0
@@ -6196,6 +6211,15 @@ snapshots:
   '@colors/colors@1.6.0': {}
 
   '@convex-dev/agent@0.2.4(@ai-sdk/provider-utils@3.0.5(zod@3.25.76))(ai@5.0.22(zod@3.25.76))(convex-helpers@0.1.104(@standard-schema/spec@1.0.0)(convex@1.25.4(@clerk/clerk-react@5.43.1(react-dom@19.1.1(react@19.1.1))(react@19.1.1))(react@19.1.1))(react@19.1.1)(typescript@5.7.3)(zod@3.25.76))(convex@1.25.4(@clerk/clerk-react@5.43.1(react-dom@19.1.1(react@19.1.1))(react@19.1.1))(react@19.1.1))(react@19.1.1)':
+    dependencies:
+      '@ai-sdk/provider-utils': 3.0.5(zod@3.25.76)
+      ai: 5.0.22(zod@3.25.76)
+      convex: 1.25.4(@clerk/clerk-react@5.43.1(react-dom@19.1.1(react@19.1.1))(react@19.1.1))(react@19.1.1)
+      convex-helpers: 0.1.104(@standard-schema/spec@1.0.0)(convex@1.25.4(@clerk/clerk-react@5.43.1(react-dom@19.1.1(react@19.1.1))(react@19.1.1))(react@19.1.1))(react@19.1.1)(typescript@5.7.3)(zod@3.25.76)
+    optionalDependencies:
+      react: 19.1.1
+
+  '@convex-dev/agent@0.2.6(@ai-sdk/provider-utils@3.0.5(zod@3.25.76))(ai@5.0.22(zod@3.25.76))(convex-helpers@0.1.104(@standard-schema/spec@1.0.0)(convex@1.25.4(@clerk/clerk-react@5.43.1(react-dom@19.1.1(react@19.1.1))(react@19.1.1))(react@19.1.1))(react@19.1.1)(typescript@5.7.3)(zod@3.25.76))(convex@1.25.4(@clerk/clerk-react@5.43.1(react-dom@19.1.1(react@19.1.1))(react@19.1.1))(react@19.1.1))(react@19.1.1)':
     dependencies:
       '@ai-sdk/provider-utils': 3.0.5(zod@3.25.76)
       ai: 5.0.22(zod@3.25.76)

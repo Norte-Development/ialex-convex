@@ -3,6 +3,28 @@ import { components } from "../_generated/api";
 import { z } from "zod";
 import { api, internal } from "../_generated/api";
 
+// Helper function to validate edit types
+function validateEditType(type: string): boolean {
+  const validTypes = [
+    "replace", "insert", "delete",
+    "addMark", "removeMark", "replaceMark",
+    "addParagraph"
+  ];
+  return validTypes.includes(type);
+}
+
+// Helper function to validate mark types
+function validateMarkType(markType: string): boolean {
+  const validMarkTypes = ["bold", "italic", "code", "strike", "underline"];
+  return validMarkTypes.includes(markType);
+}
+
+// Helper function to validate paragraph types
+function validateParagraphType(paragraphType: string): boolean {
+  const validParagraphTypes = ["paragraph", "heading", "blockquote", "bulletList", "orderedList", "codeBlock"];
+  return validParagraphTypes.includes(paragraphType);
+}
+
 
 
 	/**
@@ -67,69 +89,33 @@ import { api, internal } from "../_generated/api";
 	  args: z
 	    .object({
 	      escritoId: z.string().describe("The Escrito ID (Convex doc id)"),
-	      edits: z
-	        .array(
-	          z.union([
-	            // Replace
-	            z.object({
-	              type: z.literal("replace"),
-	              findText: z.string(),
-	              replaceText: z.string(),
-	              contextBefore: z.string().optional(),
-	              contextAfter: z.string().optional(),
-	              replaceAll: z.boolean().optional().default(false),
-	            }),
-	            // Insert
-	            z.object({
-	              type: z.literal("insert"),
-	              insertText: z.string(),
-	              afterText: z.string().optional(),
-	              beforeText: z.string().optional(),
-	            }),
-	            // Delete
-	            z.object({
-	              type: z.literal("delete"),
-	              deleteText: z.string(),
-	              contextBefore: z.string().optional(),
-	              contextAfter: z.string().optional(),
-	            }),
-	            // Add Mark
-	            z.object({
-	              type: z.literal("add_mark"),
-	              text: z.string().describe("Text to add mark to"),
-	              markType: z.enum(["bold", "italic", "code", "strike", "underline"]).describe("Type of mark to add"),
-	              contextBefore: z.string().optional().describe("Text that should appear before (for precise targeting)"),
-	              contextAfter: z.string().optional().describe("Text that should appear after (for precise targeting)"),
-	            }),
-	            // Remove Mark
-	            z.object({
-	              type: z.literal("remove_mark"),
-	              text: z.string().describe("Text to remove mark from"),
-	              markType: z.enum(["bold", "italic", "code", "strike", "underline"]).describe("Type of mark to remove"),
-	              contextBefore: z.string().optional().describe("Text that should appear before (for precise targeting)"),
-	              contextAfter: z.string().optional().describe("Text that should appear after (for precise targeting)"),
-	            }),
-	                        // Replace Mark
-            z.object({
-              type: z.literal("replace_mark"),
-              text: z.string().describe("Text to change mark on"),
-              oldMarkType: z.enum(["bold", "italic", "code", "strike", "underline"]).describe("Current mark type"),
-              newMarkType: z.enum(["bold", "italic", "code", "strike", "underline"]).describe("New mark type"),
-              contextBefore: z.string().optional().describe("Text that should appear before (for precise targeting)"),
-              contextAfter: z.string().optional().describe("Text that should appear after (for precise targeting)"),
-            }),
-            // Add Paragraph
-            z.object({
-              type: z.literal("add_paragraph"),
-              content: z.string().describe("Content for the new paragraph"),
-              paragraphType: z.enum(["paragraph", "heading", "blockquote", "bulletList", "orderedList", "codeBlock"]).describe("Type of paragraph to create"),
-              headingLevel: z.number().min(1).max(6).optional().describe("Heading level (1-6, required for heading type)"),
-              afterText: z.string().optional().describe("Insert after this text"),
-              beforeText: z.string().optional().describe("Insert before this text"),
-            }),
-	          ])
-	        )
-	        .min(1),
+	      edits: z.array(
+	        z.object({
+	          type: z.string().optional().describe("Edit operation type: replace, insert, delete, addMark, removeMark, replaceMark, addParagraph"),
+	          // Replace operation fields
+	          findText: z.string().optional().describe("Text to find and replace"),
+	          replaceText: z.string().optional().describe("Text to replace it with"),
+	          // Insert/Delete operation fields
+	          insertText: z.string().optional().describe("Text to insert"),
+	          deleteText: z.string().optional().describe("Text to delete"),
+	          // Common context fields
+	          contextBefore: z.string().optional().describe("Text that should appear before (for precise targeting)"),
+	          contextAfter: z.string().optional().describe("Text that should appear after (for precise targeting)"),
+	          // Mark operation fields
+	          text: z.string().optional().describe("Text to apply mark operation to"),
+	          markType: z.string().optional().describe("Mark type: bold, italic, code, strike, underline"),
+	          oldMarkType: z.string().optional().describe("Current mark type for replaceMark"),
+	          newMarkType: z.string().optional().describe("New mark type for replaceMark"),
+	          // Paragraph operation fields
+	          content: z.string().optional().describe("Content for new paragraph"),
+	          paragraphType: z.string().optional().describe("Paragraph type: paragraph, heading, blockquote, bulletList, orderedList, codeBlock"),
+	          headingLevel: z.number().optional().describe("Heading level (1-6, required for heading type)"),
+	          afterText: z.string().optional().describe("Insert after this text"),
+	          beforeText: z.string().optional().describe("Insert before this text"),
+	          // Other options
+	          replaceAll: z.boolean().optional().describe("Replace all occurrences (for replace operations)")
+	        })
+	      ).min(1).describe("Array of edit operations to apply"),
 	    })
 	    .required({ escritoId: true, edits: true }),
 	  handler: async (
@@ -137,13 +123,112 @@ import { api, internal } from "../_generated/api";
 	    { escritoId, edits }: { escritoId: string; edits: any[] }
 	  ) => {
 	    if (!ctx.userId) throw new Error("Not authenticated");
-	
+
+	    // Validate inputs in handler for better error control
+	    if (!escritoId || typeof escritoId !== 'string') {
+	      throw new Error("Invalid escritoId: must be a non-empty string");
+	    }
+
+	    if (!Array.isArray(edits) || edits.length === 0) {
+	      throw new Error("Invalid edits: must be a non-empty array");
+	    }
+
+	    // Validate each edit operation
+	    for (let i = 0; i < edits.length; i++) {
+	      const edit = edits[i];
+	      if (!edit || typeof edit !== 'object') {
+	        throw new Error(`Invalid edit at index ${i}: must be an object`);
+	      }
+
+	      if (!edit.type || typeof edit.type !== 'string') {
+	        throw new Error(`Invalid edit type at index ${i}: must have a valid type`);
+	      }
+
+	      if (!validateEditType(edit.type)) {
+	        throw new Error(`Invalid edit type at index ${i}: '${edit.type}' is not supported. Valid types: replace, insert, delete, addMark, removeMark, replaceMark, addParagraph`);
+	      }
+
+	      // Validate mark-related operations
+	      if (edit.type === 'addMark' || edit.type === 'removeMark') {
+	        if (!edit.text || typeof edit.text !== 'string') {
+	          throw new Error(`Invalid ${edit.type} at index ${i}: must have text property`);
+	        }
+	        if (!edit.markType || typeof edit.markType !== 'string') {
+	          throw new Error(`Invalid ${edit.type} at index ${i}: must have markType property`);
+	        }
+	        if (!validateMarkType(edit.markType)) {
+	          throw new Error(`Invalid markType '${edit.markType}' at index ${i}: must be one of bold, italic, code, strike, underline`);
+	        }
+	      }
+
+	      // Validate replaceMark operation
+	      if (edit.type === 'replaceMark') {
+	        if (!edit.text || typeof edit.text !== 'string') {
+	          throw new Error(`Invalid ${edit.type} at index ${i}: must have text property`);
+	        }
+	        if (!edit.oldMarkType || typeof edit.oldMarkType !== 'string') {
+	          throw new Error(`Invalid ${edit.type} at index ${i}: must have oldMarkType property`);
+	        }
+	        if (!edit.newMarkType || typeof edit.newMarkType !== 'string') {
+	          throw new Error(`Invalid ${edit.type} at index ${i}: must have newMarkType property`);
+	        }
+	        if (!validateMarkType(edit.oldMarkType)) {
+	          throw new Error(`Invalid oldMarkType '${edit.oldMarkType}' at index ${i}: must be one of bold, italic, code, strike, underline`);
+	        }
+	        if (!validateMarkType(edit.newMarkType)) {
+	          throw new Error(`Invalid newMarkType '${edit.newMarkType}' at index ${i}: must be one of bold, italic, code, strike, underline`);
+	        }
+	      }
+
+	      // Validate addParagraph operation
+	      if (edit.type === 'addParagraph') {
+	        if (!edit.content || typeof edit.content !== 'string') {
+	          throw new Error(`Invalid ${edit.type} at index ${i}: must have content property`);
+	        }
+	        if (!edit.paragraphType || typeof edit.paragraphType !== 'string') {
+	          throw new Error(`Invalid ${edit.type} at index ${i}: must have paragraphType property`);
+	        }
+	        if (!validateParagraphType(edit.paragraphType)) {
+	          throw new Error(`Invalid paragraphType '${edit.paragraphType}' at index ${i}: must be one of paragraph, heading, blockquote, bulletList, orderedList, codeBlock`);
+	        }
+	        if (edit.paragraphType === 'heading' && (!edit.headingLevel || typeof edit.headingLevel !== 'number' || edit.headingLevel < 1 || edit.headingLevel > 6)) {
+	          throw new Error(`Invalid ${edit.type} at index ${i}: heading type requires headingLevel between 1 and 6`);
+	        }
+	      }
+
+	      // Validate replace operation
+	      if (edit.type === 'replace') {
+	        if (!edit.findText || typeof edit.findText !== 'string') {
+	          throw new Error(`Invalid ${edit.type} at index ${i}: must have findText property`);
+	        }
+	        if (!edit.replaceText || typeof edit.replaceText !== 'string') {
+	          throw new Error(`Invalid ${edit.type} at index ${i}: must have replaceText property`);
+	        }
+	      }
+
+	      // Validate insert operation
+	      if (edit.type === 'insert') {
+	        if (!edit.insertText || typeof edit.insertText !== 'string') {
+	          throw new Error(`Invalid ${edit.type} at index ${i}: must have insertText property`);
+	        }
+	      }
+
+	      // Validate delete operation
+	      if (edit.type === 'delete') {
+	        if (!edit.deleteText || typeof edit.deleteText !== 'string') {
+	          throw new Error(`Invalid ${edit.type} at index ${i}: must have deleteText property`);
+	        }
+	      }
+	    }
+
 	    // Load Escrito
 	    const escrito = await ctx.runQuery(api.functions.documents.getEscrito, {
 	      escritoId: escritoId as any,
 	    });
-	    if (!escrito) return { error: "Escrito not found" };
-	
+	    if (!escrito) {
+	      throw new Error(`Escrito not found with ID: ${escritoId}`);
+	    }
+
 	    // Apply text-based operations directly using the new mutation
 	    const result = await ctx.runMutation(
 	      api.functions.escritosTransforms.applyTextBasedOperations,
@@ -152,7 +237,7 @@ import { api, internal } from "../_generated/api";
 	        edits,
 	      }
 	    );
-	
+
 	    return {
 	      ok: true,
 	      message: `Applied ${edits.length} edits successfully`,
@@ -167,20 +252,27 @@ import { api, internal } from "../_generated/api";
 export const getEscritoTool = createTool({
   description: "Get the content of an Escrito",
   args: z.object({
-    escritoId: z.string().describe("The Escrito ID (Convex doc id)"),
+    escritoId: z.any().describe("The Escrito ID (Convex doc id)"),
   }).required({escritoId: true}),
-  handler: async (ctx: ToolCtx, { escritoId }: { escritoId: string }) => {
+  handler: async (ctx: ToolCtx, args: any) => {
+    // Validate inputs in handler
+    if (!args.escritoId || typeof args.escritoId !== 'string' || args.escritoId.trim().length === 0) {
+      throw new Error("Invalid escritoId: must be a non-empty string");
+    }
+
+    const escritoId = args.escritoId.trim();
+
     const escrito = await ctx.runQuery(api.functions.documents.getEscrito, { escritoId: escritoId as any });
-    
+
     if (!escrito) {
-      return { error: "Escrito not found" };
+      throw new Error(`Escrito not found with ID: ${escritoId}`);
     }
 
     console.log("escrito", escrito);
 
     // Get the actual document content using prosemirror
     const documentContent = await ctx.runQuery(api.prosemirror.getSnapshot, { id: escrito.prosemirrorId });
-    
+
     return {
       content: documentContent
     };
@@ -208,23 +300,39 @@ export const getEscritoTool = createTool({
 export const searchFallosTool = createTool({
     description: "Search court decisions and legal precedents (fallos) using dense embeddings. Useful for finding relevant case law and judicial decisions.",
     args: z.object({
-        query: z.string().describe("The search query text to find relevant court decisions"),
-        limit: z.number().optional().default(10).describe("Maximum number of results to return (default: 10)")
+        query: z.any().describe("The search query text to find relevant court decisions"),
+        limit: z.any().optional().describe("Maximum number of results to return (default: 10)")
     }).required({query: true}),
     handler: async (ctx: any, args: any) => {
+        // Validate inputs in handler
+        if (!args.query || typeof args.query !== 'string' || args.query.trim().length === 0) {
+            throw new Error("Invalid query: must be a non-empty string");
+        }
+
+        const limit = args.limit !== undefined ? args.limit : 10;
+
+        if (typeof limit !== 'number' || limit < 1 || limit > 100) {
+            throw new Error("Invalid limit: must be a number between 1 and 100");
+        }
+
+        const validatedArgs = {
+            query: args.query.trim(),
+            limit: Math.min(limit, 100) // Cap at 100 to prevent abuse
+        };
+
         const response = await fetch(`${process.env.SEARCH_API_URL}/search_fallos`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
                 'X-API-Key': process.env.SEARCH_API_KEY!
             },
-            body: JSON.stringify(args)
+            body: JSON.stringify(validatedArgs)
         });
-        
+
         if (!response.ok) {
-            throw new Error(`Fallos search failed: ${response.statusText}`);
+            throw new Error(`Fallos search failed: ${response.status} ${response.statusText}`);
         }
-        
+
         const data = await response.json();
         return data;
     },
@@ -253,23 +361,38 @@ export const searchFallosTool = createTool({
 export const searchCaseDocumentsTool = createTool({
   description: "Search case documents using dense embeddings with semantic chunk clustering. Provides coherent context by grouping related chunks and expanding context windows.",
   args: z.object({
-    query: z.string().describe("The search query text to find relevant case documents"),
-    limit: z.number().optional().default(10).describe("Maximum number of initial results to return (default: 10)"),
-    contextWindow: z.number().optional().default(4).describe("Number of adjacent chunks to include for context expansion (default: 4)")
+    query: z.any().describe("The search query text to find relevant case documents"),
+    limit: z.any().optional().describe("Maximum number of initial results to return (default: 10)"),
+    contextWindow: z.any().optional().describe("Number of adjacent chunks to include for context expansion (default: 4)")
   }).required({query: true}),
-  handler: async (ctx: ToolCtx, {query, limit, contextWindow}: {query: string, limit: number, contextWindow: number}) => {
+  handler: async (ctx: ToolCtx, args: any) => {
+    // Validate inputs in handler
+    if (!args.query || typeof args.query !== 'string' || args.query.trim().length === 0) {
+      throw new Error("Invalid query: must be a non-empty string");
+    }
+
+    const limit = args.limit !== undefined ? args.limit : 10;
+    if (typeof limit !== 'number' || limit < 1 || limit > 50) {
+      throw new Error("Invalid limit: must be a number between 1 and 50");
+    }
+
+    const contextWindow = args.contextWindow !== undefined ? args.contextWindow : 4;
+    if (typeof contextWindow !== 'number' || contextWindow < 1 || contextWindow > 20) {
+      throw new Error("Invalid contextWindow: must be a number between 1 and 20");
+    }
+
     // Use userId directly from ctx instead of getCurrentUserFromAuth
     if (!ctx.userId) {
       throw new Error("Not authenticated");
     }
-    
+
     // Extract caseId from thread metadata
     if (!ctx.threadId) {
       throw new Error("No thread context available");
     }
-    
+
     const { userId: threadUserId } = await getThreadMetadata(ctx, components.agent, { threadId: ctx.threadId });
-    
+
     // Extract caseId from threadUserId format: "case:${caseId}_${userId}"
     if (!threadUserId?.startsWith("case:")) {
       throw new Error("This tool can only be used within a case context");
@@ -279,10 +402,10 @@ export const searchCaseDocumentsTool = createTool({
 
     // Call the action to perform the search with clustering
     return await ctx.runAction(api.rag.qdrant.searchCaseDocumentsWithClustering, {
-      query,
+      query: args.query.trim(),
       caseId,
-      limit,
-      contextWindow
+      limit: Math.min(limit, 50), // Cap at 50 to prevent abuse
+      contextWindow: Math.min(contextWindow, 20) // Cap at 20 to prevent abuse
     });
   }
 } as any);
@@ -317,11 +440,27 @@ export const searchCaseDocumentsTool = createTool({
 export const readDocumentTool = createTool({
   description: "Read a document progressively, chunk by chunk. Use this to read through entire documents sequentially without overwhelming token limits. Perfect for systematic document analysis.",
   args: z.object({
-    documentId: z.string().describe("The ID of the document to read"),
-    chunkIndex: z.number().optional().default(0).describe("Which chunk to read (0-based index). Start with 0 for the beginning."),
-    chunkCount: z.number().optional().default(1).describe("Number of consecutive chunks to read (default: 1). Use higher values to read multiple chunks at once.")
+    documentId: z.any().describe("The ID of the document to read"),
+    chunkIndex: z.any().optional().describe("Which chunk to read (0-based index). Start with 0 for the beginning."),
+    chunkCount: z.any().optional().describe("Number of consecutive chunks to read (default: 1). Use higher values to read multiple chunks at once.")
   }).required({documentId: true}),
-  handler: async (ctx: ToolCtx, { documentId, chunkIndex, chunkCount }: { documentId: string, chunkIndex: number, chunkCount: number }) => {
+  handler: async (ctx: ToolCtx, args: any) => {
+    // Validate inputs in handler
+    if (!args.documentId || typeof args.documentId !== 'string' || args.documentId.trim().length === 0) {
+      throw new Error("Invalid documentId: must be a non-empty string");
+    }
+
+    const chunkIndex = args.chunkIndex !== undefined ? args.chunkIndex : 0;
+    if (typeof chunkIndex !== 'number' || chunkIndex < 0) {
+      throw new Error("Invalid chunkIndex: must be a non-negative number");
+    }
+
+    const chunkCount = args.chunkCount !== undefined ? args.chunkCount : 1;
+    if (typeof chunkCount !== 'number' || chunkCount < 1 || chunkCount > 10) {
+      throw new Error("Invalid chunkCount: must be a number between 1 and 10");
+    }
+
+    const documentId = args.documentId.trim();
     // Verify authentication using agent context
     if (!ctx.userId) {
       throw new Error("Not authenticated");
@@ -358,15 +497,6 @@ export const readDocumentTool = createTool({
     // Check if document is processed
     if (document.processingStatus !== "completed") {
       throw new Error(`Document is not ready for reading. Status: ${document.processingStatus}`);
-    }
-
-    // Validate chunkCount
-    if (chunkCount < 1) {
-      throw new Error("Chunk count must be at least 1");
-    }
-    
-    if (chunkCount > 10) {
-      throw new Error("Cannot read more than 10 chunks at once to avoid overwhelming token limits");
     }
 
     // Get total chunks (prefer DB field, fallback to Qdrant count)
@@ -445,11 +575,27 @@ export const readDocumentTool = createTool({
 export const queryDocumentTool = createTool({
   description: "Query a specific document using semantic search. Searches within a single document to find the most relevant chunks based on a query. Perfect for finding specific information within a large document.",
   args: z.object({
-    documentId: z.string().describe("The ID of the document to search within"),
-    query: z.string().describe("The search query to find relevant content within the document"),
-    limit: z.number().optional().default(5).describe("Maximum number of relevant chunks to return (default: 5)")
+    documentId: z.any().describe("The ID of the document to search within"),
+    query: z.any().describe("The search query to find relevant content within the document"),
+    limit: z.any().optional().describe("Maximum number of relevant chunks to return (default: 5)")
   }).required({documentId: true, query: true}),
-  handler: async (ctx: ToolCtx, { documentId, query, limit }: { documentId: string, query: string, limit: number }) => {
+  handler: async (ctx: ToolCtx, args: any) => {
+    // Validate inputs in handler
+    if (!args.documentId || typeof args.documentId !== 'string' || args.documentId.trim().length === 0) {
+      throw new Error("Invalid documentId: must be a non-empty string");
+    }
+
+    if (!args.query || typeof args.query !== 'string' || args.query.trim().length === 0) {
+      throw new Error("Invalid query: must be a non-empty string");
+    }
+
+    const limit = args.limit !== undefined ? args.limit : 5;
+    if (typeof limit !== 'number' || limit < 1 || limit > 20) {
+      throw new Error("Invalid limit: must be a number between 1 and 20");
+    }
+
+    const documentId = args.documentId.trim();
+    const query = args.query.trim();
     // Verify authentication using agent context
     if (!ctx.userId) {
       throw new Error("Not authenticated");
@@ -486,15 +632,6 @@ export const queryDocumentTool = createTool({
     // Check if document is processed
     if (document.processingStatus !== "completed") {
       throw new Error(`Document is not ready for querying. Status: ${document.processingStatus}`);
-    }
-
-    // Validate limit
-    if (limit < 1) {
-      throw new Error("Limit must be at least 1");
-    }
-    
-    if (limit > 20) {
-      throw new Error("Cannot return more than 20 chunks at once to avoid overwhelming token limits");
     }
 
     // Perform semantic search within the specific document
@@ -565,7 +702,7 @@ export const queryDocumentTool = createTool({
 export const listCaseDocumentsTool = createTool({
   description: "List all documents in the current case with their processing status and chunk counts. Use this to see what documents are available for reading.",
   args: z.object({}),
-  handler: async (ctx: ToolCtx, {}) => {
+  handler: async (ctx: ToolCtx, args: any) => {
     // Verify authentication using agent context
     if (!ctx.userId) {
       throw new Error("Not authenticated");
