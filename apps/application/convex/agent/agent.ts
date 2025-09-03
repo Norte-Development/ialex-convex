@@ -1,17 +1,16 @@
 import { components } from "../_generated/api";
 import { Agent, stepCountIs } from "@convex-dev/agent";
 import { openai } from "@ai-sdk/openai";
-import { v } from "convex/values";
-import { action } from "../_generated/server";
-import { 
-  searchFallosTool, 
-  searchCaseDocumentsTool, 
-  readDocumentTool, 
-  listCaseDocumentsTool, 
+
+import {
+  searchFallosTool,
+  searchCaseDocumentsTool,
+  readDocumentTool,
+  listCaseDocumentsTool,
   queryDocumentTool,
   editEscritoTool,
   getEscritoTool
-} from "./tools";
+} from "./tools/index";
 
 /**
  * Main agent instance for the legal assistant system.
@@ -26,7 +25,7 @@ import {
  */
 export const agent = new Agent(components.agent, {
   name: "Legal Assistant Agent",
-  languageModel: openai.chat("gpt-4o-mini"),
+  languageModel: openai.chat("gpt-5-mini"),
   stopWhen: stepCountIs(25),
   // Default call settings per 0.2.x: place maxRetries here
   callSettings: {
