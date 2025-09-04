@@ -4,6 +4,7 @@ import { useThread } from "@/context/ThreadContext";
 import { useCase } from "@/context/CaseContext";
 import { Input } from "@/components/ui/input";
 import { useState } from "react";
+import { useDebounce } from "@uidotdev/usehooks";
 
 // Extend the thread type to include search properties
 type ThreadWithSearch = {
@@ -46,15 +47,16 @@ export function AIAgentThreadSelector() {
   const { threadId, setThreadId } = useThread();
   const { caseId } = useCase();
   const [searchTerm, setSearchTerm] = useState("");
+  const debouncedSearchTerm = useDebounce(searchTerm, 300);
 
-  const hasSearchTerm = searchTerm.trim().length > 0;
+  const hasSearchTerm = debouncedSearchTerm.trim().length > 0;
 
   // Use search function when there's a search term, otherwise use regular list
   const searchResults = useQuery(
     api.agent.threads.searchThreads,
     hasSearchTerm
       ? {
-          searchTerm: searchTerm.trim(),
+          searchTerm: debouncedSearchTerm.trim(),
           caseId: caseId || undefined,
         }
       : "skip",
@@ -80,6 +82,15 @@ export function AIAgentThreadSelector() {
 
   return (
     <div className="flex flex-col gap-2" onClick={(e) => e.stopPropagation()}>
+      <div className="px-1 pb-1">
+        <Input
+          placeholder="Buscar threads por título..."
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          className="h-5 text-xs placeholder:text-xs"
+          disabled={isLoading}
+        />
+      </div>
       {isLoading && (
         <div className="flex items-center justify-center py-4">
           <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary"></div>
@@ -88,19 +99,10 @@ export function AIAgentThreadSelector() {
 
       {!isLoading && (
         <>
-          <div className="px-1 pb-1">
-            <Input
-              placeholder="Buscar threads por título..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="h-5 text-xs placeholder:text-xs"
-            />
-          </div>
-
           <div className="flex flex-col">
             {hasSearchTerm && items.length === 0 && (
               <div className="px-3 py-2.5 text-muted-foreground text-xs">
-                No hay threads que contengan "{searchTerm}"
+                No hay threads que contengan "{debouncedSearchTerm}"
               </div>
             )}
 
@@ -147,7 +149,7 @@ export function AIAgentThreadSelector() {
                         <div className="text-xs text-foreground/70 leading-relaxed line-clamp-3">
                           {highlightSearchTerm(
                             thread.searchSnippet,
-                            searchTerm.trim(),
+                            debouncedSearchTerm.trim(),
                           )}
                         </div>
                       </div>
