@@ -12,6 +12,12 @@ services:
       - "3000:80" # Map host:container (host 3000 -> container 80)
     networks:
       - ialex-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:80/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
 
   document-processor:
     build:
@@ -23,7 +29,7 @@ services:
       - .env.local
     environment:
       - PORT=4001
-      - REDIS_URL=redis://redis:6379
+      - REDIS_URL=${REDIS_URL}
       - WORKER_CONCURRENCY=2
       - OPENAI_API_KEY=${OPENAI_API_KEY}
       - QDRANT_URL=${QDRANT_URL}
@@ -31,29 +37,14 @@ services:
       - HMAC_SECRET=${HMAC_SECRET}
       - MISTRAL_API_KEY=${MISTRAL_API_KEY}
       - DEEPGRAM_API_KEY=${DEEPGRAM_API_KEY}
-    depends_on:
-      redis:
-        condition: service_healthy
-    networks:
-      - ialex-network
-
-  redis:
-    image: redis:7-alpine
-    ports:
-      - "6379:6379"
-    command: redis-server --appendonly yes
-    volumes:
-      - redis_data:/data
     networks:
       - ialex-network
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: ["CMD", "curl", "-f", "http://localhost:4001/health"]
       interval: 30s
       timeout: 10s
       retries: 3
-
-volumes:
-  redis_data:
+      start_period: 40s
 
 networks:
   ialex-network:
