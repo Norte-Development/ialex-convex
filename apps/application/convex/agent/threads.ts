@@ -84,11 +84,11 @@ export const listThreads = query({
 });
 
 /**
- * Searches threads by title for a user, optionally filtered by case.
+ * Searches threads by title and message content for a user, optionally filtered by case.
  *
- * @param searchTerm - The search term to filter threads by title
+ * @param searchTerm - The search term to filter threads by title and message content
  * @param caseId - Optional case ID to filter threads by case
- * @returns Promise resolving to a list of threads matching the search term
+ * @returns Promise resolving to a list of threads with snippets matching the search term
  * @throws {Error} When user doesn't have access to the specified case
  */
 export const searchThreads = query({
@@ -112,7 +112,7 @@ export const searchThreads = query({
       threadUserId = `user:${userId._id}`;
     }
 
-    // Get all threads for the user (we'll filter by search term)
+    // Get all threads for the user
     const allThreads = await ctx.runQuery(
       components.agent.threads.listThreadsByUserId,
       {
@@ -121,22 +121,78 @@ export const searchThreads = query({
       },
     );
 
-    // Filter threads by search term in title
     const searchTermLower = args.searchTerm.toLowerCase().trim();
     if (!searchTermLower) {
       return allThreads;
     }
 
-    const filteredThreads = {
-      ...allThreads,
-      page: allThreads.page.filter((thread) =>
-        (thread.title || "Untitled Thread")
-          .toLowerCase()
-          .includes(searchTermLower),
-      ),
-    };
+    // Search through threads and their messages
+    const matchingThreads = [];
 
-    return filteredThreads;
+    for (const thread of allThreads.page) {
+      let matchFound = false;
+      let snippet = "";
+      let matchType: "title" | "content" = "title";
+
+      const titleMatch = (thread.title || "Untitled Thread")
+        .toLowerCase()
+        .includes(searchTermLower);
+      if (titleMatch) {
+        matchFound = true;
+        snippet = thread.title || "Untitled Thread";
+        matchType = "title";
+      }
+
+      if (!matchFound) {
+        try {
+          const messages = await agent.listMessages(ctx, {
+            threadId: thread._id,
+            paginationOpts: { numItems: 50, cursor: null as any },
+          });
+
+          for (const message of messages.page) {
+            if (
+              message.text &&
+              message.text.toLowerCase().includes(searchTermLower)
+            ) {
+              matchFound = true;
+              matchType = "content";
+
+              // Create snippet with context around the match
+              const text = message.text;
+              const matchIndex = text.toLowerCase().indexOf(searchTermLower);
+              const start = Math.max(0, matchIndex - 50);
+              const end = Math.min(
+                text.length,
+                matchIndex + searchTermLower.length + 50,
+              );
+
+              snippet =
+                (start > 0 ? "..." : "") +
+                text.substring(start, end) +
+                (end < text.length ? "..." : "");
+              break;
+            }
+          }
+        } catch (error) {
+          // Skip threads where we can't access messages
+          continue;
+        }
+      }
+
+      if (matchFound) {
+        matchingThreads.push({
+          ...thread,
+          searchSnippet: snippet,
+          matchType: matchType,
+        });
+      }
+    }
+
+    return {
+      ...allThreads,
+      page: matchingThreads,
+    };
   },
 });
 
