@@ -44,6 +44,7 @@ import { usePermissionAwareNavigation } from "@/hooks/usePermissionAwareNavigati
 import { PERMISSIONS } from "@/permissions/types";
 import { IfCan } from "@/components/Permissions";
 import { useHighlight } from "@/context/HighlightContext";
+import { Suspense } from "react";
 
 export default function CaseSidebar() {
   const {
@@ -72,7 +73,6 @@ export default function CaseSidebar() {
   const [isCreatingRootFolder, setIsCreatingRootFolder] = useState(false);
   const [newRootFolderName, setNewRootFolderName] = useState("");
   const rootInputRef = useRef<HTMLInputElement | null>(null);
-  const [threadSearch, setThreadSearch] = useState("");
 
   const basePath = `/caso/${id}`;
 
@@ -399,15 +399,15 @@ export default function CaseSidebar() {
               className="flex flex-col gap-2 pl-2 pr-2 text-[12px] pt-1 overflow-y-auto max-h-40"
               onClick={(e) => e.stopPropagation()}
             >
-              <div className="px-1 pb-1">
-                <Input
-                  placeholder="Buscar threads por título..."
-                  value={threadSearch}
-                  onChange={(e) => setThreadSearch(e.target.value)}
-                  className="h-5 text-xs placeholder:text-xs"
-                />
-              </div>
-              <AIAgentThreadSelector searchTerm={threadSearch} />
+              <Suspense
+                fallback={
+                  <div className="flex items-center justify-center py-4">
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary"></div>
+                  </div>
+                }
+              >
+                <AIAgentThreadSelector />
+              </Suspense>
             </CollapsibleContent>
           </Collapsible>
         </div>
