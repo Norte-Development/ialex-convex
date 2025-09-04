@@ -404,7 +404,7 @@ export default function CaseSidebar() {
                   placeholder="Buscar threads por título..."
                   value={threadSearch}
                   onChange={(e) => setThreadSearch(e.target.value)}
-                  className="h-7 text-xs"
+                  className="h-5 text-xs placeholder:text-xs"
                 />
               </div>
               <AIAgentThreadSelector searchTerm={threadSearch} />

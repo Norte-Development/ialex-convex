@@ -2,7 +2,6 @@ import { api } from "../../../convex/_generated/api";
 import { useQuery } from "convex/react";
 import { useThread } from "@/context/ThreadContext";
 import { useCase } from "@/context/CaseContext";
-import { useMemo } from "react";
 
 export function AIAgentThreadSelector({
   searchTerm = "",
@@ -11,26 +10,44 @@ export function AIAgentThreadSelector({
 }) {
   const { threadId, setThreadId } = useThread();
   const { caseId } = useCase();
-  // Get threads from Convex agent (not the old chat system)
-  const threads = useQuery(api.agent.threads.listThreads, {
-    paginationOpts: { numItems: 50, cursor: null as any },
-    caseId: caseId || undefined,
-  });
 
+  const hasSearchTerm = searchTerm.trim().length > 0;
+
+  // Use search function when there's a search term, otherwise use regular list
+  const searchResults = useQuery(
+    api.agent.threads.searchThreads,
+    hasSearchTerm
+      ? {
+          searchTerm: searchTerm.trim(),
+          caseId: caseId || undefined,
+        }
+      : "skip",
+  );
+
+  const listResults = useQuery(
+    api.agent.threads.listThreads,
+    !hasSearchTerm
+      ? {
+          paginationOpts: { numItems: 50, cursor: null as any },
+          caseId: caseId || undefined,
+        }
+      : "skip",
+  );
+
+  const threads = hasSearchTerm ? searchResults : listResults;
   const items = threads?.page ?? [];
-  const filteredThreads = useMemo(() => {
-    const q = (searchTerm ?? "").trim().toLowerCase();
-    if (!q) return items;
-    return items.filter((thread) =>
-      (thread.title || "Untitled Thread").toLowerCase().includes(q),
-    );
-  }, [items, searchTerm]);
 
   return (
     <div className="flex flex-col" onClick={(e) => e.stopPropagation()}>
       {/* Thread List */}
       <div className="flex flex-col">
-        {filteredThreads.map((thread) => (
+        {items.length === 0 && (
+          <div className="px-3 py-2.5 cursor-pointer transition-colors border-b border-border/20 last:border-b-0">
+            No tenes historial de chat con ({searchTerm}) / Proba con otro
+            termino
+          </div>
+        )}
+        {items.map((thread) => (
           <div
             key={thread._id}
             className={`
