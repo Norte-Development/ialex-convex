@@ -1,22 +1,36 @@
 import { api } from "../../../convex/_generated/api";
-import { useQuery } from "convex/react"
+import { useQuery } from "convex/react";
 import { useThread } from "@/context/ThreadContext";
 import { useCase } from "@/context/CaseContext";
+import { useMemo } from "react";
 
-export function AIAgentThreadSelector() {
+export function AIAgentThreadSelector({
+  searchTerm = "",
+}: {
+  searchTerm?: string;
+}) {
   const { threadId, setThreadId } = useThread();
   const { caseId } = useCase();
   // Get threads from Convex agent (not the old chat system)
-  const threads = useQuery(api.agent.threads.listThreads, { 
+  const threads = useQuery(api.agent.threads.listThreads, {
     paginationOpts: { numItems: 50, cursor: null as any },
-    caseId: caseId || undefined
+    caseId: caseId || undefined,
   });
+
+  const items = threads?.page ?? [];
+  const filteredThreads = useMemo(() => {
+    const q = (searchTerm ?? "").trim().toLowerCase();
+    if (!q) return items;
+    return items.filter((thread) =>
+      (thread.title || "Untitled Thread").toLowerCase().includes(q),
+    );
+  }, [items, searchTerm]);
 
   return (
     <div className="flex flex-col" onClick={(e) => e.stopPropagation()}>
       {/* Thread List */}
       <div className="flex flex-col">
-        {threads?.page?.map((thread) => (
+        {filteredThreads.map((thread) => (
           <div
             key={thread._id}
             className={`
@@ -46,5 +60,5 @@ export function AIAgentThreadSelector() {
         ))}
       </div>
     </div>
-  )
+  );
 }

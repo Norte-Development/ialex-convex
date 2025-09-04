@@ -72,6 +72,7 @@ export default function CaseSidebar() {
   const [isCreatingRootFolder, setIsCreatingRootFolder] = useState(false);
   const [newRootFolderName, setNewRootFolderName] = useState("");
   const rootInputRef = useRef<HTMLInputElement | null>(null);
+  const [threadSearch, setThreadSearch] = useState("");
 
   const basePath = `/caso/${id}`;
 
@@ -395,10 +396,18 @@ export default function CaseSidebar() {
               />
             </CollapsibleTrigger>
             <CollapsibleContent
-              className="flex flex-col gap-1 pl-2 text-[12px] pt-1 overflow-y-auto max-h-40"
+              className="flex flex-col gap-2 pl-2 pr-2 text-[12px] pt-1 overflow-y-auto max-h-40"
               onClick={(e) => e.stopPropagation()}
             >
-              <AIAgentThreadSelector />
+              <div className="px-1 pb-1">
+                <Input
+                  placeholder="Buscar threads por título..."
+                  value={threadSearch}
+                  onChange={(e) => setThreadSearch(e.target.value)}
+                  className="h-7 text-xs"
+                />
+              </div>
+              <AIAgentThreadSelector searchTerm={threadSearch} />
             </CollapsibleContent>
           </Collapsible>
         </div>
