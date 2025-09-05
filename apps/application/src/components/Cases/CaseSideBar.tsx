@@ -69,7 +69,14 @@ export default function CaseSidebar() {
     currentCase?._id || null,
   );
   const [isCreateEscritoOpen, setIsCreateEscritoOpen] = useState(false);
-  const [isArchivadosOpen, setIsArchivadosOpen] = useState(false);
+  const [isArchivadosOpen, setIsArchivadosOpen] = useState(() => {
+    try {
+      const stored = localStorage.getItem("archivados-open");
+      return stored !== null ? JSON.parse(stored) : false;
+    } catch {
+      return false;
+    }
+  });
   const [isCreatingRootFolder, setIsCreatingRootFolder] = useState(false);
   const [newRootFolderName, setNewRootFolderName] = useState("");
   const rootInputRef = useRef<HTMLInputElement | null>(null);
@@ -416,7 +423,14 @@ export default function CaseSidebar() {
       <div className="w-full flex flex-col justify-center h-[30%] gap-2 pl-5">
         <Collapsible
           open={isArchivadosOpen}
-          onOpenChange={setIsArchivadosOpen}
+          onOpenChange={(open) => {
+            setIsArchivadosOpen(open);
+            try {
+              localStorage.setItem("archivados-open", JSON.stringify(open));
+            } catch {
+              // Ignore localStorage errors
+            }
+          }}
           className="w-full"
         >
           <CollapsibleTrigger className="cursor-pointer flex gap-4 items-center">
