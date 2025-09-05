@@ -44,6 +44,7 @@ import { usePermissionAwareNavigation } from "@/hooks/usePermissionAwareNavigati
 import { PERMISSIONS } from "@/permissions/types";
 import { IfCan } from "@/components/Permissions";
 import { useHighlight } from "@/context/HighlightContext";
+import { Suspense } from "react";
 
 export default function CaseSidebar() {
   const {
@@ -395,10 +396,18 @@ export default function CaseSidebar() {
               />
             </CollapsibleTrigger>
             <CollapsibleContent
-              className="flex flex-col gap-1 pl-2 text-[12px] pt-1 overflow-y-auto max-h-40"
+              className="flex flex-col gap-2 pl-2 pr-2 text-[12px] pt-1 overflow-y-auto max-h-40"
               onClick={(e) => e.stopPropagation()}
             >
-              <AIAgentThreadSelector />
+              <Suspense
+                fallback={
+                  <div className="flex items-center justify-center py-4">
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary"></div>
+                  </div>
+                }
+              >
+                <AIAgentThreadSelector />
+              </Suspense>
             </CollapsibleContent>
           </Collapsible>
         </div>
