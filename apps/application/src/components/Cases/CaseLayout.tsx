@@ -49,7 +49,14 @@ function InnerCaseLayout({ children }: CaseDetailLayoutProps) {
   const { isCaseSidebarOpen } = useLayout();
   const { currentCase } = useCase();
   const { hasAccess, isLoading, can } = usePermissions();
-  const [isChatbotOpen, setIsChatbotOpen] = useState(false);
+  const [isChatbotOpen, setIsChatbotOpen] = useState(() => {
+    try {
+      const stored = localStorage.getItem("chatbot-open");
+      return stored !== null ? JSON.parse(stored) : false;
+    } catch {
+      return false;
+    }
+  });
   const [chatbotWidth, setChatbotWidth] = useState(380);
   const [isResizing, setIsResizing] = useState(false);
   const [uploadFiles, setUploadFiles] = useState<UploadFile[]>([]);
@@ -78,7 +85,15 @@ function InnerCaseLayout({ children }: CaseDetailLayoutProps) {
   };
 
   const toggleChatbot = () => {
-    setIsChatbotOpen(!isChatbotOpen);
+    setIsChatbotOpen((prev: boolean) => {
+      const newValue = !prev;
+      try {
+        localStorage.setItem("chatbot-open", JSON.stringify(newValue));
+      } catch {
+        // Ignore localStorage errors
+      }
+      return newValue;
+    });
   };
 
   const handleResizeStart = () => {
