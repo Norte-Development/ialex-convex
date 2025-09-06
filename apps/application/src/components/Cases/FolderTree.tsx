@@ -163,7 +163,15 @@ function FolderList({
       )}
       {/* Documents at this level */}
       {documents && (
-        <Droppable droppableId={droppableId} type="DOCUMENT">
+        <Droppable
+          droppableId={droppableId}
+          type="DOCUMENT"
+          isDropDisabled={false}
+          isCombineEnabled={false}
+          ignoreContainerClipping={false}
+          direction="vertical"
+          mode="standard"
+        >
           {(dropProvided, dropSnapshot) => (
             <div
               ref={dropProvided.innerRef}
@@ -184,6 +192,7 @@ function FolderList({
                   draggableId={doc._id as unknown as string}
                   index={index}
                   key={doc._id as any}
+                  isDragDisabled={false}
                 >
                   {(dragProvided, dragSnapshot) => (
                     <div
@@ -493,6 +502,11 @@ function FolderItem({
         <Droppable
           droppableId={folder._id as unknown as string}
           type="DOCUMENT"
+          isDropDisabled={false}
+          isCombineEnabled={false}
+          ignoreContainerClipping={false}
+          direction="vertical"
+          mode="standard"
         >
           {(dropProvided, dropSnapshot) => (
             <div ref={dropProvided.innerRef} {...dropProvided.droppableProps}>
