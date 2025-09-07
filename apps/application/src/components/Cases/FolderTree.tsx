@@ -23,6 +23,7 @@ import FolderActionsMenu from "./FolderActionsMenu";
 import NewDocumentInput, { NewDocumentInputHandle } from "./NewDocumentInput";
 import { DragDropContext, type DropResult } from "react-beautiful-dnd";
 import { useHighlight } from "@/context/HighlightContext";
+import { useLayout } from "@/context/LayoutContext";
 
 type Props = {
   caseId: Id<"cases">;
@@ -162,7 +163,15 @@ function FolderList({
       )}
       {/* Documents at this level */}
       {documents && (
-        <Droppable droppableId={droppableId} type="DOCUMENT">
+        <Droppable
+          droppableId={droppableId}
+          type="DOCUMENT"
+          isDropDisabled={false}
+          isCombineEnabled={false}
+          ignoreContainerClipping={false}
+          direction="vertical"
+          mode="standard"
+        >
           {(dropProvided, dropSnapshot) => (
             <div
               ref={dropProvided.innerRef}
@@ -183,6 +192,7 @@ function FolderList({
                   draggableId={doc._id as unknown as string}
                   index={index}
                   key={doc._id as any}
+                  isDragDisabled={false}
                 >
                   {(dragProvided, dragSnapshot) => (
                     <div
@@ -302,7 +312,9 @@ function FolderItem({
   basePath?: string;
   movingFrom: Record<string, string>;
 }) {
-  const [open, setOpen] = useState(false);
+  const { isFolderOpen, setFolderOpen, toggleFolder } = useLayout();
+  const open = isFolderOpen(folder._id as Id<"folders">);
+
   const [isEditing, setIsEditing] = useState(false);
   const [name, setName] = useState(folder.name);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -315,13 +327,13 @@ function FolderItem({
   const updateFolder = useMutation(api.functions.folders.updateFolder);
   const archiveFolder = useMutation(api.functions.folders.archiveFolder);
   const createFolder = useMutation(api.functions.folders.createFolder);
-  // Upload and document creation handled by NewDocumentInput
 
   useEffect(() => {
+    // Permite la expansion de las carpetas hijas al cargar la pagina
     if (pathIds.includes(folder._id as Id<"folders">)) {
-      setOpen(true);
+      setFolderOpen(folder._id as Id<"folders">, true);
     }
-  }, [pathIds, folder._id]);
+  }, [pathIds, folder._id, setFolderOpen]);
 
   useEffect(() => {
     if (!menuOpen) return;
@@ -345,6 +357,17 @@ function FolderItem({
       document.removeEventListener("keydown", onKey);
     };
   }, [menuOpen]);
+
+  useEffect(() => {
+    if (isCreatingChild) {
+      const t = setTimeout(() => newChildRef.current?.focus(), 0);
+      return () => clearTimeout(t);
+    }
+  }, [isCreatingChild]);
+
+  const handleToggleOpen = () => {
+    toggleFolder(folder._id as Id<"folders">);
+  };
 
   const submitRename = async () => {
     const trimmed = name.trim();
@@ -381,13 +404,6 @@ function FolderItem({
     }
   };
 
-  useEffect(() => {
-    if (isCreatingChild) {
-      const t = setTimeout(() => newChildRef.current?.focus(), 0);
-      return () => clearTimeout(t);
-    }
-  }, [isCreatingChild]);
-
   const submitCreateChild = async () => {
     const name = (newChildName || "").trim() || "Nueva Carpeta";
     try {
@@ -399,7 +415,7 @@ function FolderItem({
       setHighlightedFolder(newFolderId);
       setIsCreatingChild(false);
       setNewChildName("");
-      setOpen(true);
+      setFolderOpen(folder._id as Id<"folders">, true);
     } catch (err) {
       console.error("Error creating folder:", err);
       toast.error(
@@ -421,7 +437,7 @@ function FolderItem({
           <div className="flex items-center gap-1 min-w-0">
             <button
               className="h-5 w-5 flex items-center justify-center text-gray-600 hover:text-gray-800"
-              onClick={() => setOpen((o) => !o)}
+              onClick={handleToggleOpen}
               aria-label={open ? "Contraer" : "Expandir"}
             >
               <ChevronRight
@@ -486,6 +502,11 @@ function FolderItem({
         <Droppable
           droppableId={folder._id as unknown as string}
           type="DOCUMENT"
+          isDropDisabled={false}
+          isCombineEnabled={false}
+          ignoreContainerClipping={false}
+          direction="vertical"
+          mode="standard"
         >
           {(dropProvided, dropSnapshot) => (
             <div ref={dropProvided.innerRef} {...dropProvided.droppableProps}>
@@ -505,7 +526,7 @@ function FolderItem({
                 <div className="flex items-center gap-1 min-w-0">
                   <button
                     className="h-5 w-5 flex items-center justify-center text-gray-600 hover:text-gray-800"
-                    onClick={() => setOpen((o) => !o)}
+                    onClick={handleToggleOpen}
                     aria-label={open ? "Contraer" : "Expandir"}
                   >
                     <ChevronRight
@@ -577,7 +598,6 @@ function FolderItem({
         <FolderActionsMenu
           onCreateFolder={() => {
             setMenuOpen(false);
-            setOpen(true);
             setIsCreatingChild(true);
           }}
           onCreateDocument={() => {
@@ -595,7 +615,7 @@ function FolderItem({
         ref={fileInputRef}
         caseId={caseId}
         folderId={folder._id as Id<"folders">}
-        onSuccess={() => setOpen(true)}
+        onSuccess={() => setFolderOpen(folder._id as Id<"folders">, true)}
         onError={(err) =>
           toast.error(
             err instanceof Error
