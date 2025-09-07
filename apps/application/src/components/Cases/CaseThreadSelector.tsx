@@ -1,50 +1,165 @@
 import { api } from "../../../convex/_generated/api";
-import { useQuery } from "convex/react"
+import { useQuery } from "convex/react";
 import { useThread } from "@/context/ThreadContext";
 import { useCase } from "@/context/CaseContext";
+import { Input } from "@/components/ui/input";
+import { useState } from "react";
+import { useDebounce } from "@uidotdev/usehooks";
+
+// Extend the thread type to include search properties
+type ThreadWithSearch = {
+  _creationTime: number;
+  _id: string;
+  status: "active" | "archived";
+  summary?: string | undefined;
+  title?: string | undefined;
+  userId?: string | undefined;
+  searchSnippet?: string;
+  matchType?: "title" | "content";
+};
+
+// Function to highlight search term in text
+const highlightSearchTerm = (text: string, searchTerm: string) => {
+  if (!searchTerm.trim()) return text;
+
+  const regex = new RegExp(
+    `(${searchTerm.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")})`,
+    "gi",
+  );
+  const parts = text.split(regex);
+
+  return parts.map((part, index) => {
+    if (part.toLowerCase() === searchTerm.toLowerCase()) {
+      return (
+        <mark
+          key={index}
+          className="bg-yellow-200 text-yellow-900 px-0.5 rounded"
+        >
+          {part}
+        </mark>
+      );
+    }
+    return part;
+  });
+};
 
 export function AIAgentThreadSelector() {
   const { threadId, setThreadId } = useThread();
   const { caseId } = useCase();
-  // Get threads from Convex agent (not the old chat system)
-  const threads = useQuery(api.agent.threads.listThreads, { 
-    paginationOpts: { numItems: 50, cursor: null as any },
-    caseId: caseId || undefined
-  });
+  const [searchTerm, setSearchTerm] = useState("");
+  const debouncedSearchTerm = useDebounce(searchTerm, 300);
+
+  const hasSearchTerm = debouncedSearchTerm.trim().length > 0;
+
+  // Use search function when there's a search term, otherwise use regular list
+  const searchResults = useQuery(
+    api.agent.threads.searchThreads,
+    hasSearchTerm
+      ? {
+          searchTerm: debouncedSearchTerm.trim(),
+          caseId: caseId || undefined,
+        }
+      : "skip",
+  );
+
+  const listResults = useQuery(
+    api.agent.threads.listThreads,
+    !hasSearchTerm
+      ? {
+          paginationOpts: { numItems: 50, cursor: null as any },
+          caseId: caseId || undefined,
+        }
+      : "skip",
+  );
+
+  const threads = hasSearchTerm ? searchResults : listResults;
+  const items = (threads?.page ?? []) as ThreadWithSearch[];
+
+  // Loading states
+  const isSearchLoading = hasSearchTerm && searchResults === undefined;
+  const isListLoading = !hasSearchTerm && listResults === undefined;
+  const isLoading = isSearchLoading || isListLoading;
 
   return (
-    <div className="flex flex-col" onClick={(e) => e.stopPropagation()}>
-      {/* Thread List */}
-      <div className="flex flex-col">
-        {threads?.page?.map((thread) => (
-          <div
-            key={thread._id}
-            className={`
-              px-3 py-2.5 cursor-pointer transition-colors border-b border-border/20 last:border-b-0
-              hover:bg-accent/50
-              ${thread._id === threadId ? "bg-accent" : ""}
-            `}
-            onClick={(e) => {
-              e.stopPropagation();
-              setThreadId(thread._id);
-            }}
-          >
-            <div className="flex items-center justify-between">
-              <span
-                className={`
-                  text-sm font-medium truncate
-                  ${thread._id === threadId ? "text-foreground" : "text-foreground/80"}
-                `}
-              >
-                {thread.title || "Untitled Thread"}
-              </span>
-              <span className="text-xs text-muted-foreground ml-2 shrink-0">
-                {new Date(thread._creationTime).toLocaleDateString()}
-              </span>
-            </div>
-          </div>
-        ))}
+    <div className="flex flex-col gap-2" onClick={(e) => e.stopPropagation()}>
+      <div className="px-1 pb-1">
+        <Input
+          placeholder="Buscar threads por título..."
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          className="h-5 text-xs placeholder:text-xs"
+          disabled={isLoading}
+        />
       </div>
+      {isLoading && (
+        <div className="flex items-center justify-center py-4">
+          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary"></div>
+        </div>
+      )}
+
+      {!isLoading && (
+        <>
+          <div className="flex flex-col">
+            {hasSearchTerm && items.length === 0 && (
+              <div className="px-3 py-2.5 text-muted-foreground text-xs">
+                No hay threads que contengan "{debouncedSearchTerm}"
+              </div>
+            )}
+
+            {items.map((thread) => (
+              <div
+                key={thread._id}
+                className={`
+                px-3 py-2.5 cursor-pointer transition-colors border-b border-border/20 last:border-b-0
+                hover:bg-accent/50
+                ${thread._id === threadId ? "bg-accent" : ""}
+              `}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setThreadId(thread._id);
+                }}
+              >
+                <div className="flex flex-col gap-2">
+                  <div className="flex items-center justify-between">
+                    <span
+                      className={`
+                      text-sm font-medium truncate
+                      ${thread._id === threadId ? "text-foreground" : "text-foreground/80"}
+                    `}
+                    >
+                      {thread.title || "Untitled Thread"}
+                    </span>
+                    <span className="text-xs text-muted-foreground ml-2 shrink-0">
+                      {new Date(thread._creationTime).toLocaleDateString()}
+                    </span>
+                  </div>
+
+                  {/* Show snippet only when searching and there's a content match */}
+                  {hasSearchTerm &&
+                    thread.searchSnippet &&
+                    thread.matchType === "content" && (
+                      <div className="bg-accent/30 rounded-md px-3 py-2 border-l-2 border-primary/40">
+                        <div className="flex items-center gap-2 mb-1">
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-xs font-medium text-muted-foreground">
+                              Contenido
+                            </span>
+                          </div>
+                        </div>
+                        <div className="text-xs text-foreground/70 leading-relaxed line-clamp-3">
+                          {highlightSearchTerm(
+                            thread.searchSnippet,
+                            debouncedSearchTerm.trim(),
+                          )}
+                        </div>
+                      </div>
+                    )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
     </div>
-  )
+  );
 }
