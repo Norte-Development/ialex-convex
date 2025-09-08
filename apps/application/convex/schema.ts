@@ -374,6 +374,7 @@ export default defineSchema({
     userId: v.optional(v.id("users")), // Individual user access
     teamId: v.optional(v.id("teams")), // Team-based access
     accessLevel: v.union(
+      v.literal("none"),
       v.literal("basic"), // View documents, use agent
       v.literal("advanced"), // Edit documents, manage case data
       v.literal("admin"), // Manage permissions, full control
