@@ -27,13 +27,63 @@ import { validateEditType, validateMarkType, validateParagraphType, normalizeEdi
  *   }]
  * });
  *
- * // Add bold formatting
+ * @example
+ * // Target specific occurrence - change the 3rd occurrence only
+ * await editEscritoTool.handler(ctx, {
+ *   escritoId: "escrito_123",
+ *   edits: [{
+ *     type: "replace",
+ *     findText: "contract",
+ *     replaceText: "agreement",
+ *     occurrenceIndex: 3
+ *   }]
+ * });
+ *
+ * @example
+ * // Limit number of changes - change first 2 occurrences only
+ * await editEscritoTool.handler(ctx, {
+ *   escritoId: "escrito_123",
+ *   edits: [{
+ *     type: "replace",
+ *     findText: "plaintiff",
+ *     replaceText: "applicant",
+ *     maxOccurrences: 2
+ *   }]
+ * });
+ *
+ * @example
+ * // Delete 2nd occurrence of specific text
+ * await editEscritoTool.handler(ctx, {
+ *   escritoId: "escrito_123",
+ *   edits: [{
+ *     type: "delete",
+ *     deleteText: "redundant clause",
+ *     occurrenceIndex: 2
+ *   }]
+ * });
+ *
+ * @example
+ * // Add bold formatting to first 3 instances
  * await editEscritoTool.handler(ctx, {
  *   escritoId: "escrito_123",
  *   edits: [{
  *     type: "add_mark",
- *     text: "important text",
- *     markType: "bold"
+ *     text: "important",
+ *     markType: "bold",
+ *     maxOccurrences: 3,
+ *     contextAfter: "consideration"
+ *   }]
+ * });
+ *
+ * @example
+ * // Add bold formatting to specific occurrence
+ * await editEscritoTool.handler(ctx, {
+ *   escritoId: "escrito_123",
+ *   edits: [{
+ *     type: "add_mark",
+ *     text: "important text", 
+ *     markType: "bold",
+ *     occurrenceIndex: 2
  *   }]
  * });
  *
@@ -81,7 +131,7 @@ import { validateEditType, validateMarkType, validateParagraphType, normalizeEdi
  */
 export const editEscritoTool = createTool({
   description:
-    "Edit an Escrito by finding and replacing text content, adding/removing formatting marks, manipulating paragraph structure, and transforming document elements. Much easier than position-based editing - just provide the text to find and what to replace it with, or specify mark/paragraph operations. Validation errors are logged but don't prevent valid edits. Any edit with a 'content' field is applied regardless of validation issues.",
+    "Edit an Escrito by finding and replacing text content, adding/removing formatting marks, manipulating paragraph structure, and transforming document elements. Much easier than position-based editing - just provide the text to find and what to replace it with, or specify mark/paragraph operations. Includes precise occurrence control: target specific occurrences (e.g., 'change the 3rd occurrence') or limit changes (e.g., 'change first 2 occurrences'). Validation errors are logged but don't prevent valid edits. Any edit with a 'content' field is applied regardless of validation issues.",
   args: z
     .object({
       escritoId: z.string().describe("The Escrito ID (Convex doc id)"),
@@ -108,6 +158,9 @@ export const editEscritoTool = createTool({
           headingLevel: z.number().optional().describe("Heading level (1-6, required for heading type)"),
           afterText: z.string().optional().describe("Insert after this text"),
           beforeText: z.string().optional().describe("Insert before this text"),
+          // Occurrence control options
+          occurrenceIndex: z.number().optional().describe("Target specific occurrence (1-based): 'change the 3rd occurrence'"),
+          maxOccurrences: z.number().optional().describe("Maximum number of occurrences to change: 'change first 2 occurrences'"),
           // Other options
           replaceAll: z.boolean().optional().describe("Replace all occurrences (for replace operations)")
         })
@@ -253,6 +306,28 @@ export const editEscritoTool = createTool({
           validationErrors.push(`Edit ${i}: Heading type requires headingLevel between 1 and 6`);
           continue;
         }
+      }
+
+      // Validate occurrence control parameters
+      if (edit.occurrenceIndex !== undefined) {
+        if (typeof edit.occurrenceIndex !== 'number' || edit.occurrenceIndex < 1) {
+          console.log(`Skipping edit at index ${i}: occurrenceIndex must be a positive number (1-based)`);
+          validationErrors.push(`Edit ${i}: occurrenceIndex must be a positive number (1-based)`);
+          continue;
+        }
+      }
+
+      if (edit.maxOccurrences !== undefined) {
+        if (typeof edit.maxOccurrences !== 'number' || edit.maxOccurrences < 1) {
+          console.log(`Skipping edit at index ${i}: maxOccurrences must be a positive number`);
+          validationErrors.push(`Edit ${i}: maxOccurrences must be a positive number`);
+          continue;
+        }
+      }
+
+      // Conflict detection warning
+      if (edit.occurrenceIndex !== undefined && edit.maxOccurrences !== undefined) {
+        console.log(`Warning: Edit ${i} has both occurrenceIndex and maxOccurrences specified. occurrenceIndex takes precedence.`);
       }
 
       // Content field bypass: Always include the edit if it has a content field, regardless of other validation

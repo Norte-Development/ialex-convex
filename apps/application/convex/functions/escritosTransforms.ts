@@ -23,6 +23,8 @@ export const applyTextBasedOperations = mutation({
         contextBefore: v.optional(v.string()),
         contextAfter: v.optional(v.string()),
         replaceAll: v.optional(v.boolean()),
+        occurrenceIndex: v.optional(v.number()),
+        maxOccurrences: v.optional(v.number()),
       }),
       v.object({
         type: v.literal("insert"),
@@ -35,6 +37,8 @@ export const applyTextBasedOperations = mutation({
         deleteText: v.string(),
         contextBefore: v.optional(v.string()),
         contextAfter: v.optional(v.string()),
+        occurrenceIndex: v.optional(v.number()),
+        maxOccurrences: v.optional(v.number()),
       }),
       v.object({
         type: v.literal("add_mark"),
@@ -48,6 +52,8 @@ export const applyTextBasedOperations = mutation({
         ),
         contextBefore: v.optional(v.string()),
         contextAfter: v.optional(v.string()),
+        occurrenceIndex: v.optional(v.number()),
+        maxOccurrences: v.optional(v.number()),
       }),
       v.object({
         type: v.literal("remove_mark"),
@@ -61,6 +67,8 @@ export const applyTextBasedOperations = mutation({
         ),
         contextBefore: v.optional(v.string()),
         contextAfter: v.optional(v.string()),
+        occurrenceIndex: v.optional(v.number()),
+        maxOccurrences: v.optional(v.number()),
       }),
       v.object({
         type: v.literal("replace_mark"),
@@ -81,6 +89,8 @@ export const applyTextBasedOperations = mutation({
         ),
         contextBefore: v.optional(v.string()),
         contextAfter: v.optional(v.string()),
+        occurrenceIndex: v.optional(v.number()),
+        maxOccurrences: v.optional(v.number()),
       }),
       v.object({
         type: v.literal("add_paragraph"),
@@ -133,6 +143,8 @@ export const applyTextBasedOperations = mutation({
           contextBefore: edit.contextBefore,
           contextAfter: edit.contextAfter,
           replaceAll: edit.replaceAll,
+          occurrenceIndex: edit.occurrenceIndex,
+          maxOccurrences: edit.maxOccurrences,
         });
         
       } else if (edit.type === "insert") {
@@ -153,6 +165,8 @@ export const applyTextBasedOperations = mutation({
           deleteText: edit.deleteText, // Pass the delete text for processing
           contextBefore: edit.contextBefore,
           contextAfter: edit.contextAfter,
+          occurrenceIndex: edit.occurrenceIndex,
+          maxOccurrences: edit.maxOccurrences,
         });
         
       } else if (edit.type === "add_mark") {
@@ -162,6 +176,8 @@ export const applyTextBasedOperations = mutation({
           markType: edit.markType,
           contextBefore: edit.contextBefore,
           contextAfter: edit.contextAfter,
+          occurrenceIndex: edit.occurrenceIndex,
+          maxOccurrences: edit.maxOccurrences,
         });
         
       } else if (edit.type === "remove_mark") {
@@ -171,6 +187,8 @@ export const applyTextBasedOperations = mutation({
           markType: edit.markType,
           contextBefore: edit.contextBefore,
           contextAfter: edit.contextAfter,
+          occurrenceIndex: edit.occurrenceIndex,
+          maxOccurrences: edit.maxOccurrences,
         });
         
       } else if (edit.type === "replace_mark") {
@@ -181,6 +199,8 @@ export const applyTextBasedOperations = mutation({
           newMarkType: edit.newMarkType,
           contextBefore: edit.contextBefore,
           contextAfter: edit.contextAfter,
+          occurrenceIndex: edit.occurrenceIndex,
+          maxOccurrences: edit.maxOccurrences,
         });
         
       } else if (edit.type === "add_paragraph") {
@@ -208,14 +228,11 @@ export const applyTextBasedOperations = mutation({
       doc.descendants((node: any, pos: number) => {
         if (node.isText) {
           const textContent = node.text || "";
-          let index = 0;
+          const wordMatches = findAllTextWithWordBoundary(textContent, text);
           
-          while (true) {
-            const foundIndex = textContent.indexOf(text, index);
-            if (foundIndex === -1) break;
-            
-            const start = pos + foundIndex;
-            const end = pos + foundIndex + text.length;
+          for (const wordMatch of wordMatches) {
+            const start = pos + wordMatch.index;
+            const end = pos + wordMatch.index + wordMatch.length;
             
             // Get marks for this text node
             const marks = node.marks || [];
@@ -230,8 +247,6 @@ export const applyTextBasedOperations = mutation({
               // If no markType specified, include all matches
               matches.push({ start, end, marks });
             }
-            
-            index = foundIndex + 1;
           }
         }
       });
@@ -246,14 +261,11 @@ export const applyTextBasedOperations = mutation({
       doc.descendants((node: any, pos: number) => {
         if (node.isText) {
           const textContent = node.text || "";
-          let index = 0;
+          const wordMatches = findAllTextWithWordBoundary(textContent, text);
           
-          while (true) {
-            const foundIndex = textContent.indexOf(text, index);
-            if (foundIndex === -1) break;
-            
-            const start = pos + foundIndex;
-            const end = pos + foundIndex + text.length;
+          for (const wordMatch of wordMatches) {
+            const start = pos + wordMatch.index;
+            const end = pos + wordMatch.index + wordMatch.length;
             
             // Get marks for this text node
             const marks = node.marks || [];
@@ -263,8 +275,6 @@ export const applyTextBasedOperations = mutation({
             if (!hasMark) {
               matches.push({ start, end, marks });
             }
-            
-            index = foundIndex + 1;
           }
         }
       });
@@ -279,6 +289,8 @@ export const applyTextBasedOperations = mutation({
       doc.descendants((node: any, pos: number) => {
         if (node.isBlock && !node.isText) {
           const blockText = node.textContent || "";
+          // For block-level text search, we can use includes() since we're looking for the text anywhere in the block
+          // Word boundaries are less relevant at the block level
           if (blockText.includes(text)) {
             matches.push({
               node,
@@ -302,8 +314,8 @@ export const applyTextBasedOperations = mutation({
         doc.descendants((node: any, pos: number) => {
           if (node.isText && !found) {
             const text = node.text || "";
-            const index = text.indexOf(afterText);
-            if (index !== -1) {
+            const wordMatches = findAllTextWithWordBoundary(text, afterText);
+            if (wordMatches.length > 0) {
               // Find the end of the containing block
               let blockEnd = pos + node.nodeSize;
               let parent = node;
@@ -326,8 +338,8 @@ export const applyTextBasedOperations = mutation({
         doc.descendants((node: any, pos: number) => {
           if (node.isText && !found) {
             const text = node.text || "";
-            const index = text.indexOf(beforeText);
-            if (index !== -1) {
+            const wordMatches = findAllTextWithWordBoundary(text, beforeText);
+            if (wordMatches.length > 0) {
               // Find the start of the containing block
               let blockStart = pos;
               let parent = node;
@@ -411,6 +423,153 @@ export const applyTextBasedOperations = mutation({
       }
     };
 
+    // Helper function to escape regex special characters
+    const escapeRegex = (text: string): string => {
+      return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    };
+
+    // Helper function to determine the best matching strategy
+    const getMatchingStrategy = (searchText: string): 'literal' | 'word_boundary' => {
+      // Template placeholders: use literal matching
+      if (searchText.startsWith('[') && searchText.endsWith(']')) {
+        return 'literal';
+      }
+      
+      // Multi-word phrases with significant length: use literal matching  
+      if (searchText.includes(' ') && searchText.length > 20) {
+        return 'literal';
+      }
+      
+      // Phrases with complex punctuation: use literal matching
+      if (searchText.includes(',') || searchText.includes(';') || searchText.includes(':')) {
+        return 'literal';
+      }
+      
+      // Single words or simple phrases: use word boundary
+      return 'word_boundary';
+    };
+
+    // Helper function to find all text matches with literal string matching
+    const findAllTextLiteral = (text: string, searchText: string): Array<{ index: number; length: number }> => {
+      const matches: Array<{ index: number; length: number }> = [];
+      let startIndex = 0;
+      
+      while (true) {
+        const foundIndex = text.indexOf(searchText, startIndex);
+        if (foundIndex === -1) break;
+        
+        matches.push({ index: foundIndex, length: searchText.length });
+        startIndex = foundIndex + 1;
+      }
+      
+      console.log(`Literal matching result: Found ${matches.length} matches for "${searchText.length > 50 ? searchText.substring(0, 50) + '...' : searchText}"`);
+      if (matches.length > 0) {
+        console.log(`First match at index ${matches[0].index} in text: "${text.substring(Math.max(0, matches[0].index - 10), matches[0].index + searchText.length + 10)}"`);
+      }
+      
+      return matches;
+    };
+
+    // Helper function to find text with smart matching strategy
+    const findTextWithSmartMatching = (text: string, searchText: string, startIndex: number = 0): number => {
+      const strategy = getMatchingStrategy(searchText);
+      
+      if (strategy === 'literal') {
+        // Use indexOf for literal matching
+        return text.indexOf(searchText, startIndex);
+      } else {
+        // Create regex with word boundaries - \b ensures we match whole words only
+        const escapedSearch = escapeRegex(searchText);
+        const regex = new RegExp(`\\b${escapedSearch}\\b`, 'gi');
+        
+        // Set lastIndex to start from the specified position
+        regex.lastIndex = startIndex;
+        const match = regex.exec(text);
+        
+        return match ? match.index : -1;
+      }
+    };
+
+    // Backward compatibility alias
+    const findTextWithWordBoundary = findTextWithSmartMatching;
+
+    // Helper function to find all text matches using smart strategy detection
+    const findAllTextWithSmartMatching = (text: string, searchText: string): Array<{ index: number; length: number }> => {
+      const strategy = getMatchingStrategy(searchText);
+      console.log(`Using ${strategy} matching strategy for: "${searchText}"`);
+      
+      if (strategy === 'literal') {
+        return findAllTextLiteral(text, searchText);
+      } else {
+        // Word boundary matching
+        const matches: Array<{ index: number; length: number }> = [];
+        const escapedSearch = escapeRegex(searchText);
+        const regex = new RegExp(`\\b${escapedSearch}\\b`, 'gi');
+        
+        let match;
+        while ((match = regex.exec(text)) !== null) {
+          matches.push({ index: match.index, length: match[0].length });
+          // Prevent infinite loop on zero-width matches
+          if (match.index === regex.lastIndex) {
+            regex.lastIndex++;
+          }
+        }
+        
+        console.log(`Word boundary matching result: Found ${matches.length} matches for "${searchText}"`);
+        if (matches.length > 0) {
+          console.log(`First match at index ${matches[0].index} in text: "${text.substring(Math.max(0, matches[0].index - 10), matches[0].index + searchText.length + 10)}"`);
+        }
+        
+        return matches;
+      }
+    };
+
+    // Backward compatibility alias
+    const findAllTextWithWordBoundary = findAllTextWithSmartMatching;
+
+    // Helper function to select matches based on occurrence control parameters
+    const selectMatchesByOccurrence = (
+      allMatches: Array<{ start: number; end: number }>,
+      occurrenceIndex?: number,
+      maxOccurrences?: number,
+      replaceAll?: boolean
+    ): Array<{ start: number; end: number }> => {
+      // Priority: occurrenceIndex > maxOccurrences > replaceAll > first match only
+      
+      if (occurrenceIndex !== undefined) {
+        // Target specific occurrence (1-based)
+        const index = occurrenceIndex - 1; // Convert to 0-based
+        if (index >= 0 && index < allMatches.length) {
+          console.log(`Targeting occurrence ${occurrenceIndex} (found at index ${index})`);
+          return [allMatches[index]];
+        } else {
+          console.log(`Occurrence ${occurrenceIndex} not found (only ${allMatches.length} matches available)`);
+          return [];
+        }
+      }
+      
+      if (maxOccurrences !== undefined) {
+        // Limit number of occurrences
+        const limited = allMatches.slice(0, maxOccurrences);
+        console.log(`Limiting to first ${maxOccurrences} occurrences (found ${limited.length})`);
+        return limited;
+      }
+      
+      if (replaceAll) {
+        // All occurrences (existing behavior)
+        console.log(`Processing all ${allMatches.length} occurrences`);
+        return allMatches;
+      }
+      
+      // Default: first occurrence only
+      if (allMatches.length > 0) {
+        console.log(`Processing first occurrence only (${allMatches.length} total found)`);
+        return [allMatches[0]];
+      }
+      
+      return [];
+    };
+
     // Apply the position-based operations using the existing mutation
   
     await prosemirrorSync.transform(ctx, escrito.prosemirrorId, schema, (doc) => {
@@ -438,17 +597,15 @@ export const applyTextBasedOperations = mutation({
           const findText = op.findText;
           const matches: Array<{ start: number; end: number }> = [];
           
-          // Traverse the document to find all occurrences
+          // Traverse the document to find all occurrences with word boundaries
           doc.descendants((node, pos) => {
             if (node.isText) {
               const text = node.text || "";
-              let index = 0;
-              while (true) {
-                const foundIndex = text.indexOf(findText, index);
-                if (foundIndex === -1) break;
-                
-                const start = pos + foundIndex;
-                const end = pos + foundIndex + findText.length;
+              const wordMatches = findAllTextWithWordBoundary(text, findText);
+              
+              for (const wordMatch of wordMatches) {
+                const start = pos + wordMatch.index;
+                const end = pos + wordMatch.index + wordMatch.length;
                 
                 // Check context if provided
                 let matchesContext = true;
@@ -467,8 +624,6 @@ export const applyTextBasedOperations = mutation({
                 if (matchesContext) {
                   matches.push({ start, end });
                 }
-                
-                index = foundIndex + 1;
               }
             }
           });
@@ -478,8 +633,21 @@ export const applyTextBasedOperations = mutation({
             continue;
           }
           
+          // Apply occurrence selection logic
+          console.log(`Replace operation: occurrenceIndex=${op.occurrenceIndex}, maxOccurrences=${op.maxOccurrences}, replaceAll=${op.replaceAll}`);
+          const matchesToProcess = selectMatchesByOccurrence(
+            matches,
+            op.occurrenceIndex,
+            op.maxOccurrences,
+            op.replaceAll
+          );
+          
+          if (matchesToProcess.length === 0) {
+            console.log(`No matches selected based on occurrence criteria`);
+            continue;
+          }
+          
           // Apply replacements (reverse order to maintain position accuracy)
-          const matchesToProcess = op.replaceAll ? matches : [matches[0]];
           matchesToProcess.reverse().forEach(match => {
             console.log(`Replacing text at positions ${match.start}-${match.end} with "${op.text}"`);
             tr = tr.replaceWith(match.start, match.end, schema.text(op.text));
@@ -495,9 +663,10 @@ export const applyTextBasedOperations = mutation({
             doc.descendants((node, pos) => {
               if (node.isText && !found) {
                 const text = node.text || "";
-                const index = text.indexOf(op.afterText);
-                if (index !== -1) {
-                  insertPos = pos + index + op.afterText.length;
+                const wordMatches = findAllTextWithWordBoundary(text, op.afterText);
+                if (wordMatches.length > 0) {
+                  const firstMatch = wordMatches[0];
+                  insertPos = pos + firstMatch.index + firstMatch.length;
                   found = true;
                 }
               }
@@ -514,9 +683,10 @@ export const applyTextBasedOperations = mutation({
             doc.descendants((node, pos) => {
               if (node.isText && !found) {
                 const text = node.text || "";
-                const index = text.indexOf(op.beforeText);
-                if (index !== -1) {
-                  insertPos = pos + index;
+                const wordMatches = findAllTextWithWordBoundary(text, op.beforeText);
+                if (wordMatches.length > 0) {
+                  const firstMatch = wordMatches[0];
+                  insertPos = pos + firstMatch.index;
                   found = true;
                 }
               }
@@ -537,17 +707,15 @@ export const applyTextBasedOperations = mutation({
           const deleteText = op.deleteText;
           const matches: Array<{ start: number; end: number }> = [];
           
-          // Traverse the document to find all occurrences
+          // Traverse the document to find all occurrences with word boundaries
           doc.descendants((node, pos) => {
             if (node.isText) {
               const text = node.text || "";
-              let index = 0;
-              while (true) {
-                const foundIndex = text.indexOf(deleteText, index);
-                if (foundIndex === -1) break;
-                
-                const start = pos + foundIndex;
-                const end = pos + foundIndex + deleteText.length;
+              const wordMatches = findAllTextWithWordBoundary(text, deleteText);
+              
+              for (const wordMatch of wordMatches) {
+                const start = pos + wordMatch.index;
+                const end = pos + wordMatch.index + wordMatch.length;
                 
                 // Check context if provided
                 let matchesContext = true;
@@ -566,8 +734,6 @@ export const applyTextBasedOperations = mutation({
                 if (matchesContext) {
                   matches.push({ start, end });
                 }
-                
-                index = foundIndex + 1;
               }
             }
           });
@@ -577,8 +743,22 @@ export const applyTextBasedOperations = mutation({
             continue;
           }
           
+          // Apply occurrence selection logic
+          console.log(`Delete operation: occurrenceIndex=${op.occurrenceIndex}, maxOccurrences=${op.maxOccurrences}`);
+          const matchesToProcess = selectMatchesByOccurrence(
+            matches,
+            op.occurrenceIndex,
+            op.maxOccurrences,
+            false // delete doesn't have replaceAll option
+          );
+          
+          if (matchesToProcess.length === 0) {
+            console.log(`No matches selected based on occurrence criteria`);
+            continue;
+          }
+          
           // Apply deletions (reverse order to maintain position accuracy)
-          matches.reverse().forEach(match => {
+          matchesToProcess.reverse().forEach(match => {
             console.log(`Deleting text at positions ${match.start}-${match.end}`);
             tr = tr.delete(match.start, match.end);
           });
@@ -614,8 +794,21 @@ export const applyTextBasedOperations = mutation({
             continue;
           }
           
+          // Apply occurrence selection logic
+          const matchesToProcess = selectMatchesByOccurrence(
+            filteredMatches,
+            op.occurrenceIndex,
+            op.maxOccurrences,
+            false // marks don't use replaceAll
+          );
+          
+          if (matchesToProcess.length === 0) {
+            console.log(`No matches selected based on occurrence criteria`);
+            continue;
+          }
+          
           // Apply marks (reverse order to maintain position accuracy)
-          filteredMatches.reverse().forEach(match => {
+          matchesToProcess.reverse().forEach(match => {
             console.log(`Adding ${op.markType} mark to text at positions ${match.start}-${match.end}`);
             const mark = schema.marks[op.markType].create();
             tr = tr.addMark(match.start, match.end, mark);
@@ -652,8 +845,21 @@ export const applyTextBasedOperations = mutation({
             continue;
           }
           
+          // Apply occurrence selection logic
+          const matchesToProcess = selectMatchesByOccurrence(
+            filteredMatches,
+            op.occurrenceIndex,
+            op.maxOccurrences,
+            false // marks don't use replaceAll
+          );
+          
+          if (matchesToProcess.length === 0) {
+            console.log(`No matches selected based on occurrence criteria`);
+            continue;
+          }
+          
           // Remove marks (reverse order to maintain position accuracy)
-          filteredMatches.reverse().forEach(match => {
+          matchesToProcess.reverse().forEach(match => {
             console.log(`Removing ${op.markType} mark from text at positions ${match.start}-${match.end}`);
             const mark = schema.marks[op.markType].create();
             tr = tr.removeMark(match.start, match.end, mark);
@@ -694,8 +900,21 @@ export const applyTextBasedOperations = mutation({
             continue;
           }
           
+          // Apply occurrence selection logic
+          const matchesToProcess = selectMatchesByOccurrence(
+            filteredMatches,
+            op.occurrenceIndex,
+            op.maxOccurrences,
+            false // marks don't use replaceAll
+          );
+          
+          if (matchesToProcess.length === 0) {
+            console.log(`No matches selected based on occurrence criteria`);
+            continue;
+          }
+          
           // Replace marks (reverse order to maintain position accuracy)
-          filteredMatches.reverse().forEach(match => {
+          matchesToProcess.reverse().forEach(match => {
             console.log(`Replacing ${op.oldMarkType} mark with ${op.newMarkType} at positions ${match.start}-${match.end}`);
             const oldMark = schema.marks[op.oldMarkType].create();
             const newMark = schema.marks[op.newMarkType].create();
