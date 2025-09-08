@@ -41,6 +41,7 @@ import type * as functions_permissions_test from "../functions/permissions_test.
 import type * as functions_seedCases from "../functions/seedCases.js";
 import type * as functions_teams from "../functions/teams.js";
 import type * as functions_templates from "../functions/templates.js";
+import type * as functions_test_getCases from "../functions/test_getCases.js";
 import type * as functions_test_permissions_simple from "../functions/test_permissions_simple.js";
 import type * as functions_users from "../functions/users.js";
 import type * as http from "../http.js";
@@ -101,6 +102,7 @@ declare const fullApi: ApiFromModules<{
   "functions/seedCases": typeof functions_seedCases;
   "functions/teams": typeof functions_teams;
   "functions/templates": typeof functions_templates;
+  "functions/test_getCases": typeof functions_test_getCases;
   "functions/test_permissions_simple": typeof functions_test_permissions_simple;
   "functions/users": typeof functions_users;
   http: typeof http;
