@@ -123,7 +123,13 @@ export const applyTextBasedOperations = mutation({
     }
 
     // Build schema for the transform function
+    console.log("=== BUILDING SCHEMA ===");
     const schema = buildServerSchema();
+    console.log("Schema built successfully");
+    console.log("Schema nodes:", Object.keys(schema.nodes));
+    console.log("Schema marks:", Object.keys(schema.marks));
+    console.log("Schema topNodeType:", schema.topNodeType);
+    console.log("Schema cached:", schema.cached);
 
     const operations: any[] = [];
 
@@ -360,39 +366,74 @@ export const applyTextBasedOperations = mutation({
       return doc.content.size;
     };
 
+    // Helper function to create text content that properly handles newlines
+    const createTextContent = (schema: any, content: string) => {
+      // If content doesn't contain newlines, create simple text node
+      if (!content.includes('\n')) {
+        return schema.text(content);
+      }
+      
+      // Split content by newlines and create text nodes with hard breaks
+      const parts = content.split('\n');
+      const nodes = [];
+      
+      for (let i = 0; i < parts.length; i++) {
+        if (parts[i]) {
+          nodes.push(schema.text(parts[i]));
+        }
+        // Add hard break between text parts (except after the last part)
+        if (i < parts.length - 1) {
+          // Check if hardBreak node exists in schema
+          if (schema.nodes.hardBreak) {
+            nodes.push(schema.nodes.hardBreak.create());
+          } else {
+            // Fallback: create a space if hardBreak is not available
+            nodes.push(schema.text(' '));
+          }
+        }
+      }
+      
+      return nodes;
+    };
+
     // Helper function to create nodes of different types
     const createNodeOfType = (schema: any, type: string, content: any, headingLevel?: number) => {
       try {
         switch (type) {
           case "paragraph":
             if (typeof content === 'string') {
-              return schema.nodes.paragraph.createAndFill({}, schema.text(content));
+              const textContent = createTextContent(schema, content);
+              return schema.nodes.paragraph.createAndFill({}, textContent);
             }
             return schema.nodes.paragraph.createAndFill({}, content);
             
           case "heading":
             const level = headingLevel && headingLevel >= 1 && headingLevel <= 6 ? headingLevel : 1;
             if (typeof content === 'string') {
-              return schema.nodes.heading.createAndFill({ level }, schema.text(content));
+              const textContent = createTextContent(schema, content);
+              return schema.nodes.heading.createAndFill({ level }, textContent);
             }
             return schema.nodes.heading.createAndFill({ level }, content);
             
           case "blockquote":
             if (typeof content === 'string') {
-              const paragraph = schema.nodes.paragraph.createAndFill({}, schema.text(content));
+              const textContent = createTextContent(schema, content);
+              const paragraph = schema.nodes.paragraph.createAndFill({}, textContent);
               return schema.nodes.blockquote.createAndFill({}, paragraph);
             }
             return schema.nodes.blockquote.createAndFill({}, content);
             
           case "codeBlock":
             if (typeof content === 'string') {
-              return schema.nodes.codeBlock.createAndFill({}, schema.text(content));
+              const textContent = createTextContent(schema, content);
+              return schema.nodes.codeBlock.createAndFill({}, textContent);
             }
             return schema.nodes.codeBlock.createAndFill({}, content);
             
           case "bulletList":
             if (typeof content === 'string') {
-              const paragraph = schema.nodes.paragraph.createAndFill({}, schema.text(content));
+              const textContent = createTextContent(schema, content);
+              const paragraph = schema.nodes.paragraph.createAndFill({}, textContent);
               const listItem = schema.nodes.listItem.createAndFill({}, paragraph);
               return schema.nodes.bulletList.createAndFill({}, listItem);
             }
@@ -400,7 +441,8 @@ export const applyTextBasedOperations = mutation({
             
           case "orderedList":
             if (typeof content === 'string') {
-              const paragraph = schema.nodes.paragraph.createAndFill({}, schema.text(content));
+              const textContent = createTextContent(schema, content);
+              const paragraph = schema.nodes.paragraph.createAndFill({}, textContent);
               const listItem = schema.nodes.listItem.createAndFill({}, paragraph);
               return schema.nodes.orderedList.createAndFill({}, listItem);
             }
@@ -409,7 +451,8 @@ export const applyTextBasedOperations = mutation({
           default:
             // Fallback to paragraph
             if (typeof content === 'string') {
-              return schema.nodes.paragraph.createAndFill({}, schema.text(content));
+              const textContent = createTextContent(schema, content);
+              return schema.nodes.paragraph.createAndFill({}, textContent);
             }
             return schema.nodes.paragraph.createAndFill({}, content);
         }
@@ -417,7 +460,8 @@ export const applyTextBasedOperations = mutation({
         console.error(`Error creating node of type ${type}:`, error);
         // Fallback to simple paragraph
         if (typeof content === 'string') {
-          return schema.nodes.paragraph.createAndFill({}, schema.text(content));
+          const textContent = createTextContent(schema, content);
+          return schema.nodes.paragraph.createAndFill({}, textContent);
         }
         return schema.nodes.paragraph.createAndFill({}, content);
       }
@@ -571,29 +615,116 @@ export const applyTextBasedOperations = mutation({
     };
 
     // Apply the position-based operations using the existing mutation
+    
+    // DEBUG: Log all parameters before transform
+    console.log("=== TRANSFORM DEBUG START ===");
+    console.log("escritoId:", escritoId);
+    console.log("escrito.prosemirrorId:", escrito.prosemirrorId);
+    console.log("operations count:", operations.length);
+    console.log("operations:", JSON.stringify(operations, null, 2));
+    
+    // Get current document state for debugging
+    const currentSnapshot = await ctx.runQuery(api.prosemirror.getSnapshot, { id: escrito.prosemirrorId });
+    console.log("Current snapshot:", JSON.stringify(currentSnapshot, null, 2));
+    
+    // Log schema structure
+    console.log("Schema nodes:", Object.keys(schema.nodes));
+    console.log("Schema marks:", Object.keys(schema.marks));
+    
+    // Validate document content structure
+    if (currentSnapshot?.content) {
+      try {
+        console.log("Document content type:", typeof currentSnapshot.content);
+        console.log("Document content keys:", Object.keys(currentSnapshot.content));
+        
+        // Try to parse the content as JSON to see if it's valid
+        const contentStr = JSON.stringify(currentSnapshot.content);
+        console.log("Document content length:", contentStr.length);
+        console.log("Document content preview:", contentStr.substring(0, 500));
+        
+        // Check for common JSON issues
+        if (contentStr.includes('undefined')) {
+          console.log("WARNING: Document content contains 'undefined' values");
+        }
+        if (contentStr.includes('null')) {
+          console.log("INFO: Document content contains 'null' values");
+        }
+        
+      } catch (error) {
+        console.log("ERROR parsing document content:", error);
+      }
+    } else {
+      console.log("WARNING: No document content found in snapshot");
+    }
+    
+    console.log("=== TRANSFORM DEBUG END ===");
   
     await prosemirrorSync.transform(ctx, escrito.prosemirrorId, schema, (doc) => {
+      console.log("=== TRANSFORM CALLBACK START ===");
+      console.log("Document received in callback:", doc);
+      console.log("Document type:", typeof doc);
+      console.log("Document constructor:", doc.constructor.name);
+      
       // Store original for diff
-      const originalDocJson = doc.toJSON();
+      let originalDocJson;
+      try {
+        originalDocJson = doc.toJSON();
+        console.log("Successfully converted document to JSON");
+        console.log("Original document JSON keys:", Object.keys(originalDocJson));
+        console.log("Original document JSON preview:", JSON.stringify(originalDocJson, null, 2).substring(0, 1000));
+      } catch (error) {
+        console.log("ERROR converting document to JSON:", error);
+        console.log("Document structure:", doc);
+        throw error;
+      }
       
       // Create a fresh state for applying operations
       let currentDoc = doc;
       
       // Apply operations one by one
-      for (const op of operations) {
-        const state = EditorState.create({ doc: currentDoc });
+      for (let i = 0; i < operations.length; i++) {
+        const op = operations[i];
+        console.log(`=== PROCESSING OPERATION ${i + 1}/${operations.length} ===`);
+        console.log("Operation:", JSON.stringify(op, null, 2));
+        console.log("Current document before operation:", currentDoc);
+        console.log("Current document childCount:", currentDoc.childCount);
+        
+        let state;
+        try {
+          state = EditorState.create({ doc: currentDoc });
+          console.log("Successfully created EditorState");
+        } catch (error) {
+          console.log("ERROR creating EditorState:", error);
+          console.log("Current document that failed:", currentDoc);
+          throw error;
+        }
+        
         let tr = state.tr;
 
         // Ensure document has content for operations
         if (currentDoc.childCount === 0) {
-          const paragraph = schema.nodes.paragraph.createAndFill()!;
-          tr = tr.insert(0, paragraph);
+          console.log("Document is empty, creating paragraph");
+          try {
+            const paragraph = schema.nodes.paragraph.createAndFill()!;
+            console.log("Created paragraph:", paragraph);
+            tr = tr.insert(0, paragraph);
+            console.log("Inserted paragraph into transaction");
+          } catch (error) {
+            console.log("ERROR creating/inserting paragraph:", error);
+            throw error;
+          }
         }
 
         // Handle text-based operations with position finding
         if (op.type === "replace_range" && op.findText) {
+          console.log("Processing replace_range operation");
+          console.log("Find text:", op.findText);
+          console.log("Replace text:", op.text);
+          
           // Find the text to replace in the current document
           const doc = tr.doc;
+          console.log("Document for text search:", doc);
+          console.log("Document text content:", doc.textContent);
           const findText = op.findText;
           const matches: Array<{ start: number; end: number }> = [];
           
@@ -975,27 +1106,62 @@ export const applyTextBasedOperations = mutation({
       }
 
       // Now run diff engine
+      console.log("=== DIFF ENGINE START ===");
       const newDocJson = currentDoc.toJSON();
-      console.log("newDocJson", newDocJson);
+      console.log("newDocJson:", JSON.stringify(newDocJson, null, 2));
+      console.log("originalDocJson:", JSON.stringify(originalDocJson, null, 2));
+      
       const delta = createJsonDiff(originalDocJson, newDocJson);
+      console.log("Delta:", JSON.stringify(delta, null, 2));
+      
       const merged = buildContentWithJsonChanges(originalDocJson, newDocJson, delta);
+      console.log("Merged content:", JSON.stringify(merged, null, 2));
+      console.log("Merged content type:", typeof merged);
+      console.log("Merged content keys:", merged ? Object.keys(merged) : "null/undefined");
       
       // Create final document and return transaction
       try {
+        console.log("=== ATTEMPTING TO CREATE NODE FROM JSON ===");
+        console.log("Schema:", schema);
+        console.log("Schema nodes:", Object.keys(schema.nodes));
+        console.log("Schema marks:", Object.keys(schema.marks));
+        console.log("Merged data being passed to nodeFromJSON:", JSON.stringify(merged, null, 2));
+        
         const mergedNode = schema.nodeFromJSON(merged);
+        console.log("Successfully created mergedNode:", mergedNode);
+        console.log("MergedNode type:", mergedNode.type);
+        console.log("MergedNode content:", mergedNode.content);
+        
         const finalState = EditorState.create({ doc });
-        console.log("finalState", finalState);
+        console.log("Created finalState:", finalState);
+        console.log("FinalState doc:", finalState.doc);
+        console.log("FinalState doc content size:", finalState.doc.content.size);
         
         // Replace with the merged content
-        return finalState.tr.replaceWith(0, finalState.doc.content.size, mergedNode.content);
+        const result = finalState.tr.replaceWith(0, finalState.doc.content.size, mergedNode.content);
+        console.log("Successfully created final transaction");
+        return result;
       } catch (error) {
+        console.error("=== ERROR IN NODE CREATION ===");
         console.error("Error creating merged document:", error);
+        console.error("Error stack:", error instanceof Error ? error.stack : 'No stack trace available');
+        console.error("Merged data that failed:", JSON.stringify(merged, null, 2));
+        console.error("Schema validation failed for:", merged);
         
         // Fallback: use the new document directly if merge fails
+        console.log("=== USING FALLBACK APPROACH ===");
         const finalState = EditorState.create({ doc });
-        return finalState.tr.replaceWith(0, finalState.doc.content.size, currentDoc.content);
+        console.log("Fallback finalState:", finalState);
+        const fallbackResult = finalState.tr.replaceWith(0, finalState.doc.content.size, currentDoc.content);
+        console.log("Fallback result:", fallbackResult);
+        return fallbackResult;
       }
+      
+      console.log("=== TRANSFORM CALLBACK END ===");
     });
+
+    console.log("=== TRANSFORM COMPLETED SUCCESSFULLY ===");
+    console.log("Operations applied:", operations.length);
 
     return {
       ok: true,
