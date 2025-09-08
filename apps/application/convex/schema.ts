@@ -361,4 +361,37 @@ export default defineSchema({
     .index("by_invited_by", ["invitedBy"])
     .index("by_team_and_email", ["teamId", "email"])
     .index("by_expires_at", ["expiresAt"]),
+
+  // ========================================
+  // NEW UNIFIED PERMISSIONS SYSTEM
+  // ========================================
+
+  // Unified Case Access - NEW simplified 3-level system
+  // This will gradually replace userCaseAccess, teamCaseAccess, teamMemberCaseAccess
+  caseAccess: defineTable({
+    caseId: v.id("cases"),
+    // Either userId OR teamId should be set, not both
+    userId: v.optional(v.id("users")), // Individual user access
+    teamId: v.optional(v.id("teams")), // Team-based access
+    accessLevel: v.union(
+      v.literal("basic"), // View documents, use agent
+      v.literal("advanced"), // Edit documents, manage case data
+      v.literal("admin"), // Manage permissions, full control
+    ),
+    grantedBy: v.id("users"),
+    grantedAt: v.number(),
+    expiresAt: v.optional(v.number()),
+    isActive: v.boolean(),
+    // Optional notes for why access was granted
+    notes: v.optional(v.string()),
+  })
+    .index("by_case", ["caseId"])
+    .index("by_user", ["userId"])
+    .index("by_team", ["teamId"])
+    .index("by_case_and_user", ["caseId", "userId"])
+    .index("by_case_and_team", ["caseId", "teamId"])
+    .index("by_access_level", ["accessLevel"])
+    .index("by_granted_by", ["grantedBy"])
+    .index("by_active_status", ["isActive"])
+    .index("by_expires_at", ["expiresAt"]),
 });
