@@ -1,6 +1,10 @@
 import { v } from "convex/values";
 import { query, mutation } from "../_generated/server";
-import { getCurrentUserFromAuth, requireCaseAccess } from "../auth_utils";
+import {
+  getCurrentUserFromAuth,
+  requireCaseAccess,
+  requireNewCaseAccess,
+} from "../auth_utils";
 
 // ========================================
 // FOLDER MANAGEMENT
@@ -53,8 +57,8 @@ export const createFolder = mutation({
   },
   handler: async (ctx, args) => {
     // Verify user has case access
-    await requireCaseAccess(ctx, args.caseId, "full");
     const currentUser = await getCurrentUserFromAuth(ctx);
+    await requireNewCaseAccess(ctx, currentUser._id, args.caseId, "advanced");
 
     // If parentFolderId is provided, verify it belongs to the same case
     if (args.parentFolderId) {
@@ -145,7 +149,8 @@ export const getFoldersForCase = query({
   },
   handler: async (ctx, args) => {
     // Verify user has case access
-    await requireCaseAccess(ctx, args.caseId, "read");
+    const currentUser = await getCurrentUserFromAuth(ctx);
+    await requireNewCaseAccess(ctx, currentUser._id, args.caseId, "basic");
 
     let folders;
     if (args.parentFolderId) {
@@ -219,7 +224,8 @@ export const getFolderById = query({
     }
 
     // Verify user has case access
-    await requireCaseAccess(ctx, folder.caseId, "read");
+    const currentUser = await getCurrentUserFromAuth(ctx);
+    await requireNewCaseAccess(ctx, currentUser._id, folder.caseId, "basic");
 
     return folder;
   },
@@ -267,7 +273,8 @@ export const updateFolder = mutation({
     }
 
     // Verify user has case access
-    await requireCaseAccess(ctx, folder.caseId, "full");
+    const currentUser = await getCurrentUserFromAuth(ctx);
+    await requireNewCaseAccess(ctx, currentUser._id, folder.caseId, "admin");
 
     // If updating name, check for duplicates
     if (args.name && args.name !== folder.name) {
@@ -337,8 +344,8 @@ export const archiveFolder = mutation({
     }
 
     // Verify user has case access
-    await requireCaseAccess(ctx, folder.caseId, "full");
-
+    const currentUser = await getCurrentUserFromAuth(ctx);
+    await requireNewCaseAccess(ctx, currentUser._id, folder.caseId, "admin");
     // Archive the folder
     await ctx.db.patch(args.folderId, { isArchived: true });
 
@@ -399,7 +406,8 @@ export const restoreFolder = mutation({
     }
 
     // Verify user has case access
-    await requireCaseAccess(ctx, folder.caseId, "full");
+    const currentUser = await getCurrentUserFromAuth(ctx);
+    await requireNewCaseAccess(ctx, currentUser._id, folder.caseId, "admin");
 
     // Restore the folder
     await ctx.db.patch(args.folderId, { isArchived: false });
@@ -464,7 +472,8 @@ export const moveFolder = mutation({
     }
 
     // Verify user has case access
-    await requireCaseAccess(ctx, folder.caseId, "full");
+    const currentUser = await getCurrentUserFromAuth(ctx);
+    await requireNewCaseAccess(ctx, currentUser._id, folder.caseId, "admin");
 
     // If moving to a parent folder, validate it
     if (args.newParentFolderId) {
@@ -566,7 +575,8 @@ export const getFolderPath = query({
     }
 
     // Verify user has case access
-    await requireCaseAccess(ctx, folder.caseId, "read");
+    const currentUser = await getCurrentUserFromAuth(ctx);
+    await requireNewCaseAccess(ctx, currentUser._id, folder.caseId, "basic");
 
     const path = [];
     let currentFolder = folder;
