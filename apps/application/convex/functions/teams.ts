@@ -1,11 +1,6 @@
 import { v } from "convex/values";
-import { query, mutation, action } from "../_generated/server";
-import {
-  getCurrentUserFromAuth,
-  requireTeamPermission,
-  requireCaseAccess,
-  requireNewCaseAccess,
-} from "../auth_utils";
+import { query, mutation } from "../_generated/server";
+import { getCurrentUserFromAuth, requireNewCaseAccess } from "../auth_utils";
 import { internal } from "../_generated/api";
 
 // ========================================

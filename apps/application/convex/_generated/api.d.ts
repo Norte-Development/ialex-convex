@@ -52,7 +52,6 @@ import type * as rag_utils from "../rag/utils.js";
 import type * as utils_gcs from "../utils/gcs.js";
 import type * as utils_legislationService from "../utils/legislationService.js";
 import type * as utils_resend from "../utils/resend.js";
-import type * as validation_test from "../validation_test.js";
 
 import type {
   ApiFromModules,
@@ -113,7 +112,6 @@ declare const fullApi: ApiFromModules<{
   "utils/gcs": typeof utils_gcs;
   "utils/legislationService": typeof utils_legislationService;
   "utils/resend": typeof utils_resend;
-  validation_test: typeof validation_test;
 }>;
 declare const fullApiWithMounts: typeof fullApi;
 

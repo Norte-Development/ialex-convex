@@ -2,9 +2,6 @@ import { v } from "convex/values";
 import { query, mutation } from "../_generated/server";
 import {
   getCurrentUserFromAuth,
-  requireCaseAccess,
-  checkCaseAccess,
-  PERMISSIONS,
   checkNewCaseAccess,
   AccessLevel,
   grantNewCaseAccess,
@@ -211,7 +208,6 @@ export const hasPermission = query({
 
     if (!access.hasAccess) return false;
     const permissions = access.userLevel || "none";
-    if (permissions.includes(PERMISSIONS.FULL)) return true;
 
     return permissions.includes(args.permission);
   },

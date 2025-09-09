@@ -2,13 +2,8 @@ import { v } from "convex/values";
 import { query, mutation } from "../_generated/server";
 import {
   getCurrentUserFromAuth,
-  requireCaseAccess,
-  requireClientPermission,
-  checkCaseAccess,
-  hasClientPermission,
-  requireNewCaseAccess, // NEW: Import the new permission system function
+  requireNewCaseAccess,
   checkNewCaseAccess,
-  grantNewCaseAccess,
 } from "../auth_utils";
 
 // ========================================

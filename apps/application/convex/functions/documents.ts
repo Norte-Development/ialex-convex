@@ -1,14 +1,8 @@
 import { v } from "convex/values";
 import { query, mutation, action, internalQuery } from "../_generated/server";
-import {
-  requireDocumentPermission,
-  requireEscritoPermission,
-  getCurrentUserFromAuth,
-  requireNewCaseAccess,
-} from "../auth_utils";
+import { getCurrentUserFromAuth, requireNewCaseAccess } from "../auth_utils";
 import { prosemirrorSync } from "../prosemirror";
 import { internal, api } from "../_generated/api";
-import { rag } from "../rag/rag";
 
 /**
  * Generates a Google Cloud Storage V4 signed URL for client-side uploads.
