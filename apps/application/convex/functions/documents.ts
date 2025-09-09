@@ -4,6 +4,7 @@ import {
   requireDocumentPermission,
   requireEscritoPermission,
   getCurrentUserFromAuth,
+  requireNewCaseAccess,
 } from "../auth_utils";
 import { prosemirrorSync } from "../prosemirror";
 import { internal, api } from "../_generated/api";
@@ -161,12 +162,9 @@ export const createDocument = mutation({
     tags: v.optional(v.array(v.string())),
   },
   handler: async (ctx, args) => {
-    // Verify user has document write permission; FULL access bypasses via hasPermission
-    const { currentUser } = await requireDocumentPermission(
-      ctx,
-      args.caseId,
-      "write",
-    );
+    // Verify user has document write permission using NEW system
+    const currentUser = await getCurrentUserFromAuth(ctx);
+    await requireNewCaseAccess(ctx, currentUser._id, args.caseId, "advanced");
 
     // If a folderId is provided, validate it exists and belongs to the same case
     if (args.folderId) {
@@ -251,8 +249,9 @@ export const getDocuments = query({
     caseId: v.id("cases"),
   },
   handler: async (ctx, args) => {
-    // Verify user has document read permission
-    await requireDocumentPermission(ctx, args.caseId, "read");
+    // Verify user has document read permission using NEW system
+    const currentUser = await getCurrentUserFromAuth(ctx);
+    await requireNewCaseAccess(ctx, currentUser._id, args.caseId, "basic");
 
     const documents = await ctx.db
       .query("documents")
@@ -274,8 +273,9 @@ export const getDocumentsInFolder = query({
     folderId: v.optional(v.id("folders")),
   },
   handler: async (ctx, args) => {
-    // Verify user has document read permission
-    await requireDocumentPermission(ctx, args.caseId, "read");
+    // Verify user has document read permission using NEW system
+    const currentUser = await getCurrentUserFromAuth(ctx);
+    await requireNewCaseAccess(ctx, currentUser._id, args.caseId, "basic");
 
     const documents = await ctx.db
       .query("documents")
@@ -430,8 +430,9 @@ export const deleteDocument = mutation({
       throw new Error("Document not found");
     }
 
-    // Verify user has document delete permission
-    await requireDocumentPermission(ctx, document.caseId, "delete");
+    // Verify user has document delete permission using NEW system
+    const currentUser = await getCurrentUserFromAuth(ctx);
+    await requireNewCaseAccess(ctx, currentUser._id, document.caseId, "admin");
 
     // Delete document chunks from Qdrant
     try {
@@ -447,25 +448,10 @@ export const deleteDocument = mutation({
       // Ignore Qdrant deletion failure; continue deleting storage and DB record
     }
 
-    if (
-      document.storageBackend === "gcs" &&
-      document.gcsBucket &&
-      document.gcsObject
-    ) {
-      await ctx.scheduler.runAfter(
-        0,
-        internal.utils.gcs.deleteGcsObjectAction,
-        {
-          bucket: document.gcsBucket,
-          object: document.gcsObject,
-        },
-      );
-    } else if (document.fileId) {
-      await ctx.storage.delete(document.fileId);
-    }
+    // Delete the document record
     await ctx.db.delete(args.documentId);
 
-    console.log("Deleted document:", args.documentId);
+    return { success: true };
   },
 });
 
@@ -507,38 +493,44 @@ export const createEscrito = mutation({
     expedientNumber: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    // Verify user has escrito write permission
-    const { currentUser } = await requireEscritoPermission(
-      ctx,
-      args.caseId,
-      "write",
-    );
+    // Verify user has escrito write permission using NEW system
+    const currentUser = await getCurrentUserFromAuth(ctx);
+    await requireNewCaseAccess(ctx, currentUser._id, args.caseId, "advanced");
 
     const prosemirrorId = crypto.randomUUID();
 
     await prosemirrorSync.create(ctx, prosemirrorId, {
       content: {
         type: "doc",
-        content: [],
+        content: [
+          {
+            type: "paragraph",
+            content: [
+              {
+                type: "text",
+                text: "Nuevo escrito legal...",
+              },
+            ],
+          },
+        ],
       },
     });
 
     const escritoId = await ctx.db.insert("escritos", {
       title: args.title,
+      prosemirrorId,
       caseId: args.caseId,
       status: "borrador",
       presentationDate: args.presentationDate,
       courtName: args.courtName,
       expedientNumber: args.expedientNumber,
-      prosemirrorId: prosemirrorId,
       lastEditedAt: Date.now(),
       createdBy: currentUser._id,
       lastModifiedBy: currentUser._id,
       isArchived: false,
     });
 
-    console.log("Created escrito with id:", escritoId);
-    return { escritoId, prosemirrorId };
+    return escritoId;
   },
 });
 
@@ -593,11 +585,13 @@ export const updateEscrito = mutation({
       throw new Error("Escrito not found");
     }
 
-    // Verify user has escrito write permission
-    const { currentUser } = await requireEscritoPermission(
+    // Verify user has escrito write permission using NEW system
+    const currentUser = await getCurrentUserFromAuth(ctx);
+    await requireNewCaseAccess(
       ctx,
+      currentUser._id,
       escrito.caseId,
-      "write",
+      "advanced",
     );
 
     const updates: any = {
@@ -645,8 +639,9 @@ export const getEscritos = query({
     caseId: v.id("cases"),
   },
   handler: async (ctx, args) => {
-    // Verify user has escrito read permission
-    await requireEscritoPermission(ctx, args.caseId, "read");
+    // Verify user has escrito read permission using NEW system
+    const currentUser = await getCurrentUserFromAuth(ctx);
+    await requireNewCaseAccess(ctx, currentUser._id, args.caseId, "basic");
 
     const escritos = await ctx.db
       .query("escritos")
@@ -733,14 +728,13 @@ export const archiveEscrito = mutation({
       throw new Error("Escrito not found");
     }
 
-    // Verify user has escrito delete permission for archiving
-    await requireEscritoPermission(ctx, escrito.caseId, "delete");
+    // Verify user has escrito delete permission for archiving using NEW system
+    const currentUser = await getCurrentUserFromAuth(ctx);
+    await requireNewCaseAccess(ctx, currentUser._id, escrito.caseId, "admin");
 
     await ctx.db.patch(args.escritoId, { isArchived: args.isArchived });
-    console.log(
-      `${args.isArchived ? "Archived" : "Unarchived"} escrito:`,
-      args.escritoId,
-    );
+
+    return { success: true };
   },
 });
 
@@ -767,8 +761,9 @@ export const getArchivedEscritos = query({
     caseId: v.id("cases"),
   },
   handler: async (ctx, args) => {
-    // Verify user has escrito read permission
-    await requireEscritoPermission(ctx, args.caseId, "read");
+    // Verify user has escrito read permission using NEW system
+    const currentUser = await getCurrentUserFromAuth(ctx);
+    await requireNewCaseAccess(ctx, currentUser._id, args.caseId, "basic");
 
     const archivedEscritos = await ctx.db
       .query("escritos")
@@ -817,8 +812,14 @@ export const moveDocument = mutation({
       throw new Error("Document not found");
     }
 
-    // Verify user has document write permission
-    await requireDocumentPermission(ctx, document.caseId, "write");
+    // Verify user has document write permission using NEW system
+    const currentUser = await getCurrentUserFromAuth(ctx);
+    await requireNewCaseAccess(
+      ctx,
+      currentUser._id,
+      document.caseId,
+      "advanced",
+    );
 
     // If a newFolderId is provided, validate it exists and belongs to the same case
     if (args.newFolderId) {

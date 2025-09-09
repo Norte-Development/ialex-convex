@@ -224,199 +224,199 @@ export const hasPermission = query({
 /**
  * Grant specific permissions to a team member for a case
  */
-export const grantTeamMemberCaseAccess = mutation({
-  args: {
-    caseId: v.id("cases"),
-    teamId: v.id("teams"),
-    userId: v.id("users"),
-    permissions: v.array(permissionTypes),
-    expiresAt: v.optional(v.number()),
-  },
-  handler: async (ctx, args) => {
-    const { currentUser } = await requireCaseAccess(ctx, args.caseId, "full");
+// export const grantTeamMemberCaseAccess = mutation({
+//   args: {
+//     caseId: v.id("cases"),
+//     teamId: v.id("teams"),
+//     userId: v.id("users"),
+//     permissions: v.array(permissionTypes),
+//     expiresAt: v.optional(v.number()),
+//   },
+//   handler: async (ctx, args) => {
+//     const { currentUser } = await requireCaseAccess(ctx, args.caseId, "full");
 
-    // Verify user is member of the team
-    const membership = await ctx.db
-      .query("teamMemberships")
-      .withIndex("by_team_and_user", (q) =>
-        q.eq("teamId", args.teamId).eq("userId", args.userId),
-      )
-      .filter((q) => q.eq(q.field("isActive"), true))
-      .first();
+//     // Verify user is member of the team
+//     const membership = await ctx.db
+//       .query("teamMemberships")
+//       .withIndex("by_team_and_user", (q) =>
+//         q.eq("teamId", args.teamId).eq("userId", args.userId),
+//       )
+//       .filter((q) => q.eq(q.field("isActive"), true))
+//       .first();
 
-    if (!membership) {
-      throw new Error("User is not a member of this team");
-    }
+//     if (!membership) {
+//       throw new Error("User is not a member of this team");
+//     }
 
-    // Check if access already exists
-    const existing = await ctx.db
-      .query("teamMemberCaseAccess")
-      .withIndex("by_team_user_case", (q) =>
-        q
-          .eq("teamId", args.teamId)
-          .eq("userId", args.userId)
-          .eq("caseId", args.caseId),
-      )
-      .filter((q) => q.eq(q.field("isActive"), true))
-      .first();
+//     // Check if access already exists
+//     const existing = await ctx.db
+//       .query("teamMemberCaseAccess")
+//       .withIndex("by_team_user_case", (q) =>
+//         q
+//           .eq("teamId", args.teamId)
+//           .eq("userId", args.userId)
+//           .eq("caseId", args.caseId),
+//       )
+//       .filter((q) => q.eq(q.field("isActive"), true))
+//       .first();
 
-    if (existing) {
-      await ctx.db.patch(existing._id, {
-        permissions: args.permissions,
-        grantedBy: currentUser._id,
-        grantedAt: Date.now(),
-        expiresAt: args.expiresAt,
-      });
-      return existing._id;
-    }
+//     if (existing) {
+//       await ctx.db.patch(existing._id, {
+//         permissions: args.permissions,
+//         grantedBy: currentUser._id,
+//         grantedAt: Date.now(),
+//         expiresAt: args.expiresAt,
+//       });
+//       return existing._id;
+//     }
 
-    return await ctx.db.insert("teamMemberCaseAccess", {
-      caseId: args.caseId,
-      teamId: args.teamId,
-      userId: args.userId,
-      permissions: args.permissions,
-      grantedBy: currentUser._id,
-      grantedAt: Date.now(),
-      expiresAt: args.expiresAt,
-      isActive: true,
-    });
-  },
-});
+//     return await ctx.db.insert("teamMemberCaseAccess", {
+//       caseId: args.caseId,
+//       teamId: args.teamId,
+//       userId: args.userId,
+//       permissions: args.permissions,
+//       grantedBy: currentUser._id,
+//       grantedAt: Date.now(),
+//       expiresAt: args.expiresAt,
+//       isActive: true,
+//     });
+//   },
+// });
 
-/**
- * Get all users with access to a case (including team access)
- */
-export const getAllUsersWithCaseAccess = query({
-  args: { caseId: v.id("cases") },
-  handler: async (ctx, args) => {
-    await requireCaseAccess(ctx, args.caseId, "read");
+// /**
+//  * Get all users with access to a case (including team access)
+//  */
+// export const getAllUsersWithCaseAccess = query({
+//   args: { caseId: v.id("cases") },
+//   handler: async (ctx, args) => {
+//     await requireCaseAccess(ctx, args.caseId, "read");
 
-    const caseData = await ctx.db.get(args.caseId);
-    if (!caseData) {
-      throw new Error("Case not found");
-    }
+//     const caseData = await ctx.db.get(args.caseId);
+//     if (!caseData) {
+//       throw new Error("Case not found");
+//     }
 
-    const usersWithAccess = new Set();
+//     const usersWithAccess = new Set();
 
-    // 1. Add direct access users (assigned lawyer and creator)
-    if (caseData.assignedLawyer) {
-      usersWithAccess.add(caseData.assignedLawyer);
-    }
-    if (caseData.createdBy) {
-      usersWithAccess.add(caseData.createdBy);
-    }
+//     // 1. Add direct access users (assigned lawyer and creator)
+//     if (caseData.assignedLawyer) {
+//       usersWithAccess.add(caseData.assignedLawyer);
+//     }
+//     if (caseData.createdBy) {
+//       usersWithAccess.add(caseData.createdBy);
+//     }
 
-    // 2. Add users with individual permissions
-    const individualAccesses = await ctx.db
-      .query("userCaseAccess")
-      .withIndex("by_case", (q) => q.eq("caseId", args.caseId))
-      .filter((q) => q.eq(q.field("isActive"), true))
-      .filter((q) =>
-        q.or(
-          q.eq(q.field("expiresAt"), undefined),
-          q.gt(q.field("expiresAt"), Date.now()),
-        ),
-      )
-      .collect();
+//     // 2. Add users with individual permissions
+//     const individualAccesses = await ctx.db
+//       .query("userCaseAccess")
+//       .withIndex("by_case", (q) => q.eq("caseId", args.caseId))
+//       .filter((q) => q.eq(q.field("isActive"), true))
+//       .filter((q) =>
+//         q.or(
+//           q.eq(q.field("expiresAt"), undefined),
+//           q.gt(q.field("expiresAt"), Date.now()),
+//         ),
+//       )
+//       .collect();
 
-    for (const access of individualAccesses) {
-      usersWithAccess.add(access.userId);
-    }
+//     for (const access of individualAccesses) {
+//       usersWithAccess.add(access.userId);
+//     }
 
-    // 3. Add users with team access
-    const teamAccesses = await ctx.db
-      .query("teamCaseAccess")
-      .withIndex("by_case", (q) => q.eq("caseId", args.caseId))
-      .filter((q) => q.eq(q.field("isActive"), true))
-      .collect();
+//     // 3. Add users with team access
+//     const teamAccesses = await ctx.db
+//       .query("teamCaseAccess")
+//       .withIndex("by_case", (q) => q.eq("caseId", args.caseId))
+//       .filter((q) => q.eq(q.field("isActive"), true))
+//       .collect();
 
-    for (const teamAccess of teamAccesses) {
-      // Get all team members
-      const teamMembers = await ctx.db
-        .query("teamMemberships")
-        .withIndex("by_team", (q) => q.eq("teamId", teamAccess.teamId))
-        .filter((q) => q.eq(q.field("isActive"), true))
-        .collect();
+//     for (const teamAccess of teamAccesses) {
+//       // Get all team members
+//       const teamMembers = await ctx.db
+//         .query("teamMemberships")
+//         .withIndex("by_team", (q) => q.eq("teamId", teamAccess.teamId))
+//         .filter((q) => q.eq(q.field("isActive"), true))
+//         .collect();
 
-      for (const member of teamMembers) {
-        usersWithAccess.add(member.userId);
-      }
-    }
+//       for (const member of teamMembers) {
+//         usersWithAccess.add(member.userId);
+//       }
+//     }
 
-    // 4. Add users with specific team member permissions
-    const teamMemberAccesses = await ctx.db
-      .query("teamMemberCaseAccess")
-      .withIndex("by_case", (q) => q.eq("caseId", args.caseId))
-      .filter((q) => q.eq(q.field("isActive"), true))
-      .filter((q) =>
-        q.or(
-          q.eq(q.field("expiresAt"), undefined),
-          q.gt(q.field("expiresAt"), Date.now()),
-        ),
-      )
-      .collect();
+//     // 4. Add users with specific team member permissions
+//     const teamMemberAccesses = await ctx.db
+//       .query("teamMemberCaseAccess")
+//       .withIndex("by_case", (q) => q.eq("caseId", args.caseId))
+//       .filter((q) => q.eq(q.field("isActive"), true))
+//       .filter((q) =>
+//         q.or(
+//           q.eq(q.field("expiresAt"), undefined),
+//           q.gt(q.field("expiresAt"), Date.now()),
+//         ),
+//       )
+//       .collect();
 
-    for (const access of teamMemberAccesses) {
-      usersWithAccess.add(access.userId);
-    }
+//     for (const access of teamMemberAccesses) {
+//       usersWithAccess.add(access.userId);
+//     }
 
-    return Array.from(usersWithAccess);
-  },
-});
+//     return Array.from(usersWithAccess);
+//   },
+// });
 
-/**
- * Get team members with their specific case permissions
- */
-export const getTeamMembersWithCaseAccess = query({
-  args: {
-    caseId: v.id("cases"),
-    teamId: v.id("teams"),
-  },
-  handler: async (ctx, args) => {
-    await requireCaseAccess(ctx, args.caseId, "read");
+// /**
+//  * Get team members with their specific case permissions
+//  */
+// export const getTeamMembersWithCaseAccess = query({
+//   args: {
+//     caseId: v.id("cases"),
+//     teamId: v.id("teams"),
+//   },
+//   handler: async (ctx, args) => {
+//     await requireCaseAccess(ctx, args.caseId, "read");
 
-    // Get all team members
-    const teamMembers = await ctx.db
-      .query("teamMemberships")
-      .withIndex("by_team", (q) => q.eq("teamId", args.teamId))
-      .filter((q) => q.eq(q.field("isActive"), true))
-      .collect();
+//     // Get all team members
+//     const teamMembers = await ctx.db
+//       .query("teamMemberships")
+//       .withIndex("by_team", (q) => q.eq("teamId", args.teamId))
+//       .filter((q) => q.eq(q.field("isActive"), true))
+//       .collect();
 
-    const membersWithAccess = [];
+//     const membersWithAccess = [];
 
-    for (const member of teamMembers) {
-      const user = await ctx.db.get(member.userId);
-      if (!user) continue;
+//     for (const member of teamMembers) {
+//       const user = await ctx.db.get(member.userId);
+//       if (!user) continue;
 
-      // Check specific team member permissions
-      const memberAccess = await ctx.db
-        .query("teamMemberCaseAccess")
-        .withIndex("by_team_user_case", (q) =>
-          q
-            .eq("teamId", args.teamId)
-            .eq("userId", member.userId)
-            .eq("caseId", args.caseId),
-        )
-        .filter((q) => q.eq(q.field("isActive"), true))
-        .filter((q) =>
-          q.or(
-            q.eq(q.field("expiresAt"), undefined),
-            q.gt(q.field("expiresAt"), Date.now()),
-          ),
-        )
-        .first();
+//       // Check specific team member permissions
+//       const memberAccess = await ctx.db
+//         .query("teamMemberCaseAccess")
+//         .withIndex("by_team_user_case", (q) =>
+//           q
+//             .eq("teamId", args.teamId)
+//             .eq("userId", member.userId)
+//             .eq("caseId", args.caseId),
+//         )
+//         .filter((q) => q.eq(q.field("isActive"), true))
+//         .filter((q) =>
+//           q.or(
+//             q.eq(q.field("expiresAt"), undefined),
+//             q.gt(q.field("expiresAt"), Date.now()),
+//           ),
+//         )
+//         .first();
 
-      membersWithAccess.push({
-        user,
-        teamRole: member.role,
-        specificAccess: memberAccess || null,
-        hasSpecificPermissions: !!memberAccess,
-      });
-    }
+//       membersWithAccess.push({
+//         user,
+//         teamRole: member.role,
+//         specificAccess: memberAccess || null,
+//         hasSpecificPermissions: !!memberAccess,
+//       });
+//     }
 
-    return membersWithAccess;
-  },
-});
+//     return membersWithAccess;
+//   },
+// });
 
 /**
  * Check if current user has sufficient access level (new system)
