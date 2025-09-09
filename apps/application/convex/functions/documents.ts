@@ -311,8 +311,8 @@ export const getDocument = query({
       return null;
     }
 
-    // Verify user has document read permission
-    await requireDocumentPermission(ctx, document.caseId, "read");
+    const currentUser = await getCurrentUserFromAuth(ctx);
+    await requireNewCaseAccess(ctx, currentUser._id, document.caseId, "basic");
 
     return document;
   },
