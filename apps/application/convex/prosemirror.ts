@@ -15,8 +15,35 @@ const syncApi = prosemirrorSync.syncApi({
   },
 
   async onSnapshot(ctx, id, snapshot, version) {
-    // Handle document snapshots - you can store copies, generate search indexes, etc.
-    // This is optional but useful for additional processing
+    /*
+
+      1. **Extract Chunks**  
+        - Break the ProseMirror snapshot into logical units (paragraphs, headings, sections).  
+        - Each chunk gets an index and structural metadata (e.g. "heading level 2", "paragraph after section X").
+
+      2. **Generate Embeddings**  
+        - For each chunk, create a semantic embedding vector using your chosen model.  
+
+      3. **Upsert into Qdrant**  
+        - Store each chunk in Qdrant with:  
+          - The vector (for semantic search)  
+          - Metadata payload (document ID, version, section index, text)  
+
+      4. **Maintain Supplemental Metadata in Convex**  
+        - Save a lighter outline or structural map (headings, sections, ordering) in Convex DB.  
+        - This makes it easy for edits to reference *where* in the doc they should go.
+
+      5. **Future Retrieval**  
+        - Later, when an AI agent needs context:  
+          - Convert the query/edit target into an embedding.  
+          - Search Qdrant for relevant chunks limited to the document ID.  
+          - Use Convex-stored outline to align results with document structure.  
+
+      6. **Editing Context**  
+        - Returned chunks provide `findText`, plus `contextBefore/contextAfter` and section location.  
+        - That context makes `editEscritoTool` efficient, because the tool can apply edits on just the relevant section.
+
+    */
   },
 });
 
