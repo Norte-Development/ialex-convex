@@ -27,7 +27,7 @@ interface TeamAccessDialogProps {
   trigger?: React.ReactNode;
 }
 
-type AccessLevel = "read" | "full";
+type AccessLevel = "none" | "basic" | "advanced" | "admin";
 
 export default function TeamAccessDialog({
   caseId,
@@ -36,14 +36,19 @@ export default function TeamAccessDialog({
   const [isOpen, setIsOpen] = useState(false);
   const [selectedTeamId, setSelectedTeamId] = useState<Id<"teams"> | "">("");
   const [selectedAccessLevel, setSelectedAccessLevel] =
-    useState<AccessLevel>("read");
+    useState<AccessLevel>("basic");
 
-  const teamsWithAccess = useQuery(api.functions.teams.getTeamsWithCaseAccess, {
-    caseId,
-  });
+  const teamsWithAccess = useQuery(
+    api.functions.permissions.getNewTeamsWithCaseAccess,
+    {
+      caseId,
+    },
+  );
   const allTeams = useQuery(api.functions.teams.getTeams, {});
-  const grantAccess = useMutation(api.functions.teams.grantTeamCaseAccess);
-  const revokeAccess = useMutation(api.functions.teams.revokeTeamCaseAccess);
+  const grantAccess = useMutation(api.functions.teams.grantNewTeamCaseAccess);
+  const revokeAccess = useMutation(
+    api.functions.permissions.revokeNewTeamCaseAccess,
+  );
 
   const availableTeams =
     allTeams?.filter(
@@ -68,7 +73,7 @@ export default function TeamAccessDialog({
 
       toast.success("Acceso otorgado exitosamente");
       setSelectedTeamId("");
-      setSelectedAccessLevel("read");
+      setSelectedAccessLevel("basic");
     } catch (error) {
       console.error("Error granting access:", error);
       toast.error("Error al otorgar acceso");
@@ -86,15 +91,33 @@ export default function TeamAccessDialog({
   };
 
   const getAccessLevelIcon = (level: AccessLevel) => {
-    return level === "full" ? (
-      <Shield className="h-4 w-4 text-blue-600" />
-    ) : (
-      <Eye className="h-4 w-4 text-gray-600" />
-    );
+    switch (level) {
+      case "admin":
+        return <Shield className="h-4 w-4 text-purple-600" />;
+      case "advanced":
+        return <Shield className="h-4 w-4 text-blue-600" />;
+      case "basic":
+        return <Eye className="h-4 w-4 text-green-600" />;
+      case "none":
+        return <Eye className="h-4 w-4 text-gray-400" />;
+      default:
+        return <Eye className="h-4 w-4 text-gray-600" />;
+    }
   };
 
   const getAccessLevelText = (level: AccessLevel) => {
-    return level === "full" ? "Acceso Completo" : "Solo Lectura";
+    switch (level) {
+      case "admin":
+        return "Administrador";
+      case "advanced":
+        return "Acceso Avanzado";
+      case "basic":
+        return "Acceso Básico";
+      case "none":
+        return "Sin Acceso";
+      default:
+        return "Sin Acceso";
+    }
   };
 
   return (
@@ -152,8 +175,9 @@ export default function TeamAccessDialog({
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="read">Solo Lectura</SelectItem>
-                    <SelectItem value="full">Acceso Completo</SelectItem>
+                    <SelectItem value="basic">Acceso Básico</SelectItem>
+                    <SelectItem value="advanced">Acceso Avanzado</SelectItem>
+                    <SelectItem value="admin">Administrador</SelectItem>
                   </SelectContent>
                 </Select>
 

@@ -1,46 +1,50 @@
-"use client"
+"use client";
 
-import CaseLayout from "@/components/Cases/CaseLayout"
-import { Tiptap } from "@/components/Editor/tiptap-editor"
-import { api } from "../../../convex/_generated/api"
-import type { Id } from "../../../convex/_generated/dataModel"
-import { useQuery } from "convex/react"
-import { useCase } from "@/context/CaseContext"
-import { useEscrito } from "@/context/EscritoContext"
-import { useParams, useNavigate } from "react-router-dom"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
-import { FileText, Calendar, Building, Hash, ArrowRight } from "lucide-react"
-import { PermissionButton, IfCan } from "@/components/Permissions"
-import { PERMISSIONS } from "@/permissions/types"
-import { useEffect, useState } from "react"
-import { EscritoToolsTester } from "@/components/Editor/EscritoToolsTester"
+import CaseLayout from "@/components/Cases/CaseLayout";
+import { Tiptap } from "@/components/Editor/tiptap-editor";
+import { api } from "../../../convex/_generated/api";
+import type { Id } from "../../../convex/_generated/dataModel";
+import { useQuery } from "convex/react";
+import { useCase } from "@/context/CaseContext";
+import { useEscrito } from "@/context/EscritoContext";
+import { useParams, useNavigate } from "react-router-dom";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { FileText, Calendar, Building, Hash, ArrowRight } from "lucide-react";
+import { usePermissions } from "@/context/CasePermissionsContext";
+import { useEffect, useState } from "react";
+import { EscritoToolsTester } from "@/components/Editor/EscritoToolsTester";
 
 export default function EscritoPage() {
-  const { escritoId } = useParams()
-  const navigate = useNavigate()
-  const { currentCase } = useCase()
-  const { setEscritoId } = useEscrito()
-  const [showToolsTester, setShowToolsTester] = useState(false)
+  const { escritoId } = useParams();
+  const navigate = useNavigate();
+  const { currentCase } = useCase();
+  const { setEscritoId } = useEscrito();
+  const [showToolsTester, setShowToolsTester] = useState(false);
+
+  // Permisos usando el nuevo sistema
+  const { can } = usePermissions();
 
   // Set the escritoId in context when the component mounts or escritoId changes
   useEffect(() => {
-    console.log('Setting escritoId in context:', escritoId)
-    setEscritoId(escritoId || undefined)
-  }, [escritoId, setEscritoId])
+    console.log("Setting escritoId in context:", escritoId);
+    setEscritoId(escritoId || undefined);
+  }, [escritoId, setEscritoId]);
 
   if (!escritoId) {
     const all_escritos = useQuery(api.functions.documents.getEscritos, {
       caseId: currentCase?._id as Id<"cases">,
-    })
-    
+    });
+
     return (
       <CaseLayout>
         <div className="space-y-6 p-6">
           {/* Header */}
           <div className="text-center space-y-2">
-            <h1 className="text-3xl font-bold text-gray-900">Escritos del Caso</h1>
+            <h1 className="text-3xl font-bold text-gray-900">
+              Escritos del Caso
+            </h1>
             <p className="text-gray-600 text-lg">
               Selecciona un escrito para editar o revisar
             </p>
@@ -86,81 +90,85 @@ export default function EscritoPage() {
           )}
 
           {/* Escritos Grid */}
-          <IfCan permission={PERMISSIONS.ESCRITO_READ} fallback={
-            <div className="text-center py-12">
-              <p className="text-gray-500">No tienes permisos para ver los escritos de este caso.</p>
-            </div>
-          }>
-            {all_escritos && all_escritos.length > 0 && (
+          {can.escritos.read ? (
+            all_escritos &&
+            all_escritos.length > 0 && (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {all_escritos.map((escrito) => (
-                <Card 
-                  key={escrito._id} 
-                  className="hover:shadow-lg transition-all duration-200 cursor-pointer group"
-                  onClick={() => navigate(`/caso/${currentCase?._id}/escritos/${escrito._id}`)}
-                >
-                  <CardHeader className="pb-3">
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        <CardTitle className="text-lg group-hover:text-blue-600 transition-colors">
-                          {escrito.title}
-                        </CardTitle>
-                        <div className="flex items-center gap-2 mt-2">
-                          <Badge 
-                            variant="outline" 
-                            className="text-xs"
-                          >
-                            {escrito.status === "borrador" ? "Borrador" : "Terminado"}
-                          </Badge>
+                  <Card
+                    key={escrito._id}
+                    className="hover:shadow-lg transition-all duration-200 cursor-pointer group"
+                    onClick={() =>
+                      navigate(
+                        `/caso/${currentCase?._id}/escritos/${escrito._id}`,
+                      )
+                    }
+                  >
+                    <CardHeader className="pb-3">
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1">
+                          <CardTitle className="text-lg group-hover:text-blue-600 transition-colors">
+                            {escrito.title}
+                          </CardTitle>
+                          <div className="flex items-center gap-2 mt-2">
+                            <Badge variant="outline" className="text-xs">
+                              {escrito.status === "borrador"
+                                ? "Borrador"
+                                : "Terminado"}
+                            </Badge>
+                          </div>
                         </div>
+                        <ArrowRight className="h-5 w-5 text-gray-400 group-hover:text-blue-600 transition-colors" />
                       </div>
-                      <ArrowRight className="h-5 w-5 text-gray-400 group-hover:text-blue-600 transition-colors" />
-                    </div>
-                  </CardHeader>
-                  <CardContent className="space-y-3">
-                    {escrito.presentationDate && (
-                      <div className="flex items-center gap-2 text-sm text-gray-600">
-                        <Calendar className="h-4 w-4" />
-                        <span>Presentación: {escrito.presentationDate}</span>
+                    </CardHeader>
+                    <CardContent className="space-y-3">
+                      {escrito.presentationDate && (
+                        <div className="flex items-center gap-2 text-sm text-gray-600">
+                          <Calendar className="h-4 w-4" />
+                          <span>Presentación: {escrito.presentationDate}</span>
+                        </div>
+                      )}
+                      {escrito.courtName && (
+                        <div className="flex items-center gap-2 text-sm text-gray-600">
+                          <Building className="h-4 w-4" />
+                          <span>{escrito.courtName}</span>
+                        </div>
+                      )}
+                      {escrito.expedientNumber && (
+                        <div className="flex items-center gap-2 text-sm text-gray-600">
+                          <Hash className="h-4 w-4" />
+                          <span>Exp. {escrito.expedientNumber}</span>
+                        </div>
+                      )}
+                      <div className="pt-2">
+                        <Button
+                          className="w-full group-hover:bg-blue-50 group-hover:border-blue-200 transition-colors"
+                          disabled={!can.escritos.read}
+                        >
+                          <FileText className="h-4 w-4 mr-2" />
+                          Abrir escrito
+                        </Button>
                       </div>
-                    )}
-                    {escrito.courtName && (
-                      <div className="flex items-center gap-2 text-sm text-gray-600">
-                        <Building className="h-4 w-4" />
-                        <span>{escrito.courtName}</span>
-                      </div>
-                    )}
-                    {escrito.expedientNumber && (
-                      <div className="flex items-center gap-2 text-sm text-gray-600">
-                        <Hash className="h-4 w-4" />
-                        <span>Exp. {escrito.expedientNumber}</span>
-                      </div>
-                    )}
-                    <div className="pt-2">
-                      <PermissionButton
-                        permission={PERMISSIONS.ESCRITO_READ}
-                        className="w-full group-hover:bg-blue-50 group-hover:border-blue-200 transition-colors"
-                        disabledMessage="No tienes permisos para ver escritos"
-                        disabled={!PERMISSIONS.ESCRITO_READ}
-                      >
-                        <FileText className="h-4 w-4 mr-2" />
-                        Abrir escrito
-                      </PermissionButton>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            )
+          ) : (
+            <div className="text-center py-12">
+              <p className="text-gray-500">
+                No tienes permisos para ver los escritos de este caso.
+              </p>
             </div>
           )}
-          </IfCan>
         </div>
       </CaseLayout>
-    )
+    );
   }
 
   const escrito = useQuery(api.functions.documents.getEscrito, {
     escritoId: escritoId as Id<"escritos">,
-  })
+  });
 
   return (
     <CaseLayout>
@@ -168,7 +176,9 @@ export default function EscritoPage() {
       <div className="bg-white border-b border-gray-200 px-6 py-4">
         <div className="w-full flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-semibold text-gray-900 mb-2">{escrito?.title || "Untitled Document"}</h1>
+            <h1 className="text-2xl font-semibold text-gray-900 mb-2">
+              {escrito?.title || "Untitled Document"}
+            </h1>
             <div className="flex flex-wrap gap-4 text-sm text-gray-600">
               {escrito?.presentationDate && (
                 <div className="flex items-center gap-2">
@@ -190,7 +200,7 @@ export default function EscritoPage() {
               )}
             </div>
           </div>
-          
+
           {/* Tools Tester Toggle */}
           <Button
             variant="outline"
@@ -199,7 +209,7 @@ export default function EscritoPage() {
             className="flex items-center gap-2"
           >
             <FileText className="h-4 w-4" />
-            {showToolsTester ? 'Hide' : 'Show'} Tools Tester
+            {showToolsTester ? "Hide" : "Show"} Tools Tester
           </Button>
         </div>
       </div>
@@ -211,7 +221,7 @@ export default function EscritoPage() {
           <div className="flex-1">
             <Tiptap documentId={escrito?.prosemirrorId} />
           </div>
-          
+
           {/* Tools Tester Sidebar */}
           {showToolsTester && (
             <div className="w-80 flex-shrink-0">
@@ -221,5 +231,5 @@ export default function EscritoPage() {
         </div>
       </div>
     </CaseLayout>
-  )
+  );
 }

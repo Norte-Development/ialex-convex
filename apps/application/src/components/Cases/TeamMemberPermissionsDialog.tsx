@@ -3,21 +3,20 @@ import { useMutation, useQuery } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import { Id } from "../../../convex/_generated/dataModel";
 import { Button } from "@/components/ui/button";
-import { 
-  Dialog, 
-  DialogContent, 
-  DialogHeader, 
-  DialogTitle, 
-  DialogDescription, 
-  DialogTrigger 
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogTrigger,
 } from "@/components/ui/dialog";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Separator } from "@/components/ui/separator";
 import { Shield, Save, Loader2 } from "lucide-react";
 import { toast } from "sonner";
-import { PERMISSIONS, type Permission } from "@/permissions/types";
+
+type AccessLevel = "basic" | "advanced" | "admin";
 
 interface TeamMemberPermissionsDialogProps {
   member: {
@@ -30,96 +29,45 @@ interface TeamMemberPermissionsDialogProps {
   teamId: Id<"teams">;
 }
 
-const PERMISSION_OPTIONS = [
-  { 
-    id: PERMISSIONS.CASE_VIEW, 
-    label: "Ver información básica", 
-    description: "Acceso a información general del caso",
-    category: "Case"
+const ACCESS_LEVEL_OPTIONS = [
+  {
+    id: "basic" as AccessLevel,
+    label: "Básico",
+    description:
+      "Ver información del caso, documentos y escritos (solo lectura)",
+    permissions: [
+      "Ver información del caso",
+      "Ver documentos",
+      "Ver escritos",
+      "Ver clientes",
+      "Chat IA básico",
+    ],
   },
-  { 
-    id: PERMISSIONS.CASE_EDIT, 
-    label: "Editar caso", 
-    description: "Modificar información del caso",
-    category: "Case"
+  {
+    id: "advanced" as AccessLevel,
+    label: "Avanzado",
+    description:
+      "Todas las funciones básicas + edición de documentos y escritos",
+    permissions: [
+      "Todas las funciones básicas",
+      "Editar documentos",
+      "Crear escritos",
+      "Editar escritos",
+      "Gestionar clientes",
+      "Chat IA completo",
+    ],
   },
-  { 
-    id: PERMISSIONS.DOC_READ, 
-    label: "Ver documentos", 
-    description: "Acceso a visualizar documentos",
-    category: "Documents"
-  },
-  { 
-    id: PERMISSIONS.DOC_WRITE, 
-    label: "Gestionar documentos", 
-    description: "Crear y editar documentos",
-    category: "Documents"
-  },
-  { 
-    id: PERMISSIONS.DOC_DELETE, 
-    label: "Eliminar documentos", 
-    description: "Eliminar documentos del caso",
-    category: "Documents"
-  },
-  { 
-    id: PERMISSIONS.ESCRITO_READ, 
-    label: "Ver escritos", 
-    description: "Acceso a visualizar escritos legales",
-    category: "Escritos"
-  },
-  { 
-    id: PERMISSIONS.ESCRITO_WRITE, 
-    label: "Gestionar escritos", 
-    description: "Crear y editar escritos legales",
-    category: "Escritos"
-  },
-  { 
-    id: PERMISSIONS.ESCRITO_DELETE, 
-    label: "Eliminar escritos", 
-    description: "Eliminar escritos del caso",
-    category: "Escritos"
-  },
-  { 
-    id: PERMISSIONS.CLIENT_READ, 
-    label: "Ver clientes", 
-    description: "Acceso a información de clientes",
-    category: "Clients"
-  },
-  { 
-    id: PERMISSIONS.CLIENT_WRITE, 
-    label: "Gestionar clientes", 
-    description: "Agregar y editar clientes",
-    category: "Clients"
-  },
-  { 
-    id: PERMISSIONS.CLIENT_DELETE, 
-    label: "Eliminar clientes", 
-    description: "Remover clientes del caso",
-    category: "Clients"
-  },
-  { 
-    id: PERMISSIONS.TEAM_READ, 
-    label: "Ver equipos", 
-    description: "Ver información de equipos",
-    category: "Teams"
-  },
-  { 
-    id: PERMISSIONS.TEAM_WRITE, 
-    label: "Gestionar equipos", 
-    description: "Gestionar acceso de equipos",
-    category: "Teams"
-  },
-  { 
-    id: PERMISSIONS.CHAT_ACCESS, 
-    label: "Chat IA", 
-    description: "Acceso al asistente de IA",
-    category: "Chat"
-  },
-  { 
-    id: PERMISSIONS.FULL, 
-    label: "Acceso completo", 
-    description: "Todos los permisos",
-    category: "Full"
+  {
+    id: "admin" as AccessLevel,
+    label: "Administrador",
+    description: "Acceso completo incluyendo eliminación y gestión de equipos",
+    permissions: [
+      "Todas las funciones avanzadas",
+      "Eliminar documentos",
+      "Eliminar escritos",
+      "Gestionar equipos",
+      "Acceso completo al sistema",
+    ],
   },
 ];
 
@@ -129,35 +77,35 @@ export default function TeamMemberPermissionsDialog({
   teamId,
 }: TeamMemberPermissionsDialogProps) {
   const [isOpen, setIsOpen] = useState(false);
-  const [selectedPermissions, setSelectedPermissions] = useState<Permission[]>([]);
+  const [selectedAccessLevel, setSelectedAccessLevel] =
+    useState<AccessLevel>("basic");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Get current member permissions
   const currentAccess = useQuery(
-    api.functions.permissions.getTeamMembersWithCaseAccess,
-    { caseId, teamId }
+    api.functions.permissions.getNewTeamMembersWithCaseAccess,
+    { caseId, teamId },
   );
 
   // Mutations
-  const grantPermissions = useMutation(api.functions.permissions.grantTeamMemberCaseAccess);
+  const grantPermissions = useMutation(
+    api.functions.permissions.grantNewTeamMemberCaseAccess,
+  );
 
-  // Find current member's permissions
-  const memberAccess = currentAccess?.find(access => access.user._id === member._id);
-  const currentPermissions = memberAccess?.specificAccess?.permissions || [];
+  // Find current member's access level
+  const memberAccess = currentAccess?.find(
+    (access) => access.user._id === member._id,
+  );
+  const currentAccessLevel =
+    memberAccess?.individualAccess?.accessLevel ||
+    memberAccess?.teamAccess?.accessLevel ||
+    "basic";
 
-  // Initialize selected permissions when dialog opens
+  // Initialize selected access level when dialog opens
   const handleOpenChange = (open: boolean) => {
     setIsOpen(open);
     if (open) {
-      setSelectedPermissions(currentPermissions as Permission[]);
-    }
-  };
-
-  const handlePermissionChange = (permissionId: Permission, checked: boolean) => {
-    if (checked) {
-      setSelectedPermissions(prev => [...prev, permissionId]);
-    } else {
-      setSelectedPermissions(prev => prev.filter(p => p !== permissionId));
+      setSelectedAccessLevel(currentAccessLevel as AccessLevel);
     }
   };
 
@@ -168,10 +116,10 @@ export default function TeamMemberPermissionsDialog({
         caseId,
         teamId,
         userId: member._id,
-        permissions: selectedPermissions,
+        accessLevel: selectedAccessLevel,
       });
 
-      toast.success(`Permisos actualizados para ${member.name}`);
+      toast.success(`Nivel de acceso actualizado para ${member.name}`);
       setIsOpen(false);
     } catch (error: any) {
       toast.error(`Error: ${error.message}`);
@@ -179,14 +127,6 @@ export default function TeamMemberPermissionsDialog({
       setIsSubmitting(false);
     }
   };
-
-  const groupedPermissions = PERMISSION_OPTIONS.reduce((acc, permission) => {
-    if (!acc[permission.category]) {
-      acc[permission.category] = [];
-    }
-    acc[permission.category].push(permission);
-    return acc;
-  }, {} as Record<string, typeof PERMISSION_OPTIONS>);
 
   return (
     <Dialog open={isOpen} onOpenChange={handleOpenChange}>
@@ -198,9 +138,9 @@ export default function TeamMemberPermissionsDialog({
       </DialogTrigger>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Gestionar Permisos de {member.name}</DialogTitle>
+          <DialogTitle>Gestionar Nivel de Acceso de {member.name}</DialogTitle>
           <DialogDescription>
-            Configura los permisos específicos que {member.name} tendrá en este caso.
+            Configura el nivel de acceso que {member.name} tendrá en este caso.
           </DialogDescription>
         </DialogHeader>
 
@@ -215,50 +155,65 @@ export default function TeamMemberPermissionsDialog({
           </div>
 
           {/* Current Status */}
-          {memberAccess?.hasSpecificPermissions && (
+          {memberAccess && (
             <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
               <div className="text-sm font-medium text-blue-800 mb-1">
-                Permisos Específicos Activos
+                Nivel Actual:{" "}
+                {currentAccessLevel.charAt(0).toUpperCase() +
+                  currentAccessLevel.slice(1)}
               </div>
               <div className="text-xs text-blue-600">
-                Este miembro tiene {currentPermissions.length} permisos específicos configurados
+                {memberAccess.individualAccess
+                  ? "Acceso individual"
+                  : "Acceso por equipo"}
               </div>
             </div>
           )}
 
-          {/* Permission Groups */}
+          {/* Access Level Selection */}
           <div className="space-y-4">
-            {Object.entries(groupedPermissions).map(([category, permissions]) => (
-              <div key={category}>
-                <h4 className="font-medium text-sm text-gray-700 mb-3">{category}</h4>
-                <div className="space-y-2">
-                  {permissions.map((permission) => (
-                    <div key={permission.id} className="flex items-start space-x-3 p-2 hover:bg-gray-50 rounded">
-                      <Checkbox
-                        id={permission.id}
-                        checked={selectedPermissions.includes(permission.id)}
-                        onCheckedChange={(checked) => 
-                          handlePermissionChange(permission.id, checked as boolean)
-                        }
-                        className="mt-1"
-                      />
-                      <div className="flex-1 min-w-0">
-                        <Label 
-                          htmlFor={permission.id} 
-                          className="text-sm font-medium cursor-pointer"
-                        >
-                          {permission.label}
-                        </Label>
-                        <p className="text-xs text-gray-500 mt-1">
-                          {permission.description}
-                        </p>
-                      </div>
-                    </div>
-                  ))}
+            <h4 className="font-medium text-sm text-gray-700">
+              Seleccionar Nivel de Acceso
+            </h4>
+            <div className="space-y-3">
+              {ACCESS_LEVEL_OPTIONS.map((level) => (
+                <div
+                  key={level.id}
+                  className="flex items-start space-x-3 p-3 border rounded-lg hover:bg-gray-50"
+                >
+                  <input
+                    type="radio"
+                    id={level.id}
+                    name="accessLevel"
+                    value={level.id}
+                    checked={selectedAccessLevel === level.id}
+                    onChange={(e) =>
+                      setSelectedAccessLevel(e.target.value as AccessLevel)
+                    }
+                    className="mt-1"
+                  />
+                  <div className="flex-1 min-w-0">
+                    <Label
+                      htmlFor={level.id}
+                      className="text-sm font-medium cursor-pointer"
+                    >
+                      {level.label}
+                    </Label>
+                    <p className="text-xs text-gray-500 mt-1 mb-2">
+                      {level.description}
+                    </p>
+                    <ul className="text-xs text-gray-600 space-y-1">
+                      {level.permissions.map((permission, index) => (
+                        <li key={index} className="flex items-center">
+                          <span className="w-1 h-1 bg-gray-400 rounded-full mr-2"></span>
+                          {permission}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
                 </div>
-                {category !== "Full" && <Separator className="mt-4" />}
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
 
           {/* Action Buttons */}
@@ -272,11 +227,11 @@ export default function TeamMemberPermissionsDialog({
               ) : (
                 <Save className="h-4 w-4 mr-2" />
               )}
-              Guardar Permisos
+              Actualizar Nivel
             </Button>
           </div>
         </div>
       </DialogContent>
     </Dialog>
   );
-} 
+}

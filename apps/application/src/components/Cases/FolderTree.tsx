@@ -3,8 +3,6 @@ import { useQuery, useMutation } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import { Id } from "convex/_generated/dataModel";
 import type { Folder as FolderType } from "../../../types/folders";
-import { IfCan } from "@/components/Permissions";
-import { PERMISSIONS } from "@/permissions/types";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import { Link } from "react-router-dom";
@@ -24,6 +22,7 @@ import NewDocumentInput, { NewDocumentInputHandle } from "./NewDocumentInput";
 import { DragDropContext, type DropResult } from "react-beautiful-dnd";
 import { useHighlight } from "@/context/HighlightContext";
 import { useLayout } from "@/context/LayoutContext";
+import { usePermissions } from "@/context/CasePermissionsContext";
 
 type Props = {
   caseId: Id<"cases">;
@@ -156,6 +155,8 @@ function FolderList({
     (doc) => movingFrom[(doc._id as unknown as string) ?? ""] !== droppableId,
   );
 
+  const { can } = usePermissions();
+
   return (
     <div className="ml-2 overflow-x-hidden">
       {isLoadingFolders && (
@@ -233,10 +234,7 @@ function FolderList({
                           {doc.title}
                         </span>
                       </Link>
-                      <IfCan
-                        permission={PERMISSIONS.DOC_DELETE}
-                        fallback={null}
-                      >
+                      {can.docs.delete && (
                         <Button
                           variant="ghost"
                           size="sm"
@@ -258,7 +256,7 @@ function FolderList({
                             <Trash2 size={12} className="text-gray-500" />
                           )}
                         </Button>
-                      </IfCan>
+                      )}
                     </div>
                   )}
                 </Draggable>
@@ -424,6 +422,8 @@ function FolderItem({
     }
   };
 
+  const { can } = usePermissions();
+
   return (
     <div className="relative">
       {open ? (
@@ -481,7 +481,7 @@ function FolderItem({
                 {folder.description}
               </span>
             )}
-            <IfCan permission={PERMISSIONS.DOC_WRITE} fallback={null}>
+            {can.docs.write && (
               <Button
                 variant="ghost"
                 size="sm"
@@ -495,7 +495,7 @@ function FolderItem({
               >
                 <MoreHorizontal size={14} className="text-gray-600" />
               </Button>
-            </IfCan>
+            )}
           </div>
         </div>
       ) : (
@@ -572,7 +572,7 @@ function FolderItem({
                       {folder.description}
                     </span>
                   )}
-                  <IfCan permission={PERMISSIONS.DOC_WRITE} fallback={null}>
+                  {can.docs.write && (
                     <Button
                       variant="ghost"
                       size="sm"
@@ -586,7 +586,7 @@ function FolderItem({
                     >
                       <MoreHorizontal size={14} className="text-gray-600" />
                     </Button>
-                  </IfCan>
+                  )}
                 </div>
               </div>
               {dropProvided.placeholder}

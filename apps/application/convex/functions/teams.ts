@@ -1,7 +1,20 @@
 import { v } from "convex/values";
 import { query, mutation } from "../_generated/server";
-import { getCurrentUserFromAuth, requireNewCaseAccess } from "../auth_utils";
+import {
+  getCurrentUserFromAuth,
+  AccessLevel,
+  grantNewCaseAccess,
+  checkNewCaseAccess,
+  requireNewCaseAccess,
+} from "../auth_utils";
 import { internal } from "../_generated/api";
+
+const newAccessLevelType = v.union(
+  v.literal("none"),
+  v.literal("basic"),
+  v.literal("advanced"),
+  v.literal("admin"),
+);
 
 // ========================================
 // TEAM MANAGEMENT
@@ -593,47 +606,27 @@ export const getUserTeams = query({
  * });
  * ```
  */
-export const grantTeamCaseAccess = mutation({
+export const grantNewTeamCaseAccess = mutation({
   args: {
     caseId: v.id("cases"),
     teamId: v.id("teams"),
-    accessLevel: v.union(v.literal("full"), v.literal("read")),
+    accessLevel: newAccessLevelType,
+    expiresAt: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
-    // Verify user has team write permission to grant team access using NEW system
+    // Only users with admin access can grant permissions
     const currentUser = await getCurrentUserFromAuth(ctx);
-    await requireNewCaseAccess(ctx, currentUser._id, args.caseId, "advanced");
+    await requireNewCaseAccess(ctx, currentUser._id, args.caseId, "admin");
 
-    // Check if access already exists
-    const existing = await ctx.db
-      .query("teamCaseAccess")
-      .withIndex("by_case_and_team", (q) =>
-        q.eq("caseId", args.caseId).eq("teamId", args.teamId),
-      )
-      .filter((q) => q.eq(q.field("isActive"), true))
-      .first();
-
-    if (existing) {
-      // Update existing access level
-      await ctx.db.patch(existing._id, {
-        accessLevel: args.accessLevel,
-        grantedBy: currentUser._id,
-      });
-      console.log("Updated team case access");
-      return existing._id;
-    } else {
-      // Create new access
-      const accessId = await ctx.db.insert("teamCaseAccess", {
-        caseId: args.caseId,
-        teamId: args.teamId,
-        accessLevel: args.accessLevel,
-        grantedBy: currentUser._id,
-        isActive: true,
-      });
-
-      console.log("Created team case access with id:", accessId);
-      return accessId;
-    }
+    // Use the new grantNewCaseAccess helper for teams
+    return await grantNewCaseAccess(
+      ctx,
+      currentUser._id,
+      args.caseId,
+      args.accessLevel as AccessLevel,
+      { teamId: args.teamId },
+      { expiresAt: args.expiresAt },
+    );
   },
 });
 
@@ -681,54 +674,6 @@ export const revokeTeamCaseAccess = mutation({
 
     await ctx.db.patch(access._id, { isActive: false });
     console.log("Revoked team case access");
-  },
-});
-
-/**
- * Retrieves all teams that have access to a specific case.
- *
- * @param {Object} args - The function arguments
- * @param {string} args.caseId - The ID of the case to get team access for
- * @returns {Promise<Object[]>} Array of team documents with access level and granting user
- * @throws {Error} When not authenticated or lacking case access
- *
- * @description This function returns all teams that have active access to a case,
- * including their access level and who granted the access. The user must have
- * read access to the case to view its team access permissions.
- *
- * @example
- * ```javascript
- * const teamsWithAccess = await getTeamsWithCaseAccess({ caseId: "case_123" });
- * // Returns: [{ name: "Corporate Team", accessLevel: "full", grantedBy: "user_789" }, ...]
- * ```
- */
-export const getTeamsWithCaseAccess = query({
-  args: {
-    caseId: v.id("cases"),
-  },
-  handler: async (ctx, args) => {
-    // Verify user has team read permission to view team access using NEW system
-    const currentUser = await getCurrentUserFromAuth(ctx);
-    await requireNewCaseAccess(ctx, currentUser._id, args.caseId, "basic");
-
-    const accesses = await ctx.db
-      .query("teamCaseAccess")
-      .withIndex("by_case", (q) => q.eq("caseId", args.caseId))
-      .filter((q) => q.eq(q.field("isActive"), true))
-      .collect();
-
-    const teamsWithAccess = await Promise.all(
-      accesses.map(async (access) => {
-        const team = await ctx.db.get(access.teamId);
-        return {
-          ...team,
-          accessLevel: access.accessLevel,
-          grantedBy: access.grantedBy,
-        };
-      }),
-    );
-
-    return teamsWithAccess;
   },
 });
 

@@ -3,28 +3,45 @@ import { useMutation, useQuery } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import { Id } from "../../../convex/_generated/dataModel";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { UserPlus, X, Loader2, Search } from "lucide-react";
 import { toast } from "sonner";
-import { PERMISSIONS, type Permission } from "@/permissions/types";
+
+type AccessLevel = "none" | "basic" | "advanced" | "admin";
 
 interface IndividualUserPermissionsDialogProps {
   caseId: Id<"cases">;
   trigger?: React.ReactNode;
 }
 
-export default function IndividualUserPermissionsDialog({ 
-  caseId, 
-  trigger 
+export default function IndividualUserPermissionsDialog({
+  caseId,
+  trigger,
 }: IndividualUserPermissionsDialogProps) {
   const [isOpen, setIsOpen] = useState(false);
-  const [selectedUser, setSelectedUser] = useState<{ _id: Id<"users">; name: string; email: string } | null>(null);
-  const [accessLevel, setAccessLevel] = useState<"read" | "write" | "full">("read");
+  const [selectedUser, setSelectedUser] = useState<{
+    _id: Id<"users">;
+    name: string;
+    email: string;
+  } | null>(null);
+  const [accessLevel, setAccessLevel] = useState<AccessLevel>("basic");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
 
@@ -35,64 +52,39 @@ export default function IndividualUserPermissionsDialog({
   // Get available users for this case (combines search + filtering in one efficient query)
   const availableUsers = useQuery(
     api.functions.users.searchAvailableUsersForCase,
-    { searchTerm: searchTerm.trim(), caseId }
+    { searchTerm: searchTerm.trim(), caseId },
   );
-  
+
   // Get current individual case permissions
   const currentPermissions = useQuery(
-    api.functions.permissions.getUsersWithCaseAccess,
-    { caseId }
+    api.functions.permissions.getNewUsersWithCaseAccess,
+    { caseId },
   );
 
   // Mutations
-  const addIndividualPermission = useMutation(api.functions.permissions.grantUserCaseAccess);
-  const removeIndividualPermission = useMutation(api.functions.permissions.revokeUserCaseAccess);
+  const addIndividualPermission = useMutation(
+    api.functions.permissions.grantNewUserCaseAccess,
+  );
+  const removeIndividualPermission = useMutation(
+    api.functions.permissions.revokeNewUserCaseAccess,
+  );
 
   const handleAddPermission = async () => {
     if (!selectedUser) return;
 
     setIsSubmitting(true);
     try {
-      // Convert access level to granular permissions array
-      const getPermissionsFromLevel = (level: "read" | "write" | "full"): Permission[] => {
-        switch (level) {
-          case "read":
-            return [
-              PERMISSIONS.CASE_VIEW,
-              PERMISSIONS.DOC_READ,
-              PERMISSIONS.ESCRITO_READ,
-              PERMISSIONS.CLIENT_READ,
-              PERMISSIONS.TEAM_READ
-            ];
-          case "write":  
-            return [
-              PERMISSIONS.CASE_VIEW,
-              PERMISSIONS.CASE_EDIT,
-              PERMISSIONS.DOC_READ,
-              PERMISSIONS.DOC_WRITE,
-              PERMISSIONS.ESCRITO_READ,
-              PERMISSIONS.ESCRITO_WRITE,
-              PERMISSIONS.CLIENT_READ,
-              PERMISSIONS.CLIENT_WRITE,
-              PERMISSIONS.TEAM_READ,
-              PERMISSIONS.CHAT_ACCESS
-            ];
-          case "full":
-            return [PERMISSIONS.FULL];
-          default:
-            return [PERMISSIONS.CASE_VIEW];
-        }
-      };
-
       await addIndividualPermission({
         caseId,
         userId: selectedUser._id,
-        permissions: getPermissionsFromLevel(accessLevel)
+        accessLevel: accessLevel,
       });
 
-      toast.success(`Permisos otorgados a ${selectedUser.name}`);
+      toast.success(
+        `Nivel de acceso ${accessLevel} otorgado a ${selectedUser.name}`,
+      );
       setSelectedUser(null);
-      setAccessLevel("read");
+      setAccessLevel("basic");
       setSearchTerm(""); // Clear search after adding
     } catch (error: any) {
       toast.error(`Error: ${error.message}`);
@@ -101,11 +93,14 @@ export default function IndividualUserPermissionsDialog({
     }
   };
 
-  const handleRemovePermission = async (userId: Id<"users">, userName: string) => {
+  const handleRemovePermission = async (
+    userId: Id<"users">,
+    userName: string,
+  ) => {
     try {
       await removeIndividualPermission({
         caseId,
-        userId
+        userId,
       });
       toast.success(`Permisos removidos de ${userName}`);
     } catch (error: any) {
@@ -113,36 +108,34 @@ export default function IndividualUserPermissionsDialog({
     }
   };
 
-  const getAccessLevelFromPermissions = (permissions: string[]) => {
-    if (permissions.includes(PERMISSIONS.FULL)) {
-      return "Acceso Completo";
+  const getAccessLevelLabel = (level: AccessLevel) => {
+    switch (level) {
+      case "none":
+        return "Sin Acceso";
+      case "basic":
+        return "Básico";
+      case "advanced":
+        return "Avanzado";
+      case "admin":
+        return "Administrador";
+      default:
+        return "Básico";
     }
-    
-    const hasWrite = permissions.some(p => 
-      p.includes('.write') || p.includes('.delete')
-    );
-    
-    if (hasWrite) {
-      return "Lectura y Escritura";
-    }
-    
-    return "Solo Lectura";
   };
 
-  const getAccessLevelColor = (permissions: string[]) => {
-    if (permissions.includes(PERMISSIONS.FULL)) {
-      return "bg-purple-100 text-purple-800";
+  const getAccessLevelColor = (level: AccessLevel) => {
+    switch (level) {
+      case "none":
+        return "bg-gray-100 text-gray-800";
+      case "basic":
+        return "bg-green-100 text-green-800";
+      case "advanced":
+        return "bg-blue-100 text-blue-800";
+      case "admin":
+        return "bg-purple-100 text-purple-800";
+      default:
+        return "bg-gray-100 text-gray-800";
     }
-    
-    const hasWrite = permissions.some(p => 
-      p.includes('.write') || p.includes('.delete')
-    );
-    
-    if (hasWrite) {
-      return "bg-blue-100 text-blue-800";
-    }
-    
-    return "bg-green-100 text-green-800";
   };
 
   return (
@@ -159,12 +152,14 @@ export default function IndividualUserPermissionsDialog({
         <DialogHeader>
           <DialogTitle>Gestionar Permisos Individuales de Usuario</DialogTitle>
         </DialogHeader>
-        
+
         <div className="space-y-6">
           {/* Add New Permission */}
           <Card>
             <CardHeader>
-              <CardTitle className="text-lg">Agregar Permisos de Usuario</CardTitle>
+              <CardTitle className="text-lg">
+                Agregar Permisos de Usuario
+              </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -183,10 +178,12 @@ export default function IndividualUserPermissionsDialog({
                   {searchTerm.trim().length > 0 && (
                     <div className="space-y-2">
                       <Label htmlFor="user-select">Seleccionar Usuario</Label>
-                      <Select 
-                        value={selectedUser?._id || ""} 
+                      <Select
+                        value={selectedUser?._id || ""}
                         onValueChange={(userId) => {
-                          const user = availableUsers?.find(u => u._id === userId);
+                          const user = availableUsers?.find(
+                            (u) => u._id === userId,
+                          );
                           setSelectedUser(user || null);
                         }}
                       >
@@ -196,17 +193,20 @@ export default function IndividualUserPermissionsDialog({
                         <SelectContent>
                           {!availableUsers || availableUsers.length === 0 ? (
                             <div className="px-2 py-1.5 text-sm text-gray-500">
-                              {searchTerm.trim().length === 0 
+                              {searchTerm.trim().length === 0
                                 ? "Escribe para buscar usuarios"
-                                : "No se encontraron usuarios disponibles"
-                              }
+                                : "No se encontraron usuarios disponibles"}
                             </div>
                           ) : (
                             (availableUsers || []).map((user) => (
                               <SelectItem key={user._id} value={user._id}>
                                 <div className="flex flex-col">
-                                  <span className="font-medium">{user.name}</span>
-                                  <span className="text-sm text-gray-500">{user.email}</span>
+                                  <span className="font-medium">
+                                    {user.name}
+                                  </span>
+                                  <span className="text-sm text-gray-500">
+                                    {user.email}
+                                  </span>
                                 </div>
                               </SelectItem>
                             ))
@@ -219,21 +219,26 @@ export default function IndividualUserPermissionsDialog({
 
                 <div className="space-y-2">
                   <Label htmlFor="access-level">Nivel de Acceso</Label>
-                  <Select value={accessLevel} onValueChange={(value: "read" | "write" | "full") => setAccessLevel(value)}>
+                  <Select
+                    value={accessLevel}
+                    onValueChange={(value: AccessLevel) =>
+                      setAccessLevel(value)
+                    }
+                  >
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="read">Solo Lectura</SelectItem>
-                      <SelectItem value="write">Lectura y Escritura</SelectItem>
-                      <SelectItem value="full">Acceso Completo</SelectItem>
+                      <SelectItem value="basic">Básico</SelectItem>
+                      <SelectItem value="advanced">Avanzado</SelectItem>
+                      <SelectItem value="admin">Administrador</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
 
                 <div className="flex items-end">
-                  <Button 
-                    onClick={handleAddPermission} 
+                  <Button
+                    onClick={handleAddPermission}
                     disabled={!selectedUser || isSubmitting}
                     className="w-full"
                   >
@@ -267,27 +272,40 @@ export default function IndividualUserPermissionsDialog({
               ) : (
                 <div className="space-y-3">
                   {currentPermissions.map((permission) => (
-                    <div 
-                      key={permission.userId} 
+                    <div
+                      key={permission.userId}
                       className="flex items-center justify-between p-3 border rounded-lg"
                     >
                       <div className="flex items-center space-x-3">
                         <div className="flex flex-col">
-                          <span className="font-medium">{permission.user?.name}</span>
-                          <span className="text-sm text-gray-500">{permission.user?.email}</span>
+                          <span className="font-medium">
+                            {permission.user?.name}
+                          </span>
+                          <span className="text-sm text-gray-500">
+                            {permission.user?.email}
+                          </span>
                         </div>
-                        <Badge className={getAccessLevelColor(permission.permissions)}>
-                          {getAccessLevelFromPermissions(permission.permissions)}
+                        <Badge
+                          className={getAccessLevelColor(
+                            permission.accessLevel,
+                          )}
+                        >
+                          {getAccessLevelLabel(permission.accessLevel)}
                         </Badge>
                       </div>
                       <div className="flex items-center space-x-2">
                         <div className="text-sm text-gray-500">
-                          {permission.permissions.length} permisos
+                          Nivel {permission.accessLevel}
                         </div>
                         <Button
                           variant="outline"
                           size="sm"
-                          onClick={() => handleRemovePermission(permission.userId, permission.user?.name || "Usuario")}
+                          onClick={() =>
+                            handleRemovePermission(
+                              permission.userId,
+                              permission.user?.name || "Usuario",
+                            )
+                          }
                         >
                           <X className="h-4 w-4" />
                         </Button>
@@ -302,4 +320,4 @@ export default function IndividualUserPermissionsDialog({
       </DialogContent>
     </Dialog>
   );
-} 
+}

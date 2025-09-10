@@ -34,6 +34,13 @@ export {
   getUsersWithCaseAccess,
   getUserCasePermissions,
   hasPermission,
+  getNewTeamsWithCaseAccess,
+  revokeNewTeamCaseAccess,
+  getNewTeamMembersWithCaseAccess,
+  grantNewTeamMemberCaseAccess,
+  getNewUsersWithCaseAccess,
+  grantNewUserCaseAccess,
+  revokeNewUserCaseAccess,
 } from "./permissions";
 
 // Document Management
@@ -64,8 +71,7 @@ export {
   leaveTeam,
   getTeamMembers,
   getUserTeams,
-  grantTeamCaseAccess,
+  grantNewTeamCaseAccess,
   revokeTeamCaseAccess,
-  getTeamsWithCaseAccess,
   getCasesAccessibleByTeam,
 } from "./teams";

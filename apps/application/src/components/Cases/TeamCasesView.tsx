@@ -3,7 +3,7 @@ import { api } from "../../../convex/_generated/api";
 import { Id } from "../../../convex/_generated/dataModel";
 import { Badge } from "../ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
-import { Shield, Eye, Calendar, FileText, Users, Settings } from "lucide-react";
+import { Shield, Eye, Calendar, FileText, Users } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useCase } from "@/context/CaseContext";
 import { usePermissions } from "@/context/CasePermissionsContext";
@@ -13,13 +13,13 @@ interface TeamCasesViewProps {
   teamId: Id<"teams">;
 }
 
-type AccessLevel = "read" | "full";
+type AccessLevel = "none" | "basic" | "advanced" | "admin";
 
 export default function TeamCasesView({ teamId }: TeamCasesViewProps) {
   const { currentCase } = useCase();
   const { can } = usePermissions();
-  const canManageTeams = can.teams.write;
-  
+  const canManageTeams = can?.teams?.write || false;
+
   const casesWithAccess = useQuery(
     api.functions.teams.getCasesAccessibleByTeam,
     { teamId },
@@ -27,26 +27,77 @@ export default function TeamCasesView({ teamId }: TeamCasesViewProps) {
 
   // If we're in a case context, show team members with their permissions
   const teamMembers = useQuery(
-    api.functions.permissions.getTeamMembersWithCaseAccess,
-    currentCase ? { caseId: currentCase._id, teamId } : "skip"
+    api.functions.permissions.getNewTeamMembersWithCaseAccess,
+    currentCase ? { caseId: currentCase._id, teamId } : "skip",
   );
 
-  const getAccessLevelIcon = (level: AccessLevel) => {
-    return level === "full" ? (
-      <Shield className="h-4 w-4 text-blue-600" />
-    ) : (
-      <Eye className="h-4 w-4 text-gray-600" />
-    );
+  const getAccessLevelIcon = (level: AccessLevel | "read" | "full") => {
+    // Map legacy values to new system
+    const normalizedLevel =
+      level === "read"
+        ? "basic"
+        : level === "full"
+          ? "admin"
+          : (level as AccessLevel);
+
+    switch (normalizedLevel) {
+      case "admin":
+        return <Shield className="h-4 w-4 text-purple-600" />;
+      case "advanced":
+        return <Shield className="h-4 w-4 text-blue-600" />;
+      case "basic":
+        return <Eye className="h-4 w-4 text-green-600" />;
+      case "none":
+        return <Eye className="h-4 w-4 text-gray-400" />;
+      default:
+        return <Eye className="h-4 w-4 text-gray-600" />;
+    }
   };
 
-  const getAccessLevelText = (level: AccessLevel) => {
-    return level === "full" ? "Acceso Completo" : "Solo Lectura";
+  const getAccessLevelText = (level: AccessLevel | "read" | "full") => {
+    // Map legacy values to new system
+    const normalizedLevel =
+      level === "read"
+        ? "basic"
+        : level === "full"
+          ? "admin"
+          : (level as AccessLevel);
+
+    switch (normalizedLevel) {
+      case "admin":
+        return "Administrador";
+      case "advanced":
+        return "Acceso Avanzado";
+      case "basic":
+        return "Acceso Básico";
+      case "none":
+        return "Sin Acceso";
+      default:
+        return "Sin Acceso";
+    }
   };
 
-  const getAccessLevelColor = (level: AccessLevel) => {
-    return level === "full"
-      ? "bg-blue-100 text-blue-800"
-      : "bg-gray-100 text-gray-800";
+  const getAccessLevelColor = (level: AccessLevel | "read" | "full") => {
+    // Map legacy values to new system
+    const normalizedLevel =
+      level === "read"
+        ? "basic"
+        : level === "full"
+          ? "admin"
+          : (level as AccessLevel);
+
+    switch (normalizedLevel) {
+      case "admin":
+        return "bg-purple-100 text-purple-800";
+      case "advanced":
+        return "bg-blue-100 text-blue-800";
+      case "basic":
+        return "bg-green-100 text-green-800";
+      case "none":
+        return "bg-gray-100 text-gray-800";
+      default:
+        return "bg-gray-100 text-gray-800";
+    }
   };
 
   const formatDate = (timestamp: number) => {
@@ -105,18 +156,6 @@ export default function TeamCasesView({ teamId }: TeamCasesViewProps) {
     );
   }
 
-  // Helper function to get permission icons
-  const getPermissionIcon = (permission: string) => {
-    switch (permission) {
-      case "full": return <Shield className="h-3 w-3" />;
-      case "teams": return <Users className="h-3 w-3" />;
-      case "documents": return <FileText className="h-3 w-3" />;
-      case "escritos": return <FileText className="h-3 w-3" />;
-      case "chat": return <Settings className="h-3 w-3" />;
-      default: return <Eye className="h-3 w-3" />;
-    }
-  };
-
   // If we're in a case context, show team member permissions
   if (currentCase && teamMembers) {
     return (
@@ -124,7 +163,8 @@ export default function TeamCasesView({ teamId }: TeamCasesViewProps) {
         <div className="flex items-center justify-between">
           <h3 className="text-lg font-semibold">Miembros del Equipo</h3>
           <Badge variant="outline">
-            {teamMembers.length} {teamMembers.length === 1 ? "miembro" : "miembros"}
+            {teamMembers.length}{" "}
+            {teamMembers.length === 1 ? "miembro" : "miembros"}
           </Badge>
         </div>
 
@@ -140,53 +180,68 @@ export default function TeamCasesView({ teamId }: TeamCasesViewProps) {
         ) : (
           <div className="grid gap-3">
             {teamMembers.map((member) => (
-              <Card key={member.user._id} className="hover:shadow-sm transition-shadow">
+              <Card
+                key={member.user._id}
+                className="hover:shadow-sm transition-shadow"
+              >
                 <CardContent className="p-4">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
                       <div className="flex flex-col">
                         <span className="font-medium">{member.user.name}</span>
-                        <span className="text-sm text-gray-500 capitalize">{member.teamRole}</span>
+                        <span className="text-sm text-gray-500 capitalize">
+                          {member.teamRole}
+                        </span>
                       </div>
                     </div>
-                    
-                                         <div className="flex flex-col gap-2 items-end">
-                       <div className="flex items-center gap-2">
-                         {member.hasSpecificPermissions && member.specificAccess ? (
-                           <div className="flex flex-wrap gap-1">
-                             {member.specificAccess.permissions.map((permission) => (
-                               <Badge key={permission} variant="secondary" className="text-xs flex items-center gap-1">
-                                 {getPermissionIcon(permission)}
-                                 {permission}
-                               </Badge>
-                             ))}
-                           </div>
-                         ) : (
-                           <Badge variant="outline" className="text-xs">
-                             Permisos del equipo
-                           </Badge>
-                         )}
-                         
-                         {canManageTeams && (
-                           <TeamMemberPermissionsDialog
-                             member={{
-                               _id: member.user._id,
-                               name: member.user.name,
-                               email: member.user.email,
-                               role: member.teamRole
-                             }}
-                             caseId={currentCase._id}
-                             teamId={teamId}
-                           />
-                         )}
-                       </div>
-                       
-                       {member.specificAccess?.expiresAt && (
-                         <span className="text-xs text-gray-500">
-                           Expira: {formatDate(member.specificAccess.expiresAt)}
-                         </span>
-                       )}
-                     </div>
+
+                    <div className="flex flex-col gap-2 items-end">
+                      <div className="flex items-center gap-2">
+                        {member.effectiveAccessLevel ? (
+                          <Badge
+                            variant="secondary"
+                            className={`text-xs flex items-center gap-1 ${getAccessLevelColor(member.effectiveAccessLevel)}`}
+                          >
+                            {getAccessLevelIcon(member.effectiveAccessLevel)}
+                            {getAccessLevelText(member.effectiveAccessLevel)}
+                          </Badge>
+                        ) : (
+                          <Badge variant="outline" className="text-xs">
+                            Sin acceso
+                          </Badge>
+                        )}
+
+                        <Badge variant="outline" className="text-xs">
+                          {member.accessSource === "individual"
+                            ? "Individual"
+                            : "Equipo"}
+                        </Badge>
+
+                        {canManageTeams && (
+                          <TeamMemberPermissionsDialog
+                            member={{
+                              _id: member.user._id,
+                              name: member.user.name,
+                              email: member.user.email,
+                              role: member.teamRole,
+                            }}
+                            caseId={currentCase._id}
+                            teamId={teamId}
+                          />
+                        )}
+                      </div>
+
+                      {(member.individualAccess?.expiresAt ||
+                        member.teamAccess?.expiresAt) && (
+                        <span className="text-xs text-gray-500">
+                          Expira:{" "}
+                          {formatDate(
+                            (member.individualAccess?.expiresAt ||
+                              member.teamAccess?.expiresAt)!,
+                          )}
+                        </span>
+                      )}
+                    </div>
                   </div>
                 </CardContent>
               </Card>
