@@ -11,6 +11,7 @@ import { Badge } from "../../components/ui/badge";
 import { Button } from "../../components/ui/button";
 import { FileText, Users, Plus } from "lucide-react";
 import { Link } from "react-router-dom";
+import { NewPermissionTester } from "@/components/Permissions/NewPermissionTester";
 
 export default function CaseDetailPage() {
   const { currentCase } = useCase();
@@ -85,6 +86,7 @@ export default function CaseDetailPage() {
         <Card>
           <CardHeader>
             <CardTitle className="text-lg">Acciones Rápidas</CardTitle>
+            <NewPermissionTester caseId={currentCase._id} />
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
