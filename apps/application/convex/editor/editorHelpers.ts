@@ -1,7 +1,0 @@
-
-
-
-const indexSnaphot = () => {}
-
-const chunkSnapshot = () => {}
-

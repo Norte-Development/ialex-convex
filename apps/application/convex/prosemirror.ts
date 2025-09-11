@@ -1,6 +1,5 @@
 import { components } from "./_generated/api";
 import { ProsemirrorSync } from "@convex-dev/prosemirror-sync";
-import { rag } from "./rag/rag";
 
 export const prosemirrorSync = new ProsemirrorSync(components.prosemirrorSync);
 
