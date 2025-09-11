@@ -72,9 +72,13 @@ export function CreateEscritoDialog({
     setIsLoading(true);
 
     try {
+      // Generate a unique ID for the ProseMirror document
+      const prosemirrorId = crypto.randomUUID();
+      
       const escritoData = {
         title: formData.title.trim(),
         caseId: currentCase._id as Id<"cases">,
+        prosemirrorId: prosemirrorId,
         presentationDate: formData.presentationDate
           ? new Date(formData.presentationDate).getTime()
           : undefined,

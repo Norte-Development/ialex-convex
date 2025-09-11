@@ -131,6 +131,9 @@ importers:
       pdf-lib:
         specifier: ^1.17.1
         version: 1.17.1
+      prosemirror-model:
+        specifier: ^1.25.3
+        version: 1.25.3
       prosemirror-state:
         specifier: ^1.4.3
         version: 1.4.3
