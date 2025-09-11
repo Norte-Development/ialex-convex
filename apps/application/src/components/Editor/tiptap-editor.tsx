@@ -17,17 +17,9 @@ import {
   AlignCenter,
   AlignRight,
   AlignJustify,
-  List,
-  ListOrdered,
   Quote,
-  Undo,
-  Redo,
-  Heading1,
-  Heading2,
-  Heading3,
   Code,
   Strikethrough,
-  Minus,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
@@ -73,6 +65,7 @@ function MenuBar({ editor }: { editor: Editor }) {
       }
     },
   })
+
 
   return (
     <div className="border-b border-gray-200 bg-gray-50/50 px-4 py-3 ">
@@ -262,10 +255,23 @@ function MenuBar({ editor }: { editor: Editor }) {
   )
 }
 
+// Define empty document structure outside component to avoid recreating object
+const EMPTY_DOC = {
+  type: "doc",
+  content: [
+    {
+      type: "paragraph",
+      attrs: { textAlign: null },
+      content: []
+    }
+  ]
+}
+
 export function Tiptap({ documentId = "default-document", onReady, onDestroy }: TiptapProps) {
   const sync = useTiptapSync(api.prosemirror, documentId)
   const { setCursorPosition, setTextAroundCursor, setEscritoId } = useEscrito()
 
+  // Always call useEditor hook - don't make it conditional
   const editor = useEditor(
     {
       extensions: [
@@ -301,6 +307,8 @@ export function Tiptap({ documentId = "default-document", onReady, onDestroy }: 
     },
     [sync.initialContent, sync.extension],
   )
+
+  console.log("editor", editor?.getJSON())
 
   const updateCursorContext = (editor: Editor) => {
     const { from, to } = editor.state.selection
@@ -360,23 +368,27 @@ export function Tiptap({ documentId = "default-document", onReady, onDestroy }: 
     }
   }, [onDestroy])
 
-  if (sync.isLoading) {
+  // Auto-create document if it doesn't exist
+  useEffect(() => {
+    if (sync.initialContent === null && !sync.isLoading && 'create' in sync) {
+      console.log("Auto-creating document with ID:", documentId)
+      sync.create(EMPTY_DOC)
+    }
+  }, [sync, documentId])
+
+  // Handle different states after all hooks have been called
+  // Loading state or document being created
+  if (sync.isLoading || (sync.initialContent === null && 'create' in sync)) {
     return (
-      <div className="flex items-center justify-center h-96 bg-white rounded-lg shadow-sm border border-gray-200">
-        <div className="text-gray-500">Cargando documento...</div>
+      <div className="legal-editor-content prose prose-lg px-12 py-8 min-h-screen flex items-center justify-center">
+        <p className="text-gray-500">
+          {sync.initialContent === null ? "Creating document..." : "Loading document..."}
+        </p>
       </div>
     )
   }
 
-  if (sync.initialContent === null) {
-    return (
-      <div className="flex flex-col items-center justify-center h-96 bg-white rounded-lg shadow-sm border border-gray-200 gap-4">
-        <div className="text-gray-500">Document not found</div>
-        <div className="text-sm text-gray-400">Document ID: {documentId}</div>
-      </div>
-    )
-  }
-
+  // Editor not ready yet
   if (!editor) {
     return (
       <div className="flex items-center justify-center h-96 bg-white rounded-lg shadow-sm border border-gray-200">
@@ -385,6 +397,7 @@ export function Tiptap({ documentId = "default-document", onReady, onDestroy }: 
     )
   }
 
+  // Editor is ready - render the full editor
   return (
     <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
       {/* Toolbar */}

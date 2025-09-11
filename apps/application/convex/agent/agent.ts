@@ -9,7 +9,7 @@ import {
   listCaseDocumentsTool,
   queryDocumentTool,
   editEscritoTool,
-  getEscritoTool
+  getEscritoTool,
 } from "./tools/index";
 
 /**

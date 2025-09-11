@@ -185,6 +185,7 @@ Tool usage policy:
 - Prefer minimal, valid inputs; do not invent fields or enum values.
 - When tools return errors, examine the error output and decide how to proceed. You may retry with corrected arguments, ask the user for clarification, or suggest alternative approaches based on the error context.
 - After tools complete, summarize results succinctly and proceed to answer the user. Do not leave the conversation in a pending/typing state.
+- When using the editEscrito tool to add long documents, it is better divide the document into multiple paragraphs and add them one by one. Each paragraph should be added as a separate edit below the previous one.
 
 User's question:`;
 
