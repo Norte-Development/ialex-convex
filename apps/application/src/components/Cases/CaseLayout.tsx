@@ -380,11 +380,9 @@ function InnerCaseLayout({ children }: CaseDetailLayoutProps) {
   return (
     <div {...getRootProps()} className="relative h-full w-full">
       {/* Left Sidebar - fixed */}
-      {isCaseSidebarOpen && (
-        <div className="fixed top-14 left-0 h-[calc(100vh-56px)] w-64 z-20">
-          <CaseSidebar />
-        </div>
-      )}
+      <div className="fixed top-14 left-0 h-[calc(100vh-56px)] w-64 z-20">
+        <CaseSidebar />
+      </div>
 
       {/* Main content - scrollable */}
       <main

@@ -174,26 +174,29 @@ export default function CaseSidebar() {
   };
 
   return (
-    <aside
-      className={`fixed top-0 left-0 z-30 w-64 h-screen pt-14 bg-white border-r border-border flex flex-col text-sm transform transition-transform duration-300 ease-in-out ${
-        isCaseSidebarOpen ? "translate-x-0" : "-translate-x-full"
-      }`}
-    >
-      <button
-        className="absolute top-16 right-2 cursor-pointer"
-        onClick={toggleCaseSidebar}
-      >
-        <ArrowLeft size={15} />
-      </button>
-
+    <>
+      {/* Open sidebar button - positioned outside the sidebar container */}
       {!isCaseSidebarOpen && (
         <button
           onClick={toggleCaseSidebar}
-          className="absolute top-1/2 -right-5 cursor-pointer"
+          className="fixed top-1/2 left-0 z-40 bg-white border border-border rounded-r-lg shadow-lg hover:shadow-xl transition-all duration-200 p-2 hover:bg-gray-50"
+          style={{ transform: 'translateY(-50%)' }}
         >
-          <ArrowRight size={15} />
+          <ArrowRight size={16} className="text-gray-600" />
         </button>
       )}
+
+      <aside
+        className={`fixed top-0 left-0 z-30 w-64 h-screen pt-14 bg-white border-r border-border flex flex-col text-sm transform transition-transform duration-300 ease-in-out ${
+          isCaseSidebarOpen ? "translate-x-0" : "-translate-x-full"
+        }`}
+      >
+        <button
+          className="absolute top-16 right-2 cursor-pointer"
+          onClick={toggleCaseSidebar}
+        >
+          <ArrowLeft size={15} />
+        </button>
 
       <div className={`flex gap-4 justify-center items-center h-[10%] `}>
         {/* Base de datos - always show for now as it's not permission-dependent */}
@@ -498,12 +501,13 @@ export default function CaseSidebar() {
         </div>
       </div>
 
-      {/* Create Escrito Dialog */}
-      <CreateEscritoDialog
-        open={isCreateEscritoOpen}
-        setOpen={setIsCreateEscritoOpen}
-        onEscritoCreated={handleEscritoCreated}
-      />
-    </aside>
+        {/* Create Escrito Dialog */}
+        <CreateEscritoDialog
+          open={isCreateEscritoOpen}
+          setOpen={setIsCreateEscritoOpen}
+          onEscritoCreated={handleEscritoCreated}
+        />
+      </aside>
+    </>
   );
 }
