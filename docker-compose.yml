@@ -37,15 +37,9 @@ services:
       - HMAC_SECRET=${HMAC_SECRET}
       - MISTRAL_API_KEY=${MISTRAL_API_KEY}
       - DEEPGRAM_API_KEY=${DEEPGRAM_API_KEY}
-    networks:
-      - ialex-network
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:4001/health"]
       interval: 30s
       timeout: 10s
       retries: 3
       start_period: 40s
-
-networks:
-  ialex-network:
-    driver: bridge
