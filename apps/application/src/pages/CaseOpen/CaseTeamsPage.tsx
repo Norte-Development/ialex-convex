@@ -50,9 +50,11 @@ export default function CaseTeamsPage() {
 
 function CaseTeamsPageInner() {
   const { currentCase } = useCase();
-  const { can } = usePermissions();
+  const { can, hasAccessLevel } = usePermissions();
   const canManageTeams = can?.teams?.write || false;
   const [expandedTeams, setExpandedTeams] = useState<Set<string>>(new Set());
+
+  const isAdmin = hasAccessLevel("admin");
 
   if (!currentCase) {
     return null;
@@ -140,15 +142,17 @@ function CaseTeamsPageInner() {
             Gestiona qué equipos tienen acceso a este caso
           </p>
         </div>
-        <TeamAccessDialog
-          caseId={currentCase._id}
-          trigger={
-            <Button className="cursor-pointer">
-              <Plus className="h-4 w-4 mr-2" />
-              Gestionar Acceso
-            </Button>
-          }
-        />
+        {isAdmin && (
+          <TeamAccessDialog
+            caseId={currentCase._id}
+            trigger={
+              <Button className="cursor-pointer">
+                <Plus className="h-4 w-4 mr-2" />
+                Gestionar Acceso
+              </Button>
+            }
+          />
+        )}
       </div>
 
       {/* Case Info Card */}
