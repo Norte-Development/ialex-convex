@@ -414,34 +414,6 @@ export const getNewTeamsWithCaseAccess = query({
   },
 });
 
-/**
- * Revoke team access using NEW hierarchical system
- */
-export const revokeNewTeamCaseAccess = mutation({
-  args: {
-    caseId: v.id("cases"),
-    teamId: v.id("teams"),
-  },
-  handler: async (ctx, args) => {
-    // Only users with admin access can revoke permissions
-    const currentUser = await getCurrentUserFromAuth(ctx);
-    await requireNewCaseAccess(ctx, currentUser._id, args.caseId, "admin");
-
-    const access = await ctx.db
-      .query("caseAccess")
-      .withIndex("by_case", (q) => q.eq("caseId", args.caseId))
-      .filter((q) => q.eq(q.field("teamId"), args.teamId))
-      .filter((q) => q.eq(q.field("isActive"), true))
-      .first();
-
-    if (access) {
-      await ctx.db.patch(access._id, { isActive: false });
-    }
-
-    return access?._id;
-  },
-});
-
 // Grant individual case access to a team member (overrides team access)
 export const grantNewTeamMemberCaseAccess = mutation({
   args: {
@@ -571,30 +543,5 @@ export const grantNewUserCaseAccess = mutation({
     });
 
     return accessId;
-  },
-});
-
-// Revoke individual case access (new hierarchical system)
-export const revokeNewUserCaseAccess = mutation({
-  args: {
-    caseId: v.id("cases"),
-    userId: v.id("users"),
-  },
-  handler: async (ctx, args) => {
-    const currentUser = await getCurrentUserFromAuth(ctx);
-    await requireNewCaseAccess(ctx, currentUser._id, args.caseId, "admin");
-
-    const access = await ctx.db
-      .query("caseAccess")
-      .withIndex("by_case", (q) => q.eq("caseId", args.caseId))
-      .filter((q) => q.eq(q.field("userId"), args.userId))
-      .filter((q) => q.eq(q.field("isActive"), true))
-      .first();
-
-    if (access) {
-      await ctx.db.patch(access._id, { isActive: false });
-    }
-
-    return access?._id;
   },
 });

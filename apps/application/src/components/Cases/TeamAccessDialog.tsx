@@ -46,9 +46,7 @@ export default function TeamAccessDialog({
   );
   const allTeams = useQuery(api.functions.teams.getTeams, {});
   const grantAccess = useMutation(api.functions.teams.grantNewTeamCaseAccess);
-  const revokeAccess = useMutation(
-    api.functions.permissions.revokeNewTeamCaseAccess,
-  );
+  const revokeAccess = useMutation(api.functions.teams.revokeNewTeamCaseAccess);
 
   const availableTeams =
     allTeams?.filter(

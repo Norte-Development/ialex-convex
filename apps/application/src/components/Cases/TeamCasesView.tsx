@@ -8,6 +8,7 @@ import { Link } from "react-router-dom";
 import { useCase } from "@/context/CaseContext";
 import { usePermissions } from "@/context/CasePermissionsContext";
 import TeamMemberPermissionsDialog from "./TeamMemberPermissionsDialog";
+import { useAuth } from "@/context/AuthContext";
 
 interface TeamCasesViewProps {
   teamId: Id<"teams">;
@@ -19,6 +20,7 @@ export default function TeamCasesView({ teamId }: TeamCasesViewProps) {
   const { currentCase } = useCase();
   const { can } = usePermissions();
   const canManageTeams = can?.teams?.write || false;
+  const { user } = useAuth();
 
   const casesWithAccess = useQuery(
     api.functions.teams.getCasesAccessibleByTeam,
@@ -188,7 +190,12 @@ export default function TeamCasesView({ teamId }: TeamCasesViewProps) {
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
                       <div className="flex flex-col">
-                        <span className="font-medium">{member.user.name}</span>
+                        <span className="font-medium">
+                          {member.user.name}{" "}
+                          {user?._id === member.user._id && (
+                            <span className="text-sm text-gray-500">(Vos)</span>
+                          )}
+                        </span>
                         <span className="text-sm text-gray-500 capitalize">
                           {member.teamRole}
                         </span>

@@ -60,9 +60,6 @@ function CaseTeamsPageInner() {
 
   const caseId = currentCase._id;
 
-  // Debug logging
-  console.log("CaseTeamsPage - canManageTeams:", canManageTeams);
-
   const teamsWithAccess = useQuery(
     api.functions.permissions.getNewTeamsWithCaseAccess,
     { caseId },

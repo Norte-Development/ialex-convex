@@ -650,30 +650,28 @@ export const grantNewTeamCaseAccess = mutation({
  * });
  * ```
  */
-export const revokeTeamCaseAccess = mutation({
+export const revokeNewTeamCaseAccess = mutation({
   args: {
     caseId: v.id("cases"),
     teamId: v.id("teams"),
   },
   handler: async (ctx, args) => {
-    // Verify user has team write permission to revoke team access using NEW system
+    // Only users with admin access can revoke permissions
     const currentUser = await getCurrentUserFromAuth(ctx);
-    await requireNewCaseAccess(ctx, currentUser._id, args.caseId, "advanced");
+    await requireNewCaseAccess(ctx, currentUser._id, args.caseId, "admin");
 
     const access = await ctx.db
-      .query("teamCaseAccess")
-      .withIndex("by_case_and_team", (q) =>
-        q.eq("caseId", args.caseId).eq("teamId", args.teamId),
-      )
+      .query("caseAccess")
+      .withIndex("by_case", (q) => q.eq("caseId", args.caseId))
+      .filter((q) => q.eq(q.field("teamId"), args.teamId))
       .filter((q) => q.eq(q.field("isActive"), true))
       .first();
 
-    if (!access) {
-      throw new Error("Team does not have access to this case");
+    if (access) {
+      await ctx.db.patch(access._id, { isActive: false });
     }
 
-    await ctx.db.patch(access._id, { isActive: false });
-    console.log("Revoked team case access");
+    return access?._id;
   },
 });
 
@@ -704,8 +702,8 @@ export const getCasesAccessibleByTeam = query({
     await getCurrentUserFromAuth(ctx);
 
     const accesses = await ctx.db
-      .query("teamCaseAccess")
-      .withIndex("by_team", (q) => q.eq("teamId", args.teamId))
+      .query("caseAccess")
+      .filter((q) => q.eq(q.field("teamId"), args.teamId))
       .filter((q) => q.eq(q.field("isActive"), true))
       .collect();
 

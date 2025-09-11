@@ -23,6 +23,7 @@ import {
 import { User, Trash2, Edit, Mail } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import EditUserPermissionsDialog from "./EditUserPermissionsDialog";
+import { useAuth } from "@/context/AuthContext";
 
 interface IndividualUserPermissionsTableProps {
   caseId: Id<"cases">;
@@ -45,6 +46,7 @@ export function IndividualUserPermissionsTable({
   caseId,
 }: IndividualUserPermissionsTableProps) {
   const [userToDelete, setUserToDelete] = useState<UserWithAccess | null>(null);
+  const { user } = useAuth();
 
   // Get users with individual case access
   const usersWithAccess = useQuery(
@@ -54,8 +56,15 @@ export function IndividualUserPermissionsTable({
 
   // Mutation to revoke user access
   const revokeAccess = useMutation(
-    api.functions.permissions.revokeNewUserCaseAccess,
+    api.functions.permissions.revokeUserCaseAccess,
   );
+
+  const isAdmin = useQuery(api.functions.permissions.hasNewAccessLevel, {
+    caseId,
+    requiredLevel: "admin",
+  });
+
+  console.log("Is current user admin?", isAdmin);
 
   const handleRevokeAccess = async (userId: Id<"users">) => {
     try {
@@ -185,7 +194,6 @@ export function IndividualUserPermissionsTable({
           </TableHeader>
           <TableBody>
             {usersWithAccess.map((userAccess) => {
-              // Skip entries without userId (should not happen but safety check)
               if (!userAccess.userId) return null;
 
               const accessLevelDisplay = getAccessLevelDisplay(
@@ -193,13 +201,30 @@ export function IndividualUserPermissionsTable({
               );
 
               return (
-                <TableRow key={userAccess.userId}>
+                <TableRow
+                  key={userAccess.userId}
+                  className={
+                    userAccess.user._id === user?._id
+                      ? "bg-blue-50/50 border-l-2 border-l-blue-500"
+                      : ""
+                  }
+                >
                   <TableCell>
                     <div className="flex items-center space-x-3">
-                      <User className="h-4 w-4 text-gray-400" />
+                      <div className="relative">
+                        <User className="h-4 w-4 text-gray-400" />
+                        {userAccess.user._id === user?._id && (
+                          <div className="absolute -top-1 -right-1 h-2 w-2 bg-blue-500 rounded-full"></div>
+                        )}
+                      </div>
                       <div>
-                        <div className="font-medium">
+                        <div className="font-medium flex items-center gap-2">
                           {userAccess.user.name || "Sin nombre"}
+                          {userAccess.user._id === user?._id && (
+                            <span className="text-xs bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded-full font-medium">
+                              Vos
+                            </span>
+                          )}
                         </div>
                         <div className="text-sm text-gray-500 flex items-center">
                           <Mail className="h-3 w-3 mr-1" />
@@ -226,36 +251,38 @@ export function IndividualUserPermissionsTable({
                       {formatDate(userAccess.grantedAt)}
                     </span>
                   </TableCell>
-                  <TableCell>
-                    <div className="flex items-center space-x-1">
-                      <EditUserPermissionsDialog
-                        caseId={caseId}
-                        userId={userAccess.userId}
-                        userName={userAccess.user.name || "Sin nombre"}
-                        userEmail={userAccess.user.email}
-                        currentAccessLevel={userAccess.accessLevel}
-                        trigger={
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-8 w-8 p-0"
-                            title="Editar Permisos"
-                          >
-                            <Edit className="h-4 w-4" />
-                          </Button>
-                        }
-                      />
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => setUserToDelete(userAccess)}
-                        className="h-8 w-8 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
-                        title="Revocar Acceso"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </TableCell>
+                  {isAdmin && (
+                    <TableCell>
+                      <div className="flex items-center space-x-1">
+                        <EditUserPermissionsDialog
+                          caseId={caseId}
+                          userId={userAccess.userId}
+                          userName={userAccess.user.name || "Sin nombre"}
+                          userEmail={userAccess.user.email}
+                          currentAccessLevel={userAccess.accessLevel}
+                          trigger={
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-8 w-8 p-0"
+                              title="Editar Permisos"
+                            >
+                              <Edit className="h-4 w-4" />
+                            </Button>
+                          }
+                        />
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setUserToDelete(userAccess)}
+                          className="h-8 w-8 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
+                          title="Revocar Acceso"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  )}
                 </TableRow>
               );
             })}

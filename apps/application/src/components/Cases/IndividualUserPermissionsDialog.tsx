@@ -66,7 +66,7 @@ export default function IndividualUserPermissionsDialog({
     api.functions.permissions.grantNewUserCaseAccess,
   );
   const removeIndividualPermission = useMutation(
-    api.functions.permissions.revokeNewUserCaseAccess,
+    api.functions.permissions.revokeUserCaseAccess,
   );
 
   const handleAddPermission = async () => {
