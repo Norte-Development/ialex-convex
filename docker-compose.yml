@@ -10,8 +10,6 @@ services:
         VITE_DOCUMENT_PROCESSOR_URL: ${VITE_DOCUMENT_PROCESSOR_URL}
     ports:
       - "3000:80" # Map host:container (host 3000 -> container 80)
-    networks:
-      - ialex-network
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:80/"]
       interval: 30s
