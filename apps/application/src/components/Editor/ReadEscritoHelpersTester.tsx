@@ -153,6 +153,10 @@ export function ReadEscritoHelpersTester() {
         <div className="text-sm text-gray-600">
           Testing: {escrito?.title || 'Loading...'}
         </div>
+        <div className="text-xs text-gray-500 bg-green-50 p-2 rounded border">
+          <div className="font-medium text-green-700 mb-1">✨ Enhanced Features</div>
+          <div>Tests the redesigned read helpers with semantic chunking, section tracking, and structural boundaries.</div>
+        </div>
       </CardHeader>
 
       <CardContent className="flex-1 flex flex-col gap-4 overflow-hidden">
@@ -238,6 +242,28 @@ export function ReadEscritoHelpersTester() {
               </>
             )}
           </Button>
+
+          {/* Operation info */}
+          <div className="text-xs text-gray-500 bg-blue-50 p-2 rounded border">
+            {operation === 'outline' && (
+              <div>
+                <div className="font-medium text-blue-700 mb-1">Outline Operation</div>
+                <div>Shows document structure with headings and paragraphs, their positions, and chunk mappings.</div>
+              </div>
+            )}
+            {operation === 'chunk' && (
+              <div>
+                <div className="font-medium text-blue-700 mb-1">Chunk Operation</div>
+                <div>Returns chunk {chunkIndex} with {contextWindow} chunks before/after. Shows enhanced metadata like section paths, node types, and structural boundaries.</div>
+              </div>
+            )}
+            {operation === 'full' && (
+              <div>
+                <div className="font-medium text-blue-700 mb-1">Full Operation</div>
+                <div>Returns complete document text with word count and structural analysis.</div>
+              </div>
+            )}
+          </div>
         </div>
 
         <Separator />
@@ -290,17 +316,31 @@ export function ReadEscritoHelpersTester() {
                     <div className="text-sm">
                       {result.operation === 'outline' && Array.isArray(result.result) && (
                         <div className="space-y-1">
-                          <div className="font-medium">Document Outline:</div>
+                          <div className="font-medium">Document Outline ({result.result.length} items):</div>
                           {result.result.map((item: any, i: number) => (
                             <div key={i} className="text-xs bg-white p-2 rounded border">
-                              <div className="flex items-center gap-2">
-                                <Badge variant="secondary" className="text-xs">
-                                  {item.type}
-                                </Badge>
-                                <span className="text-gray-500">Chunk {item.chunkIndex}</span>
+                              <div className="space-y-1">
+                                <div className="flex items-center gap-2">
+                                  <Badge 
+                                    variant={item.type === 'heading' ? 'default' : 'secondary'} 
+                                    className="text-xs"
+                                  >
+                                    {item.type}
+                                  </Badge>
+                                  <Badge variant="outline" className="text-xs">
+                                    Chunk {item.chunkIndex}
+                                  </Badge>
+                                  <span className="text-gray-400">Pos: {item.pos}</span>
+                                </div>
+                                <div className={`mt-1 ${item.type === 'heading' ? 'font-bold text-blue-700' : 'font-medium'}`}>
+                                  {item.text}
+                                </div>
+                                {item.chunkCount > 0 && (
+                                  <div className="text-gray-500">
+                                    Part of chunk collection ({item.chunkCount} total)
+                                  </div>
+                                )}
                               </div>
-                              <div className="mt-1 font-medium">{item.text}</div>
-                              <div className="text-gray-500">Position: {item.pos}</div>
                             </div>
                           ))}
                         </div>
@@ -308,25 +348,82 @@ export function ReadEscritoHelpersTester() {
                       
                       {result.operation === 'chunk' && Array.isArray(result.result) && (
                         <div className="space-y-1">
-                          <div className="font-medium">Document Chunks:</div>
+                          <div className="font-medium">Document Chunks ({result.result.length} returned):</div>
                           {result.result.map((chunk: any, i: number) => (
                             <div key={i} className="text-xs bg-white p-2 rounded border">
-                              <div className="flex items-center gap-2 mb-1">
-                                <Badge variant="secondary" className="text-xs">
-                                  Chunk {chunk.chunkIndex}
-                                </Badge>
-                                <span className="text-gray-500">{chunk.wordCount} words</span>
-                                {chunk.sectionTitle && (
-                                  <Badge variant="outline" className="text-xs">
-                                    {chunk.sectionTitle}
+                              <div className="space-y-2">
+                                {/* Header with basic info */}
+                                <div className="flex items-center gap-2 mb-1">
+                                  <Badge variant="secondary" className="text-xs">
+                                    Chunk {chunk.chunkIndex ?? 'Unknown'}
                                   </Badge>
+                                  <span className="text-gray-500">{chunk.wordCount ?? 0} words</span>
+                                  {chunk.hasMore && (
+                                    <Badge variant="destructive" className="text-xs">
+                                      Truncated
+                                    </Badge>
+                                  )}
+                                  {chunk.hasStructuralBoundary && (
+                                    <Badge variant="outline" className="text-xs">
+                                      Structural
+                                    </Badge>
+                                  )}
+                                </div>
+
+                                {/* Section path */}
+                                {chunk.sectionPath && chunk.sectionPath.length > 0 && (
+                                  <div className="flex items-center gap-1">
+                                    <span className="text-gray-400 text-xs">Section:</span>
+                                    <div className="flex items-center gap-1">
+                                      {chunk.sectionPath.map((section: string, idx: number) => (
+                                        <div key={idx} className="flex items-center gap-1">
+                                          {idx > 0 && <span className="text-gray-300">›</span>}
+                                          <Badge variant="outline" className="text-xs bg-blue-50">
+                                            {section}
+                                          </Badge>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  </div>
                                 )}
+
+                                {/* Node types */}
+                                {chunk.nodeTypes && chunk.nodeTypes.length > 0 && (
+                                  <div className="flex items-center gap-1">
+                                    <span className="text-gray-400 text-xs">Content:</span>
+                                    <div className="flex flex-wrap gap-1">
+                                      {chunk.nodeTypes.map((nodeType: string, idx: number) => (
+                                        <Badge key={idx} variant="secondary" className="text-xs">
+                                          {nodeType}
+                                        </Badge>
+                                      ))}
+                                    </div>
+                                  </div>
+                                )}
+
+                                {/* Position info */}
+                                {(chunk.startPos !== undefined || chunk.endPos !== undefined) && (
+                                  <div className="flex items-center gap-2 text-gray-400 text-xs">
+                                    <span>Pos: {chunk.startPos ?? '?'} - {chunk.endPos ?? '?'}</span>
+                                  </div>
+                                )}
+
+                                {/* Preview */}
+                                <div className="font-medium mb-1 bg-gray-50 p-2 rounded">
+                                  {chunk.preview}
+                                  {chunk.preview && !chunk.preview.endsWith('...') && '...'}
+                                </div>
+
+                                {/* Full text collapsible */}
+                                <details className="text-gray-600">
+                                  <summary className="cursor-pointer hover:text-gray-800">
+                                    View full text ({chunk.text?.length || 0} chars)
+                                  </summary>
+                                  <div className="mt-2 p-2 bg-gray-50 rounded border-l-2 border-blue-200 whitespace-pre-wrap max-h-32 overflow-y-auto">
+                                    {chunk.text}
+                                  </div>
+                                </details>
                               </div>
-                              <div className="font-medium mb-1">{chunk.preview}...</div>
-                              <details className="text-gray-600">
-                                <summary className="cursor-pointer">Full text</summary>
-                                <div className="mt-1 whitespace-pre-wrap">{chunk.text}</div>
-                              </details>
                             </div>
                           ))}
                         </div>
@@ -334,9 +431,47 @@ export function ReadEscritoHelpersTester() {
                       
                       {result.operation === 'full' && (
                         <div className="text-xs bg-white p-2 rounded border">
-                          <div className="font-medium mb-1">Full Document:</div>
-                          <div className="whitespace-pre-wrap max-h-40 overflow-y-auto">
-                            {formatResult(result.result)}
+                          <div className="space-y-2">
+                            <div className="font-medium">Full Document:</div>
+                            
+                            {/* Document stats */}
+                            {result.result?.wordCount && (
+                              <div className="flex items-center gap-2">
+                                <Badge variant="secondary" className="text-xs">
+                                  {result.result.wordCount} words
+                                </Badge>
+                                <span className="text-gray-500">
+                                  ~{Math.ceil(result.result.wordCount / 300)} chunks
+                                </span>
+                              </div>
+                            )}
+
+                            {/* Document structure */}
+                            {result.result?.structure && result.result.structure.length > 0 && (
+                              <div>
+                                <div className="text-gray-400 text-xs mb-1">Document Structure:</div>
+                                <div className="space-y-1 bg-gray-50 p-2 rounded border max-h-24 overflow-y-auto">
+                                  {result.result.structure.map((item: string, idx: number) => (
+                                    <div key={idx} className="text-xs">
+                                      <Badge variant="outline" className="text-xs mr-1">
+                                        {item.split(':')[0]}
+                                      </Badge>
+                                      {item.split(':').slice(1).join(':').trim()}
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Full text collapsible */}
+                            <details className="text-gray-600">
+                              <summary className="cursor-pointer hover:text-gray-800">
+                                View full text ({result.result?.text?.length || 0} chars)
+                              </summary>
+                              <div className="mt-2 p-2 bg-gray-50 rounded border-l-2 border-green-200 whitespace-pre-wrap max-h-40 overflow-y-auto">
+                                {result.result?.text || formatResult(result.result)}
+                              </div>
+                            </details>
                           </div>
                         </div>
                       )}

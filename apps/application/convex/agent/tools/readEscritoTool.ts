@@ -5,13 +5,29 @@ import { prosemirrorSync } from "../../prosemirror";
 import { buildServerSchema } from "../../../../../packages/shared/src/tiptap/schema";
 import { Node } from "@tiptap/pm/model";
 
-interface Chunk {
-    chunkIndex: number;
-    text: string;
-    preview: string;
-    wordCount: number;
-    sectionTitle?: string;
-  }
+export interface ChunkMetadata {
+  chunkIndex: number;
+  startPos: number;
+  endPos: number;
+  sectionPath: string[]; // ["Chapter 1", "Section A", "Subsection 1"]
+  nodeTypes: string[]; // ["heading", "paragraph", "list"]
+  hasStructuralBoundary: boolean; // true if chunk starts/ends at heading or major section
+}
+
+export interface ProcessedChunk extends ChunkMetadata {
+  text: string;
+  preview: string;
+  wordCount: number;
+  hasMore: boolean; // indicates if chunk was truncated due to size limits
+}
+
+export interface DocumentNode {
+  type: string;
+  text: string;
+  pos: number;
+  level?: number; // for headings
+  isStructuralBoundary: boolean;
+}
   
   const MAX_WORDS_PER_CHUNK = 300;
 
@@ -39,103 +55,290 @@ export const getEscritoOutline = (doc: Node) => {
     return outline;
 }
 
-// const getEscritoChunks = (doc: Node, chunkIndex: number, chunkCount: number) => {
-//     const chunks: { text: string, pos: number, chunkIndex: number, type: string }[] = [];
-//     const chunksToReturn: { text: string, pos: number, chunkIndex: number, type: string }[] = [];
-//     let index = 0;
-
-//     doc.content.descendants((node, pos) => {
-//         if (node.text){
-//             chunks.push({
-//                 text: node.text,
-//                 pos,
-//                 chunkIndex: index,
-//                 type: node.type.name,
-//             });
-//             index++;
-
-//             if (index === chunkIndex){
-//                 chunksToReturn.push(chunks[index]);
-//             }
-
-//         }
-//     });
-//     return chunksToReturn;
-
-// }
 
 
+/**
+ * Extract all text nodes from ProseMirror document with proper tree traversal
+ */
+export function extractDocumentNodes(doc: Node): DocumentNode[] {
+  const nodes: DocumentNode[] = [];
+  const sectionStack: string[] = [];
+
+  console.log("🔍 Starting document extraction from node type:", doc.type.name);
+  
+  doc.descendants((node, pos) => {
+    // Handle headings - update section context
+    if (node.type.name === "heading") {
+      const level = node.attrs?.level || 1;
+      const headingText = node.textContent.trim();
+      
+      if (headingText) {
+        // Update section stack based on heading level
+        sectionStack.splice(level - 1);
+        sectionStack[level - 1] = headingText;
+        
+        nodes.push({
+          type: "heading",
+          text: headingText,
+          pos,
+          level,
+          isStructuralBoundary: true,
+        });
+      }
+      return false; // Don't traverse into heading children
+    }
+
+    // Handle content nodes
+    if (["paragraph", "list_item", "table_cell", "code_block"].includes(node.type.name)) {
+      const text = node.textContent.trim();
+      if (text) {
+        nodes.push({
+          type: node.type.name,
+          text,
+          pos,
+          isStructuralBoundary: node.type.name === "code_block",
+        });
+      }
+      return false; // Don't traverse into these nodes' children
+    }
+
+    // Handle lists and tables as structural boundaries
+    if (["bullet_list", "ordered_list", "table"].includes(node.type.name)) {
+      return true; // Traverse children but mark as structural
+    }
+
+    return true; // Continue traversing
+  });
+
+  console.log("📝 Document extraction complete. Found", nodes.length, "nodes");
+  return nodes;
+}
+
+/**
+ * Generate semantic-aware chunks from document nodes
+ */
+export function createSemanticChunks(nodes: DocumentNode[]): ChunkMetadata[] {
+  console.log("🔧 createSemanticChunks called with", nodes.length, "nodes");
+  
+  const chunks: ChunkMetadata[] = [];
+  let currentChunk: {
+    nodes: DocumentNode[];
+    wordCount: number;
+    startPos: number;
+    endPos: number;
+    sectionPath: string[];
+    nodeTypes: Set<string>;
+  } | null = null;
+
+  const sectionStack: string[] = [];
+
+  const flushChunk = () => {
+    if (!currentChunk || currentChunk.nodes.length === 0) {
+      console.log("🚫 No chunk to flush or chunk is empty");
+      return;
+    }
+    
+    console.log("💾 Flushing chunk with", currentChunk.nodes.length, "nodes,", currentChunk.wordCount, "words");
+
+    chunks.push({
+      chunkIndex: chunks.length,
+      startPos: currentChunk.startPos,
+      endPos: currentChunk.endPos,
+      sectionPath: [...currentChunk.sectionPath],
+      nodeTypes: Array.from(currentChunk.nodeTypes),
+      hasStructuralBoundary: currentChunk.nodes.some(n => n.isStructuralBoundary),
+    });
+
+    currentChunk = null;
+  };
+
+  for (const node of nodes) {
+    console.log("🔍 Processing node:", { type: node.type, text: node.text.substring(0, 50) + "...", pos: node.pos });
+    
+    // Update section context for headings
+    if (node.type === "heading" && node.level) {
+      sectionStack.splice(node.level - 1);
+      sectionStack[node.level - 1] = node.text;
+      
+      // Flush current chunk at major structural boundaries
+      if (node.level <= 2) {
+        console.log("🏁 Flushing at major heading level", node.level);
+        flushChunk();
+      }
+    }
+
+    const nodeWordCount = node.text.split(/\s+/).length;
+
+    // Initialize new chunk if needed
+    if (!currentChunk) {
+      currentChunk = {
+        nodes: [],
+        wordCount: 0,
+        startPos: node.pos,
+        endPos: node.pos,
+        sectionPath: [...sectionStack],
+        nodeTypes: new Set(),
+      };
+    }
+
+    // Check if adding this node would exceed chunk size
+    const wouldExceed = currentChunk.wordCount + nodeWordCount > MAX_WORDS_PER_CHUNK;
+    const hasContent = currentChunk.nodes.length > 0;
+
+    // Flush if we would exceed size and have content, unless it's a structural boundary
+    if (wouldExceed && hasContent && !node.isStructuralBoundary) {
+      flushChunk();
+      
+      // Start new chunk
+      currentChunk = {
+        nodes: [],
+        wordCount: 0,
+        startPos: node.pos,
+        endPos: node.pos,
+        sectionPath: [...sectionStack],
+        nodeTypes: new Set(),
+      };
+    }
+
+    // Add node to current chunk
+    currentChunk.nodes.push(node);
+    currentChunk.wordCount += nodeWordCount;
+    currentChunk.endPos = node.pos;
+    currentChunk.nodeTypes.add(node.type);
+  }
+
+  // Flush final chunk
+  console.log("🏁 Final flush");
+  flushChunk();
+
+  console.log("✅ createSemanticChunks complete. Created", chunks.length, "chunks");
+  return chunks;
+}
+
+/**
+ * Generate preview text for a chunk
+ */
+export function generateChunkPreview(text: string): string {
+  // Try to get first complete sentence
+  const sentences = text.split(/(?<=[.!?])\s+/);
+  const firstSentence = sentences[0]?.trim();
+  
+  if (firstSentence && firstSentence.length <= 120) {
+    return firstSentence;
+  }
+  
+  // Fallback to word boundary
+  const words = text.split(/\s+/);
+  let preview = "";
+  for (const word of words) {
+    if ((preview + " " + word).length > 120) break;
+    preview += (preview ? " " : "") + word;
+  }
+  
+  return preview + (preview.length < text.length ? "..." : "");
+}
+
+/**
+ * Get chunks by index with lazy evaluation and context window
+ */
 export function getEscritoChunks(
   doc: Node,
   chunkIndex: number,
   contextWindow: number = 0
-): Chunk[] {
-  const allChunks: Chunk[] = [];
-  let currChunkText: string[] = [];
-  let currWordCount = 0;
-  let sectionTitle: string | undefined;
+): ProcessedChunk[] {
+  console.log("🔍 getEscritoChunks called with:", { chunkIndex, contextWindow });
+  
+  // Extract document structure
+  const documentNodes = extractDocumentNodes(doc);
+  console.log("📝 Extracted document nodes:", documentNodes.length, "nodes");
+  
+  if (documentNodes.length === 0) {
+    console.log("❌ No document nodes found - returning empty array");
+    return [];
+  }
 
-  const flushChunk = () => {
-    if (currChunkText.length === 0) return;
-    const text = currChunkText.join("\n\n").trim();
-    const words = text.split(/\s+/).length;
-    const preview =
-      text.split(/(?<=[.?!])\s+/)[0]?.slice(0, 120) ?? text.slice(0, 120);
+  // Create chunk metadata efficiently
+  const chunkMetadata = createSemanticChunks(documentNodes);
+  console.log("📊 Created chunks:", chunkMetadata.length, "chunks");
+  
+  if (chunkMetadata.length === 0) {
+    console.log("❌ No chunks created - returning empty array");
+    return [];
+  }
 
-    allChunks.push({
-      chunkIndex: allChunks.length,
+  // Calculate context window bounds
+  const start = Math.max(0, chunkIndex - contextWindow);
+  const end = Math.min(chunkMetadata.length, chunkIndex + contextWindow + 1);
+  console.log("🎯 Context window:", { start, end, totalChunks: chunkMetadata.length });
+  
+  // Only process chunks in the requested range
+  const resultChunks: ProcessedChunk[] = [];
+  
+  for (let i = start; i < end; i++) {
+    const metadata = chunkMetadata[i];
+    console.log(`📄 Processing chunk ${i}:`, metadata);
+    
+    // Extract text for this chunk by finding nodes in position range
+    const chunkNodes = documentNodes.filter(
+      node => node.pos >= metadata.startPos && node.pos <= metadata.endPos
+    );
+    console.log(`📄 Chunk ${i} has ${chunkNodes.length} nodes in range`);
+    
+    const textParts: string[] = [];
+    for (const node of chunkNodes) {
+      if (node.type === "heading") {
+        textParts.push(node.text.toUpperCase());
+      } else {
+        textParts.push(node.text);
+      }
+    }
+    
+    const text = textParts.join("\n\n");
+    const wordCount = text.split(/\s+/).length;
+    const preview = generateChunkPreview(text);
+    
+    console.log(`📄 Chunk ${i} text length:`, text.length, "words:", wordCount);
+    
+    resultChunks.push({
+      ...metadata,
       text,
       preview,
-      wordCount: words,
-      sectionTitle,
+      wordCount,
+      hasMore: wordCount >= MAX_WORDS_PER_CHUNK * 0.95, // Indicate if chunk is near size limit
     });
+  }
 
-    currChunkText = [];
-    currWordCount = 0;
-  };
-
-  doc.content.forEach((node) => {
-    if (node.type.name === "heading") {
-      // Flush current chunk before starting a new section
-      flushChunk();
-      sectionTitle = node.textContent.trim();
-    }
-
-    if (["paragraph", "heading", "list_item"].includes(node.type.name)) {
-      const blockText = node.textContent.trim();
-      if (!blockText) return;
-
-      const words = blockText.split(/\s+/).length;
-
-      // If adding this block would exceed chunk size → flush first
-      if (currWordCount > 0 && currWordCount + words > MAX_WORDS_PER_CHUNK) {
-        flushChunk();
-      }
-
-      currChunkText.push(
-        node.type.name === "heading"
-          ? `${blockText.toUpperCase()}`
-          : blockText
-      );
-      currWordCount += words;
-    }
-  });
-
-  // Flush any remaining text
-  flushChunk();
-
-  // Apply context windowing: include contextWindow chunks before and after the target chunk
-  const start = Math.max(0, chunkIndex - contextWindow);
-  const end = Math.min(allChunks.length, chunkIndex + contextWindow + 1);
-
-  console.log("allChunks", allChunks.slice(start, end));
-
-  return allChunks.slice(start, end);
+  console.log("✅ Returning", resultChunks.length, "chunks");
+  return resultChunks;
 }
 
 
-const getFullEscrito = (doc: Node) => {
-    
+/**
+ * Get full Escrito text with proper structure preservation
+ */
+export const getFullEscrito = (doc: Node): { text: string; wordCount: number; structure: string[] } => {
+  const documentNodes = extractDocumentNodes(doc);
+  const textParts: string[] = [];
+  const structure: string[] = [];
+  
+  for (const node of documentNodes) {
+    if (node.type === "heading") {
+      const headingText = node.text.toUpperCase();
+      textParts.push(headingText);
+      structure.push(`H${node.level || 1}: ${node.text}`);
+    } else {
+      textParts.push(node.text);
+    }
+  }
+  
+  const fullText = textParts.join("\n\n");
+  const wordCount = fullText.split(/\s+/).length;
+  
+  return {
+    text: fullText,
+    wordCount,
+    structure,
+  };
 }
 
 const readEscritoTool = createTool({
