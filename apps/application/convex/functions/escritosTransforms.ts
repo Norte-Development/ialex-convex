@@ -114,8 +114,6 @@ export const applyTextBasedOperations = mutation({
     const escrito = await ctx.db.get(escritoId);
     if (!escrito) throw new Error("Escrito not found");
 
-    console.log("Applying text-based operations:", edits);
-
     // Get the current document content
     const documentContent = await ctx.runQuery(api.prosemirror.getSnapshot, { id: escrito.prosemirrorId });
     if (!documentContent?.content) {
@@ -123,19 +121,105 @@ export const applyTextBasedOperations = mutation({
     }
 
     // Build schema for the transform function
-    console.log("=== BUILDING SCHEMA ===");
     const schema = buildServerSchema();
-    console.log("Schema built successfully");
-    console.log("Schema nodes:", Object.keys(schema.nodes));
-    console.log("Schema marks:", Object.keys(schema.marks));
-    console.log("Schema topNodeType:", schema.topNodeType);
-    console.log("Schema cached:", schema.cached);
 
     const operations: any[] = [];
 
+    // Helper function to escape regex special characters
+    const escapeRegex = (text: string): string => {
+      return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    };
+
+    // Helper function to determine the best matching strategy
+    const getMatchingStrategy = (searchText: string): 'literal' | 'word_boundary' => {
+      // Template placeholders: use literal matching
+      if (searchText.startsWith('[') && searchText.endsWith(']')) {
+        return 'literal';
+      }
+      
+      // Multi-word phrases with significant length: use literal matching  
+      if (searchText.includes(' ') && searchText.length > 20) {
+        return 'literal';
+      }
+      
+      // Phrases with complex punctuation: use literal matching
+      if (searchText.includes(',') || searchText.includes(';') || searchText.includes(':')) {
+        return 'literal';
+      }
+      
+      // Single words or simple phrases: use word boundary
+      return 'word_boundary';
+    };
+
+    // Helper function to find all text matches with literal string matching
+    const findAllTextLiteral = (text: string, searchText: string): Array<{ index: number; length: number }> => {
+      const matches: Array<{ index: number; length: number }> = [];
+      let startIndex = 0;
+      
+      while (true) {
+        const foundIndex = text.indexOf(searchText, startIndex);
+        if (foundIndex === -1) break;
+        
+        matches.push({ index: foundIndex, length: searchText.length });
+        startIndex = foundIndex + 1;
+      }
+      
+      return matches;
+    };
+
+    // Helper function to find text with smart matching strategy (case-sensitive by default)
+    const findTextWithSmartMatching = (text: string, searchText: string, startIndex: number = 0): number => {
+      const strategy = getMatchingStrategy(searchText);
+      
+      if (strategy === 'literal') {
+        // Use indexOf for literal matching
+        return text.indexOf(searchText, startIndex);
+      } else {
+        // Create regex with word boundaries - \b ensures we match whole words only
+        const escapedSearch = escapeRegex(searchText);
+        const regex = new RegExp(`\\b${escapedSearch}\\b`, 'g'); // Removed 'i' flag for case-sensitive matching
+        
+        // Set lastIndex to start from the specified position
+        regex.lastIndex = startIndex;
+        const match = regex.exec(text);
+        
+        return match ? match.index : -1;
+      }
+    };
+
+    // Backward compatibility alias
+    const findTextWithWordBoundary = findTextWithSmartMatching;
+
+    // Helper function to find all text matches using smart strategy detection (case-sensitive by default)
+    const findAllTextWithSmartMatching = (text: string, searchText: string): Array<{ index: number; length: number }> => {
+      const strategy = getMatchingStrategy(searchText);
+      
+      if (strategy === 'literal') {
+        return findAllTextLiteral(text, searchText);
+      } else {
+        // Word boundary matching
+        const matches: Array<{ index: number; length: number }> = [];
+        const escapedSearch = escapeRegex(searchText);
+        const regex = new RegExp(`\\b${escapedSearch}\\b`, 'g'); // Removed 'i' flag for case-sensitive matching
+        
+        let match;
+        while ((match = regex.exec(text)) !== null) {
+          matches.push({ index: match.index, length: match[0].length });
+          // Prevent infinite loop on zero-width matches
+          if (match.index === regex.lastIndex) {
+            regex.lastIndex++;
+          }
+        }
+        
+        return matches;
+      }
+    };
+
+    // Backward compatibility alias
+    const findAllTextWithWordBoundary = findAllTextWithSmartMatching;
+
     // Process each edit using the existing ProseMirror sync system
     for (const edit of edits) {
-      console.log("Processing edit:", edit);
       
       if (edit.type === "replace") {
         // For now, create simple position-based operations
@@ -224,8 +308,6 @@ export const applyTextBasedOperations = mutation({
     if (operations.length === 0) {
       return { message: "No changes to apply" };
     }
-
-    console.log("Converted to position-based operations:", operations);
 
     // Helper function to find text with specific marks
     const findTextWithMark = (doc: any, text: string, markType?: string) => {
@@ -467,109 +549,6 @@ export const applyTextBasedOperations = mutation({
       }
     };
 
-    // Helper function to escape regex special characters
-    const escapeRegex = (text: string): string => {
-      return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    };
-
-    // Helper function to determine the best matching strategy
-    const getMatchingStrategy = (searchText: string): 'literal' | 'word_boundary' => {
-      // Template placeholders: use literal matching
-      if (searchText.startsWith('[') && searchText.endsWith(']')) {
-        return 'literal';
-      }
-      
-      // Multi-word phrases with significant length: use literal matching  
-      if (searchText.includes(' ') && searchText.length > 20) {
-        return 'literal';
-      }
-      
-      // Phrases with complex punctuation: use literal matching
-      if (searchText.includes(',') || searchText.includes(';') || searchText.includes(':')) {
-        return 'literal';
-      }
-      
-      // Single words or simple phrases: use word boundary
-      return 'word_boundary';
-    };
-
-    // Helper function to find all text matches with literal string matching
-    const findAllTextLiteral = (text: string, searchText: string): Array<{ index: number; length: number }> => {
-      const matches: Array<{ index: number; length: number }> = [];
-      let startIndex = 0;
-      
-      while (true) {
-        const foundIndex = text.indexOf(searchText, startIndex);
-        if (foundIndex === -1) break;
-        
-        matches.push({ index: foundIndex, length: searchText.length });
-        startIndex = foundIndex + 1;
-      }
-      
-      console.log(`Literal matching result: Found ${matches.length} matches for "${searchText.length > 50 ? searchText.substring(0, 50) + '...' : searchText}"`);
-      if (matches.length > 0) {
-        console.log(`First match at index ${matches[0].index} in text: "${text.substring(Math.max(0, matches[0].index - 10), matches[0].index + searchText.length + 10)}"`);
-      }
-      
-      return matches;
-    };
-
-    // Helper function to find text with smart matching strategy
-    const findTextWithSmartMatching = (text: string, searchText: string, startIndex: number = 0): number => {
-      const strategy = getMatchingStrategy(searchText);
-      
-      if (strategy === 'literal') {
-        // Use indexOf for literal matching
-        return text.indexOf(searchText, startIndex);
-      } else {
-        // Create regex with word boundaries - \b ensures we match whole words only
-        const escapedSearch = escapeRegex(searchText);
-        const regex = new RegExp(`\\b${escapedSearch}\\b`, 'gi');
-        
-        // Set lastIndex to start from the specified position
-        regex.lastIndex = startIndex;
-        const match = regex.exec(text);
-        
-        return match ? match.index : -1;
-      }
-    };
-
-    // Backward compatibility alias
-    const findTextWithWordBoundary = findTextWithSmartMatching;
-
-    // Helper function to find all text matches using smart strategy detection
-    const findAllTextWithSmartMatching = (text: string, searchText: string): Array<{ index: number; length: number }> => {
-      const strategy = getMatchingStrategy(searchText);
-      console.log(`Using ${strategy} matching strategy for: "${searchText}"`);
-      
-      if (strategy === 'literal') {
-        return findAllTextLiteral(text, searchText);
-      } else {
-        // Word boundary matching
-        const matches: Array<{ index: number; length: number }> = [];
-        const escapedSearch = escapeRegex(searchText);
-        const regex = new RegExp(`\\b${escapedSearch}\\b`, 'gi');
-        
-        let match;
-        while ((match = regex.exec(text)) !== null) {
-          matches.push({ index: match.index, length: match[0].length });
-          // Prevent infinite loop on zero-width matches
-          if (match.index === regex.lastIndex) {
-            regex.lastIndex++;
-          }
-        }
-        
-        console.log(`Word boundary matching result: Found ${matches.length} matches for "${searchText}"`);
-        if (matches.length > 0) {
-          console.log(`First match at index ${matches[0].index} in text: "${text.substring(Math.max(0, matches[0].index - 10), matches[0].index + searchText.length + 10)}"`);
-        }
-        
-        return matches;
-      }
-    };
-
-    // Backward compatibility alias
-    const findAllTextWithWordBoundary = findAllTextWithSmartMatching;
 
     // Helper function to select matches based on occurrence control parameters
     const selectMatchesByOccurrence = (
@@ -615,66 +594,13 @@ export const applyTextBasedOperations = mutation({
     };
 
     // Apply the position-based operations using the existing mutation
-    
-    // DEBUG: Log all parameters before transform
-    console.log("=== TRANSFORM DEBUG START ===");
-    console.log("escritoId:", escritoId);
-    console.log("escrito.prosemirrorId:", escrito.prosemirrorId);
-    console.log("operations count:", operations.length);
-    console.log("operations:", JSON.stringify(operations, null, 2));
-    
-    // Get current document state for debugging
-    const currentSnapshot = await ctx.runQuery(api.prosemirror.getSnapshot, { id: escrito.prosemirrorId });
-    console.log("Current snapshot:", JSON.stringify(currentSnapshot, null, 2));
-    
-    // Log schema structure
-    console.log("Schema nodes:", Object.keys(schema.nodes));
-    console.log("Schema marks:", Object.keys(schema.marks));
-    
-    // Validate document content structure
-    if (currentSnapshot?.content) {
-      try {
-        console.log("Document content type:", typeof currentSnapshot.content);
-        console.log("Document content keys:", Object.keys(currentSnapshot.content));
-        
-        // Try to parse the content as JSON to see if it's valid
-        const contentStr = JSON.stringify(currentSnapshot.content);
-        console.log("Document content length:", contentStr.length);
-        console.log("Document content preview:", contentStr.substring(0, 500));
-        
-        // Check for common JSON issues
-        if (contentStr.includes('undefined')) {
-          console.log("WARNING: Document content contains 'undefined' values");
-        }
-        if (contentStr.includes('null')) {
-          console.log("INFO: Document content contains 'null' values");
-        }
-        
-      } catch (error) {
-        console.log("ERROR parsing document content:", error);
-      }
-    } else {
-      console.log("WARNING: No document content found in snapshot");
-    }
-    
-    console.log("=== TRANSFORM DEBUG END ===");
   
     await prosemirrorSync.transform(ctx, escrito.prosemirrorId, schema, (doc) => {
-      console.log("=== TRANSFORM CALLBACK START ===");
-      console.log("Document received in callback:", doc);
-      console.log("Document type:", typeof doc);
-      console.log("Document constructor:", doc.constructor.name);
-      
       // Store original for diff
       let originalDocJson;
       try {
         originalDocJson = doc.toJSON();
-        console.log("Successfully converted document to JSON");
-        console.log("Original document JSON keys:", Object.keys(originalDocJson));
-        console.log("Original document JSON preview:", JSON.stringify(originalDocJson, null, 2).substring(0, 1000));
       } catch (error) {
-        console.log("ERROR converting document to JSON:", error);
-        console.log("Document structure:", doc);
         throw error;
       }
       
@@ -684,18 +610,11 @@ export const applyTextBasedOperations = mutation({
       // Apply operations one by one
       for (let i = 0; i < operations.length; i++) {
         const op = operations[i];
-        console.log(`=== PROCESSING OPERATION ${i + 1}/${operations.length} ===`);
-        console.log("Operation:", JSON.stringify(op, null, 2));
-        console.log("Current document before operation:", currentDoc);
-        console.log("Current document childCount:", currentDoc.childCount);
         
         let state;
         try {
           state = EditorState.create({ doc: currentDoc });
-          console.log("Successfully created EditorState");
         } catch (error) {
-          console.log("ERROR creating EditorState:", error);
-          console.log("Current document that failed:", currentDoc);
           throw error;
         }
         
@@ -703,28 +622,18 @@ export const applyTextBasedOperations = mutation({
 
         // Ensure document has content for operations
         if (currentDoc.childCount === 0) {
-          console.log("Document is empty, creating paragraph");
           try {
             const paragraph = schema.nodes.paragraph.createAndFill()!;
-            console.log("Created paragraph:", paragraph);
             tr = tr.insert(0, paragraph);
-            console.log("Inserted paragraph into transaction");
           } catch (error) {
-            console.log("ERROR creating/inserting paragraph:", error);
             throw error;
           }
         }
 
         // Handle text-based operations with position finding
         if (op.type === "replace_range" && op.findText) {
-          console.log("Processing replace_range operation");
-          console.log("Find text:", op.findText);
-          console.log("Replace text:", op.text);
-          
           // Find the text to replace in the current document
           const doc = tr.doc;
-          console.log("Document for text search:", doc);
-          console.log("Document text content:", doc.textContent);
           const findText = op.findText;
           const matches: Array<{ start: number; end: number }> = [];
           
@@ -760,12 +669,10 @@ export const applyTextBasedOperations = mutation({
           });
           
           if (matches.length === 0) {
-            console.log(`Text "${findText}" not found in document`);
             continue;
           }
           
           // Apply occurrence selection logic
-          console.log(`Replace operation: occurrenceIndex=${op.occurrenceIndex}, maxOccurrences=${op.maxOccurrences}, replaceAll=${op.replaceAll}`);
           const matchesToProcess = selectMatchesByOccurrence(
             matches,
             op.occurrenceIndex,
@@ -774,13 +681,11 @@ export const applyTextBasedOperations = mutation({
           );
           
           if (matchesToProcess.length === 0) {
-            console.log(`No matches selected based on occurrence criteria`);
             continue;
           }
           
           // Apply replacements (reverse order to maintain position accuracy)
           matchesToProcess.reverse().forEach(match => {
-            console.log(`Replacing text at positions ${match.start}-${match.end} with "${op.text}"`);
             tr = tr.replaceWith(match.start, match.end, schema.text(op.text));
           });
           
@@ -804,7 +709,6 @@ export const applyTextBasedOperations = mutation({
             });
             
             if (!found) {
-              console.log(`Text "${op.afterText}" not found for insertion`);
               continue;
             }
           } else if (op.beforeText) {
@@ -824,12 +728,10 @@ export const applyTextBasedOperations = mutation({
             });
             
             if (!found) {
-              console.log(`Text "${op.beforeText}" not found for insertion`);
               continue;
             }
           }
           
-          console.log(`Inserting text "${op.text}" at position ${insertPos}`);
           tr = tr.insertText(op.text, insertPos);
           
         } else if (op.type === "delete_text" && op.deleteText) {
@@ -870,12 +772,10 @@ export const applyTextBasedOperations = mutation({
           });
           
           if (matches.length === 0) {
-            console.log(`Text "${deleteText}" not found in document`);
             continue;
           }
           
           // Apply occurrence selection logic
-          console.log(`Delete operation: occurrenceIndex=${op.occurrenceIndex}, maxOccurrences=${op.maxOccurrences}`);
           const matchesToProcess = selectMatchesByOccurrence(
             matches,
             op.occurrenceIndex,
@@ -884,20 +784,17 @@ export const applyTextBasedOperations = mutation({
           );
           
           if (matchesToProcess.length === 0) {
-            console.log(`No matches selected based on occurrence criteria`);
             continue;
           }
           
           // Apply deletions (reverse order to maintain position accuracy)
           matchesToProcess.reverse().forEach(match => {
-            console.log(`Deleting text at positions ${match.start}-${match.end}`);
             tr = tr.delete(match.start, match.end);
           });
           
         } else if (op.type === "add_mark") {
           // Validate mark type exists in schema
           if (!schema.marks[op.markType]) {
-            console.error(`Mark type "${op.markType}" not found in schema`);
             continue;
           }
           
@@ -921,7 +818,6 @@ export const applyTextBasedOperations = mutation({
           });
           
           if (filteredMatches.length === 0) {
-            console.log(`Text "${op.text}" not found or already has mark "${op.markType}"`);
             continue;
           }
           
@@ -934,13 +830,11 @@ export const applyTextBasedOperations = mutation({
           );
           
           if (matchesToProcess.length === 0) {
-            console.log(`No matches selected based on occurrence criteria`);
             continue;
           }
           
           // Apply marks (reverse order to maintain position accuracy)
           matchesToProcess.reverse().forEach(match => {
-            console.log(`Adding ${op.markType} mark to text at positions ${match.start}-${match.end}`);
             const mark = schema.marks[op.markType].create();
             tr = tr.addMark(match.start, match.end, mark);
           });
@@ -948,7 +842,6 @@ export const applyTextBasedOperations = mutation({
         } else if (op.type === "remove_mark") {
           // Validate mark type exists in schema
           if (!schema.marks[op.markType]) {
-            console.error(`Mark type "${op.markType}" not found in schema`);
             continue;
           }
           
@@ -972,7 +865,6 @@ export const applyTextBasedOperations = mutation({
           });
           
           if (filteredMatches.length === 0) {
-            console.log(`Text "${op.text}" not found with mark "${op.markType}"`);
             continue;
           }
           
@@ -985,13 +877,11 @@ export const applyTextBasedOperations = mutation({
           );
           
           if (matchesToProcess.length === 0) {
-            console.log(`No matches selected based on occurrence criteria`);
             continue;
           }
           
           // Remove marks (reverse order to maintain position accuracy)
           matchesToProcess.reverse().forEach(match => {
-            console.log(`Removing ${op.markType} mark from text at positions ${match.start}-${match.end}`);
             const mark = schema.marks[op.markType].create();
             tr = tr.removeMark(match.start, match.end, mark);
           });
@@ -999,11 +889,9 @@ export const applyTextBasedOperations = mutation({
         } else if (op.type === "replace_mark") {
           // Validate mark types exist in schema
           if (!schema.marks[op.oldMarkType]) {
-            console.error(`Old mark type "${op.oldMarkType}" not found in schema`);
             continue;
           }
           if (!schema.marks[op.newMarkType]) {
-            console.error(`New mark type "${op.newMarkType}" not found in schema`);
             continue;
           }
           
@@ -1027,7 +915,6 @@ export const applyTextBasedOperations = mutation({
           });
           
           if (filteredMatches.length === 0) {
-            console.log(`Text "${op.text}" not found with mark "${op.oldMarkType}"`);
             continue;
           }
           
@@ -1040,13 +927,11 @@ export const applyTextBasedOperations = mutation({
           );
           
           if (matchesToProcess.length === 0) {
-            console.log(`No matches selected based on occurrence criteria`);
             continue;
           }
           
           // Replace marks (reverse order to maintain position accuracy)
           matchesToProcess.reverse().forEach(match => {
-            console.log(`Replacing ${op.oldMarkType} mark with ${op.newMarkType} at positions ${match.start}-${match.end}`);
             const oldMark = schema.marks[op.oldMarkType].create();
             const newMark = schema.marks[op.newMarkType].create();
             tr = tr.removeMark(match.start, match.end, oldMark)
@@ -1056,19 +941,16 @@ export const applyTextBasedOperations = mutation({
         } else if (op.type === "add_paragraph") {
           // Validate node type exists in schema
           if (!schema.nodes[op.paragraphType]) {
-            console.error(`Node type "${op.paragraphType}" not found in schema`);
             continue;
           }
           
           // Validate heading level if adding heading
           if (op.paragraphType === "heading" && op.headingLevel && (op.headingLevel < 1 || op.headingLevel > 6)) {
-            console.error(`Invalid heading level: ${op.headingLevel}. Must be between 1 and 6.`);
             continue;
           }
           
           // Find insertion position
           const insertPos = findInsertPosition(tr.doc, op.afterText, op.beforeText);
-          console.log(`Adding ${op.paragraphType} at position ${insertPos}`);
           
           // Create the new node
           const newNode = createNodeOfType(schema, op.paragraphType, op.content, op.headingLevel);
@@ -1081,22 +963,16 @@ export const applyTextBasedOperations = mutation({
           if (op.type === "insert_text" && typeof op.pos === "number") {
             if (op.pos >= 0 && op.pos <= docSize) {
               tr = tr.insertText(op.text, op.pos);
-            } else {
-              console.warn(`Invalid insert position ${op.pos}, document size: ${docSize}`);
             }
             
           } else if (op.type === "replace_range" && typeof op.from === "number" && typeof op.to === "number") {
             if (op.from >= 0 && op.to <= docSize && op.from <= op.to) {
               tr = tr.replaceRangeWith(op.from, op.to, schema.text(op.text));
-            } else {
-              console.warn(`Invalid replace range ${op.from}-${op.to}, document size: ${docSize}`);
             }
             
           } else if (op.type === "delete_text" && typeof op.from === "number" && typeof op.to === "number") {
             if (op.from >= 0 && op.to <= docSize && op.from <= op.to) {
               tr = tr.delete(op.from, op.to);
-            } else {
-              console.warn(`Invalid delete range ${op.from}-${op.to}, document size: ${docSize}`);
             }
           }
         }
@@ -1106,62 +982,28 @@ export const applyTextBasedOperations = mutation({
       }
 
       // Now run diff engine
-      console.log("=== DIFF ENGINE START ===");
       const newDocJson = currentDoc.toJSON();
-      console.log("newDocJson:", JSON.stringify(newDocJson, null, 2));
-      console.log("originalDocJson:", JSON.stringify(originalDocJson, null, 2));
       
       const delta = createJsonDiff(originalDocJson, newDocJson);
-      console.log("Delta:", JSON.stringify(delta, null, 2));
       
       const merged = buildContentWithJsonChanges(originalDocJson, newDocJson, delta);
-      console.log("Merged content:", JSON.stringify(merged, null, 2));
-      console.log("Merged content type:", typeof merged);
-      console.log("Merged content keys:", merged ? Object.keys(merged) : "null/undefined");
       
       // Create final document and return transaction
       try {
-        console.log("=== ATTEMPTING TO CREATE NODE FROM JSON ===");
-        console.log("Schema:", schema);
-        console.log("Schema nodes:", Object.keys(schema.nodes));
-        console.log("Schema marks:", Object.keys(schema.marks));
-        console.log("Merged data being passed to nodeFromJSON:", JSON.stringify(merged, null, 2));
-        
         const mergedNode = schema.nodeFromJSON(merged);
-        console.log("Successfully created mergedNode:", mergedNode);
-        console.log("MergedNode type:", mergedNode.type);
-        console.log("MergedNode content:", mergedNode.content);
         
         const finalState = EditorState.create({ doc });
-        console.log("Created finalState:", finalState);
-        console.log("FinalState doc:", finalState.doc);
-        console.log("FinalState doc content size:", finalState.doc.content.size);
         
         // Replace with the merged content
         const result = finalState.tr.replaceWith(0, finalState.doc.content.size, mergedNode.content);
-        console.log("Successfully created final transaction");
         return result;
       } catch (error) {
-        console.error("=== ERROR IN NODE CREATION ===");
-        console.error("Error creating merged document:", error);
-        console.error("Error stack:", error instanceof Error ? error.stack : 'No stack trace available');
-        console.error("Merged data that failed:", JSON.stringify(merged, null, 2));
-        console.error("Schema validation failed for:", merged);
-        
         // Fallback: use the new document directly if merge fails
-        console.log("=== USING FALLBACK APPROACH ===");
         const finalState = EditorState.create({ doc });
-        console.log("Fallback finalState:", finalState);
         const fallbackResult = finalState.tr.replaceWith(0, finalState.doc.content.size, currentDoc.content);
-        console.log("Fallback result:", fallbackResult);
         return fallbackResult;
       }
-      
-      console.log("=== TRANSFORM CALLBACK END ===");
     });
-
-    console.log("=== TRANSFORM COMPLETED SUCCESSFULLY ===");
-    console.log("Operations applied:", operations.length);
 
     return {
       ok: true,
