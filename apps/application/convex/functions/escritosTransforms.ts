@@ -23,6 +23,8 @@ export const applyTextBasedOperations = mutation({
         contextBefore: v.optional(v.string()),
         contextAfter: v.optional(v.string()),
         replaceAll: v.optional(v.boolean()),
+        occurrenceIndex: v.optional(v.number()),
+        maxOccurrences: v.optional(v.number()),
       }),
       v.object({
         type: v.literal("insert"),
@@ -35,6 +37,8 @@ export const applyTextBasedOperations = mutation({
         deleteText: v.string(),
         contextBefore: v.optional(v.string()),
         contextAfter: v.optional(v.string()),
+        occurrenceIndex: v.optional(v.number()),
+        maxOccurrences: v.optional(v.number()),
       }),
       v.object({
         type: v.literal("add_mark"),
@@ -48,6 +52,8 @@ export const applyTextBasedOperations = mutation({
         ),
         contextBefore: v.optional(v.string()),
         contextAfter: v.optional(v.string()),
+        occurrenceIndex: v.optional(v.number()),
+        maxOccurrences: v.optional(v.number()),
       }),
       v.object({
         type: v.literal("remove_mark"),
@@ -61,6 +67,8 @@ export const applyTextBasedOperations = mutation({
         ),
         contextBefore: v.optional(v.string()),
         contextAfter: v.optional(v.string()),
+        occurrenceIndex: v.optional(v.number()),
+        maxOccurrences: v.optional(v.number()),
       }),
       v.object({
         type: v.literal("replace_mark"),
@@ -81,6 +89,8 @@ export const applyTextBasedOperations = mutation({
         ),
         contextBefore: v.optional(v.string()),
         contextAfter: v.optional(v.string()),
+        occurrenceIndex: v.optional(v.number()),
+        maxOccurrences: v.optional(v.number()),
       }),
       v.object({
         type: v.literal("add_paragraph"),
@@ -104,8 +114,6 @@ export const applyTextBasedOperations = mutation({
     const escrito = await ctx.db.get(escritoId);
     if (!escrito) throw new Error("Escrito not found");
 
-    console.log("Applying text-based operations:", edits);
-
     // Get the current document content
     const documentContent = await ctx.runQuery(api.prosemirror.getSnapshot, { id: escrito.prosemirrorId });
     if (!documentContent?.content) {
@@ -117,9 +125,101 @@ export const applyTextBasedOperations = mutation({
 
     const operations: any[] = [];
 
+    // Helper function to escape regex special characters
+    const escapeRegex = (text: string): string => {
+      return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    };
+
+    // Helper function to determine the best matching strategy
+    const getMatchingStrategy = (searchText: string): 'literal' | 'word_boundary' => {
+      // Template placeholders: use literal matching
+      if (searchText.startsWith('[') && searchText.endsWith(']')) {
+        return 'literal';
+      }
+      
+      // Multi-word phrases with significant length: use literal matching  
+      if (searchText.includes(' ') && searchText.length > 20) {
+        return 'literal';
+      }
+      
+      // Phrases with complex punctuation: use literal matching
+      if (searchText.includes(',') || searchText.includes(';') || searchText.includes(':')) {
+        return 'literal';
+      }
+      
+      // Single words or simple phrases: use word boundary
+      return 'word_boundary';
+    };
+
+    // Helper function to find all text matches with literal string matching
+    const findAllTextLiteral = (text: string, searchText: string): Array<{ index: number; length: number }> => {
+      const matches: Array<{ index: number; length: number }> = [];
+      let startIndex = 0;
+      
+      while (true) {
+        const foundIndex = text.indexOf(searchText, startIndex);
+        if (foundIndex === -1) break;
+        
+        matches.push({ index: foundIndex, length: searchText.length });
+        startIndex = foundIndex + 1;
+      }
+      
+      return matches;
+    };
+
+    // Helper function to find text with smart matching strategy (case-sensitive by default)
+    const findTextWithSmartMatching = (text: string, searchText: string, startIndex: number = 0): number => {
+      const strategy = getMatchingStrategy(searchText);
+      
+      if (strategy === 'literal') {
+        // Use indexOf for literal matching
+        return text.indexOf(searchText, startIndex);
+      } else {
+        // Create regex with word boundaries - \b ensures we match whole words only
+        const escapedSearch = escapeRegex(searchText);
+        const regex = new RegExp(`\\b${escapedSearch}\\b`, 'g'); // Removed 'i' flag for case-sensitive matching
+        
+        // Set lastIndex to start from the specified position
+        regex.lastIndex = startIndex;
+        const match = regex.exec(text);
+        
+        return match ? match.index : -1;
+      }
+    };
+
+    // Backward compatibility alias
+    const findTextWithWordBoundary = findTextWithSmartMatching;
+
+    // Helper function to find all text matches using smart strategy detection (case-sensitive by default)
+    const findAllTextWithSmartMatching = (text: string, searchText: string): Array<{ index: number; length: number }> => {
+      const strategy = getMatchingStrategy(searchText);
+      
+      if (strategy === 'literal') {
+        return findAllTextLiteral(text, searchText);
+      } else {
+        // Word boundary matching
+        const matches: Array<{ index: number; length: number }> = [];
+        const escapedSearch = escapeRegex(searchText);
+        const regex = new RegExp(`\\b${escapedSearch}\\b`, 'g'); // Removed 'i' flag for case-sensitive matching
+        
+        let match;
+        while ((match = regex.exec(text)) !== null) {
+          matches.push({ index: match.index, length: match[0].length });
+          // Prevent infinite loop on zero-width matches
+          if (match.index === regex.lastIndex) {
+            regex.lastIndex++;
+          }
+        }
+        
+        return matches;
+      }
+    };
+
+    // Backward compatibility alias
+    const findAllTextWithWordBoundary = findAllTextWithSmartMatching;
+
     // Process each edit using the existing ProseMirror sync system
     for (const edit of edits) {
-      console.log("Processing edit:", edit);
       
       if (edit.type === "replace") {
         // For now, create simple position-based operations
@@ -133,6 +233,8 @@ export const applyTextBasedOperations = mutation({
           contextBefore: edit.contextBefore,
           contextAfter: edit.contextAfter,
           replaceAll: edit.replaceAll,
+          occurrenceIndex: edit.occurrenceIndex,
+          maxOccurrences: edit.maxOccurrences,
         });
         
       } else if (edit.type === "insert") {
@@ -153,6 +255,8 @@ export const applyTextBasedOperations = mutation({
           deleteText: edit.deleteText, // Pass the delete text for processing
           contextBefore: edit.contextBefore,
           contextAfter: edit.contextAfter,
+          occurrenceIndex: edit.occurrenceIndex,
+          maxOccurrences: edit.maxOccurrences,
         });
         
       } else if (edit.type === "add_mark") {
@@ -162,6 +266,8 @@ export const applyTextBasedOperations = mutation({
           markType: edit.markType,
           contextBefore: edit.contextBefore,
           contextAfter: edit.contextAfter,
+          occurrenceIndex: edit.occurrenceIndex,
+          maxOccurrences: edit.maxOccurrences,
         });
         
       } else if (edit.type === "remove_mark") {
@@ -171,6 +277,8 @@ export const applyTextBasedOperations = mutation({
           markType: edit.markType,
           contextBefore: edit.contextBefore,
           contextAfter: edit.contextAfter,
+          occurrenceIndex: edit.occurrenceIndex,
+          maxOccurrences: edit.maxOccurrences,
         });
         
       } else if (edit.type === "replace_mark") {
@@ -181,6 +289,8 @@ export const applyTextBasedOperations = mutation({
           newMarkType: edit.newMarkType,
           contextBefore: edit.contextBefore,
           contextAfter: edit.contextAfter,
+          occurrenceIndex: edit.occurrenceIndex,
+          maxOccurrences: edit.maxOccurrences,
         });
         
       } else if (edit.type === "add_paragraph") {
@@ -199,8 +309,6 @@ export const applyTextBasedOperations = mutation({
       return { message: "No changes to apply" };
     }
 
-    console.log("Converted to position-based operations:", operations);
-
     // Helper function to find text with specific marks
     const findTextWithMark = (doc: any, text: string, markType?: string) => {
       const matches: Array<{ start: number; end: number; marks: any[] }> = [];
@@ -208,14 +316,11 @@ export const applyTextBasedOperations = mutation({
       doc.descendants((node: any, pos: number) => {
         if (node.isText) {
           const textContent = node.text || "";
-          let index = 0;
+          const wordMatches = findAllTextWithWordBoundary(textContent, text);
           
-          while (true) {
-            const foundIndex = textContent.indexOf(text, index);
-            if (foundIndex === -1) break;
-            
-            const start = pos + foundIndex;
-            const end = pos + foundIndex + text.length;
+          for (const wordMatch of wordMatches) {
+            const start = pos + wordMatch.index;
+            const end = pos + wordMatch.index + wordMatch.length;
             
             // Get marks for this text node
             const marks = node.marks || [];
@@ -230,8 +335,6 @@ export const applyTextBasedOperations = mutation({
               // If no markType specified, include all matches
               matches.push({ start, end, marks });
             }
-            
-            index = foundIndex + 1;
           }
         }
       });
@@ -246,14 +349,11 @@ export const applyTextBasedOperations = mutation({
       doc.descendants((node: any, pos: number) => {
         if (node.isText) {
           const textContent = node.text || "";
-          let index = 0;
+          const wordMatches = findAllTextWithWordBoundary(textContent, text);
           
-          while (true) {
-            const foundIndex = textContent.indexOf(text, index);
-            if (foundIndex === -1) break;
-            
-            const start = pos + foundIndex;
-            const end = pos + foundIndex + text.length;
+          for (const wordMatch of wordMatches) {
+            const start = pos + wordMatch.index;
+            const end = pos + wordMatch.index + wordMatch.length;
             
             // Get marks for this text node
             const marks = node.marks || [];
@@ -263,8 +363,6 @@ export const applyTextBasedOperations = mutation({
             if (!hasMark) {
               matches.push({ start, end, marks });
             }
-            
-            index = foundIndex + 1;
           }
         }
       });
@@ -279,6 +377,8 @@ export const applyTextBasedOperations = mutation({
       doc.descendants((node: any, pos: number) => {
         if (node.isBlock && !node.isText) {
           const blockText = node.textContent || "";
+          // For block-level text search, we can use includes() since we're looking for the text anywhere in the block
+          // Word boundaries are less relevant at the block level
           if (blockText.includes(text)) {
             matches.push({
               node,
@@ -302,8 +402,8 @@ export const applyTextBasedOperations = mutation({
         doc.descendants((node: any, pos: number) => {
           if (node.isText && !found) {
             const text = node.text || "";
-            const index = text.indexOf(afterText);
-            if (index !== -1) {
+            const wordMatches = findAllTextWithWordBoundary(text, afterText);
+            if (wordMatches.length > 0) {
               // Find the end of the containing block
               let blockEnd = pos + node.nodeSize;
               let parent = node;
@@ -326,8 +426,8 @@ export const applyTextBasedOperations = mutation({
         doc.descendants((node: any, pos: number) => {
           if (node.isText && !found) {
             const text = node.text || "";
-            const index = text.indexOf(beforeText);
-            if (index !== -1) {
+            const wordMatches = findAllTextWithWordBoundary(text, beforeText);
+            if (wordMatches.length > 0) {
               // Find the start of the containing block
               let blockStart = pos;
               let parent = node;
@@ -348,39 +448,74 @@ export const applyTextBasedOperations = mutation({
       return doc.content.size;
     };
 
+    // Helper function to create text content that properly handles newlines
+    const createTextContent = (schema: any, content: string) => {
+      // If content doesn't contain newlines, create simple text node
+      if (!content.includes('\n')) {
+        return schema.text(content);
+      }
+      
+      // Split content by newlines and create text nodes with hard breaks
+      const parts = content.split('\n');
+      const nodes = [];
+      
+      for (let i = 0; i < parts.length; i++) {
+        if (parts[i]) {
+          nodes.push(schema.text(parts[i]));
+        }
+        // Add hard break between text parts (except after the last part)
+        if (i < parts.length - 1) {
+          // Check if hardBreak node exists in schema
+          if (schema.nodes.hardBreak) {
+            nodes.push(schema.nodes.hardBreak.create());
+          } else {
+            // Fallback: create a space if hardBreak is not available
+            nodes.push(schema.text(' '));
+          }
+        }
+      }
+      
+      return nodes;
+    };
+
     // Helper function to create nodes of different types
     const createNodeOfType = (schema: any, type: string, content: any, headingLevel?: number) => {
       try {
         switch (type) {
           case "paragraph":
             if (typeof content === 'string') {
-              return schema.nodes.paragraph.createAndFill({}, schema.text(content));
+              const textContent = createTextContent(schema, content);
+              return schema.nodes.paragraph.createAndFill({}, textContent);
             }
             return schema.nodes.paragraph.createAndFill({}, content);
             
           case "heading":
             const level = headingLevel && headingLevel >= 1 && headingLevel <= 6 ? headingLevel : 1;
             if (typeof content === 'string') {
-              return schema.nodes.heading.createAndFill({ level }, schema.text(content));
+              const textContent = createTextContent(schema, content);
+              return schema.nodes.heading.createAndFill({ level }, textContent);
             }
             return schema.nodes.heading.createAndFill({ level }, content);
             
           case "blockquote":
             if (typeof content === 'string') {
-              const paragraph = schema.nodes.paragraph.createAndFill({}, schema.text(content));
+              const textContent = createTextContent(schema, content);
+              const paragraph = schema.nodes.paragraph.createAndFill({}, textContent);
               return schema.nodes.blockquote.createAndFill({}, paragraph);
             }
             return schema.nodes.blockquote.createAndFill({}, content);
             
           case "codeBlock":
             if (typeof content === 'string') {
-              return schema.nodes.codeBlock.createAndFill({}, schema.text(content));
+              const textContent = createTextContent(schema, content);
+              return schema.nodes.codeBlock.createAndFill({}, textContent);
             }
             return schema.nodes.codeBlock.createAndFill({}, content);
             
           case "bulletList":
             if (typeof content === 'string') {
-              const paragraph = schema.nodes.paragraph.createAndFill({}, schema.text(content));
+              const textContent = createTextContent(schema, content);
+              const paragraph = schema.nodes.paragraph.createAndFill({}, textContent);
               const listItem = schema.nodes.listItem.createAndFill({}, paragraph);
               return schema.nodes.bulletList.createAndFill({}, listItem);
             }
@@ -388,7 +523,8 @@ export const applyTextBasedOperations = mutation({
             
           case "orderedList":
             if (typeof content === 'string') {
-              const paragraph = schema.nodes.paragraph.createAndFill({}, schema.text(content));
+              const textContent = createTextContent(schema, content);
+              const paragraph = schema.nodes.paragraph.createAndFill({}, textContent);
               const listItem = schema.nodes.listItem.createAndFill({}, paragraph);
               return schema.nodes.orderedList.createAndFill({}, listItem);
             }
@@ -397,7 +533,8 @@ export const applyTextBasedOperations = mutation({
           default:
             // Fallback to paragraph
             if (typeof content === 'string') {
-              return schema.nodes.paragraph.createAndFill({}, schema.text(content));
+              const textContent = createTextContent(schema, content);
+              return schema.nodes.paragraph.createAndFill({}, textContent);
             }
             return schema.nodes.paragraph.createAndFill({}, content);
         }
@@ -405,30 +542,92 @@ export const applyTextBasedOperations = mutation({
         console.error(`Error creating node of type ${type}:`, error);
         // Fallback to simple paragraph
         if (typeof content === 'string') {
-          return schema.nodes.paragraph.createAndFill({}, schema.text(content));
+          const textContent = createTextContent(schema, content);
+          return schema.nodes.paragraph.createAndFill({}, textContent);
         }
         return schema.nodes.paragraph.createAndFill({}, content);
       }
+    };
+
+
+    // Helper function to select matches based on occurrence control parameters
+    const selectMatchesByOccurrence = (
+      allMatches: Array<{ start: number; end: number }>,
+      occurrenceIndex?: number,
+      maxOccurrences?: number,
+      replaceAll?: boolean
+    ): Array<{ start: number; end: number }> => {
+      // Priority: occurrenceIndex > maxOccurrences > replaceAll > first match only
+      
+      if (occurrenceIndex !== undefined) {
+        // Target specific occurrence (1-based)
+        const index = occurrenceIndex - 1; // Convert to 0-based
+        if (index >= 0 && index < allMatches.length) {
+          console.log(`Targeting occurrence ${occurrenceIndex} (found at index ${index})`);
+          return [allMatches[index]];
+        } else {
+          console.log(`Occurrence ${occurrenceIndex} not found (only ${allMatches.length} matches available)`);
+          return [];
+        }
+      }
+      
+      if (maxOccurrences !== undefined) {
+        // Limit number of occurrences
+        const limited = allMatches.slice(0, maxOccurrences);
+        console.log(`Limiting to first ${maxOccurrences} occurrences (found ${limited.length})`);
+        return limited;
+      }
+      
+      if (replaceAll) {
+        // All occurrences (existing behavior)
+        console.log(`Processing all ${allMatches.length} occurrences`);
+        return allMatches;
+      }
+      
+      // Default: first occurrence only
+      if (allMatches.length > 0) {
+        console.log(`Processing first occurrence only (${allMatches.length} total found)`);
+        return [allMatches[0]];
+      }
+      
+      return [];
     };
 
     // Apply the position-based operations using the existing mutation
   
     await prosemirrorSync.transform(ctx, escrito.prosemirrorId, schema, (doc) => {
       // Store original for diff
-      const originalDocJson = doc.toJSON();
+      let originalDocJson;
+      try {
+        originalDocJson = doc.toJSON();
+      } catch (error) {
+        throw error;
+      }
       
       // Create a fresh state for applying operations
       let currentDoc = doc;
       
       // Apply operations one by one
-      for (const op of operations) {
-        const state = EditorState.create({ doc: currentDoc });
+      for (let i = 0; i < operations.length; i++) {
+        const op = operations[i];
+        
+        let state;
+        try {
+          state = EditorState.create({ doc: currentDoc });
+        } catch (error) {
+          throw error;
+        }
+        
         let tr = state.tr;
 
         // Ensure document has content for operations
         if (currentDoc.childCount === 0) {
-          const paragraph = schema.nodes.paragraph.createAndFill()!;
-          tr = tr.insert(0, paragraph);
+          try {
+            const paragraph = schema.nodes.paragraph.createAndFill()!;
+            tr = tr.insert(0, paragraph);
+          } catch (error) {
+            throw error;
+          }
         }
 
         // Handle text-based operations with position finding
@@ -438,17 +637,15 @@ export const applyTextBasedOperations = mutation({
           const findText = op.findText;
           const matches: Array<{ start: number; end: number }> = [];
           
-          // Traverse the document to find all occurrences
+          // Traverse the document to find all occurrences with word boundaries
           doc.descendants((node, pos) => {
             if (node.isText) {
               const text = node.text || "";
-              let index = 0;
-              while (true) {
-                const foundIndex = text.indexOf(findText, index);
-                if (foundIndex === -1) break;
-                
-                const start = pos + foundIndex;
-                const end = pos + foundIndex + findText.length;
+              const wordMatches = findAllTextWithWordBoundary(text, findText);
+              
+              for (const wordMatch of wordMatches) {
+                const start = pos + wordMatch.index;
+                const end = pos + wordMatch.index + wordMatch.length;
                 
                 // Check context if provided
                 let matchesContext = true;
@@ -467,21 +664,28 @@ export const applyTextBasedOperations = mutation({
                 if (matchesContext) {
                   matches.push({ start, end });
                 }
-                
-                index = foundIndex + 1;
               }
             }
           });
           
           if (matches.length === 0) {
-            console.log(`Text "${findText}" not found in document`);
+            continue;
+          }
+          
+          // Apply occurrence selection logic
+          const matchesToProcess = selectMatchesByOccurrence(
+            matches,
+            op.occurrenceIndex,
+            op.maxOccurrences,
+            op.replaceAll
+          );
+          
+          if (matchesToProcess.length === 0) {
             continue;
           }
           
           // Apply replacements (reverse order to maintain position accuracy)
-          const matchesToProcess = op.replaceAll ? matches : [matches[0]];
           matchesToProcess.reverse().forEach(match => {
-            console.log(`Replacing text at positions ${match.start}-${match.end} with "${op.text}"`);
             tr = tr.replaceWith(match.start, match.end, schema.text(op.text));
           });
           
@@ -495,16 +699,16 @@ export const applyTextBasedOperations = mutation({
             doc.descendants((node, pos) => {
               if (node.isText && !found) {
                 const text = node.text || "";
-                const index = text.indexOf(op.afterText);
-                if (index !== -1) {
-                  insertPos = pos + index + op.afterText.length;
+                const wordMatches = findAllTextWithWordBoundary(text, op.afterText);
+                if (wordMatches.length > 0) {
+                  const firstMatch = wordMatches[0];
+                  insertPos = pos + firstMatch.index + firstMatch.length;
                   found = true;
                 }
               }
             });
             
             if (!found) {
-              console.log(`Text "${op.afterText}" not found for insertion`);
               continue;
             }
           } else if (op.beforeText) {
@@ -514,21 +718,20 @@ export const applyTextBasedOperations = mutation({
             doc.descendants((node, pos) => {
               if (node.isText && !found) {
                 const text = node.text || "";
-                const index = text.indexOf(op.beforeText);
-                if (index !== -1) {
-                  insertPos = pos + index;
+                const wordMatches = findAllTextWithWordBoundary(text, op.beforeText);
+                if (wordMatches.length > 0) {
+                  const firstMatch = wordMatches[0];
+                  insertPos = pos + firstMatch.index;
                   found = true;
                 }
               }
             });
             
             if (!found) {
-              console.log(`Text "${op.beforeText}" not found for insertion`);
               continue;
             }
           }
           
-          console.log(`Inserting text "${op.text}" at position ${insertPos}`);
           tr = tr.insertText(op.text, insertPos);
           
         } else if (op.type === "delete_text" && op.deleteText) {
@@ -537,17 +740,15 @@ export const applyTextBasedOperations = mutation({
           const deleteText = op.deleteText;
           const matches: Array<{ start: number; end: number }> = [];
           
-          // Traverse the document to find all occurrences
+          // Traverse the document to find all occurrences with word boundaries
           doc.descendants((node, pos) => {
             if (node.isText) {
               const text = node.text || "";
-              let index = 0;
-              while (true) {
-                const foundIndex = text.indexOf(deleteText, index);
-                if (foundIndex === -1) break;
-                
-                const start = pos + foundIndex;
-                const end = pos + foundIndex + deleteText.length;
+              const wordMatches = findAllTextWithWordBoundary(text, deleteText);
+              
+              for (const wordMatch of wordMatches) {
+                const start = pos + wordMatch.index;
+                const end = pos + wordMatch.index + wordMatch.length;
                 
                 // Check context if provided
                 let matchesContext = true;
@@ -566,27 +767,34 @@ export const applyTextBasedOperations = mutation({
                 if (matchesContext) {
                   matches.push({ start, end });
                 }
-                
-                index = foundIndex + 1;
               }
             }
           });
           
           if (matches.length === 0) {
-            console.log(`Text "${deleteText}" not found in document`);
+            continue;
+          }
+          
+          // Apply occurrence selection logic
+          const matchesToProcess = selectMatchesByOccurrence(
+            matches,
+            op.occurrenceIndex,
+            op.maxOccurrences,
+            false // delete doesn't have replaceAll option
+          );
+          
+          if (matchesToProcess.length === 0) {
             continue;
           }
           
           // Apply deletions (reverse order to maintain position accuracy)
-          matches.reverse().forEach(match => {
-            console.log(`Deleting text at positions ${match.start}-${match.end}`);
+          matchesToProcess.reverse().forEach(match => {
             tr = tr.delete(match.start, match.end);
           });
           
         } else if (op.type === "add_mark") {
           // Validate mark type exists in schema
           if (!schema.marks[op.markType]) {
-            console.error(`Mark type "${op.markType}" not found in schema`);
             continue;
           }
           
@@ -610,13 +818,23 @@ export const applyTextBasedOperations = mutation({
           });
           
           if (filteredMatches.length === 0) {
-            console.log(`Text "${op.text}" not found or already has mark "${op.markType}"`);
+            continue;
+          }
+          
+          // Apply occurrence selection logic
+          const matchesToProcess = selectMatchesByOccurrence(
+            filteredMatches,
+            op.occurrenceIndex,
+            op.maxOccurrences,
+            false // marks don't use replaceAll
+          );
+          
+          if (matchesToProcess.length === 0) {
             continue;
           }
           
           // Apply marks (reverse order to maintain position accuracy)
-          filteredMatches.reverse().forEach(match => {
-            console.log(`Adding ${op.markType} mark to text at positions ${match.start}-${match.end}`);
+          matchesToProcess.reverse().forEach(match => {
             const mark = schema.marks[op.markType].create();
             tr = tr.addMark(match.start, match.end, mark);
           });
@@ -624,7 +842,6 @@ export const applyTextBasedOperations = mutation({
         } else if (op.type === "remove_mark") {
           // Validate mark type exists in schema
           if (!schema.marks[op.markType]) {
-            console.error(`Mark type "${op.markType}" not found in schema`);
             continue;
           }
           
@@ -648,13 +865,23 @@ export const applyTextBasedOperations = mutation({
           });
           
           if (filteredMatches.length === 0) {
-            console.log(`Text "${op.text}" not found with mark "${op.markType}"`);
+            continue;
+          }
+          
+          // Apply occurrence selection logic
+          const matchesToProcess = selectMatchesByOccurrence(
+            filteredMatches,
+            op.occurrenceIndex,
+            op.maxOccurrences,
+            false // marks don't use replaceAll
+          );
+          
+          if (matchesToProcess.length === 0) {
             continue;
           }
           
           // Remove marks (reverse order to maintain position accuracy)
-          filteredMatches.reverse().forEach(match => {
-            console.log(`Removing ${op.markType} mark from text at positions ${match.start}-${match.end}`);
+          matchesToProcess.reverse().forEach(match => {
             const mark = schema.marks[op.markType].create();
             tr = tr.removeMark(match.start, match.end, mark);
           });
@@ -662,11 +889,9 @@ export const applyTextBasedOperations = mutation({
         } else if (op.type === "replace_mark") {
           // Validate mark types exist in schema
           if (!schema.marks[op.oldMarkType]) {
-            console.error(`Old mark type "${op.oldMarkType}" not found in schema`);
             continue;
           }
           if (!schema.marks[op.newMarkType]) {
-            console.error(`New mark type "${op.newMarkType}" not found in schema`);
             continue;
           }
           
@@ -690,13 +915,23 @@ export const applyTextBasedOperations = mutation({
           });
           
           if (filteredMatches.length === 0) {
-            console.log(`Text "${op.text}" not found with mark "${op.oldMarkType}"`);
+            continue;
+          }
+          
+          // Apply occurrence selection logic
+          const matchesToProcess = selectMatchesByOccurrence(
+            filteredMatches,
+            op.occurrenceIndex,
+            op.maxOccurrences,
+            false // marks don't use replaceAll
+          );
+          
+          if (matchesToProcess.length === 0) {
             continue;
           }
           
           // Replace marks (reverse order to maintain position accuracy)
-          filteredMatches.reverse().forEach(match => {
-            console.log(`Replacing ${op.oldMarkType} mark with ${op.newMarkType} at positions ${match.start}-${match.end}`);
+          matchesToProcess.reverse().forEach(match => {
             const oldMark = schema.marks[op.oldMarkType].create();
             const newMark = schema.marks[op.newMarkType].create();
             tr = tr.removeMark(match.start, match.end, oldMark)
@@ -706,19 +941,16 @@ export const applyTextBasedOperations = mutation({
         } else if (op.type === "add_paragraph") {
           // Validate node type exists in schema
           if (!schema.nodes[op.paragraphType]) {
-            console.error(`Node type "${op.paragraphType}" not found in schema`);
             continue;
           }
           
           // Validate heading level if adding heading
           if (op.paragraphType === "heading" && op.headingLevel && (op.headingLevel < 1 || op.headingLevel > 6)) {
-            console.error(`Invalid heading level: ${op.headingLevel}. Must be between 1 and 6.`);
             continue;
           }
           
           // Find insertion position
           const insertPos = findInsertPosition(tr.doc, op.afterText, op.beforeText);
-          console.log(`Adding ${op.paragraphType} at position ${insertPos}`);
           
           // Create the new node
           const newNode = createNodeOfType(schema, op.paragraphType, op.content, op.headingLevel);
@@ -731,22 +963,16 @@ export const applyTextBasedOperations = mutation({
           if (op.type === "insert_text" && typeof op.pos === "number") {
             if (op.pos >= 0 && op.pos <= docSize) {
               tr = tr.insertText(op.text, op.pos);
-            } else {
-              console.warn(`Invalid insert position ${op.pos}, document size: ${docSize}`);
             }
             
           } else if (op.type === "replace_range" && typeof op.from === "number" && typeof op.to === "number") {
             if (op.from >= 0 && op.to <= docSize && op.from <= op.to) {
               tr = tr.replaceRangeWith(op.from, op.to, schema.text(op.text));
-            } else {
-              console.warn(`Invalid replace range ${op.from}-${op.to}, document size: ${docSize}`);
             }
             
           } else if (op.type === "delete_text" && typeof op.from === "number" && typeof op.to === "number") {
             if (op.from >= 0 && op.to <= docSize && op.from <= op.to) {
               tr = tr.delete(op.from, op.to);
-            } else {
-              console.warn(`Invalid delete range ${op.from}-${op.to}, document size: ${docSize}`);
             }
           }
         }
@@ -757,24 +983,25 @@ export const applyTextBasedOperations = mutation({
 
       // Now run diff engine
       const newDocJson = currentDoc.toJSON();
-      console.log("newDocJson", newDocJson);
+      
       const delta = createJsonDiff(originalDocJson, newDocJson);
+      
       const merged = buildContentWithJsonChanges(originalDocJson, newDocJson, delta);
       
       // Create final document and return transaction
       try {
         const mergedNode = schema.nodeFromJSON(merged);
+        
         const finalState = EditorState.create({ doc });
-        console.log("finalState", finalState);
         
         // Replace with the merged content
-        return finalState.tr.replaceWith(0, finalState.doc.content.size, mergedNode.content);
+        const result = finalState.tr.replaceWith(0, finalState.doc.content.size, mergedNode.content);
+        return result;
       } catch (error) {
-        console.error("Error creating merged document:", error);
-        
         // Fallback: use the new document directly if merge fails
         const finalState = EditorState.create({ doc });
-        return finalState.tr.replaceWith(0, finalState.doc.content.size, currentDoc.content);
+        const fallbackResult = finalState.tr.replaceWith(0, finalState.doc.content.size, currentDoc.content);
+        return fallbackResult;
       }
     });
 

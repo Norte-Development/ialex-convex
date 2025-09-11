@@ -21,8 +21,6 @@ export const getEscritoTool = createTool({
       throw new Error(`Escrito not found with ID: ${escritoId}`);
     }
 
-    console.log("escrito", escrito);
-
     // Get the actual document content using prosemirror
     const documentContent = await ctx.runQuery(api.prosemirror.getSnapshot, { id: escrito.prosemirrorId });
 
