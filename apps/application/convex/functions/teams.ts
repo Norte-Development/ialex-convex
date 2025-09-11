@@ -778,6 +778,174 @@ export const leaveTeam = mutation({
   },
 });
 
+/**
+ * Get team members with their access levels for a case (new system)
+ */
+export const getTeamMembersWithCaseAccess = query({
+  args: {
+    caseId: v.id("cases"),
+    teamId: v.id("teams"),
+  },
+  handler: async (ctx, args) => {
+    const currentUser = await getCurrentUserFromAuth(ctx);
+    await requireNewCaseAccess(ctx, currentUser._id, args.caseId, "basic");
+
+    // Get team access record
+    const teamAccess = await ctx.db
+      .query("caseAccess")
+      .withIndex("by_case_and_team", (q) =>
+        q.eq("caseId", args.caseId).eq("teamId", args.teamId),
+      )
+      .filter((q) => q.eq(q.field("isActive"), true))
+      .filter((q) =>
+        q.or(
+          q.eq(q.field("expiresAt"), undefined),
+          q.gt(q.field("expiresAt"), Date.now()),
+        ),
+      )
+      .first();
+
+    // Get all team members
+    const teamMembers = await ctx.db
+      .query("teamMemberships")
+      .withIndex("by_team", (q) => q.eq("teamId", args.teamId))
+      .filter((q) => q.eq(q.field("isActive"), true))
+      .collect();
+
+    const membersWithAccess = [];
+
+    for (const member of teamMembers) {
+      const user = await ctx.db.get(member.userId);
+      if (!user) continue;
+
+      // Check if user has individual access that might override team access
+      const individualAccess = await ctx.db
+        .query("caseAccess")
+        .withIndex("by_case_and_user", (q) =>
+          q.eq("caseId", args.caseId).eq("userId", member.userId),
+        )
+        .filter((q) => q.eq(q.field("isActive"), true))
+        .filter((q) =>
+          q.or(
+            q.eq(q.field("expiresAt"), undefined),
+            q.gt(q.field("expiresAt"), Date.now()),
+          ),
+        )
+        .first();
+
+      membersWithAccess.push({
+        user,
+        teamRole: member.role,
+        teamAccess: teamAccess || null,
+        individualAccess: individualAccess || null,
+        effectiveAccessLevel:
+          individualAccess?.accessLevel || teamAccess?.accessLevel || null,
+        accessSource: individualAccess
+          ? "individual"
+          : teamAccess
+            ? "team"
+            : "none",
+      });
+    }
+
+    return membersWithAccess;
+  },
+});
+
+/**
+ * Get teams with access to a case using NEW hierarchical system
+ */
+export const getTeamsWithCaseAccess = query({
+  args: { caseId: v.id("cases") },
+  handler: async (ctx, args) => {
+    const currentUser = await getCurrentUserFromAuth(ctx);
+    await requireNewCaseAccess(ctx, currentUser._id, args.caseId, "basic");
+
+    const teamAccesses = await ctx.db
+      .query("caseAccess")
+      .withIndex("by_case", (q) => q.eq("caseId", args.caseId))
+      .filter((q) => q.eq(q.field("isActive"), true))
+      .filter((q) => q.neq(q.field("teamId"), undefined))
+      .filter((q) =>
+        q.or(
+          q.eq(q.field("expiresAt"), undefined),
+          q.gt(q.field("expiresAt"), Date.now()),
+        ),
+      )
+      .collect();
+
+    // Get team details
+    const teamsWithAccess = [];
+    for (const access of teamAccesses) {
+      if (access.teamId) {
+        const team = await ctx.db.get(access.teamId);
+        if (team) {
+          teamsWithAccess.push({
+            ...team,
+            accessLevel: access.accessLevel,
+            grantedBy: access.grantedBy,
+            grantedAt: access.grantedAt,
+          });
+        }
+      }
+    }
+
+    return teamsWithAccess;
+  },
+});
+
+// Grant individual case access to a team member (overrides team access)
+export const grantTeamMemberCaseAccess = mutation({
+  args: {
+    caseId: v.id("cases"),
+    teamId: v.id("teams"),
+    userId: v.id("users"),
+    accessLevel: newAccessLevelType,
+    expiresAt: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    // Only users with admin access can grant individual permissions
+    const currentUser = await getCurrentUserFromAuth(ctx);
+    await requireNewCaseAccess(ctx, currentUser._id, args.caseId, "admin");
+
+    // Check if team member is part of the team
+    const teamMember = await ctx.db
+      .query("teamMemberships")
+      .withIndex("by_team", (q) => q.eq("teamId", args.teamId))
+      .filter((q) => q.eq(q.field("userId"), args.userId))
+      .first();
+
+    if (!teamMember) {
+      throw new Error("User is not a member of this team");
+    }
+
+    // Remove existing individual access for this user and case
+    const existingAccess = await ctx.db
+      .query("caseAccess")
+      .withIndex("by_case", (q) => q.eq("caseId", args.caseId))
+      .filter((q) => q.eq(q.field("userId"), args.userId))
+      .filter((q) => q.eq(q.field("isActive"), true))
+      .first();
+
+    if (existingAccess) {
+      await ctx.db.patch(existingAccess._id, { isActive: false });
+    }
+
+    // Grant new individual access (this will override team access)
+    const accessId = await ctx.db.insert("caseAccess", {
+      caseId: args.caseId,
+      userId: args.userId,
+      accessLevel: args.accessLevel,
+      grantedBy: currentUser._id,
+      grantedAt: Date.now(),
+      expiresAt: args.expiresAt,
+      isActive: true,
+    });
+
+    return accessId;
+  },
+});
+
 // ========================================
 // TEAM INVITATION MANAGEMENT
 // ========================================

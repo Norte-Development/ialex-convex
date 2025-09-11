@@ -38,12 +38,9 @@ export default function TeamAccessDialog({
   const [selectedAccessLevel, setSelectedAccessLevel] =
     useState<AccessLevel>("basic");
 
-  const teamsWithAccess = useQuery(
-    api.functions.permissions.getNewTeamsWithCaseAccess,
-    {
-      caseId,
-    },
-  );
+  const teamsWithAccess = useQuery(api.functions.teams.getTeamsWithCaseAccess, {
+    caseId,
+  });
   const allTeams = useQuery(api.functions.teams.getTeams, {});
   const grantAccess = useMutation(api.functions.teams.grantNewTeamCaseAccess);
   const revokeAccess = useMutation(api.functions.teams.revokeNewTeamCaseAccess);

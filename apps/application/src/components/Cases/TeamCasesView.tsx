@@ -29,7 +29,7 @@ export default function TeamCasesView({ teamId }: TeamCasesViewProps) {
 
   // If we're in a case context, show team members with their permissions
   const teamMembers = useQuery(
-    api.functions.permissions.getNewTeamMembersWithCaseAccess,
+    api.functions.teams.getTeamMembersWithCaseAccess,
     currentCase ? { caseId: currentCase._id, teamId } : "skip",
   );
 

@@ -83,13 +83,13 @@ export default function TeamMemberPermissionsDialog({
 
   // Get current member permissions
   const currentAccess = useQuery(
-    api.functions.permissions.getNewTeamMembersWithCaseAccess,
+    api.functions.teams.getTeamMembersWithCaseAccess,
     { caseId, teamId },
   );
 
   // Mutations
   const grantPermissions = useMutation(
-    api.functions.permissions.grantNewTeamMemberCaseAccess,
+    api.functions.teams.grantTeamMemberCaseAccess,
   );
 
   // Find current member's access level

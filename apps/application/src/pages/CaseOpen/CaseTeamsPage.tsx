@@ -60,10 +60,9 @@ function CaseTeamsPageInner() {
 
   const caseId = currentCase._id;
 
-  const teamsWithAccess = useQuery(
-    api.functions.permissions.getNewTeamsWithCaseAccess,
-    { caseId },
-  );
+  const teamsWithAccess = useQuery(api.functions.teams.getTeamsWithCaseAccess, {
+    caseId,
+  });
 
   const toggleTeamExpansion = (teamId: string) => {
     const newExpanded = new Set(expandedTeams);

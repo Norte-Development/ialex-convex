@@ -34,9 +34,6 @@ export {
   getUsersWithCaseAccess,
   getUserCasePermissions,
   hasPermission,
-  getNewTeamsWithCaseAccess,
-  getNewTeamMembersWithCaseAccess,
-  grantNewTeamMemberCaseAccess,
   getNewUsersWithCaseAccess,
   grantNewUserCaseAccess,
 } from "./permissions";
@@ -72,4 +69,7 @@ export {
   grantNewTeamCaseAccess,
   revokeNewTeamCaseAccess,
   getCasesAccessibleByTeam,
+  getTeamMembersWithCaseAccess,
+  getTeamsWithCaseAccess,
+  grantTeamMemberCaseAccess,
 } from "./teams";
