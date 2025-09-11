@@ -1,27 +1,5 @@
-// import { useMutation, useQuery } from "convex/react";
-// import { api } from "../../../convex/_generated/api";
 import { useCase } from "@/context/CaseContext";
-// import { Link } from "react-router-dom";
-// import { useLocation } from "react-router-dom";
-// import { Badge } from "../ui/badge";
-// import { Button } from "../ui/button";
-// import {
-//   FileText,
-//   Trash2,
-//   AlertCircle,
-//   CheckCircle,
-//   Clock,
-//   Loader2,
-// } from "lucide-react";
-// import {
-//   Tooltip,
-//   TooltipContent,
-//   TooltipProvider,
-//   TooltipTrigger,
-// } from "../ui/tooltip";
 import { useState } from "react";
-// import { IfCan } from "@/components/Permissions";
-// import { PERMISSIONS } from "@/permissions/types";
 import { Id } from "convex/_generated/dataModel";
 import { FolderTree } from "./FolderTree";
 

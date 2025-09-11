@@ -2,10 +2,8 @@ import { v } from "convex/values";
 import { query, mutation } from "../_generated/server";
 import {
   getCurrentUserFromAuth,
-  requireCaseAccess,
-  requireClientPermission,
-  checkCaseAccess,
-  hasClientPermission,
+  requireNewCaseAccess,
+  checkNewCaseAccess,
 } from "../auth_utils";
 
 // ========================================
@@ -67,6 +65,27 @@ export const createCase = mutation({
       startDate: Date.now(),
       isArchived: false,
     });
+
+    await ctx.db.insert("caseAccess", {
+      caseId,
+      userId: currentUser._id,
+      accessLevel: "admin",
+      grantedBy: currentUser._id,
+      grantedAt: Date.now(),
+      isActive: true,
+    });
+
+    // NEW: If assigned to different lawyer, grant them advanced access
+    if (assignedLawyer !== currentUser._id) {
+      await ctx.db.insert("caseAccess", {
+        caseId,
+        userId: assignedLawyer,
+        accessLevel: "advanced",
+        grantedBy: currentUser._id,
+        grantedAt: Date.now(),
+        isActive: true,
+      });
+    }
 
     console.log("Created case with id:", caseId);
     return caseId;
@@ -146,39 +165,18 @@ export const getCases = query({
     const accessibleCases = [];
     for (const caseData of cases) {
       // Check direct access
-      if (
-        caseData.assignedLawyer === currentUser._id ||
-        caseData.createdBy === currentUser._id
-      ) {
-        accessibleCases.push(caseData);
-        continue;
-      }
-
-      // Check team access
-      const userMemberships = await ctx.db
-        .query("teamMemberships")
-        .withIndex("by_user", (q) => q.eq("userId", currentUser._id))
-        .filter((q) => q.eq(q.field("isActive"), true))
-        .collect();
-
-      let hasTeamAccess = false;
-      for (const membership of userMemberships) {
-        const teamAccess = await ctx.db
-          .query("teamCaseAccess")
-          .withIndex("by_case_and_team", (q) =>
-            q.eq("caseId", caseData._id).eq("teamId", membership.teamId),
-          )
-          .filter((q) => q.eq(q.field("isActive"), true))
-          .first();
-
-        if (teamAccess) {
-          hasTeamAccess = true;
-          break;
-        }
-      }
-
-      if (hasTeamAccess) {
-        accessibleCases.push(caseData);
+      const access = await checkNewCaseAccess(
+        ctx,
+        currentUser._id,
+        caseData._id,
+        "basic",
+      );
+      if (access.hasAccess) {
+        accessibleCases.push({
+          ...caseData,
+          accessLevel: access.userLevel,
+          source: access.source,
+        });
       }
     }
 
@@ -192,13 +190,15 @@ export const getCases = query({
 export const getCaseById = query({
   args: { caseId: v.id("cases") },
   handler: async (ctx, args) => {
-    await requireCaseAccess(ctx, args.caseId, "read");
-    
+    const currentUser = await getCurrentUserFromAuth(ctx);
+
+    await requireNewCaseAccess(ctx, currentUser._id, args.caseId, "basic");
+
     const caseData = await ctx.db.get(args.caseId);
     if (!caseData) {
       throw new Error("Case not found");
     }
-    
+
     return caseData;
   },
 });
@@ -239,7 +239,8 @@ export const addClientToCase = mutation({
   },
   handler: async (ctx, args) => {
     // Verify user has client write permission
-    const { currentUser } = await requireClientPermission(ctx, args.caseId, "write");
+    const currentUser = await getCurrentUserFromAuth(ctx);
+    await requireNewCaseAccess(ctx, currentUser._id, args.caseId, "advanced");
 
     // Check if relationship already exists
     const existing = await ctx.db
@@ -294,7 +295,8 @@ export const removeClientFromCase = mutation({
   },
   handler: async (ctx, args) => {
     // Verify user has client delete permission
-    await requireClientPermission(ctx, args.caseId, "delete");
+    const currentUser = await getCurrentUserFromAuth(ctx);
+    await requireNewCaseAccess(ctx, currentUser._id, args.caseId, "admin");
 
     const relationship = await ctx.db
       .query("clientCases")
@@ -337,7 +339,8 @@ export const getClientsForCase = query({
   },
   handler: async (ctx, args) => {
     // Verify user has client read permission
-    await requireClientPermission(ctx, args.caseId, "read");
+    const currentUser = await getCurrentUserFromAuth(ctx);
+    await requireNewCaseAccess(ctx, currentUser._id, args.caseId, "basic");
 
     const relationships = await ctx.db
       .query("clientCases")
@@ -390,10 +393,20 @@ export const getCasesForClient = query({
     // Filter cases based on user access - only include cases where user has client read permission
     const accessibleCases = [];
     for (const rel of relationships) {
-      const hasAccess = await hasClientPermission(ctx, rel.caseId, currentUser._id, "read");
-      if (hasAccess) {
+      const access = await checkNewCaseAccess(
+        ctx,
+        currentUser._id,
+        rel.caseId,
+        "basic",
+      );
+      if (access.hasAccess) {
         const caseData = await ctx.db.get(rel.caseId);
-        accessibleCases.push({ ...caseData, clientRole: rel.role });
+        accessibleCases.push({
+          ...caseData,
+          clientRole: rel.role,
+          source: access.source,
+          accessLevel: access.userLevel,
+        });
       }
     }
 
@@ -438,7 +451,7 @@ export const checkUserCaseAccess = query({
       throw new Error("Unauthorized: Cannot check other users' access");
     }
 
-    // Use the centralized checkCaseAccess helper
-    return await checkCaseAccess(ctx, args.caseId, userId);
+    // NEW: Use the centralized checkNewCaseAccess helper
+    return await checkNewCaseAccess(ctx, userId, args.caseId);
   },
 });

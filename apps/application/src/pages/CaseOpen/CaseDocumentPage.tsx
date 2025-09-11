@@ -4,25 +4,35 @@ import { useEffect, useState } from "react";
 import { api } from "../../../convex/_generated/api";
 import { Id } from "../../../convex/_generated/dataModel";
 import CaseLayout from "@/components/Cases/CaseLayout";
-import { Download, AlertCircle, Clock, Loader2, CheckCircle } from "lucide-react";
+import {
+  Download,
+  AlertCircle,
+  Clock,
+  Loader2,
+  CheckCircle,
+} from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { PermissionButton, IfCan } from "@/components/Permissions";
-import { PERMISSIONS } from "@/permissions/types";
+import { Button } from "@/components/ui/button";
+import { usePermissions } from "@/context/CasePermissionsContext";
 import DocumentViewer from "@/components/Documents/DocumentViewer";
 
 export default function CaseDocumentPage() {
   const { documentId } = useParams();
-  
+
+  // Permisos usando el nuevo sistema
+  const { can } = usePermissions();
 
   // Fetch the specific document
   const document = useQuery(
     api.functions.documents.getDocument,
-    documentId ? { documentId: documentId as Id<"documents"> } : "skip"
+    documentId ? { documentId: documentId as Id<"documents"> } : "skip",
   );
 
   // Action to get a signed URL for viewing/downloading the document
-  const getDocumentUrlAction = useAction(api.functions.documents.getDocumentUrl);
+  const getDocumentUrlAction = useAction(
+    api.functions.documents.getDocumentUrl,
+  );
   const [documentUrl, setDocumentUrl] = useState<string | undefined>(undefined);
 
   useEffect(() => {
@@ -30,14 +40,18 @@ export default function CaseDocumentPage() {
     async function loadUrl() {
       if (!documentId) return;
       try {
-        const url = await getDocumentUrlAction({ documentId: documentId as Id<"documents"> });
+        const url = await getDocumentUrlAction({
+          documentId: documentId as Id<"documents">,
+        });
         if (!cancelled) setDocumentUrl(url || undefined);
       } catch (e) {
         if (!cancelled) setDocumentUrl(undefined);
       }
     }
     loadUrl();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [documentId, getDocumentUrlAction]);
 
   const getDocumentTypeColor = (documentType: string) => {
@@ -99,7 +113,8 @@ export default function CaseDocumentPage() {
           icon: Clock,
           color: "bg-yellow-100 text-yellow-800 border-yellow-200",
           text: "Pendiente de indexación",
-          description: "El documento está esperando ser procesado para búsqueda"
+          description:
+            "El documento está esperando ser procesado para búsqueda",
         };
       case "processing":
         return {
@@ -107,28 +122,28 @@ export default function CaseDocumentPage() {
           color: "bg-blue-100 text-blue-800 border-blue-200",
           text: "Indexando documento",
           description: "Analizando el contenido para hacerlo buscable",
-          animate: true
+          animate: true,
         };
       case "completed":
         return {
           icon: CheckCircle,
           color: "bg-green-100 text-green-800 border-green-200",
           text: "Indexado",
-          description: "El documento está listo para búsqueda"
+          description: "El documento está listo para búsqueda",
         };
       case "failed":
         return {
           icon: AlertCircle,
           color: "bg-red-100 text-red-800 border-red-200",
           text: "Error de indexación",
-          description: "No se pudo procesar el documento"
+          description: "No se pudo procesar el documento",
         };
       default:
         return {
           icon: Clock,
           color: "bg-gray-100 text-gray-800 border-gray-200",
           text: "Estado desconocido",
-          description: "No se puede determinar el estado del documento"
+          description: "No se puede determinar el estado del documento",
         };
     }
   };
@@ -152,24 +167,28 @@ export default function CaseDocumentPage() {
       <div className="bg-white border-b border-gray-200 px-6 py-4">
         <div className="w-full">
           <div className="flex items-center justify-between mb-2">
-            <h1 className="text-2xl font-semibold text-gray-900">{document.title}</h1>
+            <h1 className="text-2xl font-semibold text-gray-900">
+              {document.title}
+            </h1>
             <div className="flex items-center gap-2">
               {/* Processing Status Badge - Prominent Display */}
               {document.processingStatus && (
                 <div className="flex items-center gap-2">
                   {(() => {
-                    const statusConfig = getProcessingStatusConfig(document.processingStatus);
+                    const statusConfig = getProcessingStatusConfig(
+                      document.processingStatus,
+                    );
                     const StatusIcon = statusConfig.icon;
                     return (
-                      <Badge 
-                        variant="outline" 
+                      <Badge
+                        variant="outline"
                         className={`${statusConfig.color} flex items-center gap-2 px-3 py-1 text-sm font-medium ${
                           statusConfig.animate ? "animate-pulse" : ""
                         }`}
                       >
-                        <StatusIcon 
-                          size={16} 
-                          className={statusConfig.animate ? "animate-spin" : ""} 
+                        <StatusIcon
+                          size={16}
+                          className={statusConfig.animate ? "animate-spin" : ""}
                         />
                         {statusConfig.text}
                       </Badge>
@@ -177,52 +196,64 @@ export default function CaseDocumentPage() {
                   })()}
                 </div>
               )}
-              
-              <Badge 
-                variant="secondary" 
-                className={getDocumentTypeColor(document.documentType || "other")}
+
+              <Badge
+                variant="secondary"
+                className={getDocumentTypeColor(
+                  document.documentType || "other",
+                )}
               >
                 {getDocumentTypeText(document.documentType || "other")}
               </Badge>
-              
-              <PermissionButton
-                permission={PERMISSIONS.DOC_READ}
-                variant="outline"
-                size="sm"
-                onClick={() => window.open(documentUrl || "", "_blank")}
-                disabled={!documentUrl}
-                disabledMessage="No tienes permisos para descargar documentos"
-              >
-                <Download className="h-4 w-4 mr-2" />
-                Descargar
-              </PermissionButton>
+
+              {can.docs.read && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => window.open(documentUrl || "", "_blank")}
+                  disabled={!documentUrl}
+                  title={
+                    !documentUrl
+                      ? "Documento no disponible"
+                      : "Descargar documento"
+                  }
+                >
+                  <Download className="h-4 w-4 mr-2" />
+                  Descargar
+                </Button>
+              )}
             </div>
           </div>
-          
+
           {/* Processing Status Description */}
           {document.processingStatus && (
             <div className="mb-3">
               {(() => {
-                const statusConfig = getProcessingStatusConfig(document.processingStatus);
+                const statusConfig = getProcessingStatusConfig(
+                  document.processingStatus,
+                );
                 return (
-                  <p className={`text-sm ${statusConfig.color.replace('bg-', 'text-').replace(' text-', '')}`}>
+                  <p
+                    className={`text-sm ${statusConfig.color.replace("bg-", "text-").replace(" text-", "")}`}
+                  >
                     {statusConfig.description}
                     {document.processingError && (
                       <span className="block mt-1 text-red-600">
                         Error: {document.processingError}
                       </span>
                     )}
-                    {document.totalChunks && document.processingStatus === "completed" && (
-                      <span className="block mt-1 text-gray-600">
-                        Fragmentos procesados: {document.totalChunks}
-                      </span>
-                    )}
+                    {document.totalChunks &&
+                      document.processingStatus === "completed" && (
+                        <span className="block mt-1 text-gray-600">
+                          Fragmentos procesados: {document.totalChunks}
+                        </span>
+                      )}
                   </p>
                 );
               })()}
             </div>
           )}
-          
+
           <div className="flex flex-wrap gap-4 text-sm text-gray-600">
             <div className="flex items-center gap-2">
               <span className="font-medium">Tamaño:</span>
@@ -242,17 +273,8 @@ export default function CaseDocumentPage() {
 
       {/* Document Viewer */}
       <div className="flex-1 p-6 bg-gray-50">
-        <IfCan
-          permission={PERMISSIONS.DOC_READ}
-          fallback={
-            <div className="flex items-center justify-center h-96">
-              <div className="text-center text-gray-600">
-                No te han dado permisos para ver este documento.
-              </div>
-            </div>
-          }
-        >
-          {!documentUrl ? (
+        {can.docs.read ? (
+          !documentUrl ? (
             <div className="flex items-center justify-center h-96">
               <div className="text-center">
                 <Skeleton className="h-64 w-96 mb-4" />
@@ -266,9 +288,15 @@ export default function CaseDocumentPage() {
               title={document.title}
               fileSize={document.fileSize}
             />
-          )}
-        </IfCan>
+          )
+        ) : (
+          <div className="flex items-center justify-center h-96">
+            <div className="text-center text-gray-600">
+              No te han dado permisos para ver este documento.
+            </div>
+          </div>
+        )}
       </div>
     </CaseLayout>
   );
-} 
+}

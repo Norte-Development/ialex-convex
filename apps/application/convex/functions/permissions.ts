@@ -1,10 +1,11 @@
 import { v } from "convex/values";
 import { query, mutation } from "../_generated/server";
-import { 
-  getCurrentUserFromAuth, 
-  requireCaseAccess, 
-  checkCaseAccess,
-  PERMISSIONS 
+import {
+  getCurrentUserFromAuth,
+  checkNewCaseAccess,
+  AccessLevel,
+  grantNewCaseAccess,
+  requireNewCaseAccess,
 } from "../auth_utils";
 
 // Permission types for validation - matching frontend constants
@@ -13,31 +14,38 @@ const permissionTypes = v.union(
   v.literal("case.view"),
   v.literal("case.edit"),
   v.literal("case.delete"),
-  
+
   // Document permissions
   v.literal("documents.read"),
   v.literal("documents.write"),
   v.literal("documents.delete"),
-  
+
   // Escrito permissions
   v.literal("escritos.read"),
   v.literal("escritos.write"),
   v.literal("escritos.delete"),
-  
+
   // Client permissions
   v.literal("clients.read"),
   v.literal("clients.write"),
   v.literal("clients.delete"),
-  
+
   // Team permissions
   v.literal("teams.read"),
   v.literal("teams.write"),
-  
+
   // Chat permissions
   v.literal("chat.access"),
-  
+
   // Full access
-  v.literal("full")
+  v.literal("full"),
+);
+
+const newAccessLevelType = v.union(
+  v.literal("none"),
+  v.literal("basic"),
+  v.literal("advanced"),
+  v.literal("admin"),
 );
 
 /**
@@ -47,43 +55,44 @@ export const grantUserCaseAccess = mutation({
   args: {
     caseId: v.id("cases"),
     userId: v.id("users"),
-    permissions: v.array(permissionTypes),
+    accessLevel: newAccessLevelType,
     expiresAt: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
     // Only users with full access can grant permissions
-    const { currentUser } = await requireCaseAccess(ctx, args.caseId, "full");
-    
+    const currentUser = await getCurrentUserFromAuth(ctx);
+    await requireNewCaseAccess(ctx, currentUser._id, args.caseId, "admin");
+
     // Prevent self-granting
     if (currentUser._id === args.userId) {
       throw new Error("Cannot grant permissions to yourself");
     }
-    
+
     // Check if access already exists
     const existing = await ctx.db
-      .query("userCaseAccess")
-      .withIndex("by_user_and_case", (q) => 
-        q.eq("userId", args.userId).eq("caseId", args.caseId)
+      .query("caseAccess")
+      .withIndex("by_case_and_user", (q) =>
+        q.eq("caseId", args.caseId).eq("userId", args.userId),
       )
       .filter((q) => q.eq(q.field("isActive"), true))
       .first();
-    
+
     if (existing) {
       // Update existing permissions
       await ctx.db.patch(existing._id, {
-        permissions: args.permissions,
+        accessLevel: args.accessLevel,
         grantedBy: currentUser._id,
         grantedAt: Date.now(),
         expiresAt: args.expiresAt,
       });
       return existing._id;
     }
-    
+
     // Create new access
-    return await ctx.db.insert("userCaseAccess", {
+    return await ctx.db.insert("caseAccess", {
       caseId: args.caseId,
       userId: args.userId,
-      permissions: args.permissions,
+      accessLevel: args.accessLevel,
       grantedBy: currentUser._id,
       grantedAt: Date.now(),
       expiresAt: args.expiresAt,
@@ -101,16 +110,17 @@ export const revokeUserCaseAccess = mutation({
     userId: v.id("users"),
   },
   handler: async (ctx, args) => {
-    await requireCaseAccess(ctx, args.caseId, "full");
-    
+    const currentUser = await getCurrentUserFromAuth(ctx);
+    await requireNewCaseAccess(ctx, currentUser._id, args.caseId, "admin");
+
     const access = await ctx.db
-      .query("userCaseAccess")
-      .withIndex("by_user_and_case", (q) => 
-        q.eq("userId", args.userId).eq("caseId", args.caseId)
+      .query("caseAccess")
+      .withIndex("by_case_and_user", (q) =>
+        q.eq("caseId", args.caseId).eq("userId", args.userId),
       )
       .filter((q) => q.eq(q.field("isActive"), true))
       .first();
-    
+
     if (access) {
       await ctx.db.patch(access._id, { isActive: false });
     }
@@ -123,30 +133,36 @@ export const revokeUserCaseAccess = mutation({
 export const getUsersWithCaseAccess = query({
   args: { caseId: v.id("cases") },
   handler: async (ctx, args) => {
-    await requireCaseAccess(ctx, args.caseId, "read");
-    
+    const currentUser = await getCurrentUserFromAuth(ctx);
+    await requireNewCaseAccess(ctx, currentUser._id, args.caseId, "basic");
+
     const userAccesses = await ctx.db
-      .query("userCaseAccess")
+      .query("caseAccess")
       .withIndex("by_case", (q) => q.eq("caseId", args.caseId))
       .filter((q) => q.eq(q.field("isActive"), true))
-      .filter((q) => q.or(
-        q.eq(q.field("expiresAt"), undefined),
-        q.gt(q.field("expiresAt"), Date.now())
-      ))
+      .filter((q) => q.neq(q.field("userId"), undefined))
+      .filter((q) =>
+        q.or(
+          q.eq(q.field("expiresAt"), undefined),
+          q.gt(q.field("expiresAt"), Date.now()),
+        ),
+      )
       .collect();
-    
+
     // Get user details
     const usersWithAccess = [];
     for (const access of userAccesses) {
-      const user = await ctx.db.get(access.userId);
-      if (user) {
-        usersWithAccess.push({
-          ...access,
-          user,
-        });
+      if (access.userId) {
+        const user = await ctx.db.get(access.userId);
+        if (user) {
+          usersWithAccess.push({
+            ...access,
+            user,
+          });
+        }
       }
     }
-    
+
     return usersWithAccess;
   },
 });
@@ -158,13 +174,17 @@ export const getUserCasePermissions = query({
   args: { caseId: v.id("cases") },
   handler: async (ctx, args) => {
     const currentUser = await getCurrentUserFromAuth(ctx);
-    const access = await checkCaseAccess(ctx, args.caseId, currentUser._id);
-    
+    const access = await checkNewCaseAccess(
+      ctx,
+      currentUser._id,
+      args.caseId,
+      "basic",
+    );
+
     return {
       hasAccess: access.hasAccess,
-      accessLevel: access.accessLevel,
+      accessLevel: access.userLevel,
       source: access.source,
-      permissions: access.permissions || [],
     };
   },
 });
@@ -173,100 +193,63 @@ export const getUserCasePermissions = query({
  * Check if current user has specific permission
  */
 export const hasPermission = query({
-  args: { 
+  args: {
     caseId: v.id("cases"),
     permission: permissionTypes,
   },
   handler: async (ctx, args) => {
     const currentUser = await getCurrentUserFromAuth(ctx);
-    const access = await checkCaseAccess(ctx, args.caseId, currentUser._id);
-    
+    const access = await checkNewCaseAccess(
+      ctx,
+      currentUser._id,
+      args.caseId,
+      "basic",
+    );
+
     if (!access.hasAccess) return false;
-    const permissions = access.permissions as string[] || [];
-    if (permissions.includes(PERMISSIONS.FULL)) return true;
-    
+    const permissions = access.userLevel || "none";
+
     return permissions.includes(args.permission);
   },
 });
 
-// ========================================
-// TEAM MEMBER PERMISSIONS
-// ========================================
-
 /**
- * Grant specific permissions to a team member for a case
+ * Check if current user has sufficient access level (new system)
  */
-export const grantTeamMemberCaseAccess = mutation({
+export const hasNewAccessLevel = query({
   args: {
     caseId: v.id("cases"),
-    teamId: v.id("teams"),
-    userId: v.id("users"),
-    permissions: v.array(permissionTypes),
-    expiresAt: v.optional(v.number()),
+    requiredLevel: newAccessLevelType,
   },
   handler: async (ctx, args) => {
-    const { currentUser } = await requireCaseAccess(ctx, args.caseId, "full");
-    
-    // Verify user is member of the team
-    const membership = await ctx.db
-      .query("teamMemberships")
-      .withIndex("by_team_and_user", (q) => 
-        q.eq("teamId", args.teamId).eq("userId", args.userId)
-      )
-      .filter((q) => q.eq(q.field("isActive"), true))
-      .first();
-    
-    if (!membership) {
-      throw new Error("User is not a member of this team");
-    }
-    
-    // Check if access already exists
-    const existing = await ctx.db
-      .query("teamMemberCaseAccess")
-      .withIndex("by_team_user_case", (q) => 
-        q.eq("teamId", args.teamId).eq("userId", args.userId).eq("caseId", args.caseId)
-      )
-      .filter((q) => q.eq(q.field("isActive"), true))
-      .first();
-    
-    if (existing) {
-      await ctx.db.patch(existing._id, {
-        permissions: args.permissions,
-        grantedBy: currentUser._id,
-        grantedAt: Date.now(),
-        expiresAt: args.expiresAt,
-      });
-      return existing._id;
-    }
-    
-    return await ctx.db.insert("teamMemberCaseAccess", {
-      caseId: args.caseId,
-      teamId: args.teamId,
-      userId: args.userId,
-      permissions: args.permissions,
-      grantedBy: currentUser._id,
-      grantedAt: Date.now(),
-      expiresAt: args.expiresAt,
-      isActive: true,
-    });
+    const currentUser = await getCurrentUserFromAuth(ctx);
+    const access = await checkNewCaseAccess(
+      ctx,
+      currentUser._id,
+      args.caseId,
+      args.requiredLevel as AccessLevel,
+    );
+
+    return access.hasAccess;
   },
 });
 
 /**
- * Get all users with access to a case (including team access)
+ * Get all users with access to a case (including team access) - new system
  */
-export const getAllUsersWithCaseAccess = query({
+export const getAllNewUsersWithCaseAccess = query({
   args: { caseId: v.id("cases") },
   handler: async (ctx, args) => {
-    await requireCaseAccess(ctx, args.caseId, "read");
-    
+    const currentUser = await getCurrentUserFromAuth(ctx);
+    await requireNewCaseAccess(ctx, currentUser._id, args.caseId, "basic");
+
     const caseData = await ctx.db.get(args.caseId);
     if (!caseData) {
       throw new Error("Case not found");
     }
-    
+
     const usersWithAccess = new Set();
-    
+
     // 1. Add direct access users (assigned lawyer and creator)
     if (caseData.assignedLawyer) {
       usersWithAccess.add(caseData.assignedLawyer);
@@ -274,106 +257,123 @@ export const getAllUsersWithCaseAccess = query({
     if (caseData.createdBy) {
       usersWithAccess.add(caseData.createdBy);
     }
-    
-    // 2. Add users with individual permissions
-    const individualAccesses = await ctx.db
-      .query("userCaseAccess")
+
+    // 2. Get all access records from the new unified table
+    const allAccesses = await ctx.db
+      .query("caseAccess")
       .withIndex("by_case", (q) => q.eq("caseId", args.caseId))
       .filter((q) => q.eq(q.field("isActive"), true))
-      .filter((q) => q.or(
-        q.eq(q.field("expiresAt"), undefined),
-        q.gt(q.field("expiresAt"), Date.now())
-      ))
+      .filter((q) =>
+        q.or(
+          q.eq(q.field("expiresAt"), undefined),
+          q.gt(q.field("expiresAt"), Date.now()),
+        ),
+      )
       .collect();
-    
-    for (const access of individualAccesses) {
-      usersWithAccess.add(access.userId);
-    }
-    
-    // 3. Add users with team access
-    const teamAccesses = await ctx.db
-      .query("teamCaseAccess")
-      .withIndex("by_case", (q) => q.eq("caseId", args.caseId))
-      .filter((q) => q.eq(q.field("isActive"), true))
-      .collect();
-    
-    for (const teamAccess of teamAccesses) {
-      // Get all team members
-      const teamMembers = await ctx.db
-        .query("teamMemberships")
-        .withIndex("by_team", (q) => q.eq("teamId", teamAccess.teamId))
-        .filter((q) => q.eq(q.field("isActive"), true))
-        .collect();
-      
-      for (const member of teamMembers) {
-        usersWithAccess.add(member.userId);
+
+    // 3. Add users with direct access
+    for (const access of allAccesses) {
+      if (access.userId) {
+        usersWithAccess.add(access.userId);
       }
     }
-    
-    // 4. Add users with specific team member permissions
-    const teamMemberAccesses = await ctx.db
-      .query("teamMemberCaseAccess")
-      .withIndex("by_case", (q) => q.eq("caseId", args.caseId))
-      .filter((q) => q.eq(q.field("isActive"), true))
-      .filter((q) => q.or(
-        q.eq(q.field("expiresAt"), undefined),
-        q.gt(q.field("expiresAt"), Date.now())
-      ))
-      .collect();
-    
-    for (const access of teamMemberAccesses) {
-      usersWithAccess.add(access.userId);
+
+    // 4. Add users with team access
+    for (const access of allAccesses) {
+      if (access.teamId) {
+        const teamId = access.teamId;
+        const teamMembers = await ctx.db
+          .query("teamMemberships")
+          .withIndex("by_team", (q) => q.eq("teamId", teamId))
+          .filter((q) => q.eq(q.field("isActive"), true))
+          .collect();
+
+        for (const member of teamMembers) {
+          usersWithAccess.add(member.userId);
+        }
+      }
     }
-    
+
     return Array.from(usersWithAccess);
   },
 });
 
-/**
- * Get team members with their specific case permissions
- */
-export const getTeamMembersWithCaseAccess = query({
-  args: { 
+// Get users with individual case access (new hierarchical system)
+export const getNewUsersWithCaseAccess = query({
+  args: {
     caseId: v.id("cases"),
-    teamId: v.id("teams"),
   },
   handler: async (ctx, args) => {
-    await requireCaseAccess(ctx, args.caseId, "read");
-    
-    // Get all team members
-    const teamMembers = await ctx.db
-      .query("teamMemberships")
-      .withIndex("by_team", (q) => q.eq("teamId", args.teamId))
+    const currentUser = await getCurrentUserFromAuth(ctx);
+    await requireNewCaseAccess(ctx, currentUser._id, args.caseId, "basic");
+
+    const userAccess = await ctx.db
+      .query("caseAccess")
+      .withIndex("by_case", (q) => q.eq("caseId", args.caseId))
+      .filter((q) => q.neq(q.field("userId"), undefined))
       .filter((q) => q.eq(q.field("isActive"), true))
       .collect();
-    
-    const membersWithAccess = [];
-    
-    for (const member of teamMembers) {
-      const user = await ctx.db.get(member.userId);
-      if (!user) continue;
-      
-      // Check specific team member permissions
-      const memberAccess = await ctx.db
-        .query("teamMemberCaseAccess")
-        .withIndex("by_team_user_case", (q) => 
-          q.eq("teamId", args.teamId).eq("userId", member.userId).eq("caseId", args.caseId)
-        )
-        .filter((q) => q.eq(q.field("isActive"), true))
-        .filter((q) => q.or(
-          q.eq(q.field("expiresAt"), undefined),
-          q.gt(q.field("expiresAt"), Date.now())
-        ))
-        .first();
-      
-      membersWithAccess.push({
-        user,
-        teamRole: member.role,
-        specificAccess: memberAccess || null,
-        hasSpecificPermissions: !!memberAccess,
-      });
+
+    const usersWithAccess = [];
+    for (const access of userAccess) {
+      if (access.userId) {
+        const user = await ctx.db.get(access.userId);
+        if (user) {
+          usersWithAccess.push({
+            userId: access.userId,
+            user: {
+              _id: user._id,
+              name: user.name,
+              email: user.email,
+            },
+            accessLevel: access.accessLevel,
+            grantedAt: access.grantedAt,
+            grantedBy: access.grantedBy,
+            expiresAt: access.expiresAt,
+          });
+        }
+      }
     }
-    
-    return membersWithAccess;
+
+    return usersWithAccess;
   },
-}); 
+});
+
+// Grant individual case access (new hierarchical system)
+export const grantNewUserCaseAccess = mutation({
+  args: {
+    caseId: v.id("cases"),
+    userId: v.id("users"),
+    accessLevel: newAccessLevelType,
+    expiresAt: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const currentUser = await getCurrentUserFromAuth(ctx);
+    await requireNewCaseAccess(ctx, currentUser._id, args.caseId, "admin");
+
+    // Remove existing access for this user and case
+    const existingAccess = await ctx.db
+      .query("caseAccess")
+      .withIndex("by_case", (q) => q.eq("caseId", args.caseId))
+      .filter((q) => q.eq(q.field("userId"), args.userId))
+      .filter((q) => q.eq(q.field("isActive"), true))
+      .first();
+
+    if (existingAccess) {
+      await ctx.db.patch(existingAccess._id, { isActive: false });
+    }
+
+    // Grant new access
+    const accessId = await ctx.db.insert("caseAccess", {
+      caseId: args.caseId,
+      userId: args.userId,
+      accessLevel: args.accessLevel,
+      grantedBy: currentUser._id,
+      grantedAt: Date.now(),
+      expiresAt: args.expiresAt,
+      isActive: true,
+    });
+
+    return accessId;
+  },
+});

@@ -1,7 +1,8 @@
 import { v } from "convex/values";
 import { mutation, query } from "../_generated/server";
-import { getCurrentUserFromAuth, checkCaseAccess } from "../auth_utils";
+import { getCurrentUserFromAuth } from "../auth_utils";
 import { Id } from "../_generated/dataModel";
+import { checkNewCaseAccess } from "../auth_utils";
 
 // Types for @-references
 interface ParsedReference {
@@ -28,7 +29,7 @@ export const parseAtReferences = mutation({
   },
   handler: async (ctx, args): Promise<ParseResult> => {
     const currentUser = await getCurrentUserFromAuth(ctx);
-    
+
     // Validate user can only parse their own references
     if (args.userId !== currentUser._id) {
       throw new Error("Unauthorized: Can only parse your own references");
@@ -49,7 +50,7 @@ export const parseAtReferences = mutation({
     for (const [type, pattern] of Object.entries(patterns)) {
       let match;
       while ((match = pattern.exec(args.message)) !== null) {
-        const searchTerm = match[1].replace(/[_\-]/g, ' ').toLowerCase();
+        const searchTerm = match[1].replace(/[_\-]/g, " ").toLowerCase();
         const originalText = match[0];
 
         try {
@@ -57,16 +58,35 @@ export const parseAtReferences = mutation({
 
           switch (type) {
             case "client":
-              resolvedRef = await resolveClientReference(ctx, searchTerm, args.caseId, originalText);
+              resolvedRef = await resolveClientReference(
+                ctx,
+                searchTerm,
+                args.caseId,
+                originalText,
+              );
               break;
             case "document":
-              resolvedRef = await resolveDocumentReference(ctx, searchTerm, args.caseId, originalText);
+              resolvedRef = await resolveDocumentReference(
+                ctx,
+                searchTerm,
+                args.caseId,
+                originalText,
+              );
               break;
             case "escrito":
-              resolvedRef = await resolveEscritoReference(ctx, searchTerm, args.caseId, originalText);
+              resolvedRef = await resolveEscritoReference(
+                ctx,
+                searchTerm,
+                args.caseId,
+                originalText,
+              );
               break;
             case "case":
-              resolvedRef = await resolveCaseReference(ctx, searchTerm, originalText);
+              resolvedRef = await resolveCaseReference(
+                ctx,
+                searchTerm,
+                originalText,
+              );
               break;
           }
 
@@ -76,7 +96,10 @@ export const parseAtReferences = mutation({
             cleanMessage = cleanMessage.replace(originalText, resolvedRef.name);
           }
         } catch (error) {
-          console.warn(`Failed to resolve ${type} reference "${searchTerm}":`, error);
+          console.warn(
+            `Failed to resolve ${type} reference "${searchTerm}":`,
+            error,
+          );
           // Keep the original @-reference if resolution fails
         }
       }
@@ -95,26 +118,26 @@ async function resolveClientReference(
   ctx: any,
   searchTerm: string,
   caseId: Id<"cases"> | undefined,
-  originalText: string
+  originalText: string,
 ): Promise<ParsedReference | null> {
   if (!caseId) {
     // Search across all accessible clients if no case context
     // Use Convex's built-in string comparison methods
     const clients = await ctx.db
       .query("clients")
-      .filter((q: any) => 
+      .filter((q: any) =>
         q.or(
           q.eq(q.field("name"), searchTerm),
-          q.like(q.field("name"), `%${searchTerm}%`)
-        )
+          q.like(q.field("name"), `%${searchTerm}%`),
+        ),
       )
       .take(10); // Get more to filter locally
-    
+
     // Filter by case-insensitive comparison in JavaScript
-    const matchingClient = clients.find((client: any) => 
-      client.name.toLowerCase().includes(searchTerm.toLowerCase())
+    const matchingClient = clients.find((client: any) =>
+      client.name.toLowerCase().includes(searchTerm.toLowerCase()),
     );
-    
+
     if (matchingClient) {
       return {
         type: "client",
@@ -143,7 +166,7 @@ async function resolveClientReference(
       }
     }
   }
-  
+
   return null;
 }
 
@@ -151,27 +174,29 @@ async function resolveDocumentReference(
   ctx: any,
   searchTerm: string,
   caseId: Id<"cases"> | undefined,
-  originalText: string
+  originalText: string,
 ): Promise<ParsedReference | null> {
   const query = caseId
-    ? ctx.db.query("documents").withIndex("by_case", (q: any) => q.eq("caseId", caseId))
+    ? ctx.db
+        .query("documents")
+        .withIndex("by_case", (q: any) => q.eq("caseId", caseId))
     : ctx.db.query("documents");
 
   const documents = await query
-    .filter((q: any) => 
+    .filter((q: any) =>
       q.and(
         q.eq(q.field("isArchived"), false),
         q.or(
           q.eq(q.field("title"), searchTerm),
-          q.like(q.field("title"), `%${searchTerm}%`)
-        )
-      )
+          q.like(q.field("title"), `%${searchTerm}%`),
+        ),
+      ),
     )
     .take(10); // Get more to filter locally
 
   // Filter by case-insensitive comparison in JavaScript
-  const matchingDoc = documents.find((doc: any) => 
-    doc.title.toLowerCase().includes(searchTerm.toLowerCase())
+  const matchingDoc = documents.find((doc: any) =>
+    doc.title.toLowerCase().includes(searchTerm.toLowerCase()),
   );
 
   if (matchingDoc) {
@@ -182,7 +207,7 @@ async function resolveDocumentReference(
       originalText,
     };
   }
-  
+
   return null;
 }
 
@@ -190,27 +215,29 @@ async function resolveEscritoReference(
   ctx: any,
   searchTerm: string,
   caseId: Id<"cases"> | undefined,
-  originalText: string
+  originalText: string,
 ): Promise<ParsedReference | null> {
   const query = caseId
-    ? ctx.db.query("escritos").withIndex("by_case", (q: any) => q.eq("caseId", caseId))
+    ? ctx.db
+        .query("escritos")
+        .withIndex("by_case", (q: any) => q.eq("caseId", caseId))
     : ctx.db.query("escritos");
 
   const escritos = await query
-    .filter((q: any) => 
+    .filter((q: any) =>
       q.and(
         q.eq(q.field("isArchived"), false),
         q.or(
           q.eq(q.field("title"), searchTerm),
-          q.like(q.field("title"), `%${searchTerm}%`)
-        )
-      )
+          q.like(q.field("title"), `%${searchTerm}%`),
+        ),
+      ),
     )
     .take(10); // Get more to filter locally
 
   // Filter by case-insensitive comparison in JavaScript
-  const matchingEscrito = escritos.find((escrito: any) => 
-    escrito.title.toLowerCase().includes(searchTerm.toLowerCase())
+  const matchingEscrito = escritos.find((escrito: any) =>
+    escrito.title.toLowerCase().includes(searchTerm.toLowerCase()),
   );
 
   if (matchingEscrito) {
@@ -221,28 +248,28 @@ async function resolveEscritoReference(
       originalText,
     };
   }
-  
+
   return null;
 }
 
 async function resolveCaseReference(
   ctx: any,
   searchTerm: string,
-  originalText: string
+  originalText: string,
 ): Promise<ParsedReference | null> {
   // Get current user to check permissions
   const currentUser = await getCurrentUserFromAuth(ctx);
-  
+
   const cases = await ctx.db
     .query("cases")
-    .filter((q: any) => 
+    .filter((q: any) =>
       q.and(
         q.eq(q.field("isArchived"), false),
         q.or(
           q.eq(q.field("title"), searchTerm),
-          q.like(q.field("title"), `%${searchTerm}%`)
-        )
-      )
+          q.like(q.field("title"), `%${searchTerm}%`),
+        ),
+      ),
     )
     .take(20); // Get more candidates to filter by permissions
 
@@ -253,7 +280,12 @@ async function resolveCaseReference(
       continue;
     }
     try {
-      const access = await checkCaseAccess(ctx, caseData._id, currentUser._id);
+      const access = await checkNewCaseAccess(
+        ctx,
+        currentUser._id,
+        caseData._id,
+        "basic",
+      );
       if (access.hasAccess) {
         return {
           type: "case",
@@ -267,7 +299,7 @@ async function resolveCaseReference(
       console.warn(`Access check failed for case ${caseData._id}:`, error);
     }
   }
-  
+
   return null;
 }
 
@@ -278,14 +310,26 @@ export const getReferencesSuggestions = query({
   args: {
     caseId: v.optional(v.id("cases")),
     query: v.optional(v.string()),
-    type: v.optional(v.union(v.literal("client"), v.literal("document"), v.literal("escrito"), v.literal("case"))),
+    type: v.optional(
+      v.union(
+        v.literal("client"),
+        v.literal("document"),
+        v.literal("escrito"),
+        v.literal("case"),
+      ),
+    ),
   },
   handler: async (ctx, args) => {
     const currentUser = await getCurrentUserFromAuth(ctx); // Get current user for permission checks
-    const suggestions: Array<{ type: string; id: string; name: string; preview?: string }> = [];
-    
+    const suggestions: Array<{
+      type: string;
+      id: string;
+      name: string;
+      preview?: string;
+    }> = [];
+
     const searchTerm = args.query?.toLowerCase() || "";
-    
+
     // Get clients (scoped to case if provided)
     if (!args.type || args.type === "client") {
       if (args.caseId) {
@@ -297,12 +341,16 @@ export const getReferencesSuggestions = query({
 
         for (const clientCase of clientCases) {
           const client = await ctx.db.get(clientCase.clientId);
-          if (client && (!searchTerm || client.name.toLowerCase().includes(searchTerm.toLowerCase()))) {
+          if (
+            client &&
+            (!searchTerm ||
+              client.name.toLowerCase().includes(searchTerm.toLowerCase()))
+          ) {
             suggestions.push({
               type: "client",
               id: client._id,
               name: client.name,
-              preview: `${client.clientType} - ${clientCase.role || 'Sin rol'}`,
+              preview: `${client.clientType} - ${clientCase.role || "Sin rol"}`,
             });
           }
         }
@@ -312,7 +360,9 @@ export const getReferencesSuggestions = query({
     // Get documents (scoped to case if provided)
     if (!args.type || args.type === "document") {
       const query = args.caseId
-        ? ctx.db.query("documents").withIndex("by_case", (q: any) => q.eq("caseId", args.caseId))
+        ? ctx.db
+            .query("documents")
+            .withIndex("by_case", (q: any) => q.eq("caseId", args.caseId))
         : ctx.db.query("documents");
 
       const documents = await query
@@ -320,7 +370,11 @@ export const getReferencesSuggestions = query({
         .take(20); // Get more to filter locally
 
       const filteredDocs = documents
-        .filter(doc => !searchTerm || doc.title.toLowerCase().includes(searchTerm.toLowerCase()))
+        .filter(
+          (doc) =>
+            !searchTerm ||
+            doc.title.toLowerCase().includes(searchTerm.toLowerCase()),
+        )
         .slice(0, 10);
 
       for (const doc of filteredDocs) {
@@ -328,7 +382,7 @@ export const getReferencesSuggestions = query({
           type: "document",
           id: doc._id,
           name: doc.title,
-          preview: `${doc.documentType || 'Documento'} - ${new Date(doc._creationTime).toLocaleDateString()}`,
+          preview: `${doc.documentType || "Documento"} - ${new Date(doc._creationTime).toLocaleDateString()}`,
         });
       }
     }
@@ -336,7 +390,9 @@ export const getReferencesSuggestions = query({
     // Get escritos (scoped to case if provided)
     if (!args.type || args.type === "escrito") {
       const query = args.caseId
-        ? ctx.db.query("escritos").withIndex("by_case", (q: any) => q.eq("caseId", args.caseId))
+        ? ctx.db
+            .query("escritos")
+            .withIndex("by_case", (q: any) => q.eq("caseId", args.caseId))
         : ctx.db.query("escritos");
 
       const escritos = await query
@@ -344,7 +400,11 @@ export const getReferencesSuggestions = query({
         .take(20); // Get more to filter locally
 
       const filteredEscritos = escritos
-        .filter(escrito => !searchTerm || escrito.title.toLowerCase().includes(searchTerm.toLowerCase()))
+        .filter(
+          (escrito) =>
+            !searchTerm ||
+            escrito.title.toLowerCase().includes(searchTerm.toLowerCase()),
+        )
         .slice(0, 10);
 
       for (const escrito of filteredEscritos) {
@@ -365,15 +425,27 @@ export const getReferencesSuggestions = query({
         .take(50); // Get more candidates to filter by permissions
 
       // Filter cases by permissions and search term
-      const accessibleCases: Array<{ id: string; name: string; preview: string }> = [];
-      
+      const accessibleCases: Array<{
+        id: string;
+        name: string;
+        preview: string;
+      }> = [];
+
       for (const caseData of cases) {
         try {
           // Check if user has access to this case
-          const access = await checkCaseAccess(ctx, caseData._id, currentUser._id);
+          const access = await checkNewCaseAccess(
+            ctx,
+            currentUser._id,
+            caseData._id,
+            "basic",
+          );
           if (access.hasAccess) {
             // Apply search filter
-            if (!searchTerm || caseData.title.toLowerCase().includes(searchTerm.toLowerCase())) {
+            if (
+              !searchTerm ||
+              caseData.title.toLowerCase().includes(searchTerm.toLowerCase())
+            ) {
               accessibleCases.push({
                 id: caseData._id,
                 name: caseData.title,

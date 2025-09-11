@@ -2,7 +2,6 @@ import CaseGrid from "../components/Cases/CaseGrid";
 import CreateCaseDialog from "../components/Cases/CreateCaseDialog";
 import { useCase } from "@/context/CaseContext";
 import { CaseProvider } from "@/context/CaseContext";
-
 function CasesContent() {
   const { currentCase } = useCase();
 

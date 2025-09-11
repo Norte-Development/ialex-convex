@@ -9,10 +9,11 @@ import {
   QueryCtx,
 } from "../_generated/server";
 import { getThreadMetadata, vMessage } from "@convex-dev/agent";
-import { checkCaseAccess, getCurrentUserFromAuth } from "../auth_utils";
+import { getCurrentUserFromAuth } from "../auth_utils";
 import { agent } from "./agent";
-import z from "zod";
 import { paginationOptsValidator } from "convex/server";
+import { checkNewCaseAccess } from "../auth_utils";
+import { Id } from "../_generated/dataModel";
 
 /**
  * Authorizes access to a thread based on user identity and thread ownership.
@@ -62,7 +63,12 @@ export const listThreads = query({
   handler: async (ctx, args) => {
     const userId = await getCurrentUserFromAuth(ctx);
     if (args.caseId) {
-      const access = await checkCaseAccess(ctx, args.caseId, userId._id);
+      const access = await checkNewCaseAccess(
+        ctx,
+        userId._id,
+        args.caseId as Id<"cases">,
+        "basic",
+      );
       if (!access.hasAccess) {
         throw new Error("Unauthorized: No access to this case");
       }
@@ -99,7 +105,12 @@ export const searchThreads = query({
   handler: async (ctx, args) => {
     const userId = await getCurrentUserFromAuth(ctx);
     if (args.caseId) {
-      const access = await checkCaseAccess(ctx, args.caseId, userId._id);
+      const access = await checkNewCaseAccess(
+        ctx,
+        userId._id,
+        args.caseId as Id<"cases">,
+        "basic",
+      );
       if (!access.hasAccess) {
         throw new Error("Unauthorized: No access to this case");
       }
@@ -215,7 +226,12 @@ export const createNewThread = mutation({
     const userId = await getCurrentUserFromAuth(ctx);
 
     if (args.caseId) {
-      const access = await checkCaseAccess(ctx, args.caseId, userId._id);
+      const access = await checkNewCaseAccess(
+        ctx,
+        userId._id,
+        args.caseId as Id<"cases">,
+        "basic",
+      );
       if (!access.hasAccess) {
         throw new Error("Unauthorized: No access to this case");
       }
