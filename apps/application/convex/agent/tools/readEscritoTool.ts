@@ -33,22 +33,48 @@ export interface DocumentNode {
 
 
 export const getEscritoOutline = (doc: Node) => {
-    const outline: { text: string, pos: number, chunkIndex: number, chunkCount: number, type: string }[] = [];
-    let index = 0;
-    let chunkCount = 0;
-    doc.content.descendants((node, pos) => {
-        if (node.type.name === "heading" || node.type.name === "paragraph") {
-            const text = node.type.name === "heading" ? node.textContent : node.textContent.slice(0, 100);
-            if (text.length === 0) return;
-            outline.push({
-                text,
-                pos,
-                chunkIndex: index,
-                chunkCount,
-                type: node.type.name,
-            });
-            index++;
-            chunkCount++;
+    // First, get the actual document nodes and chunk metadata
+    const documentNodes = extractDocumentNodes(doc);
+    const chunkMetadata = createSemanticChunks(documentNodes);
+    
+    const outline: { 
+        text: string, 
+        pos: number, 
+        chunkIndex: number, 
+        totalChunks: number, 
+        type: string,
+        nodeIndex: number,
+        inChunkPosition: number 
+    }[] = [];
+    
+    // Map each node to its actual chunk
+    documentNodes.forEach((node, nodeIndex) => {
+        // Find which chunk this node belongs to
+        const belongsToChunk = chunkMetadata.findIndex(chunk => 
+            node.pos >= chunk.startPos && node.pos <= chunk.endPos
+        );
+        
+        // Find position within the chunk
+        const chunkNodes = documentNodes.filter(n => {
+            const chunk = chunkMetadata[belongsToChunk];
+            return chunk && n.pos >= chunk.startPos && n.pos <= chunk.endPos;
+        });
+        const inChunkPosition = chunkNodes.findIndex(n => n.pos === node.pos);
+        
+        // Only include headings and paragraphs in outline
+        if (node.type === "heading" || node.type === "paragraph") {
+            const text = node.type === "heading" ? node.text : node.text.slice(0, 100);
+            if (text.length > 0) {
+                outline.push({
+                    text,
+                    pos: node.pos,
+                    chunkIndex: belongsToChunk >= 0 ? belongsToChunk : -1, // -1 if not found in any chunk
+                    totalChunks: chunkMetadata.length,
+                    type: node.type,
+                    nodeIndex,
+                    inChunkPosition: inChunkPosition >= 0 ? inChunkPosition : -1
+                });
+            }
         }
     });
 
@@ -63,8 +89,6 @@ export const getEscritoOutline = (doc: Node) => {
 export function extractDocumentNodes(doc: Node): DocumentNode[] {
   const nodes: DocumentNode[] = [];
   const sectionStack: string[] = [];
-
-  console.log("🔍 Starting document extraction from node type:", doc.type.name);
   
   doc.descendants((node, pos) => {
     // Handle headings - update section context
@@ -110,7 +134,6 @@ export function extractDocumentNodes(doc: Node): DocumentNode[] {
     return true; // Continue traversing
   });
 
-  console.log("📝 Document extraction complete. Found", nodes.length, "nodes");
   return nodes;
 }
 
@@ -118,7 +141,6 @@ export function extractDocumentNodes(doc: Node): DocumentNode[] {
  * Generate semantic-aware chunks from document nodes
  */
 export function createSemanticChunks(nodes: DocumentNode[]): ChunkMetadata[] {
-  console.log("🔧 createSemanticChunks called with", nodes.length, "nodes");
   
   const chunks: ChunkMetadata[] = [];
   let currentChunk: {
@@ -134,11 +156,8 @@ export function createSemanticChunks(nodes: DocumentNode[]): ChunkMetadata[] {
 
   const flushChunk = () => {
     if (!currentChunk || currentChunk.nodes.length === 0) {
-      console.log("🚫 No chunk to flush or chunk is empty");
       return;
     }
-    
-    console.log("💾 Flushing chunk with", currentChunk.nodes.length, "nodes,", currentChunk.wordCount, "words");
 
     chunks.push({
       chunkIndex: chunks.length,
@@ -153,8 +172,6 @@ export function createSemanticChunks(nodes: DocumentNode[]): ChunkMetadata[] {
   };
 
   for (const node of nodes) {
-    console.log("🔍 Processing node:", { type: node.type, text: node.text.substring(0, 50) + "...", pos: node.pos });
-    
     // Update section context for headings
     if (node.type === "heading" && node.level) {
       sectionStack.splice(node.level - 1);
@@ -162,7 +179,6 @@ export function createSemanticChunks(nodes: DocumentNode[]): ChunkMetadata[] {
       
       // Flush current chunk at major structural boundaries
       if (node.level <= 2) {
-        console.log("🏁 Flushing at major heading level", node.level);
         flushChunk();
       }
     }
@@ -208,10 +224,8 @@ export function createSemanticChunks(nodes: DocumentNode[]): ChunkMetadata[] {
   }
 
   // Flush final chunk
-  console.log("🏁 Final flush");
   flushChunk();
 
-  console.log("✅ createSemanticChunks complete. Created", chunks.length, "chunks");
   return chunks;
 }
 
@@ -246,43 +260,56 @@ export function getEscritoChunks(
   chunkIndex: number,
   contextWindow: number = 0
 ): ProcessedChunk[] {
-  console.log("🔍 getEscritoChunks called with:", { chunkIndex, contextWindow });
-  
   // Extract document structure
   const documentNodes = extractDocumentNodes(doc);
-  console.log("📝 Extracted document nodes:", documentNodes.length, "nodes");
-  
   if (documentNodes.length === 0) {
-    console.log("❌ No document nodes found - returning empty array");
     return [];
   }
 
   // Create chunk metadata efficiently
   const chunkMetadata = createSemanticChunks(documentNodes);
-  console.log("📊 Created chunks:", chunkMetadata.length, "chunks");
   
   if (chunkMetadata.length === 0) {
-    console.log("❌ No chunks created - returning empty array");
     return [];
   }
 
-  // Calculate context window bounds
+  // Check if requested chunk index is out of bounds
+  if (chunkIndex >= chunkMetadata.length) {
+    // Fallback: use the last chunk as the target
+    const fallbackChunkIndex = chunkMetadata.length - 1;
+    const start = Math.max(0, fallbackChunkIndex - contextWindow);
+    const end = Math.min(chunkMetadata.length, fallbackChunkIndex + contextWindow + 1);
+    
+    // Process fallback range
+    return processChunkRange(documentNodes, chunkMetadata, start, end);
+  }
+
+  // Calculate context window bounds for valid chunk index
   const start = Math.max(0, chunkIndex - contextWindow);
   const end = Math.min(chunkMetadata.length, chunkIndex + contextWindow + 1);
-  console.log("🎯 Context window:", { start, end, totalChunks: chunkMetadata.length });
   
-  // Only process chunks in the requested range
+  // Process requested range
+  return processChunkRange(documentNodes, chunkMetadata, start, end);
+}
+
+/**
+ * Helper function to process a range of chunks
+ */
+function processChunkRange(
+  documentNodes: DocumentNode[], 
+  chunkMetadata: ChunkMetadata[], 
+  start: number, 
+  end: number
+): ProcessedChunk[] {
   const resultChunks: ProcessedChunk[] = [];
   
   for (let i = start; i < end; i++) {
     const metadata = chunkMetadata[i];
-    console.log(`📄 Processing chunk ${i}:`, metadata);
     
     // Extract text for this chunk by finding nodes in position range
     const chunkNodes = documentNodes.filter(
       node => node.pos >= metadata.startPos && node.pos <= metadata.endPos
     );
-    console.log(`📄 Chunk ${i} has ${chunkNodes.length} nodes in range`);
     
     const textParts: string[] = [];
     for (const node of chunkNodes) {
@@ -297,8 +324,6 @@ export function getEscritoChunks(
     const wordCount = text.split(/\s+/).length;
     const preview = generateChunkPreview(text);
     
-    console.log(`📄 Chunk ${i} text length:`, text.length, "words:", wordCount);
-    
     resultChunks.push({
       ...metadata,
       text,
@@ -308,7 +333,6 @@ export function getEscritoChunks(
     });
   }
 
-  console.log("✅ Returning", resultChunks.length, "chunks");
   return resultChunks;
 }
 

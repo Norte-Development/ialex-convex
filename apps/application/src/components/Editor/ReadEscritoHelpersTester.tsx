@@ -255,6 +255,9 @@ export function ReadEscritoHelpersTester() {
               <div>
                 <div className="font-medium text-blue-700 mb-1">Chunk Operation</div>
                 <div>Returns chunk {chunkIndex} with {contextWindow} chunks before/after. Shows enhanced metadata like section paths, node types, and structural boundaries.</div>
+                <div className="text-orange-600 mt-1 text-xs">
+                  <strong>Note:</strong> If chunk index is out of bounds, will fallback to the last available chunk with context.
+                </div>
               </div>
             )}
             {operation === 'full' && (
@@ -317,27 +320,42 @@ export function ReadEscritoHelpersTester() {
                       {result.operation === 'outline' && Array.isArray(result.result) && (
                         <div className="space-y-1">
                           <div className="font-medium">Document Outline ({result.result.length} items):</div>
+                          {result.result.length > 0 && result.result[0].totalChunks && (
+                            <div className="text-green-600 text-xs bg-green-50 p-2 rounded border">
+                              💡 <strong>Tip:</strong> This document has {result.result[0].totalChunks} chunks available. 
+                              Use chunk indices 0-{result.result[0].totalChunks - 1} for chunk operations.
+                            </div>
+                          )}
                           {result.result.map((item: any, i: number) => (
                             <div key={i} className="text-xs bg-white p-2 rounded border">
                               <div className="space-y-1">
-                                <div className="flex items-center gap-2">
+                                <div className="flex items-center gap-2 flex-wrap">
                                   <Badge 
                                     variant={item.type === 'heading' ? 'default' : 'secondary'} 
                                     className="text-xs"
                                   >
                                     {item.type}
                                   </Badge>
-                                  <Badge variant="outline" className="text-xs">
-                                    Chunk {item.chunkIndex}
+                                  <Badge 
+                                    variant={item.chunkIndex >= 0 ? 'outline' : 'destructive'} 
+                                    className="text-xs"
+                                  >
+                                    {item.chunkIndex >= 0 ? `Chunk ${item.chunkIndex}` : 'No Chunk'}
                                   </Badge>
+                                  {item.inChunkPosition >= 0 && (
+                                    <Badge variant="secondary" className="text-xs bg-yellow-50">
+                                      #{item.inChunkPosition + 1} in chunk
+                                    </Badge>
+                                  )}
+                                  <span className="text-gray-400">Node: {item.nodeIndex}</span>
                                   <span className="text-gray-400">Pos: {item.pos}</span>
                                 </div>
                                 <div className={`mt-1 ${item.type === 'heading' ? 'font-bold text-blue-700' : 'font-medium'}`}>
                                   {item.text}
                                 </div>
-                                {item.chunkCount > 0 && (
-                                  <div className="text-gray-500">
-                                    Part of chunk collection ({item.chunkCount} total)
+                                {item.chunkIndex >= 0 && (
+                                  <div className="text-gray-500 text-xs">
+                                    This content appears in chunk {item.chunkIndex} (position {item.inChunkPosition + 1})
                                   </div>
                                 )}
                               </div>
@@ -349,6 +367,12 @@ export function ReadEscritoHelpersTester() {
                       {result.operation === 'chunk' && Array.isArray(result.result) && (
                         <div className="space-y-1">
                           <div className="font-medium">Document Chunks ({result.result.length} returned):</div>
+                          {result.result.length === 0 && (
+                            <div className="text-orange-600 text-xs bg-orange-50 p-2 rounded border">
+                              ⚠️ No chunks returned. The requested chunk index might be out of bounds. 
+                              Try running an "Outline" operation first to see available chunk indices.
+                            </div>
+                          )}
                           {result.result.map((chunk: any, i: number) => (
                             <div key={i} className="text-xs bg-white p-2 rounded border">
                               <div className="space-y-2">

@@ -30,11 +30,17 @@ export const testReadEscritoHelpers = mutation({
 
     // Execute the requested operation using the redesigned functions
     if (args.operation === "outline") {
-      return getEscritoOutlineNew(doc.doc);
+      const outlineResult = getEscritoOutlineNew(doc.doc);
+      console.log("📋 Outline operation returned", outlineResult.length, "items");
+      return outlineResult;
     } else if (args.operation === "chunk") {
-      return getEscritoChunksNew(doc.doc, args.chunkIndex || 0, args.contextWindow || 1);
+      const chunkResult = getEscritoChunksNew(doc.doc, args.chunkIndex || 0, args.contextWindow || 1);
+      console.log("📄 Chunk operation returned", chunkResult.length, "chunks");
+      return chunkResult;
     } else if (args.operation === "full") {
-      return getFullEscritoNew(doc.doc);
+      const fullResult = getFullEscritoNew(doc.doc);
+      console.log("📖 Full operation returned document with", fullResult.wordCount, "words");
+      return fullResult;
     }
 
     throw new Error(`Unknown operation: ${args.operation}`);
