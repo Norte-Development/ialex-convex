@@ -1,5 +1,6 @@
 import { components } from "./_generated/api";
 import { ProsemirrorSync } from "@convex-dev/prosemirror-sync";
+import { rag } from "./rag/rag";
 
 export const prosemirrorSync = new ProsemirrorSync(components.prosemirrorSync);
 
@@ -24,8 +25,8 @@ const syncApi = prosemirrorSync.syncApi({
       2. **Generate Embeddings**  
         - For each chunk, create a semantic embedding vector using your chosen model.  
 
-      3. **Upsert into Qdrant**  
-        - Store each chunk in Qdrant with:  
+      3. **Store in convex rag db**  
+        - Store each chunk in convex rag with:  
           - The vector (for semantic search)  
           - Metadata payload (document ID, version, section index, text)  
 
@@ -44,6 +45,7 @@ const syncApi = prosemirrorSync.syncApi({
         - That context makes `editEscritoTool` efficient, because the tool can apply edits on just the relevant section.
 
     */
+
   },
 });
 
