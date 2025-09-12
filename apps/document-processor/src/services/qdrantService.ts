@@ -1,10 +1,12 @@
 import "dotenv/config";
 import { QdrantClient } from "@qdrant/js-client-rest";
 import { createHash } from "crypto";
+import { logger } from "../middleware/logging.js";
 
 const qdrant = new QdrantClient({
   url: process.env.QDRANT_URL!,
   apiKey: process.env.QDRANT_API_KEY,
+  timeout: 60000, // 60 seconds
 });
 
 const COLLECTION = process.env.QDRANT_COLLECTION || "ialex_documents";
@@ -126,8 +128,16 @@ export async function upsertChunks(
           continue;
         }
 
-        // Rate limiting or temporary unavailability: backoff and retry same batch
-        if (err?.status === 429 || err?.status === 503) {
+        // Rate limiting, temporary unavailability, or connection errors: backoff and retry same batch
+        const isConnectionError = err?.code === 'ECONNRESET' || err?.code === 'ENOTFOUND' || err?.code === 'ETIMEDOUT' || err?.code === 'ECONNREFUSED';
+        if (err?.status === 429 || err?.status === 503 || err?.status === 502 || err?.status === 504 || isConnectionError) {
+          logger.warn('Qdrant upsert retry', { 
+            error: err?.message || String(err),
+            status: err?.status,
+            code: err?.code,
+            delay: retryDelayMs,
+            batchSize: pointStructs.length 
+          });
           await new Promise((r) => setTimeout(r, retryDelayMs));
           retryDelayMs = Math.min(retryDelayMs * 2, 5000);
           continue;

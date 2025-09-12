@@ -55,3 +55,7 @@ coverage/
 # Temporary files
 .tmp/
 .temp/
+
+# Test files
+test-files/
+apps/document-processor/test_files/
