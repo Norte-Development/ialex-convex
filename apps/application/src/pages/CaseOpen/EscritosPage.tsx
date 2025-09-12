@@ -16,6 +16,7 @@ import { PermissionButton, IfCan } from "@/components/Permissions"
 import { PERMISSIONS } from "@/permissions/types"
 import { useEffect, useState } from "react"
 import { EscritoToolsTester } from "@/components/Editor/EscritoToolsTester"
+import { ReadEscritoHelpersTester } from "@/components/Editor/ReadEscritoHelpersTester"
 
 export default function EscritoPage() {
   const { escritoId } = useParams()
@@ -23,6 +24,7 @@ export default function EscritoPage() {
   const { currentCase } = useCase()
   const { setEscritoId } = useEscrito()
   const [showToolsTester, setShowToolsTester] = useState(false)
+  const [showReadHelpersTester, setShowReadHelpersTester] = useState(false)
 
   // Set the escritoId in context when the component mounts or escritoId changes
   useEffect(() => {
@@ -191,16 +193,27 @@ export default function EscritoPage() {
             </div>
           </div>
           
-          {/* Tools Tester Toggle */}
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setShowToolsTester(!showToolsTester)}
-            className="flex items-center gap-2"
-          >
-            <FileText className="h-4 w-4" />
-            {showToolsTester ? 'Hide' : 'Show'} Tools Tester
-          </Button>
+          {/* Testers Toggle Buttons */}
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowToolsTester(!showToolsTester)}
+              className="flex items-center gap-2"
+            >
+              <FileText className="h-4 w-4" />
+              {showToolsTester ? 'Hide' : 'Show'} Tools Tester
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowReadHelpersTester(!showReadHelpersTester)}
+              className="flex items-center gap-2"
+            >
+              <FileText className="h-4 w-4" />
+              {showReadHelpersTester ? 'Hide' : 'Show'} Read Helpers Tester
+            </Button>
+          </div>
         </div>
       </div>
 
@@ -212,10 +225,19 @@ export default function EscritoPage() {
             <Tiptap documentId={escrito?.prosemirrorId} />
           </div>
           
-          {/* Tools Tester Sidebar */}
-          {showToolsTester && (
-            <div className="w-80 flex-shrink-0">
-              <EscritoToolsTester />
+          {/* Testers Sidebar */}
+          {(showToolsTester || showReadHelpersTester) && (
+            <div className="flex gap-4 flex-shrink-0">
+              {showToolsTester && (
+                <div className="w-80">
+                  <EscritoToolsTester />
+                </div>
+              )}
+              {showReadHelpersTester && (
+                <div className="w-96">
+                  <ReadEscritoHelpersTester />
+                </div>
+              )}
             </div>
           )}
         </div>
