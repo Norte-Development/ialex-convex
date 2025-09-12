@@ -1,22 +1,4 @@
 services:
-  frontend:
-    build:
-      context: .
-      dockerfile: apps/application/Dockerfile
-      target: production
-      args:
-        VITE_CONVEX_URL: ${VITE_CONVEX_URL}
-        VITE_CLERK_PUBLISHABLE_KEY: ${VITE_CLERK_PUBLISHABLE_KEY}
-        VITE_DOCUMENT_PROCESSOR_URL: ${VITE_DOCUMENT_PROCESSOR_URL}
-    ports:
-      - "3000:80" # Map host:container (host 3000 -> container 80)
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:80/"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 40s
-
   document-processor:
     build:
       context: .
