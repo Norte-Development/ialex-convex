@@ -59,6 +59,11 @@ export {
   applyTextBasedOperations,
 } from "./escritosTransforms";
 
+// Test Read Escrito Helpers
+export {
+  testReadEscritoHelpers,
+} from "./testReadEscritoHelpers";
+
 // Template Management (Modelos)
 export {
   createModelo,

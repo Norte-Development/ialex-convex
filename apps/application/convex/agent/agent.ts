@@ -10,6 +10,8 @@ import {
   queryDocumentTool,
   editEscritoTool,
   getEscritoTool,
+  getEscritoStatsTool,
+  readEscritoTool,
 } from "./tools/index";
 
 /**
@@ -47,7 +49,8 @@ export const agent = new Agent(components.agent, {
     listCaseDocuments: listCaseDocumentsTool,
     queryDocument: queryDocumentTool,
     editEscrito: editEscritoTool,
-    getEscrito: getEscritoTool,
+    getEscritoStats: getEscritoStatsTool,
+    readEscrito: readEscritoTool,
   }
 });
 
