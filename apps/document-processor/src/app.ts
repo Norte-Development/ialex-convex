@@ -9,7 +9,7 @@ import { processDocumentJob } from "./jobs/processDocumentJob";
 import { getDeepgramStats } from "./services/deepgramService";
 import { getTimeoutConfig } from "./utils/timeoutUtils";
 import { getSupportedFormats } from "./services/mediaProcessingService";
-import { FILE_SIZE_LIMITS, SUPPORTED_MIME_TYPES, MIME_TYPE_PATTERNS } from "./utils/fileValidation";
+import { FILE_SIZE_LIMITS, SUPPORTED_MIME_TYPES, MIME_TYPE_PATTERNS, getFileSizeLimit } from "./utils/fileValidation";
 import { getErrorStats } from "./utils/errorTaxonomy";
 // @ts-ignore
 import multer from "multer";
@@ -37,21 +37,10 @@ const fileFilter = (req: any, file: Express.Multer.File, cb: multer.FileFilterCa
 };
 
 // Custom limits function that respects our FILE_SIZE_LIMITS
-const getFileSizeLimit = (mimetype: string): number => {
-  // Check exact match first
-  if (FILE_SIZE_LIMITS[mimetype]) {
-    return FILE_SIZE_LIMITS[mimetype];
-  }
-
-  // Check pattern match for audio/video
-  for (const [pattern, regex] of Object.entries(MIME_TYPE_PATTERNS)) {
-    if (regex.test(mimetype)) {
-      return FILE_SIZE_LIMITS[pattern];
-    }
-  }
-
+const getFileSizeLimitForUpload = (mimetype: string): number => {
+  const limit = getFileSizeLimit(mimetype);
   // Default fallback (shouldn't happen since we validate types first)
-  return 100 * 1024 * 1024; // 100MB
+  return limit || 100 * 1024 * 1024; // 100MB
 };
 
 const upload = multer({
@@ -192,7 +181,7 @@ app.post("/test-process-document", handleUpload, async (req: Request, res: Respo
     } = req.body;
 
     // Validate file size against our custom limits
-    const sizeLimit = getFileSizeLimit(req.file.mimetype);
+    const sizeLimit = getFileSizeLimitForUpload(req.file.mimetype);
     if (req.file.size > sizeLimit) {
       const limitMB = Math.round(sizeLimit / (1024 * 1024));
       const actualMB = Math.round(req.file.size / (1024 * 1024));

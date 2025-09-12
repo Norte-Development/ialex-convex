@@ -27,12 +27,38 @@ export const MIME_TYPE_PATTERNS: Record<string, RegExp> = {
   'video/': /^video\//,
 };
 
+// Pattern to size limit mapping
+export const PATTERN_SIZE_LIMITS: Record<string, number> = {
+  'audio/': parseInt(process.env.MAX_AUDIO_SIZE_MB || '500') * 1024 * 1024,
+  'video/': parseInt(process.env.MAX_VIDEO_SIZE_MB || '1000') * 1024 * 1024,
+};
+
 export interface FileValidationResult {
   isValid: boolean;
   mimeType?: string;
   contentLength?: number;
   errorCode?: string;
   errorMessage?: string;
+}
+
+/**
+ * Gets the file size limit for a given MIME type
+ * First checks for exact match, then checks pattern matches
+ */
+function getFileSizeLimitForMimeType(mimeType: string): number | null {
+  // Check exact match first
+  if (FILE_SIZE_LIMITS[mimeType]) {
+    return FILE_SIZE_LIMITS[mimeType];
+  }
+
+  // Check pattern matches
+  for (const [pattern, regex] of Object.entries(MIME_TYPE_PATTERNS)) {
+    if (regex.test(mimeType)) {
+      return PATTERN_SIZE_LIMITS[pattern];
+    }
+  }
+
+  return null;
 }
 
 /**
@@ -90,9 +116,7 @@ export async function validateFile(
     }
 
     // Check file size limits
-    const sizeLimit = FILE_SIZE_LIMITS[contentType] ||
-      Object.entries(MIME_TYPE_PATTERNS).find(([pattern, regex]) => regex.test(contentType))?.[0] &&
-      FILE_SIZE_LIMITS[Object.keys(MIME_TYPE_PATTERNS).find(pattern => MIME_TYPE_PATTERNS[pattern].test(contentType))!];
+    const sizeLimit = getFileSizeLimitForMimeType(contentType);
 
     if (sizeLimit && contentLength > sizeLimit) {
       const limitMB = Math.round(sizeLimit / (1024 * 1024));
@@ -132,10 +156,7 @@ export async function validateFile(
  * Gets the file size limit for a given MIME type
  */
 export function getFileSizeLimit(mimeType: string): number | null {
-  return FILE_SIZE_LIMITS[mimeType] ||
-    Object.entries(MIME_TYPE_PATTERNS).find(([_, regex]) => regex.test(mimeType))?.[0] &&
-    FILE_SIZE_LIMITS[Object.keys(MIME_TYPE_PATTERNS).find(pattern => MIME_TYPE_PATTERNS[pattern].test(mimeType))!] ||
-    null;
+  return getFileSizeLimitForMimeType(mimeType);
 }
 
 /**
@@ -171,9 +192,7 @@ export function validateFileBuffer(
     }
 
     // Check file size limits
-    const sizeLimit = FILE_SIZE_LIMITS[mimeType] ||
-      Object.entries(MIME_TYPE_PATTERNS).find(([pattern, regex]) => regex.test(mimeType))?.[0] &&
-      FILE_SIZE_LIMITS[Object.keys(MIME_TYPE_PATTERNS).find(pattern => MIME_TYPE_PATTERNS[pattern].test(mimeType))!];
+    const sizeLimit = getFileSizeLimitForMimeType(mimeType);
 
     if (sizeLimit && buffer.length > sizeLimit) {
       const limitMB = Math.round(sizeLimit / (1024 * 1024));
