@@ -101,13 +101,13 @@ export async function extractDocumentText(
 
     // Handle audio files
     if (isAudioFile(mimeType)) {
-      const text = await extractTextFromAudio(buffer);
+      const text = await extractTextFromAudio(buffer, mimeType);
       return { text, method: 'audio-deepgram' };
     }
 
     // Handle video files
     if (isVideoFile(mimeType)) {
-      const text = await extractTextFromVideo(buffer);
+      const text = await extractTextFromVideo(buffer, mimeType);
       return { text, method: 'video-deepgram' };
     }
 
