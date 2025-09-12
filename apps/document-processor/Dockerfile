@@ -1,5 +1,5 @@
 # ---- Builder Stage ----
-FROM node:20-slim AS builder
+FROM node:20.10-slim AS builder
 WORKDIR /app
 
 # Install pnpm
@@ -33,7 +33,7 @@ COPY apps/document-processor ./apps/document-processor
 RUN pnpm --filter document-processor build
 
 # ---- Runtime Stage ----
-FROM node:20-slim AS runner
+FROM node:20.10-slim AS runner
 WORKDIR /app
 
 # Install pnpm (optional if you want to install prod deps via pnpm)

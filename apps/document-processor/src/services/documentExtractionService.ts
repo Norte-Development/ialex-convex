@@ -1,5 +1,5 @@
 import { logger } from '../middleware/logging.js';
-import { extractWithMistralOCR } from './mistralOcrService.js';
+import { extractWithMistralOCR, extractWithMistralOCRFromBuffer } from './mistralOcrService.js';
 import { extractWithPdfFallback } from './pdfFallbackService.js';
 import {
   extractTextFromTxt,
@@ -111,13 +111,14 @@ export async function extractDocumentText(
       return { text, method: 'video-deepgram' };
     }
 
-    // Handle PDF files - try OCR first, fall back to text extraction
+    // Handle PDF files - try OCR first with chunking support, fall back to text extraction
     if (isPdfFile(mimeType)) {
       let text = "";
       let method: ExtractionMethod = "mistral-ocr-latest";
       
       try {
-        text = await extractWithMistralOCR(signedUrl, { pageWindow });
+        // Use buffer-based extraction for chunking support
+        text = await extractWithMistralOCRFromBuffer(buffer, { pageWindow });
       } catch (err) {
         logger.warn("Mistral OCR failed, using PDF fallback", { err: String(err) });
         method = "pdf-fallback";
