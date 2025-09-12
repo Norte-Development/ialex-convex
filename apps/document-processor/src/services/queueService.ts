@@ -4,7 +4,7 @@ import IORedis from "ioredis";
 import { logger } from "../middleware/logging.js";
 
 const connection = new IORedis(process.env.REDIS_URL || "redis://localhost:6379", {
-  maxRetriesPerRequest: 3,
+  maxRetriesPerRequest: null,
   enableOfflineQueue: false,
   lazyConnect: true,
   connectTimeout: 60000,
@@ -30,7 +30,7 @@ connection.on('ready', () => {
 });
 
 connection.on('error', (err) => {
-  logger.error('Redis connection error:', { error: err.message, code: err.code });
+  logger.error('Redis connection error:', { error: err.message, code: 404 });
 });
 
 connection.on('close', () => {

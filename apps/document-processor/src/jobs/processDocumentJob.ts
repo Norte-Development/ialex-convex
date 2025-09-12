@@ -32,7 +32,7 @@ type JobPayload = {
 };
 
 const connection = new IORedis(process.env.REDIS_URL || "redis://localhost:6379", {
-  maxRetriesPerRequest: 3,
+  maxRetriesPerRequest: null,
   enableOfflineQueue: false,
   lazyConnect: true,
   connectTimeout: 60000,
