@@ -15,6 +15,7 @@ import { FileText, Calendar, Building, Hash, ArrowRight } from "lucide-react";
 import { usePermissions } from "@/context/CasePermissionsContext";
 import { useEffect, useState } from "react";
 import { EscritoToolsTester } from "@/components/Editor/EscritoToolsTester";
+import { CreateEscritoDialog } from "@/components/CreateEscritoDialog";
 
 export default function EscritoPage() {
   const { escritoId } = useParams();
@@ -22,21 +23,55 @@ export default function EscritoPage() {
   const { currentCase } = useCase();
   const { setEscritoId } = useEscrito();
   const [showToolsTester, setShowToolsTester] = useState(false);
+  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
 
   // Permisos usando el nuevo sistema
   const { can } = usePermissions();
 
-  // Set the escritoId in context when the component mounts or escritoId changes
   useEffect(() => {
     console.log("Setting escritoId in context:", escritoId);
     setEscritoId(escritoId || undefined);
   }, [escritoId, setEscritoId]);
 
-  if (!escritoId) {
-    const all_escritos = useQuery(api.functions.documents.getEscritos, {
-      caseId: currentCase?._id as Id<"cases">,
-    });
+  const isValidEscritoId =
+    escritoId && escritoId !== "undefined" && escritoId.length > 0;
 
+  // Always call both hooks, but conditionally pass parameters
+  const all_escritos = useQuery(
+    api.functions.documents.getEscritos,
+    !isValidEscritoId && currentCase?._id
+      ? { caseId: currentCase._id as Id<"cases"> }
+      : "skip",
+  );
+
+  const escrito = useQuery(
+    api.functions.documents.getEscrito,
+    isValidEscritoId ? { escritoId: escritoId as Id<"escritos"> } : "skip",
+  );
+
+  // If we have a valid escritoId but the escrito is null, redirect back to the list
+  useEffect(() => {
+    if (isValidEscritoId && escrito === null) {
+      console.log("Escrito not found, redirecting to list");
+      navigate(`/caso/${currentCase?._id}/escritos`);
+    }
+  }, [escrito, isValidEscritoId, navigate, currentCase?._id]);
+
+  // Show loading state while fetching a specific escrito
+  if (isValidEscritoId && escrito === undefined) {
+    return (
+      <CaseLayout>
+        <div className="flex items-center justify-center h-96">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4" />
+            <p className="text-gray-600">Cargando escrito...</p>
+          </div>
+        </div>
+      </CaseLayout>
+    );
+  }
+
+  if (!isValidEscritoId) {
     return (
       <CaseLayout>
         <div className="space-y-6 p-6">
@@ -81,7 +116,10 @@ export default function EscritoPage() {
                 <p className="text-gray-500 text-center mb-4">
                   Aún no se han creado escritos para este caso.
                 </p>
-                <Button variant="outline">
+                <Button
+                  variant="outline"
+                  onClick={() => setIsCreateDialogOpen(true)}
+                >
                   <FileText className="h-4 w-4 mr-2" />
                   Crear primer escrito
                 </Button>
@@ -166,9 +204,7 @@ export default function EscritoPage() {
     );
   }
 
-  const escrito = useQuery(api.functions.documents.getEscrito, {
-    escritoId: escritoId as Id<"escritos">,
-  });
+  // Render the specific escrito editor
 
   return (
     <CaseLayout>
@@ -230,6 +266,11 @@ export default function EscritoPage() {
           )}
         </div>
       </div>
+
+      <CreateEscritoDialog
+        open={isCreateDialogOpen}
+        setOpen={setIsCreateDialogOpen}
+      />
     </CaseLayout>
   );
 }

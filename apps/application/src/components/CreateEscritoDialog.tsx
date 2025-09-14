@@ -82,11 +82,11 @@ export function CreateEscritoDialog({
         expedientNumber: formData.expedientNumber.trim() || undefined,
       };
 
-      const {escritoId} = await createEscrito(escritoData);
+      const escritoId = await createEscrito(escritoData);
 
       resetForm();
       setOpen(false);
-      
+
       // Call the callback with the new escrito ID
       if (onEscritoCreated) {
         onEscritoCreated(escritoId);
