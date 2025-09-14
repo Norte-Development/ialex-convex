@@ -15,10 +15,7 @@ import {
   Shield,
   ArrowLeft,
 } from "lucide-react";
-import {
-  CasePermissionsProvider,
-  usePermissions,
-} from "@/context/CasePermissionsContext";
+import { usePermissions } from "@/context/CasePermissionsContext";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 
@@ -35,14 +32,7 @@ interface UploadFile {
 }
 
 export default function CaseLayout({ children }: CaseDetailLayoutProps) {
-  const { currentCase } = useCase();
-  const caseId = currentCase?._id || null;
-
-  return (
-    <CasePermissionsProvider caseId={caseId}>
-      <InnerCaseLayout>{children}</InnerCaseLayout>
-    </CasePermissionsProvider>
-  );
+  return <InnerCaseLayout>{children}</InnerCaseLayout>;
 }
 
 function InnerCaseLayout({ children }: CaseDetailLayoutProps) {

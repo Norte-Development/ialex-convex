@@ -679,6 +679,8 @@ export const getEscrito = query({
 
     // Verify user has escrito read permission using the case ID
     // await requireEscritoPermission(ctx, escrito.caseId, "read");
+    const currentUser = await getCurrentUserFromAuth(ctx);
+    await requireNewCaseAccess(ctx, currentUser._id, escrito.caseId, "basic");
 
     return escrito;
   },
