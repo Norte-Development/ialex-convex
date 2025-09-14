@@ -237,16 +237,18 @@ export default function EscritoPage() {
             </div>
           </div>
 
-          {/* Tools Tester Toggle */}
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setShowToolsTester(!showToolsTester)}
-            className="flex items-center gap-2"
-          >
-            <FileText className="h-4 w-4" />
-            {showToolsTester ? "Hide" : "Show"} Tools Tester
-          </Button>
+          {/* Tools Tester Toggle - Only show if user can write */}
+          {can.escritos.write && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowToolsTester(!showToolsTester)}
+              className="flex items-center gap-2"
+            >
+              <FileText className="h-4 w-4" />
+              {showToolsTester ? "Hide" : "Show"} Tools Tester
+            </Button>
+          )}
         </div>
       </div>
 
@@ -255,11 +257,14 @@ export default function EscritoPage() {
         <div className="flex gap-6 h-full">
           {/* Main Editor */}
           <div className="flex-1">
-            <Tiptap documentId={escrito?.prosemirrorId} />
+            <Tiptap
+              documentId={escrito?.prosemirrorId}
+              readOnly={!can.escritos.write}
+            />
           </div>
 
-          {/* Tools Tester Sidebar */}
-          {showToolsTester && (
+          {/* Tools Tester Sidebar - Only show if user can write and it's enabled */}
+          {showToolsTester && can.escritos.write && (
             <div className="w-80 flex-shrink-0">
               <EscritoToolsTester />
             </div>

@@ -1,15 +1,19 @@
-import { useEditor, EditorContent, useEditorState } from "@tiptap/react"
-import type { Editor } from "@tiptap/core"
-import { useEffect } from "react"
-import StarterKit from "@tiptap/starter-kit"
-import TextAlign from "@tiptap/extension-text-align"
-import Underline from "@tiptap/extension-underline"
-import { TextStyle } from "@tiptap/extension-text-style"
-import { useTiptapSync } from "@convex-dev/prosemirror-sync/tiptap"
-import { UnderlineIcon } from "lucide-react"
-import { InlineChange, BlockChange, LineBreakChange } from '../../../../../packages/shared/src/tiptap/changeNodes'
-import { TrackingExtension } from "./extensions/tracking"
-import "./editor-styles.css"
+import { useEditor, EditorContent, useEditorState } from "@tiptap/react";
+import type { Editor } from "@tiptap/core";
+import { useEffect } from "react";
+import StarterKit from "@tiptap/starter-kit";
+import TextAlign from "@tiptap/extension-text-align";
+import Underline from "@tiptap/extension-underline";
+import { TextStyle } from "@tiptap/extension-text-style";
+import { useTiptapSync } from "@convex-dev/prosemirror-sync/tiptap";
+import { UnderlineIcon } from "lucide-react";
+import {
+  InlineChange,
+  BlockChange,
+  LineBreakChange,
+} from "../../../../../packages/shared/src/tiptap/changeNodes";
+import { TrackingExtension } from "./extensions/tracking";
+import "./editor-styles.css";
 import {
   Bold,
   Italic,
@@ -17,62 +21,57 @@ import {
   AlignCenter,
   AlignRight,
   AlignJustify,
-  List,
-  ListOrdered,
   Quote,
-  Undo,
-  Redo,
-  Heading1,
-  Heading2,
-  Heading3,
   Code,
   Strikethrough,
-  Minus,
-} from "lucide-react"
-import { Button } from "@/components/ui/button"
-import { Separator } from "@/components/ui/separator"
-import { api } from "../../../convex/_generated/api"
-import { useEscrito } from "@/context/EscritoContext"
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Separator } from "@/components/ui/separator";
+import { api } from "../../../convex/_generated/api";
+import { useEscrito } from "@/context/EscritoContext";
 
 interface TiptapProps {
-  documentId?: string
-  onReady?: (editor: Editor) => void
-  onDestroy?: () => void
+  documentId?: string;
+  onReady?: (editor: Editor) => void;
+  onDestroy?: () => void;
+  readOnly?: boolean;
 }
 
 function MenuBar({ editor }: { editor: Editor }) {
   // Read the current editor's state, and re-render the component when it changes
   const editorState = useEditorState({
     editor,
-    selector: ctx => {
+    selector: (ctx) => {
       return {
-        isBold: ctx.editor.isActive('bold') ?? false,
-        canBold: ctx.editor.can().toggleMark('bold') ?? false,
-        isItalic: ctx.editor.isActive('italic') ?? false,
-        canItalic: ctx.editor.can().toggleMark('italic') ?? false,
-        isStrike: ctx.editor.isActive('strike') ?? false,
-        canStrike: ctx.editor.can().toggleMark('strike') ?? false,
-        isCode: ctx.editor.isActive('code') ?? false,
-        canCode: ctx.editor.can().toggleMark('code') ?? false,
-        isUnderline: ctx.editor.isActive('underline') ?? false,
-        canUnderline: ctx.editor.can().chain().toggleUnderline?.().run() ?? false,
-        isParagraph: ctx.editor.isActive('paragraph') ?? false,
-        isHeading1: ctx.editor.isActive('heading', { level: 1 }) ?? false,
-        isHeading2: ctx.editor.isActive('heading', { level: 2 }) ?? false,
-        isHeading3: ctx.editor.isActive('heading', { level: 3 }) ?? false,
-        isBulletList: ctx.editor.isActive('bulletList') ?? false,
-        isOrderedList: ctx.editor.isActive('orderedList') ?? false,
-        isCodeBlock: ctx.editor.isActive('codeBlock') ?? false,
-        isBlockquote: ctx.editor.isActive('blockquote') ?? false,
-        textAlignLeft: ctx.editor.isActive({ textAlign: 'left' }) ?? false,
-        textAlignCenter: ctx.editor.isActive({ textAlign: 'center' }) ?? false,
-        textAlignRight: ctx.editor.isActive({ textAlign: 'right' }) ?? false,
-        textAlignJustify: ctx.editor.isActive({ textAlign: 'justify' }) ?? false,
+        isBold: ctx.editor.isActive("bold") ?? false,
+        canBold: ctx.editor.can().toggleMark("bold") ?? false,
+        isItalic: ctx.editor.isActive("italic") ?? false,
+        canItalic: ctx.editor.can().toggleMark("italic") ?? false,
+        isStrike: ctx.editor.isActive("strike") ?? false,
+        canStrike: ctx.editor.can().toggleMark("strike") ?? false,
+        isCode: ctx.editor.isActive("code") ?? false,
+        canCode: ctx.editor.can().toggleMark("code") ?? false,
+        isUnderline: ctx.editor.isActive("underline") ?? false,
+        canUnderline:
+          ctx.editor.can().chain().toggleUnderline?.().run() ?? false,
+        isParagraph: ctx.editor.isActive("paragraph") ?? false,
+        isHeading1: ctx.editor.isActive("heading", { level: 1 }) ?? false,
+        isHeading2: ctx.editor.isActive("heading", { level: 2 }) ?? false,
+        isHeading3: ctx.editor.isActive("heading", { level: 3 }) ?? false,
+        isBulletList: ctx.editor.isActive("bulletList") ?? false,
+        isOrderedList: ctx.editor.isActive("orderedList") ?? false,
+        isCodeBlock: ctx.editor.isActive("codeBlock") ?? false,
+        isBlockquote: ctx.editor.isActive("blockquote") ?? false,
+        textAlignLeft: ctx.editor.isActive({ textAlign: "left" }) ?? false,
+        textAlignCenter: ctx.editor.isActive({ textAlign: "center" }) ?? false,
+        textAlignRight: ctx.editor.isActive({ textAlign: "right" }) ?? false,
+        textAlignJustify:
+          ctx.editor.isActive({ textAlign: "justify" }) ?? false,
         canUndo: true,
         canRedo: true,
-      }
+      };
     },
-  })
+  });
 
   return (
     <div className="border-b border-gray-200 bg-gray-50/50 px-4 py-3 ">
@@ -103,7 +102,7 @@ function MenuBar({ editor }: { editor: Editor }) {
         <Button
           variant={editorState.isBold ? "secondary" : "ghost"}
           size="sm"
-          onClick={() => editor.chain().focus().toggleMark('bold').run()}
+          onClick={() => editor.chain().focus().toggleMark("bold").run()}
           disabled={!editorState.canBold}
           className="h-8 w-8 p-0 hover:bg-gray-100"
         >
@@ -112,7 +111,7 @@ function MenuBar({ editor }: { editor: Editor }) {
         <Button
           variant={editorState.isItalic ? "secondary" : "ghost"}
           size="sm"
-          onClick={() => editor.chain().focus().toggleMark('italic').run()}
+          onClick={() => editor.chain().focus().toggleMark("italic").run()}
           disabled={!editorState.canItalic}
           className="h-8 w-8 p-0 hover:bg-gray-100"
         >
@@ -130,7 +129,7 @@ function MenuBar({ editor }: { editor: Editor }) {
         <Button
           variant={editorState.isStrike ? "secondary" : "ghost"}
           size="sm"
-          onClick={() => editor.chain().focus().toggleMark('strike').run()}
+          onClick={() => editor.chain().focus().toggleMark("strike").run()}
           disabled={!editorState.canStrike}
           className="h-8 w-8 p-0 hover:bg-gray-100"
         >
@@ -139,7 +138,7 @@ function MenuBar({ editor }: { editor: Editor }) {
         <Button
           variant={editorState.isCode ? "secondary" : "ghost"}
           size="sm"
-          onClick={() => editor.chain().focus().toggleMark('code').run()}
+          onClick={() => editor.chain().focus().toggleMark("code").run()}
           disabled={!editorState.canCode}
           className="h-8 w-8 p-0 hover:bg-gray-100"
         >
@@ -152,7 +151,9 @@ function MenuBar({ editor }: { editor: Editor }) {
         <Button
           variant={editorState.isHeading1 ? "secondary" : "ghost"}
           size="sm"
-          onClick={() => editor.chain().focus().toggleMark('heading', { level: 1 }).run()}
+          onClick={() =>
+            editor.chain().focus().toggleMark("heading", { level: 1 }).run()
+          }
           className="h-8 px-2 hover:bg-gray-100 text-xs font-bold"
         >
           H1
@@ -160,7 +161,9 @@ function MenuBar({ editor }: { editor: Editor }) {
         <Button
           variant={editorState.isHeading2 ? "secondary" : "ghost"}
           size="sm"
-          onClick={() => editor.chain().focus().toggleMark('heading', { level: 2 }).run()}
+          onClick={() =>
+            editor.chain().focus().toggleMark("heading", { level: 2 }).run()
+          }
           className="h-8 px-2 hover:bg-gray-100 text-xs font-bold"
         >
           H2
@@ -168,7 +171,9 @@ function MenuBar({ editor }: { editor: Editor }) {
         <Button
           variant={editorState.isHeading3 ? "secondary" : "ghost"}
           size="sm"
-          onClick={() => editor.chain().focus().toggleMark('heading', { level: 3 }).run()}
+          onClick={() =>
+            editor.chain().focus().toggleMark("heading", { level: 3 }).run()
+          }
           className="h-8 px-2 hover:bg-gray-100 text-xs font-bold"
         >
           H3
@@ -227,12 +232,12 @@ function MenuBar({ editor }: { editor: Editor }) {
           onClick={() => editor.chain().focus().toggleOrderedList().run()}
           className="h-8 w-8 p-0 hover:bg-gray-100"
         > */}
-          {/* <ListOrdered className="h-4 w-4" />
+        {/* <ListOrdered className="h-4 w-4" />
         </Button> */}
         <Button
           variant={editorState.isBlockquote ? "secondary" : "ghost"}
           size="sm"
-          onClick={() => editor.chain().focus().toggleMark('blockquote').run()}
+          onClick={() => editor.chain().focus().toggleMark("blockquote").run()}
           className="h-8 w-8 p-0 hover:bg-gray-100"
         >
           <Quote className="h-4 w-4" />
@@ -240,7 +245,7 @@ function MenuBar({ editor }: { editor: Editor }) {
         <Button
           variant={editorState.isCodeBlock ? "secondary" : "ghost"}
           size="sm"
-          onClick={() => editor.chain().focus().toggleMark('codeBlock').run()}
+          onClick={() => editor.chain().focus().toggleMark("codeBlock").run()}
           className="h-8 w-8 p-0 hover:bg-gray-100"
         >
           <Code className="h-4 w-4" />
@@ -259,12 +264,17 @@ function MenuBar({ editor }: { editor: Editor }) {
         </Button> */}
       </div>
     </div>
-  )
+  );
 }
 
-export function Tiptap({ documentId = "default-document", onReady, onDestroy }: TiptapProps) {
-  const sync = useTiptapSync(api.prosemirror, documentId)
-  const { setCursorPosition, setTextAroundCursor, setEscritoId } = useEscrito()
+export function Tiptap({
+  documentId = "default-document",
+  onReady,
+  onDestroy,
+  readOnly = false,
+}: TiptapProps) {
+  const sync = useTiptapSync(api.prosemirror, documentId);
+  const { setCursorPosition, setTextAroundCursor, setEscritoId } = useEscrito();
 
   const editor = useEditor(
     {
@@ -284,88 +294,99 @@ export function Tiptap({ documentId = "default-document", onReady, onDestroy }: 
         ...(sync.extension ? [sync.extension] : []),
       ],
       content: sync.initialContent,
+      editable: !readOnly, // Make editor read-only based on permissions
       editorProps: {
         attributes: {
-          class: "legal-editor-content prose prose-lg focus:outline-none px-12 py-8 min-h-screen",
-          "data-placeholder": "Start writing your legal document...",
+          class: `legal-editor-content prose prose-lg focus:outline-none px-12 py-8 min-h-screen ${readOnly ? "cursor-default select-text" : ""}`,
+          "data-placeholder": readOnly
+            ? ""
+            : "Start writing your legal document...",
         },
       },
       onUpdate: ({ editor }) => {
         // Update cursor position and text around cursor when content changes
-        updateCursorContext(editor)
+        updateCursorContext(editor);
       },
       onSelectionUpdate: ({ editor }) => {
         // Update cursor position and text around cursor when selection changes
-        updateCursorContext(editor)
+        updateCursorContext(editor);
       },
     },
-    [sync.initialContent, sync.extension],
-  )
+    [sync.initialContent, sync.extension, readOnly], // Add readOnly to dependencies
+  );
 
   const updateCursorContext = (editor: Editor) => {
-    const { from, to } = editor.state.selection
-    
+    const { from, to } = editor.state.selection;
+
     // Get cursor position in terms of line and column
-    const pos = editor.state.doc.resolve(from)
-    const line = pos.parentOffset
-    const column = from - pos.start()
-    
+    const pos = editor.state.doc.resolve(from);
+    const line = pos.parentOffset;
+    const column = from - pos.start();
+
     // Set cursor position
-    setCursorPosition({ line, column })
-    
+    setCursorPosition({ line, column });
+
     // Get text around cursor
-    const doc = editor.state.doc
-    const beforeText = doc.textBetween(Math.max(0, from - 100), from)
-    const afterText = doc.textBetween(to, Math.min(doc.content.size, to + 100))
-    
+    const doc = editor.state.doc;
+    const beforeText = doc.textBetween(Math.max(0, from - 100), from);
+    const afterText = doc.textBetween(to, Math.min(doc.content.size, to + 100));
+
     // Get current line text
-    const lineStart = pos.start()
-    const lineEnd = pos.end()
-    const currentLineText = doc.textBetween(lineStart, lineEnd)
-    
+    const lineStart = pos.start();
+    const lineEnd = pos.end();
+    const currentLineText = doc.textBetween(lineStart, lineEnd);
+
     const textContext = {
       before: beforeText,
       after: afterText,
       currentLine: currentLineText,
-    }
-    
-    setTextAroundCursor(textContext)
-    
+    };
+
+    setTextAroundCursor(textContext);
+
     // Debug logging
-    console.log('Cursor context updated:', {
+    console.log("Cursor context updated:", {
       position: { line, column },
-      textContext
-    })
-  }
+      textContext,
+    });
+  };
 
   useEffect(() => {
     if (editor && onReady) {
-      console.log("TipTap editor ready")
-      onReady(editor)
-      
+      console.log("TipTap editor ready");
+      onReady(editor);
+
       // Set the document ID as escritoId when editor is ready
-      setEscritoId(documentId)
-      
+      setEscritoId(documentId);
+
       // Initial cursor context update
-      updateCursorContext(editor)
+      updateCursorContext(editor);
     }
-  }, [editor, onReady, documentId, setEscritoId])
+  }, [editor, onReady, documentId, setEscritoId]);
 
   useEffect(() => {
     return () => {
       if (onDestroy) {
-        console.log("TipTap component unmounting")
-        onDestroy()
+        console.log("TipTap component unmounting");
+        onDestroy();
       }
-    }
-  }, [onDestroy])
+    };
+  }, [onDestroy]);
 
+  // Update editor editability when readOnly changes
+  useEffect(() => {
+    if (editor) {
+      editor.setEditable(!readOnly);
+    }
+  }, [editor, readOnly]);
+
+  // Handle different states after all hooks have been called
   if (sync.isLoading) {
     return (
       <div className="flex items-center justify-center h-96 bg-white rounded-lg shadow-sm border border-gray-200">
         <div className="text-gray-500">Cargando documento...</div>
       </div>
-    )
+    );
   }
 
   if (sync.initialContent === null) {
@@ -374,7 +395,7 @@ export function Tiptap({ documentId = "default-document", onReady, onDestroy }: 
         <div className="text-gray-500">Document not found</div>
         <div className="text-sm text-gray-400">Document ID: {documentId}</div>
       </div>
-    )
+    );
   }
 
   if (!editor) {
@@ -382,17 +403,38 @@ export function Tiptap({ documentId = "default-document", onReady, onDestroy }: 
       <div className="flex items-center justify-center h-96 bg-white rounded-lg shadow-sm border border-gray-200">
         <div className="text-gray-500">Loading editor...</div>
       </div>
-    )
+    );
   }
 
   return (
     <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-      {/* Toolbar */}
-      <MenuBar editor={editor} />
+      {/* Toolbar - Only show if not readOnly */}
+      {!readOnly && <MenuBar editor={editor} />}
+
+      {/* Read-only banner */}
+      {readOnly && (
+        <div className="bg-amber-50 border-b border-amber-200 px-4 py-2">
+          <div className="flex items-center gap-2 text-amber-800 text-sm">
+            <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
+              <path
+                fillRule="evenodd"
+                d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z"
+                clipRule="evenodd"
+              />
+            </svg>
+            <span>
+              Modo de solo lectura - No tienes permisos para editar este escrito
+            </span>
+          </div>
+        </div>
+      )}
 
       {/* Editor Content */}
       <div className="bg-white min-h-[600px] w-full">
-        <EditorContent editor={editor} className="legal-editor-content-wrapper w-full" />
+        <EditorContent
+          editor={editor}
+          className="legal-editor-content-wrapper w-full"
+        />
       </div>
 
       {/* Footer */}
@@ -405,5 +447,5 @@ export function Tiptap({ documentId = "default-document", onReady, onDestroy }: 
         </div>
       </div>
     </div>
-  )
+  );
 }
