@@ -183,7 +183,6 @@ export const getNormatives = async (params: ListNormativesParams = {}): Promise<
       materia: normative.materia,
       tags: normative.tags,
       subestado: normative.subestado,
-      vigencia_actual: normative.vigencia_actual,
       resumen: normative.resumen,
       url: normative.url
     }));
@@ -263,7 +262,6 @@ export const getNormativeById = async (documentId: string): Promise<NormativeDoc
       materia: normative.materia,
       tags: normative.tags,
       subestado: normative.subestado,
-      vigencia_actual: normative.vigencia_actual,
       resumen: normative.resumen,
       url: normative.url,
       content: normative.content,
