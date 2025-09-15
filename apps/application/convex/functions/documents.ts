@@ -3,6 +3,9 @@ import { query, mutation, action, internalQuery } from "../_generated/server";
 import { getCurrentUserFromAuth, requireNewCaseAccess } from "../auth_utils";
 import { prosemirrorSync } from "../prosemirror";
 import { internal, api } from "../_generated/api";
+import { rag } from "../rag/rag";
+import { ProsemirrorSync } from "@convex-dev/prosemirror-sync";
+import { buildServerSchema } from "../../../../packages/shared/src/tiptap/schema";
 
 /**
  * Generates a Google Cloud Storage V4 signed URL for client-side uploads.
@@ -456,12 +459,13 @@ export const deleteDocument = mutation({
 /**
  * Creates a new escrito (legal writing/brief) for a case.
  *
- * The initial rich-text content is created and tracked via ProseMirror; no content
- * string is required at creation time.
+ * The ProseMirror document will be created client-side when the editor loads,
+ * following the empty document pattern for collaborative editing.
  *
  * @param {Object} args - The function arguments
  * @param {string} args.title - The escrito title
  * @param {string} args.caseId - The ID of the case this escrito belongs to
+ * @param {string} args.prosemirrorId - The UUID for the ProseMirror document
  * @param {number} [args.presentationDate] - Optional timestamp for when this will be presented
  * @param {string} [args.courtName] - Name of the court where this will be filed
  * @param {string} [args.expedientNumber] - Court expedient/case number
@@ -470,9 +474,11 @@ export const deleteDocument = mutation({
  *
  * @example
  * ```javascript
- * const { escritoId, prosemirrorId } = await createEscrito({
+ * const prosemirrorId = crypto.randomUUID();
+ * const { escritoId } = await createEscrito({
  *   title: "Motion to Dismiss",
  *   caseId: "case_123",
+ *   prosemirrorId: prosemirrorId,
  *   courtName: "Supreme Court",
  *   expedientNumber: "SC-2024-001"
  * });
@@ -482,49 +488,34 @@ export const createEscrito = mutation({
   args: {
     title: v.string(),
     caseId: v.id("cases"),
+    prosemirrorId: v.string(), // Accept the prosemirror ID from client
     presentationDate: v.optional(v.number()),
     courtName: v.optional(v.string()),
     expedientNumber: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    // Verify user has escrito write permission using NEW system
+    // Verify user has escrito write permission
     const currentUser = await getCurrentUserFromAuth(ctx);
     await requireNewCaseAccess(ctx, currentUser._id, args.caseId, "advanced");
 
-    const prosemirrorId = crypto.randomUUID();
-
-    await prosemirrorSync.create(ctx, prosemirrorId, {
-      content: {
-        type: "doc",
-        content: [
-          {
-            type: "paragraph",
-            content: [
-              {
-                type: "text",
-                text: "Nuevo escrito legal...",
-              },
-            ],
-          },
-        ],
-      },
-    });
-
+    // Just store the escrito record with the provided prosemirrorId
+    // The ProseMirror document will be created client-side when the editor loads
     const escritoId = await ctx.db.insert("escritos", {
       title: args.title,
-      prosemirrorId,
       caseId: args.caseId,
       status: "borrador",
       presentationDate: args.presentationDate,
       courtName: args.courtName,
       expedientNumber: args.expedientNumber,
+      prosemirrorId: args.prosemirrorId,
       lastEditedAt: Date.now(),
       createdBy: currentUser._id,
       lastModifiedBy: currentUser._id,
       isArchived: false,
     });
 
-    return escritoId;
+    console.log("Created escrito with id:", escritoId);
+    return { escritoId, prosemirrorId: args.prosemirrorId };
   },
 });
 

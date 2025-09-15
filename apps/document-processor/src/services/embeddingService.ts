@@ -1,9 +1,12 @@
 import "dotenv/config";
 import OpenAI from "openai";
+import { logger } from "../middleware/logging.js";
 
 const openai = new OpenAI({ 
   apiKey: process.env.OPENAI_API_KEY,
-  dangerouslyAllowBrowser: false 
+  dangerouslyAllowBrowser: false,
+  timeout: 60000, // 60 seconds
+  maxRetries: 3,
 });
 
 export async function embedChunks(chunks: string[]): Promise<Array<{ id: string; vector: number[]; text: string; metadata: Record<string, any> }>> {
@@ -25,10 +28,12 @@ export async function embedChunks(chunks: string[]): Promise<Array<{ id: string;
     while (true) {
       const batch = chunks.slice(i, i + size);
       try {
+        logger.debug('Creating embeddings', { batchSize: batch.length, attempt, model });
         const resp = await openai.embeddings.create({ model, input: batch });
         resp.data.forEach((d, idx) => {
           results.push({ id: String(i + idx), vector: d.embedding, text: batch[idx], metadata: { chunkIndex: i + idx } });
         });
+        logger.debug('Embeddings created successfully', { batchSize: batch.length });
         i += size;
         break;
       } catch (err: any) {
@@ -39,12 +44,32 @@ export async function embedChunks(chunks: string[]): Promise<Array<{ id: string;
 
         const isRateLimit = status === 429 || openAiType === "rate_limit_exceeded";
         const isServerBusy = status === 503 || openAiType === "server_error";
+        const isConnectionError = err?.code === 'ECONNRESET' || err?.code === 'ENOTFOUND' || err?.code === 'ETIMEDOUT' || err?.code === 'ECONNREFUSED';
         const isBatchTooLarge = status === 400 && /too\s*many\s*inputs|array\s*is\s*too\s*long|batch\s*too\s*large|maximum\s*context\s*length|max\s*tokens|limit/i.test(message);
 
-        if (isRateLimit || isServerBusy) {
-          if (attempt > maxRetries) throw err;
+        if (isRateLimit || isServerBusy || isConnectionError) {
+          if (attempt > maxRetries) {
+            logger.error('OpenAI embedding failed after retries', { 
+              error: message, 
+              status, 
+              attempt, 
+              maxRetries,
+              code: err?.code,
+              batchSize: batch.length 
+            });
+            throw err;
+          }
           const jitter = Math.floor(Math.random() * 100);
-          await new Promise((r) => setTimeout(r, backoffMs + jitter));
+          const delay = backoffMs + jitter;
+          logger.warn('OpenAI embedding retry', { 
+            error: message, 
+            status, 
+            attempt, 
+            delay,
+            code: err?.code,
+            batchSize: batch.length 
+          });
+          await new Promise((r) => setTimeout(r, delay));
           backoffMs = Math.min(backoffMs * 2, 5000);
           continue;
         }

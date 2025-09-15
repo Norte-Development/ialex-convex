@@ -267,6 +267,18 @@ function MenuBar({ editor }: { editor: Editor }) {
   );
 }
 
+// Define empty document structure outside component to avoid recreating object
+const EMPTY_DOC = {
+  type: "doc",
+  content: [
+    {
+      type: "paragraph",
+      attrs: { textAlign: null },
+      content: [],
+    },
+  ],
+};
+
 export function Tiptap({
   documentId = "default-document",
   onReady,
@@ -276,6 +288,7 @@ export function Tiptap({
   const sync = useTiptapSync(api.prosemirror, documentId);
   const { setCursorPosition, setTextAroundCursor, setEscritoId } = useEscrito();
 
+  // Always call useEditor hook - don't make it conditional
   const editor = useEditor(
     {
       extensions: [
@@ -312,7 +325,7 @@ export function Tiptap({
         updateCursorContext(editor);
       },
     },
-    [sync.initialContent, sync.extension, readOnly], // Add readOnly to dependencies
+    [sync.initialContent, sync.extension],
   );
 
   const updateCursorContext = (editor: Editor) => {
@@ -373,14 +386,6 @@ export function Tiptap({
     };
   }, [onDestroy]);
 
-  // Update editor editability when readOnly changes
-  useEffect(() => {
-    if (editor) {
-      editor.setEditable(!readOnly);
-    }
-  }, [editor, readOnly]);
-
-  // Handle different states after all hooks have been called
   if (sync.isLoading) {
     return (
       <div className="flex items-center justify-center h-96 bg-white rounded-lg shadow-sm border border-gray-200">
@@ -389,15 +394,32 @@ export function Tiptap({
     );
   }
 
+  useEffect(() => {
+    if (sync.initialContent === null && !sync.isLoading && "create" in sync) {
+      console.log("Auto-creating document with ID:", documentId);
+      sync.create(EMPTY_DOC);
+    }
+  }, [sync, documentId]);
+
+  useEffect(() => {
+    if (editor) {
+      editor.setEditable(!readOnly);
+    }
+  }, [editor, readOnly]);
+
   if (sync.initialContent === null) {
     return (
-      <div className="flex flex-col items-center justify-center h-96 bg-white rounded-lg shadow-sm border border-gray-200 gap-4">
-        <div className="text-gray-500">Document not found</div>
-        <div className="text-sm text-gray-400">Document ID: {documentId}</div>
+      <div className="legal-editor-content prose prose-lg px-12 py-8 min-h-screen flex items-center justify-center">
+        <p className="text-gray-500">
+          {sync.initialContent === null
+            ? "Creating document..."
+            : "Loading document..."}
+        </p>
       </div>
     );
   }
 
+  // Editor not ready yet
   if (!editor) {
     return (
       <div className="flex items-center justify-center h-96 bg-white rounded-lg shadow-sm border border-gray-200">
@@ -406,6 +428,7 @@ export function Tiptap({
     );
   }
 
+  // Editor is ready - render the full editor
   return (
     <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
       {/* Toolbar - Only show if not readOnly */}

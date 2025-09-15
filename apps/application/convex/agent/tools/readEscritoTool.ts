@@ -1,0 +1,569 @@
+import { createTool, ToolCtx } from "@convex-dev/agent";
+import { api } from "../../_generated/api";
+import { z } from "zod";
+import { prosemirrorSync } from "../../prosemirror";
+import { buildServerSchema } from "../../../../../packages/shared/src/tiptap/schema";
+import { Node } from "@tiptap/pm/model";
+
+/**
+ * Metadata describing a semantic chunk of document content.
+ * 
+ * Chunks are created based on document structure and content boundaries
+ * to maintain semantic coherence while respecting size limits.
+ */
+export interface ChunkMetadata {
+  /** Zero-based index of this chunk within the document */
+  chunkIndex: number;
+  /** Starting position of the chunk in the document */
+  startPos: number;
+  /** Ending position of the chunk in the document */
+  endPos: number;
+  /** Hierarchical path to this chunk's section (e.g., ["Chapter 1", "Section A", "Subsection 1"]) */
+  sectionPath: string[];
+  /** Array of node types contained in this chunk (e.g., ["heading", "paragraph", "list"]) */
+  nodeTypes: string[];
+  /** Whether this chunk contains structural boundaries like headings or major sections */
+  hasStructuralBoundary: boolean;
+}
+
+/**
+ * A processed chunk containing both metadata and extracted content.
+ * 
+ * Extends ChunkMetadata with the actual text content and processing information.
+ */
+export interface ProcessedChunk extends ChunkMetadata {
+  /** The full text content of this chunk */
+  text: string;
+  /** A preview/summary of the chunk content (typically first sentence or truncated text) */
+  preview: string;
+  /** Word count for this chunk */
+  wordCount: number;
+  /** Indicates if chunk was truncated due to size limits */
+  hasMore: boolean;
+}
+
+/**
+ * Represents a single document node with its content and structural information.
+ * 
+ * Used for traversing and analyzing ProseMirror document structure.
+ */
+export interface DocumentNode {
+  /** The type of the node (e.g., "heading", "paragraph", "list_item") */
+  type: string;
+  /** The text content of the node */
+  text: string;
+  /** The position of the node within the document */
+  pos: number;
+  /** The heading level (only applicable for heading nodes) */
+  level?: number;
+  /** Whether this node represents a structural boundary in the document */
+  isStructuralBoundary: boolean;
+}
+  
+/**
+ * Maximum number of words allowed per chunk to maintain manageable chunk sizes.
+ * 
+ * This constant is used to determine when to split content into separate chunks
+ * while preserving semantic boundaries.
+ */
+const MAX_WORDS_PER_CHUNK = 300;
+
+/**
+ * Generates a hierarchical outline of an Escrito document.
+ * 
+ * This function creates an outline by extracting headings and paragraphs from the document,
+ * mapping them to their respective chunks, and providing structural information.
+ * 
+ * @param doc - The ProseMirror document node to analyze
+ * @returns Array of outline items containing text, position, chunk information, and metadata
+ * 
+ * @example
+ * ```typescript
+ * const outline = getEscritoOutline(proseMirrorDoc);
+ * outline.forEach(item => {
+ *   console.log(`${item.type}: ${item.text} (Chunk ${item.chunkIndex})`);
+ * });
+ * ```
+ */
+export const getEscritoOutline = (doc: Node) => {
+    // First, get the actual document nodes and chunk metadata
+    const documentNodes = extractDocumentNodes(doc);
+    const chunkMetadata = createSemanticChunks(documentNodes);
+    
+    const outline: { 
+        text: string, 
+        pos: number, 
+        chunkIndex: number, 
+        totalChunks: number, 
+        type: string,
+        nodeIndex: number,
+        inChunkPosition: number 
+    }[] = [];
+    
+    // Map each node to its actual chunk
+    documentNodes.forEach((node, nodeIndex) => {
+        // Find which chunk this node belongs to
+        const belongsToChunk = chunkMetadata.findIndex(chunk => 
+            node.pos >= chunk.startPos && node.pos <= chunk.endPos
+        );
+        
+        // Find position within the chunk
+        const chunkNodes = documentNodes.filter(n => {
+            const chunk = chunkMetadata[belongsToChunk];
+            return chunk && n.pos >= chunk.startPos && n.pos <= chunk.endPos;
+        });
+        const inChunkPosition = chunkNodes.findIndex(n => n.pos === node.pos);
+        
+        // Only include headings and paragraphs in outline
+        if (node.type === "heading" || node.type === "paragraph") {
+            const text = node.type === "heading" ? node.text : node.text.slice(0, 100);
+            if (text.length > 0) {
+                outline.push({
+                    text,
+                    pos: node.pos,
+                    chunkIndex: belongsToChunk >= 0 ? belongsToChunk : -1, // -1 if not found in any chunk
+                    totalChunks: chunkMetadata.length,
+                    type: node.type,
+                    nodeIndex,
+                    inChunkPosition: inChunkPosition >= 0 ? inChunkPosition : -1
+                });
+            }
+        }
+    });
+
+    return outline;
+}
+
+
+
+/**
+ * Extracts all relevant text nodes from a ProseMirror document with proper tree traversal.
+ * 
+ * This function traverses the document tree and extracts nodes that contain meaningful
+ * text content, including headings, paragraphs, list items, table cells, and code blocks.
+ * It maintains section context by tracking heading hierarchy and marks structural boundaries.
+ * 
+ * @param doc - The ProseMirror document node to extract nodes from
+ * @returns Array of DocumentNode objects containing text content and structural information
+ * 
+ * @example
+ * ```typescript
+ * const nodes = extractDocumentNodes(proseMirrorDoc);
+ * nodes.forEach(node => {
+ *   console.log(`${node.type}: ${node.text} (pos: ${node.pos})`);
+ * });
+ * ```
+ */
+export function extractDocumentNodes(doc: Node): DocumentNode[] {
+  const nodes: DocumentNode[] = [];
+  const sectionStack: string[] = [];
+  
+  doc.descendants((node, pos) => {
+    // Handle headings - update section context
+    if (node.type.name === "heading") {
+      const level = node.attrs?.level || 1;
+      const headingText = node.textContent.trim();
+      
+      if (headingText) {
+        // Update section stack based on heading level
+        sectionStack.splice(level - 1);
+        sectionStack[level - 1] = headingText;
+        
+        nodes.push({
+          type: "heading",
+          text: headingText,
+          pos,
+          level,
+          isStructuralBoundary: true,
+        });
+      }
+      return false; // Don't traverse into heading children
+    }
+
+    // Handle content nodes
+    if (["paragraph", "list_item", "table_cell", "code_block"].includes(node.type.name)) {
+      const text = node.textContent.trim();
+      if (text) {
+        nodes.push({
+          type: node.type.name,
+          text,
+          pos,
+          isStructuralBoundary: node.type.name === "code_block",
+        });
+      }
+      return false; // Don't traverse into these nodes' children
+    }
+
+    // Handle lists and tables as structural boundaries
+    if (["bullet_list", "ordered_list", "table"].includes(node.type.name)) {
+      return true; // Traverse children but mark as structural
+    }
+
+    return true; // Continue traversing
+  });
+
+  return nodes;
+}
+
+/**
+ * Generates semantic-aware chunks from document nodes.
+ * 
+ * This function creates chunks that respect document structure and semantic boundaries
+ * while maintaining size limits. It prioritizes keeping related content together and
+ * breaks at natural boundaries like major headings or structural elements.
+ * 
+ * @param nodes - Array of DocumentNode objects to chunk
+ * @returns Array of ChunkMetadata objects describing the semantic chunks
+ * 
+ * @example
+ * ```typescript
+ * const nodes = extractDocumentNodes(doc);
+ * const chunks = createSemanticChunks(nodes);
+ * chunks.forEach(chunk => {
+ *   console.log(`Chunk ${chunk.chunkIndex}: ${chunk.sectionPath.join(' > ')}`);
+ * });
+ * ```
+ */
+export function createSemanticChunks(nodes: DocumentNode[]): ChunkMetadata[] {
+  
+  const chunks: ChunkMetadata[] = [];
+  let currentChunk: {
+    nodes: DocumentNode[];
+    wordCount: number;
+    startPos: number;
+    endPos: number;
+    sectionPath: string[];
+    nodeTypes: Set<string>;
+  } | null = null;
+
+  const sectionStack: string[] = [];
+
+  const flushChunk = () => {
+    if (!currentChunk || currentChunk.nodes.length === 0) {
+      return;
+    }
+
+    chunks.push({
+      chunkIndex: chunks.length,
+      startPos: currentChunk.startPos,
+      endPos: currentChunk.endPos,
+      sectionPath: [...currentChunk.sectionPath],
+      nodeTypes: Array.from(currentChunk.nodeTypes),
+      hasStructuralBoundary: currentChunk.nodes.some(n => n.isStructuralBoundary),
+    });
+
+    currentChunk = null;
+  };
+
+  for (const node of nodes) {
+    // Update section context for headings
+    if (node.type === "heading" && node.level) {
+      sectionStack.splice(node.level - 1);
+      sectionStack[node.level - 1] = node.text;
+      
+      // Flush current chunk at major structural boundaries
+      if (node.level <= 2) {
+        flushChunk();
+      }
+    }
+
+    const nodeWordCount = node.text.split(/\s+/).filter(word => word.length > 0).length;
+
+    // Initialize new chunk if needed
+    if (!currentChunk) {
+      currentChunk = {
+        nodes: [],
+        wordCount: 0,
+        startPos: node.pos,
+        endPos: node.pos,
+        sectionPath: [...sectionStack],
+        nodeTypes: new Set(),
+      };
+    }
+
+    // Check if adding this node would exceed chunk size
+    const wouldExceed = currentChunk.wordCount + nodeWordCount > MAX_WORDS_PER_CHUNK;
+    const hasContent = currentChunk.nodes.length > 0;
+
+    // Flush if we would exceed size and have content, unless it's a structural boundary
+    if (wouldExceed && hasContent && !node.isStructuralBoundary) {
+      flushChunk();
+      
+      // Start new chunk
+      currentChunk = {
+        nodes: [],
+        wordCount: 0,
+        startPos: node.pos,
+        endPos: node.pos,
+        sectionPath: [...sectionStack],
+        nodeTypes: new Set(),
+      };
+    }
+
+    // Add node to current chunk
+    currentChunk.nodes.push(node);
+    currentChunk.wordCount += nodeWordCount;
+    currentChunk.endPos = node.pos;
+    currentChunk.nodeTypes.add(node.type);
+  }
+
+  // Flush final chunk
+  flushChunk();
+
+  return chunks;
+}
+
+/**
+ * Generates a preview text for a chunk by extracting the first complete sentence or truncating at word boundaries.
+ * 
+ * This function attempts to create a meaningful preview by first trying to extract
+ * a complete sentence, and if that's too long, it falls back to truncating at word
+ * boundaries while staying within the character limit.
+ * 
+ * @param text - The full text content to generate a preview from
+ * @returns A preview string, typically the first sentence or truncated text with ellipsis
+ * 
+ * @example
+ * ```typescript
+ * const preview = generateChunkPreview("This is a long paragraph with multiple sentences. It continues here.");
+ * console.log(preview); // "This is a long paragraph with multiple sentences."
+ * ```
+ */
+export function generateChunkPreview(text: string): string {
+  // Try to get first complete sentence
+  const sentences = text.split(/(?<=[.!?])\s+/);
+  const firstSentence = sentences[0]?.trim();
+  
+  if (firstSentence && firstSentence.length <= 120) {
+    return firstSentence;
+  }
+  
+  // Fallback to word boundary
+  const words = text.split(/\s+/);
+  let preview = "";
+  for (const word of words) {
+    if ((preview + " " + word).length > 120) break;
+    preview += (preview ? " " : "") + word;
+  }
+  
+  return preview + (preview.length < text.length ? "..." : "");
+}
+
+/**
+ * Retrieves document chunks by index with lazy evaluation and context window support.
+ * 
+ * This function allows retrieving specific chunks from a document along with surrounding
+ * context. It handles out-of-bounds requests gracefully by falling back to the last
+ * available chunk. The context window allows including adjacent chunks for better
+ * understanding of the content.
+ * 
+ * @param doc - The ProseMirror document node to extract chunks from
+ * @param chunkIndex - The zero-based index of the target chunk to retrieve
+ * @param contextWindow - Number of chunks before and after the target chunk to include (default: 0)
+ * @returns Array of ProcessedChunk objects containing the requested chunks with their content
+ * 
+ * @example
+ * ```typescript
+ * // Get a specific chunk
+ * const chunks = getEscritoChunks(doc, 2);
+ * 
+ * // Get a chunk with context (previous and next chunk)
+ * const chunksWithContext = getEscritoChunks(doc, 2, 1);
+ * ```
+ */
+export function getEscritoChunks(
+  doc: Node,
+  chunkIndex: number,
+  contextWindow: number = 0
+): ProcessedChunk[] {
+  // Extract document structure
+  const documentNodes = extractDocumentNodes(doc);
+  if (documentNodes.length === 0) {
+    return [];
+  }
+
+  // Create chunk metadata efficiently
+  const chunkMetadata = createSemanticChunks(documentNodes);
+  
+  if (chunkMetadata.length === 0) {
+    return [];
+  }
+
+  // Check if requested chunk index is out of bounds
+  if (chunkIndex >= chunkMetadata.length) {
+    // Fallback: use the last chunk as the target
+    const fallbackChunkIndex = chunkMetadata.length - 1;
+    const start = Math.max(0, fallbackChunkIndex - contextWindow);
+    const end = Math.min(chunkMetadata.length, fallbackChunkIndex + contextWindow + 1);
+    
+    // Process fallback range
+    return processChunkRange(documentNodes, chunkMetadata, start, end);
+  }
+
+  // Calculate context window bounds for valid chunk index
+  const start = Math.max(0, chunkIndex - contextWindow);
+  const end = Math.min(chunkMetadata.length, chunkIndex + contextWindow + 1);
+  
+  // Process requested range
+  return processChunkRange(documentNodes, chunkMetadata, start, end);
+}
+
+/**
+ * Helper function to process a range of chunks and extract their content.
+ * 
+ * This internal function takes a range of chunk metadata and processes them into
+ * full ProcessedChunk objects with text content, previews, and word counts.
+ * 
+ * @param documentNodes - Array of all document nodes
+ * @param chunkMetadata - Array of chunk metadata objects
+ * @param start - Starting index of the range to process (inclusive)
+ * @param end - Ending index of the range to process (exclusive)
+ * @returns Array of ProcessedChunk objects for the specified range
+ * 
+ * @internal
+ */
+function processChunkRange(
+  documentNodes: DocumentNode[], 
+  chunkMetadata: ChunkMetadata[], 
+  start: number, 
+  end: number
+): ProcessedChunk[] {
+  const resultChunks: ProcessedChunk[] = [];
+  
+  for (let i = start; i < end; i++) {
+    const metadata = chunkMetadata[i];
+    
+    // Extract text for this chunk by finding nodes in position range
+    const chunkNodes = documentNodes.filter(
+      node => node.pos >= metadata.startPos && node.pos <= metadata.endPos
+    );
+    
+    const textParts: string[] = [];
+    for (const node of chunkNodes) {
+      if (node.type === "heading") {
+        textParts.push(node.text.toUpperCase());
+      } else {
+        textParts.push(node.text);
+      }
+    }
+    
+    const text = textParts.join("\n\n");
+    const wordCount = text.split(/\s+/).filter(word => word.length > 0).length;
+    const preview = generateChunkPreview(text);
+    
+    resultChunks.push({
+      ...metadata,
+      text,
+      preview,
+      wordCount,
+      hasMore: wordCount >= MAX_WORDS_PER_CHUNK * 0.95, // Indicate if chunk is near size limit
+    });
+  }
+
+  return resultChunks;
+}
+
+
+/**
+ * Extracts the full text content of an Escrito document with proper structure preservation.
+ * 
+ * This function processes the entire document and returns the complete text content
+ * along with structural information and word count. Headings are formatted in uppercase
+ * to maintain visual hierarchy in the plain text output.
+ * 
+ * @param doc - The ProseMirror document node to extract full text from
+ * @returns Object containing the full text, word count, and structural outline
+ * 
+ * @example
+ * ```typescript
+ * const fullDoc = getFullEscrito(proseMirrorDoc);
+ * console.log(`Document has ${fullDoc.wordCount} words`);
+ * console.log('Structure:', fullDoc.structure);
+ * ```
+ */
+export const getFullEscrito = (doc: Node): { text: string; wordCount: number; structure: string[] } => {
+  const documentNodes = extractDocumentNodes(doc);
+  const textParts: string[] = [];
+  const structure: string[] = [];
+  
+  for (const node of documentNodes) {
+    if (node.type === "heading") {
+      const headingText = node.text.toUpperCase();
+      textParts.push(headingText);
+      structure.push(`H${node.level || 1}: ${node.text}`);
+    } else {
+      textParts.push(node.text);
+    }
+  }
+  
+  const fullText = textParts.join("\n\n");
+  const wordCount = fullText.split(/\s+/).filter(word => word.length > 0).length;
+  
+  return {
+    text: fullText,
+    wordCount,
+    structure,
+  };
+}
+
+/**
+ * Tool for reading and analyzing Escrito documents with various operations.
+ * 
+ * This tool provides three main operations for working with Escrito documents:
+ * - "outline": Generates a hierarchical outline of the document structure
+ * - "chunk": Retrieves specific chunks of content with optional context window
+ * - "full": Extracts the complete document text with structure information
+ * 
+ * The tool is designed to handle large documents efficiently by providing
+ * chunked access and semantic-aware content extraction.
+ * 
+ * @example
+ * ```typescript
+ * // Get document outline
+ * const outline = await readEscritoTool.handler(ctx, { 
+ *   escritoId: "k123...", 
+ *   operation: "outline" 
+ * });
+ * 
+ * // Get a specific chunk with context
+ * const chunks = await readEscritoTool.handler(ctx, { 
+ *   escritoId: "k123...", 
+ *   operation: "chunk", 
+ *   chunkIndex: 2, 
+ *   contextWindow: 1 
+ * });
+ * 
+ * // Get full document
+ * const fullDoc = await readEscritoTool.handler(ctx, { 
+ *   escritoId: "k123...", 
+ *   operation: "full" 
+ * });
+ * ```
+ */
+const readEscritoTool = createTool({
+  description: "Read an Escrito",
+  args: z.object({
+    escritoId: z.any().describe("The Escrito ID (Convex doc id)"),
+    operation: z.enum(["outline", "chunk", "full"]).describe("The operation to perform"),
+    chunkIndex: z.number().optional().describe("The chunk index to read"),
+    contextWindow: z.number().optional().describe("The number of chunks before and after the target chunk to include"),
+  }).required({escritoId: true}),
+  handler: async (ctx: ToolCtx, args: any) => {
+    const escrito = await ctx.runQuery(api.functions.documents.getEscrito, { escritoId: args.escritoId as any });
+    
+    if (!escrito) {
+      throw new Error(`Escrito with ID ${args.escritoId} not found`);
+    }
+    
+    const doc = await prosemirrorSync.getDoc(ctx, escrito.prosemirrorId, buildServerSchema());
+    if (args.operation === "outline") {
+      return getEscritoOutline(doc.doc);
+    } else if (args.operation === "chunk") {
+      return getEscritoChunks(doc.doc, args.chunkIndex, args.contextWindow);
+    } else if (args.operation === "full") {
+      return getFullEscrito(doc.doc);
+    }
+  }
+} as any);
+
+export { readEscritoTool };

@@ -10,7 +10,7 @@ import { Button } from "../ui/button"
 import { Card, CardContent } from "../ui/card"
 import { Badge } from "../ui/badge"
 import { Filter, FileText } from "lucide-react"
-import type { NormativeDoc, Estado, NormativeFilters, SearchResult, SortBy, SortOrder } from "../../../types/legislation"
+import type { Estado, NormativeFilters, SortBy, SortOrder } from "../../../types/legislation"
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "../ui/sheet"
 import { SearchBar } from "./SearchBar"
 import { TableControls } from "./TableControls"
@@ -34,7 +34,6 @@ interface TableState {
   sortOrder: SortOrder
   selectedNormativeId: string | null
   isDetailsOpen: boolean
-  showChunks: boolean
   jurisdiction: string
 }
 
@@ -46,26 +45,20 @@ const initialState: TableState = {
   filters: {},
   page: 1,
   pageSize: 25,
-  sortBy: "promulgacion",
+  sortBy: "sanction_date",
   sortOrder: "desc",
   selectedNormativeId: null,
   isDetailsOpen: false,
-  showChunks: false,
-  jurisdiction: "nacional",
+  jurisdiction: "nac",
 }
 
 export default function DataBaseTable() {
   const [state, setState] = useState<TableState>(initialState)
   const actions = {
-    listNormatives: useAction(api.functions.legislation.listNormatives),
-    searchNormatives: useAction(api.functions.legislation.searchNormatives),
-    getAvailableJurisdictions: useAction(api.functions.legislation.getAvailableJurisdictions),
-    getFacets: useAction(api.functions.legislation.getNormativesFacets),
-    getNormative: useAction(api.functions.legislation.getNormative),
-    queryNormatives: useAction(api.functions.legislation.queryNormatives),
+    getNormatives: useAction(api.functions.legislation.getNormatives),
+    getNormativesFacets: useAction(api.functions.legislation.getNormativesFacets),
+    getNormativeById: useAction(api.functions.legislation.getNormativeById),
   }
-
-  const effectiveJurisdiction = state.jurisdiction
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -74,94 +67,70 @@ export default function DataBaseTable() {
     return () => clearTimeout(timer)
   }, [state.searchQuery])
 
-  const { data: jurisdictions = [] } = useQuery({
-    queryKey: ["jurisdictions"],
-    queryFn: () => actions.getAvailableJurisdictions({}),
-    staleTime: 10 * 60 * 1000,
-  })
+  // Available jurisdictions - hardcoded for now since we focus on Paraguay
+  const jurisdictions = ["nac", "departamental", "municipal"]
 
   const { data: facets } = useQuery({
-    queryKey: ["normatives-facets", effectiveJurisdiction, state.filters],
+    queryKey: ["normatives-facets", state.jurisdiction, state.filters],
     queryFn: () =>
-      actions.getFacets({
-        jurisdiction: effectiveJurisdiction,
-        filters: Object.keys(state.filters).length ? state.filters : undefined,
+      actions.getNormativesFacets({
+        filters: {
+          jurisdiccion: state.jurisdiction,
+          ...state.filters,
+        },
       }),
     staleTime: 5 * 60 * 1000,
   })
 
   const {
-    data: listData,
-    isLoading: isListLoading,
-    error: listError,
-  } = useQuery<{ items: NormativeDoc[]; total: number }, Error>({
+    data: normativesData,
+    isLoading,
+    error,
+  } = useQuery({
     queryKey: [
-      "listNormatives",
-      effectiveJurisdiction,
+      "getNormatives",
+      state.jurisdiction,
       state.filters,
+      state.debouncedQuery,
       state.page,
       state.pageSize,
       state.sortBy,
       state.sortOrder,
     ],
-    queryFn: () =>
-      actions.listNormatives({
-        jurisdiction: effectiveJurisdiction,
-        filters: Object.keys(state.filters).length > 0 ? state.filters : undefined,
+    queryFn: () => {
+      const filters = {
+        jurisdiccion: state.jurisdiction,
+        ...state.filters,
+      }
+      
+      // Add search query to filters if present
+      if (state.debouncedQuery.trim()) {
+        filters.search = state.debouncedQuery.trim()
+      }
+
+      return actions.getNormatives({
+        filters,
         limit: state.pageSize,
         offset: (state.page - 1) * state.pageSize,
         sortBy: state.sortBy,
         sortOrder: state.sortOrder,
-      }),
+      })
+    },
     staleTime: 5 * 60 * 1000,
-    enabled: !state.isSearchMode,
-  })
-
-  const {
-    data: searchData = [],
-    isLoading: isSearchLoading,
-    error: searchError,
-  } = useQuery<SearchResult[], Error>({
-    queryKey: [
-      "searchNormatives",
-      effectiveJurisdiction,
-      state.debouncedQuery,
-      state.filters,
-      state.page,
-      state.pageSize,
-    ],
-    queryFn: () =>
-      actions.searchNormatives({
-        jurisdiction: effectiveJurisdiction,
-        query: state.debouncedQuery,
-        filters: Object.keys(state.filters).length > 0 ? state.filters : undefined,
-        limit: state.page * state.pageSize,
-      }),
-    staleTime: 5 * 60 * 1000,
-    enabled: state.isSearchMode && !!state.debouncedQuery,
   })
 
   const computedData = useMemo(() => {
-    const totalResults = state.isSearchMode ? searchData?.length || 0 : listData?.total || 0
-    const pagedSearchItems = state.isSearchMode
-      ? searchData.slice((state.page - 1) * state.pageSize, state.page * state.pageSize)
-      : []
-    const items = state.isSearchMode ? pagedSearchItems : listData?.items || []
-    const isLoading = state.isSearchMode ? isSearchLoading : isListLoading
-    const error = state.isSearchMode ? searchError : listError
+    const totalResults = normativesData?.pagination?.total || 0
+    const items = normativesData?.items || []
 
-    return { totalResults, items, isLoading, error }
-  }, [
-    state.isSearchMode,
-    state.page,
-    state.pageSize,
-    searchData,
-    listData,
-    isSearchLoading,
-    isListLoading,
-    searchError,
-    listError,
-  ])
+    return { 
+      totalResults, 
+      items, 
+      isLoading, 
+      error,
+      pagination: normativesData?.pagination 
+    }
+  }, [normativesData, isLoading, error])
 
 
 
@@ -185,7 +154,6 @@ export default function DataBaseTable() {
       filters: {},
       searchQuery: "",
       debouncedQuery: "",
-      isSearchMode: false,
     }))
   }, [])
 
@@ -194,9 +162,8 @@ export default function DataBaseTable() {
   }, [])
 
   const handleSearch = useCallback(() => {
-    const hasQuery = state.searchQuery.trim().length > 0
-    setState((prev) => ({ ...prev, isSearchMode: hasQuery, page: 1 }))
-  }, [state.searchQuery])
+    setState((prev) => ({ ...prev, page: 1 }))
+  }, [])
 
   const handleKeyPress = useCallback(
     (e: React.KeyboardEvent) => {
@@ -212,7 +179,6 @@ export default function DataBaseTable() {
       ...prev,
       selectedNormativeId: id,
       isDetailsOpen: true,
-      showChunks: false,
     }))
   }, [])
 
@@ -262,7 +228,7 @@ export default function DataBaseTable() {
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Base de Datos Legislativa</h1>
           <p className="text-sm text-gray-600 mt-1">
-            {state.jurisdiction === "nacional" ? "Nacional" : state.jurisdiction.charAt(0).toUpperCase() + state.jurisdiction.slice(1)} • {computedData.totalResults}{" "}
+            {state.jurisdiction === "nac" ? "Nacional" : state.jurisdiction.charAt(0).toUpperCase() + state.jurisdiction.slice(1)} • {computedData.totalResults}{" "}
             {computedData.totalResults === 1 ? "resultado" : "resultados"}
           </p>
         </div>
@@ -296,16 +262,12 @@ export default function DataBaseTable() {
             jurisdiction={state.jurisdiction}
             jurisdictions={jurisdictions}
             onJurisdictionChange={handleJurisdictionChange}
-            isSearchMode={state.isSearchMode}
+            isSearchMode={!!state.debouncedQuery}
             sortBy={state.sortBy}
             sortOrder={state.sortOrder}
             pageSize={state.pageSize}
             onSortChange={(sortBy, sortOrder) => {
-              if (sortBy === "relevancia") {
-                setState((prev) => ({ ...prev, isSearchMode: true, page: 1 }))
-              } else {
-                setState((prev) => ({ ...prev, isSearchMode: false, sortBy: sortBy as SortBy, sortOrder, page: 1 }))
-              }
+              setState((prev) => ({ ...prev, sortBy: sortBy as SortBy, sortOrder, page: 1 }))
             }}
             onPageSizeChange={(pageSize) => setState((prev) => ({ ...prev, pageSize, page: 1 }))}
           />
@@ -324,14 +286,14 @@ export default function DataBaseTable() {
             searchQuery={state.searchQuery}
             filters={state.filters}
             onRemoveFilter={(key) => handleFilterChange(key, undefined)}
-            onClearSearch={() => setState((prev) => ({ ...prev, searchQuery: "", isSearchMode: false }))}
+            onClearSearch={() => setState((prev) => ({ ...prev, searchQuery: "", debouncedQuery: "" }))}
           />
         </CardContent>
       </Card>
 
       <TableView
         items={computedData.items}
-        isSearchMode={state.isSearchMode}
+        isSearchMode={!!state.debouncedQuery}
         onRowClick={handleRowClick}
         getEstadoBadgeColor={getEstadoBadgeColor}
         formatDate={formatDate}
@@ -342,7 +304,7 @@ export default function DataBaseTable() {
         page={state.page}
         pageSize={state.pageSize}
         totalPages={totalPages}
-        isSearchMode={state.isSearchMode}
+        isSearchMode={!!state.debouncedQuery}
         searchQuery={state.searchQuery}
         onPageChange={handlePageChange}
       />
@@ -356,13 +318,9 @@ export default function DataBaseTable() {
           <div className="mt-6">
             {state.selectedNormativeId && (
               <NormativeDetails
-                jurisdiction={effectiveJurisdiction}
+                jurisdiction={state.jurisdiction}
                 id={state.selectedNormativeId}
-                getNormativeAction={actions.getNormative}
-                queryNormativesAction={actions.queryNormatives}
-                showChunks={state.showChunks}
-                onToggleChunks={() => setState((prev) => ({ ...prev, showChunks: !prev.showChunks }))}
-                searchQuery={state.debouncedQuery}
+                getNormativeAction={actions.getNormativeById}
               />
             )}
           </div>

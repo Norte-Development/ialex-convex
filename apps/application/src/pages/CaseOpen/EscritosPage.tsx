@@ -16,6 +16,7 @@ import { usePermissions } from "@/context/CasePermissionsContext";
 import { useEffect, useState } from "react";
 import { EscritoToolsTester } from "@/components/Editor/EscritoToolsTester";
 import { CreateEscritoDialog } from "@/components/CreateEscritoDialog";
+import { ReadEscritoHelpersTester } from "@/components/Editor/ReadEscritoHelpersTester";
 
 export default function EscritoPage() {
   const { escritoId } = useParams();
@@ -24,6 +25,7 @@ export default function EscritoPage() {
   const { setEscritoId } = useEscrito();
   const [showToolsTester, setShowToolsTester] = useState(false);
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+  const [showReadHelpersTester, setShowReadHelpersTester] = useState(false);
 
   // Permisos usando el nuevo sistema
   const { can } = usePermissions();
@@ -237,17 +239,28 @@ export default function EscritoPage() {
             </div>
           </div>
 
-          {/* Tools Tester Toggle - Only show if user can write */}
+          {/* Testers Toggle - Only show if user can write Buttons */}
           {can.escritos.write && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setShowToolsTester(!showToolsTester)}
-              className="flex items-center gap-2"
-            >
-              <FileText className="h-4 w-4" />
-              {showToolsTester ? "Hide" : "Show"} Tools Tester
-            </Button>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowToolsTester(!showToolsTester)}
+                className="flex items-center gap-2"
+              >
+                <FileText className="h-4 w-4" />
+                {showToolsTester ? "Hide" : "Show"} Tools Tester
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowReadHelpersTester(!showReadHelpersTester)}
+                className="flex items-center gap-2"
+              >
+                <FileText className="h-4 w-4" />
+                {showReadHelpersTester ? "Hide" : "Show"} Read Helpers Tester
+              </Button>
+            </div>
           )}
         </div>
       </div>
@@ -263,10 +276,19 @@ export default function EscritoPage() {
             />
           </div>
 
-          {/* Tools Tester Sidebar - Only show if user can write and it's enabled */}
-          {showToolsTester && can.escritos.write && (
-            <div className="w-80 flex-shrink-0">
-              <EscritoToolsTester />
+          {/* Testers Sidebar */}
+          {(showToolsTester || showReadHelpersTester) && (
+            <div className="flex gap-4 flex-shrink-0">
+              {showToolsTester && (
+                <div className="w-80">
+                  <EscritoToolsTester />
+                </div>
+              )}
+              {showReadHelpersTester && (
+                <div className="w-96">
+                  <ReadEscritoHelpersTester />
+                </div>
+              )}
             </div>
           )}
         </div>
