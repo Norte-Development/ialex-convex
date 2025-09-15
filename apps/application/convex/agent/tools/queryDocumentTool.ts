@@ -87,7 +87,7 @@ export const queryDocumentTool = createTool({
     }
 
     // Perform semantic search within the specific document
-    const searchResults = await ctx.runAction(api.rag.qdrant.searchDocumentChunks, {
+    const searchResults = await ctx.runAction(api.rag.qdrantUtils.caseDocuments.searchDocumentChunks, {
       documentId,
       caseId,
       query,

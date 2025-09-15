@@ -439,7 +439,7 @@ export const deleteDocument = mutation({
     try {
       await ctx.scheduler.runAfter(
         0,
-        internal.rag.qdrant.deleteDocumentChunks,
+        internal.rag.qdrantUtils.caseDocuments.deleteDocumentChunks,
         {
           documentId: args.documentId,
           caseId: document.caseId,

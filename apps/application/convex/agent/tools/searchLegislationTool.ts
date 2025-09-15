@@ -35,7 +35,7 @@ export const searchLegislationTool = createTool({
 
     try {
       // Call the internal searchNormatives action
-      const results = await ctx.runAction(internal.rag.qdrant.searchNormatives, validatedArgs);
+      const results = await ctx.runAction(internal.rag.qdrantUtils.legislation.searchNormatives, validatedArgs);
 
       console.log("Results:", results[0].text || results[0].content);
 

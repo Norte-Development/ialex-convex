@@ -47,7 +47,11 @@ import type * as functions_testReadEscritoHelpers from "../functions/testReadEsc
 import type * as functions_users from "../functions/users.js";
 import type * as http from "../http.js";
 import type * as prosemirror from "../prosemirror.js";
-import type * as rag_qdrant from "../rag/qdrant.js";
+import type * as rag_qdrantUtils_caseDocuments from "../rag/qdrantUtils/caseDocuments.js";
+import type * as rag_qdrantUtils_client from "../rag/qdrantUtils/client.js";
+import type * as rag_qdrantUtils_index from "../rag/qdrantUtils/index.js";
+import type * as rag_qdrantUtils_legislation from "../rag/qdrantUtils/legislation.js";
+import type * as rag_qdrantUtils_types from "../rag/qdrantUtils/types.js";
 import type * as rag_rag from "../rag/rag.js";
 import type * as rag_utils from "../rag/utils.js";
 import type * as utils_gcs from "../utils/gcs.js";
@@ -109,7 +113,11 @@ declare const fullApi: ApiFromModules<{
   "functions/users": typeof functions_users;
   http: typeof http;
   prosemirror: typeof prosemirror;
-  "rag/qdrant": typeof rag_qdrant;
+  "rag/qdrantUtils/caseDocuments": typeof rag_qdrantUtils_caseDocuments;
+  "rag/qdrantUtils/client": typeof rag_qdrantUtils_client;
+  "rag/qdrantUtils/index": typeof rag_qdrantUtils_index;
+  "rag/qdrantUtils/legislation": typeof rag_qdrantUtils_legislation;
+  "rag/qdrantUtils/types": typeof rag_qdrantUtils_types;
   "rag/rag": typeof rag_rag;
   "rag/utils": typeof rag_utils;
   "utils/gcs": typeof utils_gcs;

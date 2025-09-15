@@ -2,7 +2,7 @@
 
 import { MongoClient, Filter, Sort, Document, ObjectId } from 'mongodb';
 import { NormativeDoc, NormativeFilters, ListNormativesParams, SortBy, SortOrder } from '../../types/legislation';
-import { client as qdrantClient } from '../rag/qdrant';
+import { client as qdrantClient } from '../rag/qdrantUtils';
 
 // External service clients - lazy initialization
 let mongoClient: MongoClient | null = null;

@@ -95,7 +95,7 @@ export const readDocumentTool = createTool({
     // Get total chunks (prefer DB field, fallback to Qdrant count)
     let totalChunks = document.totalChunks || 0;
     if (totalChunks === 0) {
-      totalChunks = await ctx.runAction(api.rag.qdrant.getDocumentChunkCount, {
+      totalChunks = await ctx.runAction(api.rag.qdrantUtils.caseDocuments.getDocumentChunkCount, {
         documentId,
         caseId
       });
@@ -114,7 +114,7 @@ export const readDocumentTool = createTool({
     const actualChunkCount = Math.min(chunkCount, totalChunks - chunkIndex);
 
     // Fetch multiple chunks from Qdrant
-    const chunksContent = await ctx.runAction(api.rag.qdrant.getDocumentChunksByRange, {
+    const chunksContent = await ctx.runAction(api.rag.qdrantUtils.caseDocuments.getDocumentChunksByRange, {
       documentId,
       caseId,
       startIndex: chunkIndex,
