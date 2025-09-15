@@ -23,6 +23,7 @@ import type * as agent_tools_readDocumentTool from "../agent/tools/readDocumentT
 import type * as agent_tools_readEscritoTool from "../agent/tools/readEscritoTool.js";
 import type * as agent_tools_searchCaseDocumentsTool from "../agent/tools/searchCaseDocumentsTool.js";
 import type * as agent_tools_searchFallosTool from "../agent/tools/searchFallosTool.js";
+import type * as agent_tools_searchLegislationTool from "../agent/tools/searchLegislationTool.js";
 import type * as agent_tools_validation from "../agent/tools/validation.js";
 import type * as auth_utils from "../auth_utils.js";
 import type * as context_context from "../context/context.js";
@@ -84,6 +85,7 @@ declare const fullApi: ApiFromModules<{
   "agent/tools/readEscritoTool": typeof agent_tools_readEscritoTool;
   "agent/tools/searchCaseDocumentsTool": typeof agent_tools_searchCaseDocumentsTool;
   "agent/tools/searchFallosTool": typeof agent_tools_searchFallosTool;
+  "agent/tools/searchLegislationTool": typeof agent_tools_searchLegislationTool;
   "agent/tools/validation": typeof agent_tools_validation;
   auth_utils: typeof auth_utils;
   "context/context": typeof context_context;

@@ -15,9 +15,6 @@ interface FiltersPanelProps {
     types?: Record<string, number>
     jurisdicciones?: Record<string, number>
     estados?: Record<string, number>
-    // Legacy field support
-    tipos?: Record<string, number>
-    provincias?: Record<string, number>
   }
 }
 
@@ -59,7 +56,7 @@ export function FiltersPanel({
               Tipo
             </label>
             <Select
-              value={filters.type || filters.tipo || ""}
+              value={filters.type || ""}
               onValueChange={(value) => onFilterChange("type", value === "all" ? undefined : value)}
             >
               <SelectTrigger>
@@ -70,8 +67,8 @@ export function FiltersPanel({
                 {tipoOptions.map((tipo) => (
                   <SelectItem key={tipo} value={tipo}>
                     {tipo.charAt(0).toUpperCase() + tipo.slice(1)}
-                    {(facets?.types?.[tipo] || facets?.tipos?.[tipo]) && (
-                      <span className="text-gray-500 ml-1">({facets.types?.[tipo] || facets.tipos?.[tipo]})</span>
+                    {facets?.types?.[tipo] && (
+                      <span className="text-gray-500 ml-1">({facets.types[tipo]})</span>
                     )}
                   </SelectItem>
                 ))}
@@ -85,7 +82,7 @@ export function FiltersPanel({
               Jurisdicción
             </label>
             <Select
-              value={filters.jurisdiccion || filters.provincia || ""}
+              value={filters.jurisdiccion || ""}
               onValueChange={(value) => onFilterChange("jurisdiccion", value === "all" ? undefined : value)}
             >
               <SelectTrigger>
@@ -98,8 +95,8 @@ export function FiltersPanel({
                   .map((jurisdiccion) => (
                     <SelectItem key={jurisdiccion} value={jurisdiccion}>
                       {jurisdiccion.charAt(0).toUpperCase() + jurisdiccion.slice(1)}
-                      {(facets?.jurisdicciones?.[jurisdiccion] || facets?.provincias?.[jurisdiccion]) && (
-                        <span className="text-gray-500 ml-1">({facets.jurisdicciones?.[jurisdiccion] || facets.provincias?.[jurisdiccion]})</span>
+                      {facets?.jurisdicciones?.[jurisdiccion] && (
+                        <span className="text-gray-500 ml-1">({facets.jurisdicciones[jurisdiccion]})</span>
                       )}
                     </SelectItem>
                   ))}
@@ -139,7 +136,7 @@ export function FiltersPanel({
             </label>
             <Input
               type="date"
-              value={filters.sanction_date_from || filters.promulgacion_from || ""}
+              value={filters.sanction_date_from || ""}
               onChange={(e) => onFilterChange("sanction_date_from", e.target.value || undefined)}
             />
           </div>
@@ -151,7 +148,7 @@ export function FiltersPanel({
             </label>
             <Input
               type="date"
-              value={filters.sanction_date_to || filters.promulgacion_to || ""}
+              value={filters.sanction_date_to || ""}
               onChange={(e) => onFilterChange("sanction_date_to", e.target.value || undefined)}
             />
           </div>
