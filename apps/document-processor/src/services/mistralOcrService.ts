@@ -1,7 +1,6 @@
 import "dotenv/config";
 import { logger } from "../middleware/logging";
 import { Mistral } from "@mistralai/mistralai";
-import { getDocument, GlobalWorkerOptions } from "pdfjs-dist";
 import { timeoutWrappers } from "../utils/timeoutUtils";
 import { splitPdfForMistralOCR, getPdfPageCount } from "./documentSplittingService";
 
@@ -13,8 +12,7 @@ const mistral = new Mistral({
 
 });
 
-// Configure PDF.js
-GlobalWorkerOptions.workerSrc = "node_modules/pdfjs-dist/build/pdf.worker.js";
+// No PDF.js worker configuration needed here; PDF operations happen in splitting service
 
 async function encodePdf(file: Buffer) {
   try {
