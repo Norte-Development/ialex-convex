@@ -8,7 +8,7 @@ export async function extractWithPdfFallback(buffer: Buffer, _opts: Options): Pr
   // @ts-ignore
   GlobalWorkerOptions.workerSrc = "node_modules/pdfjs-dist/build/pdf.worker.js";
 
-  const loadingTask = getDocument({ data: buffer });
+  const loadingTask = getDocument({ data: new Uint8Array(buffer) });
   const pdf = await loadingTask.promise;
   let text = "";
   const numPages = pdf.numPages;

@@ -80,7 +80,7 @@ export async function splitPdfForMistralOCR(
  */
 export async function getPdfPageCount(buffer: Buffer): Promise<number> {
   try {
-    const pdf = await getDocument({ data: buffer }).promise;
+    const pdf = await getDocument({ data: new Uint8Array(buffer) }).promise;
     return pdf.numPages;
   } catch (error) {
     logger.error("Error getting PDF page count", { error: error instanceof Error ? error.message : String(error) });
@@ -88,13 +88,3 @@ export async function getPdfPageCount(buffer: Buffer): Promise<number> {
   }
 }
 
-/**
- * Upload a PDF chunk to temporary storage and return a signed URL
- * This is a placeholder - in production you'd upload to your storage service
- */
-export async function uploadPdfChunk(chunkBuffer: Buffer, chunkIndex: number): Promise<string> {
-  // For now, we'll use a data URL approach
-  // In production, you'd upload to your storage service (GCS, S3, etc.)
-  const base64 = chunkBuffer.toString('base64');
-  return `data:application/pdf;base64,${base64}`;
-}
