@@ -1,13 +1,9 @@
 // Use legacy build to avoid worker requirements in Node environments
-import { getDocument, GlobalWorkerOptions } from "pdfjs-dist/legacy/build/pdf.mjs";
+import { getDocument } from "pdfjs-dist/legacy/build/pdf.mjs";
 
 type Options = { pageWindow: number };
 
 export async function extractWithPdfFallback(buffer: Buffer, _opts: Options): Promise<string> {
-  // In Node, when using the legacy build, a worker is not required.
-  // Ensure no worker path is attempted (prevents "fake worker" setup errors).
-  // @ts-expect-error - workerSrc isn't used by legacy build in Node
-  GlobalWorkerOptions.workerSrc = undefined;
 
   const loadingTask = getDocument({ data: new Uint8Array(buffer) });
   const pdf = await loadingTask.promise;

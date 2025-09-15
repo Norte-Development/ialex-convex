@@ -1,11 +1,9 @@
 // Use legacy build to run in Node without workers
-import { getDocument, GlobalWorkerOptions } from "pdfjs-dist/legacy/build/pdf.mjs";
+import { getDocument } from "pdfjs-dist/legacy/build/pdf.mjs";
 import { PDFDocument } from "pdf-lib";
 import { logger } from "../middleware/logging";
 
-// In Node with the legacy build, no worker is required
-// @ts-expect-error - workerSrc unused in this environment
-GlobalWorkerOptions.workerSrc = undefined;
+// No worker configuration needed with legacy build in Node
 
 /**
  * Split a large PDF document into smaller chunks that fit within Mistral's page limits
