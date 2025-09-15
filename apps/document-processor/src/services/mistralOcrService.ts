@@ -42,7 +42,7 @@ async function processPdfChunk(chunkBuffer: Buffer, chunkIndex: number, totalChu
     });
 
     // Convert chunk to base64 for direct processing
-    const base64Pdf = chunkBuffer.toString('base64');
+    const base64Pdf = await encodePdf(chunkBuffer);
 
     const ocrResponse = await timeoutWrappers.ocrRequest(
       () => mistral.ocr.process({
@@ -91,9 +91,11 @@ async function processPdfChunk(chunkBuffer: Buffer, chunkIndex: number, totalChu
 /**
  * Extract text from PDF using Mistral OCR with base64 data
  */
-export async function extractWithMistralOCRFromBase64(base64Pdf: string, opts: Options): Promise<string> {
+export async function extractWithMistralOCRFromBase64(base64Pdf: string | null, opts: Options): Promise<string> {
   const apiKey = process.env.MISTRAL_API_KEY;
   if (!apiKey) throw new Error("Missing Mistral OCR config");
+
+  if (!base64Pdf) throw new Error("Missing base64 PDF");
 
   try {
     logger.info("Starting Mistral OCR extraction from base64", { base64Length: base64Pdf.length });
@@ -264,7 +266,7 @@ export async function extractWithMistralOCRFromBuffer(buffer: Buffer, opts: Opti
     if (pageCount <= 500) {
       logger.info("Document is small enough, processing directly", { pageCount });
       // Convert buffer to base64 and process directly
-      const base64Pdf = buffer.toString('base64');
+      const base64Pdf = await encodePdf(buffer);
       return await extractWithMistralOCRFromBase64(base64Pdf, opts);
     }
 
