@@ -14,18 +14,67 @@ export type TipoRelacion =
   | "vinculada" | "es_vinculada_con" | "reglamenta" | "es_reglamentada_por"
   | "complementa" | "es_complementada_por" | "relacionada_con";
 
-// External data interfaces
+// New Paraguay-specific interfaces
+export interface Articulo {
+  articulo: number;
+  texto: string;
+  detalles_inmueble?: {
+    ubicacion?: string;
+    finca_matriz?: number;
+    uso_destinado?: string;
+    dimensiones?: {
+      noreste?: string;
+      sureste?: string;
+      suroeste?: string;
+      noroeste?: string;
+    };
+    superficie?: string;
+    georreferencias?: {
+      elipsoide?: string;
+      zona?: string;
+      meridiano_central?: number;
+      vertices?: Array<{
+        vertice: string;
+        x: number;
+        y: number;
+      }>;
+    };
+  };
+}
+
+export interface Aprobacion {
+  diputados?: string;
+  senadores?: string;
+  constitucional?: string;
+}
+
+export interface Dates {
+  publication_date?: string;
+  sanction_date?: string;
+  indexed_at?: string;
+}
+
+// External data interfaces - Updated for Paraguay structure
 export interface NormativeDoc {
-  id: string; // normalized clave
-  tipo: string;
-  numero?: string;
-  titulo: string;
-  provincia?: string;
-  promulgacion?: string; // ISO date
+  _id?: string; // MongoDB ObjectId
+  document_id: string; // normalized document identifier
+  type: string; // ley, decreto, resolucion, etc.
+  country_code: string; // py, ar, etc.
+  jurisdiccion: string; // nacional, departamental, municipal
+  numero?: number; // law number
+  title: string; // full title
   estado: Estado;
+  fuente: string; // source (bacn, etc.)
+  url?: string; // source URL
+  content_hash?: string; // content hash for deduplication
+  dates?: Dates;
+  materia?: string; // subject matter
+  articulos?: Articulo[]; // articles array
+  aprobacion?: Aprobacion;
+  tags?: string[]; // tags array
   subestado?: Subestado;
-  vigencia_actual?: boolean;
   texto?: string;
+  content?: string;
   resumen?: string;
   relaciones?: Relacion[];
   created_at?: string;
@@ -57,11 +106,11 @@ export interface Relacion {
 // Search interfaces
 export interface CorpusSearchParams {
   query: string;
-  tipo?: string;
-  provincia?: string;
+  type?: string;
+  jurisdiccion?: string;
   estado?: Estado;
-  promulgacion_from?: string;
-  promulgacion_to?: string;
+  sanction_date_from?: string;
+  sanction_date_to?: string;
   vigencia_actual?: boolean;
   limit?: number;
 }
@@ -73,14 +122,14 @@ export interface IntraDocSearchParams {
 }
 
 export interface SearchResult {
-  id: string;
-  tipo: string;
-  titulo: string;
+  id: string; // document_id
+  type: string;
+  title: string;
   resumen?: string;
   score: number;
-  provincia?: string;
+  jurisdiccion?: string;
   estado: Estado;
-  promulgacion?: string;
+  sanction_date?: string;
   vigencia_actual?: boolean;
 }
 
@@ -95,11 +144,15 @@ export interface ChunkSearchResult {
 
 // Filter interfaces for MongoDB queries
 export interface NormativeFilters {
-  tipo?: string;
-  provincia?: string;
+  type?: string;
+  jurisdiccion?: string;
   estado?: Estado;
-  promulgacion_from?: string;
-  promulgacion_to?: string;
+  sanction_date_from?: string;
+  sanction_date_to?: string;
+  publication_date_from?: string;
+  publication_date_to?: string;
+  number?: number;
+  search?: string; // text search in title and content
   vigencia_actual?: boolean;
 }
 
@@ -112,12 +165,12 @@ export interface ListNormativesParams {
 }
 
 // Sorting
-export type SortBy = "promulgacion" | "updated_at" | "created_at" | "relevancia";
+export type SortBy = "sanction_date" | "updated_at" | "created_at" | "relevancia";
 export type SortOrder = "asc" | "desc";
 
 // Facets for filters UI
 export interface NormativesFacets {
-  tipos: Record<string, number>;
-  provincias: Record<string, number>;
+  types: Record<string, number>;
+  jurisdicciones: Record<string, number>;
   estados: Record<Estado, number>;
 }

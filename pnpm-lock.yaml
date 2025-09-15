@@ -122,6 +122,9 @@ importers:
       mammoth:
         specifier: ^1.9.1
         version: 1.10.0
+      mongodb:
+        specifier: ^6.19.0
+        version: 6.19.0
       next-themes:
         specifier: ^0.4.6
         version: 0.4.6(react-dom@19.1.1(react@19.1.1))(react@19.1.1)
