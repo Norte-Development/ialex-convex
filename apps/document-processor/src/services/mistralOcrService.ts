@@ -10,7 +10,7 @@ type Options = { pageWindow: number };
 // Initialize a single SDK client instance
 const mistral = new Mistral({
   apiKey: process.env.MISTRAL_API_KEY,
-  timeoutMs: 600000, // 10 minutes for OCR
+
 });
 
 // Configure PDF.js
