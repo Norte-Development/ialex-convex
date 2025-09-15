@@ -104,6 +104,7 @@ function InnerCaseLayout({ children }: CaseDetailLayoutProps) {
 
       if (!can.docs.write) {
         console.error("No permission to upload documents");
+        toast.error("No tienes permisos para subir documentos");
         return;
       }
 

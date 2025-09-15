@@ -13,6 +13,8 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { User, Edit, Loader2 } from "lucide-react";
 import { toast } from "sonner";
+import { usePermissions } from "@/context/CasePermissionsContext";
+import { PermissionToasts } from "@/lib/permissionToasts";
 
 interface EditUserPermissionsDialogProps {
   caseId: Id<"cases">;
@@ -38,6 +40,9 @@ export default function EditUserPermissionsDialog({
     "none" | "basic" | "advanced" | "admin"
   >(currentAccessLevel);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Add permissions check
+  const { can } = usePermissions();
 
   // Mutation to update user access level
   const grantUserAccess = useMutation(
@@ -85,6 +90,12 @@ export default function EditUserPermissionsDialog({
   };
 
   const handleUpdatePermissions = async () => {
+    // Check permissions first
+    if (!can.manageCase) {
+      PermissionToasts.permissions.manage();
+      return;
+    }
+
     setIsSubmitting(true);
     try {
       // Grant the selected access level (including "none" to remove access)

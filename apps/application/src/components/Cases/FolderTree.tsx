@@ -23,6 +23,7 @@ import { DragDropContext, type DropResult } from "react-beautiful-dnd";
 import { useHighlight } from "@/context/HighlightContext";
 import { useLayout } from "@/context/LayoutContext";
 import { usePermissions } from "@/context/CasePermissionsContext";
+import { PermissionToasts } from "@/lib/permissionToasts";
 
 type Props = {
   caseId: Id<"cases">;
@@ -143,9 +144,19 @@ function FolderList({
   const deleteDocument = useMutation(api.functions.documents.deleteDocument);
   const [deletingId, setDeletingId] = useState<Id<"documents"> | null>(null);
   const handleDelete = async (id: Id<"documents">) => {
+    // Check permissions first
+    if (!can.docs.delete) {
+      PermissionToasts.documents.delete();
+      return;
+    }
+
     try {
       setDeletingId(id);
       await deleteDocument({ documentId: id } as any);
+      toast.success("Documento eliminado exitosamente");
+    } catch (error) {
+      console.error("Error deleting document:", error);
+      toast.error("Error al eliminar el documento");
     } finally {
       setDeletingId(null);
     }

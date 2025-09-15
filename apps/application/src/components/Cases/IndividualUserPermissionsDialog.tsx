@@ -23,6 +23,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { UserPlus, X, Loader2, Search } from "lucide-react";
 import { toast } from "sonner";
+import { usePermissions } from "@/context/CasePermissionsContext";
+import { PermissionToasts } from "@/lib/permissionToasts";
 
 type AccessLevel = "none" | "basic" | "advanced" | "admin";
 
@@ -44,6 +46,9 @@ export default function IndividualUserPermissionsDialog({
   const [accessLevel, setAccessLevel] = useState<AccessLevel>("basic");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
+
+  // Add permissions check
+  const { can } = usePermissions();
 
   // Debug logging
   console.log("IndividualUserPermissionsDialog - caseId:", caseId);
@@ -72,6 +77,12 @@ export default function IndividualUserPermissionsDialog({
   const handleAddPermission = async () => {
     if (!selectedUser) return;
 
+    // Check permissions first
+    if (!can.permissions.grant) {
+      PermissionToasts.permissions.grant();
+      return;
+    }
+
     setIsSubmitting(true);
     try {
       await addIndividualPermission({
@@ -97,6 +108,12 @@ export default function IndividualUserPermissionsDialog({
     userId: Id<"users">,
     userName: string,
   ) => {
+    // Check permissions first
+    if (!can.permissions.revoke) {
+      PermissionToasts.permissions.revoke();
+      return;
+    }
+
     try {
       await removeIndividualPermission({
         caseId,

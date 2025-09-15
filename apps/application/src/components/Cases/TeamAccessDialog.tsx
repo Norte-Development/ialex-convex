@@ -21,6 +21,8 @@ import {
 } from "../ui/select";
 import { Users, Plus, Trash2, Shield, Eye } from "lucide-react";
 import { toast } from "sonner";
+import { usePermissions } from "@/context/CasePermissionsContext";
+import { PermissionToasts } from "@/lib/permissionToasts";
 
 interface TeamAccessDialogProps {
   caseId: Id<"cases">;
@@ -38,6 +40,9 @@ export default function TeamAccessDialog({
   const [selectedAccessLevel, setSelectedAccessLevel] =
     useState<AccessLevel>("basic");
 
+  // Add permissions check
+  const { can } = usePermissions();
+
   const teamsWithAccess = useQuery(api.functions.teams.getTeamsWithCaseAccess, {
     caseId,
   });
@@ -54,6 +59,12 @@ export default function TeamAccessDialog({
     ) || [];
 
   const handleGrantAccess = async () => {
+    // Check permissions first
+    if (!can.teams.write) {
+      PermissionToasts.teams.managePermissions();
+      return;
+    }
+
     if (!selectedTeamId) {
       toast.error("Selecciona un equipo");
       return;
@@ -76,6 +87,12 @@ export default function TeamAccessDialog({
   };
 
   const handleRevokeAccess = async (teamId: Id<"teams">) => {
+    // Check permissions first
+    if (!can.teams.write) {
+      PermissionToasts.teams.managePermissions();
+      return;
+    }
+
     try {
       await revokeAccess({ caseId, teamId });
       toast.success("Acceso revocado exitosamente");
