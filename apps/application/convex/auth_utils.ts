@@ -2,41 +2,6 @@ import { QueryCtx, MutationCtx } from "./_generated/server";
 import { ConvexError } from "convex/values";
 import { Id } from "./_generated/dataModel";
 
-// // Frontend permission constants for type safety
-// export const PERMISSIONS = {
-//   // Case-level permissions
-//   CASE_VIEW: "case.view",
-//   CASE_EDIT: "case.edit",
-//   CASE_DELETE: "case.delete",
-
-//   // Document permissions
-//   DOC_READ: "documents.read",
-//   DOC_WRITE: "documents.write",
-//   DOC_DELETE: "documents.delete",
-
-//   // Escrito permissions
-//   ESCRITO_READ: "escritos.read",
-//   ESCRITO_WRITE: "escritos.write",
-//   ESCRITO_DELETE: "escritos.delete",
-
-//   // Client permissions
-//   CLIENT_READ: "clients.read",
-//   CLIENT_WRITE: "clients.write",
-//   CLIENT_DELETE: "clients.delete",
-
-//   // Team permissions
-//   TEAM_READ: "teams.read",
-//   TEAM_WRITE: "teams.write",
-
-//   // Chat permissions
-//   CHAT_ACCESS: "chat.access",
-
-//   // Full access
-//   FULL: "full",
-// } as const;
-
-// export type Permission = (typeof PERMISSIONS)[keyof typeof PERMISSIONS];
-
 // ========================================
 // AUTHENTICATION UTILITIES
 // Common helpers for Clerk authentication across all functions
