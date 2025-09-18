@@ -93,6 +93,10 @@ export const legislationFindTool = createTool({
             relationsCount: Array.isArray(r.relaciones) ? r.relaciones.length : 0,
             url: r.url ?? null,
             content: r.text ?? null,
+            // Citation metadata for agent
+            citationId: r.document_id || r.id,
+            citationType: 'leg',
+            citationTitle: r.title || `${r.tipo_norma} ${r.number || ''}`.trim(),
           })),
         };
       }

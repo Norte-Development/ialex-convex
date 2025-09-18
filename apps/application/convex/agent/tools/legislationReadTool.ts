@@ -123,7 +123,11 @@ export const legislationReadTool = createTool({
       isLastChunk: chunkIndex + actualChunkCount >= totalChunks,
       chunksRead: actualChunkCount,
       contextWindowUsed: contextWindow,
-      expandedRange: { startIndex: effectiveStartIndex, endIndex: effectiveEndIndex }
+      expandedRange: { startIndex: effectiveStartIndex, endIndex: effectiveEndIndex },
+      // Citation metadata for agent
+      citationId: documentId,
+      citationType: 'leg',
+      citationTitle: normative.title || "Legislation Document",
     };
   }
 } as any);

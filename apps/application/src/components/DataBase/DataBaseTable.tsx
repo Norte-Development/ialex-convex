@@ -206,7 +206,7 @@ export default function DataBaseTable() {
 
       {/* Details Sheet */}
       <Sheet open={state.isDetailsOpen} onOpenChange={(open) => setState((prev) => ({ ...prev, isDetailsOpen: open }))}>
-        <SheetContent className="w-full sm:max-w-4xl">
+        <SheetContent className="w-full sm:max-w-2xl border-l border-gray-200 bg-white rounded-l-lg transition-all duration-300 ease-in-out">
           <SheetHeader>
             <SheetTitle>Detalle de normativa</SheetTitle>
           </SheetHeader>
