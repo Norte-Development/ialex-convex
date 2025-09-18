@@ -43,9 +43,14 @@ import type * as functions_index from "../functions/index.js";
 import type * as functions_legalDb from "../functions/legalDb.js";
 import type * as functions_legislation from "../functions/legislation.js";
 import type * as functions_permissions from "../functions/permissions.js";
+import type * as functions_permissions_test from "../functions/permissions_test.js";
+import type * as functions_permissions_test_scenarios from "../functions/permissions_test_scenarios.js";
+import type * as functions_permissions_testing from "../functions/permissions_testing.js";
+import type * as functions_permissions_testing_suite from "../functions/permissions_testing_suite.js";
 import type * as functions_seedCases from "../functions/seedCases.js";
 import type * as functions_teams from "../functions/teams.js";
 import type * as functions_templates from "../functions/templates.js";
+import type * as functions_test_permissions_simple from "../functions/test_permissions_simple.js";
 import type * as functions_testReadEscritoHelpers from "../functions/testReadEscritoHelpers.js";
 import type * as functions_users from "../functions/users.js";
 import type * as http from "../http.js";
@@ -60,7 +65,6 @@ import type * as rag_utils from "../rag/utils.js";
 import type * as utils_gcs from "../utils/gcs.js";
 import type * as utils_legislationService from "../utils/legislationService.js";
 import type * as utils_resend from "../utils/resend.js";
-import type * as validation_test from "../validation_test.js";
 
 import type {
   ApiFromModules,
@@ -112,10 +116,15 @@ declare const fullApi: ApiFromModules<{
   "functions/legalDb": typeof functions_legalDb;
   "functions/legislation": typeof functions_legislation;
   "functions/permissions": typeof functions_permissions;
+  "functions/permissions_test": typeof functions_permissions_test;
+  "functions/permissions_test_scenarios": typeof functions_permissions_test_scenarios;
+  "functions/permissions_testing": typeof functions_permissions_testing;
+  "functions/permissions_testing_suite": typeof functions_permissions_testing_suite;
   "functions/seedCases": typeof functions_seedCases;
   "functions/teams": typeof functions_teams;
   "functions/templates": typeof functions_templates;
   "functions/testReadEscritoHelpers": typeof functions_testReadEscritoHelpers;
+  "functions/test_permissions_simple": typeof functions_test_permissions_simple;
   "functions/users": typeof functions_users;
   http: typeof http;
   prosemirror: typeof prosemirror;
@@ -129,7 +138,6 @@ declare const fullApi: ApiFromModules<{
   "utils/gcs": typeof utils_gcs;
   "utils/legislationService": typeof utils_legislationService;
   "utils/resend": typeof utils_resend;
-  validation_test: typeof validation_test;
 }>;
 declare const fullApiWithMounts: typeof fullApi;
 

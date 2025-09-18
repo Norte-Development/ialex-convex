@@ -10,7 +10,7 @@ interface TeamCasesListProps {
   teamId: Id<"teams">;
 }
 
-type AccessLevel = "read" | "full";
+type AccessLevel = "none" | "basic" | "advanced" | "admin";
 
 export default function TeamCasesList({ teamId }: TeamCasesListProps) {
   const casesWithAccess = useQuery(
@@ -19,7 +19,7 @@ export default function TeamCasesList({ teamId }: TeamCasesListProps) {
   );
 
   const getAccessLevelIcon = (level: AccessLevel) => {
-    return level === "full" ? (
+    return level === "admin" ? (
       <Shield className="h-4 w-4 text-blue-600" />
     ) : (
       <Eye className="h-4 w-4 text-gray-600" />
@@ -27,11 +27,22 @@ export default function TeamCasesList({ teamId }: TeamCasesListProps) {
   };
 
   const getAccessLevelText = (level: AccessLevel) => {
-    return level === "full" ? "Acceso Completo" : "Solo Lectura";
+    switch (level) {
+      case "none":
+        return "Sin Acceso";
+      case "basic":
+        return "Acceso Básico";
+      case "advanced":
+        return "Acceso Avanzado";
+      case "admin":
+        return "Acceso Administrativo";
+      default:
+        return "Desconocido";
+    }
   };
 
   const getAccessLevelColor = (level: AccessLevel) => {
-    return level === "full"
+    return level === "admin"
       ? "bg-blue-100 text-blue-800"
       : "bg-gray-100 text-gray-800";
   };
@@ -192,4 +203,4 @@ export default function TeamCasesList({ teamId }: TeamCasesListProps) {
       )}
     </div>
   );
-} 
+}

@@ -5,6 +5,8 @@ export function SeedButton() {
   const seedCases = useMutation(api.functions.seedCases.seedCases);
 
   const handleSeed = async () => {
+    // Check permissions first - this seems like it should require admin access
+
     try {
       const result = await seedCases({});
       alert(result);

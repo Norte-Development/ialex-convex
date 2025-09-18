@@ -23,22 +23,22 @@ import {
 import { User, Trash2, Edit, Mail } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import EditUserPermissionsDialog from "./EditUserPermissionsDialog";
+import { useAuth } from "@/context/AuthContext";
 
 interface IndividualUserPermissionsTableProps {
   caseId: Id<"cases">;
 }
 
 interface UserWithAccess {
-  _id: string;
   userId: Id<"users">;
-  permissions: string[];
+  accessLevel: "none" | "basic" | "advanced" | "admin";
   grantedAt: number;
   grantedBy: Id<"users">;
+  expiresAt?: number;
   user: {
     _id: Id<"users">;
     email: string;
-    name?: string;
-    role?: string;
+    name: string;
   };
 }
 
@@ -46,15 +46,25 @@ export function IndividualUserPermissionsTable({
   caseId,
 }: IndividualUserPermissionsTableProps) {
   const [userToDelete, setUserToDelete] = useState<UserWithAccess | null>(null);
+  const { user } = useAuth();
 
   // Get users with individual case access
   const usersWithAccess = useQuery(
-    api.functions.permissions.getUsersWithCaseAccess,
-    { caseId }
+    api.functions.permissions.getNewUsersWithCaseAccess,
+    { caseId },
   );
 
   // Mutation to revoke user access
-  const revokeAccess = useMutation(api.functions.permissions.revokeUserCaseAccess);
+  const revokeAccess = useMutation(
+    api.functions.permissions.revokeUserCaseAccess,
+  );
+
+  const isAdmin = useQuery(api.functions.permissions.hasNewAccessLevel, {
+    caseId,
+    requiredLevel: "admin",
+  });
+
+  console.log("Is current user admin?", isAdmin);
 
   const handleRevokeAccess = async (userId: Id<"users">) => {
     try {
@@ -66,13 +76,23 @@ export function IndividualUserPermissionsTable({
     }
   };
 
-  const getAccessLevelFromPermissions = (permissions: string[]) => {
-    if (permissions.includes("full")) {
-      return { level: "Acceso Completo", color: "bg-red-100 text-red-800" };
-    } else if (permissions.includes("chat")) {
-      return { level: "Lectura y Escritura", color: "bg-blue-100 text-blue-800" };
-    } else {
-      return { level: "Solo Lectura", color: "bg-gray-100 text-gray-800" };
+  const getAccessLevelDisplay = (
+    accessLevel: "none" | "basic" | "advanced" | "admin",
+  ) => {
+    switch (accessLevel) {
+      case "admin":
+        return {
+          level: "Administrador",
+          color: "bg-purple-100 text-purple-800",
+        };
+      case "advanced":
+        return { level: "Acceso Avanzado", color: "bg-blue-100 text-blue-800" };
+      case "basic":
+        return { level: "Acceso Básico", color: "bg-green-100 text-green-800" };
+      case "none":
+        return { level: "Sin Acceso", color: "bg-gray-100 text-gray-800" };
+      default:
+        return { level: "Sin Acceso", color: "bg-gray-100 text-gray-800" };
     }
   };
 
@@ -86,18 +106,21 @@ export function IndividualUserPermissionsTable({
     });
   };
 
-  const getPermissionsList = (permissions: string[]) => {
-    const permissionLabels: Record<string, string> = {
-      view: "Ver",
-      documents: "Documentos",
-      escritos: "Escritos", 
-      clients: "Clientes",
-      teams: "Equipos",
-      chat: "Chat IA",
-      full: "Completo",
-    };
-
-    return permissions.map(p => permissionLabels[p] || p).join(", ");
+  const getAccessLevelDescription = (
+    accessLevel: "none" | "basic" | "advanced" | "admin",
+  ) => {
+    switch (accessLevel) {
+      case "admin":
+        return "Acceso completo incluyendo gestión de equipos y permisos";
+      case "advanced":
+        return "Incluye acceso básico + edición de documentos y escritos";
+      case "basic":
+        return "Puede ver información del caso, documentos y escritos (solo lectura)";
+      case "none":
+        return "Sin acceso al caso";
+      default:
+        return "Sin acceso al caso";
+    }
   };
 
   if (usersWithAccess === undefined) {
@@ -118,11 +141,21 @@ export function IndividualUserPermissionsTable({
             <TableBody>
               {[...Array(3)].map((_, i) => (
                 <TableRow key={i}>
-                  <TableCell><Skeleton className="h-4 w-32" /></TableCell>
-                  <TableCell><Skeleton className="h-4 w-20" /></TableCell>
-                  <TableCell><Skeleton className="h-4 w-40" /></TableCell>
-                  <TableCell><Skeleton className="h-4 w-24" /></TableCell>
-                  <TableCell><Skeleton className="h-4 w-8" /></TableCell>
+                  <TableCell>
+                    <Skeleton className="h-4 w-32" />
+                  </TableCell>
+                  <TableCell>
+                    <Skeleton className="h-4 w-20" />
+                  </TableCell>
+                  <TableCell>
+                    <Skeleton className="h-4 w-40" />
+                  </TableCell>
+                  <TableCell>
+                    <Skeleton className="h-4 w-24" />
+                  </TableCell>
+                  <TableCell>
+                    <Skeleton className="h-4 w-8" />
+                  </TableCell>
                 </TableRow>
               ))}
             </TableBody>
@@ -160,17 +193,38 @@ export function IndividualUserPermissionsTable({
             </TableRow>
           </TableHeader>
           <TableBody>
-            {usersWithAccess.map((userAccess: UserWithAccess) => {
-              const accessLevel = getAccessLevelFromPermissions(userAccess.permissions);
-              
+            {usersWithAccess.map((userAccess) => {
+              if (!userAccess.userId) return null;
+
+              const accessLevelDisplay = getAccessLevelDisplay(
+                userAccess.accessLevel,
+              );
+
               return (
-                <TableRow key={userAccess._id}>
+                <TableRow
+                  key={userAccess.userId}
+                  className={
+                    userAccess.user._id === user?._id
+                      ? "bg-blue-50/50 border-l-2 border-l-blue-500"
+                      : ""
+                  }
+                >
                   <TableCell>
                     <div className="flex items-center space-x-3">
-                      <User className="h-4 w-4 text-gray-400" />
+                      <div className="relative">
+                        <User className="h-4 w-4 text-gray-400" />
+                        {userAccess.user._id === user?._id && (
+                          <div className="absolute -top-1 -right-1 h-2 w-2 bg-blue-500 rounded-full"></div>
+                        )}
+                      </div>
                       <div>
-                        <div className="font-medium">
+                        <div className="font-medium flex items-center gap-2">
                           {userAccess.user.name || "Sin nombre"}
+                          {userAccess.user._id === user?._id && (
+                            <span className="text-xs bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded-full font-medium">
+                              Vos
+                            </span>
+                          )}
                         </div>
                         <div className="text-sm text-gray-500 flex items-center">
                           <Mail className="h-3 w-3 mr-1" />
@@ -180,13 +234,16 @@ export function IndividualUserPermissionsTable({
                     </div>
                   </TableCell>
                   <TableCell>
-                    <Badge variant="secondary" className={accessLevel.color}>
-                      {accessLevel.level}
+                    <Badge
+                      variant="secondary"
+                      className={accessLevelDisplay.color}
+                    >
+                      {accessLevelDisplay.level}
                     </Badge>
                   </TableCell>
                   <TableCell>
                     <span className="text-sm text-gray-600">
-                      {getPermissionsList(userAccess.permissions)}
+                      {getAccessLevelDescription(userAccess.accessLevel)}
                     </span>
                   </TableCell>
                   <TableCell>
@@ -194,36 +251,38 @@ export function IndividualUserPermissionsTable({
                       {formatDate(userAccess.grantedAt)}
                     </span>
                   </TableCell>
-                  <TableCell>
-                    <div className="flex items-center space-x-1">
-                      <EditUserPermissionsDialog
-                        caseId={caseId}
-                        userId={userAccess.userId}
-                        userName={userAccess.user.name || "Sin nombre"}
-                        userEmail={userAccess.user.email}
-                        currentPermissions={userAccess.permissions}
-                        trigger={
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-8 w-8 p-0"
-                            title="Editar Permisos"
-                          >
-                            <Edit className="h-4 w-4" />
-                          </Button>
-                        }
-                      />
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => setUserToDelete(userAccess)}
-                        className="h-8 w-8 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
-                        title="Revocar Acceso"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </TableCell>
+                  {isAdmin && (
+                    <TableCell>
+                      <div className="flex items-center space-x-1">
+                        <EditUserPermissionsDialog
+                          caseId={caseId}
+                          userId={userAccess.userId}
+                          userName={userAccess.user.name || "Sin nombre"}
+                          userEmail={userAccess.user.email}
+                          currentAccessLevel={userAccess.accessLevel}
+                          trigger={
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-8 w-8 p-0"
+                              title="Editar Permisos"
+                            >
+                              <Edit className="h-4 w-4" />
+                            </Button>
+                          }
+                        />
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setUserToDelete(userAccess)}
+                          className="h-8 w-8 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
+                          title="Revocar Acceso"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  )}
                 </TableRow>
               );
             })}
@@ -238,7 +297,9 @@ export function IndividualUserPermissionsTable({
             <DialogTitle>¿Revocar acceso?</DialogTitle>
             <DialogDescription>
               ¿Estás seguro de que quieres revocar el acceso de{" "}
-              <strong>{userToDelete?.user.name || userToDelete?.user.email}</strong>{" "}
+              <strong>
+                {userToDelete?.user.name || userToDelete?.user.email}
+              </strong>{" "}
               a este caso? Esta acción no se puede deshacer.
             </DialogDescription>
           </DialogHeader>
@@ -247,7 +308,11 @@ export function IndividualUserPermissionsTable({
               Cancelar
             </Button>
             <Button
-              onClick={() => userToDelete && handleRevokeAccess(userToDelete.userId)}
+              onClick={() =>
+                userToDelete &&
+                userToDelete.userId &&
+                handleRevokeAccess(userToDelete.userId)
+              }
               className="bg-red-600 hover:bg-red-700 text-white"
             >
               Revocar Acceso
@@ -257,4 +322,4 @@ export function IndividualUserPermissionsTable({
       </Dialog>
     </>
   );
-} 
+}
