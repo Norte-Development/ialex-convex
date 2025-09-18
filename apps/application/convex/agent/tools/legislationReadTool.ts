@@ -3,165 +3,127 @@ import { api, internal } from "../../_generated/api";
 import { z } from "zod";
 
 /**
- * Unified legislation reader tool.
- * Operations:
- * - query: semantic search within a single legislation document, optional context expansion
- * - read: adaptive read; returns full Mongo content if short enough, else chunked via Qdrant
- * - chunkCount: get total chunk count for a document (from Qdrant)
+ * Tool for reading legislation documents progressively, chunk by chunk.
+ * Use this to read through entire legislation documents sequentially without overwhelming token limits.
+ * Perfect for systematic legislation analysis.
+ *
+ * @description Reads a legislation document progressively, chunk by chunk. Use this to read through entire legislation documents sequentially without overwhelming token limits. Perfect for systematic legislation analysis.
+ * @param {Object} args - Reading parameters
+ * @param {string} args.documentId - The ID of the legislation document to read (this is the document_id field in the legislation collection)
+ * @param {number} [args.chunkIndex=0] - Which chunk to read (0-based index). Start with 0 for the beginning.
+ * @param {number} [args.chunkCount=1] - Number of consecutive chunks to read (default: 1). Use higher values to read multiple chunks at once.
+ * @returns {Promise<Object>} Document chunk information including content, progress, and navigation details
+ * @throws {Error} When user is not authenticated, document not found, or chunk index is invalid
+ *
+ * @example
+ * // Read the first chunk of a legislation document
+ * await legislationReadTool.handler(ctx, {
+ *   documentId: "leg_123",
+ *   chunkIndex: 0
+ * });
+ *
+ * // Read multiple chunks starting from index 5
+ * await legislationReadTool.handler(ctx, {
+ *   documentId: "leg_123",
+ *   chunkIndex: 5,
+ *   chunkCount: 3
+ * });
  */
 export const legislationReadTool = createTool({
-  description:
-    "Read legislation: query within a document, adaptive read (full or chunked), or get chunk count.",
-  args: z
-    .object({
-      operation: z.enum(["query", "read", "chunkCount"]).describe("Which operation to perform"),
-      // Common
-      documentId: z.string().optional().describe("The ID of the legislation document to read. This is the document_id field in the legislation collection. You must corroborate that the document_id is valid before using this tool. Only use it if you previously found the document_id in a previous search."),
-      // Query-specific
-      query: z.string().optional(),
-      limit: z.number().optional(),
-      contextWindow: z.number().optional(),
-      // Read-specific
-      chunkIndex: z.number().optional(),
-      chunkCount: z.number().optional(),
-      preferFullIfShort: z.boolean().optional(),
-      wordLimit: z.number().optional(),
-    })
-    .required({ operation: true }),
+  description: "Read a legislation document progressively, chunk by chunk. Use this to read through entire legislation documents sequentially without overwhelming token limits. Perfect for systematic legislation analysis.",
+  args: z.object({
+    documentId: z.any().describe("The ID of the legislation document to read (this is the document_id field in the legislation collection)"),
+    chunkIndex: z.any().optional().describe("Which chunk to read (0-based index). Start with 0 for the beginning."),
+    chunkCount: z.any().optional().describe("Number of consecutive chunks to read (default: 1). Use higher values to read multiple chunks at once."),
+    contextWindow: z.any().optional().describe("Optional number of adjacent chunks to include on both sides for additional context.")
+  }).required({documentId: true}),
   handler: async (ctx: ToolCtx, args: any) => {
-    const operation = args.operation as string;
+    // Validate inputs in handler
+    if (!args.documentId || typeof args.documentId !== 'string' || args.documentId.trim().length === 0) {
+      throw new Error("Invalid documentId: must be a non-empty string");
+    }
 
+    const chunkIndex = args.chunkIndex !== undefined ? args.chunkIndex : 0;
+    if (typeof chunkIndex !== 'number' || chunkIndex < 0) {
+      throw new Error("Invalid chunkIndex: must be a non-negative number");
+    }
+
+    const chunkCount = args.chunkCount !== undefined ? args.chunkCount : 1;
+    if (typeof chunkCount !== 'number' || chunkCount < 1 || chunkCount > 10) {
+      throw new Error("Invalid chunkCount: must be a number between 1 and 10");
+    }
+
+    const contextWindow = args.contextWindow !== undefined ? args.contextWindow : 0;
+    if (typeof contextWindow !== 'number' || contextWindow < 0 || contextWindow > 10) {
+      throw new Error("Invalid contextWindow: must be a number between 0 and 10");
+    }
+
+    const documentId = args.documentId.trim();
+    
+    // Verify authentication
     if (!ctx.userId) {
-      return { kind: "error", error: "Not authenticated" };
+      throw new Error("Not authenticated");
     }
 
-    switch (operation) {
-      case "query": {
-        if (!args.documentId || typeof args.documentId !== "string" || args.documentId.trim().length === 0) {
-          return { kind: "error", error: "Invalid documentId: must be a non-empty string" };
-        }
-        if (!args.query || typeof args.query !== "string" || args.query.trim().length === 0) {
-          return { kind: "error", error: "Invalid query: must be a non-empty string" };
-        }
-        const document_id = args.documentId.trim();
-        const query = args.query.trim();
-        const limit = typeof args.limit === "number" ? Math.min(Math.max(1, args.limit), 20) : 5;
-        const contextWindow = typeof args.contextWindow === "number" ? Math.min(Math.max(0, args.contextWindow), 20) : 0;
+    // Get document metadata to verify it exists and get title
+    const normative = await ctx.runAction(api.functions.legislation.getNormativeById, {
+      jurisdiction: "",
+      id: documentId,
+    });
 
-        const results = await ctx.runAction(api.rag.qdrantUtils.legislation.searchDocumentChunks, {
-          document_id,
-          query,
-          limit,
-          contextWindow,
-        });
-
-        return { kind: "query", documentId: document_id, query, results };
-      }
-
-      case "read": {
-        if (!args.documentId || typeof args.documentId !== "string" || args.documentId.trim().length === 0) {
-          return { kind: "error", error: "Invalid documentId: must be a non-empty string" };
-        }
-        const documentId = args.documentId.trim();
-        const chunkIndex = typeof args.chunkIndex === "number" ? Math.max(0, args.chunkIndex) : 0;
-        const chunkCount = typeof args.chunkCount === "number" ? Math.min(Math.max(1, args.chunkCount), 10) : 1;
-        const preferFullIfShort = args.preferFullIfShort !== false; // default true
-        const wordLimit = typeof args.wordLimit === "number" ? Math.min(Math.max(100, args.wordLimit), 5000) : 1000;
-
-        // Try Mongo full content fetch first (metadata call used in finder returns content when available)
-        const normative = await ctx.runAction(api.functions.legislation.getNormativeById, {
-          jurisdiction: "",
-          id: documentId,
-        });
-
-        const rawText: string | null =
-          (normative?.content as string) || (normative?.texto as string) ||
-          (Array.isArray((normative as any)?.articulos)
-            ? ((normative as any).articulos as Array<{ texto?: string }>).
-                map((a) => a?.texto || "").filter(Boolean).join("\n\n")
-            : null);
-
-        const wordCount = rawText ? rawText.trim().split(/\s+/).length : 0;
-
-        if (preferFullIfShort && rawText && wordCount <= wordLimit) {
-          return {
-            kind: "read",
-            mode: "full",
-            documentId,
-            wordCount,
-            content: rawText,
-          };
-        }
-
-        // Fallback to chunked reading from Qdrant
-        const totalChunks: number = await ctx.runAction(api.rag.qdrantUtils.legislation.getDocumentChunkCount, {
-          document_id: documentId,
-        });
-
-        if (chunkIndex >= totalChunks) {
-          // Fallback: return empty result for out-of-bounds chunk index
-          return {
-            kind: "read",
-            mode: "chunked",
-            documentId,
-            chunkIndex,
-            chunkCount: 0,
-            totalChunks,
-            content: "",
-            hasMore: false,
-            nextChunkIndex: totalChunks,
-            message: `Chunk index is out of bounds, returning empty result. Total chunks: ${totalChunks}`,
-          };
-        }
-
-        const actualCount = Math.min(chunkCount, Math.max(0, totalChunks - chunkIndex));
-        const chunks = await ctx.runAction(api.rag.qdrantUtils.legislation.getDocumentChunksByRange, {
-          document_id: documentId,
-          startIndex: chunkIndex,
-          endIndex: chunkIndex + actualCount - 1,
-        });
-
-        if (!chunks || chunks.length === 0) {
-          return {
-            kind: "read",
-            mode: "chunked",
-            documentId,
-            chunkIndex,
-            chunkCount: 0,
-            totalChunks,
-            content: "",
-            hasMore: chunkIndex < totalChunks - 1,
-            nextChunkIndex: Math.min(totalChunks, chunkIndex + 1),
-          };
-        }
-
-        const combined = chunks.join("\n\n");
-        return {
-          kind: "read",
-          mode: "chunked",
-          documentId,
-          chunkIndex,
-          chunkCount: actualCount,
-          totalChunks,
-          content: combined,
-          hasMore: chunkIndex + actualCount < totalChunks,
-          nextChunkIndex: chunkIndex + actualCount,
-        };
-      }
-
-      case "chunkCount": {
-        if (!args.documentId || typeof args.documentId !== "string" || args.documentId.trim().length === 0) {
-          return { kind: "error", error: "Invalid documentId: must be a non-empty string" };
-        }
-        const document_id = args.documentId.trim();
-        const totalChunks: number = await ctx.runAction(api.rag.qdrantUtils.legislation.getDocumentChunkCount, { document_id });
-        return { kind: "chunkCount", documentId: document_id, totalChunks };
-      }
-
-      default:
-        return { kind: "error", error: `Unsupported operation: ${operation}` };
+    if (!normative) {
+      throw new Error("Legislation document not found");
     }
-  },
+
+    // Get total chunks from Qdrant
+    const totalChunks = await ctx.runAction(api.rag.qdrantUtils.legislation.getDocumentChunkCount, {
+      document_id: documentId,
+    });
+
+    // Validate chunk index
+    if (chunkIndex < 0) {
+      throw new Error("Chunk index cannot be negative");
+    }
+
+    if (chunkIndex >= totalChunks) {
+      throw new Error(`Chunk index ${chunkIndex} is beyond document length (${totalChunks} chunks)`);
+    }
+
+    // Calculate the actual number of chunks to read
+    const actualChunkCount = Math.min(chunkCount, totalChunks - chunkIndex);
+
+    // Compute effective range with optional context window
+    const effectiveStartIndex = Math.max(0, chunkIndex - contextWindow);
+    const effectiveEndIndex = Math.min(totalChunks - 1, chunkIndex + actualChunkCount - 1 + contextWindow);
+
+    // Fetch multiple chunks from Qdrant
+    const chunksContent = await ctx.runAction(api.rag.qdrantUtils.legislation.getDocumentChunksByRange, {
+      document_id: documentId,
+      startIndex: effectiveStartIndex,
+      endIndex: effectiveEndIndex
+    });
+
+    if (!chunksContent || chunksContent.length === 0) {
+      throw new Error(`No chunks found in range ${chunkIndex} to ${chunkIndex + actualChunkCount - 1}`);
+    }
+
+    // Combine chunks content
+    const combinedContent = chunksContent.join('\n\n');
+
+    return {
+      documentId,
+      documentTitle: normative.title || "Legislation Document",
+      chunkIndex,
+      chunkCount: actualChunkCount,
+      totalChunks,
+      content: combinedContent,
+      hasMoreChunks: chunkIndex + actualChunkCount < totalChunks,
+      nextChunkIndex: chunkIndex + actualChunkCount,
+      progress: `${chunkIndex + actualChunkCount}/${totalChunks}`,
+      isLastChunk: chunkIndex + actualChunkCount >= totalChunks,
+      chunksRead: actualChunkCount,
+      contextWindowUsed: contextWindow,
+      expandedRange: { startIndex: effectiveStartIndex, endIndex: effectiveEndIndex }
+    };
+  }
 } as any);
-
-
