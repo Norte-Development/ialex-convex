@@ -3,250 +3,152 @@ import { useMutation } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import { Id } from "../../../convex/_generated/dataModel";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Label } from "@/components/ui/label";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
-import { Checkbox } from "@/components/ui/checkbox";
 import { User, Edit, Loader2 } from "lucide-react";
 import { toast } from "sonner";
-import { PERMISSIONS, type Permission } from "@/permissions/types";
+import { usePermissions } from "@/context/CasePermissionsContext";
+import { PermissionToasts } from "@/lib/permissionToasts";
 
 interface EditUserPermissionsDialogProps {
   caseId: Id<"cases">;
   userId: Id<"users">;
   userName: string;
   userEmail: string;
-  currentPermissions: string[];
+  currentAccessLevel: "none" | "basic" | "advanced" | "admin";
   trigger?: React.ReactNode;
   onSuccess?: () => void;
 }
 
-interface PermissionOption {
-  key: string;
-  label: string;
-  description: string;
-  category: string;
-}
-
-export default function EditUserPermissionsDialog({ 
-  caseId, 
+export default function EditUserPermissionsDialog({
+  caseId,
   userId,
   userName,
   userEmail,
-  currentPermissions,
+  currentAccessLevel,
   trigger,
-  onSuccess
+  onSuccess,
 }: EditUserPermissionsDialogProps) {
   const [isOpen, setIsOpen] = useState(false);
-  const [selectedPermissions, setSelectedPermissions] = useState<Set<string>>(new Set());
+  const [selectedAccessLevel, setSelectedAccessLevel] = useState<
+    "none" | "basic" | "advanced" | "admin"
+  >(currentAccessLevel);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Mutation to update user permissions
-  const updateUserPermissions = useMutation(api.functions.permissions.grantUserCaseAccess);
+  // Add permissions check
+  const { can } = usePermissions();
 
-  // Define all available permissions with their metadata
-  const permissionOptions: PermissionOption[] = [
+  // Mutation to update user access level
+  const grantUserAccess = useMutation(
+    api.functions.permissions.grantUserCaseAccess,
+  );
+
+  // Define hierarchical access levels
+  const accessLevelOptions = [
     {
-      key: PERMISSIONS.CASE_VIEW,
-      label: "Ver Caso",
-      description: "Puede ver la información básica del caso",
-      category: "Caso"
+      value: "none" as const,
+      label: "Sin Acceso",
+      description: "El usuario no tendrá acceso al caso",
     },
     {
-      key: PERMISSIONS.CASE_EDIT,
-      label: "Editar Caso",
-      description: "Puede modificar la información del caso",
-      category: "Caso"
+      value: "basic" as const,
+      label: "Acceso Básico",
+      description:
+        "Puede ver información del caso, documentos y escritos (solo lectura)",
     },
     {
-      key: PERMISSIONS.DOC_READ,
-      label: "Ver Documentos",
-      description: "Puede ver y descargar documentos del caso",
-      category: "Documentos"
+      value: "advanced" as const,
+      label: "Acceso Avanzado",
+      description: "Incluye acceso básico + edición de documentos y escritos",
     },
     {
-      key: PERMISSIONS.DOC_WRITE,
-      label: "Editar Documentos",
-      description: "Puede subir, editar y eliminar documentos",
-      category: "Documentos"
+      value: "admin" as const,
+      label: "Administrador",
+      description: "Acceso completo incluyendo gestión de equipos y permisos",
     },
-    {
-      key: PERMISSIONS.ESCRITO_READ,
-      label: "Ver Escritos",
-      description: "Puede ver los escritos legales del caso",
-      category: "Escritos"
-    },
-    {
-      key: PERMISSIONS.ESCRITO_WRITE,
-      label: "Editar Escritos",
-      description: "Puede crear y editar escritos legales",
-      category: "Escritos"
-    },
-    {
-      key: PERMISSIONS.CLIENT_READ,
-      label: "Ver Clientes",
-      description: "Puede ver la información de los clientes",
-      category: "Clientes"
-    },
-    {
-      key: PERMISSIONS.CLIENT_WRITE,
-      label: "Editar Clientes",
-      description: "Puede modificar la información de los clientes",
-      category: "Clientes"
-    },
-    {
-      key: PERMISSIONS.TEAM_READ,
-      label: "Ver Equipos",
-      description: "Puede ver los equipos asignados al caso",
-      category: "Equipos"
-    },
-    {
-      key: PERMISSIONS.CHAT_ACCESS,
-      label: "Acceso al Chat IA",
-      description: "Puede usar el chat de inteligencia artificial",
-      category: "Chat"
-    },
-    {
-      key: PERMISSIONS.FULL,
-      label: "Acceso Completo",
-      description: "Acceso completo a todas las funcionalidades",
-      category: "Sistema"
-    }
   ];
 
-  // Group permissions by category
-  const permissionsByCategory = permissionOptions.reduce((acc, permission) => {
-    if (!acc[permission.category]) {
-      acc[permission.category] = [];
-    }
-    acc[permission.category].push(permission);
-    return acc;
-  }, {} as Record<string, PermissionOption[]>);
-
-  // Initialize selected permissions when dialog opens
+  // Initialize access level when dialog opens
   const handleOpenChange = (open: boolean) => {
     setIsOpen(open);
     if (open) {
-      setSelectedPermissions(new Set(currentPermissions));
+      setSelectedAccessLevel(currentAccessLevel);
     }
   };
 
-  // Handle permission toggle
-  const handlePermissionToggle = (permissionKey: string, checked: boolean) => {
-    const newPermissions = new Set(selectedPermissions);
-    
-    if (checked) {
-      // If selecting FULL access, remove all other permissions
-      if (permissionKey === PERMISSIONS.FULL) {
-        newPermissions.clear();
-        newPermissions.add(PERMISSIONS.FULL);
-      } else {
-        // If selecting other permissions, remove FULL access
-        newPermissions.delete(PERMISSIONS.FULL);
-        newPermissions.add(permissionKey);
-      }
-    } else {
-      newPermissions.delete(permissionKey);
-    }
-    
-    setSelectedPermissions(newPermissions);
-  };
-
-  // Handle quick access level selection
-  const handleQuickAccessLevel = (level: "read" | "write" | "full") => {
-    const getPermissionsFromLevel = (level: "read" | "write" | "full"): string[] => {
-      switch (level) {
-        case "read":
-          return [
-            PERMISSIONS.CASE_VIEW,
-            PERMISSIONS.DOC_READ,
-            PERMISSIONS.ESCRITO_READ,
-            PERMISSIONS.CLIENT_READ,
-            PERMISSIONS.TEAM_READ
-          ];
-        case "write":  
-          return [
-            PERMISSIONS.CASE_VIEW,
-            PERMISSIONS.CASE_EDIT,
-            PERMISSIONS.DOC_READ,
-            PERMISSIONS.DOC_WRITE,
-            PERMISSIONS.ESCRITO_READ,
-            PERMISSIONS.ESCRITO_WRITE,
-            PERMISSIONS.CLIENT_READ,
-            PERMISSIONS.CLIENT_WRITE,
-            PERMISSIONS.TEAM_READ,
-            PERMISSIONS.CHAT_ACCESS
-          ];
-        case "full":
-          return [PERMISSIONS.FULL];
-        default:
-          return [PERMISSIONS.CASE_VIEW];
-      }
-    };
-
-    setSelectedPermissions(new Set(getPermissionsFromLevel(level)));
+  // Handle access level change
+  const handleAccessLevelChange = (
+    value: "none" | "basic" | "advanced" | "admin",
+  ) => {
+    setSelectedAccessLevel(value);
   };
 
   const handleUpdatePermissions = async () => {
+    // Check permissions first
+    if (!can.manageCase) {
+      PermissionToasts.permissions.manage();
+      return;
+    }
+
     setIsSubmitting(true);
     try {
-      await updateUserPermissions({
+      // Grant the selected access level (including "none" to remove access)
+      await grantUserAccess({
         caseId,
         userId,
-        permissions: Array.from(selectedPermissions) as Permission[]
+        accessLevel: selectedAccessLevel,
       });
 
-      toast.success(`Permisos actualizados para ${userName}`);
+      if (onSuccess) {
+        onSuccess();
+      }
+
       setIsOpen(false);
-      onSuccess?.();
+      toast.success("Permisos actualizados correctamente");
     } catch (error: any) {
+      console.error("Error updating permissions:", error);
       toast.error(`Error: ${error.message}`);
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  const getAccessLevelColor = (permissions: Set<string>) => {
-    if (permissions.has(PERMISSIONS.FULL)) {
-      return "bg-purple-100 text-purple-800";
+  const getAccessLevelColor = (level: string) => {
+    switch (level) {
+      case "admin":
+        return "bg-purple-100 text-purple-800";
+      case "advanced":
+        return "bg-blue-100 text-blue-800";
+      case "basic":
+        return "bg-green-100 text-green-800";
+      default:
+        return "bg-gray-100 text-gray-800";
     }
-    
-    const hasWrite = Array.from(permissions).some(p => 
-      p.includes('.write') || p.includes('.delete')
-    );
-    
-    if (hasWrite) {
-      return "bg-blue-100 text-blue-800";
-    }
-    
-    return "bg-green-100 text-green-800";
   };
 
-  const getAccessLevelText = (permissions: Set<string>) => {
-    if (permissions.has(PERMISSIONS.FULL)) {
-      return "Acceso Completo";
+  const getAccessLevelText = (level: string) => {
+    switch (level) {
+      case "admin":
+        return "Administrador";
+      case "advanced":
+        return "Acceso Avanzado";
+      case "basic":
+        return "Acceso Básico";
+      case "none":
+        return "Sin Acceso";
+      default:
+        return "Sin Acceso";
     }
-    
-    const hasWrite = Array.from(permissions).some(p => 
-      p.includes('.write') || p.includes('.delete')
-    );
-    
-    if (hasWrite) {
-      return "Lectura y Escritura";
-    }
-    
-    return "Solo Lectura";
   };
 
   const hasChanges = () => {
-    const currentSet = new Set(currentPermissions);
-    if (currentSet.size !== selectedPermissions.size) return true;
-    
-    for (const permission of selectedPermissions) {
-      if (!currentSet.has(permission)) return true;
-    }
-    
-    return false;
+    return selectedAccessLevel !== currentAccessLevel;
   };
 
   return (
@@ -262,7 +164,7 @@ export default function EditUserPermissionsDialog({
         <DialogHeader>
           <DialogTitle>Editar Permisos de Usuario</DialogTitle>
         </DialogHeader>
-        
+
         <div className="space-y-6">
           {/* User Info */}
           <div className="flex items-center space-x-3">
@@ -273,72 +175,42 @@ export default function EditUserPermissionsDialog({
               <span className="font-medium">{userName}</span>
               <span className="text-sm text-gray-500">{userEmail}</span>
             </div>
-            <Badge className={getAccessLevelColor(selectedPermissions)}>
-              {getAccessLevelText(selectedPermissions)}
+            <Badge className={getAccessLevelColor(selectedAccessLevel)}>
+              {getAccessLevelText(selectedAccessLevel)}
             </Badge>
           </div>
 
-          {/* Quick Access Levels */}
-          <div className="flex gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => handleQuickAccessLevel("read")}
-              className="flex-1"
-            >
-              Solo Lectura
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => handleQuickAccessLevel("write")}
-              className="flex-1"
-            >
-              Lectura y Escritura
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => handleQuickAccessLevel("full")}
-              className="flex-1"
-            >
-              Acceso Completo
-            </Button>
-          </div>
-
-          {/* Granular Permissions */}
+          {/* Access Level Selection */}
           <div className="space-y-4">
-            {Object.entries(permissionsByCategory).map(([category, permissions]) => (
-              <div key={category}>
-                <h4 className="font-medium text-gray-900 mb-3">{category}</h4>
-                <div className="space-y-2">
-                  {permissions.map((permission) => (
-                    <div key={permission.key} className="flex items-center justify-between p-3 border rounded-lg">
-                      <div className="flex items-center space-x-3">
-                        <Checkbox
-                          id={permission.key}
-                          checked={selectedPermissions.has(permission.key)}
-                          onCheckedChange={(checked) => 
-                            handlePermissionToggle(permission.key, checked as boolean)
-                          }
-                        />
-                        <div className="flex flex-col">
-                          <Label 
-                            htmlFor={permission.key}
-                            className="font-medium cursor-pointer"
-                          >
-                            {permission.label}
-                          </Label>
-                          <span className="text-sm text-gray-500">
-                            {permission.description}
-                          </span>
-                        </div>
-                      </div>
+            <h4 className="font-medium text-gray-900">Nivel de Acceso</h4>
+            <div className="space-y-3">
+              {accessLevelOptions.map((option) => (
+                <div
+                  key={option.value}
+                  className={`flex items-start space-x-3 p-4 border rounded-lg cursor-pointer transition-colors ${
+                    selectedAccessLevel === option.value
+                      ? "border-blue-500 bg-blue-50"
+                      : "border-gray-200 hover:border-gray-300"
+                  }`}
+                  onClick={() => handleAccessLevelChange(option.value)}
+                >
+                  <input
+                    type="radio"
+                    name="accessLevel"
+                    value={option.value}
+                    checked={selectedAccessLevel === option.value}
+                    onChange={() => handleAccessLevelChange(option.value)}
+                    className="mt-1"
+                  />
+                  <div className="flex-1">
+                    <div className="font-medium">{option.label}</div>
+                    <div className="text-sm text-gray-500 mt-1">
+                      {option.description}
                     </div>
-                  ))}
+                  </div>
                 </div>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
 
           {/* Action Buttons */}
@@ -346,8 +218,8 @@ export default function EditUserPermissionsDialog({
             <Button variant="outline" onClick={() => setIsOpen(false)}>
               Cancelar
             </Button>
-            <Button 
-              onClick={handleUpdatePermissions} 
+            <Button
+              onClick={handleUpdatePermissions}
               disabled={isSubmitting || !hasChanges()}
             >
               {isSubmitting ? (
@@ -362,4 +234,4 @@ export default function EditUserPermissionsDialog({
       </DialogContent>
     </Dialog>
   );
-} 
+}

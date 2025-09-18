@@ -1,6 +1,7 @@
 import { v } from "convex/values";
 import { query, mutation, action } from "../_generated/server";
-import { getCurrentUserFromAuth, requireAuth, requireCaseAccess } from "../auth_utils";
+import { getCurrentUserFromAuth } from "../auth_utils";
+import { requireNewCaseAccess } from "../auth_utils";
 
 // ========================================
 // CLERK USER SYNC FUNCTIONS
@@ -152,24 +153,24 @@ export const searchUsers = query({
   args: { searchTerm: v.string() },
   handler: async (ctx, args) => {
     const currentUser = await getCurrentUserFromAuth(ctx);
-    
+
     const term = args.searchTerm.toLowerCase();
-    
+
     // Search by email (exact match or contains)
     const emailResults = await ctx.db
       .query("users")
       .withIndex("by_email")
       .collect();
-    
-    const filteredResults = emailResults.filter(user => 
-      user._id !== currentUser._id && (
-        user.email.toLowerCase().includes(term) ||
-        (user.name && user.name.toLowerCase().includes(term))
-      )
+
+    const filteredResults = emailResults.filter(
+      (user) =>
+        user._id !== currentUser._id &&
+        (user.email.toLowerCase().includes(term) ||
+          (user.name && user.name.toLowerCase().includes(term))),
     );
-    
+
     // Limit results and return only necessary fields
-    return filteredResults.slice(0, 10).map(user => ({
+    return filteredResults.slice(0, 10).map((user) => ({
       _id: user._id,
       email: user.email,
       name: user.name,
@@ -292,11 +293,11 @@ export const searchAvailableUsersForCase = query({
   },
   handler: async (ctx, args) => {
     // Require case access to search for users
-    await requireCaseAccess(ctx, args.caseId, "read");
-    
-    // Get current user to exclude from results
     const currentUser = await getCurrentUserFromAuth(ctx);
-    
+    await requireNewCaseAccess(ctx, currentUser._id, args.caseId, "basic");
+
+    // Get current user to exclude from results
+
     const trimmedSearch = args.searchTerm.trim();
     if (trimmedSearch.length === 0) {
       return [];
@@ -304,22 +305,22 @@ export const searchAvailableUsersForCase = query({
 
     // Get all users that match the search term (using same logic as searchUsers)
     const term = trimmedSearch.toLowerCase();
-    
+
     // Get all users and filter by search term
-    const allUsers = await ctx.db
-      .query("users")
-      .collect();
-    
-    const matchingUsers = allUsers.filter(user => 
-      user._id !== currentUser._id && (
-        user.email.toLowerCase().includes(term) ||
-        (user.name && user.name.toLowerCase().includes(term))
-      )
+    const allUsers = await ctx.db.query("users").collect();
+
+    const matchingUsers = allUsers.filter(
+      (user) =>
+        user._id !== currentUser._id &&
+        (user.email.toLowerCase().includes(term) ||
+          (user.name && user.name.toLowerCase().includes(term))),
     );
 
     const searchResults = matchingUsers.slice(0, 20);
-    
-    console.log(`Search term: "${term}", Total users: ${allUsers.length}, Matching users: ${matchingUsers.length}, Search results: ${searchResults.length}`);
+
+    console.log(
+      `Search term: "${term}", Total users: ${allUsers.length}, Matching users: ${matchingUsers.length}, Search results: ${searchResults.length}`,
+    );
 
     if (searchResults.length === 0) {
       return [];
@@ -347,10 +348,12 @@ export const searchAvailableUsersForCase = query({
       .query("userCaseAccess")
       .withIndex("by_case", (q) => q.eq("caseId", args.caseId))
       .filter((q) => q.eq(q.field("isActive"), true))
-      .filter((q) => q.or(
-        q.eq(q.field("expiresAt"), undefined),
-        q.gt(q.field("expiresAt"), Date.now())
-      ))
+      .filter((q) =>
+        q.or(
+          q.eq(q.field("expiresAt"), undefined),
+          q.gt(q.field("expiresAt"), Date.now()),
+        ),
+      )
       .collect();
 
     for (const access of individualAccesses) {
@@ -382,22 +385,26 @@ export const searchAvailableUsersForCase = query({
       .query("teamMemberCaseAccess")
       .withIndex("by_case", (q) => q.eq("caseId", args.caseId))
       .filter((q) => q.eq(q.field("isActive"), true))
-      .filter((q) => q.or(
-        q.eq(q.field("expiresAt"), undefined),
-        q.gt(q.field("expiresAt"), Date.now())
-      ))
+      .filter((q) =>
+        q.or(
+          q.eq(q.field("expiresAt"), undefined),
+          q.gt(q.field("expiresAt"), Date.now()),
+        ),
+      )
       .collect();
 
     for (const access of teamMemberAccesses) {
       usersWithAccess.add(access.userId);
     }
 
-    console.log(`Users with access to case: ${Array.from(usersWithAccess).length}`);
-    
+    console.log(
+      `Users with access to case: ${Array.from(usersWithAccess).length}`,
+    );
+
     // Filter out users that already have access and return in same format as searchUsers
     const availableUsers = searchResults
-      .filter(user => !usersWithAccess.has(user._id))
-      .map(user => ({
+      .filter((user) => !usersWithAccess.has(user._id))
+      .map((user) => ({
         _id: user._id,
         email: user.email,
         name: user.name,

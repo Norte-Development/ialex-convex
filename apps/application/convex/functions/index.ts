@@ -13,10 +13,7 @@ export {
 } from "./users";
 
 // Client Management
-export {
-  createClient,
-  getClients,
-} from "./clients";
+export { createClient, getClients } from "./clients";
 
 // Case Management
 export {
@@ -37,8 +34,8 @@ export {
   getUsersWithCaseAccess,
   getUserCasePermissions,
   hasPermission,
-  grantTeamMemberCaseAccess,
-  getTeamMembersWithCaseAccess,
+  getNewUsersWithCaseAccess,
+  grantNewUserCaseAccess,
 } from "./permissions";
 
 // Document Management
@@ -55,9 +52,7 @@ export {
 } from "./documents";
 
 // Escrito Transforms
-export {
-  applyTextBasedOperations,
-} from "./escritosTransforms";
+export { applyTextBasedOperations } from "./escritosTransforms";
 
 // Test Read Escrito Helpers
 export {
@@ -65,12 +60,7 @@ export {
 } from "./testReadEscritoHelpers";
 
 // Template Management (Modelos)
-export {
-  createModelo,
-  getModelos,
-  incrementModeloUsage,
-} from "./templates";
-
+export { createModelo, getModelos, incrementModeloUsage } from "./templates";
 
 // Team Management
 export {
@@ -81,8 +71,10 @@ export {
   leaveTeam,
   getTeamMembers,
   getUserTeams,
-  grantTeamCaseAccess,
-  revokeTeamCaseAccess,
-  getTeamsWithCaseAccess,
+  grantNewTeamCaseAccess,
+  revokeNewTeamCaseAccess,
   getCasesAccessibleByTeam,
+  getTeamMembersWithCaseAccess,
+  getTeamsWithCaseAccess,
+  grantTeamMemberCaseAccess,
 } from "./teams";
