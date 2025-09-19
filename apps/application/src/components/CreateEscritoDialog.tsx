@@ -96,7 +96,10 @@ export function CreateEscritoDialog({
         expedientNumber: formData.expedientNumber.trim() || undefined,
       };
 
-      const escritoId = await createEscrito(escritoData);
+      const result = await createEscrito(escritoData);
+      
+      // Extract the escritoId from the result object
+      const escritoId = result.escritoId;
 
       resetForm();
       setOpen(false);
