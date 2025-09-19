@@ -1,23 +1,8 @@
 'use node'
 
-import { MongoClient } from 'mongodb';
-import { embed } from "ai";
-import { openai } from "@ai-sdk/openai";
-import qdrantClient from "../rag/qdrant";
-import {
-  CorpusSearchParams,
-  IntraDocSearchParams,
-  SearchResult,
-  ChunkSearchResult,
-  NormativeDoc,
-  Relacion,
-  NormativeFilters,
-  ListNormativesParams,
-  Estado,
-  NormativesFacets,
-  SortBy,
-  SortOrder
-} from "../../types/legislation";
+import { MongoClient, Filter, Sort, Document, ObjectId } from 'mongodb';
+import { NormativeDoc, NormativeFilters, ListNormativesParams, SortBy, SortOrder } from '../../types/legislation';
+import { client as qdrantClient } from '../rag/qdrantUtils';
 
 // External service clients - lazy initialization
 let mongoClient: MongoClient | null = null;
@@ -33,309 +18,329 @@ const getMongoClient = (): MongoClient => {
   return mongoClient;
 };
 
-// Qdrant collection naming convention for legislation
-const getNormativesCollectionName = (jurisdiction: string) => `legislacion_${jurisdiction}`;
-const getChunksCollectionName = (jurisdiction: string) => `legislacion_${jurisdiction}_chunks`;
-
-// MongoDB collection naming convention
-const getMongoCollectionName = (jurisdiction: string) => `legislacion_${jurisdiction}`;
-
-export class LegislationService {
-  private db: any;
-
-  constructor() {
-    this.db = getMongoClient().db('ialex_legislation');
-  }
-
-  // Get MongoDB collection for a specific jurisdiction
-  private getNormativesCollection(jurisdiction: string) {
-    return this.db.collection(getMongoCollectionName(jurisdiction));
-  }
-
-  // Ensure returned objects are Convex-serializable (no ObjectId, no Date)
-  private sanitizeNormative(doc: any): NormativeDoc {
-    if (!doc) return doc;
-    const { _id, created_at, updated_at, ...rest } = doc;
-    const created = created_at instanceof Date ? created_at.toISOString() : created_at;
-    const updated = updated_at instanceof Date ? updated_at.toISOString() : updated_at;
-    return {
-      ...rest,
-      ...(created ? { created_at: created } : {}),
-      ...(updated ? { updated_at: updated } : {}),
-    } as NormativeDoc;
-  }
-
-  private buildMongoQuery(filters?: NormativeFilters) {
-    const query: any = {};
-    if (!filters) return query;
-    if (filters.tipo) query.tipo = filters.tipo;
-    if (filters.provincia) query.provincia = filters.provincia;
-    if (filters.estado) query.estado = filters.estado;
-    if (filters.vigencia_actual !== undefined) query.vigencia_actual = filters.vigencia_actual;
-    if (filters.promulgacion_from || filters.promulgacion_to) {
-      query.promulgacion = {};
-      if (filters.promulgacion_from) query.promulgacion.$gte = filters.promulgacion_from;
-      if (filters.promulgacion_to) query.promulgacion.$lte = filters.promulgacion_to;
-    }
-    return query;
-  }
-
-  private buildMongoSort(sortBy?: SortBy, sortOrder?: SortOrder) {
-    if (!sortBy) return undefined;
-    const order = sortOrder === "asc" ? 1 : -1;
-    const sort: any = {};
-    switch (sortBy) {
-      case "promulgacion":
-        sort.promulgacion = order;
-        break;
-      case "created_at":
-        sort.created_at = order;
-        break;
-      case "updated_at":
-        sort.updated_at = order;
-        break;
-      default:
-        break;
-    }
-    return sort;
-  }
-
-  // Corpus-level semantic search using Qdrant for a specific jurisdiction
-  async searchNormativesCorpus(jurisdiction: string, params: CorpusSearchParams): Promise<SearchResult[]> {
-    const { query, tipo, provincia, estado, promulgacion_from, promulgacion_to, vigencia_actual, limit = 10 } = params;
-
+// Utility function to convert documentId to ObjectId if it's a valid ObjectId string
+const convertToObjectId = (id: string): ObjectId | string => {
+  // Check if the id is a valid ObjectId (24 hex characters)
+  if (/^[0-9a-fA-F]{24}$/.test(id)) {
     try {
-      // Generate embedding for query
-      const vector = await embed({
-        model: openai.textEmbeddingModel("text-embedding-3-small"),
-        value: query,
-      });
-
-      // Build Qdrant filter
-      const qdrantFilter: any = {};
-      const mustConditions = [];
-      
-      if (tipo) {
-        mustConditions.push({ key: "tipo", match: { value: tipo } });
-      }
-      if (provincia) {
-        mustConditions.push({ key: "provincia", match: { value: provincia } });
-      }
-      if (estado) {
-        mustConditions.push({ key: "estado", match: { value: estado } });
-      }
-      if (vigencia_actual !== undefined) {
-        mustConditions.push({ key: "vigencia_actual", match: { value: vigencia_actual } });
-      }
-      if (promulgacion_from || promulgacion_to) {
-        const rangeFilter: any = { key: "promulgacion", range: {} };
-        if (promulgacion_from) rangeFilter.range.gte = promulgacion_from;
-        if (promulgacion_to) rangeFilter.range.lte = promulgacion_to;
-        mustConditions.push(rangeFilter);
-      }
-
-      if (mustConditions.length > 0) {
-        qdrantFilter.must = mustConditions;
-      }
-
-      // Search Qdrant for the specific jurisdiction
-      const collectionName = getNormativesCollectionName(jurisdiction);
-      const searchResults = await qdrantClient.search(collectionName, {
-        vector: vector.embedding,
-        limit,
-        filter: Object.keys(qdrantFilter).length > 0 ? qdrantFilter : undefined,
-      });
-
-      // Transform results
-      return searchResults.map(result => ({
-        id: result.payload?.id as string,
-        tipo: result.payload?.tipo as string,
-        titulo: result.payload?.titulo as string,
-        resumen: result.payload?.resumen as string | undefined,
-        score: result.score || 0,
-        provincia: result.payload?.provincia as string | undefined,
-        estado: result.payload?.estado as Estado,
-        promulgacion: result.payload?.promulgacion as string | undefined,
-        vigencia_actual: result.payload?.vigencia_actual as boolean | undefined,
-      }));
+      return new ObjectId(id);
     } catch (error) {
-      console.error("Error in searchNormativesCorpus:", error);
-      throw new Error(`Failed to search normatives corpus for jurisdiction ${jurisdiction}: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      // If conversion fails, return the original string
+      return id;
+    }
+  }
+  // If it's not a valid ObjectId format, return as string (for document_id queries)
+  return id;
+};
+
+// Build MongoDB filter from filters object
+const buildMongoFilter = (filters: NormativeFilters): Filter<Document> => {
+  const mongoFilter: Filter<Document> = {};
+
+  // Jurisdiccion filter
+  if (filters.jurisdiccion) {
+    mongoFilter.jurisdiccion = filters.jurisdiccion;
+  }
+
+  // Tipo norma filter
+  if (filters.type) {
+    mongoFilter.tipo_norma = filters.type;
+  }
+
+  // Estado filter
+  if (filters.estado) {
+    mongoFilter.estado = filters.estado;
+  }
+
+  // Date range filters
+  if (filters.sanction_date_from || filters.sanction_date_to) {
+    mongoFilter.sanction_date = {};
+    if (filters.sanction_date_from) {
+      mongoFilter.sanction_date.$gte = new Date(filters.sanction_date_from);
+    }
+    if (filters.sanction_date_to) {
+      mongoFilter.sanction_date.$lte = new Date(filters.sanction_date_to);
     }
   }
 
-  // Intra-document semantic search using Qdrant for a specific jurisdiction
-  async searchNormativeChunks(jurisdiction: string, params: IntraDocSearchParams): Promise<ChunkSearchResult[]> {
-    const { query, normative_ids, limit = 10 } = params;
+  // Publication date range
+  if (filters.publication_date_from || filters.publication_date_to) {
+    mongoFilter.publication_date = {};
+    if (filters.publication_date_from) {
+      mongoFilter.publication_date.$gte = new Date(filters.publication_date_from);
+    }
+    if (filters.publication_date_to) {
+      mongoFilter.publication_date.$lte = new Date(filters.publication_date_to);
+    }
+  }
 
-    try {
-      // Generate embedding for query
-      const vector = await embed({
-        model: openai.textEmbeddingModel("text-embedding-3-small"),
-        value: query,
-      });
+  // Number filter
+  if (filters.number) {
+    mongoFilter.number = filters.number;
+  }
 
-      // Search Qdrant with normative_id filter for the specific jurisdiction
-      const collectionName = getChunksCollectionName(jurisdiction);
-      const searchResults = await qdrantClient.search(collectionName, {
-        vector: vector.embedding,
-        limit,
-        filter: {
-          must: [
+  // Text search in title and content
+  if (filters.search) {
+    mongoFilter.$or = [
+      { title: { $regex: filters.search, $options: 'i' } },
+      { content: { $regex: filters.search, $options: 'i' } }
+    ];
+  }
+
+  return mongoFilter;
+};
+
+// Build MongoDB sort from sort parameters
+const buildMongoSort = (sortBy?: SortBy, sortOrder: SortOrder = 'desc'): Sort => {
+  const order = sortOrder === 'asc' ? 1 : -1;
+  
+  switch (sortBy) {
+    case 'sanction_date':
+      return { sanction_date: order };
+    case 'updated_at':
+      return { updated_at: order };
+    case 'created_at':
+      return { indexed_at: order }; // using indexed_at as created_at equivalent
+    default:
+      return { sanction_date: order }; // default sort by sanction date
+  }
+};
+
+export interface PaginatedResult<T> {
+  items: T[];
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+    hasNext: boolean;
+    hasPrev: boolean;
+  };
+}
+
+export const getNormatives = async (params: ListNormativesParams = {}): Promise<PaginatedResult<NormativeDoc>> => {
+  const mongoClient = getMongoClient();
+  const db = mongoClient.db('ialex_legislation');
+  const collection = db.collection('ialex_legislation_py');
+
+  const {
+    filters = {},
+    limit = 20,
+    offset = 0,
+    sortBy,
+    sortOrder = 'desc'
+  } = params;
+
+  // Validate limit to prevent excessive data retrieval
+  const validatedLimit = Math.min(Math.max(1, limit), 100);
+  const validatedOffset = Math.max(0, offset);
+
+  // Build MongoDB filter and sort
+  const mongoFilter = buildMongoFilter(filters);
+  const mongoSort = buildMongoSort(sortBy, sortOrder);
+
+  console.log('MongoDB filter:', JSON.stringify(mongoFilter, null, 2));
+  console.log('MongoDB sort:', mongoSort);
+
+  try {
+    // Get total count for pagination
+    const total = await collection.countDocuments(mongoFilter);
+
+    // Get paginated results with limited fields (exclude large content fields)
+    const normatives = await collection
+      .find(mongoFilter)
+      .project({
+        // Exclude large content fields to improve performance
+        content: 0,
+        texto: 0,
+        articulos: 0,
+        aprobacion: 0,
+        relaciones: 0,
+        created_at: 0,
+        updated_at: 0,
+        content_hash: 0
+      })
+      .sort(mongoSort)
+      .skip(validatedOffset)
+      .limit(validatedLimit)
+      .toArray();
+
+    // Map normatives to ensure consistent data structure
+    const mappedNormatives: NormativeDoc[] = normatives.map((normative) => ({
+      _id: normative._id.toString(),
+      document_id: normative.document_id,
+      type: normative.tipo_norma || normative.type,
+      title: normative.title,
+      jurisdiccion: normative.jurisdiccion,
+      estado: normative.estado,
+      country_code: normative.country_code,
+      numero: normative.numero,
+      fuente: normative.fuente,
+      dates: {
+        publication_date: normative.publication_date,
+        sanction_date: normative.sanction_date,
+        indexed_at: normative.indexed_at
+      },
+      materia: normative.materia,
+      tags: normative.tags,
+      subestado: normative.subestado,
+      resumen: normative.resumen,
+      url: normative.url
+    }));
+
+    // Calculate pagination info
+    const page = Math.floor(validatedOffset / validatedLimit) + 1;
+    const totalPages = Math.ceil(total / validatedLimit);
+
+    return {
+      items: mappedNormatives,
+      pagination: {
+        page,
+        limit: validatedLimit,
+        total,
+        totalPages,
+        hasNext: validatedOffset + validatedLimit < total,
+        hasPrev: validatedOffset > 0
+      }
+    };
+  } catch (error) {
+    console.error('Error fetching normatives:', error);
+    throw new Error('Failed to fetch normatives');
+  }
+};
+
+// Get a single normative by document_id (limited fields, no content)
+export const getNormativeById = async (documentId: string): Promise<NormativeDoc | null> => {
+  const mongoClient = getMongoClient();
+  const db = mongoClient.db('ialex_legislation');
+  const collection = db.collection('ialex_legislation_py');
+
+  try {
+
+    // Create query filter - try both _id and document_id
+    const queryFilter = { document_id: documentId }
+      
+
+    // Use projection to limit fields returned from MongoDB (exclude large content fields)
+    const normative = await collection.findOne(
+      queryFilter,
+      {
+        projection: {
+          // Exclude large content fields to improve performance
+          texto: 0,
+          articulos: 0,
+          aprobacion: 0,
+          relaciones: 0,
+          created_at: 0,
+          updated_at: 0,
+          content_hash: 0
+        }
+      }
+    );
+
+    if (!normative) {
+      return null;
+    }
+
+    return {
+      _id: normative._id.toString(),
+      document_id: normative.document_id,
+      type: normative.tipo_norma || normative.type,
+      title: normative.title,
+      jurisdiccion: normative.jurisdiccion,
+      estado: normative.estado,
+      country_code: normative.country_code,
+      numero: normative.number,
+      fuente: normative.fuente,
+      dates: {
+        publication_date: normative.publication_date,
+        sanction_date: normative.sanction_date,
+        indexed_at: normative.indexed_at
+      },
+      materia: normative.materia,
+      tags: normative.tags,
+      subestado: normative.subestado,
+      resumen: normative.resumen,
+      url: normative.url,
+      content: normative.content,
+    };
+  } catch (error) {
+    console.error('Error fetching normative by ID:', error);
+    throw new Error('Failed to fetch normative');
+  }
+};
+
+// Get facets for filter options
+export const getNormativesFacets = async (filters: NormativeFilters = {}) => {
+  const mongoClient = getMongoClient();
+  const db = mongoClient.db('ialex_legislation');
+  const collection = db.collection('ialex_legislation_py');
+
+  const baseFilter = buildMongoFilter(filters);
+
+  try {
+    const facetsAggregation = [
+      { $match: baseFilter },
+      {
+        $facet: {
+          jurisdicciones: [
+            { $group: { _id: '$jurisdiccion', count: { $sum: 1 } } },
+            { $sort: { count: -1 } }
+          ],
+          tipos: [
+            { $group: { _id: '$tipo_norma', count: { $sum: 1 } } },
+            { $sort: { count: -1 } }
+          ],
+          estados: [
+            { $group: { _id: '$estado', count: { $sum: 1 } } },
+            { $sort: { count: -1 } }
+          ],
+          years: [
             {
-              key: "normative_id",
-              match: {
-                any: normative_ids
+              $addFields: {
+                parsedSanctionDate: {
+                  $dateFromString: {
+                    dateString: '$sanction_date',
+                    onError: null
+                  }
+                }
               }
-            }
+            },
+            {
+              $match: {
+                parsedSanctionDate: { $ne: null }
+              }
+            },
+            {
+              $group: {
+                _id: { $year: '$parsedSanctionDate' },
+                count: { $sum: 1 }
+              }
+            },
+            { $sort: { _id: -1 } }
           ]
         }
-      });
+      }
+    ];
 
-      // Transform results
-      return searchResults.map(result => ({
-        normative_id: result.payload?.normative_id as string,
-        article: result.payload?.article as string | undefined,
-        section: result.payload?.section as string | undefined,
-        text: result.payload?.text as string,
-        score: result.score || 0,
-        chunk_index: result.payload?.chunk_index as number,
-      }));
-    } catch (error) {
-      console.error("Error in searchNormativeChunks:", error);
-      throw new Error(`Failed to search normative chunks for jurisdiction ${jurisdiction}: ${error instanceof Error ? error.message : 'Unknown error'}`);
-    }
+    const [facetsResult] = await collection.aggregate(facetsAggregation).toArray();
+
+    return {
+      jurisdicciones: Object.fromEntries(
+        facetsResult.jurisdicciones.map((item: any) => [item._id, item.count])
+      ),
+      tipos: Object.fromEntries(
+        facetsResult.tipos.map((item: any) => [item._id, item.count])
+      ),
+      estados: Object.fromEntries(
+        facetsResult.estados.map((item: any) => [item._id, item.count])
+      ),
+      years: Object.fromEntries(
+        facetsResult.years.map((item: any) => [item._id, item.count])
+      )
+    };
+  } catch (error) {
+    console.error('Error fetching facets:', error);
+    throw new Error('Failed to fetch facets');
   }
-
-  // Get full normative from MongoDB for a specific jurisdiction
-  async getNormative(jurisdiction: string, id: string): Promise<NormativeDoc | null> {
-    try {
-      const collection = this.getNormativesCollection(jurisdiction);
-      const doc = await collection.findOne({ id });
-      return doc ? this.sanitizeNormative(doc) : null;
-    } catch (error) {
-      console.error("Error in getNormative:", error);
-      throw new Error(`Failed to get normative for jurisdiction ${jurisdiction}: ${error instanceof Error ? error.message : 'Unknown error'}`);
-    }
-  }
-
-  // List normatives with filters from MongoDB for a specific jurisdiction
-  async listNormatives(jurisdiction: string, params: ListNormativesParams): Promise<{ items: NormativeDoc[]; total: number }> {
-    const { filters, limit = 50, offset = 0, sortBy, sortOrder } = params;
-
-    try {
-      const collection = this.getNormativesCollection(jurisdiction);
-      const query = this.buildMongoQuery(filters);
-      const sort = this.buildMongoSort(sortBy, sortOrder);
-
-      const [rawItems, total] = await Promise.all([
-        collection
-          .find(query)
-          .sort(sort || {})
-          .limit(limit)
-          .skip(offset)
-          .toArray(),
-        collection.countDocuments(query)
-      ]);
-
-      const items = rawItems.map((doc: any) => this.sanitizeNormative(doc));
-      return { items, total };
-    } catch (error) {
-      console.error("Error in listNormatives:", error);
-      throw new Error(`Failed to list normatives for jurisdiction ${jurisdiction}: ${error instanceof Error ? error.message : 'Unknown error'}`);
-    }
-  }
-
-  async getNormativesFacets(jurisdiction: string, filters?: NormativeFilters): Promise<NormativesFacets> {
-    try {
-      const collection = this.getNormativesCollection(jurisdiction);
-      const match = this.buildMongoQuery(filters);
-
-      const pipeline = [
-        { $match: match },
-        {
-          $facet: {
-            tipos: [
-              { $group: { _id: "$tipo", count: { $sum: 1 } } },
-            ],
-            provincias: [
-              { $group: { _id: "$provincia", count: { $sum: 1 } } },
-            ],
-            estados: [
-              { $group: { _id: "$estado", count: { $sum: 1 } } },
-            ],
-          }
-        }
-      ];
-
-      const [result] = await collection.aggregate(pipeline).toArray();
-
-      const mapArrayToRecord = (arr: Array<{ _id: string; count: number }>) =>
-        (arr || []).reduce((acc: Record<string, number>, cur) => {
-          if (cur._id) acc[cur._id] = cur.count;
-          return acc;
-        }, {});
-
-      return {
-        tipos: mapArrayToRecord(result?.tipos || []),
-        provincias: mapArrayToRecord(result?.provincias || []),
-        estados: mapArrayToRecord(result?.estados || []),
-      } as NormativesFacets;
-    } catch (error) {
-      console.error("Error in getNormativesFacets:", error);
-      throw new Error(`Failed to get facets for jurisdiction ${jurisdiction}: ${error instanceof Error ? error.message : 'Unknown error'}`);
-    }
-  }
-
-  // Get related normatives from MongoDB for a specific jurisdiction
-  async getRelatedNormatives(jurisdiction: string, id: string): Promise<Relacion[]> {
-    try {
-      const collection = this.getNormativesCollection(jurisdiction);
-      const normative = await collection.findOne({ id });
-      return normative?.relaciones || [];
-    } catch (error) {
-      console.error("Error in getRelatedNormatives:", error);
-      throw new Error(`Failed to get related normatives for jurisdiction ${jurisdiction}: ${error instanceof Error ? error.message : 'Unknown error'}`);
-    }
-  }
-
-  // Test connection to external services for a specific jurisdiction
-  async testConnections(jurisdiction: string): Promise<{ mongodb: boolean; qdrant: boolean }> {
-    const results = { mongodb: false, qdrant: false };
-
-    try {
-      // Test MongoDB connection
-      await this.db.admin().ping();
-      results.mongodb = true;
-    } catch (error) {
-      console.error("MongoDB connection test failed:", error);
-    }
-
-    try {
-      // Test Qdrant connection and check if jurisdiction collections exist
-      const collections = await qdrantClient.getCollections();
-      const normativesCollectionName = getNormativesCollectionName(jurisdiction);
-      const chunksCollectionName = getChunksCollectionName(jurisdiction);
-      
-      const collectionNames = collections.collections.map(c => c.name);
-      results.qdrant = collectionNames.includes(normativesCollectionName) && collectionNames.includes(chunksCollectionName);
-    } catch (error) {
-      console.error("Qdrant connection test failed:", error);
-    }
-
-    return results;
-  }
-
-  // Get available jurisdictions by checking existing collections
-  async getAvailableJurisdictions(): Promise<string[]> {
-    // Do NOT query Qdrant for this. Use env or static defaults.
-    const envList = process.env.LEGISLATION_JURISDICTIONS;
-    if (envList && envList.trim().length > 0) {
-      return envList
-        .split(",")
-        .map((s) => s.trim())
-        .filter((s) => s.length > 0);
-    }
-    return ["nacional", "buenos_aires", "caba", "cordoba", "santa_fe", "mendoza"];
-  }
-}
+};

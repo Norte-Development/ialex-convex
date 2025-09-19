@@ -12,8 +12,8 @@ interface FiltersPanelProps {
   jurisdictions: string[]
   jurisdiction: string
   facets?: {
-    tipos?: Record<string, number>
-    provincias?: Record<string, number>
+    types?: Record<string, number>
+    jurisdicciones?: Record<string, number>
     estados?: Record<string, number>
   }
 }
@@ -56,8 +56,8 @@ export function FiltersPanel({
               Tipo
             </label>
             <Select
-              value={filters.tipo || ""}
-              onValueChange={(value) => onFilterChange("tipo", value === "all" ? undefined : value)}
+              value={filters.type || ""}
+              onValueChange={(value) => onFilterChange("type", value === "all" ? undefined : value)}
             >
               <SelectTrigger>
                 <SelectValue placeholder="Todos los tipos" />
@@ -67,7 +67,9 @@ export function FiltersPanel({
                 {tipoOptions.map((tipo) => (
                   <SelectItem key={tipo} value={tipo}>
                     {tipo.charAt(0).toUpperCase() + tipo.slice(1)}
-                    {facets?.tipos?.[tipo] && <span className="text-gray-500 ml-1">({facets.tipos[tipo]})</span>}
+                    {facets?.types?.[tipo] && (
+                      <span className="text-gray-500 ml-1">({facets.types[tipo]})</span>
+                    )}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -77,24 +79,24 @@ export function FiltersPanel({
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
               <MapPin className="w-4 h-4 inline mr-1" />
-              Provincia
+              Jurisdicción
             </label>
             <Select
-              value={filters.provincia || ""}
-              onValueChange={(value) => onFilterChange("provincia", value === "all" ? undefined : value)}
+              value={filters.jurisdiccion || ""}
+              onValueChange={(value) => onFilterChange("jurisdiccion", value === "all" ? undefined : value)}
             >
               <SelectTrigger>
-                <SelectValue placeholder="Todas las provincias" />
+                <SelectValue placeholder="Todas las jurisdicciones" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Todas</SelectItem>
                 {jurisdictions
                   .filter((j) => j !== jurisdiction)
-                  .map((provincia) => (
-                    <SelectItem key={provincia} value={provincia}>
-                      {provincia.charAt(0).toUpperCase() + provincia.slice(1)}
-                      {facets?.provincias?.[provincia] && (
-                        <span className="text-gray-500 ml-1">({facets.provincias[provincia]})</span>
+                  .map((jurisdiccion) => (
+                    <SelectItem key={jurisdiccion} value={jurisdiccion}>
+                      {jurisdiccion.charAt(0).toUpperCase() + jurisdiccion.slice(1)}
+                      {facets?.jurisdicciones?.[jurisdiccion] && (
+                        <span className="text-gray-500 ml-1">({facets.jurisdicciones[jurisdiccion]})</span>
                       )}
                     </SelectItem>
                   ))}
@@ -134,8 +136,8 @@ export function FiltersPanel({
             </label>
             <Input
               type="date"
-              value={filters.promulgacion_from || ""}
-              onChange={(e) => onFilterChange("promulgacion_from", e.target.value || undefined)}
+              value={filters.sanction_date_from || ""}
+              onChange={(e) => onFilterChange("sanction_date_from", e.target.value || undefined)}
             />
           </div>
 
@@ -146,8 +148,8 @@ export function FiltersPanel({
             </label>
             <Input
               type="date"
-              value={filters.promulgacion_to || ""}
-              onChange={(e) => onFilterChange("promulgacion_to", e.target.value || undefined)}
+              value={filters.sanction_date_to || ""}
+              onChange={(e) => onFilterChange("sanction_date_to", e.target.value || undefined)}
             />
           </div>
 

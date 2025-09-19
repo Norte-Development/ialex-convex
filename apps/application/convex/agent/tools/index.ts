@@ -8,6 +8,9 @@ export { queryDocumentTool } from './queryDocumentTool';
 export { listCaseDocumentsTool } from './listCaseDocumentsTool';
 export { getEscritoStatsTool } from './getEscritoStatsTool';
 export { readEscritoTool } from './readEscritoTool';
+export { searchLegislationTool } from './searchLegislationTool';
+export { legislationFindTool } from './legislationFindTool';
+export { legislationReadTool } from './legislationReadTool';
 
 // Export validation helpers
 export { validateEditType, validateMarkType, validateParagraphType } from './validation';

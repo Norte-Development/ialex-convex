@@ -66,7 +66,7 @@ export const searchCaseDocumentsTool = createTool({
     const caseId = threadUserId.substring(5).split("_")[0]; // Remove "case:" prefix and get caseId part
 
     // Call the action to perform the search with clustering
-    return await ctx.runAction(api.rag.qdrant.searchCaseDocumentsWithClustering, {
+    return await ctx.runAction(api.rag.qdrantUtils.caseDocuments.searchCaseDocumentsWithClustering, {
       query: args.query.trim(),
       caseId,
       limit: Math.min(limit, 50), // Cap at 50 to prevent abuse

@@ -9,10 +9,11 @@ import { OnboardingWrapper } from "./components/Auth/OnboardingWrapper";
 import { SignInPage } from "./components/Auth/SignInPage";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ThreadProvider } from "./context/ThreadContext";
-import { CaseProvider } from "./context/CaseContext";
+import { CaseProvider, useCase } from "./context/CaseContext";
 import { HighlightProvider } from "./context/HighlightContext";
 import { EscritoProvider } from "./context/EscritoContext";
 import { PageProvider } from "./context/PageContext";
+import { CasePermissionsProvider } from "./context/CasePermissionsContext";
 
 // Lazy load pages to reduce initial bundle size
 const HomePage = lazy(() => import("./pages/HomePage"));
@@ -31,9 +32,50 @@ const CaseClientsPage = lazy(() => import("./pages/CaseOpen/CaseClientPage"));
 const CaseTeamsPage = lazy(() => import("./pages/CaseOpen/CaseTeamsPage"));
 const CaseModelPage = lazy(() => import("./pages/CaseOpen/CaseModelPage"));
 const CaseDataBasePage = lazy(() => import("./pages/CaseOpen/CaseDataBase"));
-const CaseDocumentPage = lazy(() => import("./pages/CaseOpen/CaseDocumentPage"));
+const CaseDocumentPage = lazy(
+  () => import("./pages/CaseOpen/CaseDocumentPage"),
+);
 
-// Removed unused CopilotKit CSS import to reduce bundle size
+// Wrapper to provide CasePermissionsProvider with caseId from CaseContext
+const CaseRoutesWrapper: React.FC = () => {
+  return (
+    <CaseProvider>
+      <CasePermissionsWrapper>
+        <EscritoProvider>
+          <HighlightProvider>
+            <Routes>
+              <Route index element={<CaseDetailPage />} />
+              <Route path="escritos" element={<EscritosPage />} />
+              <Route path="escritos/:escritoId" element={<EscritosPage />} />
+              <Route path="clientes" element={<CaseClientsPage />} />
+              <Route path="equipos" element={<CaseTeamsPage />} />
+              <Route path="modelos" element={<CaseModelPage />} />
+              <Route path="base-de-datos" element={<CaseDataBasePage />} />
+              <Route
+                path="documentos/:documentId"
+                element={<CaseDocumentPage />}
+              />
+            </Routes>
+          </HighlightProvider>
+        </EscritoProvider>
+      </CasePermissionsWrapper>
+    </CaseProvider>
+  );
+};
+
+// Wrapper to provide caseId from CaseContext to CasePermissionsProvider
+const CasePermissionsWrapper: React.FC<{ children: React.ReactNode }> = ({
+  children,
+}) => {
+  const { currentCase } = useCase();
+  const caseId = currentCase?._id || null;
+
+  return (
+    <CasePermissionsProvider caseId={caseId}>
+      {children}
+    </CasePermissionsProvider>
+  );
+};
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({
   children,
 }) => {
@@ -60,112 +102,91 @@ const AppWithThread = () => {
       <PageProvider>
         <ThreadProvider>
           <div>
-          {/* Show authentication loading skeleton while Convex auth is initializing */}
-          <AuthLoading>
-            <AppSkeleton />
-          </AuthLoading>
+            {/* Show authentication loading skeleton while Convex auth is initializing */}
+            <AuthLoading>
+              <AppSkeleton />
+            </AuthLoading>
 
-          {/* Main routing with Clerk's Protect component */}
-          <Suspense fallback={<AppSkeleton />}>
-            <Routes>
-              {/* Public authentication routes */}
-              <Route path="/signin" element={<SignInPage />} />
-              <Route path="/signup" element={<SignUpPage />} />
+            {/* Main routing with Clerk's Protect component */}
+            <Suspense fallback={<AppSkeleton />}>
+              <Routes>
+                {/* Public authentication routes */}
+                <Route path="/signin" element={<SignInPage />} />
+                <Route path="/signup" element={<SignUpPage />} />
 
-              {/* Public invitation routes */}
-              <Route path="/invites/accept" element={<AcceptInvitePage />} />
-              <Route path="/invites/signup" element={<SignupInvitePage />} />
+                {/* Public invitation routes */}
+                <Route path="/invites/accept" element={<AcceptInvitePage />} />
+                <Route path="/invites/signup" element={<SignupInvitePage />} />
 
-              {/* Protected routes using Clerk's Protect component */}
-              <Route
-                path="/"
-                element={
-                  <ProtectedRoute>
-                    <HomePage />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/casos"
-                element={
-                  <ProtectedRoute>
-                    <CasesPage />
-                  </ProtectedRoute>
-                }
-              />
-              {/* Rutas de casos envueltas con CaseProvider */}
-              <Route
-                path="/caso/:id/*"
-                element={
-                  <ProtectedRoute>
-                    <CaseProvider>
-                      <EscritoProvider>
-                        <HighlightProvider>
-                          <Routes>
-                            <Route index element={<CaseDetailPage />} />
-                            <Route
-                              path="escritos"
-                              element={<EscritosPage />}
-                            />
-                            <Route
-                              path="escritos/:escritoId"
-                              element={<EscritosPage />}
-                            />
-                            <Route path="clientes" element={<CaseClientsPage />} />
-                            <Route path="equipos" element={<CaseTeamsPage />} />
-                            <Route path="modelos" element={<CaseModelPage />} />
-                            <Route path="base-de-datos" element={<CaseDataBasePage />} />
-                            <Route path="documentos/:documentId" element={<CaseDocumentPage />} />
-                          </Routes>
-                        </HighlightProvider>
-                      </EscritoProvider>
-                    </CaseProvider>
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/clientes"
-                element={
-                  <ProtectedRoute>
-                    <ClientsPage />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/modelos"
-                element={
-                  <ProtectedRoute>
-                    <ModelsPage />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/base-de-datos"
-                element={
-                  <ProtectedRoute>
-                    <DataBasePage />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/equipo"
-                element={
-                  <ProtectedRoute>
-                    <TeamPage />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/equipos/:id"
-                element={
-                  <ProtectedRoute>
-                    <TeamManagePage />
-                  </ProtectedRoute>
-                }
-              />
-            </Routes>
-          </Suspense>
-        </div>
+                {/* Protected routes using Clerk's Protect component */}
+                <Route
+                  path="/"
+                  element={
+                    <ProtectedRoute>
+                      <HomePage />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/casos"
+                  element={
+                    <ProtectedRoute>
+                      <CasesPage />
+                    </ProtectedRoute>
+                  }
+                />
+                {/* Rutas de casos envueltas con CaseProvider */}
+                <Route
+                  path="/caso/:id/*"
+                  element={
+                    <ProtectedRoute>
+                      <CaseRoutesWrapper />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/clientes"
+                  element={
+                    <ProtectedRoute>
+                      <ClientsPage />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/modelos"
+                  element={
+                    <ProtectedRoute>
+                      <ModelsPage />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/base-de-datos"
+                  element={
+                    <ProtectedRoute>
+                      <DataBasePage />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/equipo"
+                  element={
+                    <ProtectedRoute>
+                      <TeamPage />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/equipos/:id"
+                  element={
+                    <ProtectedRoute>
+                      <TeamManagePage />
+                    </ProtectedRoute>
+                  }
+                />
+              </Routes>
+            </Suspense>
+          </div>
         </ThreadProvider>
       </PageProvider>
     </QueryClientProvider>

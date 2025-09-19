@@ -10,6 +10,7 @@
 
 import type * as agent_agent from "../agent/agent.js";
 import type * as agent_escritosHelper from "../agent/escritosHelper.js";
+import type * as agent_prompt from "../agent/prompt.js";
 import type * as agent_streamAbort from "../agent/streamAbort.js";
 import type * as agent_streaming from "../agent/streaming.js";
 import type * as agent_threads from "../agent/threads.js";
@@ -17,12 +18,15 @@ import type * as agent_tools_editEscritoTool from "../agent/tools/editEscritoToo
 import type * as agent_tools_getEscritoStatsTool from "../agent/tools/getEscritoStatsTool.js";
 import type * as agent_tools_getEscritoTool from "../agent/tools/getEscritoTool.js";
 import type * as agent_tools_index from "../agent/tools/index.js";
+import type * as agent_tools_legislationFindTool from "../agent/tools/legislationFindTool.js";
+import type * as agent_tools_legislationReadTool from "../agent/tools/legislationReadTool.js";
 import type * as agent_tools_listCaseDocumentsTool from "../agent/tools/listCaseDocumentsTool.js";
 import type * as agent_tools_queryDocumentTool from "../agent/tools/queryDocumentTool.js";
 import type * as agent_tools_readDocumentTool from "../agent/tools/readDocumentTool.js";
 import type * as agent_tools_readEscritoTool from "../agent/tools/readEscritoTool.js";
 import type * as agent_tools_searchCaseDocumentsTool from "../agent/tools/searchCaseDocumentsTool.js";
 import type * as agent_tools_searchFallosTool from "../agent/tools/searchFallosTool.js";
+import type * as agent_tools_searchLegislationTool from "../agent/tools/searchLegislationTool.js";
 import type * as agent_tools_validation from "../agent/tools/validation.js";
 import type * as auth_utils from "../auth_utils.js";
 import type * as context_context from "../context/context.js";
@@ -39,20 +43,28 @@ import type * as functions_index from "../functions/index.js";
 import type * as functions_legalDb from "../functions/legalDb.js";
 import type * as functions_legislation from "../functions/legislation.js";
 import type * as functions_permissions from "../functions/permissions.js";
+import type * as functions_permissions_test from "../functions/permissions_test.js";
+import type * as functions_permissions_test_scenarios from "../functions/permissions_test_scenarios.js";
+import type * as functions_permissions_testing from "../functions/permissions_testing.js";
+import type * as functions_permissions_testing_suite from "../functions/permissions_testing_suite.js";
 import type * as functions_seedCases from "../functions/seedCases.js";
 import type * as functions_teams from "../functions/teams.js";
 import type * as functions_templates from "../functions/templates.js";
+import type * as functions_test_permissions_simple from "../functions/test_permissions_simple.js";
 import type * as functions_testReadEscritoHelpers from "../functions/testReadEscritoHelpers.js";
 import type * as functions_users from "../functions/users.js";
 import type * as http from "../http.js";
 import type * as prosemirror from "../prosemirror.js";
-import type * as rag_qdrant from "../rag/qdrant.js";
+import type * as rag_qdrantUtils_caseDocuments from "../rag/qdrantUtils/caseDocuments.js";
+import type * as rag_qdrantUtils_client from "../rag/qdrantUtils/client.js";
+import type * as rag_qdrantUtils_index from "../rag/qdrantUtils/index.js";
+import type * as rag_qdrantUtils_legislation from "../rag/qdrantUtils/legislation.js";
+import type * as rag_qdrantUtils_types from "../rag/qdrantUtils/types.js";
 import type * as rag_rag from "../rag/rag.js";
 import type * as rag_utils from "../rag/utils.js";
 import type * as utils_gcs from "../utils/gcs.js";
 import type * as utils_legislationService from "../utils/legislationService.js";
 import type * as utils_resend from "../utils/resend.js";
-import type * as validation_test from "../validation_test.js";
 
 import type {
   ApiFromModules,
@@ -71,6 +83,7 @@ import type {
 declare const fullApi: ApiFromModules<{
   "agent/agent": typeof agent_agent;
   "agent/escritosHelper": typeof agent_escritosHelper;
+  "agent/prompt": typeof agent_prompt;
   "agent/streamAbort": typeof agent_streamAbort;
   "agent/streaming": typeof agent_streaming;
   "agent/threads": typeof agent_threads;
@@ -78,12 +91,15 @@ declare const fullApi: ApiFromModules<{
   "agent/tools/getEscritoStatsTool": typeof agent_tools_getEscritoStatsTool;
   "agent/tools/getEscritoTool": typeof agent_tools_getEscritoTool;
   "agent/tools/index": typeof agent_tools_index;
+  "agent/tools/legislationFindTool": typeof agent_tools_legislationFindTool;
+  "agent/tools/legislationReadTool": typeof agent_tools_legislationReadTool;
   "agent/tools/listCaseDocumentsTool": typeof agent_tools_listCaseDocumentsTool;
   "agent/tools/queryDocumentTool": typeof agent_tools_queryDocumentTool;
   "agent/tools/readDocumentTool": typeof agent_tools_readDocumentTool;
   "agent/tools/readEscritoTool": typeof agent_tools_readEscritoTool;
   "agent/tools/searchCaseDocumentsTool": typeof agent_tools_searchCaseDocumentsTool;
   "agent/tools/searchFallosTool": typeof agent_tools_searchFallosTool;
+  "agent/tools/searchLegislationTool": typeof agent_tools_searchLegislationTool;
   "agent/tools/validation": typeof agent_tools_validation;
   auth_utils: typeof auth_utils;
   "context/context": typeof context_context;
@@ -100,20 +116,28 @@ declare const fullApi: ApiFromModules<{
   "functions/legalDb": typeof functions_legalDb;
   "functions/legislation": typeof functions_legislation;
   "functions/permissions": typeof functions_permissions;
+  "functions/permissions_test": typeof functions_permissions_test;
+  "functions/permissions_test_scenarios": typeof functions_permissions_test_scenarios;
+  "functions/permissions_testing": typeof functions_permissions_testing;
+  "functions/permissions_testing_suite": typeof functions_permissions_testing_suite;
   "functions/seedCases": typeof functions_seedCases;
   "functions/teams": typeof functions_teams;
   "functions/templates": typeof functions_templates;
   "functions/testReadEscritoHelpers": typeof functions_testReadEscritoHelpers;
+  "functions/test_permissions_simple": typeof functions_test_permissions_simple;
   "functions/users": typeof functions_users;
   http: typeof http;
   prosemirror: typeof prosemirror;
-  "rag/qdrant": typeof rag_qdrant;
+  "rag/qdrantUtils/caseDocuments": typeof rag_qdrantUtils_caseDocuments;
+  "rag/qdrantUtils/client": typeof rag_qdrantUtils_client;
+  "rag/qdrantUtils/index": typeof rag_qdrantUtils_index;
+  "rag/qdrantUtils/legislation": typeof rag_qdrantUtils_legislation;
+  "rag/qdrantUtils/types": typeof rag_qdrantUtils_types;
   "rag/rag": typeof rag_rag;
   "rag/utils": typeof rag_utils;
   "utils/gcs": typeof utils_gcs;
   "utils/legislationService": typeof utils_legislationService;
   "utils/resend": typeof utils_resend;
-  validation_test: typeof validation_test;
 }>;
 declare const fullApiWithMounts: typeof fullApi;
 

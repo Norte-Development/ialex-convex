@@ -9,9 +9,10 @@ import {
   listCaseDocumentsTool,
   queryDocumentTool,
   editEscritoTool,
-  getEscritoTool,
   getEscritoStatsTool,
   readEscritoTool,
+  legislationFindTool,
+  legislationReadTool,
 } from "./tools/index";
 
 /**
@@ -51,6 +52,8 @@ export const agent = new Agent(components.agent, {
     editEscrito: editEscritoTool,
     getEscritoStats: getEscritoStatsTool,
     readEscrito: readEscritoTool,
+    searchLegislation: legislationFindTool,
+    readLegislation: legislationReadTool,
   }
 });
 

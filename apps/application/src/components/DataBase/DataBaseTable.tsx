@@ -1,23 +1,17 @@
 "use client"
 
 import type React from "react"
-import { useCallback, useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useState } from "react"
 import { useAction } from "convex/react"
 import { api } from "../../../convex/_generated/api"
 import { useQuery } from "@tanstack/react-query"
-import { AppSkeleton } from "../Skeletons"
 import { Button } from "../ui/button"
-import { Card, CardContent } from "../ui/card"
 import { Badge } from "../ui/badge"
-import { Filter, FileText } from "lucide-react"
-import type { NormativeDoc, Estado, NormativeFilters, SearchResult, SortBy, SortOrder } from "../../../types/legislation"
+import { Filter } from "lucide-react"
+import type { NormativeFilters, SortBy, SortOrder } from "../../../types/legislation"
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "../ui/sheet"
-import { SearchBar } from "./SearchBar"
-import { TableControls } from "./TableControls"
-import { FiltersPanel } from "./FiltersPanel"
-import { ActiveFilters } from "./ActiveFilters"
-import { TableView } from "./TableView"
-import { PaginationControls } from "./PaginationControls"
+import { StaticControls } from "./StaticControls"
+import { DataTableContainer } from "./DataTableContainer"
 import { NormativeDetails } from "./NormativeDetails"
 
 
@@ -34,8 +28,8 @@ interface TableState {
   sortOrder: SortOrder
   selectedNormativeId: string | null
   isDetailsOpen: boolean
-  showChunks: boolean
   jurisdiction: string
+  totalResults: number
 }
 
 const initialState: TableState = {
@@ -46,26 +40,20 @@ const initialState: TableState = {
   filters: {},
   page: 1,
   pageSize: 25,
-  sortBy: "promulgacion",
+  sortBy: "sanction_date",
   sortOrder: "desc",
   selectedNormativeId: null,
   isDetailsOpen: false,
-  showChunks: false,
-  jurisdiction: "nacional",
+  jurisdiction: "nac",
+  totalResults: 0,
 }
 
 export default function DataBaseTable() {
   const [state, setState] = useState<TableState>(initialState)
   const actions = {
-    listNormatives: useAction(api.functions.legislation.listNormatives),
-    searchNormatives: useAction(api.functions.legislation.searchNormatives),
-    getAvailableJurisdictions: useAction(api.functions.legislation.getAvailableJurisdictions),
-    getFacets: useAction(api.functions.legislation.getNormativesFacets),
-    getNormative: useAction(api.functions.legislation.getNormative),
-    queryNormatives: useAction(api.functions.legislation.queryNormatives),
+    getNormativesFacets: useAction(api.functions.legislation.getNormativesFacets),
+    getNormativeById: useAction(api.functions.legislation.getNormativeById),
   }
-
-  const effectiveJurisdiction = state.jurisdiction
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -74,94 +62,20 @@ export default function DataBaseTable() {
     return () => clearTimeout(timer)
   }, [state.searchQuery])
 
-  const { data: jurisdictions = [] } = useQuery({
-    queryKey: ["jurisdictions"],
-    queryFn: () => actions.getAvailableJurisdictions({}),
-    staleTime: 10 * 60 * 1000,
-  })
+  // Available jurisdictions - hardcoded for now since we focus on Paraguay
+  const jurisdictions = ["nac", "departamental", "municipal"]
 
   const { data: facets } = useQuery({
-    queryKey: ["normatives-facets", effectiveJurisdiction, state.filters],
+    queryKey: ["normatives-facets", state.jurisdiction, state.filters],
     queryFn: () =>
-      actions.getFacets({
-        jurisdiction: effectiveJurisdiction,
-        filters: Object.keys(state.filters).length ? state.filters : undefined,
+      actions.getNormativesFacets({
+        filters: {
+          jurisdiccion: state.jurisdiction,
+          ...state.filters,
+        },
       }),
     staleTime: 5 * 60 * 1000,
   })
-
-  const {
-    data: listData,
-    isLoading: isListLoading,
-    error: listError,
-  } = useQuery<{ items: NormativeDoc[]; total: number }, Error>({
-    queryKey: [
-      "listNormatives",
-      effectiveJurisdiction,
-      state.filters,
-      state.page,
-      state.pageSize,
-      state.sortBy,
-      state.sortOrder,
-    ],
-    queryFn: () =>
-      actions.listNormatives({
-        jurisdiction: effectiveJurisdiction,
-        filters: Object.keys(state.filters).length > 0 ? state.filters : undefined,
-        limit: state.pageSize,
-        offset: (state.page - 1) * state.pageSize,
-        sortBy: state.sortBy,
-        sortOrder: state.sortOrder,
-      }),
-    staleTime: 5 * 60 * 1000,
-    enabled: !state.isSearchMode,
-  })
-
-  const {
-    data: searchData = [],
-    isLoading: isSearchLoading,
-    error: searchError,
-  } = useQuery<SearchResult[], Error>({
-    queryKey: [
-      "searchNormatives",
-      effectiveJurisdiction,
-      state.debouncedQuery,
-      state.filters,
-      state.page,
-      state.pageSize,
-    ],
-    queryFn: () =>
-      actions.searchNormatives({
-        jurisdiction: effectiveJurisdiction,
-        query: state.debouncedQuery,
-        filters: Object.keys(state.filters).length > 0 ? state.filters : undefined,
-        limit: state.page * state.pageSize,
-      }),
-    staleTime: 5 * 60 * 1000,
-    enabled: state.isSearchMode && !!state.debouncedQuery,
-  })
-
-  const computedData = useMemo(() => {
-    const totalResults = state.isSearchMode ? searchData?.length || 0 : listData?.total || 0
-    const pagedSearchItems = state.isSearchMode
-      ? searchData.slice((state.page - 1) * state.pageSize, state.page * state.pageSize)
-      : []
-    const items = state.isSearchMode ? pagedSearchItems : listData?.items || []
-    const isLoading = state.isSearchMode ? isSearchLoading : isListLoading
-    const error = state.isSearchMode ? searchError : listError
-
-    return { totalResults, items, isLoading, error }
-  }, [
-    state.isSearchMode,
-    state.page,
-    state.pageSize,
-    searchData,
-    listData,
-    isSearchLoading,
-    isListLoading,
-    searchError,
-    listError,
-  ])
 
 
 
@@ -185,7 +99,6 @@ export default function DataBaseTable() {
       filters: {},
       searchQuery: "",
       debouncedQuery: "",
-      isSearchMode: false,
     }))
   }, [])
 
@@ -194,9 +107,8 @@ export default function DataBaseTable() {
   }, [])
 
   const handleSearch = useCallback(() => {
-    const hasQuery = state.searchQuery.trim().length > 0
-    setState((prev) => ({ ...prev, isSearchMode: hasQuery, page: 1 }))
-  }, [state.searchQuery])
+    setState((prev) => ({ ...prev, page: 1 }))
+  }, [])
 
   const handleKeyPress = useCallback(
     (e: React.KeyboardEvent) => {
@@ -212,7 +124,6 @@ export default function DataBaseTable() {
       ...prev,
       selectedNormativeId: id,
       isDetailsOpen: true,
-      showChunks: false,
     }))
   }, [])
 
@@ -220,40 +131,10 @@ export default function DataBaseTable() {
     setState((prev) => ({ ...prev, page: newPage }))
   }, [])
 
-  const getEstadoBadgeColor = useCallback((estado: Estado) => {
-    const colors = {
-      vigente: "bg-emerald-50 text-emerald-700 border-emerald-200",
-      derogada: "bg-red-50 text-red-700 border-red-200",
-      caduca: "bg-amber-50 text-amber-700 border-amber-200",
-      anulada: "bg-gray-50 text-gray-700 border-gray-200",
-      suspendida: "bg-orange-50 text-orange-700 border-orange-200",
-      abrogada: "bg-purple-50 text-purple-700 border-purple-200",
-    }
-    return colors[estado as keyof typeof colors] || "bg-blue-50 text-blue-700 border-blue-200"
+  const handleTotalResultsChange = useCallback((total: number) => {
+    setState((prev) => ({ ...prev, totalResults: total }))
   }, [])
 
-  const formatDate = useCallback((dateString?: string) => {
-    if (!dateString) return ""
-    return new Date(dateString).toLocaleDateString("es-AR")
-  }, [])
-
-  if (computedData.isLoading) {
-    return <AppSkeleton />
-  }
-
-  if (computedData.error) {
-    return (
-      <div className="flex items-center justify-center p-12 text-red-600 bg-red-50 rounded-lg border border-red-200">
-        <div className="text-center">
-          <FileText className="w-8 h-8 mx-auto mb-2 opacity-50" />
-          <p className="font-medium">Error loading legislation</p>
-          <p className="text-sm text-red-500 mt-1">{computedData.error.message}</p>
-        </div>
-      </div>
-    )
-  }
-
-  const totalPages = Math.max(1, Math.ceil(computedData.totalResults / state.pageSize))
   const hasActiveFilters = Object.keys(state.filters).length > 0 || state.searchQuery
 
   return (
@@ -262,8 +143,8 @@ export default function DataBaseTable() {
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Base de Datos Legislativa</h1>
           <p className="text-sm text-gray-600 mt-1">
-            {state.jurisdiction === "nacional" ? "Nacional" : state.jurisdiction.charAt(0).toUpperCase() + state.jurisdiction.slice(1)} • {computedData.totalResults}{" "}
-            {computedData.totalResults === 1 ? "resultado" : "resultados"}
+            {state.jurisdiction === "nac" ? "Nacional" : state.jurisdiction.charAt(0).toUpperCase() + state.jurisdiction.slice(1)} • {state.totalResults}{" "}
+            {state.totalResults === 1 ? "resultado" : "resultados"}
           </p>
         </div>
         <Button
@@ -281,88 +162,60 @@ export default function DataBaseTable() {
         </Button>
       </div>
 
-      <Card className="border-0 shadow-sm bg-gradient-to-r from-blue-50 to-indigo-50">
-        <CardContent className="p-6">
-          <SearchBar
-            searchQuery={state.searchQuery}
-            onSearchQueryChange={(query) => setState((prev) => ({ ...prev, searchQuery: query }))}
-            onSearch={handleSearch}
-            onClearFilters={clearFilters}
-            onKeyPress={handleKeyPress}
-            hasActiveFilters={!!hasActiveFilters}
-          />
-
-          <TableControls
-            jurisdiction={state.jurisdiction}
-            jurisdictions={jurisdictions}
-            onJurisdictionChange={handleJurisdictionChange}
-            isSearchMode={state.isSearchMode}
-            sortBy={state.sortBy}
-            sortOrder={state.sortOrder}
-            pageSize={state.pageSize}
-            onSortChange={(sortBy, sortOrder) => {
-              if (sortBy === "relevancia") {
-                setState((prev) => ({ ...prev, isSearchMode: true, page: 1 }))
-              } else {
-                setState((prev) => ({ ...prev, isSearchMode: false, sortBy: sortBy as SortBy, sortOrder, page: 1 }))
-              }
-            }}
-            onPageSizeChange={(pageSize) => setState((prev) => ({ ...prev, pageSize, page: 1 }))}
-          />
-
-          <FiltersPanel
-            showFilters={state.showFilters}
-            onShowFiltersChange={(show) => setState((prev) => ({ ...prev, showFilters: show }))}
-            filters={state.filters}
-            onFilterChange={handleFilterChange}
-            jurisdictions={jurisdictions}
-            jurisdiction={state.jurisdiction}
-            facets={facets}
-          />
-
-          <ActiveFilters
-            searchQuery={state.searchQuery}
-            filters={state.filters}
-            onRemoveFilter={(key) => handleFilterChange(key, undefined)}
-            onClearSearch={() => setState((prev) => ({ ...prev, searchQuery: "", isSearchMode: false }))}
-          />
-        </CardContent>
-      </Card>
-
-      <TableView
-        items={computedData.items}
-        isSearchMode={state.isSearchMode}
-        onRowClick={handleRowClick}
-        getEstadoBadgeColor={getEstadoBadgeColor}
-        formatDate={formatDate}
+      <StaticControls
+        searchQuery={state.searchQuery}
+        onSearchQueryChange={(query) => setState((prev) => ({ ...prev, searchQuery: query }))}
+        onSearch={handleSearch}
+        onClearFilters={clearFilters}
+        onKeyPress={handleKeyPress}
+        hasActiveFilters={!!hasActiveFilters}
+        jurisdiction={state.jurisdiction}
+        jurisdictions={jurisdictions}
+        onJurisdictionChange={handleJurisdictionChange}
+        isSearchMode={!!state.debouncedQuery}
+        sortBy={state.sortBy}
+        sortOrder={state.sortOrder}
+        pageSize={state.pageSize}
+        onSortChange={(sortBy, sortOrder) => {
+          setState((prev) => ({ ...prev, sortBy: sortBy as SortBy, sortOrder: sortOrder as SortOrder, page: 1 }))
+        }}
+        onPageSizeChange={(pageSize) => setState((prev) => ({ ...prev, pageSize, page: 1 }))}
+        showFilters={state.showFilters}
+        onShowFiltersChange={(show) => setState((prev) => ({ ...prev, showFilters: show }))}
+        filters={state.filters}
+        onFilterChange={handleFilterChange}
+        facets={facets}
+        onRemoveFilter={(key) => handleFilterChange(key, undefined)}
+        onClearSearch={() => setState((prev) => ({ ...prev, searchQuery: "", debouncedQuery: "" }))}
       />
 
-      <PaginationControls
-        totalResults={computedData.totalResults}
+      <DataTableContainer
+        jurisdiction={state.jurisdiction}
+        filters={state.filters}
+        debouncedQuery={state.debouncedQuery}
         page={state.page}
         pageSize={state.pageSize}
-        totalPages={totalPages}
-        isSearchMode={state.isSearchMode}
+        sortBy={state.sortBy}
+        sortOrder={state.sortOrder}
+        isSearchMode={!!state.debouncedQuery}
         searchQuery={state.searchQuery}
+        onRowClick={handleRowClick}
         onPageChange={handlePageChange}
+        onTotalResultsChange={handleTotalResultsChange}
       />
 
       {/* Details Sheet */}
       <Sheet open={state.isDetailsOpen} onOpenChange={(open) => setState((prev) => ({ ...prev, isDetailsOpen: open }))}>
-        <SheetContent className="w-full sm:max-w-4xl">
+        <SheetContent className="w-full sm:max-w-2xl border-l border-gray-200 bg-white rounded-l-lg transition-all duration-300 ease-in-out">
           <SheetHeader>
             <SheetTitle>Detalle de normativa</SheetTitle>
           </SheetHeader>
           <div className="mt-6">
             {state.selectedNormativeId && (
               <NormativeDetails
-                jurisdiction={effectiveJurisdiction}
+                jurisdiction={state.jurisdiction}
                 id={state.selectedNormativeId}
-                getNormativeAction={actions.getNormative}
-                queryNormativesAction={actions.queryNormatives}
-                showChunks={state.showChunks}
-                onToggleChunks={() => setState((prev) => ({ ...prev, showChunks: !prev.showChunks }))}
-                searchQuery={state.debouncedQuery}
+                getNormativeAction={actions.getNormativeById}
               />
             )}
           </div>

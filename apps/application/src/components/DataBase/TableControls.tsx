@@ -59,7 +59,7 @@ export function TableControls({
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="relevancia">Relevancia</SelectItem>
-            <SelectItem value="promulgacion">Promulgación</SelectItem>
+            <SelectItem value="sanction_date">Sanción</SelectItem>
             <SelectItem value="updated_at">Actualizado</SelectItem>
             <SelectItem value="created_at">Creado</SelectItem>
           </SelectContent>

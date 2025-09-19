@@ -16,20 +16,6 @@ export default function CaseTeamsSummary({ caseId }: CaseTeamsSummaryProps) {
     caseId,
   });
 
-  const getAccessLevelIcon = (level: "read" | "full") => {
-    return level === "full" ? (
-      <Shield className="h-3 w-3 text-blue-600" />
-    ) : (
-      <Eye className="h-3 w-3 text-gray-600" />
-    );
-  };
-
-  const getAccessLevelColor = (level: "read" | "full") => {
-    return level === "full"
-      ? "bg-blue-100 text-blue-800"
-      : "bg-gray-100 text-gray-800";
-  };
-
   if (!teamsWithAccess) {
     return (
       <Card>
@@ -115,10 +101,9 @@ export default function CaseTeamsSummary({ caseId }: CaseTeamsSummaryProps) {
                   </div>
                   <Badge
                     variant="outline"
-                    className={`text-xs flex items-center gap-1 ${getAccessLevelColor(team.accessLevel)}`}
+                    className={`text-xs flex items-center gap-1 ${team.accessLevel}`}
                   >
-                    {getAccessLevelIcon(team.accessLevel)}
-                    {team.accessLevel === "full" ? "Completo" : "Lectura"}
+                    {team.accessLevel}
                   </Badge>
                 </div>
               ))}

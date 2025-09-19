@@ -41,8 +41,7 @@ import {
 } from "../ui/tooltip";
 import { Id } from "../../../convex/_generated/dataModel";
 import { usePermissionAwareNavigation } from "@/hooks/usePermissionAwareNavigation";
-import { PERMISSIONS } from "@/permissions/types";
-import { IfCan } from "@/components/Permissions";
+import { usePermissions } from "@/context/CasePermissionsContext";
 import { useHighlight } from "@/context/HighlightContext";
 import { Suspense } from "react";
 
@@ -80,6 +79,9 @@ export default function CaseSidebar() {
   const [isCreatingRootFolder, setIsCreatingRootFolder] = useState(false);
   const [newRootFolderName, setNewRootFolderName] = useState("");
   const rootInputRef = useRef<HTMLInputElement | null>(null);
+
+  // Permisos usando el nuevo sistema
+  const { can } = usePermissions();
 
   const basePath = `/caso/${id}`;
 
@@ -230,8 +232,8 @@ export default function CaseSidebar() {
           </Link>
         ))}
 
-        {/* Modelos - always show for now as it's template-related */}
-        <IfCan permission={PERMISSIONS.CASE_VIEW} fallback={null}>
+        {/* Modelos - accessible if user can view case */}
+        {can.viewCase && (
           <Link to={`${basePath}/modelos`} onClick={handleNavigationFromCase}>
             <BookCheck
               className="cursor-pointer"
@@ -239,12 +241,12 @@ export default function CaseSidebar() {
               color={location.pathname.includes("/modelos") ? "blue" : "black"}
             />
           </Link>
-        </IfCan>
+        )}
       </div>
 
       <div className="h-[60%] w-full flex flex-col justify-start items-center pl-5 ">
         <div className="w-full flex flex-col gap-2 h-[70%] ">
-          <IfCan permission={PERMISSIONS.ESCRITO_READ} fallback={null}>
+          {can.escritos.read && (
             <Collapsible
               open={isEscritosOpen}
               onOpenChange={toggleEscritos}
@@ -259,7 +261,7 @@ export default function CaseSidebar() {
                   )}
                   Escritos
                 </span>
-                <IfCan permission={PERMISSIONS.ESCRITO_WRITE} fallback={null}>
+                {can.escritos.write && (
                   <Plus
                     className="cursor-pointer transition-colors rounded-full p-1 hover:bg-blue-100 hover:text-blue-600"
                     size={20}
@@ -268,7 +270,7 @@ export default function CaseSidebar() {
                       setIsCreateEscritoOpen(true);
                     }}
                   />
-                </IfCan>
+                )}
               </CollapsibleTrigger>
               <CollapsibleContent className="flex flex-col gap-1 pl-2 text-[12px] pt-1 overflow-y-auto max-h-32">
                 {escritos && escritos.length > 0 ? (
@@ -290,10 +292,7 @@ export default function CaseSidebar() {
                           <FileType2 className="cursor-pointer" size={16} />
                           <span className="truncate">{escrito.title}</span>
                         </Link>
-                        <IfCan
-                          permission={PERMISSIONS.ESCRITO_DELETE}
-                          fallback={null}
-                        >
+                        {can.escritos.delete && (
                           <TooltipProvider>
                             <Tooltip>
                               <TooltipTrigger asChild>
@@ -316,7 +315,7 @@ export default function CaseSidebar() {
                               </TooltipContent>
                             </Tooltip>
                           </TooltipProvider>
-                        </IfCan>
+                        )}
                       </div>
                       <div className="flex items-center justify-between text-xs text-muted-foreground">
                         <Badge
@@ -336,9 +335,9 @@ export default function CaseSidebar() {
                 )}
               </CollapsibleContent>
             </Collapsible>
-          </IfCan>
+          )}
 
-          <IfCan permission={PERMISSIONS.DOC_READ} fallback={null}>
+          {can.docs.read && (
             <Collapsible
               open={isDocumentosOpen}
               onOpenChange={toggleDocumentos}
@@ -349,7 +348,7 @@ export default function CaseSidebar() {
                   <FolderArchive className="cursor-pointer" size={20} />
                   Documentos
                 </span>
-                <IfCan permission={PERMISSIONS.DOC_WRITE} fallback={null}>
+                {can.docs.write && (
                   <Plus
                     className="cursor-pointer transition-colors rounded-full p-1 hover:bg-blue-100 hover:text-blue-600"
                     size={20}
@@ -358,7 +357,7 @@ export default function CaseSidebar() {
                       setIsCreatingRootFolder(true);
                     }}
                   />
-                </IfCan>
+                )}
               </CollapsibleTrigger>
               <CollapsibleContent className="flex flex-col gap-1 pl-2 text-[12px] pt-1 overflow-y-auto max-h-[200px]">
                 {isCreatingRootFolder && (
@@ -382,7 +381,7 @@ export default function CaseSidebar() {
                 <CaseDocuments basePath={basePath} />
               </CollapsibleContent>
             </Collapsible>
-          </IfCan>
+          )}
         </div>
 
         <div className="w-full flex flex-col gap-2 h-[30%] ">

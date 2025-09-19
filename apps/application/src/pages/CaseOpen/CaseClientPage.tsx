@@ -8,11 +8,22 @@ import { useState } from "react";
 import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import CaseLayout from "@/components/Cases/CaseLayout";
+import { usePermissions } from "@/context/CasePermissionsContext";
+import { PermissionToasts } from "@/lib/permissionToasts";
 
 export default function CaseClientsPage() {
   const { currentCase, isLoading, error, caseId } = useCase();
+  const { can } = usePermissions();
   const [isSyncNewClientDialogOpen, setIsSyncNewClientDialogOpen] =
     useState(false);
+
+  const handleAddClient = () => {
+    if (!can.clients.write) {
+      PermissionToasts.clients.write();
+      return;
+    }
+    setIsSyncNewClientDialogOpen(true);
+  };
 
   const clientsResult = useQuery(
     api.functions.cases.getClientsForCase,
@@ -55,7 +66,7 @@ export default function CaseClientsPage() {
       <section className=" w-full h-full flex flex-col px-5  gap-2">
         <div className="flex justify-between items-center">
           <h1 className="text-2xl font-bold">Clientes </h1>
-          <Button onClick={() => setIsSyncNewClientDialogOpen(true)}>
+          <Button onClick={handleAddClient}>
             <Plus size={15} />
           </Button>
         </div>

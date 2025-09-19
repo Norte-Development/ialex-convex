@@ -14,8 +14,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { FileText } from "lucide-react";
+import { toast } from "sonner";
 
 import { useCase } from "@/context/CaseContext";
+import { usePermissions } from "@/context/CasePermissionsContext";
+import { PermissionToasts } from "@/lib/permissionToasts";
 
 interface CreateEscritoDialogProps {
   open?: boolean;
@@ -30,6 +33,7 @@ export function CreateEscritoDialog({
 }: CreateEscritoDialogProps) {
   const [isLoading, setIsLoading] = useState(false);
   const { currentCase } = useCase();
+  const { can } = usePermissions();
 
   const createEscrito = useMutation(api.functions.documents.createEscrito);
 
@@ -59,13 +63,19 @@ export function CreateEscritoDialog({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
+    // Check permissions first
+    if (!can.escritos.write) {
+      PermissionToasts.escritos.create();
+      return;
+    }
+
     if (!formData.title.trim()) {
-      alert("El título es requerido");
+      toast.error("El título es requerido");
       return;
     }
 
     if (!currentCase) {
-      alert("No hay un caso seleccionado");
+      toast.error("No hay un caso seleccionado");
       return;
     }
 
@@ -86,18 +96,19 @@ export function CreateEscritoDialog({
         expedientNumber: formData.expedientNumber.trim() || undefined,
       };
 
-      const {escritoId} = await createEscrito(escritoData);
+      const escritoId = await createEscrito(escritoData);
 
       resetForm();
       setOpen(false);
-      
+      toast.success("Escrito creado exitosamente");
+
       // Call the callback with the new escrito ID
       if (onEscritoCreated) {
         onEscritoCreated(escritoId);
       }
     } catch (error) {
       console.error("Error creating escrito:", error);
-      alert("Error al crear el escrito. Por favor intenta de nuevo.");
+      toast.error("Error al crear el escrito. Por favor intenta de nuevo.");
     } finally {
       setIsLoading(false);
     }

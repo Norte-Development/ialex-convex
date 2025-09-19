@@ -1,21 +1,10 @@
 'use node'
-import {QdrantClient} from '@qdrant/js-client-rest';
-import { action, internalAction } from "../_generated/server";
+
+import { action, internalAction } from "../../_generated/server";
 import { v } from "convex/values";
 import { embed } from "ai";
 import { openai } from "@ai-sdk/openai";
-
-console.log("Qdrant configuration:", {
-  url: process.env.QDRANT_URL ? "Set" : "Missing",
-  apiKey: process.env.QDRANT_API_KEY ? "Set" : "Missing"
-});
-
-const client = new QdrantClient({
-  url: process.env.QDRANT_URL,
-  apiKey: process.env.QDRANT_API_KEY,
-  // Avoid noisy warnings if minor versions differ
-  checkCompatibility: false as any,
-});
+import { client } from "./client";
 
 /**
  * Action that performs semantic chunk clustering and context window expansion for case documents.
@@ -75,11 +64,11 @@ export const searchCaseDocumentsWithClustering = action({
 
       // Step 2: Group results by documentId and identify clusters
       const documentClusters = new Map<string, Array<any>>();
-      
+
       for (const result of initialResults) {
         const documentId = result.payload?.documentId;
         if (!documentId) continue;
-        
+
         if (!documentClusters.has(documentId as string)) {
           documentClusters.set(documentId as string, []);
         }
@@ -88,14 +77,14 @@ export const searchCaseDocumentsWithClustering = action({
 
       // Step 3: For each cluster, expand context by retrieving adjacent chunks
       const expandedResults = [];
-      
+
       for (const [documentId, chunks] of documentClusters) {
         // Sort chunks by score to prioritize the best ones
         chunks.sort((a, b) => (b.score || 0) - (a.score || 0));
-        
+
         // Take the top chunk(s) from this document
         const topChunks = chunks.slice(0, Math.max(1, Math.floor(limit / documentClusters.size)));
-        
+
         for (const topChunk of topChunks) {
           const chunkIndex = topChunk.payload?.chunkIndex;
           if (typeof chunkIndex !== 'number') {
@@ -118,7 +107,7 @@ export const searchCaseDocumentsWithClustering = action({
                   match: { value: caseId }
                 },
                 {
-                  key: "documentId", 
+                  key: "documentId",
                   match: { value: documentId }
                 },
                 {
@@ -157,7 +146,7 @@ export const searchCaseDocumentsWithClustering = action({
                 contextWindow: `${startIndex}-${endIndex}`
               }
             };
-            
+
             expandedResults.push(mergedResult);
           } else {
             // If no adjacent chunks found, keep the original
@@ -168,25 +157,25 @@ export const searchCaseDocumentsWithClustering = action({
 
       // Step 5: Sort final results by score and limit
       expandedResults.sort((a, b) => (b.score || 0) - (a.score || 0));
-      
+
       // Extract and combine just the text content
       const combinedTexts = expandedResults.slice(0, limit).map(result => {
         const text = result.payload?.text as string || '';
         return text.trim();
       }).filter(text => text.length > 0);
-      
+
       // Join all texts with double newlines for clear separation
       const finalText = combinedTexts.join('\n\n');
-      
+
       console.log("Returning combined text, length:", finalText.length);
       return finalText;
-      
+
     } catch (error) {
       console.error("Error in searchCaseDocumentsWithClustering:", error);
       const errorMessage = error instanceof Error ? error.message : String(error);
       const errorStack = error instanceof Error ? error.stack : undefined;
       const errorName = error instanceof Error ? error.name : typeof error;
-      
+
       console.error("Error details:", {
         message: errorMessage,
         stack: errorStack,
@@ -234,7 +223,7 @@ export const getDocumentChunkByIndex = action({
               match: { value: documentId }
             },
             {
-              key: "chunkIndex", 
+              key: "chunkIndex",
               match: { value: chunkIndex }
             }
           ]
@@ -498,9 +487,9 @@ export const getDocumentChunkCount = action({
       });
 
       const count = results.points?.length || 0;
-      
+
       console.log("Document chunk count:", { documentId, count });
-      
+
       return count;
 
     } catch (error) {
@@ -564,7 +553,7 @@ export const deleteDocumentChunks = internalAction({
 
       // Extract point IDs for deletion
       const pointIds = results.points.map(point => point.id);
-      
+
       console.log(`Found ${pointIds.length} chunks to delete for document:`, documentId);
 
       // Delete all points for this document
@@ -583,5 +572,3 @@ export const deleteDocumentChunks = internalAction({
     }
   }
 });
-
-export default client;
