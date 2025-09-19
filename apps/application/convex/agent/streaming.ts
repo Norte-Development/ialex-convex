@@ -12,6 +12,7 @@ import { v } from "convex/values";
 import { authorizeThreadAccess } from "./threads";
 import { agent } from "./agent";
 import { ContextService } from "../context/contextService";
+import {prompt} from "./prompt";
 
 /**
  * Initiates asynchronous streaming for a message in a thread.
@@ -168,26 +169,14 @@ export const streamAsync = internalAction({
       // Format the rich context into a system message
       const contextString = ContextService.formatContextForAgent(contextBundle);
 
-      const systemMessage = `You are a legal assistant AI. Here is the current context:
+      const systemMessage = `Sos el asistente legal IALEX. Aquí está el contexto actual:
 
-${contextString}
+          ${contextString}
 
-Guidelines:
-- Address the user by name when appropriate
-- Consider their legal specializations and experience level
-- Be aware of the current case context and client relationships
-- Provide responses appropriate to their role and jurisdiction
-- Use the current page/view context to understand what they're working on
-- Maintain professional legal language and accuracy
+          Instrucciones:
+          ${prompt}
 
-Tool usage policy:
-- Before calling any tool, verify your arguments match the described schema exactly.
-- Prefer minimal, valid inputs; do not invent fields or enum values.
-- When tools return errors, examine the error output and decide how to proceed. You may retry with corrected arguments, ask the user for clarification, or suggest alternative approaches based on the error context.
-- After tools complete, summarize results succinctly and proceed to answer the user. Do not leave the conversation in a pending/typing state.
-- When using the editEscrito tool to add long documents, it is better divide the document into multiple paragraphs and add them one by one. Each paragraph should be added as a separate edit below the previous one.
-
-User's question:`;
+`;
 
       const result = await thread.streamText(
         {

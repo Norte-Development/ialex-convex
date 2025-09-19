@@ -44,6 +44,7 @@
     "react-dropzone": "^14.3.8",
     "react-router-dom": "^7.6.3",
     "react-syntax-highlighter": "^15.6.1",
+    "remark-gfm": "^4.0.1",
     "sonner": "^2.0.7",
     "state": "link:@tiptap/pm/state",
     "streamdown": "^1.0.11",

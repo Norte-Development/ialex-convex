@@ -13,7 +13,10 @@ import {
   TaskContent as TaskContentComponent,
 } from "../ai-elements/task";
 import { Response } from "../ai-elements/response";
+import { CitationParser } from "../ai-elements/citation-parser";
 import type { SidebarMessageProps } from "./types/message-types";
+import { LegislationModal } from "./egislation-modal";
+import { useState } from "react";
 
 export function SidebarMessage({
   message,
@@ -22,6 +25,9 @@ export function SidebarMessage({
   userName = "Usuario",
   assistantName = "iAlex",
 }: SidebarMessageProps) {
+
+  const [open, setOpen] = useState(false);
+  const [normativeId, setNormativeId] = useState("");
   const isUser = message.role === "user";
 
   const messageText =
@@ -145,7 +151,19 @@ export function SidebarMessage({
                 key={index}
                 className={cn("prose prose-sm max-w-none whitespace-pre-wrap")}
               >
-                <Response>{displayText}</Response>
+                {isUser ? (
+                  <Response>{displayText}</Response>
+                ) : (
+                  <CitationParser 
+                    text={displayText}
+                    onCitationClick={(id, type) => {
+                      console.log('Citation clicked:', { id, type });
+                      setOpen(true);
+                      setNormativeId(id);
+                      // TODO: Implement citation click handler
+                    }}
+                  />
+                )}
                 {!isUser && isStreaming && !allToolsCompleted && (
                   <div className="flex items-center gap-1 mt-2">
                     <Loader size={12} />
@@ -247,6 +265,7 @@ export function SidebarMessage({
           </Actions>
         )}
       </MessageContent>
+      <LegislationModal open={open} setOpen={setOpen} normativeId={normativeId} />
     </Message>
   );
 }

@@ -216,13 +216,10 @@ export const getNormativeById = async (documentId: string): Promise<NormativeDoc
   const collection = db.collection('ialex_legislation_py');
 
   try {
-    // Convert documentId to ObjectId if it's a valid ObjectId, otherwise use as string for document_id query
-    const convertedId = convertToObjectId(documentId);
 
     // Create query filter - try both _id and document_id
-    const queryFilter = typeof convertedId === 'string'
-      ? { document_id: convertedId }
-      : { $or: [{ _id: convertedId }, { document_id: documentId }] };
+    const queryFilter = { document_id: documentId }
+      
 
     // Use projection to limit fields returned from MongoDB (exclude large content fields)
     const normative = await collection.findOne(

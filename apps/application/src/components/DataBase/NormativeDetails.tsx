@@ -5,9 +5,10 @@ import { useAction } from "convex/react"
 import { api } from "../../../convex/_generated/api"
 import { Badge } from "../ui/badge"
 import { Separator } from "../ui/separator"
-import { Calendar, FileText, Tag, Globe, ExternalLink, ChevronDown, ChevronUp } from "lucide-react"
-import { useState } from "react"
+import { Calendar, FileText, Tag, Globe, ExternalLink } from "lucide-react"
 import type { NormativeDoc } from "../../../types/legislation"
+import ReactMarkdown from "react-markdown"
+import remarkGfm from "remark-gfm"
 
 interface NormativeDetailsProps {
   jurisdiction: string
@@ -16,8 +17,6 @@ interface NormativeDetailsProps {
 }
 
 export function NormativeDetails({ jurisdiction, id, getNormativeAction }: NormativeDetailsProps) {
-  const [isContentExpanded, setIsContentExpanded] = useState(false)
-  const [isResumenExpanded, setIsResumenExpanded] = useState(true)
 
   const {
     data: normative,
@@ -79,7 +78,9 @@ export function NormativeDetails({ jurisdiction, id, getNormativeAction }: Norma
       <div className="space-y-6 p-1">
         {/* Header */}
         <div className="sticky top-0 bg-white/95 backdrop-blur-sm border-b border-gray-100 pb-4 -mx-1 px-1">
-          <h2 className="text-2xl font-bold text-gray-900 leading-tight mb-4 text-pretty">{normative.title}</h2>
+          <h2 className="text-2xl font-bold text-gray-900 leading-tight mb-4 text-pretty line-clamp-3" title={normative.title}>
+            {normative.title}
+          </h2>
 
           {/* Badges */}
           <div className="flex flex-wrap gap-2">
@@ -198,27 +199,6 @@ export function NormativeDetails({ jurisdiction, id, getNormativeAction }: Norma
           </>
         )}
 
-        {/* Summary */}
-        {normative.resumen && (
-          <>
-            <Separator />
-            <div className="space-y-3">
-              <button
-                onClick={() => setIsResumenExpanded(!isResumenExpanded)}
-                className="flex items-center gap-2 font-semibold text-gray-900 hover:text-gray-700 transition-colors"
-              >
-                <span>Resumen</span>
-                {isResumenExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-              </button>
-              {isResumenExpanded && (
-                <div className="text-sm leading-relaxed text-gray-700 bg-blue-50/50 p-4 rounded-lg border border-blue-100">
-                  <div className="prose prose-sm max-w-none">{normative.resumen}</div>
-                </div>
-              )}
-            </div>
-          </>
-        )}
-
         {/* External Link */}
         {normative.url && (
           <>
@@ -237,30 +217,17 @@ export function NormativeDetails({ jurisdiction, id, getNormativeAction }: Norma
           </>
         )}
 
-        {/* Content */}
+        {/* Content - Always visible */}
         {normative.content && (
           <>
             <Separator />
             <div className="space-y-3">
-              <button
-                onClick={() => setIsContentExpanded(!isContentExpanded)}
-                className="flex items-center gap-2 font-semibold text-gray-900 hover:text-gray-700 transition-colors"
-              >
-                <span>Contenido completo</span>
-                {isContentExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-              </button>
-              {isContentExpanded && (
-                <div className="bg-gray-50/50 rounded-lg border border-gray-200">
-                  <div className="max-h-96 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-400 scrollbar-track-gray-200 p-4">
-                    <div className="prose prose-sm max-w-none text-gray-700 leading-relaxed whitespace-pre-wrap">
-                      {normative.content}
-                    </div>
-                  </div>
-                  <div className="px-4 py-2 bg-gray-100 border-t border-gray-200 rounded-b-lg">
-                    <div className="text-xs text-gray-500 text-center">Desplázate para ver todo el contenido</div>
-                  </div>
+              <h3 className="font-semibold text-gray-900">Contenido completo</h3>
+              <div className="bg-gray-50/50 rounded-lg border border-gray-200 p-4">
+                <div className="prose prose-sm max-w-none text-gray-700 leading-relaxed prose-headings:text-gray-900 prose-p:text-gray-700 prose-a:text-blue-600 prose-strong:text-gray-900 prose-ul:text-gray-700 prose-ol:text-gray-700 prose-blockquote:text-gray-600 prose-code:text-gray-800 prose-pre:bg-gray-100">
+                  <ReactMarkdown remarkPlugins={[remarkGfm]}>{normative.content}</ReactMarkdown>
                 </div>
-              )}
+              </div>
             </div>
           </>
         )}

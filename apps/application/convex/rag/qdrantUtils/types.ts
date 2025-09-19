@@ -6,11 +6,11 @@ export type LegislationSearchResult = {
   country_code?: string;
   document_id?: string;
   fuente?: string;
-  relaciones: string[];
+  relaciones: (string | any)[];
   title?: string;
   index?: number;
   tipo_norma?: string;
-  citas: string[];
+  citas: (string | any)[];
   publication_ts?: number;
   text?: string;
   type?: string;
@@ -23,7 +23,7 @@ export type LegislationSearchResult = {
   jurisdiccion?: string;
   tipo_contenido?: string;
   sanction_ts?: number;
-  tags: string[];
+  tags: (string | any)[];
   estado?: string;
   score: number;
 };

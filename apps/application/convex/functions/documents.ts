@@ -3,9 +3,7 @@ import { query, mutation, action, internalQuery } from "../_generated/server";
 import { getCurrentUserFromAuth, requireNewCaseAccess } from "../auth_utils";
 import { prosemirrorSync } from "../prosemirror";
 import { internal, api } from "../_generated/api";
-import { rag } from "../rag/rag";
-import { ProsemirrorSync } from "@convex-dev/prosemirror-sync";
-import { buildServerSchema } from "../../../../packages/shared/src/tiptap/schema";
+
 
 /**
  * Generates a Google Cloud Storage V4 signed URL for client-side uploads.

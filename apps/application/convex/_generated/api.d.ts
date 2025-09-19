@@ -10,6 +10,7 @@
 
 import type * as agent_agent from "../agent/agent.js";
 import type * as agent_escritosHelper from "../agent/escritosHelper.js";
+import type * as agent_prompt from "../agent/prompt.js";
 import type * as agent_streamAbort from "../agent/streamAbort.js";
 import type * as agent_streaming from "../agent/streaming.js";
 import type * as agent_threads from "../agent/threads.js";
@@ -17,6 +18,8 @@ import type * as agent_tools_editEscritoTool from "../agent/tools/editEscritoToo
 import type * as agent_tools_getEscritoStatsTool from "../agent/tools/getEscritoStatsTool.js";
 import type * as agent_tools_getEscritoTool from "../agent/tools/getEscritoTool.js";
 import type * as agent_tools_index from "../agent/tools/index.js";
+import type * as agent_tools_legislationFindTool from "../agent/tools/legislationFindTool.js";
+import type * as agent_tools_legislationReadTool from "../agent/tools/legislationReadTool.js";
 import type * as agent_tools_listCaseDocumentsTool from "../agent/tools/listCaseDocumentsTool.js";
 import type * as agent_tools_queryDocumentTool from "../agent/tools/queryDocumentTool.js";
 import type * as agent_tools_readDocumentTool from "../agent/tools/readDocumentTool.js";
@@ -80,6 +83,7 @@ import type {
 declare const fullApi: ApiFromModules<{
   "agent/agent": typeof agent_agent;
   "agent/escritosHelper": typeof agent_escritosHelper;
+  "agent/prompt": typeof agent_prompt;
   "agent/streamAbort": typeof agent_streamAbort;
   "agent/streaming": typeof agent_streaming;
   "agent/threads": typeof agent_threads;
@@ -87,6 +91,8 @@ declare const fullApi: ApiFromModules<{
   "agent/tools/getEscritoStatsTool": typeof agent_tools_getEscritoStatsTool;
   "agent/tools/getEscritoTool": typeof agent_tools_getEscritoTool;
   "agent/tools/index": typeof agent_tools_index;
+  "agent/tools/legislationFindTool": typeof agent_tools_legislationFindTool;
+  "agent/tools/legislationReadTool": typeof agent_tools_legislationReadTool;
   "agent/tools/listCaseDocumentsTool": typeof agent_tools_listCaseDocumentsTool;
   "agent/tools/queryDocumentTool": typeof agent_tools_queryDocumentTool;
   "agent/tools/readDocumentTool": typeof agent_tools_readDocumentTool;
