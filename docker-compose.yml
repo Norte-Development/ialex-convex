@@ -1,23 +1,17 @@
 services:
-  frontend:
-    build:
-      context: .
-      dockerfile: apps/application/Dockerfile
-      target: production
-      args:
-        VITE_CONVEX_URL: ${VITE_CONVEX_URL}
-        VITE_CLERK_PUBLISHABLE_KEY: ${VITE_CLERK_PUBLISHABLE_KEY}
-        VITE_DOCUMENT_PROCESSOR_URL: ${VITE_DOCUMENT_PROCESSOR_URL}
+  redis:
+    image: redis:7-alpine
     ports:
-      - "3000:80" # Map host:container (host 3000 -> container 80)
-    networks:
-      - ialex-network
+      - "6379:6379"
+    command: redis-server --appendonly yes --maxmemory 512mb --maxmemory-policy allkeys-lru
+    volumes:
+      - redis_data:/data
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:80/"]
-      interval: 30s
-      timeout: 10s
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
       retries: 3
-      start_period: 40s
+    restart: unless-stopped
 
   document-processor:
     build:
@@ -29,7 +23,7 @@ services:
       - .env.local
     environment:
       - PORT=4001
-      - REDIS_URL=${REDIS_URL}
+      - REDIS_URL=redis://redis:6379
       - WORKER_CONCURRENCY=2
       - OPENAI_API_KEY=${OPENAI_API_KEY}
       - QDRANT_URL=${QDRANT_URL}
@@ -37,15 +31,16 @@ services:
       - HMAC_SECRET=${HMAC_SECRET}
       - MISTRAL_API_KEY=${MISTRAL_API_KEY}
       - DEEPGRAM_API_KEY=${DEEPGRAM_API_KEY}
-    networks:
-      - ialex-network
+    depends_on:
+      redis:
+        condition: service_healthy
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:4001/health"]
       interval: 30s
       timeout: 10s
       retries: 3
       start_period: 40s
+    restart: unless-stopped
 
-networks:
-  ialex-network:
-    driver: bridge
+volumes:
+  redis_data:

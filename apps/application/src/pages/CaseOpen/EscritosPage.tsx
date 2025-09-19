@@ -18,7 +18,7 @@ import { EscritoToolsTester } from "@/components/Editor/EscritoToolsTester";
 import { CreateEscritoDialog } from "@/components/CreateEscritoDialog";
 import { ReadEscritoHelpersTester } from "@/components/Editor/ReadEscritoHelpersTester";
 
-export default function EscritoPage() {
+export default function EscritosPage() {
   const { escritoId } = useParams();
   const navigate = useNavigate();
   const { currentCase } = useCase();
@@ -59,23 +59,22 @@ export default function EscritoPage() {
     }
   }, [escrito, isValidEscritoId, navigate, currentCase?._id]);
 
-  // Show loading state while fetching a specific escrito
-  if (isValidEscritoId && escrito === undefined) {
-    return (
-      <CaseLayout>
+  // Determine what to render based on state
+  const renderContent = () => {
+    // Show loading state while fetching a specific escrito
+    if (isValidEscritoId && escrito === undefined) {
+      return (
         <div className="flex items-center justify-center h-96">
           <div className="text-center">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4" />
             <p className="text-gray-600">Cargando escrito...</p>
           </div>
         </div>
-      </CaseLayout>
-    );
-  }
+      );
+    }
 
-  if (!isValidEscritoId) {
-    return (
-      <CaseLayout>
+    if (!isValidEscritoId) {
+      return (
         <div className="space-y-6 p-6">
           {/* Header */}
           <div className="text-center space-y-2">
@@ -202,98 +201,102 @@ export default function EscritoPage() {
             </div>
           )}
         </div>
-      </CaseLayout>
-    );
-  }
+      );
+    }
 
-  // Render the specific escrito editor
+    // Render the specific escrito editor
+    return (
+      <>
+        {/* Document Header */}
+        <div className="bg-white border-b border-gray-200 px-6 py-4">
+          <div className="w-full flex items-center justify-between">
+            <div>
+              <h1 className="text-2xl font-semibold text-gray-900 mb-2">
+                {escrito?.title || "Untitled Document"}
+              </h1>
+              <div className="flex flex-wrap gap-4 text-sm text-gray-600">
+                {escrito?.presentationDate && (
+                  <div className="flex items-center gap-2">
+                    <span className="font-medium">Fecha de presentación:</span>
+                    <span>{escrito.presentationDate}</span>
+                  </div>
+                )}
+                {escrito?.courtName && (
+                  <div className="flex items-center gap-2">
+                    <span className="font-medium">Tribunal:</span>
+                    <span>{escrito.courtName}</span>
+                  </div>
+                )}
+                {escrito?.expedientNumber && (
+                  <div className="flex items-center gap-2">
+                    <span className="font-medium">Expediente:</span>
+                    <span>{escrito.expedientNumber}</span>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Testers Toggle - Only show if user can write Buttons */}
+            {can.escritos.write && (
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowToolsTester(!showToolsTester)}
+                  className="flex items-center gap-2"
+                >
+                  <FileText className="h-4 w-4" />
+                  {showToolsTester ? "Hide" : "Show"} Tools Tester
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowReadHelpersTester(!showReadHelpersTester)}
+                  className="flex items-center gap-2"
+                >
+                  <FileText className="h-4 w-4" />
+                  {showReadHelpersTester ? "Hide" : "Show"} Read Helpers Tester
+                </Button>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Editor Container */}
+        <div className="flex-1 p-6">
+          <div className="flex gap-6 h-full">
+            {/* Main Editor */}
+            <div className="flex-1">
+              <Tiptap
+                documentId={escrito?.prosemirrorId}
+                readOnly={!can.escritos.write}
+              />
+            </div>
+
+            {/* Testers Sidebar */}
+            {(showToolsTester || showReadHelpersTester) && (
+              <div className="flex gap-4 flex-shrink-0">
+                {showToolsTester && (
+                  <div className="w-80">
+                    <EscritoToolsTester />
+                  </div>
+                )}
+                {showReadHelpersTester && (
+                  <div className="w-96">
+                    <ReadEscritoHelpersTester />
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+      </>
+    );
+  };
 
   return (
     <CaseLayout>
-      {/* Document Header */}
-      <div className="bg-white border-b border-gray-200 px-6 py-4">
-        <div className="w-full flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-semibold text-gray-900 mb-2">
-              {escrito?.title || "Untitled Document"}
-            </h1>
-            <div className="flex flex-wrap gap-4 text-sm text-gray-600">
-              {escrito?.presentationDate && (
-                <div className="flex items-center gap-2">
-                  <span className="font-medium">Fecha de presentación:</span>
-                  <span>{escrito.presentationDate}</span>
-                </div>
-              )}
-              {escrito?.courtName && (
-                <div className="flex items-center gap-2">
-                  <span className="font-medium">Tribunal:</span>
-                  <span>{escrito.courtName}</span>
-                </div>
-              )}
-              {escrito?.expedientNumber && (
-                <div className="flex items-center gap-2">
-                  <span className="font-medium">Expediente:</span>
-                  <span>{escrito.expedientNumber}</span>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Testers Toggle - Only show if user can write Buttons */}
-          {can.escritos.write && (
-            <div className="flex gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setShowToolsTester(!showToolsTester)}
-                className="flex items-center gap-2"
-              >
-                <FileText className="h-4 w-4" />
-                {showToolsTester ? "Hide" : "Show"} Tools Tester
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setShowReadHelpersTester(!showReadHelpersTester)}
-                className="flex items-center gap-2"
-              >
-                <FileText className="h-4 w-4" />
-                {showReadHelpersTester ? "Hide" : "Show"} Read Helpers Tester
-              </Button>
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Editor Container */}
-      <div className="flex-1 p-6">
-        <div className="flex gap-6 h-full">
-          {/* Main Editor */}
-          <div className="flex-1">
-            <Tiptap
-              documentId={escrito?.prosemirrorId}
-              readOnly={!can.escritos.write}
-            />
-          </div>
-
-          {/* Testers Sidebar */}
-          {(showToolsTester || showReadHelpersTester) && (
-            <div className="flex gap-4 flex-shrink-0">
-              {showToolsTester && (
-                <div className="w-80">
-                  <EscritoToolsTester />
-                </div>
-              )}
-              {showReadHelpersTester && (
-                <div className="w-96">
-                  <ReadEscritoHelpersTester />
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-      </div>
-
+      {renderContent()}
       <CreateEscritoDialog
         open={isCreateDialogOpen}
         setOpen={setIsCreateDialogOpen}

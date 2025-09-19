@@ -1,14 +1,11 @@
-import { getDocument, GlobalWorkerOptions } from "pdfjs-dist";
+// Use legacy build to avoid worker requirements in Node environments
+import { getDocument } from "pdfjs-dist/legacy/build/pdf.mjs";
 
 type Options = { pageWindow: number };
 
 export async function extractWithPdfFallback(buffer: Buffer, _opts: Options): Promise<string> {
-  // pdfjs-dist worker config is required in some environments; in Node, it's not used
-  // but we set it to suppress warnings.
-  // @ts-ignore
-  GlobalWorkerOptions.workerSrc = "node_modules/pdfjs-dist/build/pdf.worker.js";
 
-  const loadingTask = getDocument({ data: buffer });
+  const loadingTask = getDocument({ data: new Uint8Array(buffer) });
   const pdf = await loadingTask.promise;
   let text = "";
   const numPages = pdf.numPages;

@@ -386,14 +386,7 @@ export function Tiptap({
     };
   }, [onDestroy]);
 
-  if (sync.isLoading) {
-    return (
-      <div className="flex items-center justify-center h-96 bg-white rounded-lg shadow-sm border border-gray-200">
-        <div className="text-gray-500">Cargando documento...</div>
-      </div>
-    );
-  }
-
+  // Ensure all hooks are called before any conditional returns
   useEffect(() => {
     if (sync.initialContent === null && !sync.isLoading && "create" in sync) {
       console.log("Auto-creating document with ID:", documentId);
@@ -406,6 +399,14 @@ export function Tiptap({
       editor.setEditable(!readOnly);
     }
   }, [editor, readOnly]);
+
+  if (sync.isLoading) {
+    return (
+      <div className="flex items-center justify-center h-96 bg-white rounded-lg shadow-sm border border-gray-200">
+        <div className="text-gray-500">Cargando documento...</div>
+      </div>
+    );
+  }
 
   if (sync.initialContent === null) {
     return (

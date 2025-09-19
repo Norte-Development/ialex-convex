@@ -32,12 +32,27 @@ type JobPayload = {
 };
 
 const connection = new IORedis(process.env.REDIS_URL || "redis://localhost:6379", {
-  maxRetriesPerRequest: 3,
+  maxRetriesPerRequest: null,
   enableOfflineQueue: false,
   lazyConnect: true,
   connectTimeout: 60000,
-  commandTimeout: 30000,
+  commandTimeout: 900000, // 15 minutes for long document processing operations
   keepAlive: 30000,
+  // Better reconnection handling for external Redis
+  reconnectOnError: (err) => {
+    const targetError = 'READONLY';
+    if (err.message.includes(targetError)) {
+      return true;
+    }
+    // Reconnect on timeout errors and connection issues
+    if (err.message.includes('timeout') || 
+        err.message.includes('ECONNRESET') || 
+        err.message.includes('ECONNREFUSED') ||
+        err.message.includes('ETIMEDOUT')) {
+      return true;
+    }
+    return false;
+  },
 });
 
 export function processDocumentJob(queue: Queue) {
