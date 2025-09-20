@@ -1,16 +1,18 @@
 import { createTool, ToolCtx } from "@convex-dev/agent";
-import { api } from "../../_generated/api";
+import { internal } from "../../_generated/api";
 import { z } from "zod";
 import { prosemirrorSync } from "../../prosemirror";
 import { buildServerSchema } from "../../../../../packages/shared/src/tiptap/schema";
 import { Node } from "@tiptap/pm/model";
+import { Id } from "../../_generated/dataModel";
+import { getUserAndCaseIds, createErrorResponse, validateStringParam, validateNumberParam } from "./utils";
 
 /**
  * Metadata describing a semantic chunk of document content.
  * 
  * Chunks are created based on document structure and content boundaries
  * to maintain semantic coherence while respecting size limits.
- */
+  */
 export interface ChunkMetadata {
   /** Zero-based index of this chunk within the document */
   chunkIndex: number;
@@ -58,8 +60,62 @@ export interface DocumentNode {
   level?: number;
   /** Whether this node represents a structural boundary in the document */
   isStructuralBoundary: boolean;
+  /** Change type for custom change nodes (e.g., "added", "deleted", "modified") */
+  changeType?: string;
+  /** Unique identifier for the change (for custom change nodes) */
+  changeId?: string;
+  /** Semantic type of the change (for custom change nodes) */
+  semanticType?: string;
 }
   
+/**
+ * Recursively extracts visible text from a ProseMirror node, excluding content
+ * inside change nodes marked as deleted and converting added line breaks to newlines.
+ */
+function extractVisibleTextFromNode(node: Node): string {
+  // Text node: return its text
+  if (node.type.name === "text") {
+    // @ts-ignore - text is only present on text nodes
+    return (node as any).text ?? node.textContent ?? "";
+  }
+
+  // Handle custom change nodes explicitly
+  if (node.type.name === "inlineChange" || node.type.name === "blockChange") {
+    const changeType = (node as any).attrs?.changeType;
+    if (changeType === "deleted") {
+      return ""; // Exclude deleted content from reads to avoid loops
+    }
+    // For added/modified, include inner visible text
+    let combined = "";
+    for (let i = 0; i < node.childCount; i++) {
+      combined += extractVisibleTextFromNode(node.child(i));
+    }
+    return combined;
+  }
+
+  if (node.type.name === "lineBreakChange") {
+    const changeType = (node as any).attrs?.changeType;
+    return changeType === "deleted" ? "" : "\n";
+  }
+
+  // Hard break nodes should render as newline
+  if (node.type.name === "hardBreak") {
+    return "\n";
+  }
+
+  // Generic container: concatenate children
+  if (node.childCount > 0) {
+    let out = "";
+    for (let i = 0; i < node.childCount; i++) {
+      out += extractVisibleTextFromNode(node.child(i));
+    }
+    return out;
+  }
+
+  // Fallback to textContent
+  return (node as any).textContent ?? "";
+}
+
 /**
  * Maximum number of words allowed per chunk to maintain manageable chunk sizes.
  * 
@@ -162,7 +218,7 @@ export function extractDocumentNodes(doc: Node): DocumentNode[] {
     // Handle headings - update section context
     if (node.type.name === "heading") {
       const level = node.attrs?.level || 1;
-      const headingText = node.textContent.trim();
+      const headingText = extractVisibleTextFromNode(node).trim();
       
       if (headingText) {
         // Update section stack based on heading level
@@ -177,25 +233,34 @@ export function extractDocumentNodes(doc: Node): DocumentNode[] {
           isStructuralBoundary: true,
         });
       }
-      return false; // Don't traverse into heading children
+      return false; // Already extracted visible text from heading subtree
     }
 
-    // Handle content nodes
-    if (["paragraph", "list_item", "table_cell", "code_block"].includes(node.type.name)) {
-      const text = node.textContent.trim();
+    // Handle standard block/leaf content nodes – compute visible text excluding deleted changes
+    if (["paragraph", "listItem", "blockquote", "codeBlock", "tableCell"].includes(node.type.name)) {
+      const text = extractVisibleTextFromNode(node).trim();
       if (text) {
         nodes.push({
           type: node.type.name,
           text,
           pos,
-          isStructuralBoundary: node.type.name === "code_block",
+          isStructuralBoundary: node.type.name === "codeBlock",
         });
       }
       return false; // Don't traverse into these nodes' children
     }
 
+    // Handle custom change nodes
+    if (["inlineChange", "blockChange", "lineBreakChange"].includes(node.type.name)) {
+      const changeType = (node as any).attrs?.changeType;
+      if (changeType === "deleted") {
+        return false; // Skip deleted changes entirely (and their children)
+      }
+      return true; // Traverse into children so underlying paragraphs/headings are processed normally
+    }
+
     // Handle lists and tables as structural boundaries
-    if (["bullet_list", "ordered_list", "table"].includes(node.type.name)) {
+    if (["bulletList", "orderedList", "table"].includes(node.type.name)) {
       return true; // Traverse children but mark as structural
     }
 
@@ -538,8 +603,7 @@ export const getFullEscrito = (doc: Node): { text: string; wordCount: number; st
  *   escritoId: "k123...", 
  *   operation: "full" 
  * });
- * ```
- */
+ * ``` */
 const readEscritoTool = createTool({
   description: "Read an Escrito",
   args: z.object({
@@ -549,19 +613,36 @@ const readEscritoTool = createTool({
     contextWindow: z.number().optional().describe("The number of chunks before and after the target chunk to include"),
   }).required({escritoId: true}),
   handler: async (ctx: ToolCtx, args: any) => {
-    const escrito = await ctx.runQuery(api.functions.documents.getEscrito, { escritoId: args.escritoId as any });
-    
-    if (!escrito) {
-      throw new Error(`Escrito with ID ${args.escritoId} not found`);
-    }
-    
-    const doc = await prosemirrorSync.getDoc(ctx, escrito.prosemirrorId, buildServerSchema());
-    if (args.operation === "outline") {
-      return getEscritoOutline(doc.doc);
-    } else if (args.operation === "chunk") {
-      return getEscritoChunks(doc.doc, args.chunkIndex, args.contextWindow);
-    } else if (args.operation === "full") {
-      return getFullEscrito(doc.doc);
+    try {
+      const {caseId, userId} = getUserAndCaseIds(ctx.userId as string);
+      
+      await ctx.runQuery(internal.auth_utils.internalCheckNewCaseAccess,{
+        userId: userId as Id<"users">,
+        caseId: caseId as Id<"cases">,
+        requiredLevel: "basic"
+      } )
+
+      const escritoIdError = validateStringParam(args.escritoId, "escritoId");
+      if (escritoIdError) return escritoIdError;
+
+      const escrito = await ctx.runQuery(internal.functions.documents.internalGetEscrito, { escritoId: args.escritoId as any });
+
+      if (!escrito) {
+        return createErrorResponse(`Escrito with ID ${args.escritoId} not found`);
+      }
+      
+      const doc = await prosemirrorSync.getDoc(ctx, escrito.prosemirrorId, buildServerSchema());
+      if (args.operation === "outline") {
+        return getEscritoOutline(doc.doc);
+      } else if (args.operation === "chunk") {
+        return getEscritoChunks(doc.doc, args.chunkIndex, args.contextWindow);
+      } else if (args.operation === "full") {
+        return getFullEscrito(doc.doc);
+      } else {
+        return createErrorResponse(`Invalid operation: ${args.operation}. Must be 'outline', 'chunk', or 'full'`);
+      }
+    } catch (error) {
+      return createErrorResponse(`Unexpected error: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
 } as any);

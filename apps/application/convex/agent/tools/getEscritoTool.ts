@@ -1,6 +1,8 @@
 import { createTool, ToolCtx } from "@convex-dev/agent";
-import { api } from "../../_generated/api";
+import { api, internal } from "../../_generated/api";
 import { z } from "zod";
+import { getUserAndCaseIds, createErrorResponse, validateStringParam } from "./utils";
+import { Id } from "../../_generated/dataModel";
 
 /**
  * @deprecated This tool is deprecated and will be removed in a future version.
@@ -38,25 +40,36 @@ export const getEscritoTool = createTool({
    * @returns Object with the document content
    */
   handler: async (ctx: ToolCtx, args: any) => {
-    // Validate inputs in handler
-    if (!args.escritoId || typeof args.escritoId !== 'string' || args.escritoId.trim().length === 0) {
-      throw new Error("Invalid escritoId: must be a non-empty string");
+    try {
+      const {caseId, userId} = getUserAndCaseIds(ctx.userId as string);
+      
+      await ctx.runQuery(internal.auth_utils.internalCheckNewCaseAccess,{
+        userId: userId as Id<"users">,
+        caseId: caseId as Id<"cases">,
+        requiredLevel: "basic"
+      } )
+
+      // Validate inputs in handler
+      const escritoIdError = validateStringParam(args.escritoId, "escritoId");
+      if (escritoIdError) return escritoIdError;
+
+      const escritoId = args.escritoId.trim();
+
+      // Fetch the Escrito document metadata
+      const escrito = await ctx.runQuery(internal.functions.documents.internalGetEscrito, { escritoId: escritoId as any });
+
+      if (!escrito) {
+        return createErrorResponse(`Escrito not found with ID: ${escritoId}`);
+      }
+
+      // Get the actual document content using ProseMirror snapshot
+      const documentContent = await ctx.runQuery(api.prosemirror.getSnapshot, { id: escrito.prosemirrorId });
+
+      return {
+        content: documentContent
+      };
+    } catch (error) {
+      return createErrorResponse(`Unexpected error: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
-
-    const escritoId = args.escritoId.trim();
-
-    // Fetch the Escrito document metadata
-    const escrito = await ctx.runQuery(api.functions.documents.getEscrito, { escritoId: escritoId as any });
-
-    if (!escrito) {
-      throw new Error(`Escrito not found with ID: ${escritoId}`);
-    }
-
-    // Get the actual document content using ProseMirror snapshot
-    const documentContent = await ctx.runQuery(api.prosemirror.getSnapshot, { id: escrito.prosemirrorId });
-
-    return {
-      content: documentContent
-    };
   }
 } as any);

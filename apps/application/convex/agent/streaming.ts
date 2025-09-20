@@ -13,6 +13,7 @@ import { authorizeThreadAccess } from "./threads";
 import { agent } from "./agent";
 import { ContextService } from "../context/contextService";
 import {prompt} from "./prompt";
+import { vReasoningPart } from "@convex-dev/agent/validators";
 
 /**
  * Initiates asynchronous streaming for a message in a thread.
@@ -58,7 +59,6 @@ export const initiateAsyncStreaming = mutation({
         viewContext
       );
 
-      console.log("contextBundle", contextBundle);
 
       const { messageId } = await agent.saveMessage(ctx, {
         threadId: args.threadId,
@@ -182,6 +182,7 @@ export const streamAsync = internalAction({
         {
           system: systemMessage,
           promptMessageId,
+         
           experimental_repairToolCall: async (...args: any[]) => {
             console.log("Tool call repair triggered:", args);
             return null; // Allow repair by returning null
