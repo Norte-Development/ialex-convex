@@ -1,15 +1,8 @@
-import {
-  UserIcon,
-  Settings,
-  UsersRound,
-  FileSearch2,
-  BookCheck,
-} from "lucide-react";
+import { Bell, Menu, Search } from "lucide-react";
 import { useLocation } from "react-router-dom";
 import Breadcrumbs from "./BreadCrumbs";
-import { Link } from "react-router-dom";
 import { UserButton } from "@clerk/clerk-react";
-
+import { Input } from "@/components/ui/input";
 export default function NavBar() {
   const location = useLocation();
 
@@ -17,10 +10,10 @@ export default function NavBar() {
 
   return (
     <nav
-      className={`${isInCaseContext ? "flex flex-row-reverse" : "flex "} fixed px-5 justify-between items-center h-14 w-full bg-background text-foreground border-b border-border top-0 left-0 z-50 mb-5`}
+      className={`flex flex-row-reverse fixed px-5 justify-between items-center h-14 w-full bg-background text-foreground border-b border-border top-0 left-0 z-50 mb-5`}
     >
       <div className={` flex  items-center gap-4`}>
-        <Settings className="cursor-pointer" size={20} />
+        <Bell className="cursor-pointer" size={20} />
         <UserButton
           appearance={{
             elements: {
@@ -30,6 +23,13 @@ export default function NavBar() {
           showName={false}
         />
       </div>
+      <div className={`flex justify-center items-center relative w-[30%]`}>
+        <Input placeholder="Busqueda inteligente" className="w-full" />
+        <Search
+          className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400"
+          size={16}
+        />
+      </div>
       <div className={`flex gap-4 justify-center items-center `}>
         {isInCaseContext ? (
           <div className="text-xl font-bold text-black flex items-center gap-2">
@@ -37,22 +37,7 @@ export default function NavBar() {
           </div>
         ) : (
           <div className="flex gap-4">
-            <Link to="/base-de-datos">
-              <FileSearch2 className="cursor-pointer" size={20} />
-            </Link>
-            <Link to="/clientes">
-              <UserIcon
-                fill="currentColor"
-                className="cursor-pointer"
-                size={20}
-              />
-            </Link>
-            <Link to="/modelos">
-              <BookCheck size={20} className="cursor-pointer" />
-            </Link>
-            <Link to="/equipo">
-              <UsersRound className="cursor-pointer" size={20} />
-            </Link>
+            <Menu />
           </div>
         )}
       </div>
