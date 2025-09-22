@@ -13,6 +13,7 @@ import {
   readEscritoTool,
   legislationFindTool,
   legislationReadTool,
+  planAndTrackTool,
 } from "./tools/index";
 import { extractReasoningMiddleware } from "ai";
 
@@ -53,8 +54,9 @@ export const agent = new Agent(components.agent, {
     editEscrito: editEscritoTool,
     getEscritoStats: getEscritoStatsTool,
     readEscrito: readEscritoTool,
-    searchLegislacion: legislationFindTool,
-    readLegislacion: legislationReadTool,
+    searchLegislation: legislationFindTool,
+    readLegislation: legislationReadTool,
+    planAndTrack: planAndTrackTool,
   }
 });
 
