@@ -14,6 +14,7 @@ import { useEscrito } from "@/context/EscritoContext"
 import { useAuth } from "@/context/AuthContext"
 import { usePage } from "@/context/PageContext"
 import { ContextSummaryBar } from "./ContextSummaryBar"
+import { TodoPanel } from "./TodoPanel"
 import { Id } from "convex/_generated/dataModel"
 import { useState } from "react"
 import type { Reference, ReferenceWithOriginal } from "./types/reference-types"
@@ -136,6 +137,9 @@ export function ChatContent() {
           </div>
         )}
       </div>
+
+      {/* Todo panel */}
+      <TodoPanel />
 
       {/* Minimal context summary */}
       <ContextSummaryBar 

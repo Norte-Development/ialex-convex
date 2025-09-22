@@ -13,6 +13,7 @@ import {
   readEscritoTool,
   legislationFindTool,
   legislationReadTool,
+  planAndTrackTool,
 } from "./tools/index";
 
 /**
@@ -54,6 +55,7 @@ export const agent = new Agent(components.agent, {
     readEscrito: readEscritoTool,
     searchLegislation: legislationFindTool,
     readLegislation: legislationReadTool,
+    planAndTrack: planAndTrackTool,
   }
 });
 
