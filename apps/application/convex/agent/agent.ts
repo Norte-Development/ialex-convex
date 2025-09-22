@@ -15,7 +15,6 @@ import {
   legislationReadTool,
   planAndTrackTool,
 } from "./tools/index";
-import { extractReasoningMiddleware } from "ai";
 
 /**
  * Main agent instance for the legal assistant system.
