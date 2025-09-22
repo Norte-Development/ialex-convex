@@ -11,7 +11,7 @@ const radioGroupItemVariants = cva(
     variants: {
       variant: {
         default: "text-primary hover:border-primary",
-        secondary: "text-[#023B58] hover:border-[#023B58]",
+        secondary: "text-tertiary hover:border-tertiary",
       },
     },
     defaultVariants: {
@@ -26,7 +26,7 @@ const radioGroupIndicatorVariants = cva(
     variants: {
       variant: {
         default: "fill-primary",
-        secondary: "fill-[#023B58]",
+        secondary: "fill-tertiary",
       },
     },
     defaultVariants: {

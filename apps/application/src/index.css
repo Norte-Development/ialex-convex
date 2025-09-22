@@ -54,6 +54,7 @@ body {
   --color-primary: #5bb6e5;
   --color-primary-foreground: var(--primary-foreground);
   --color-secondary: #f7f5ff;
+  --color-tertiary: #023b58;
   --color-secondary-foreground: var(--secondary-foreground);
   --color-muted: var(--muted);
   --color-muted-foreground: var(--muted-foreground);
