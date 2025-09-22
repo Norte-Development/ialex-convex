@@ -1,5 +1,5 @@
 import { createTool, ToolCtx } from "@convex-dev/agent";
-import { api, internal } from "../../_generated/api";
+import { internal } from "../../_generated/api";
 import { z } from "zod";
 import { prosemirrorSync } from "../../prosemirror";
 import { buildServerSchema } from "../../../../../packages/shared/src/tiptap/schema";
@@ -61,7 +61,7 @@ export const getEscritoStatsTool = createTool({
       const escritoIdError = validateStringParam(args.escritoId, "escritoId");
       if (escritoIdError) return escritoIdError;
 
-      const escrito = await ctx.runQuery(api.functions.documents.getEscrito, { escritoId: args.escritoId as any });
+      const escrito = await ctx.runQuery(internal.functions.documents.internalGetEscrito, { escritoId: args.escritoId as any });
       
       if (!escrito) {
         return createErrorResponse(`Escrito with ID ${args.escritoId} not found`);

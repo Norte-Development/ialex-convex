@@ -2,8 +2,6 @@ import { paginationOptsValidator } from "convex/server";
 import { vStreamArgs } from "@convex-dev/agent";
 import { internal } from "../_generated/api";
 import {
-  action,
-  httpAction,
   internalAction,
   mutation,
   query,
@@ -13,7 +11,6 @@ import { authorizeThreadAccess } from "./threads";
 import { agent } from "./agent";
 import { ContextService } from "../context/contextService";
 import {prompt} from "./prompt";
-import { vReasoningPart } from "@convex-dev/agent/validators";
 
 /**
  * Initiates asynchronous streaming for a message in a thread.
@@ -182,6 +179,13 @@ export const streamAsync = internalAction({
         {
           system: systemMessage,
           promptMessageId,
+
+          providerOptions: {
+            openai: {
+              reasoningEffort: 'medium',
+              reasoningSummary: "auto"
+            },
+          },
          
           experimental_repairToolCall: async (...args: any[]) => {
             console.log("Tool call repair triggered:", args);

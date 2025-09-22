@@ -312,7 +312,7 @@ export function createSemanticChunks(nodes: DocumentNode[]): ChunkMetadata[] {
       chunkIndex: chunks.length,
       startPos: currentChunk.startPos,
       endPos: currentChunk.endPos,
-      sectionPath: [...currentChunk.sectionPath],
+      sectionPath: [...currentChunk.sectionPath].filter(section => section !== undefined),
       nodeTypes: Array.from(currentChunk.nodeTypes),
       hasStructuralBoundary: currentChunk.nodes.some(n => n.isStructuralBoundary),
     });
@@ -341,7 +341,7 @@ export function createSemanticChunks(nodes: DocumentNode[]): ChunkMetadata[] {
         wordCount: 0,
         startPos: node.pos,
         endPos: node.pos,
-        sectionPath: [...sectionStack],
+        sectionPath: [...sectionStack].filter(section => section !== undefined),
         nodeTypes: new Set(),
       };
     }
@@ -360,7 +360,7 @@ export function createSemanticChunks(nodes: DocumentNode[]): ChunkMetadata[] {
         wordCount: 0,
         startPos: node.pos,
         endPos: node.pos,
-        sectionPath: [...sectionStack],
+        sectionPath: [...sectionStack].filter(section => section !== undefined),
         nodeTypes: new Set(),
       };
     }

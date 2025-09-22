@@ -14,6 +14,7 @@ import {
   legislationFindTool,
   legislationReadTool,
 } from "./tools/index";
+import { extractReasoningMiddleware } from "ai";
 
 /**
  * Main agent instance for the legal assistant system.
@@ -28,7 +29,7 @@ import {
  */
 export const agent = new Agent(components.agent, {
   name: "Legal Assistant Agent",
-  languageModel: openai('gpt-5-mini'),
+  languageModel: openai.responses('gpt-5-mini'),
   stopWhen: stepCountIs(25),
   // Default call settings per 0.2.x: place maxRetries here
   callSettings: {
@@ -45,15 +46,15 @@ export const agent = new Agent(components.agent, {
 
   tools: {
     searchFallos: searchFallosTool,
-    searchCaseDocuments: searchCaseDocumentsTool,
-    readDocument: readDocumentTool,
-    listCaseDocuments: listCaseDocumentsTool,
-    queryDocument: queryDocumentTool,
+    searchCaseDocumentos: searchCaseDocumentsTool,
+    readDocumento: readDocumentTool,
+    listCaseDocumentos: listCaseDocumentsTool,
+    queryDocumento: queryDocumentTool,
     editEscrito: editEscritoTool,
     getEscritoStats: getEscritoStatsTool,
     readEscrito: readEscritoTool,
-    searchLegislation: legislationFindTool,
-    readLegislation: legislationReadTool,
+    searchLegislacion: legislationFindTool,
+    readLegislacion: legislationReadTool,
   }
 });
 
