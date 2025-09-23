@@ -11,7 +11,7 @@ export { readEscritoTool } from './readEscritoTool';
 export { searchLegislationTool } from './searchLegislationTool';
 export { legislationFindTool } from './legislationFindTool';
 export { legislationReadTool } from './legislationReadTool';
-export { planAndTrackTool } from './planAndTrackTool';
+export { planAndTrackTool, markTaskCompleteTool } from './planAndTrackTool';
 
 // Export validation helpers
 export { validateEditType, validateMarkType, validateParagraphType } from './validation';
