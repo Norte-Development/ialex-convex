@@ -1,12 +1,6 @@
 import { TabsContent } from "../ui/tabs";
-import {
-  Table,
-  TableBody,
-  TableHeader,
-  TableRow,
-  TableHead,
-  TableCell,
-} from "../ui/table";
+
+import ModelsTable from "./ModelsTable";
 
 const models = [
   {
@@ -35,24 +29,7 @@ const models = [
 export default function ModelsTab() {
   return (
     <TabsContent value="Modelos" className="min-w-[90%]">
-      <Table>
-        <TableHeader className="bg-gray-200 border-b border-gray-300">
-          <TableRow>
-            <TableHead>Titulo</TableHead>
-            <TableHead>Categoria</TableHead>
-            <TableHead>Descripcion</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {models.map((model, index) => (
-            <TableRow key={index}>
-              <TableCell>{model.title}</TableCell>
-              <TableCell>{model.category}</TableCell>
-              <TableCell>{model.description}</TableCell>
-            </TableRow>
-          ))}
-        </TableBody>
-      </Table>
+      <ModelsTable models={models} />
     </TabsContent>
   );
 }

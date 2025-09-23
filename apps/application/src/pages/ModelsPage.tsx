@@ -3,10 +3,11 @@ import ModelsTab from "@/components/Models/ModelsTab";
 import { Input } from "@/components/ui/input";
 import { Plus } from "lucide-react";
 import MyModelsTab from "@/components/Models/MyModelsTab";
+import { Button } from "@/components/ui/button";
 
 export default function ModelsPage() {
   return (
-    <section className="w-[70%] h-full mt-20 min-h-screen flex  ">
+    <section className="w-[80%] h-full mt-14 min-h-screen flex  ">
       <Tabs
         className="w-full bg-white h-[95%] min-h-screen"
         defaultValue="Modelos"
@@ -21,14 +22,14 @@ export default function ModelsPage() {
             </TabsTrigger>
           </div>
         </TabsList>
-        <div className="flex gap-2 w-[40%] pl-2">
+        <div className="flex justify-between gap-2 w-[40%] pl-2 ">
           <Input
-            placeholder="buscar palabra clave"
-            className="bg-gray-200 p-1"
+            placeholder="Buscar modelo"
+            className="bg-white border border-[#C2C2C2] w-[65%]"
           />
-          <button className="border-2 border-green-400 py-0 px-1 cursor-pointer">
-            <Plus size={20} className="text-green-400" />
-          </button>
+          <Button size={"icon"} variant={"secondary"} className="bg-[#E2EFF7]">
+            <Plus size={20} className="text-[#633B48] rounded-full" />
+          </Button>
         </div>
         <ModelsTab />
         <MyModelsTab />
