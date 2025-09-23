@@ -13,8 +13,9 @@ import {
   readEscritoTool,
   legislationFindTool,
   legislationReadTool,
+  planAndTrackTool,
+  markTaskCompleteTool
 } from "./tools/index";
-import { extractReasoningMiddleware } from "ai";
 
 /**
  * Main agent instance for the legal assistant system.
@@ -30,7 +31,7 @@ import { extractReasoningMiddleware } from "ai";
 export const agent = new Agent(components.agent, {
   name: "Legal Assistant Agent",
   languageModel: openai.responses('gpt-5-mini'),
-  stopWhen: stepCountIs(25),
+  stopWhen: stepCountIs(15),
   // Default call settings per 0.2.x: place maxRetries here
   callSettings: {
     maxRetries: 3,
@@ -53,8 +54,10 @@ export const agent = new Agent(components.agent, {
     editEscrito: editEscritoTool,
     getEscritoStats: getEscritoStatsTool,
     readEscrito: readEscritoTool,
-    searchLegislacion: legislationFindTool,
-    readLegislacion: legislationReadTool,
+    searchLegislation: legislationFindTool,
+    readLegislation: legislationReadTool,
+    planAndTrack: planAndTrackTool,
+    markTaskComplete: markTaskCompleteTool,
   }
 });
 
