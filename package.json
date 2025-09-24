@@ -20,10 +20,10 @@
     "ui": "pnpm -C apps/application dlx shadcn@latest"
   },
   "dependencies": {
-    "@ai-sdk/openai": "^2.0.18",
+    "@ai-sdk/openai": "^2.0.32",
     "@clerk/clerk-react": "^5.25.0",
     "@clerk/react-router": "^1.8.1",
-    "@convex-dev/agent": "^0.2.4",
+    "@convex-dev/agent": "^0.2.10",
     "@convex-dev/prosemirror-sync": "^0.1.28",
     "@convex-dev/rag": "^0.3.3",
     "@convex-dev/resend": "^0.1.4",
@@ -49,9 +49,10 @@
     "@tiptap/pm": "^3.2.1",
     "@tiptap/react": "^3.2.1",
     "@tiptap/starter-kit": "^3.2.1",
+    "ai": "^5.0.47",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
-    "convex": "^1.25.4",
+    "convex": "^1.27.1",
     "firebase-admin": "^13.4.0",
     "jsondiffpatch": "^0.7.3",
     "jszip": "^3.10.1",
@@ -102,6 +103,10 @@
       "@tailwindcss/oxide"
     ],
     "overrides": {
+      "convex": "^1.27.1",
+      "@convex-dev/agent": "^0.2.10",
+      "@ai-sdk/openai": "^2.0.32",
+      "ai": "^5.0.47",
       "@convex-dev/prosemirror-sync>@tiptap/core": "^3.2.1"
     }
   }

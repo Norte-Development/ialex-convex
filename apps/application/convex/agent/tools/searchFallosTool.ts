@@ -1,5 +1,6 @@
 import { createTool } from "@convex-dev/agent";
 import { z } from "zod";
+import { createErrorResponse, validateStringParam, validateNumberParam } from "./utils";
 
 /**
  * Tool for searching court decisions and legal precedents (fallos) using dense embeddings.
@@ -26,36 +27,38 @@ export const searchFallosTool = createTool({
     limit: z.any().optional().describe("Maximum number of results to return (default: 10)")
   }).required({query: true}),
   handler: async (ctx: any, args: any) => {
-    // Validate inputs in handler
-    if (!args.query || typeof args.query !== 'string' || args.query.trim().length === 0) {
-      throw new Error("Invalid query: must be a non-empty string");
+    try {
+      // Validate inputs in handler
+      const queryError = validateStringParam(args.query, "query");
+      if (queryError) return queryError;
+
+      const limitError = validateNumberParam(args.limit, "limit", 1, 100, 10);
+      if (limitError) return limitError;
+
+      const limit = args.limit !== undefined ? args.limit : 10;
+
+      const validatedArgs = {
+        query: args.query.trim(),
+        limit: Math.min(limit, 100) // Cap at 100 to prevent abuse
+      };
+
+      const response = await fetch(`${process.env.SEARCH_API_URL}/search_fallos`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-API-Key': process.env.SEARCH_API_KEY!
+        },
+        body: JSON.stringify(validatedArgs)
+      });
+
+      if (!response.ok) {
+        return createErrorResponse(`Fallos search failed: ${response.status} ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      return createErrorResponse(`Unexpected error: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
-
-    const limit = args.limit !== undefined ? args.limit : 10;
-
-    if (typeof limit !== 'number' || limit < 1 || limit > 100) {
-      throw new Error("Invalid limit: must be a number between 1 and 100");
-    }
-
-    const validatedArgs = {
-      query: args.query.trim(),
-      limit: Math.min(limit, 100) // Cap at 100 to prevent abuse
-    };
-
-    const response = await fetch(`${process.env.SEARCH_API_URL}/search_fallos`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-API-Key': process.env.SEARCH_API_KEY!
-      },
-      body: JSON.stringify(validatedArgs)
-    });
-
-    if (!response.ok) {
-      throw new Error(`Fallos search failed: ${response.status} ${response.statusText}`);
-    }
-
-    const data = await response.json();
-    return data;
   },
 } as any);

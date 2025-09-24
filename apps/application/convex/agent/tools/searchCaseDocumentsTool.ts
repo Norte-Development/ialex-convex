@@ -1,7 +1,9 @@
 import { createTool, ToolCtx, getThreadMetadata } from "@convex-dev/agent";
 import { components } from "../../_generated/api";
-import { api } from "../../_generated/api";
+import { api, internal } from "../../_generated/api";
 import { z } from "zod";
+import { getUserAndCaseIds, createErrorResponse, validateStringParam, validateNumberParam } from "./utils";
+import { Id } from "../../_generated/dataModel";
 
 /**
  * Tool for searching case documents using dense embeddings with semantic chunk clustering.
@@ -31,46 +33,58 @@ export const searchCaseDocumentsTool = createTool({
     contextWindow: z.any().optional().describe("Number of adjacent chunks to include for context expansion (default: 4)")
   }).required({query: true}),
   handler: async (ctx: ToolCtx, args: any) => {
-    // Validate inputs in handler
-    if (!args.query || typeof args.query !== 'string' || args.query.trim().length === 0) {
-      throw new Error("Invalid query: must be a non-empty string");
+    try {
+      const {caseId, userId} = getUserAndCaseIds(ctx.userId as string);
+
+      if (!caseId || !userId){
+        return createErrorResponse("Invalid user context");
+      }
+      
+      await ctx.runQuery(internal.auth_utils.internalCheckNewCaseAccess,{
+        userId: userId as Id<"users">,
+        caseId: caseId as Id<"cases">,
+        requiredLevel: "basic"
+      } )
+
+      // Validate inputs in handler
+      const queryError = validateStringParam(args.query, "query");
+      if (queryError) return queryError;
+
+      const limitError = validateNumberParam(args.limit, "limit", 1, 50, 10);
+      if (limitError) return limitError;
+
+      const contextWindowError = validateNumberParam(args.contextWindow, "contextWindow", 1, 20, 4);
+      if (contextWindowError) return contextWindowError;
+
+      const limit = args.limit !== undefined ? args.limit : 10;
+      const contextWindow = args.contextWindow !== undefined ? args.contextWindow : 4;
+
+      // Use userId directly from ctx instead of getCurrentUserFromAuth
+      if (!ctx.userId) {
+        return createErrorResponse("Not authenticated");
+      }
+
+      // Extract caseId from thread metadata
+      if (!ctx.threadId) {
+        return createErrorResponse("No thread context available");
+      }
+
+      const { userId: threadUserId } = await getThreadMetadata(ctx, components.agent, { threadId: ctx.threadId });
+
+      // Extract caseId from threadUserId format: "case:${caseId}_${userId}"
+      if (!threadUserId?.startsWith("case:")) {
+        return createErrorResponse("This tool can only be used within a case context");
+      }
+
+      // Call the action to perform the search with clustering
+      return await ctx.runAction(api.rag.qdrantUtils.caseDocuments.searchCaseDocumentsWithClustering, {
+        query: args.query.trim(),
+        caseId,
+        limit: Math.min(limit, 50), // Cap at 50 to prevent abuse
+        contextWindow: Math.min(contextWindow, 20) // Cap at 20 to prevent abuse
+      });
+    } catch (error) {
+      return createErrorResponse(`Unexpected error: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
-
-    const limit = args.limit !== undefined ? args.limit : 10;
-    if (typeof limit !== 'number' || limit < 1 || limit > 50) {
-      throw new Error("Invalid limit: must be a number between 1 and 50");
-    }
-
-    const contextWindow = args.contextWindow !== undefined ? args.contextWindow : 4;
-    if (typeof contextWindow !== 'number' || contextWindow < 1 || contextWindow > 20) {
-      throw new Error("Invalid contextWindow: must be a number between 1 and 20");
-    }
-
-    // Use userId directly from ctx instead of getCurrentUserFromAuth
-    if (!ctx.userId) {
-      throw new Error("Not authenticated");
-    }
-
-    // Extract caseId from thread metadata
-    if (!ctx.threadId) {
-      throw new Error("No thread context available");
-    }
-
-    const { userId: threadUserId } = await getThreadMetadata(ctx, components.agent, { threadId: ctx.threadId });
-
-    // Extract caseId from threadUserId format: "case:${caseId}_${userId}"
-    if (!threadUserId?.startsWith("case:")) {
-      throw new Error("This tool can only be used within a case context");
-    }
-
-    const caseId = threadUserId.substring(5).split("_")[0]; // Remove "case:" prefix and get caseId part
-
-    // Call the action to perform the search with clustering
-    return await ctx.runAction(api.rag.qdrantUtils.caseDocuments.searchCaseDocumentsWithClustering, {
-      query: args.query.trim(),
-      caseId,
-      limit: Math.min(limit, 50), // Cap at 50 to prevent abuse
-      contextWindow: Math.min(contextWindow, 20) // Cap at 20 to prevent abuse
-    });
   }
 } as any);

@@ -2,8 +2,6 @@ import { paginationOptsValidator } from "convex/server";
 import { vStreamArgs } from "@convex-dev/agent";
 import { internal } from "../_generated/api";
 import {
-  action,
-  httpAction,
   internalAction,
   mutation,
   query,
@@ -58,7 +56,6 @@ export const initiateAsyncStreaming = mutation({
         viewContext
       );
 
-      console.log("contextBundle", contextBundle);
 
       const { messageId } = await agent.saveMessage(ctx, {
         threadId: args.threadId,
@@ -182,6 +179,14 @@ export const streamAsync = internalAction({
         {
           system: systemMessage,
           promptMessageId,
+
+          providerOptions: {
+            openai: {
+              reasoningEffort: 'medium',
+              reasoningSummary: "auto"
+            },
+          },
+         
           experimental_repairToolCall: async (...args: any[]) => {
             console.log("Tool call repair triggered:", args);
             return null; // Allow repair by returning null

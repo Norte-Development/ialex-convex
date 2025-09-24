@@ -34,32 +34,64 @@ export function extractTextWithMapping(content: any): {
   function walk(
     node: any,
     pos: number,
-    textOffset: number
+    textOffset: number,
+    inDeletedChange: boolean = false,
   ): { pos: number; textOffset: number } {
     if (!node) return { pos, textOffset };
 
     if (Array.isArray(node)) {
       for (const child of node) {
-        ({ pos, textOffset } = walk(child, pos, textOffset));
+        ({ pos, textOffset } = walk(child, pos, textOffset, inDeletedChange));
       }
       return { pos, textOffset };
     }
 
+    // Handle custom change nodes: inlineChange, blockChange, lineBreakChange
+    if (node.type === "inlineChange" || node.type === "blockChange") {
+      const changeType = node.attrs?.changeType;
+      const nextInDeleted = inDeletedChange || changeType === "deleted";
+      // Treat as container: advance pos for opening
+      pos += 1;
+      if (node.content) {
+        for (const child of node.content) {
+          ({ pos, textOffset } = walk(child, pos, textOffset, nextInDeleted));
+        }
+      }
+      // advance pos for closing
+      pos += 1;
+      return { pos, textOffset };
+    }
+
+    if (node.type === "lineBreakChange") {
+      const changeType = node.attrs?.changeType;
+      if (changeType === "deleted") {
+        // deleted line break contributes no visible text; counts as one PM position
+        pos += 1;
+        return { pos, textOffset };
+      }
+      // added line break: visible newline and one PM position
+      const startOffset = textOffset;
+      const startPos = pos;
+      text += "\n";
+      textOffset += 1;
+      const endPos = pos + 1;
+      ranges.push({ textStart: startOffset, textEnd: textOffset, pmStart: startPos, pmEnd: endPos });
+      return { pos: endPos, textOffset };
+    }
+
     // Text nodes
     if (node.type === "text" && typeof node.text === "string") {
+      if (inDeletedChange) {
+        // Skip contributing deleted text but advance PM position
+        const endPos = pos + node.text.length;
+        return { pos: endPos, textOffset };
+      }
       const startOffset = textOffset;
       const startPos = pos;
       text += node.text;
       textOffset += node.text.length;
       const endPos = pos + node.text.length;
-      
-      ranges.push({
-        textStart: startOffset,
-        textEnd: textOffset,
-        pmStart: startPos,
-        pmEnd: endPos,
-      });
-      
+      ranges.push({ textStart: startOffset, textEnd: textOffset, pmStart: startPos, pmEnd: endPos });
       return { pos: endPos, textOffset };
     }
 
@@ -71,12 +103,7 @@ export function extractTextWithMapping(content: any): {
       textOffset += 1;
       const endPos = pos + 1;
       
-      ranges.push({
-        textStart: startOffset,
-        textEnd: textOffset,
-        pmStart: startPos,
-        pmEnd: endPos,
-      });
+      ranges.push({ textStart: startOffset, textEnd: textOffset, pmStart: startPos, pmEnd: endPos });
       
       return { pos: endPos, textOffset };
     }
@@ -85,7 +112,7 @@ export function extractTextWithMapping(content: any): {
     if (node.content) {
       pos += 1; // opening token
       for (const child of node.content) {
-        ({ pos, textOffset } = walk(child, pos, textOffset));
+        ({ pos, textOffset } = walk(child, pos, textOffset, inDeletedChange));
       }
       pos += 1; // closing token
       return { pos, textOffset };

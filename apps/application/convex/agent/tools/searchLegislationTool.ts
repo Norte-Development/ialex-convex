@@ -1,6 +1,7 @@
 import { createTool } from "@convex-dev/agent";
 import { z } from "zod";
 import { internal } from "../../_generated/api";
+import { createErrorResponse, validateStringParam } from "./utils";
 
 /**
  * Tool for searching legislation and normative documents using Qdrant hybrid search.
@@ -24,16 +25,15 @@ export const searchLegislationTool = createTool({
     query: z.string().min(1).describe("The search query text to find relevant legislation and normative documents")
   }).required({query: true}),
   handler: async (ctx: any, args: any) => {
-    // Validate inputs in handler
-    if (!args.query || typeof args.query !== 'string' || args.query.trim().length === 0) {
-      throw new Error("Invalid query: must be a non-empty string");
-    }
-
-    const validatedArgs = {
-      query: args.query.trim()
-    };
-
     try {
+      // Validate inputs in handler
+      const queryError = validateStringParam(args.query, "query");
+      if (queryError) return queryError;
+
+      const validatedArgs = {
+        query: args.query.trim()
+      };
+
       // Call the internal searchNormatives action
       const results = await ctx.runAction(internal.rag.qdrantUtils.legislation.searchNormatives, validatedArgs);
 
@@ -84,7 +84,7 @@ export const searchLegislationTool = createTool({
     } catch (error) {
       console.error("Legislation search failed:", error);
       const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-      throw new Error(`Legislation search failed: ${errorMessage}`);
+      return createErrorResponse(`Legislation search failed: ${errorMessage}`);
     }
   },
 } as any);

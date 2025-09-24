@@ -13,6 +13,8 @@ import {
   readEscritoTool,
   legislationFindTool,
   legislationReadTool,
+  planAndTrackTool,
+  markTaskCompleteTool
 } from "./tools/index";
 
 /**
@@ -20,7 +22,7 @@ import {
  * 
  * This agent is configured with:
  * - Name: "Legal Assistant Agent" for identification
- * - Chat model: GPT-4o-mini for cost-effective AI interactions
+ * - Chat model: GPT-5-mini for cost-effective AI interactions
  * - Integration with Convex components for thread management
  * 
  * The agent handles all AI-powered conversations and legal assistance
@@ -28,8 +30,8 @@ import {
  */
 export const agent = new Agent(components.agent, {
   name: "Legal Assistant Agent",
-  languageModel: openai.chat("gpt-5-mini"),
-  stopWhen: stepCountIs(25),
+  languageModel: openai.responses('gpt-5-mini'),
+  stopWhen: stepCountIs(15),
   // Default call settings per 0.2.x: place maxRetries here
   callSettings: {
     maxRetries: 3,
@@ -45,15 +47,17 @@ export const agent = new Agent(components.agent, {
 
   tools: {
     searchFallos: searchFallosTool,
-    searchCaseDocuments: searchCaseDocumentsTool,
-    readDocument: readDocumentTool,
-    listCaseDocuments: listCaseDocumentsTool,
-    queryDocument: queryDocumentTool,
+    searchCaseDocumentos: searchCaseDocumentsTool,
+    readDocumento: readDocumentTool,
+    listCaseDocumentos: listCaseDocumentsTool,
+    queryDocumento: queryDocumentTool,
     editEscrito: editEscritoTool,
     getEscritoStats: getEscritoStatsTool,
     readEscrito: readEscritoTool,
     searchLegislation: legislationFindTool,
     readLegislation: legislationReadTool,
+    planAndTrack: planAndTrackTool,
+    markTaskComplete: markTaskCompleteTool,
   }
 });
 

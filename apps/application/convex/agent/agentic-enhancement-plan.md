@@ -315,4 +315,117 @@ createEscritoTool = {
 
 ---
 
+## Additional Agent Enhancement Recommendations
+
+### **System Reliability & Performance**
+
+#### **1. Tool Reliability Layer**
+Add comprehensive error handling and resilience to all agent tools:
+- **Timeout Management**: Per-tool timeouts with jittered retries to prevent cascading failures
+- **Circuit Breakers**: Automatic tool disabling when failure rates exceed thresholds
+- **Call Deduplication**: Fingerprint-based deduplication using (input+thread+step) to prevent redundant operations
+- **Centralized Wrapper**: Create a `createReliableTool` wrapper around `createTool` that all tools inherit for consistent behavior and telemetry
+
+#### **2. Context Pruning & Long-Thread Memory**
+Optimize context management for better performance and reduced token costs:
+- **Thread Summarization**: Automatic summarization of older thread content while preserving key decisions
+- **Pinned Case Facts**: Store and prioritize frequently referenced case facts, latest decisions, and active artifacts
+- **Context Bias**: Enhance `ContextService.gatherAutoContext` to favor pinned facts and recent activity
+- **Memory Refresh**: Implement refreshable summaries per thread/case to prevent context drift
+
+#### **3. Caching & Result Reuse**
+Implement intelligent caching to reduce redundant operations:
+- **Legislation Cache**: Short-TTL caches for legislation reads keyed by (sourceId, section/article)
+- **Document Snippet Cache**: Cache frequent document snippets and query results
+- **Thread Query Memoization**: Avoid repeated Qdrant calls within minutes for similar queries
+- **Smart Invalidation**: Context-aware cache invalidation based on case updates
+
+### **Citation & Quality Assurance**
+
+#### **4. Citation Enforcement Gate**
+Ensure all tool-derived content is properly cited:
+- **Post-Response Validator**: Check if tool-derived content appears without `[CIT:…]` format
+- **Blocking Mechanism**: Prevent finalization of responses missing required citations
+- **Standardized Returns**: Require all tools to return `citations: Array<{id, kind, title?, section?}>`
+- **UI Integration**: Enable reliable citation rendering in the frontend
+
+#### **5. Tool Decision Rationales & Audit**
+Add transparency and traceability to agent decision-making:
+- **Reasoning Logs**: Require each tool call to include "why now" and "expected outcome" strings
+- **Metadata Storage**: Save decision rationales to message metadata for audit trails
+- **UI Display**: Collapsible "reasoning log" in the UI for user transparency
+- **Performance Tracking**: Monitor tool usage patterns and success rates
+
+### **Document Editing Precision**
+
+#### **6. Deterministic Document Editing Outputs**
+Improve document editing with structured, auditable changes:
+- **Structured Edits**: Return insert/replace-with-ranges instead of full-text blobs
+- **Diff Integration**: Leverage existing `packages/shared/diff` utilities for precise change tracking
+- **Merge Conflict Prevention**: Reduce conflicts through granular edit operations
+- **Audit Trail**: Enable precise "what changed" UI with before/after comparisons
+
+### **Adaptive Intelligence**
+
+#### **7. Adaptive Model & Step Budgeting**
+Optimize resource usage based on task complexity:
+- **Intent-Based Routing**: Use cheaper models for browsing/listing, stronger models for analysis/editing
+- **Dynamic Step Limits**: Adjust `stopWhen` based on task difficulty, cost so far, and user urgency
+- **Provider Fallbacks**: Automatic fallback across providers on rate limits or failures
+- **Cost Monitoring**: Track and optimize token usage per task type
+
+### **Security & Permissions**
+
+#### **8. Permission-First Tool Guards**
+Implement comprehensive access control for all agent operations:
+- **Pre-Authorization**: Standardize `preAuthorize({userId, caseId, permission})` helper for all tools
+- **Output Redaction**: Apply redaction policies for client-facing contexts
+- **Audit Events**: Emit audit events for all sensitive read/write operations
+- **Case-Based Access**: Enforce case-based access restrictions consistently
+
+### **User Experience**
+
+#### **9. Streaming UX Upgrades**
+Enhance real-time user experience during agent operations:
+- **Progressive Results**: Stream partial tool results (e.g., top-3 then full list)
+- **Inline Citations**: Show progressive citations as they're discovered
+- **Actionable Repairs**: When `experimental_repairToolCall` fires, present "Try with suggested parameters" chips
+- **Interactive Recovery**: Allow users to click to continue streams after tool call failures
+
+### **Testing & Quality Assurance**
+
+#### **10. Evaluation Harness**
+Implement systematic testing and quality monitoring:
+- **Scenario Runner**: Ship a small scenario runner with golden prompts (research, draft, edit, cite)
+- **Quality Assertions**: Verify citations present, tool usage matches policy, no unauthorized reads
+- **Performance Thresholds**: Assert latency stays under defined limits
+- **CI Integration**: Run evaluation harness in CI to catch regressions
+- **Success Metrics**: Track citation accuracy, tool usage efficiency, and user satisfaction
+
+---
+
+## Implementation Priority
+
+### **Phase 1: Foundation (Immediate)**
+- Tool reliability layer (#1)
+- Citation enforcement gate (#4)
+- Permission-first tool guards (#8)
+
+### **Phase 2: Performance (Short-term)**
+- Context pruning & memory (#2)
+- Caching & result reuse (#3)
+- Adaptive model routing (#7)
+
+### **Phase 3: Quality (Medium-term)**
+- Tool decision rationales (#5)
+- Deterministic editing outputs (#6)
+- Evaluation harness (#10)
+
+### **Phase 4: Experience (Long-term)**
+- Streaming UX upgrades (#9)
+- Advanced context intelligence
+- Comprehensive audit trails
+
+---
+
 This enhancement plan transforms the IALEX agent from a reactive assistant into a proactive, planning-oriented legal partner that can break down complex tasks, track progress transparently, and create professional legal documents efficiently.

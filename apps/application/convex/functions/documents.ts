@@ -675,6 +675,15 @@ export const getEscrito = query({
   },
 });
 
+export const internalGetEscrito = internalQuery({
+  args: {
+    escritoId: v.id("escritos"),
+  },
+  handler: async (ctx, args) => {
+    return await ctx.db.get(args.escritoId);
+  },
+})
+
 /**
  * Archives or unarchives an escrito.
  *
