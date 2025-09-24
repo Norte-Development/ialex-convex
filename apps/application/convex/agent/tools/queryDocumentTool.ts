@@ -2,6 +2,8 @@ import { createTool, ToolCtx, getThreadMetadata } from "@convex-dev/agent";
 import { components } from "../../_generated/api";
 import { api, internal } from "../../_generated/api";
 import { z } from "zod";
+import { getUserAndCaseIds, createErrorResponse, validateStringParam, validateNumberParam } from "./utils";
+import { Id } from "../../_generated/dataModel";
 
 /**
  * Tool for querying a specific document using semantic search.
@@ -32,85 +34,93 @@ export const queryDocumentTool = createTool({
     limit: z.any().optional().describe("Maximum number of relevant chunks to return (default: 5)")
   }).required({documentId: true, query: true}),
   handler: async (ctx: ToolCtx, args: any) => {
-    // Validate inputs in handler
-    if (!args.documentId || typeof args.documentId !== 'string' || args.documentId.trim().length === 0) {
-      throw new Error("Invalid documentId: must be a non-empty string");
-    }
+    try {
+      const {caseId, userId} = getUserAndCaseIds(ctx.userId as string);
+      
+      await ctx.runQuery(internal.auth_utils.internalCheckNewCaseAccess,{
+        userId: userId as Id<"users">,
+        caseId: caseId as Id<"cases">,
+        requiredLevel: "basic"
+      } )
 
-    if (!args.query || typeof args.query !== 'string' || args.query.trim().length === 0) {
-      throw new Error("Invalid query: must be a non-empty string");
-    }
+      // Validate inputs in handler
+      const documentIdError = validateStringParam(args.documentId, "documentId");
+      if (documentIdError) return documentIdError;
 
-    const limit = args.limit !== undefined ? args.limit : 5;
-    if (typeof limit !== 'number' || limit < 1 || limit > 20) {
-      throw new Error("Invalid limit: must be a number between 1 and 20");
-    }
+      const queryError = validateStringParam(args.query, "query");
+      if (queryError) return queryError;
 
-    const documentId = args.documentId.trim();
-    const query = args.query.trim();
-    // Verify authentication using agent context
-    if (!ctx.userId) {
-      throw new Error("Not authenticated");
-    }
+      const limitError = validateNumberParam(args.limit, "limit", 1, 20, 5);
+      if (limitError) return limitError;
 
-    // Extract caseId from thread metadata
-    if (!ctx.threadId) {
-      throw new Error("No thread context available");
-    }
+      const documentId = args.documentId.trim();
+      const query = args.query.trim();
+      const limit = args.limit !== undefined ? args.limit : 5;
 
-    const { userId: threadUserId } = await getThreadMetadata(ctx, components.agent, { threadId: ctx.threadId });
+      // Verify authentication using agent context
+      if (!ctx.userId) {
+        return createErrorResponse("Not authenticated");
+      }
 
-    // Extract caseId from threadUserId format: "case:${caseId}_${userId}"
-    if (!threadUserId?.startsWith("case:")) {
-      throw new Error("This tool can only be used within a case context");
-    }
+      // Extract caseId from thread metadata
+      if (!ctx.threadId) {
+        return createErrorResponse("No thread context available");
+      }
 
-    const caseId = threadUserId.substring(5).split("_")[0]; // Remove "case:" prefix and get caseId part
+      const { userId: threadUserId } = await getThreadMetadata(ctx, components.agent, { threadId: ctx.threadId });
 
-    // Get document metadata using internal helper (bypasses permission checks)
-    const document = await ctx.runQuery(internal.functions.documents.getDocumentForAgent, {
-      documentId: documentId as any
-    });
+      // Extract caseId from threadUserId format: "case:${caseId}_${userId}"
+      if (!threadUserId?.startsWith("case:")) {
+        return createErrorResponse("This tool can only be used within a case context");
+      }
 
-    if (!document) {
-      throw new Error("Document not found");
-    }
+      // Get document metadata using internal helper (bypasses permission checks)
+      const document = await ctx.runQuery(internal.functions.documents.getDocumentForAgent, {
+        documentId: documentId as any
+      });
 
-    // Verify document belongs to the current case
-    if (document.caseId !== caseId) {
-      throw new Error("Document does not belong to the current case");
-    }
+      if (!document) {
+        return createErrorResponse("Document not found");
+      }
 
-    // Check if document is processed
-    if (document.processingStatus !== "completed") {
-      throw new Error(`Document is not ready for querying. Status: ${document.processingStatus}`);
-    }
+      // Verify document belongs to the current case
+      if (document.caseId !== caseId) {
+        return createErrorResponse("Document does not belong to the current case");
+      }
 
-    // Perform semantic search within the specific document
-    const searchResults = await ctx.runAction(api.rag.qdrantUtils.caseDocuments.searchDocumentChunks, {
-      documentId,
-      caseId,
-      query,
-      limit
-    });
+      // Check if document is processed
+      if (document.processingStatus !== "completed") {
+        return createErrorResponse(`Document is not ready for querying. Status: ${document.processingStatus}`);
+      }
 
-    if (!searchResults || searchResults.length === 0) {
+      // Perform semantic search within the specific document
+      const searchResults = await ctx.runAction(api.rag.qdrantUtils.caseDocuments.searchDocumentChunks, {
+        documentId,
+        caseId,
+        query,
+        limit
+      });
+
+      if (!searchResults || searchResults.length === 0) {
+        return {
+          documentId,
+          documentTitle: document.title,
+          query,
+          results: [],
+          message: "No relevant content found for the given query in this document."
+        };
+      }
+
       return {
         documentId,
         documentTitle: document.title,
         query,
-        results: [],
-        message: "No relevant content found for the given query in this document."
+        results: searchResults,
+        totalResults: searchResults.length,
+        message: `Found ${searchResults.length} relevant chunk(s) in the document.`
       };
+    } catch (error) {
+      return createErrorResponse(`Unexpected error: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
-
-    return {
-      documentId,
-      documentTitle: document.title,
-      query,
-      results: searchResults,
-      totalResults: searchResults.length,
-      message: `Found ${searchResults.length} relevant chunk(s) in the document.`
-    };
   }
 } as any);

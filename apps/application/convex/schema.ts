@@ -363,6 +363,56 @@ export default defineSchema({
     .index("by_expires_at", ["expiresAt"]),
 
   // ========================================
+  // TODO PLANNING & TRACKING (Phase 1)
+  // ========================================
+
+  // Todo Lists: High-level containers for tasks, optionally tied to a case and/or agent thread
+  todoLists: defineTable({
+    title: v.string(),
+    createdBy: v.id("users"),
+    caseId: v.optional(v.id("cases")),
+    // Agent thread id (from @convex-dev/agent threads). Stored as string.
+    threadId: v.optional(v.string()),
+    status: v.optional(
+      v.union(
+        v.literal("active"),
+        v.literal("completed"),
+        v.literal("archived"),
+      ),
+    ),
+    isActive: v.boolean(),
+    // Optional cached progress percent (0-100). Can be derived in queries.
+    progressPercent: v.optional(v.number()),
+  })
+    .index("by_created_by", ["createdBy"]) 
+    .index("by_case", ["caseId"]) 
+    .index("by_thread", ["threadId"]) 
+    .index("by_status", ["status"]) 
+    .index("by_active", ["isActive"]),
+
+  // Todo Items: Individual tasks belonging to a list
+  todoItems: defineTable({
+    listId: v.id("todoLists"),
+    title: v.string(),
+    description: v.optional(v.string()),
+    status: v.union(
+      v.literal("pending"),
+      v.literal("in_progress"),
+      v.literal("completed"),
+      v.literal("blocked"),
+    ),
+    order: v.number(),
+    assignedTo: v.optional(v.id("users")),
+    dueDate: v.optional(v.number()),
+    blockedReason: v.optional(v.string()),
+    createdBy: v.id("users"),
+  })
+    .index("by_list", ["listId"]) 
+    .index("by_status", ["status"]) 
+    .index("by_list_and_status", ["listId", "status"]) 
+    .index("by_assigned_to", ["assignedTo"]),
+
+  // ========================================
   // NEW UNIFIED PERMISSIONS SYSTEM
   // ========================================
 

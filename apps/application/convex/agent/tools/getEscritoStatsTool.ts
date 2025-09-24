@@ -1,9 +1,11 @@
 import { createTool, ToolCtx } from "@convex-dev/agent";
-import { api } from "../../_generated/api";
+import { internal } from "../../_generated/api";
 import { z } from "zod";
 import { prosemirrorSync } from "../../prosemirror";
 import { buildServerSchema } from "../../../../../packages/shared/src/tiptap/schema";
 import { Node } from "@tiptap/pm/model";
+import { getUserAndCaseIds, createErrorResponse, validateStringParam } from "./utils";
+import { Id } from "../../_generated/dataModel";
 
 /**
  * Statistics object containing document metrics
@@ -47,22 +49,37 @@ export const getEscritoStatsTool = createTool({
     escritoId: z.any().describe("The Escrito ID (Convex doc id)"),
   }).required({escritoId: true}),
   handler: async (ctx: ToolCtx, args: any) => {
-    const escrito = await ctx.runQuery(api.functions.documents.getEscrito, { escritoId: args.escritoId as any });
-    
-    if (!escrito) {
-      throw new Error(`Escrito with ID ${args.escritoId} not found`);
+    try {
+      const {caseId, userId} = getUserAndCaseIds(ctx.userId as string);
+      
+      await ctx.runQuery(internal.auth_utils.internalCheckNewCaseAccess,{
+        userId: userId as Id<"users">,
+        caseId: caseId as Id<"cases">,
+        requiredLevel: "basic"
+      } )
+
+      const escritoIdError = validateStringParam(args.escritoId, "escritoId");
+      if (escritoIdError) return escritoIdError;
+
+      const escrito = await ctx.runQuery(internal.functions.documents.internalGetEscrito, { escritoId: args.escritoId as any });
+      
+      if (!escrito) {
+        return createErrorResponse(`Escrito with ID ${args.escritoId} not found`);
+      }
+      
+      const doc = await prosemirrorSync.getDoc(ctx, escrito.prosemirrorId, buildServerSchema());
+      const stats = {
+          words: countWords(doc),
+          paragraphs: countParagraphs(doc),
+      }
+      return { 
+          stats,
+          escritoId: escrito._id,
+          version: doc.version,
+      };
+    } catch (error) {
+      return createErrorResponse(`Unexpected error: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
-    
-    const doc = await prosemirrorSync.getDoc(ctx, escrito.prosemirrorId, buildServerSchema());
-    const stats = {
-        words: countWords(doc),
-        paragraphs: countParagraphs(doc),
-    }
-    return { 
-        stats,
-        escritoId: escrito._id,
-        version: doc.version,
-    };
   }
 } as any);
 

@@ -1,6 +1,8 @@
 import { createTool, ToolCtx } from "@convex-dev/agent";
 import { api, internal } from "../../_generated/api";
 import { z } from "zod";
+import { getUserAndCaseIds, createErrorResponse, validateStringParam } from "./utils";
+import { Id } from "../../_generated/dataModel";
 
 /**
  * Unified legislation finder tool.
@@ -56,18 +58,22 @@ export const legislationFindTool = createTool({
     })
     .required({ operation: true }),
   handler: async (ctx: ToolCtx, args: any) => {
-    const operation = args.operation as string;
+    try {
+      const {caseId, userId} = getUserAndCaseIds(ctx.userId as string);
+      
+      await ctx.runQuery(internal.auth_utils.internalCheckNewCaseAccess,{
+        userId: userId as Id<"users">,
+        caseId: caseId as Id<"cases">,
+        requiredLevel: "basic"
+      } )
 
-    if (!ctx.userId) {
-      return { kind: "error", error: "Not authenticated" };
-    }
+      const operation = args.operation as string;
 
-    switch (operation) {
-      case "search": {
-        if (!args.query || typeof args.query !== "string" || args.query.trim().length === 0) {
-          return { kind: "error", error: "Invalid query: must be a non-empty string" };
-        }
-        const query = args.query.trim();
+      switch (operation) {
+        case "search": {
+          const queryError = validateStringParam(args.query, "query");
+          if (queryError) return { kind: "error", error: queryError.error };
+          const query = args.query.trim();
 
         // Use hybrid Qdrant search
         const results = await ctx.runAction(
@@ -147,11 +153,10 @@ export const legislationFindTool = createTool({
         return { kind: "facets", facets };
       }
 
-      case "metadata": {
-        if (!args.documentId || typeof args.documentId !== "string" || args.documentId.trim().length === 0) {
-          return { kind: "error", error: "Invalid documentId: must be a non-empty string" };
-        }
-        const documentId = args.documentId.trim();
+        case "metadata": {
+          const documentIdError = validateStringParam(args.documentId, "documentId");
+          if (documentIdError) return { kind: "error", error: documentIdError.error };
+          const documentId = args.documentId.trim();
 
         const normative = await ctx.runAction(api.functions.legislation.getNormativeById, {
           jurisdiction: args.filters?.jurisdiccion || "",
@@ -181,8 +186,11 @@ export const legislationFindTool = createTool({
         };
       }
 
-      default:
-        return { kind: "error", error: `Unsupported operation: ${operation}` };
+        default:
+          return { kind: "error", error: `Unsupported operation: ${operation}` };
+      }
+    } catch (error) {
+      return { kind: "error", error: `Unexpected error: ${error instanceof Error ? error.message : 'Unknown error'}` };
     }
   },
 } as any);
