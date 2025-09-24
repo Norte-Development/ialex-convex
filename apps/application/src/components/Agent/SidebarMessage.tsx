@@ -1,22 +1,19 @@
 import { useSmoothText } from "@convex-dev/agent/react";
 import { cn } from "@/lib/utils";
-import { ToolCallDisplay } from "./ToolCallDisplay";
 import { Message, MessageContent, MessageAvatar } from "../ai-elements/message";
-import { Reasoning, ReasoningContent } from "../ai-elements/reasoning";
+import { Reasoning, ReasoningContent, ReasoningTrigger } from "../ai-elements/reasoning";
 import { Sources, SourcesTrigger, SourcesContent } from "../ai-elements/source";
 import { Actions, Action } from "../ai-elements/actions";
 import { Loader } from "../ai-elements/loader";
 import { Copy, ThumbsUp, ThumbsDown } from "lucide-react";
 import {
-  Task,
-  TaskTrigger,
-  TaskContent as TaskContentComponent,
-} from "../ai-elements/task";
+  Tool,
+} from "../ai-elements/tool";
 import { Response } from "../ai-elements/response";
 import { CitationParser } from "../ai-elements/citation-parser";
 import type { SidebarMessageProps } from "./types/message-types";
-import { LegislationModal } from "./egislation-modal";
-import { useState } from "react";
+import { LegislationModal } from "./legislation-modal";
+import { useState, useEffect } from "react";
 
 export function SidebarMessage({
   message,
@@ -24,6 +21,7 @@ export function SidebarMessage({
   assistantAvatar,
   userName = "Usuario",
   assistantName = "iAlex",
+  onContentChange,
 }: SidebarMessageProps) {
 
   const [open, setOpen] = useState(false);
@@ -56,6 +54,20 @@ export function SidebarMessage({
     startStreaming: shouldStream,
   });
 
+  // Trigger content change callback when streaming text updates
+  useEffect(() => {
+    if (isStreaming && onContentChange) {
+      onContentChange();
+    }
+  }, [visibleText, isStreaming, onContentChange]);
+
+  // Trigger content change callback when message parts change (tools, reasoning, etc.)
+  useEffect(() => {
+    if (onContentChange) {
+      onContentChange();
+    }
+  }, [message.parts, onContentChange]);
+
   return (
     <Message
       from={message.role}
@@ -79,49 +91,7 @@ export function SidebarMessage({
             "!bg-red-100 !text-red-800 border-l-2 border-red-400",
         )}
       >
-        {/* Tool calls container */}
-        {(() => {
-          const toolCalls =
-            message.parts?.filter((part) => part.type.startsWith("tool-")) ||
-            [];
-          if (toolCalls.length === 0) return null;
-
-          return (
-            <Task key="tools-container" defaultOpen={true} className="mb-2">
-              <TaskTrigger
-                title={`Herramientas usadas (${toolCalls.length})`}
-                className="mb-0"
-              />
-              <TaskContentComponent className="mt-0">
-                {toolCalls.map((part, index) => {
-                  const aiSDKState = (part as any).state;
-                  const outputType = (part as any)?.output?.type as
-                    | string
-                    | undefined;
-                  const isError =
-                    aiSDKState === "output-available" &&
-                    (outputType?.startsWith("error-") ?? false);
-
-                  return (
-                    <ToolCallDisplay
-                      key={index}
-                      state={
-                        isError
-                          ? "error"
-                          : aiSDKState === "output-available"
-                            ? "result"
-                            : "call"
-                      }
-                      part={part as any}
-                    />
-                  );
-                })}
-              </TaskContentComponent>
-            </Task>
-          );
-        })()}
-
-        {/* Message parts */}
+        {/* Message parts in chronological order */}
         {message.parts?.map((part, index) => {
           if (part.type === "text") {
             const displayText = isUser
@@ -177,16 +147,45 @@ export function SidebarMessage({
           }
 
           if (part.type === "reasoning") {
+            // More intelligent reasoning streaming detection
+            // Reasoning is considered streaming only if:
+            // 1. The message is still streaming AND
+            // 2. This is the last part (reasoning is still being generated) OR
+            // 3. The reasoning text is empty or very short (just started)
+            const isLastPart = index === (message.parts?.length || 0) - 1;
+            
+            const reasoningIsStreaming = message.status === "streaming" && 
+              (isLastPart);
+            
             return (
-              <Reasoning key={index} defaultOpen={false}>
-                <ReasoningContent>{(part as any).text}</ReasoningContent>
+              <Reasoning 
+                key={`${message.id}-${index}`} 
+                defaultOpen={false} 
+                isStreaming={reasoningIsStreaming}
+                onToggle={() => {
+                  // Trigger content change when reasoning is expanded/collapsed
+                  if (onContentChange) {
+                    setTimeout(onContentChange, 100); // Small delay to allow DOM update
+                  }
+                }}
+              >
+                <ReasoningTrigger className="!text-[10px]" />
+                <ReasoningContent className="group relative !px-3 !py-2 !text-[10px] space-y-2 max-w-[85%]">{part.text}</ReasoningContent>
               </Reasoning>
             );
           }
 
           if (part.type === "source-url") {
             return (
-              <Sources key={index}>
+              <Sources 
+                key={index}
+                onToggle={() => {
+                  // Trigger content change when sources are expanded/collapsed
+                  if (onContentChange) {
+                    setTimeout(onContentChange, 100); // Small delay to allow DOM update
+                  }
+                }}
+              >
                 <SourcesTrigger count={1}>
                   Source:{" "}
                   {(part as any).title || (part as any).url || "Unknown source"}
@@ -218,6 +217,12 @@ export function SidebarMessage({
                     src={fileUrl}
                     alt={filename || "Attached image"}
                     className="max-w-full h-auto rounded"
+                    onLoad={() => {
+                      // Trigger content change when image loads (height changes)
+                      if (onContentChange) {
+                        setTimeout(onContentChange, 100);
+                      }
+                    }}
                   />
                 </div>
               );
@@ -234,7 +239,27 @@ export function SidebarMessage({
           }
 
           if (part.type.startsWith("tool-")) {
-            return null;
+            const aiSDKState = (part as any).state;
+            const outputType = (part as any)?.output?.type as
+              | string
+              | undefined;
+            const isError =
+              aiSDKState === "output-available" &&
+              (outputType?.startsWith("error-") ?? false);
+            
+            // Map our states to Tool component states
+            const toolState = isError 
+              ? "output-error" 
+              : aiSDKState === "output-available" 
+                ? "output-available" 
+                : aiSDKState === "input-available"
+                  ? "input-available"
+                  : "input-streaming";
+            
+            return (
+              <Tool key={index} className="mb-4" type={part.type.replace("tool-", "")} state={toolState}>
+              </Tool>
+            );
           }
 
           return null;

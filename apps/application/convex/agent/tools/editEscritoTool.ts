@@ -1,7 +1,9 @@
 import { createTool, ToolCtx } from "@convex-dev/agent";
-import { api } from "../../_generated/api";
+import { api, internal } from "../../_generated/api";
 import { z } from "zod";
 import { validateEditType, validateMarkType, validateParagraphType, normalizeEditType } from "./validation";
+import { getUserAndCaseIds, createErrorResponse, validateStringParam } from "./utils";
+import { Id } from "../../_generated/dataModel";
 
 /**
  * Tool for editing Escritos by text-based operations including text manipulation and mark formatting.
@@ -171,21 +173,30 @@ export const editEscritoTool = createTool({
     ctx: ToolCtx,
     { escritoId, edits }: { escritoId: string; edits: any[] }
   ) => {
-    if (!ctx.userId) {
-      console.log("Not authenticated: proceeding with best-effort application");
-    }
+    try {
+      if (!ctx.userId) {
+        console.log("Not authenticated: proceeding with best-effort application");
+      }
 
-    // Validate inputs in handler for better error control
-    if (!escritoId || typeof escritoId !== 'string') {
-      console.log("Invalid escritoId: must be a non-empty string");
-      return {
-        ok: false,
-        message: "Invalid escritoId: must be a non-empty string",
-        validationErrors: ["EscritoId must be a non-empty string"],
-        editsAttempted: edits.length,
-        editsApplied: 0,
-      };
-    }
+      const {caseId, userId} = getUserAndCaseIds(ctx.userId as string);
+      
+      await ctx.runQuery(internal.auth_utils.internalCheckNewCaseAccess,{
+        userId: userId as Id<"users">,
+        caseId: caseId as Id<"cases">,
+        requiredLevel: "advanced"
+      } )
+
+      // Validate inputs in handler for better error control
+      const escritoIdError = validateStringParam(escritoId, "escritoId");
+      if (escritoIdError) {
+        return {
+          ok: false,
+          message: escritoIdError.error,
+          validationErrors: [escritoIdError.error],
+          editsAttempted: edits.length,
+          editsApplied: 0,
+        };
+      }
 
     if (!Array.isArray(edits) || edits.length === 0) {
       console.log("Invalid edits: must be a non-empty array");
@@ -387,7 +398,7 @@ export const editEscritoTool = createTool({
     }
 
     // Load Escrito
-    const escrito = await ctx.runQuery(api.functions.documents.getEscrito, {
+    const escrito = await ctx.runQuery(internal.functions.documents.internalGetEscrito, {
       escritoId: escritoId as any,
     });
     if (!escrito) {
@@ -415,14 +426,23 @@ export const editEscritoTool = createTool({
       ? `Applied ${validEdits.length}/${edits.length} edits successfully. ${validationErrors.length} edits were skipped due to validation errors.`
       : `Applied ${validEdits.length} edits successfully`;
 
-    return {
-      ok: true,
-      message,
-      editsApplied: validEdits.length,
-      editsAttempted: edits.length,
-      validationErrors: validationErrors.length > 0 ? validationErrors : undefined,
-      result,
-    };
+      return {
+        ok: true,
+        message,
+        editsApplied: validEdits.length,
+        editsAttempted: edits.length,
+        validationErrors: validationErrors.length > 0 ? validationErrors : undefined,
+        result,
+      };
+    } catch (error) {
+      return {
+        ok: false,
+        message: `Unexpected error: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        validationErrors: [`Unexpected error: ${error instanceof Error ? error.message : 'Unknown error'}`],
+        editsAttempted: edits.length,
+        editsApplied: 0,
+      };
+    }
   },
 } as any);
 

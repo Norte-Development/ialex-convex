@@ -93,6 +93,12 @@ export interface SidebarMessageProps {
    * @default "iAlex"
    */
   assistantName?: string;
+
+  /**
+   * Optional callback function called when message content changes height
+   * Used for auto-scrolling when content expands (streaming text, tool execution, etc.)
+   */
+  onContentChange?: () => void;
 }
 
 /**

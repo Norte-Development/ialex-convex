@@ -21,12 +21,14 @@ import type * as agent_tools_index from "../agent/tools/index.js";
 import type * as agent_tools_legislationFindTool from "../agent/tools/legislationFindTool.js";
 import type * as agent_tools_legislationReadTool from "../agent/tools/legislationReadTool.js";
 import type * as agent_tools_listCaseDocumentsTool from "../agent/tools/listCaseDocumentsTool.js";
+import type * as agent_tools_planAndTrackTool from "../agent/tools/planAndTrackTool.js";
 import type * as agent_tools_queryDocumentTool from "../agent/tools/queryDocumentTool.js";
 import type * as agent_tools_readDocumentTool from "../agent/tools/readDocumentTool.js";
 import type * as agent_tools_readEscritoTool from "../agent/tools/readEscritoTool.js";
 import type * as agent_tools_searchCaseDocumentsTool from "../agent/tools/searchCaseDocumentsTool.js";
 import type * as agent_tools_searchFallosTool from "../agent/tools/searchFallosTool.js";
 import type * as agent_tools_searchLegislationTool from "../agent/tools/searchLegislationTool.js";
+import type * as agent_tools_utils from "../agent/tools/utils.js";
 import type * as agent_tools_validation from "../agent/tools/validation.js";
 import type * as auth_utils from "../auth_utils.js";
 import type * as context_context from "../context/context.js";
@@ -47,6 +49,7 @@ import type * as functions_seedCases from "../functions/seedCases.js";
 import type * as functions_teams from "../functions/teams.js";
 import type * as functions_templates from "../functions/templates.js";
 import type * as functions_testReadEscritoHelpers from "../functions/testReadEscritoHelpers.js";
+import type * as functions_todos from "../functions/todos.js";
 import type * as functions_users from "../functions/users.js";
 import type * as http from "../http.js";
 import type * as prosemirror from "../prosemirror.js";
@@ -89,12 +92,14 @@ declare const fullApi: ApiFromModules<{
   "agent/tools/legislationFindTool": typeof agent_tools_legislationFindTool;
   "agent/tools/legislationReadTool": typeof agent_tools_legislationReadTool;
   "agent/tools/listCaseDocumentsTool": typeof agent_tools_listCaseDocumentsTool;
+  "agent/tools/planAndTrackTool": typeof agent_tools_planAndTrackTool;
   "agent/tools/queryDocumentTool": typeof agent_tools_queryDocumentTool;
   "agent/tools/readDocumentTool": typeof agent_tools_readDocumentTool;
   "agent/tools/readEscritoTool": typeof agent_tools_readEscritoTool;
   "agent/tools/searchCaseDocumentsTool": typeof agent_tools_searchCaseDocumentsTool;
   "agent/tools/searchFallosTool": typeof agent_tools_searchFallosTool;
   "agent/tools/searchLegislationTool": typeof agent_tools_searchLegislationTool;
+  "agent/tools/utils": typeof agent_tools_utils;
   "agent/tools/validation": typeof agent_tools_validation;
   auth_utils: typeof auth_utils;
   "context/context": typeof context_context;
@@ -115,6 +120,7 @@ declare const fullApi: ApiFromModules<{
   "functions/teams": typeof functions_teams;
   "functions/templates": typeof functions_templates;
   "functions/testReadEscritoHelpers": typeof functions_testReadEscritoHelpers;
+  "functions/todos": typeof functions_todos;
   "functions/users": typeof functions_users;
   http: typeof http;
   prosemirror: typeof prosemirror;
@@ -643,7 +649,7 @@ export declare const components: {
                               Record<string, any>
                             >;
                             sourceType: "url";
-                            title: string;
+                            title?: string;
                             type: "source";
                             url: string;
                           }
@@ -946,7 +952,7 @@ export declare const components: {
                               Record<string, any>
                             >;
                             sourceType: "url";
-                            title: string;
+                            title?: string;
                             type: "source";
                             url: string;
                           }
@@ -1254,7 +1260,7 @@ export declare const components: {
                           >;
                           providerOptions?: Record<string, Record<string, any>>;
                           sourceType: "url";
-                          title: string;
+                          title?: string;
                           type: "source";
                           url: string;
                         }
@@ -1572,7 +1578,7 @@ export declare const components: {
                               Record<string, any>
                             >;
                             sourceType: "url";
-                            title: string;
+                            title?: string;
                             type: "source";
                             url: string;
                           }
@@ -1861,7 +1867,7 @@ export declare const components: {
                           >;
                           providerOptions?: Record<string, Record<string, any>>;
                           sourceType: "url";
-                          title: string;
+                          title?: string;
                           type: "source";
                           url: string;
                         }
@@ -2134,7 +2140,7 @@ export declare const components: {
                           >;
                           providerOptions?: Record<string, Record<string, any>>;
                           sourceType: "url";
-                          title: string;
+                          title?: string;
                           type: "source";
                           url: string;
                         }
@@ -2431,7 +2437,7 @@ export declare const components: {
                               Record<string, any>
                             >;
                             sourceType: "url";
-                            title: string;
+                            title?: string;
                             type: "source";
                             url: string;
                           }
@@ -2645,7 +2651,7 @@ export declare const components: {
                           >;
                           providerOptions?: Record<string, Record<string, any>>;
                           sourceType: "url";
-                          title: string;
+                          title?: string;
                           type: "source";
                           url: string;
                         }
@@ -2794,6 +2800,7 @@ export declare const components: {
         "internal",
         {
           agentName?: string;
+          format?: "UIMessageChunk" | "TextStreamPart";
           model?: string;
           order: number;
           provider?: string;
@@ -2858,6 +2865,7 @@ export declare const components: {
         },
         Array<{
           agentName?: string;
+          format?: "UIMessageChunk" | "TextStreamPart";
           model?: string;
           order: number;
           provider?: string;
