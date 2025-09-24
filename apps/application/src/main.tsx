@@ -19,6 +19,9 @@ createRoot(document.getElementById("root")!).render(
     <ErrorBoundary>
       <ClerkProvider
         publishableKey={import.meta.env.VITE_CLERK_PUBLISHABLE_KEY}
+        localization={{
+          locale: "es"
+        }}
       >
         <ConvexProviderWithClerk client={convex} useAuth={useAuth}>
           <AuthProvider>
