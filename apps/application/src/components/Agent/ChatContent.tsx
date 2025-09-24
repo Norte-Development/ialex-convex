@@ -241,7 +241,7 @@ export function ChatContent() {
     }
   }, [handleContentResize])
 
-  const sendMessage = useMutation(api.agent.streaming.initiateAsyncStreaming).withOptimisticUpdate(
+  const sendMessage = useMutation(api.agent.workflow.startStreamingWorkflow).withOptimisticUpdate(
     optimisticallySendMessage(api.agent.streaming.listMessages),
   )
 
