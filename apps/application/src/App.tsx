@@ -14,6 +14,7 @@ import { HighlightProvider } from "./context/HighlightContext";
 import { EscritoProvider } from "./context/EscritoContext";
 import { PageProvider } from "./context/PageContext";
 import { CasePermissionsProvider } from "./context/CasePermissionsContext";
+import { EditorProvider } from "./context/EditorContext";
 
 // Lazy load pages to reduce initial bundle size
 const HomePage = lazy(() => import("./pages/HomePage"));
@@ -42,21 +43,23 @@ const CaseRoutesWrapper: React.FC = () => {
     <CaseProvider>
       <CasePermissionsWrapper>
         <EscritoProvider>
-          <HighlightProvider>
-            <Routes>
-              <Route index element={<CaseDetailPage />} />
-              <Route path="escritos" element={<EscritosPage />} />
-              <Route path="escritos/:escritoId" element={<EscritosPage />} />
-              <Route path="clientes" element={<CaseClientsPage />} />
-              <Route path="equipos" element={<CaseTeamsPage />} />
-              <Route path="modelos" element={<CaseModelPage />} />
-              <Route path="base-de-datos" element={<CaseDataBasePage />} />
-              <Route
-                path="documentos/:documentId"
-                element={<CaseDocumentPage />}
-              />
-            </Routes>
-          </HighlightProvider>
+          <EditorProvider>
+            <HighlightProvider>
+              <Routes>
+                <Route index element={<CaseDetailPage />} />
+                <Route path="escritos" element={<EscritosPage />} />
+                <Route path="escritos/:escritoId" element={<EscritosPage />} />
+                <Route path="clientes" element={<CaseClientsPage />} />
+                <Route path="equipos" element={<CaseTeamsPage />} />
+                <Route path="modelos" element={<CaseModelPage />} />
+                <Route path="base-de-datos" element={<CaseDataBasePage />} />
+                <Route
+                  path="documentos/:documentId"
+                  element={<CaseDocumentPage />}
+                />
+              </Routes>
+            </HighlightProvider>
+          </EditorProvider>
         </EscritoProvider>
       </CasePermissionsWrapper>
     </CaseProvider>

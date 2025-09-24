@@ -1,14 +1,16 @@
 import { useSmoothText } from "@convex-dev/agent/react";
 import { cn } from "@/lib/utils";
 import { Message, MessageContent, MessageAvatar } from "../ai-elements/message";
-import { Reasoning, ReasoningContent, ReasoningTrigger } from "../ai-elements/reasoning";
+import {
+  Reasoning,
+  ReasoningContent,
+  ReasoningTrigger,
+} from "../ai-elements/reasoning";
 import { Sources, SourcesTrigger, SourcesContent } from "../ai-elements/source";
 import { Actions, Action } from "../ai-elements/actions";
 import { Loader } from "../ai-elements/loader";
 import { Copy, ThumbsUp, ThumbsDown } from "lucide-react";
-import {
-  Tool,
-} from "../ai-elements/tool";
+import { Tool } from "../ai-elements/tool";
 import { Response } from "../ai-elements/response";
 import { CitationParser } from "../ai-elements/citation-parser";
 import type { SidebarMessageProps } from "./types/message-types";
@@ -23,7 +25,6 @@ export function SidebarMessage({
   assistantName = "iAlex",
   onContentChange,
 }: SidebarMessageProps) {
-
   const [open, setOpen] = useState(false);
   const [normativeId, setNormativeId] = useState("");
   const isUser = message.role === "user";
@@ -37,7 +38,8 @@ export function SidebarMessage({
   const messageAge = Date.now() - (message._creationTime || 0);
   // Detect tool calls and whether they've all completed output
   const toolCalls =
-    message.parts?.filter((part) => (part as any).type?.startsWith("tool-")) || [];
+    message.parts?.filter((part) => (part as any).type?.startsWith("tool-")) ||
+    [];
   const allToolsCompleted =
     toolCalls.length > 0 &&
     toolCalls.every((part) => (part as any).state === "output-available");
@@ -124,10 +126,10 @@ export function SidebarMessage({
                 {isUser ? (
                   <Response>{displayText}</Response>
                 ) : (
-                  <CitationParser 
+                  <CitationParser
                     text={displayText}
                     onCitationClick={(id, type) => {
-                      console.log('Citation clicked:', { id, type });
+                      console.log("Citation clicked:", { id, type });
                       setOpen(true);
                       setNormativeId(id);
                       // TODO: Implement citation click handler
@@ -153,14 +155,14 @@ export function SidebarMessage({
             // 2. This is the last part (reasoning is still being generated) OR
             // 3. The reasoning text is empty or very short (just started)
             const isLastPart = index === (message.parts?.length || 0) - 1;
-            
-            const reasoningIsStreaming = message.status === "streaming" && 
-              (isLastPart);
-            
+
+            const reasoningIsStreaming =
+              message.status === "streaming" && isLastPart;
+
             return (
-              <Reasoning 
-                key={`${message.id}-${index}`} 
-                defaultOpen={false} 
+              <Reasoning
+                key={`${message.id}-${index}`}
+                defaultOpen={false}
                 isStreaming={reasoningIsStreaming}
                 onToggle={() => {
                   // Trigger content change when reasoning is expanded/collapsed
@@ -170,14 +172,16 @@ export function SidebarMessage({
                 }}
               >
                 <ReasoningTrigger className="!text-[10px]" />
-                <ReasoningContent className="group relative !px-3 !py-2 !text-[10px] space-y-2 max-w-[85%]">{part.text}</ReasoningContent>
+                <ReasoningContent className="group relative !px-3 !py-2 !text-[10px] space-y-2 max-w-[85%]">
+                  {part.text}
+                </ReasoningContent>
               </Reasoning>
             );
           }
 
           if (part.type === "source-url") {
             return (
-              <Sources 
+              <Sources
                 key={index}
                 onToggle={() => {
                   // Trigger content change when sources are expanded/collapsed
@@ -246,19 +250,23 @@ export function SidebarMessage({
             const isError =
               aiSDKState === "output-available" &&
               (outputType?.startsWith("error-") ?? false);
-            
+
             // Map our states to Tool component states
-            const toolState = isError 
-              ? "output-error" 
-              : aiSDKState === "output-available" 
-                ? "output-available" 
+            const toolState = isError
+              ? "output-error"
+              : aiSDKState === "output-available"
+                ? "output-available"
                 : aiSDKState === "input-available"
                   ? "input-available"
                   : "input-streaming";
-            
+
+            // Check if this is an editEscrito tool with successful output
+            const toolType = part.type.replace("tool-", "");
+
             return (
-              <Tool key={index} className="mb-4" type={part.type.replace("tool-", "")} state={toolState}>
-              </Tool>
+              <div key={index}>
+                <Tool className="mb-4" type={toolType} state={toolState} />
+              </div>
             );
           }
 
@@ -290,7 +298,11 @@ export function SidebarMessage({
           </Actions>
         )}
       </MessageContent>
-      <LegislationModal open={open} setOpen={setOpen} normativeId={normativeId} />
+      <LegislationModal
+        open={open}
+        setOpen={setOpen}
+        normativeId={normativeId}
+      />
     </Message>
   );
 }

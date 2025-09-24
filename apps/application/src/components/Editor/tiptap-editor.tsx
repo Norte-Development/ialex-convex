@@ -1,6 +1,6 @@
 import { useEditor, EditorContent, useEditorState } from "@tiptap/react";
 import type { Editor } from "@tiptap/core";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import StarterKit from "@tiptap/starter-kit";
 import TextAlign from "@tiptap/extension-text-align";
 import Underline from "@tiptap/extension-underline";
@@ -13,6 +13,7 @@ import {
   LineBreakChange,
 } from "../../../../../packages/shared/src/tiptap/changeNodes";
 import { TrackingExtension } from "./extensions/tracking";
+import { EditorChangesOverlay } from "./EditorChangesOverlay";
 import "./editor-styles.css";
 import {
   Bold,
@@ -29,6 +30,7 @@ import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { api } from "../../../convex/_generated/api";
 import { useEscrito } from "@/context/EscritoContext";
+import { useEditorContext } from "../../context/EditorContext";
 
 interface TiptapProps {
   documentId?: string;
@@ -287,6 +289,10 @@ export function Tiptap({
 }: TiptapProps) {
   const sync = useTiptapSync(api.prosemirror, documentId);
   const { setCursorPosition, setTextAroundCursor, setEscritoId } = useEscrito();
+  const { setEditor } = useEditorContext();
+
+  // State for changes overlay
+  const [showOverlay, setShowOverlay] = useState(false);
 
   // Always call useEditor hook - don't make it conditional
   const editor = useEditor(
@@ -356,35 +362,32 @@ export function Tiptap({
     };
 
     setTextAroundCursor(textContext);
-
-    // Debug logging
-    console.log("Cursor context updated:", {
-      position: { line, column },
-      textContext,
-    });
   };
 
   useEffect(() => {
     if (editor && onReady) {
-      console.log("TipTap editor ready");
       onReady(editor);
 
       // Set the document ID as escritoId when editor is ready
       setEscritoId(documentId);
 
+      // Register editor in context
+      setEditor(editor);
+
       // Initial cursor context update
       updateCursorContext(editor);
     }
-  }, [editor, onReady, documentId, setEscritoId]);
+  }, [editor, onReady, documentId, setEscritoId, setEditor]);
 
   useEffect(() => {
     return () => {
       if (onDestroy) {
-        console.log("TipTap component unmounting");
         onDestroy();
       }
+      // Cleanup editor from context
+      setEditor(null);
     };
-  }, [onDestroy]);
+  }, [onDestroy, setEditor]);
 
   // Ensure all hooks are called before any conditional returns
   useEffect(() => {
@@ -397,6 +400,46 @@ export function Tiptap({
   useEffect(() => {
     if (editor) {
       editor.setEditable(!readOnly);
+    }
+  }, [editor, readOnly]);
+
+  // Detect changes in the document
+  useEffect(() => {
+    if (editor && !readOnly) {
+      const checkForChanges = () => {
+        let foundChanges = false;
+
+        editor.state.doc.descendants((node) => {
+          if (
+            node.type.name === "inlineChange" ||
+            node.type.name === "blockChange" ||
+            node.type.name === "lineBreakChange"
+          ) {
+            foundChanges = true;
+            return false; // Stop descending
+          }
+        });
+
+        setShowOverlay(foundChanges);
+      };
+
+      // Check for changes on document update
+      const handleUpdate = () => {
+        // Use a small delay to ensure the document has been updated
+        setTimeout(checkForChanges, 10);
+      };
+
+      // Initial check
+      setTimeout(checkForChanges, 100);
+
+      // Listen to document updates
+      editor.on("update", handleUpdate);
+      editor.on("transaction", handleUpdate);
+
+      return () => {
+        editor.off("update", handleUpdate);
+        editor.off("transaction", handleUpdate);
+      };
     }
   }, [editor, readOnly]);
 
@@ -454,10 +497,17 @@ export function Tiptap({
       )}
 
       {/* Editor Content */}
-      <div className="bg-white min-h-[600px] w-full">
+      <div className="bg-white min-h-[600px] w-full relative">
         <EditorContent
           editor={editor}
           className="legal-editor-content-wrapper w-full"
+        />
+
+        {/* Changes Overlay */}
+        <EditorChangesOverlay
+          editor={editor}
+          isVisible={showOverlay && !readOnly}
+          onDismiss={() => setShowOverlay(false)}
         />
       </div>
 
