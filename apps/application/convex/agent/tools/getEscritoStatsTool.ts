@@ -44,7 +44,7 @@ export interface EscritoStatsResponse {
  * ```
  */
 export const getEscritoStatsTool = createTool({
-  description: "Get the stats of an Escrito",
+  description: "Get the stats and structure information of an Escrito. Use this tool BEFORE any escrito editing to understand the document size, structure, and current state. Provides word count, paragraph count, and version information to help plan editing strategies.",
   args: z.object({
     escritoId: z.any().describe("The Escrito ID (Convex doc id)"),
   }).required({escritoId: true}),

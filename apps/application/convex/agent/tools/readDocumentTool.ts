@@ -10,7 +10,7 @@ import { Id } from "../../_generated/dataModel";
  * Use this to read through entire documents sequentially without overwhelming token limits.
  * Perfect for systematic document analysis.
  *
- * @description Reads a document progressively, chunk by chunk. Use this to read through entire documents sequentially without overwhelming token limits. Perfect for systematic document analysis.
+ * @description Reads a document progressively, chunk by chunk. Use this tool when you need to systematically read through case documents without overwhelming token limits. Perfect for comprehensive document analysis, reviewing evidence, or understanding complete document content. Start with chunkIndex 0 and increment to read sequentially through the document.
  * @param {Object} args - Reading parameters
  * @param {string} args.documentId - The ID of the document to read
  * @param {number} [args.chunkIndex=0] - Which chunk to read (0-based index). Start with 0 for the beginning.
@@ -33,7 +33,7 @@ import { Id } from "../../_generated/dataModel";
  * });
  */
 export const readDocumentTool = createTool({
-  description: "Read a document progressively, chunk by chunk. Use this to read through entire documents sequentially without overwhelming token limits. Perfect for systematic document analysis.",
+  description: "Read a document progressively, chunk by chunk. Use this tool when you need to systematically read through case documents without overwhelming token limits. Perfect for comprehensive document analysis, reviewing evidence, or understanding complete document content. Start with chunkIndex 0 and increment to read sequentially through the document.",
   args: z.object({
     documentId: z.any().describe("The ID of the document to read"),
     chunkIndex: z.any().optional().describe("Which chunk to read (0-based index). Start with 0 for the beginning."),
