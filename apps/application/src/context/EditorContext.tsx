@@ -1,4 +1,11 @@
-import { createContext, useContext, useState, ReactNode } from "react";
+import {
+  createContext,
+  useContext,
+  useState,
+  ReactNode,
+  useCallback,
+  useMemo,
+} from "react";
 import type { Editor } from "@tiptap/core";
 
 interface EditorContextType {
@@ -13,10 +20,25 @@ interface EditorProviderProps {
 }
 
 export function EditorProvider({ children }: EditorProviderProps) {
-  const [editor, setEditor] = useState<Editor | null>(null);
+  const [editor, setEditorState] = useState<Editor | null>(null);
+
+  // Memoize setEditor to prevent unnecessary re-renders
+  const setEditor = useCallback((newEditor: Editor | null) => {
+    console.log("🔄 EditorContext setEditor called with:", newEditor);
+    setEditorState(newEditor);
+  }, []);
+
+  // Memoize context value to prevent unnecessary re-renders
+  const contextValue = useMemo(
+    () => ({
+      editor,
+      setEditor,
+    }),
+    [editor, setEditor],
+  );
 
   return (
-    <EditorContext.Provider value={{ editor, setEditor }}>
+    <EditorContext.Provider value={contextValue}>
       {children}
     </EditorContext.Provider>
   );

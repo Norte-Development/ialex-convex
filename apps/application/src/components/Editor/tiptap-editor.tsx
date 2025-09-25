@@ -461,6 +461,8 @@ export function Tiptap({
         </p>
       </div>
     );
+  } else {
+    setEditor(editor);
   }
 
   // Editor not ready yet
