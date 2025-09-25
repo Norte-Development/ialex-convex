@@ -13,7 +13,7 @@ import {
   LineBreakChange,
 } from "../../../../../packages/shared/src/tiptap/changeNodes";
 import { TrackingExtension } from "./extensions/tracking";
-import { EditorChangesOverlay } from "./EditorChangesOverlay";
+import { AcceptAllChangesButton } from "./AcceptAllChangesButton";
 import "./editor-styles.css";
 import {
   Bold,
@@ -503,8 +503,8 @@ export function Tiptap({
           className="legal-editor-content-wrapper w-full"
         />
 
-        {/* Changes Overlay */}
-        <EditorChangesOverlay
+        {/* Accept All Changes Button */}
+        <AcceptAllChangesButton
           editor={editor}
           isVisible={showOverlay && !readOnly}
           onDismiss={() => setShowOverlay(false)}
