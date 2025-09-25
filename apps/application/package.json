@@ -8,6 +8,10 @@
     "dev:convex": "npx convex dev",
     "build": "vite build",
     "preview": "vite preview",
+    "test": "vitest",
+    "test:once": "vitest run",
+    "test:debug": "vitest --inspect-brk --no-file-parallelism",
+    "test:coverage": "vitest run --coverage --coverage.reporter=text",
     "seed:legislation": "tsx scripts/seed-legislation-data.ts"
   },
   "dependencies": {
@@ -56,8 +60,11 @@
     "zod": "^3.24.2"
   },
   "devDependencies": {
+    "@edge-runtime/vm": "^5.0.0",
     "@types/react-beautiful-dnd": "^13.1.8",
     "@types/react-syntax-highlighter": "^15.5.13",
-    "tw-animate-css": "^1.3.5"
+    "convex-test": "^0.0.38",
+    "tw-animate-css": "^1.3.5",
+    "vitest": "^2.1.9"
   }
 }
