@@ -35,6 +35,9 @@ const CaseDataBasePage = lazy(() => import("./pages/CaseOpen/CaseDataBase"));
 const CaseDocumentPage = lazy(
   () => import("./pages/CaseOpen/CaseDocumentPage"),
 );
+const ComponentsShowcasePage = lazy(
+  () => import("./pages/ComponentsShowcasePage"),
+);
 
 // Wrapper to provide CasePermissionsProvider with caseId from CaseContext
 const CaseRoutesWrapper: React.FC = () => {
@@ -181,6 +184,14 @@ const AppWithThread = () => {
                   element={
                     <ProtectedRoute>
                       <TeamManagePage />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/componentes"
+                  element={
+                    <ProtectedRoute>
+                      <ComponentsShowcasePage />
                     </ProtectedRoute>
                   }
                 />
