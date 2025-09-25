@@ -30,7 +30,7 @@ import {
  */
 export const agent = new Agent(components.agent, {
   name: "Legal Assistant Agent",
-  languageModel: openai.responses('gpt-5-mini'),
+  languageModel: openai.responses('gpt-5'),
   stopWhen: stepCountIs(15),
   // Default call settings per 0.2.x: place maxRetries here
   callSettings: {
