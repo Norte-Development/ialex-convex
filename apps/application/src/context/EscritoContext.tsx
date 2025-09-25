@@ -1,4 +1,5 @@
 import React, { createContext, useContext, ReactNode, useState } from "react";
+import type { Editor } from "@tiptap/core";
 
 interface CursorPosition {
   line: number;
@@ -18,6 +19,8 @@ interface EscritoContextType {
   setCursorPosition: (position: CursorPosition | undefined) => void;
   textAroundCursor: TextAroundCursor | undefined;
   setTextAroundCursor: (text: TextAroundCursor | undefined) => void;
+  editor: Editor | null;
+  setEditor: (editor: Editor | null) => void;
 }
 
 const EscritoContext = createContext<EscritoContextType | undefined>(undefined);
@@ -30,6 +33,7 @@ export const EscritoProvider: React.FC<EscritoProviderProps> = ({ children }) =>
   const [escritoId, setEscritoId] = useState<string | undefined>(undefined);
   const [cursorPosition, setCursorPosition] = useState<CursorPosition | undefined>(undefined);
   const [textAroundCursor, setTextAroundCursor] = useState<TextAroundCursor | undefined>(undefined);
+  const [editor, setEditor] = useState<Editor | null>(null);
 
   const contextValue: EscritoContextType = {
     escritoId,
@@ -38,6 +42,8 @@ export const EscritoProvider: React.FC<EscritoProviderProps> = ({ children }) =>
     setCursorPosition,
     textAroundCursor,
     setTextAroundCursor,
+    editor,
+    setEditor,
   };
 
   return (

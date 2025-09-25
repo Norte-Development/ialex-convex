@@ -45,7 +45,7 @@ interface EditOperation {
 
 
 export function EscritoToolsTester() {
-  const { escritoId } = useEscrito();
+  const { escritoId, editor } = useEscrito();
   const [operations, setOperations] = useState<EditOperation[]>([]);
   const [currentOperation, setCurrentOperation] = useState<Partial<EditOperation>>({
     type: 'replace'
@@ -137,6 +137,13 @@ export function EscritoToolsTester() {
         }
       });
 
+      // Open a Change Review group for this batch (if editor present)
+      const groupId = `tools:${Date.now()}`;
+      if (editor) {
+        editor.commands.startReview();
+        editor.commands.setChangeReviewGroup({ id: groupId, label: 'Tools Tester', source: 'tool' });
+      }
+
       // Convert operations to the format expected by the mutation (remove id field)
       const editsForMutation = operations.map(({ id, ...edit }) => edit);
       
@@ -149,6 +156,11 @@ export function EscritoToolsTester() {
 
       addLog(`Successfully applied operations!`, 'success');
       addLog(`Mutation result: ${JSON.stringify(result, null, 2)}`);
+
+      // Close active group tagging after mutation
+      if (editor) {
+        editor.commands.setChangeReviewGroup(null);
+      }
 
       // Clear operations after successful application
       setOperations([]);

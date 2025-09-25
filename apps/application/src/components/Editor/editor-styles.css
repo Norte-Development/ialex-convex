@@ -238,6 +238,13 @@
   line-height: 1.4;
 }
 
+/* Change Review inline inserted highlight */
+.cr-inserted {
+  background-color: rgba(16, 185, 129, 0.25);
+  text-decoration: underline;
+  text-decoration-color: rgba(16, 185, 129, 0.9);
+}
+
 /* Block change nodes should display as block but keep same button styling */
 [data-semantic-type="block_change"] {
   display: block !important;

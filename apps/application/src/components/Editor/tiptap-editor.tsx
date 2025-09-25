@@ -29,6 +29,7 @@ import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { api } from "../../../convex/_generated/api";
 import { useEscrito } from "@/context/EscritoContext";
+import { ChangeReviewExtension } from "./extensions/changeReview";
 
 interface TiptapProps {
   documentId?: string;
@@ -76,6 +77,24 @@ function MenuBar({ editor }: { editor: Editor }) {
   return (
     <div className="border-b border-gray-200 bg-gray-50/50 px-4 py-3 ">
       <div className="flex items-center gap-1 flex-wrap">
+        {/* Change Review Controls */}
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => editor.commands.startReview({ resetBaseline: true })}
+          className="h-8 px-2 hover:bg-gray-100 text-xs"
+        >
+          Start Review
+        </Button>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => editor.commands.applyAll()}
+          className="h-8 px-2 hover:bg-gray-100 text-xs"
+        >
+          Apply All
+        </Button>
+
         {/* Undo/Redo */}
         {/* <Button
           variant="ghost"
@@ -286,7 +305,7 @@ export function Tiptap({
   readOnly = false,
 }: TiptapProps) {
   const sync = useTiptapSync(api.prosemirror, documentId);
-  const { setCursorPosition, setTextAroundCursor, setEscritoId } = useEscrito();
+  const { setCursorPosition, setTextAroundCursor, setEscritoId, setEditor } = useEscrito();
 
   // Always call useEditor hook - don't make it conditional
   const editor = useEditor(
@@ -300,6 +319,7 @@ export function Tiptap({
         BlockChange,
         LineBreakChange,
         TrackingExtension,
+        ChangeReviewExtension.configure({ reviewOptions: { mode: "alwaysDiff" } }),
         TextAlign.configure({
           types: ["heading", "paragraph"],
         }),
@@ -374,8 +394,11 @@ export function Tiptap({
 
       // Initial cursor context update
       updateCursorContext(editor);
+
+      // Expose editor in context
+      setEditor(editor);
     }
-  }, [editor, onReady, documentId, setEscritoId]);
+  }, [editor, onReady, documentId, setEscritoId, setEditor]);
 
   useEffect(() => {
     return () => {
@@ -383,8 +406,10 @@ export function Tiptap({
         console.log("TipTap component unmounting");
         onDestroy();
       }
+      // Clear editor from context on unmount
+      setEditor(null);
     };
-  }, [onDestroy]);
+  }, [onDestroy, setEditor]);
 
   // Ensure all hooks are called before any conditional returns
   useEffect(() => {
