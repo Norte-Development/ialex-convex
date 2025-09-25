@@ -21,6 +21,7 @@ export function AcceptAllChangesButton({
   onDismiss,
 }: AcceptAllChangesButtonProps) {
   const [isAccepting, setIsAccepting] = useState(false);
+  const [isRejecting, setIsRejecting] = useState(false);
 
   const handleAcceptAll = async () => {
     if (!editor) return;
@@ -28,7 +29,6 @@ export function AcceptAllChangesButton({
     setIsAccepting(true);
 
     try {
-      // Use the TipTap extension's acceptAllChanges command
       editor.chain().focus().acceptAllChanges().run();
 
       // Small delay to let the editor update
@@ -39,6 +39,25 @@ export function AcceptAllChangesButton({
       console.error("❌ Error aceptando cambios:", error);
     } finally {
       setIsAccepting(false);
+    }
+  };
+
+  const handleRejectAll = async () => {
+    if (!editor) return;
+
+    setIsRejecting(true);
+
+    try {
+      editor.chain().focus().rejectAllChanges().run();
+
+      // Small delay to let the editor update
+      setTimeout(() => {
+        onDismiss?.();
+      }, 300);
+    } catch (error) {
+      console.error("❌ Error rechazando cambios:", error);
+    } finally {
+      setIsRejecting(false);
     }
   };
 
@@ -62,8 +81,8 @@ export function AcceptAllChangesButton({
             <div className="flex gap-2">
               <Button
                 onClick={handleAcceptAll}
-                disabled={isAccepting}
-                className="bg-green-600 hover:bg-green-700 text-white h-8 px-4"
+                disabled={isAccepting || isRejecting}
+                className="bg-green-600 hover:bg-green-700 text-white h-8 px-3"
                 size="sm"
               >
                 {isAccepting ? (
@@ -75,6 +94,26 @@ export function AcceptAllChangesButton({
                   <>
                     <CheckIcon className="w-4 h-4 mr-2" />
                     Aceptar todo
+                  </>
+                )}
+              </Button>
+
+              <Button
+                onClick={handleRejectAll}
+                disabled={isAccepting || isRejecting}
+                variant="outline"
+                className="border-red-300 text-red-600 hover:bg-red-50 h-8 px-3"
+                size="sm"
+              >
+                {isRejecting ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Rechazando...
+                  </>
+                ) : (
+                  <>
+                    <XIcon className="w-4 h-4 mr-2" />
+                    Rechazar todo
                   </>
                 )}
               </Button>
