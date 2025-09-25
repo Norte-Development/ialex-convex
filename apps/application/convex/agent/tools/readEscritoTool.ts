@@ -468,9 +468,13 @@ export function getEscritoChunks(
   // Calculate context window bounds for valid chunk index
   const start = Math.max(0, chunkIndex - contextWindow);
   const end = Math.min(chunkMetadata.length, chunkIndex + contextWindow + 1);
+
+  const result = processChunkRange(documentNodes, chunkMetadata, start, end);
+  console.log("result", result);
+  return result;
   
-  // Process requested range
-  return processChunkRange(documentNodes, chunkMetadata, start, end);
+  // // Process requested range
+  // return result;
 }
 
 /**
@@ -563,6 +567,8 @@ export const getFullEscrito = (doc: Node): { text: string; wordCount: number; st
   
   const fullText = textParts.join("\n\n");
   const wordCount = fullText.split(/\s+/).filter(word => word.length > 0).length;
+
+  console.log("fullText", fullText);
   
   return {
     text: fullText,

@@ -1080,3 +1080,196 @@ export const applyTextBasedOperations = mutation({
     };
   },
 });
+
+/**
+ * Rewrite a section of an Escrito identified by textual anchors, then merge via JSON diff.
+ * - If both afterText and beforeText are provided, rewrites the range between them (exclusive of anchors).
+ * - If only afterText is provided, rewrites from that anchor to the end of the document.
+ * - If only beforeText is provided, rewrites from the start of the document up to that anchor.
+ * - If neither is provided, rewrites the entire document.
+ */
+export const rewriteSectionByAnchors = mutation({
+  args: {
+    escritoId: v.id("escritos"),
+    targetText: v.string(),
+    anchors: v.object({
+      afterText: v.optional(v.string()),
+      beforeText: v.optional(v.string()),
+      occurrenceIndex: v.optional(v.number()),
+    }),
+  },
+  handler: async (ctx, { escritoId, targetText, anchors }) => {
+    const escrito = await ctx.db.get(escritoId);
+    if (!escrito) throw new Error("Escrito not found");
+
+    const snapshot = await ctx.runQuery(api.prosemirror.getSnapshot, {
+      id: escrito.prosemirrorId,
+    });
+    if (!snapshot?.content) throw new Error("Document content not found");
+
+    const schema = buildServerSchema();
+
+    // Build inline content from lightweight style tags: [b]..[/b], [i]..[/i], [u]..[/u], [code]..[/code]
+    const buildInlineFromStyledText = (schema: any, text: string): any[] => {
+      const nodes: any[] = [];
+      const tagRe = /\[(\/)?(b|i|u|code)\]/g;
+      const markMap: Record<string, string> = { b: "bold", i: "italic", u: "underline", code: "code" } as const;
+      let active: string[] = [];
+      let last = 0;
+      let m: RegExpExecArray | null;
+      while ((m = tagRe.exec(text)) !== null) {
+        const idx = m.index;
+        if (idx > last) {
+          const chunk = text.slice(last, idx);
+          if (chunk) {
+            const marks = active
+              .map((t) => markMap[t])
+              .map((name) => (schema.marks[name] ? schema.marks[name].create() : null))
+              .filter(Boolean);
+            nodes.push(schema.text(chunk, marks));
+          }
+        }
+        const closing = !!m[1];
+        const tag = m[2];
+        if (closing) {
+          for (let i = active.length - 1; i >= 0; i--) {
+            if (active[i] === tag) {
+              active.splice(i, 1);
+              break;
+            }
+          }
+        } else {
+          active.push(tag);
+        }
+        last = tagRe.lastIndex;
+      }
+      if (last < text.length) {
+        const chunk = text.slice(last);
+        if (chunk) {
+          const marks = active
+            .map((t) => markMap[t])
+            .map((name) => (schema.marks[name] ? schema.marks[name].create() : null))
+            .filter(Boolean);
+          nodes.push(schema.text(chunk, marks));
+        }
+      }
+      return nodes;
+    };
+
+    // Helper to build ProseMirror content from multiline targetText with inline styles
+    const createParagraphNodesFromText = (text: string): any[] => {
+      const paragraphs = text.split(/\n{2,}/);
+      const nodes: any[] = [];
+      for (const p of paragraphs) {
+        const content = (() => {
+          if (!p.includes("\n")) return buildInlineFromStyledText(schema, p);
+          const parts = p.split("\n");
+          const seq: any[] = [];
+          for (let i = 0; i < parts.length; i++) {
+            const inline = buildInlineFromStyledText(schema, parts[i]);
+            if (inline.length) seq.push(...inline);
+            if (i < parts.length - 1) {
+              if (schema.nodes.hardBreak) seq.push(schema.nodes.hardBreak.create());
+              else seq.push(schema.text(" "));
+            }
+          }
+          return seq;
+        })();
+        const para = schema.nodes.paragraph.createAndFill({}, content);
+        if (para) nodes.push(para);
+      }
+      if (!nodes.length) nodes.push(schema.nodes.paragraph.createAndFill({}, schema.text(""))!);
+      return nodes;
+    };
+
+    await prosemirrorSync.transform(ctx, escrito.prosemirrorId, schema, (doc) => {
+      const originalDocJson = doc.toJSON();
+      const state = EditorState.create({ doc });
+      let tr = state.tr;
+
+      // Compute anchor positions using normalized index
+      const docIndex = buildDocIndex(tr.doc, {
+        caseInsensitive: false,
+        normalizeWhitespace: false,
+        unifyNbsp: true,
+        removeSoftHyphen: true,
+        removeZeroWidth: true,
+        normalizeQuotesAndDashes: true,
+        unicodeForm: "NFC",
+      } as any);
+
+      const searchOpts = {
+        caseInsensitive: false,
+        normalizeWhitespace: false,
+        unifyNbsp: true,
+        removeSoftHyphen: true,
+        removeZeroWidth: true,
+        normalizeQuotesAndDashes: true,
+        unicodeForm: "NFC",
+        wholeWord: false,
+        contextWindow: 100,
+      } as any;
+
+      const afterPos = anchors.afterText
+        ? findAnchorPosition(
+            docIndex,
+            { afterText: anchors.afterText, occurrenceIndex: anchors.occurrenceIndex },
+            searchOpts,
+          )
+        : null;
+      const beforePos = anchors.beforeText
+        ? findAnchorPosition(
+            docIndex,
+            { beforeText: anchors.beforeText, occurrenceIndex: anchors.occurrenceIndex },
+            searchOpts,
+          )
+        : null;
+
+      let from = 0;
+      let to = tr.doc.content.size;
+
+      if (afterPos != null && beforePos != null) {
+        from = Math.max(0, Math.min(afterPos, tr.doc.content.size));
+        to = Math.max(0, Math.min(beforePos, tr.doc.content.size));
+        if (from > to) {
+          // Swap if anchors are reversed
+          const tmp = from; from = to; to = tmp;
+        }
+      } else if (afterPos != null) {
+        from = Math.max(0, Math.min(afterPos, tr.doc.content.size));
+        to = tr.doc.content.size;
+      } else if (beforePos != null) {
+        from = 0;
+        to = Math.max(0, Math.min(beforePos, tr.doc.content.size));
+      }
+
+      // Build replacement fragment
+      const replacement = createParagraphNodesFromText(targetText);
+
+      try {
+        tr = tr.replaceWith(from, to, replacement as any);
+      } catch (e) {
+        // Fallback: if replaceWith fails due to invalid positions, insert at end
+        tr = tr.insert(tr.doc.content.size, replacement as any);
+      }
+
+      const newDocJson = tr.doc.toJSON();
+      const delta = createJsonDiff(originalDocJson, newDocJson);
+      const merged = buildContentWithJsonChanges(originalDocJson, newDocJson, delta);
+
+      const finalState = EditorState.create({ doc });
+      try {
+        const mergedNode = schema.nodeFromJSON(merged);
+        return finalState.tr.replaceWith(0, finalState.doc.content.size, mergedNode.content);
+      } catch {
+        // Fallback to direct content
+        return finalState.tr.replaceWith(0, finalState.doc.content.size, tr.doc.content);
+      }
+    });
+
+    return {
+      ok: true,
+      message: "Section rewrite applied via anchors",
+    };
+  },
+});

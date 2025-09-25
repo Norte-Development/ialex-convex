@@ -24,7 +24,8 @@ export const prompt = `
         | **queryDocument**        | Hacer preguntas sobre un documento. |
         | **readEscrito**          | Leer escrito del caso. |
         | **getEscritoStats**      | Ver estructura del escrito. |
-        | **editEscrito**          | Editar redactando o corrigiendo secciones. |
+        | **editEscrito**          | Editar redactando o corrigiendo secciones pequeñas. |
+        | **rewriteEscritoSection**| Rewrite a section of an Escrito by anchors (after/before) using target text, merged via diff. |
         | **planAndTrack**         | Crear lista de tareas para trabajos complejos. |
         | **markTaskComplete**     | Marcar tarea específica como completada. |
 
@@ -32,7 +33,7 @@ export const prompt = `
         - Legislación → searchLegislation → readLegislation  
         - Jurisprudencia → searchFallos  
         - Documentos de caso → listCaseDocuments o searchCaseDocuments → readDocument  
-        - Escritos → readEscrito → editEscrito  
+        - Escritos → readEscrito → editEscrito (para cambios pequeños) → rewriteEscritoSection (para cambios grandes)  
 
         ---
 
