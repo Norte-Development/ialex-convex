@@ -10,9 +10,11 @@
 
 import type * as agent_agent from "../agent/agent.js";
 import type * as agent_escritosHelper from "../agent/escritosHelper.js";
+import type * as agent_normalizedSearch from "../agent/normalizedSearch.js";
 import type * as agent_prompt from "../agent/prompt.js";
 import type * as agent_streamAbort from "../agent/streamAbort.js";
 import type * as agent_streaming from "../agent/streaming.js";
+import type * as agent_textNormalization from "../agent/textNormalization.js";
 import type * as agent_threads from "../agent/threads.js";
 import type * as agent_tools_editEscritoTool from "../agent/tools/editEscritoTool.js";
 import type * as agent_tools_getEscritoStatsTool from "../agent/tools/getEscritoStatsTool.js";
@@ -25,6 +27,7 @@ import type * as agent_tools_planAndTrackTool from "../agent/tools/planAndTrackT
 import type * as agent_tools_queryDocumentTool from "../agent/tools/queryDocumentTool.js";
 import type * as agent_tools_readDocumentTool from "../agent/tools/readDocumentTool.js";
 import type * as agent_tools_readEscritoTool from "../agent/tools/readEscritoTool.js";
+import type * as agent_tools_rewriteEscritoSectionTool from "../agent/tools/rewriteEscritoSectionTool.js";
 import type * as agent_tools_searchCaseDocumentsTool from "../agent/tools/searchCaseDocumentsTool.js";
 import type * as agent_tools_searchFallosTool from "../agent/tools/searchFallosTool.js";
 import type * as agent_tools_searchLegislationTool from "../agent/tools/searchLegislationTool.js";
@@ -81,9 +84,11 @@ import type {
 declare const fullApi: ApiFromModules<{
   "agent/agent": typeof agent_agent;
   "agent/escritosHelper": typeof agent_escritosHelper;
+  "agent/normalizedSearch": typeof agent_normalizedSearch;
   "agent/prompt": typeof agent_prompt;
   "agent/streamAbort": typeof agent_streamAbort;
   "agent/streaming": typeof agent_streaming;
+  "agent/textNormalization": typeof agent_textNormalization;
   "agent/threads": typeof agent_threads;
   "agent/tools/editEscritoTool": typeof agent_tools_editEscritoTool;
   "agent/tools/getEscritoStatsTool": typeof agent_tools_getEscritoStatsTool;
@@ -96,6 +101,7 @@ declare const fullApi: ApiFromModules<{
   "agent/tools/queryDocumentTool": typeof agent_tools_queryDocumentTool;
   "agent/tools/readDocumentTool": typeof agent_tools_readDocumentTool;
   "agent/tools/readEscritoTool": typeof agent_tools_readEscritoTool;
+  "agent/tools/rewriteEscritoSectionTool": typeof agent_tools_rewriteEscritoSectionTool;
   "agent/tools/searchCaseDocumentsTool": typeof agent_tools_searchCaseDocumentsTool;
   "agent/tools/searchFallosTool": typeof agent_tools_searchFallosTool;
   "agent/tools/searchLegislationTool": typeof agent_tools_searchLegislationTool;

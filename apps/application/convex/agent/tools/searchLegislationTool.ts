@@ -7,7 +7,7 @@ import { createErrorResponse, validateStringParam } from "./utils";
  * Tool for searching legislation and normative documents using Qdrant hybrid search.
  * Searches both dense embeddings and sparse keywords for comprehensive legal document retrieval.
  *
- * @description Searches legislation and normative documents using hybrid search (dense + sparse embeddings). Returns comprehensive metadata including titles, jurisdictions, publication dates, and full text content.
+ * @description Searches legislation and normative documents using hybrid search (dense + sparse embeddings). Returns comprehensive metadata including titles, jurisdictions, publication dates, and full text content. Use this tool when users ask about specific laws, articles, regulations, or legal norms. Always follow up with readLegislation to get the complete text of relevant documents.
  * @param {Object} args - Search parameters
  * @param {string} args.query - The search query text to find relevant legislation
  * @returns {Promise<Array>} Array of legislation search results with full metadata
@@ -20,7 +20,7 @@ import { createErrorResponse, validateStringParam } from "./utils";
  * });
  */
 export const searchLegislationTool = createTool({
-  description: "Search legislation and normative documents using hybrid search (dense + sparse embeddings). Returns comprehensive metadata including titles, jurisdictions, publication dates, and full text content.",
+  description: "Search legislation and normative documents using hybrid search (dense + sparse embeddings). Returns comprehensive metadata including titles, jurisdictions, publication dates, and full text content. Use this tool when users ask about specific laws, articles, regulations, or legal norms. Always follow up with readLegislation to get the complete text of relevant documents.",
   args: z.object({
     query: z.string().min(1).describe("The search query text to find relevant legislation and normative documents")
   }).required({query: true}),

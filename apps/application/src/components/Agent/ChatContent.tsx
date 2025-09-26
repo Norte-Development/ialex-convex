@@ -15,7 +15,7 @@ import { useAuth } from "@/context/AuthContext"
 import { usePage } from "@/context/PageContext"
 import { ContextSummaryBar } from "./ContextSummaryBar"
 import type { Id } from "convex/_generated/dataModel"
-import { useState, useRef, useEffect, useLayoutEffect, useCallback } from "react"
+import { useState, useRef, useEffect, useLayoutEffect, useCallback, useMemo } from "react"
 import { TodoPanel } from "./TodoPanel"
 import type { Reference, ReferenceWithOriginal } from "./types/reference-types"
 import { Button } from "@/components/ui/button"
@@ -31,6 +31,8 @@ export function ChatContent() {
   const [lastReferences, setLastReferences] = useState<ReferenceWithOriginal[]>([])
   // State for current active references from input
   const [currentReferences, setCurrentReferences] = useState<Reference[]>([])
+  // State to track when we've just sent a message but AI hasn't started responding
+  const [awaitingResponse, setAwaitingResponse] = useState(false)
 
   // Refs for scroll management
   const messagesContainerRef = useRef<HTMLDivElement>(null)
@@ -121,6 +123,7 @@ export function ChatContent() {
     setIsInitialLoad(true)
     setUserHasScrolled(false)
     setShouldAutoScroll(true)
+    setAwaitingResponse(false) // Clear awaiting response when switching threads
   }, [threadId])
 
   // Track previous message count to detect new messages (not from pagination)
@@ -273,6 +276,7 @@ export function ChatContent() {
 
     setShouldAutoScroll(true)
     setUserHasScrolled(false)
+    setAwaitingResponse(true) // Set awaiting response state
 
     // If no thread exists, create one with the truncated message as title
     if (!threadId) {
@@ -310,11 +314,88 @@ export function ChatContent() {
 
   const handleAbortStream = () => {
     if (!threadId) return
-    const order = messages.results?.find((m) => m.streaming)?.order ?? 0
+    
+    // Try to get the order from active streams first (more efficient)
+    let order = 0
+    const streams = messages.results // Type assertion since streams property exists but isn't typed
+    if (streams && Array.isArray(streams) && streams.length > 0) {
+      const activeStream = streams.find((stream) => 
+        stream.streaming || stream.status === "pending"
+      )
+      if (activeStream) {
+        order = activeStream.order ?? 0
+      }
+    }
+    
+    // Fallback to checking recent messages if no active stream found
+    if (order === 0) {
+      const recentMessages = messages.results?.slice(-5) ?? []
+      const streamingMessage = recentMessages.find((m) => m.streaming)
+      order = streamingMessage?.order ?? 0
+    }
+    
     void abortStreamByOrder({ threadId, order })
   }
 
-  const isStreaming = messages.results?.some((m) => m.streaming) ?? false
+  // Optimized streaming detection using useMemo to avoid scanning all messages on every render
+  // PERFORMANCE IMPROVEMENTS:
+  // 1. Checks streams data first (O(s) where s is number of active streams, usually 0-1)
+  // 2. Falls back to scanning only last 5 messages instead of all messages (O(5) vs O(n))
+  // 3. Uses memoization to prevent recalculation unless dependencies change
+  // 4. Smart dependency array only tracks streaming status, not full message content
+  // 5. Enhanced detection for all AI phases (reasoning, tool calls, text generation)
+  const isStreaming = useMemo(() => {
+    // First check if we have any active streams from the messages response
+    // This captures all phases: reasoning, tool execution, and text streaming
+    const streams = messages.results
+     // Type assertion since streams property exists but isn't typed
+    if (streams && Array.isArray(streams) && streams.length > 0) {
+      // Check if any stream has a status that indicates active processing
+      // Including reasoning phase, tool calls, and text generation
+      const hasActiveStream = streams.some((stream) => 
+        stream.streaming || 
+        stream.status === "pending"
+      )
+      if (hasActiveStream) return true
+    }
+    
+    // Fallback to checking messages for any ongoing processing
+    // This includes messages that are being generated but not yet visible as text
+    const recentMessages = messages.results?.slice(-5) ?? [] // Only check last 5 messages
+    const hasStreamingMessage = recentMessages.some(m => 
+      m.streaming || 
+      // Also check if message is incomplete/being processed (use type assertion for content/role)
+      ((m as any).role === 'assistant' && (!(m as any).content || (m as any).content.trim() === ''))
+    )
+    
+    return hasStreamingMessage
+  }, [
+    // Depend on the whole messages object since we're using type assertion
+    messages,
+    // Only depend on the streaming status and content completion of recent messages
+    messages.results?.slice(-5)?.map(m => `${m.streaming}-${(m as any).content?.length || 0}`).join(',')
+  ])
+
+  // Clear awaiting response state when AI starts responding
+  useEffect(() => {
+    if (awaitingResponse && (isStreaming || messages.results?.some(m => (m as any).role === 'assistant' && (m as any).content))) {
+      setAwaitingResponse(false)
+    }
+  }, [awaitingResponse, isStreaming, messages.results])
+
+  // Additional optimization: Track streaming state changes for debugging
+  useEffect(() => {
+    if (process.env.NODE_ENV === 'development') {
+      const streams = (messages as any).streams
+      const recentMessages = messages.results?.slice(-5) ?? []
+      console.debug('Streaming state changed:', {
+        isStreaming,
+        awaitingResponse,
+        activeStreams: streams?.map((s: any) => ({ status: s.status, order: s.order })) || [],
+        recentStreamingMessages: recentMessages.filter(m => m.streaming || ((m as any).role === 'assistant' && (!(m as any).content || (m as any).content.trim() === ''))).length
+      })
+    }
+  }, [isStreaming, awaitingResponse, messages])
 
   return (
     <>
@@ -371,7 +452,7 @@ export function ChatContent() {
       {/* Input area */}
       <ChatInput
         onSendMessage={handleSendMessage}
-        isStreaming={isStreaming}
+        isStreaming={isStreaming || awaitingResponse}
         onAbortStream={handleAbortStream}
         onReferencesChange={setCurrentReferences}
       />

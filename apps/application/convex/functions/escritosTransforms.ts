@@ -7,10 +7,7 @@ import {
   buildContentWithJsonChanges,
 } from "../../../../packages/shared/src/diff/jsonDiff";
 import { EditorState } from "@tiptap/pm/state";
-import {
-  extractTextWithMapping,
-  processEditWithMapping,
-} from "../agent/escritosHelper";
+import { buildDocIndex, findMatches, selectByOccurrence, findAnchorPosition } from "../agent/normalizedSearch";
 import { api } from "../_generated/api";
 
 /**
@@ -654,6 +651,15 @@ export const applyTextBasedOperations = mutation({
       return [];
     };
 
+    // Decide whole-word matching based on search text characteristics
+    const isWholeWordLikely = (searchText: string): boolean => {
+      if (!searchText) return false;
+      if (searchText.includes(" ")) return false;
+      if (searchText.length > 20) return false;
+      if (/[.,;:]/.test(searchText)) return false;
+      return true;
+    };
+
     // Apply the position-based operations using the existing mutation
 
     await prosemirrorSync.transform(
@@ -695,200 +701,123 @@ export const applyTextBasedOperations = mutation({
             }
           }
 
-          // Handle text-based operations with position finding
+          // Handle text-based operations with normalized, cross-node matching
           if (op.type === "replace_range" && op.findText) {
-            // Find the text to replace in the current document
-            const doc = tr.doc;
-            const findText = op.findText;
-            const matches: Array<{ start: number; end: number }> = [];
-
-            // Traverse the document to find all occurrences with word boundaries
-            doc.descendants((node, pos) => {
-              if (node.isText) {
-                const text = node.text || "";
-                const wordMatches = findAllTextWithWordBoundary(text, findText);
-
-                for (const wordMatch of wordMatches) {
-                  const start = pos + wordMatch.index;
-                  const end = pos + wordMatch.index + wordMatch.length;
-
-                  // Check context if provided
-                  let matchesContext = true;
-                  if (op.contextBefore || op.contextAfter) {
-                    const beforeText = doc.textBetween(
-                      Math.max(0, start - 50),
-                      start,
-                    );
-                    const afterText = doc.textBetween(
-                      end,
-                      Math.min(doc.content.size, end + 50),
-                    );
-
-                    if (
-                      op.contextBefore &&
-                      !beforeText.includes(op.contextBefore)
-                    ) {
-                      matchesContext = false;
-                    }
-                    if (
-                      op.contextAfter &&
-                      !afterText.includes(op.contextAfter)
-                    ) {
-                      matchesContext = false;
-                    }
-                  }
-
-                  if (matchesContext) {
-                    matches.push({ start, end });
-                  }
-                }
-              }
+            const docIndex = buildDocIndex(tr.doc, {
+              caseInsensitive: false,
+              normalizeWhitespace: false,
+              unifyNbsp: true,
+              removeSoftHyphen: true,
+              removeZeroWidth: true,
+              normalizeQuotesAndDashes: true,
+              unicodeForm: "NFC",
+              wholeWord: isWholeWordLikely(op.findText),
+              contextBefore: op.contextBefore,
+              contextAfter: op.contextAfter,
+              contextWindow: 80,
             });
 
-            if (matches.length === 0) {
-              continue;
-            }
+            const found = findMatches(docIndex, op.findText, {
+              caseInsensitive: false,
+              normalizeWhitespace: false,
+              unifyNbsp: true,
+              removeSoftHyphen: true,
+              removeZeroWidth: true,
+              normalizeQuotesAndDashes: true,
+              unicodeForm: "NFC",
+              wholeWord: isWholeWordLikely(op.findText),
+              contextBefore: op.contextBefore,
+              contextAfter: op.contextAfter,
+              contextWindow: 80,
+            });
 
-            // Apply occurrence selection logic
-            const matchesToProcess = selectMatchesByOccurrence(
-              matches,
+            if (!found.length) continue;
+
+            const selected = selectByOccurrence(
+              found,
               op.occurrenceIndex,
               op.maxOccurrences,
-              op.replaceAll,
+              !!op.replaceAll,
             );
+            if (!selected.length) continue;
 
-            if (matchesToProcess.length === 0) {
-              continue;
-            }
-
-            // Apply replacements (reverse order to maintain position accuracy)
-            matchesToProcess.reverse().forEach((match) => {
-              tr = tr.replaceWith(match.start, match.end, schema.text(op.text));
+            selected
+              .slice()
+              .reverse()
+              .forEach((m) => {
+                tr = tr.replaceWith(m.from, m.to, schema.text(op.text));
             });
           } else if (
             op.type === "insert_text" &&
             (op.afterText || op.beforeText)
           ) {
-            let insertPos = 0;
-
-            if (op.afterText) {
-              // Find position after the specified text
-              const doc = tr.doc;
-              let found = false;
-              doc.descendants((node, pos) => {
-                if (node.isText && !found) {
-                  const text = node.text || "";
-                  const wordMatches = findAllTextWithWordBoundary(
-                    text,
-                    op.afterText,
-                  );
-                  if (wordMatches.length > 0) {
-                    const firstMatch = wordMatches[0];
-                    insertPos = pos + firstMatch.index + firstMatch.length;
-                    found = true;
-                  }
-                }
-              });
-
-              if (!found) {
-                continue;
-              }
-            } else if (op.beforeText) {
-              // Find position before the specified text
-              const doc = tr.doc;
-              let found = false;
-              doc.descendants((node, pos) => {
-                if (node.isText && !found) {
-                  const text = node.text || "";
-                  const wordMatches = findAllTextWithWordBoundary(
-                    text,
-                    op.beforeText,
-                  );
-                  if (wordMatches.length > 0) {
-                    const firstMatch = wordMatches[0];
-                    insertPos = pos + firstMatch.index;
-                    found = true;
-                  }
-                }
-              });
-
-              if (!found) {
-                continue;
-              }
-            }
-
-            tr = tr.insertText(op.text, insertPos);
-          } else if (op.type === "delete_text" && op.deleteText) {
-            // Find the text to delete in the current document
-            const doc = tr.doc;
-            const deleteText = op.deleteText;
-            const matches: Array<{ start: number; end: number }> = [];
-
-            // Traverse the document to find all occurrences with word boundaries
-            doc.descendants((node, pos) => {
-              if (node.isText) {
-                const text = node.text || "";
-                const wordMatches = findAllTextWithWordBoundary(
-                  text,
-                  deleteText,
-                );
-
-                for (const wordMatch of wordMatches) {
-                  const start = pos + wordMatch.index;
-                  const end = pos + wordMatch.index + wordMatch.length;
-
-                  // Check context if provided
-                  let matchesContext = true;
-                  if (op.contextBefore || op.contextAfter) {
-                    const beforeText = doc.textBetween(
-                      Math.max(0, start - 50),
-                      start,
-                    );
-                    const afterText = doc.textBetween(
-                      end,
-                      Math.min(doc.content.size, end + 50),
-                    );
-
-                    if (
-                      op.contextBefore &&
-                      !beforeText.includes(op.contextBefore)
-                    ) {
-                      matchesContext = false;
-                    }
-                    if (
-                      op.contextAfter &&
-                      !afterText.includes(op.contextAfter)
-                    ) {
-                      matchesContext = false;
-                    }
-                  }
-
-                  if (matchesContext) {
-                    matches.push({ start, end });
-                  }
-                }
-              }
+            const docIndex = buildDocIndex(tr.doc, {
+              caseInsensitive: false,
+              normalizeWhitespace: false,
+              unifyNbsp: true,
+              removeSoftHyphen: true,
+              removeZeroWidth: true,
+              normalizeQuotesAndDashes: true,
+              unicodeForm: "NFC",
             });
-
-            if (matches.length === 0) {
-              continue;
-            }
-
-            // Apply occurrence selection logic
-            const matchesToProcess = selectMatchesByOccurrence(
-              matches,
+            const anchor = findAnchorPosition(
+              docIndex,
+              { afterText: op.afterText, beforeText: op.beforeText },
+              {
+                caseInsensitive: false,
+                normalizeWhitespace: false,
+                unifyNbsp: true,
+                removeSoftHyphen: true,
+                removeZeroWidth: true,
+                normalizeQuotesAndDashes: true,
+                unicodeForm: "NFC",
+                wholeWord:
+                  !!op.afterText && isWholeWordLikely(op.afterText) ||
+                  (!!op.beforeText && isWholeWordLikely(op.beforeText)),
+              },
+            );
+            if (anchor == null) continue;
+            tr = tr.insertText(op.text, anchor);
+          } else if (op.type === "delete_text" && op.deleteText) {
+            const docIndex = buildDocIndex(tr.doc, {
+              caseInsensitive: false,
+              normalizeWhitespace: false,
+              unifyNbsp: true,
+              removeSoftHyphen: true,
+              removeZeroWidth: true,
+              normalizeQuotesAndDashes: true,
+              unicodeForm: "NFC",
+              wholeWord: isWholeWordLikely(op.deleteText),
+              contextBefore: op.contextBefore,
+              contextAfter: op.contextAfter,
+              contextWindow: 80,
+            });
+            const found = findMatches(docIndex, op.deleteText, {
+              caseInsensitive: false,
+              normalizeWhitespace: false,
+              unifyNbsp: true,
+              removeSoftHyphen: true,
+              removeZeroWidth: true,
+              normalizeQuotesAndDashes: true,
+              unicodeForm: "NFC",
+              wholeWord: isWholeWordLikely(op.deleteText),
+              contextBefore: op.contextBefore,
+              contextAfter: op.contextAfter,
+              contextWindow: 80,
+            });
+            if (!found.length) continue;
+            const selected = selectByOccurrence(
+              found,
               op.occurrenceIndex,
               op.maxOccurrences,
-              false, // delete doesn't have replaceAll option
+              false,
             );
-
-            if (matchesToProcess.length === 0) {
-              continue;
-            }
-
-            // Apply deletions (reverse order to maintain position accuracy)
-            matchesToProcess.reverse().forEach((match) => {
-              tr = tr.delete(match.start, match.end);
+            if (!selected.length) continue;
+            selected
+              .slice()
+              .reverse()
+              .forEach((m) => {
+                tr = tr.delete(m.from, m.to);
             });
           } else if (op.type === "add_mark") {
             // Validate mark type exists in schema
@@ -896,54 +825,41 @@ export const applyTextBasedOperations = mutation({
               continue;
             }
 
-            // Add mark to text that doesn't already have it
-            const matches = findTextWithoutMark(tr.doc, op.text, op.markType);
-
-            // Apply context filtering if provided
-            const filteredMatches = matches.filter((match) => {
-              if (op.contextBefore || op.contextAfter) {
-                const beforeText = tr.doc.textBetween(
-                  Math.max(0, match.start - 50),
-                  match.start,
-                );
-                const afterText = tr.doc.textBetween(
-                  match.end,
-                  Math.min(tr.doc.content.size, match.end + 50),
-                );
-
-                if (
-                  op.contextBefore &&
-                  !beforeText.includes(op.contextBefore)
-                ) {
-                  return false;
-                }
-                if (op.contextAfter && !afterText.includes(op.contextAfter)) {
-                  return false;
-                }
-              }
-              return true;
+            const docIndex = buildDocIndex(tr.doc, {
+              caseInsensitive: false,
+              normalizeWhitespace: false,
+              unifyNbsp: true,
+              removeSoftHyphen: true,
+              removeZeroWidth: true,
+              normalizeQuotesAndDashes: true,
+              unicodeForm: "NFC",
+              wholeWord: isWholeWordLikely(op.text),
+              contextBefore: op.contextBefore,
+              contextAfter: op.contextAfter,
+              contextWindow: 80,
             });
-
-            if (filteredMatches.length === 0) {
-              continue;
-            }
-
-            // Apply occurrence selection logic
-            const matchesToProcess = selectMatchesByOccurrence(
-              filteredMatches,
-              op.occurrenceIndex,
-              op.maxOccurrences,
-              false, // marks don't use replaceAll
-            );
-
-            if (matchesToProcess.length === 0) {
-              continue;
-            }
-
-            // Apply marks (reverse order to maintain position accuracy)
-            matchesToProcess.reverse().forEach((match) => {
+            const found = findMatches(docIndex, op.text, {
+              caseInsensitive: false,
+              normalizeWhitespace: false,
+              unifyNbsp: true,
+              removeSoftHyphen: true,
+              removeZeroWidth: true,
+              normalizeQuotesAndDashes: true,
+              unicodeForm: "NFC",
+              wholeWord: isWholeWordLikely(op.text),
+              contextBefore: op.contextBefore,
+              contextAfter: op.contextAfter,
+              contextWindow: 80,
+            });
+            if (!found.length) continue;
+            const selected = selectByOccurrence(found, op.occurrenceIndex, op.maxOccurrences, false);
+            if (!selected.length) continue;
+            selected
+              .slice()
+              .reverse()
+              .forEach((m) => {
               const mark = schema.marks[op.markType].create();
-              tr = tr.addMark(match.start, match.end, mark);
+                tr = tr.addMark(m.from, m.to, mark);
             });
           } else if (op.type === "remove_mark") {
             // Validate mark type exists in schema
@@ -951,54 +867,41 @@ export const applyTextBasedOperations = mutation({
               continue;
             }
 
-            // Remove mark from text that has it
-            const matches = findTextWithMark(tr.doc, op.text, op.markType);
-
-            // Apply context filtering if provided
-            const filteredMatches = matches.filter((match) => {
-              if (op.contextBefore || op.contextAfter) {
-                const beforeText = tr.doc.textBetween(
-                  Math.max(0, match.start - 50),
-                  match.start,
-                );
-                const afterText = tr.doc.textBetween(
-                  match.end,
-                  Math.min(tr.doc.content.size, match.end + 50),
-                );
-
-                if (
-                  op.contextBefore &&
-                  !beforeText.includes(op.contextBefore)
-                ) {
-                  return false;
-                }
-                if (op.contextAfter && !afterText.includes(op.contextAfter)) {
-                  return false;
-                }
-              }
-              return true;
+            const docIndex = buildDocIndex(tr.doc, {
+              caseInsensitive: false,
+              normalizeWhitespace: false,
+              unifyNbsp: true,
+              removeSoftHyphen: true,
+              removeZeroWidth: true,
+              normalizeQuotesAndDashes: true,
+              unicodeForm: "NFC",
+              wholeWord: isWholeWordLikely(op.text),
+              contextBefore: op.contextBefore,
+              contextAfter: op.contextAfter,
+              contextWindow: 80,
             });
-
-            if (filteredMatches.length === 0) {
-              continue;
-            }
-
-            // Apply occurrence selection logic
-            const matchesToProcess = selectMatchesByOccurrence(
-              filteredMatches,
-              op.occurrenceIndex,
-              op.maxOccurrences,
-              false, // marks don't use replaceAll
-            );
-
-            if (matchesToProcess.length === 0) {
-              continue;
-            }
-
-            // Remove marks (reverse order to maintain position accuracy)
-            matchesToProcess.reverse().forEach((match) => {
+            const found = findMatches(docIndex, op.text, {
+              caseInsensitive: false,
+              normalizeWhitespace: false,
+              unifyNbsp: true,
+              removeSoftHyphen: true,
+              removeZeroWidth: true,
+              normalizeQuotesAndDashes: true,
+              unicodeForm: "NFC",
+              wholeWord: isWholeWordLikely(op.text),
+              contextBefore: op.contextBefore,
+              contextAfter: op.contextAfter,
+              contextWindow: 80,
+            });
+            if (!found.length) continue;
+            const selected = selectByOccurrence(found, op.occurrenceIndex, op.maxOccurrences, false);
+            if (!selected.length) continue;
+            selected
+              .slice()
+              .reverse()
+              .forEach((m) => {
               const mark = schema.marks[op.markType].create();
-              tr = tr.removeMark(match.start, match.end, mark);
+                tr = tr.removeMark(m.from, m.to, mark);
             });
           } else if (op.type === "replace_mark") {
             // Validate mark types exist in schema
@@ -1009,57 +912,42 @@ export const applyTextBasedOperations = mutation({
               continue;
             }
 
-            // Replace one mark type with another
-            const matches = findTextWithMark(tr.doc, op.text, op.oldMarkType);
-
-            // Apply context filtering if provided
-            const filteredMatches = matches.filter((match) => {
-              if (op.contextBefore || op.contextAfter) {
-                const beforeText = tr.doc.textBetween(
-                  Math.max(0, match.start - 50),
-                  match.start,
-                );
-                const afterText = tr.doc.textBetween(
-                  match.end,
-                  Math.min(tr.doc.content.size, match.end + 50),
-                );
-
-                if (
-                  op.contextBefore &&
-                  !beforeText.includes(op.contextBefore)
-                ) {
-                  return false;
-                }
-                if (op.contextAfter && !afterText.includes(op.contextAfter)) {
-                  return false;
-                }
-              }
-              return true;
+            const docIndex = buildDocIndex(tr.doc, {
+              caseInsensitive: false,
+              normalizeWhitespace: false,
+              unifyNbsp: true,
+              removeSoftHyphen: true,
+              removeZeroWidth: true,
+              normalizeQuotesAndDashes: true,
+              unicodeForm: "NFC",
+              wholeWord: isWholeWordLikely(op.text),
+              contextBefore: op.contextBefore,
+              contextAfter: op.contextAfter,
+              contextWindow: 80,
             });
-
-            if (filteredMatches.length === 0) {
-              continue;
-            }
-
-            // Apply occurrence selection logic
-            const matchesToProcess = selectMatchesByOccurrence(
-              filteredMatches,
-              op.occurrenceIndex,
-              op.maxOccurrences,
-              false, // marks don't use replaceAll
-            );
-
-            if (matchesToProcess.length === 0) {
-              continue;
-            }
-
-            // Replace marks (reverse order to maintain position accuracy)
-            matchesToProcess.reverse().forEach((match) => {
+            const found = findMatches(docIndex, op.text, {
+              caseInsensitive: false,
+              normalizeWhitespace: false,
+              unifyNbsp: true,
+              removeSoftHyphen: true,
+              removeZeroWidth: true,
+              normalizeQuotesAndDashes: true,
+              unicodeForm: "NFC",
+              wholeWord: isWholeWordLikely(op.text),
+              contextBefore: op.contextBefore,
+              contextAfter: op.contextAfter,
+              contextWindow: 80,
+            });
+            if (!found.length) continue;
+            const selected = selectByOccurrence(found, op.occurrenceIndex, op.maxOccurrences, false);
+            if (!selected.length) continue;
+            selected
+              .slice()
+              .reverse()
+              .forEach((m) => {
               const oldMark = schema.marks[op.oldMarkType].create();
               const newMark = schema.marks[op.newMarkType].create();
-              tr = tr
-                .removeMark(match.start, match.end, oldMark)
-                .addMark(match.start, match.end, newMark);
+                tr = tr.removeMark(m.from, m.to, oldMark).addMark(m.from, m.to, newMark);
             });
           } else if (op.type === "add_paragraph") {
             // Validate node type exists in schema
@@ -1076,12 +964,38 @@ export const applyTextBasedOperations = mutation({
               continue;
             }
 
-            // Find insertion position
-            const insertPos = findInsertPosition(
-              tr.doc,
-              op.afterText,
-              op.beforeText,
-            );
+            // Find insertion position using normalized anchors first
+            let insertPos = 0;
+            if (op.afterText || op.beforeText) {
+              const docIndex = buildDocIndex(tr.doc, {
+                caseInsensitive: false,
+                normalizeWhitespace: false,
+                unifyNbsp: true,
+                removeSoftHyphen: true,
+                removeZeroWidth: true,
+                normalizeQuotesAndDashes: true,
+                unicodeForm: "NFC",
+              });
+              const anchor = findAnchorPosition(
+                docIndex,
+                { afterText: op.afterText, beforeText: op.beforeText },
+                {
+                  caseInsensitive: false,
+                  normalizeWhitespace: false,
+                  unifyNbsp: true,
+                  removeSoftHyphen: true,
+                  removeZeroWidth: true,
+                  normalizeQuotesAndDashes: true,
+                  unicodeForm: "NFC",
+                  wholeWord:
+                    !!op.afterText && isWholeWordLikely(op.afterText) ||
+                    (!!op.beforeText && isWholeWordLikely(op.beforeText)),
+                },
+              );
+              insertPos = anchor != null ? anchor : tr.doc.content.size;
+            } else {
+              insertPos = tr.doc.content.size;
+            }
 
             // Create the new node
             const newNode = createNodeOfType(
@@ -1163,6 +1077,199 @@ export const applyTextBasedOperations = mutation({
       ok: true,
       message: `Applied ${operations.length} operations successfully`,
       operationsApplied: operations.length,
+    };
+  },
+});
+
+/**
+ * Rewrite a section of an Escrito identified by textual anchors, then merge via JSON diff.
+ * - If both afterText and beforeText are provided, rewrites the range between them (exclusive of anchors).
+ * - If only afterText is provided, rewrites from that anchor to the end of the document.
+ * - If only beforeText is provided, rewrites from the start of the document up to that anchor.
+ * - If neither is provided, rewrites the entire document.
+ */
+export const rewriteSectionByAnchors = mutation({
+  args: {
+    escritoId: v.id("escritos"),
+    targetText: v.string(),
+    anchors: v.object({
+      afterText: v.optional(v.string()),
+      beforeText: v.optional(v.string()),
+      occurrenceIndex: v.optional(v.number()),
+    }),
+  },
+  handler: async (ctx, { escritoId, targetText, anchors }) => {
+    const escrito = await ctx.db.get(escritoId);
+    if (!escrito) throw new Error("Escrito not found");
+
+    const snapshot = await ctx.runQuery(api.prosemirror.getSnapshot, {
+      id: escrito.prosemirrorId,
+    });
+    if (!snapshot?.content) throw new Error("Document content not found");
+
+    const schema = buildServerSchema();
+
+    // Build inline content from lightweight style tags: [b]..[/b], [i]..[/i], [u]..[/u], [code]..[/code]
+    const buildInlineFromStyledText = (schema: any, text: string): any[] => {
+      const nodes: any[] = [];
+      const tagRe = /\[(\/)?(b|i|u|code)\]/g;
+      const markMap: Record<string, string> = { b: "bold", i: "italic", u: "underline", code: "code" } as const;
+      let active: string[] = [];
+      let last = 0;
+      let m: RegExpExecArray | null;
+      while ((m = tagRe.exec(text)) !== null) {
+        const idx = m.index;
+        if (idx > last) {
+          const chunk = text.slice(last, idx);
+          if (chunk) {
+            const marks = active
+              .map((t) => markMap[t])
+              .map((name) => (schema.marks[name] ? schema.marks[name].create() : null))
+              .filter(Boolean);
+            nodes.push(schema.text(chunk, marks));
+          }
+        }
+        const closing = !!m[1];
+        const tag = m[2];
+        if (closing) {
+          for (let i = active.length - 1; i >= 0; i--) {
+            if (active[i] === tag) {
+              active.splice(i, 1);
+              break;
+            }
+          }
+        } else {
+          active.push(tag);
+        }
+        last = tagRe.lastIndex;
+      }
+      if (last < text.length) {
+        const chunk = text.slice(last);
+        if (chunk) {
+          const marks = active
+            .map((t) => markMap[t])
+            .map((name) => (schema.marks[name] ? schema.marks[name].create() : null))
+            .filter(Boolean);
+          nodes.push(schema.text(chunk, marks));
+        }
+      }
+      return nodes;
+    };
+
+    // Helper to build ProseMirror content from multiline targetText with inline styles
+    const createParagraphNodesFromText = (text: string): any[] => {
+      const paragraphs = text.split(/\n{2,}/);
+      const nodes: any[] = [];
+      for (const p of paragraphs) {
+        const content = (() => {
+          if (!p.includes("\n")) return buildInlineFromStyledText(schema, p);
+          const parts = p.split("\n");
+          const seq: any[] = [];
+          for (let i = 0; i < parts.length; i++) {
+            const inline = buildInlineFromStyledText(schema, parts[i]);
+            if (inline.length) seq.push(...inline);
+            if (i < parts.length - 1) {
+              if (schema.nodes.hardBreak) seq.push(schema.nodes.hardBreak.create());
+              else seq.push(schema.text(" "));
+            }
+          }
+          return seq;
+        })();
+        const para = schema.nodes.paragraph.createAndFill({}, content);
+        if (para) nodes.push(para);
+      }
+      if (!nodes.length) nodes.push(schema.nodes.paragraph.createAndFill({}, schema.text(""))!);
+      return nodes;
+    };
+
+    await prosemirrorSync.transform(ctx, escrito.prosemirrorId, schema, (doc) => {
+      const originalDocJson = doc.toJSON();
+      const state = EditorState.create({ doc });
+      let tr = state.tr;
+
+      // Compute anchor positions using normalized index
+      const docIndex = buildDocIndex(tr.doc, {
+        caseInsensitive: false,
+        normalizeWhitespace: false,
+        unifyNbsp: true,
+        removeSoftHyphen: true,
+        removeZeroWidth: true,
+        normalizeQuotesAndDashes: true,
+        unicodeForm: "NFC",
+      } as any);
+
+      const searchOpts = {
+        caseInsensitive: false,
+        normalizeWhitespace: false,
+        unifyNbsp: true,
+        removeSoftHyphen: true,
+        removeZeroWidth: true,
+        normalizeQuotesAndDashes: true,
+        unicodeForm: "NFC",
+        wholeWord: false,
+        contextWindow: 100,
+      } as any;
+
+      const afterPos = anchors.afterText
+        ? findAnchorPosition(
+            docIndex,
+            { afterText: anchors.afterText, occurrenceIndex: anchors.occurrenceIndex },
+            searchOpts,
+          )
+        : null;
+      const beforePos = anchors.beforeText
+        ? findAnchorPosition(
+            docIndex,
+            { beforeText: anchors.beforeText, occurrenceIndex: anchors.occurrenceIndex },
+            searchOpts,
+          )
+        : null;
+
+      let from = 0;
+      let to = tr.doc.content.size;
+
+      if (afterPos != null && beforePos != null) {
+        from = Math.max(0, Math.min(afterPos, tr.doc.content.size));
+        to = Math.max(0, Math.min(beforePos, tr.doc.content.size));
+        if (from > to) {
+          // Swap if anchors are reversed
+          const tmp = from; from = to; to = tmp;
+        }
+      } else if (afterPos != null) {
+        from = Math.max(0, Math.min(afterPos, tr.doc.content.size));
+        to = tr.doc.content.size;
+      } else if (beforePos != null) {
+        from = 0;
+        to = Math.max(0, Math.min(beforePos, tr.doc.content.size));
+      }
+
+      // Build replacement fragment
+      const replacement = createParagraphNodesFromText(targetText);
+
+      try {
+        tr = tr.replaceWith(from, to, replacement as any);
+      } catch (e) {
+        // Fallback: if replaceWith fails due to invalid positions, insert at end
+        tr = tr.insert(tr.doc.content.size, replacement as any);
+      }
+
+      const newDocJson = tr.doc.toJSON();
+      const delta = createJsonDiff(originalDocJson, newDocJson);
+      const merged = buildContentWithJsonChanges(originalDocJson, newDocJson, delta);
+
+      const finalState = EditorState.create({ doc });
+      try {
+        const mergedNode = schema.nodeFromJSON(merged);
+        return finalState.tr.replaceWith(0, finalState.doc.content.size, mergedNode.content);
+      } catch {
+        // Fallback to direct content
+        return finalState.tr.replaceWith(0, finalState.doc.content.size, tr.doc.content);
+      }
+    });
+
+    return {
+      ok: true,
+      message: "Section rewrite applied via anchors",
     };
   },
 });
