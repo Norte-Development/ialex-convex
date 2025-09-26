@@ -125,6 +125,94 @@ function extractVisibleTextFromNode(node: Node): string {
 const MAX_WORDS_PER_CHUNK = 300;
 
 /**
+ * Build a flat index of text runs in the document for position-based mapping.
+ * Each run corresponds to a ProseMirror text node with absolute positions.
+ */
+function buildTextRuns(doc: Node): Array<{ text: string; from: number; to: number }> {
+  const runs: Array<{ text: string; from: number; to: number }> = [];
+  doc.descendants((node, pos) => {
+    if (node.type.name === "text") {
+      const text = (node as any).text || "";
+      const size = (node as any).nodeSize ?? text.length;
+      runs.push({ text, from: pos, to: pos + size });
+      return false;
+    }
+    return true;
+  });
+  return runs;
+}
+
+function findNthOccurrence(haystack: string, needle: string, n: number): number {
+  if (!needle) return -1;
+  let idx = -1;
+  for (let i = 0; i < n; i++) {
+    idx = haystack.indexOf(needle, idx + 1);
+    if (idx === -1) return -1;
+  }
+  return idx;
+}
+
+/**
+ * Locate document positions based on simple textual anchors within single text runs.
+ * Returns best-effort PM positions for afterText end and beforeText start.
+ */
+function findAnchorPositions(
+  doc: Node,
+  opts: { afterText?: string; beforeText?: string; occurrenceIndex?: number }
+): { from?: number; to?: number } {
+  const occurrence = Math.max(1, opts.occurrenceIndex ?? 1);
+  const runs = buildTextRuns(doc);
+  const result: { from?: number; to?: number } = {};
+
+  if (opts.afterText) {
+    let count = 0;
+    for (const run of runs) {
+      const local = findNthOccurrence(run.text, opts.afterText, 1);
+      if (local !== -1) {
+        count += 1;
+        if (count === occurrence) {
+          result.from = run.from + local + opts.afterText.length;
+          break;
+        }
+      }
+    }
+  }
+
+  if (opts.beforeText) {
+    let count = 0;
+    for (const run of runs) {
+      const local = findNthOccurrence(run.text, opts.beforeText, 1);
+      if (local !== -1) {
+        count += 1;
+        if (count === occurrence) {
+          result.to = run.from + local;
+          break;
+        }
+      }
+    }
+  }
+
+  return result;
+}
+
+function safeBounds(doc: Node, from?: number, to?: number): { from: number; to: number } {
+  const min = 0;
+  const max = doc.content.size;
+  const f = Math.max(min, Math.min(max, from ?? 0));
+  const t = Math.max(f, Math.min(max, to ?? max));
+  return { from: f, to: t };
+}
+
+function getTextBetween(doc: Node, from: number, to: number): string {
+  return (doc as any).textBetween(from, to, "\n\n");
+}
+
+function getJsonSlice(doc: Node, from: number, to: number): any {
+  const sliced = (doc as any).cut(from, to);
+  return sliced.toJSON();
+}
+
+/**
  * Generates a hierarchical outline of an Escrito document.
  * 
  * This function creates an outline by extracting headings and paragraphs from the document,
@@ -414,6 +502,128 @@ export function generateChunkPreview(text: string): string {
   return preview + (preview.length < text.length ? "..." : "");
 }
 
+// ---- New reading primitives ----
+
+export function getTextSelection(doc: Node, from: number, to: number) {
+  const b = safeBounds(doc, from, to);
+  const text = getTextBetween(doc, b.from, b.to);
+  return { text, from: b.from, to: b.to, length: text.length };
+}
+
+export function getJsonSelection(doc: Node, from: number, to: number) {
+  const b = safeBounds(doc, from, to);
+  const json = getJsonSlice(doc, b.from, b.to);
+  return { json, from: b.from, to: b.to };
+}
+
+export function getTextRange(
+  doc: Node,
+  args: { from?: number; to?: number; afterText?: string; beforeText?: string; occurrenceIndex?: number }
+) {
+  const anchors = findAnchorPositions(doc, {
+    afterText: args.afterText,
+    beforeText: args.beforeText,
+    occurrenceIndex: args.occurrenceIndex,
+  });
+  const b = safeBounds(doc, args.from ?? anchors.from, args.to ?? anchors.to);
+  const text = getTextBetween(doc, b.from, b.to);
+  return { text, from: b.from, to: b.to, length: text.length };
+}
+
+export function getJsonRange(
+  doc: Node,
+  args: { from?: number; to?: number; afterText?: string; beforeText?: string; occurrenceIndex?: number }
+) {
+  const anchors = findAnchorPositions(doc, {
+    afterText: args.afterText,
+    beforeText: args.beforeText,
+    occurrenceIndex: args.occurrenceIndex,
+  });
+  const b = safeBounds(doc, args.from ?? anchors.from, args.to ?? anchors.to);
+  const json = getJsonSlice(doc, b.from, b.to);
+  return { json, from: b.from, to: b.to };
+}
+
+type SizeUnit = "words" | "nodes";
+
+function computeSizeChunks(doc: Node, unit: SizeUnit, chunkSize: number): Array<{ from: number; to: number; words: number; nodes: number }> {
+  const chunks: Array<{ from: number; to: number; words: number; nodes: number }> = [];
+  const nodes: Array<{ from: number; to: number; text: string }> = [];
+
+  doc.descendants((n, pos) => {
+    if (["paragraph", "heading", "blockquote", "codeBlock", "listItem", "tableCell"].includes(n.type.name)) {
+      const from = pos;
+      const to = pos + n.nodeSize;
+      const text = extractVisibleTextFromNode(n);
+      nodes.push({ from, to, text });
+      return false;
+    }
+    return true;
+  });
+
+  let accFrom: number | null = null;
+  let accTo: number | null = null;
+  let accWords = 0;
+  let accNodes = 0;
+
+  const flush = () => {
+    if (accFrom !== null && accTo !== null) {
+      chunks.push({ from: accFrom, to: accTo, words: accWords, nodes: accNodes });
+    }
+    accFrom = accTo = null;
+    accWords = 0;
+    accNodes = 0;
+  };
+
+  for (const item of nodes) {
+    const words = item.text.split(/\s+/).filter(Boolean).length;
+    if (accFrom === null) accFrom = item.from;
+    accTo = item.to;
+    accWords += words;
+    accNodes += 1;
+
+    const reached = unit === "words" ? accWords >= chunkSize : accNodes >= chunkSize;
+    if (reached) flush();
+  }
+
+  flush();
+  return chunks;
+}
+
+export function getTextChunksBySize(
+  doc: Node,
+  opts: { unit: SizeUnit; chunkSize: number; chunkIndex: number; contextWindow?: number }
+) {
+  const ranges = computeSizeChunks(doc, opts.unit, opts.chunkSize);
+  if (ranges.length === 0) return [] as any[];
+  const idx = Math.min(opts.chunkIndex, ranges.length - 1);
+  const start = Math.max(0, idx - (opts.contextWindow ?? 0));
+  const end = Math.min(ranges.length, idx + (opts.contextWindow ?? 0) + 1);
+  const out: Array<{ from: number; to: number; text: string; index: number; total: number }> = [];
+  for (let i = start; i < end; i++) {
+    const r = ranges[i];
+    out.push({ from: r.from, to: r.to, text: getTextBetween(doc, r.from, r.to), index: i, total: ranges.length });
+  }
+  return out;
+}
+
+export function getJsonChunksBySize(
+  doc: Node,
+  opts: { unit: SizeUnit; chunkSize: number; chunkIndex: number; contextWindow?: number }
+) {
+  const ranges = computeSizeChunks(doc, opts.unit, opts.chunkSize);
+  if (ranges.length === 0) return [] as any[];
+  const idx = Math.min(opts.chunkIndex, ranges.length - 1);
+  const start = Math.max(0, idx - (opts.contextWindow ?? 0));
+  const end = Math.min(ranges.length, idx + (opts.contextWindow ?? 0) + 1);
+  const out: Array<{ from: number; to: number; json: any; index: number; total: number }> = [];
+  for (let i = start; i < end; i++) {
+    const r = ranges[i];
+    out.push({ from: r.from, to: r.to, json: getJsonSlice(doc, r.from, r.to), index: i, total: ranges.length });
+  }
+  return out;
+}
+
 /**
  * Retrieves document chunks by index with lazy evaluation and context window support.
  * 
@@ -468,9 +678,13 @@ export function getEscritoChunks(
   // Calculate context window bounds for valid chunk index
   const start = Math.max(0, chunkIndex - contextWindow);
   const end = Math.min(chunkMetadata.length, chunkIndex + contextWindow + 1);
+
+  const result = processChunkRange(documentNodes, chunkMetadata, start, end);
+  console.log("result", result);
+  return result;
   
-  // Process requested range
-  return processChunkRange(documentNodes, chunkMetadata, start, end);
+  // // Process requested range
+  // return result;
 }
 
 /**
@@ -563,6 +777,8 @@ export const getFullEscrito = (doc: Node): { text: string; wordCount: number; st
   
   const fullText = textParts.join("\n\n");
   const wordCount = fullText.split(/\s+/).filter(word => word.length > 0).length;
+
+  console.log("fullText", fullText);
   
   return {
     text: fullText,
@@ -605,12 +821,23 @@ export const getFullEscrito = (doc: Node): { text: string; wordCount: number; st
  * });
  * ``` */
 const readEscritoTool = createTool({
-  description: "Read an Escrito",
+  description: "Read an Escrito from the case. Use this tool to review escrito content before editing, verify changes after editing, or understand the current state of the document. Supports multiple read operations: 'outline' for structure, 'chunk' for specific sections, 'full' for complete content, and range operations for specific text selections.",
   args: z.object({
     escritoId: z.any().describe("The Escrito ID (Convex doc id)"),
-    operation: z.enum(["outline", "chunk", "full"]).describe("The operation to perform"),
-    chunkIndex: z.number().optional().describe("The chunk index to read"),
-    contextWindow: z.number().optional().describe("The number of chunks before and after the target chunk to include"),
+    operation: z.enum(["outline", "chunk", "full", "getTextSelection", "getJsonSelection", "getTextRange", "getJsonRange", "getTextChunks", "getJsonChunks"]).describe("Which read operation to perform"),
+    // Existing chunking by semantic chunks
+    chunkIndex: z.number().optional().describe("Semantic chunk index"),
+    contextWindow: z.number().optional().describe("Chunks before/after to include"),
+    // Selection by absolute positions
+    from: z.number().optional().describe("Start position (absolute)"),
+    to: z.number().optional().describe("End position (absolute)"),
+    // Anchor-based ranges
+    afterText: z.string().optional().describe("Anchor text after which the range starts"),
+    beforeText: z.string().optional().describe("Anchor text before which the range ends"),
+    occurrenceIndex: z.number().optional().describe("Occurrence index for anchors (1-based)"),
+    // Chunking by size
+    unit: z.enum(["words", "nodes"]).optional().describe("Size unit for chunking"),
+    chunkSize: z.number().optional().describe("Size per chunk in unit"),
   }).required({escritoId: true}),
   handler: async (ctx: ToolCtx, args: any) => {
     try {
@@ -632,14 +859,35 @@ const readEscritoTool = createTool({
       }
       
       const doc = await prosemirrorSync.getDoc(ctx, escrito.prosemirrorId, buildServerSchema());
-      if (args.operation === "outline") {
-        return getEscritoOutline(doc.doc);
-      } else if (args.operation === "chunk") {
-        return getEscritoChunks(doc.doc, args.chunkIndex, args.contextWindow);
-      } else if (args.operation === "full") {
-        return getFullEscrito(doc.doc);
-      } else {
-        return createErrorResponse(`Invalid operation: ${args.operation}. Must be 'outline', 'chunk', or 'full'`);
+      switch (args.operation) {
+        case "outline":
+          return getEscritoOutline(doc.doc);
+        case "chunk":
+          return getEscritoChunks(doc.doc, args.chunkIndex, args.contextWindow);
+        case "full":
+          return getFullEscrito(doc.doc);
+        case "getTextSelection":
+          return getTextSelection(doc.doc, args.from, args.to);
+        case "getJsonSelection":
+          return getJsonSelection(doc.doc, args.from, args.to);
+        case "getTextRange":
+          return getTextRange(doc.doc, { from: args.from, to: args.to, afterText: args.afterText, beforeText: args.beforeText, occurrenceIndex: args.occurrenceIndex });
+        case "getJsonRange":
+          return getJsonRange(doc.doc, { from: args.from, to: args.to, afterText: args.afterText, beforeText: args.beforeText, occurrenceIndex: args.occurrenceIndex });
+        case "getTextChunks":
+          if (args.unit && args.chunkSize) {
+            return getTextChunksBySize(doc.doc, { unit: args.unit, chunkSize: args.chunkSize, chunkIndex: args.chunkIndex ?? 0, contextWindow: args.contextWindow ?? 0 });
+          }
+          return getEscritoChunks(doc.doc, args.chunkIndex ?? 0, args.contextWindow ?? 0);
+        case "getJsonChunks":
+          if (args.unit && args.chunkSize) {
+            return getJsonChunksBySize(doc.doc, { unit: args.unit, chunkSize: args.chunkSize, chunkIndex: args.chunkIndex ?? 0, contextWindow: args.contextWindow ?? 0 });
+          }
+          // Fallback: return semantic chunks as JSON slices
+          const sem = getEscritoChunks(doc.doc, args.chunkIndex ?? 0, args.contextWindow ?? 0);
+          return sem.map(ch => ({ from: ch.startPos, to: ch.endPos, json: getJsonSlice(doc.doc, ch.startPos, ch.endPos), index: ch.chunkIndex, total: sem.length }));
+        default:
+          return createErrorResponse(`Invalid operation: ${args.operation}`);
       }
     } catch (error) {
       return createErrorResponse(`Unexpected error: ${error instanceof Error ? error.message : 'Unknown error'}`);

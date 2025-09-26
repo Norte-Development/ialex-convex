@@ -9,7 +9,7 @@ import { Id } from "../../_generated/dataModel";
  * Tool for editing Escritos by text-based operations including text manipulation and mark formatting.
  * Uses applyTextBasedOperations mutation to apply changes.
  *
- * @description Edit an Escrito by finding and replacing text content, adding/removing formatting marks, and manipulating text. Much easier than position-based editing - just provide the text to find and what to replace it with, or specify mark operations.
+ * @description Edit an Escrito by finding and replacing text content, adding/removing formatting marks, and manipulating text. Use this tool for small, precise edits like corrections, adding formatting, or replacing specific text. Much easier than position-based editing - just provide the text to find and what to replace it with, or specify mark operations. ALWAYS verify changes by reading the edited section after each edit.
  * @param {Object} args - Edit parameters
  * @param {string} args.escritoId - The Escrito ID (Convex doc id)
  * @param {Array} args.edits - Array of edit operations to apply

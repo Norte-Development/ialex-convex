@@ -6,7 +6,7 @@ import { createErrorResponse, validateStringParam, validateNumberParam } from ".
  * Tool for searching court decisions and legal precedents (fallos) using dense embeddings.
  * Useful for finding relevant case law and judicial decisions.
  *
- * @description Searches court decisions and legal precedents (fallos) using dense embeddings. Useful for finding relevant case law and judicial decisions.
+ * @description Searches court decisions and legal precedents (fallos) using dense embeddings. Use this tool when users need to find relevant case law, judicial decisions, legal precedents, or jurisprudencia. The search uses semantic similarity to find the most relevant court decisions based on the query.
  * @param {Object} args - Search parameters
  * @param {string} args.query - The search query text to find relevant court decisions
  * @param {number} [args.limit=10] - Maximum number of results to return (default: 10)
@@ -21,7 +21,7 @@ import { createErrorResponse, validateStringParam, validateNumberParam } from ".
  * });
  */
 export const searchFallosTool = createTool({
-  description: "Search court decisions and legal precedents (fallos) using dense embeddings. Useful for finding relevant case law and judicial decisions.",
+  description: "Search court decisions and legal precedents (fallos) using dense embeddings. Use this tool when users need to find relevant case law, judicial decisions, legal precedents, or jurisprudencia. The search uses semantic similarity to find the most relevant court decisions based on the query.",
   args: z.object({
     query: z.any().describe("The search query text to find relevant court decisions"),
     limit: z.any().optional().describe("Maximum number of results to return (default: 10)")

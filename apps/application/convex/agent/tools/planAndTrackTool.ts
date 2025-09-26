@@ -5,7 +5,7 @@ import { getUserAndCaseIds } from "./utils";
 import { Id } from "../../_generated/dataModel";
 
 export const planAndTrackTool = createTool({
-  description: "Create a todo list with the provided tasks and track progress.",
+  description: "Create a todo list with the provided tasks and track progress. Use this tool MANDATORY for complex tasks requiring more than 3 steps, extensive escrito editing, or multi-document analysis. This tool helps organize work, track progress, and facilitates continuation if step limits are reached. Always create the task list BEFORE starting any complex work.",
   args: z
     .object({
       plan: z.string().describe("High-level user request description"),
@@ -71,7 +71,7 @@ export const planAndTrackTool = createTool({
 } as any);
 
 export const markTaskCompleteTool = createTool({
-  description: "Mark a specific task as completed in the current thread's todo list.",
+  description: "Mark a specific task as completed in the current thread's todo list. Use this tool IMMEDIATELY after completing each individual task to maintain real-time progress tracking. This updates the todo list progress and helps with continuation if step limits are reached.",
   args: z
     .object({
       taskTitle: z.string().describe("The title of the task to mark as completed"),

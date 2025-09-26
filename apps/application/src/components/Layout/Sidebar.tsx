@@ -3,25 +3,25 @@ import { ArrowRight, SendIcon, ArrowLeft } from "lucide-react";
 import TextareaAutosize from "react-textarea-autosize";
 
 const Sidebar = () => {
-  const { isSidebarOpen, toggleSidebar } = useLayout();
+  const { isCaseSidebarOpen, toggleCaseSidebar } = useLayout();
 
   return (
     <aside
       className={`relative bg-white border-l border-border  min-h-screen  transform transition-all duration-300 ease-in-out  flex flex-col justify-end  z-40 ${
-        isSidebarOpen ? "w-64" : "w-0"
+        isCaseSidebarOpen ? "w-64" : "w-0"
       }`}
     >
       <button
         className="absolute top-5 left-2 cursor-pointer"
         onClick={() => {
-          toggleSidebar();
+          toggleCaseSidebar();
         }}
       >
         <ArrowRight size={15} />
       </button>
-      {!isSidebarOpen && (
+      {!isCaseSidebarOpen && (
         <button
-          onClick={toggleSidebar}
+          onClick={toggleCaseSidebar}
           className="fixed top-1/2 right-2 z-40 cursor-pointer bg-white border border-gray-300 rounded-full p-2 shadow-md hover:shadow-lg transition-shadow"
         >
           <ArrowLeft size={15} />
