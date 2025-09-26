@@ -1,6 +1,6 @@
 import { useEditor, EditorContent, useEditorState } from "@tiptap/react";
 import type { Editor } from "@tiptap/core";
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import StarterKit from "@tiptap/starter-kit";
 import TextAlign from "@tiptap/extension-text-align";
 import Underline from "@tiptap/extension-underline";
@@ -13,7 +13,6 @@ import {
   LineBreakChange,
 } from "../../../../../packages/shared/src/tiptap/changeNodes";
 import { TrackingExtension } from "./extensions/tracking";
-import { AcceptAllChangesButton } from "./AcceptAllChangesButton";
 import "./editor-styles.css";
 import {
   Bold,
@@ -291,9 +290,6 @@ export function Tiptap({
   const { setCursorPosition, setTextAroundCursor, setEscritoId } = useEscrito();
   const { setEditor } = useEditorContext();
 
-  // State for changes overlay
-  const [showOverlay, setShowOverlay] = useState(false);
-
   // Always call useEditor hook - don't make it conditional
   const editor = useEditor(
     {
@@ -403,46 +399,6 @@ export function Tiptap({
     }
   }, [editor, readOnly]);
 
-  // Detect changes in the document
-  useEffect(() => {
-    if (editor && !readOnly) {
-      const checkForChanges = () => {
-        let foundChanges = false;
-
-        editor.state.doc.descendants((node) => {
-          if (
-            node.type.name === "inlineChange" ||
-            node.type.name === "blockChange" ||
-            node.type.name === "lineBreakChange"
-          ) {
-            foundChanges = true;
-            return false; // Stop descending
-          }
-        });
-
-        setShowOverlay(foundChanges);
-      };
-
-      // Check for changes on document update
-      const handleUpdate = () => {
-        // Use a small delay to ensure the document has been updated
-        setTimeout(checkForChanges, 10);
-      };
-
-      // Initial check
-      setTimeout(checkForChanges, 100);
-
-      // Listen to document updates
-      editor.on("update", handleUpdate);
-      editor.on("transaction", handleUpdate);
-
-      return () => {
-        editor.off("update", handleUpdate);
-        editor.off("transaction", handleUpdate);
-      };
-    }
-  }, [editor, readOnly]);
-
   if (sync.isLoading) {
     return (
       <div className="flex items-center justify-center h-96 bg-white rounded-lg shadow-sm border border-gray-200">
@@ -503,13 +459,6 @@ export function Tiptap({
         <EditorContent
           editor={editor}
           className="legal-editor-content-wrapper w-full"
-        />
-
-        {/* Accept All Changes Button */}
-        <AcceptAllChangesButton
-          editor={editor}
-          isVisible={showOverlay && !readOnly}
-          onDismiss={() => setShowOverlay(false)}
         />
       </div>
 

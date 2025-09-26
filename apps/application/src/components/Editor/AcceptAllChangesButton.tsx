@@ -3,25 +3,41 @@ import {
   Artifact,
   ArtifactHeader,
   ArtifactActions,
-  ArtifactAction,
 } from "../ai-elements/artifact";
 import { Button } from "@/components/ui/button";
 import { CheckIcon, XIcon, FileEditIcon, Loader2 } from "lucide-react";
-import type { Editor } from "@tiptap/core";
+import { useEditorContext } from "../../context/EditorContext";
 
 interface AcceptAllChangesButtonProps {
-  editor: Editor;
-  isVisible: boolean;
   onDismiss?: () => void;
 }
 
 export function AcceptAllChangesButton({
-  editor,
-  isVisible,
   onDismiss,
 }: AcceptAllChangesButtonProps) {
   const [isAccepting, setIsAccepting] = useState(false);
   const [isRejecting, setIsRejecting] = useState(false);
+
+  // Get editor from context
+  const { editor } = useEditorContext();
+
+  // Check if there are changes in the document
+  const hasChanges = editor
+    ? (() => {
+        let foundChanges = false;
+        editor.state.doc.descendants((node) => {
+          if (
+            node.type.name === "inlineChange" ||
+            node.type.name === "blockChange" ||
+            node.type.name === "lineBreakChange"
+          ) {
+            foundChanges = true;
+            return false; // Stop descending
+          }
+        });
+        return foundChanges;
+      })()
+    : false;
 
   const handleAcceptAll = async () => {
     if (!editor) return;
@@ -61,69 +77,49 @@ export function AcceptAllChangesButton({
     }
   };
 
-  if (!isVisible) {
+  // Don't show if no editor or no changes
+  if (!editor || !hasChanges) {
     return null;
   }
 
   return (
-    <div className="absolute top-4 left-1/2 transform -translate-x-1/2 z-50">
-      <Artifact className="shadow-lg border-2 border-blue-200 bg-white">
-        <ArtifactHeader>
+    <div className="mx-4 mb-2">
+      <Artifact className="border-blue-200 bg-blue-50">
+        <ArtifactHeader className="py-2 px-3">
           <div className="flex items-center gap-2">
-            <FileEditIcon className="w-5 h-5 text-blue-600" />
-            <div>
-              <h3 className="font-medium text-sm">Cambios pendientes</h3>
-              <p className="text-xs text-gray-600">Revisar y aceptar cambios</p>
-            </div>
+            <FileEditIcon className="w-4 h-4 text-blue-600" />
+            <span className="text-xs text-blue-800 font-medium">
+              Hay cambios pendientes
+            </span>
           </div>
 
           <ArtifactActions>
-            <div className="flex gap-2">
+            <div className="flex gap-1">
               <Button
                 onClick={handleAcceptAll}
                 disabled={isAccepting || isRejecting}
-                className="bg-green-600 hover:bg-green-700 text-white h-8 px-3"
+                className="bg-green-600 hover:bg-green-700 text-white h-6 px-2 text-xs"
                 size="sm"
               >
                 {isAccepting ? (
-                  <>
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    Aceptando...
-                  </>
+                  <Loader2 className="w-3 h-3 animate-spin" />
                 ) : (
-                  <>
-                    <CheckIcon className="w-4 h-4 mr-2" />
-                    Aceptar todo
-                  </>
+                  <CheckIcon className="w-3 h-3" />
                 )}
               </Button>
-
               <Button
                 onClick={handleRejectAll}
                 disabled={isAccepting || isRejecting}
                 variant="outline"
-                className="border-red-300 text-red-600 hover:bg-red-50 h-8 px-3"
+                className="border-red-300 text-red-600 hover:bg-red-50 h-6 px-2 text-xs"
                 size="sm"
               >
                 {isRejecting ? (
-                  <>
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    Rechazando...
-                  </>
+                  <Loader2 className="w-3 h-3 animate-spin" />
                 ) : (
-                  <>
-                    <XIcon className="w-4 h-4 mr-2" />
-                    Rechazar todo
-                  </>
+                  <XIcon className="w-3 h-3" />
                 )}
               </Button>
-
-              <ArtifactAction
-                tooltip="Cerrar"
-                icon={XIcon}
-                onClick={onDismiss}
-                className="text-gray-500 hover:text-gray-700"
-              />
             </div>
           </ArtifactActions>
         </ArtifactHeader>
