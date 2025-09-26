@@ -9,13 +9,70 @@ import {
 import { Sources, SourcesTrigger, SourcesContent } from "../ai-elements/source";
 import { Actions, Action } from "../ai-elements/actions";
 import { Loader } from "../ai-elements/loader";
-import { Copy, ThumbsUp, ThumbsDown } from "lucide-react";
+import { Copy, ThumbsUp, ThumbsDown, PenToolIcon } from "lucide-react";
 import { Tool } from "../ai-elements/tool";
 import { Response } from "../ai-elements/response";
 import { CitationParser } from "../ai-elements/citation-parser";
+import {
+  Artifact,
+  ArtifactHeader,
+  ArtifactTitle,
+  ArtifactDescription,
+} from "../ai-elements/artifact";
+import { useEditorContext } from "@/context/EditorContext";
 import type { SidebarMessageProps } from "./types/message-types";
 import { LegislationModal } from "./legislation-modal";
 import { useState, useEffect } from "react";
+
+// Helper function to get editing tool info and actual change count
+const getEditingToolInfo = (parts: any[], editor: any) => {
+  const editTools = parts.filter((part) => {
+    const toolType = part.type?.replace("tool-", "");
+    return (
+      toolType === "editEscrito" ||
+      toolType === "writeEscrito" ||
+      toolType === "createEscrito"
+    );
+  });
+
+  if (editTools.length === 0) return null;
+
+  const activeEditTool = editTools.find(
+    (tool) => tool.state !== "output-available",
+  );
+  const completedEditTools = editTools.filter(
+    (tool) => tool.state === "output-available",
+  );
+
+  // Count actual changes in the editor if available
+  let actualChangeCount = 0;
+  if (editor) {
+    editor.state.doc.descendants((node: any) => {
+      if (
+        node.type.name === "inlineChange" ||
+        node.type.name === "blockChange" ||
+        node.type.name === "lineBreakChange"
+      ) {
+        actualChangeCount++;
+      }
+    });
+  }
+
+  // Only show the artifact if there are active edits OR pending changes in editor
+  const shouldShow = !!activeEditTool || actualChangeCount > 0;
+
+  return {
+    isEditing: !!activeEditTool,
+    hasCompletedEdits: completedEditTools.length > 0,
+    totalEdits: editTools.length,
+    actualChangeCount: actualChangeCount,
+    shouldShow: shouldShow,
+    activeToolType: activeEditTool?.type?.replace("tool-", ""),
+    completedToolTypes: completedEditTools.map((tool) =>
+      tool.type?.replace("tool-", ""),
+    ),
+  };
+};
 
 export function SidebarMessage({
   message,
@@ -27,6 +84,7 @@ export function SidebarMessage({
 }: SidebarMessageProps) {
   const [open, setOpen] = useState(false);
   const [normativeId, setNormativeId] = useState("");
+  const { editor } = useEditorContext();
   const isUser = message.role === "user";
 
   const messageText =
@@ -43,6 +101,9 @@ export function SidebarMessage({
   const allToolsCompleted =
     toolCalls.length > 0 &&
     toolCalls.every((part) => (part as any).state === "output-available");
+
+  // Get editing tool information
+  const editingInfo = getEditingToolInfo(message.parts || [], editor);
 
   // Only stream while assistant is actively streaming and tools (if any) are not all completed
   const shouldStream =
@@ -93,6 +154,36 @@ export function SidebarMessage({
             "!bg-red-100 !text-red-800 border-l-2 border-red-400",
         )}
       >
+        {/* Show editing artifact for assistant messages with editing tools */}
+        {!isUser && editingInfo && editingInfo.shouldShow && (
+          <div className="mb-2">
+            <Artifact className="border-blue-200/60 bg-blue-50/30 shadow-none">
+              <ArtifactHeader className="py-1 px-2 bg-transparent border-none">
+                <div className="flex items-center gap-1.5">
+                  <PenToolIcon className="w-3 h-3 text-blue-500 flex-shrink-0" />
+                  <div className="min-w-0 flex-1">
+                    <ArtifactTitle className="text-[10px] font-medium text-blue-700 mb-0">
+                      {editingInfo.isEditing
+                        ? "Editando documento..."
+                        : "Editado"}
+                    </ArtifactTitle>
+                    <ArtifactDescription className="text-[9px] text-blue-600/80 truncate mt-0">
+                      {editingInfo.isEditing
+                        ? `Aplicando ${editingInfo.activeToolType === "editEscrito" ? "cambios" : "modificaciones"}`
+                        : editingInfo.actualChangeCount > 0
+                          ? `${editingInfo.actualChangeCount} ${editingInfo.actualChangeCount > 1 ? "cambios aplicados" : "cambio aplicado"}`
+                          : `${editingInfo.totalEdits} ${editingInfo.totalEdits > 1 ? "ediciones completadas" : "edición completada"}`}
+                    </ArtifactDescription>
+                  </div>
+                  {editingInfo.isEditing && (
+                    <Loader size={10} className="text-blue-500" />
+                  )}
+                </div>
+              </ArtifactHeader>
+            </Artifact>
+          </div>
+        )}
+
         {/* Message parts in chronological order */}
         {message.parts?.map((part, index) => {
           if (part.type === "text") {
