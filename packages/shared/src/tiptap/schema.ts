@@ -6,19 +6,22 @@ import { InlineChange, BlockChange, LineBreakChange } from "./changeNodes";
 import { getSchema } from "@tiptap/core";
 import { Schema } from "@tiptap/pm/model";
 
+// Export the extensions array so it can be reused
+export const getServerExtensions = () => [
+  StarterKit.configure({
+    horizontalRule: false,
+  }),
+  TextStyle,
+  InlineChange,
+  BlockChange,
+  LineBreakChange,
+  TextAlign.configure({ types: ["heading", "paragraph"] }),
+  Underline,
+  // Note: TrackingExtension is client-side only and doesn't affect schema
+];
+
 export function buildServerSchema(): Schema {
-  const extensions = [
-    StarterKit.configure({
-      horizontalRule: false,
-    }),
-    TextStyle,
-    InlineChange,
-    BlockChange,
-    LineBreakChange,
-    TextAlign.configure({ types: ["heading", "paragraph"] }),
-    Underline,
-    // Note: TrackingExtension is client-side only and doesn't affect schema
-  ];
+  const extensions = getServerExtensions();
   return getSchema(extensions);
 }
 

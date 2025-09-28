@@ -3,6 +3,9 @@ import { api, internal } from "../../_generated/api";
 import { z } from "zod";
 import { getUserAndCaseIds, createErrorResponse, validateStringParam } from "./utils";
 import { Id } from "../../_generated/dataModel";
+import { generateHTML } from '@tiptap/html'
+import { prosemirrorSync } from "../../prosemirror";
+import { buildServerSchema } from "../../../../../packages/shared/src/tiptap/schema";
 
 /**
  * @deprecated This tool is deprecated and will be removed in a future version.
@@ -64,6 +67,12 @@ export const getEscritoTool = createTool({
 
       // Get the actual document content using ProseMirror snapshot
       const documentContent = await ctx.runQuery(api.prosemirror.getSnapshot, { id: escrito.prosemirrorId });
+
+      const doc = await prosemirrorSync.getDoc(ctx, escrito.prosemirrorId, buildServerSchema());
+
+      const html = generateHTML(doc.doc.toJSON(), []);
+
+      
 
       return {
         content: documentContent
