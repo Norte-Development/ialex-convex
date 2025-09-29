@@ -58,3 +58,69 @@ export const HtmlChunkValidator = v.object({
  * Convex validator for HtmlChunk array
  */
 export const HtmlChunkArrayValidator = v.array(HtmlChunkValidator);
+
+
+/**
+ * The position where content will be inserted. Can be:
+ * - Range: A range of the document
+ * - number: A position in the document
+ * - 'selection': Replace the current selection
+ * - 'selectionStart': The start of the current selection
+ * - 'selectionEnd': The end of the current selection
+ * - 'document': Replace the entire document
+ * - 'documentStart': The start of the document
+ * - 'documentEnd': The end of the document
+ */
+export type InsertPosition = Range | number | 'document' | 'documentStart' | 'documentEnd';
+
+/**
+ * Convex validator for InsertPosition type
+ */
+export const InsertPositionValidator = v.union(
+  RangeValidator,
+  v.number(),
+  v.literal('document'),
+  v.literal('documentStart'),
+  v.literal('documentEnd')
+);
+
+/**
+ * Represents a single HTML diff operation with optional context anchoring.
+ */
+export type HtmlDiff = {
+  context?: string;
+  delete: string;
+  insert: string;
+};
+
+/**
+ * Convex validator for HtmlDiff type
+ */
+export const HtmlDiffValidator = v.object({
+  context: v.optional(v.string()),
+  delete: v.string(),
+  insert: v.string(),
+});
+
+/**
+ * Convex validator for HtmlDiff array
+ */
+export const HtmlDiffArrayValidator = v.array(HtmlDiffValidator);
+
+/**
+ * Options for configuring HTML diff application behavior.
+ */
+export type ApplyHtmlDiffOptions = {
+  caseSensitive?: boolean;
+  preferLastContext?: boolean;
+  strict?: boolean; // if true and any diff can't be applied, make no change
+};
+
+/**
+ * Convex validator for ApplyHtmlDiffOptions type
+ */
+export const ApplyHtmlDiffOptionsValidator = v.object({
+  caseSensitive: v.optional(v.boolean()),
+  preferLastContext: v.optional(v.boolean()),
+  strict: v.optional(v.boolean()),
+});
