@@ -1,3 +1,4 @@
+'use node'
 // Export all editor functions
 export * from "./read";
 export * from "./edit";

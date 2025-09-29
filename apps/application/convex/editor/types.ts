@@ -1,3 +1,4 @@
+'use node'
 import { v } from "convex/values";
 
 /**

@@ -8,8 +8,10 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useEscrito } from '@/context/EscritoContext';
-import { useMutation, useQuery } from 'convex/react';
+import { useMutation, useQuery, useAction } from 'convex/react';
 import { Id } from '../../../convex/_generated/dataModel';
 import { 
   FileText, 
@@ -17,7 +19,9 @@ import {
   Trash2, 
   Play, 
   RotateCcw,
-  AlertCircle
+  AlertCircle,
+  Code,
+  Type
 } from 'lucide-react';
 
 interface EditOperation {
@@ -42,6 +46,27 @@ interface EditOperation {
   beforeText?: string;
 }
 
+interface HtmlDiff {
+  id: string;
+  context?: string;
+  delete: string;
+  insert: string;
+}
+
+interface HtmlInsertion {
+  id: string;
+  html: string;
+  position: string | number;
+}
+
+interface TestOptions {
+  caseSensitive: boolean;
+  preferLastContext: boolean;
+  strict: boolean;
+  chunkSize: number;
+  chunkIndex?: number;
+}
+
 
 
 export function EscritoToolsTester() {
@@ -52,6 +77,24 @@ export function EscritoToolsTester() {
   });
   const [logs, setLogs] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+
+  // HTML testing state
+  const [htmlDiffs, setHtmlDiffs] = useState<HtmlDiff[]>([]);
+  const [currentHtmlDiff, setCurrentHtmlDiff] = useState<Partial<HtmlDiff>>({
+    delete: '',
+    insert: ''
+  });
+  const [htmlInsertions, setHtmlInsertions] = useState<HtmlInsertion[]>([]);
+  const [currentHtmlInsertion, setCurrentHtmlInsertion] = useState<Partial<HtmlInsertion>>({
+    html: '',
+    position: 'documentEnd'
+  });
+  const [testOptions, setTestOptions] = useState<TestOptions>({
+    caseSensitive: true,
+    preferLastContext: false,
+    strict: false,
+    chunkSize: 32000
+  });
 
   // Get the current escrito data
   const escrito = useQuery(api.functions.documents.getEscrito, 
@@ -65,6 +108,10 @@ export function EscritoToolsTester() {
 
   // Mutations
   const applyTextBasedOperations = useMutation(api.functions.escritosTransforms.applyTextBasedOperations);
+  
+  // Actions (not mutations)
+  const insertHtmlAction = useAction(api.editor.edit.insertHtmlAction);
+  const applyHtmlDiff = useAction(api.editor.edit.applyHtmlDiff);
 
   const addLog = (message: string, type: 'info' | 'success' | 'error' = 'info') => {
     const timestamp = new Date().toLocaleTimeString();
@@ -98,6 +145,63 @@ export function EscritoToolsTester() {
   const clearOperations = () => {
     setOperations([]);
     addLog('Cleared all operations');
+  };
+
+  // HTML Diff functions
+  const addHtmlDiff = () => {
+    if (!currentHtmlDiff.delete || !currentHtmlDiff.insert) {
+      addLog('Please provide both delete and insert text for HTML diff', 'error');
+      return;
+    }
+
+    const newDiff: HtmlDiff = {
+      id: Date.now().toString(),
+      context: currentHtmlDiff.context,
+      delete: currentHtmlDiff.delete,
+      insert: currentHtmlDiff.insert
+    };
+
+    setHtmlDiffs(prev => [...prev, newDiff]);
+    setCurrentHtmlDiff({ delete: '', insert: '' });
+    addLog(`Added HTML diff: "${currentHtmlDiff.delete}" -> "${currentHtmlDiff.insert}"`);
+  };
+
+  const removeHtmlDiff = (id: string) => {
+    setHtmlDiffs(prev => prev.filter(diff => diff.id !== id));
+    addLog('Removed HTML diff');
+  };
+
+  const clearHtmlDiffs = () => {
+    setHtmlDiffs([]);
+    addLog('Cleared all HTML diffs');
+  };
+
+  // HTML Insertion functions
+  const addHtmlInsertion = () => {
+    if (!currentHtmlInsertion.html) {
+      addLog('Please provide HTML content to insert', 'error');
+      return;
+    }
+
+    const newInsertion: HtmlInsertion = {
+      id: Date.now().toString(),
+      html: currentHtmlInsertion.html,
+      position: currentHtmlInsertion.position || 'documentEnd'
+    };
+
+    setHtmlInsertions(prev => [...prev, newInsertion]);
+    setCurrentHtmlInsertion({ html: '', position: 'documentEnd' });
+    addLog(`Added HTML insertion at position: ${currentHtmlInsertion.position}`);
+  };
+
+  const removeHtmlInsertion = (id: string) => {
+    setHtmlInsertions(prev => prev.filter(insertion => insertion.id !== id));
+    addLog('Removed HTML insertion');
+  };
+
+  const clearHtmlInsertions = () => {
+    setHtmlInsertions([]);
+    addLog('Cleared all HTML insertions');
   };
 
   const testOperations = async () => {
@@ -162,6 +266,91 @@ export function EscritoToolsTester() {
     }
   };
 
+  const testHtmlDiffs = async () => {
+    if (!escritoId || htmlDiffs.length === 0) {
+      addLog('No escrito selected or no HTML diffs to apply', 'error');
+      return;
+    }
+
+    setIsLoading(true);
+    addLog('Starting to apply HTML diffs...');
+
+    try {
+      // Convert HTML diffs to the format expected by the mutation (remove id field)
+      const diffsForMutation = htmlDiffs.map(({ id, ...diff }) => diff);
+      
+      addLog(`Applying ${diffsForMutation.length} HTML diffs...`);
+      diffsForMutation.forEach((diff, index) => {
+        addLog(`Diff ${index + 1}: "${diff.delete}" -> "${diff.insert}"${diff.context ? ` (context: "${diff.context}")` : ''}`);
+      });
+
+      const result = await applyHtmlDiff({
+        escritoId: escritoId as Id<"escritos">,
+        diffs: diffsForMutation,
+        options: {
+          caseSensitive: testOptions.caseSensitive,
+          preferLastContext: testOptions.preferLastContext,
+          strict: testOptions.strict
+        },
+        chunkSize: testOptions.chunkSize,
+        chunkIndex: testOptions.chunkIndex
+      });
+
+      addLog(`Successfully applied HTML diffs!`, 'success');
+      addLog(`Applied: ${result.applied}, Failed: ${result.failed}`);
+      if (result.unmatchedDiffIndexes.length > 0) {
+        addLog(`Unmatched diff indexes: ${result.unmatchedDiffIndexes.join(', ')}`, 'error');
+      }
+      if (result.strictAborted) {
+        addLog('Operation aborted due to strict mode', 'error');
+      }
+
+      // Clear diffs after successful application
+      setHtmlDiffs([]);
+      addLog('HTML diffs cleared from queue');
+
+    } catch (error) {
+      addLog(`Error applying HTML diffs: ${error}`, 'error');
+      console.error('HTML diff error:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const testHtmlInsertions = async () => {
+    if (!escritoId || htmlInsertions.length === 0) {
+      addLog('No escrito selected or no HTML insertions to apply', 'error');
+      return;
+    }
+
+    setIsLoading(true);
+    addLog('Starting to apply HTML insertions...');
+
+    try {
+      for (const insertion of htmlInsertions) {
+        addLog(`Inserting HTML at position: ${insertion.position}`);
+        
+        const result = await insertHtmlAction({
+          escritoId: escritoId as Id<"escritos">,
+          html: insertion.html,
+          position: insertion.position as any
+        });
+
+        addLog(`Successfully inserted HTML: ${result.message}`, 'success');
+      }
+
+      // Clear insertions after successful application
+      setHtmlInsertions([]);
+      addLog('HTML insertions cleared from queue');
+
+    } catch (error) {
+      addLog(`Error applying HTML insertions: ${error}`, 'error');
+      console.error('HTML insertion error:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const getDocumentText = () => {
     if (!documentContent?.content) return 'No content available';
     
@@ -199,7 +388,7 @@ export function EscritoToolsTester() {
   }
 
   return (
-    <Card className="w-80 h-full flex flex-col">
+    <Card className="w-96 h-full flex flex-col">
       <CardHeader className="pb-3">
         <CardTitle className="flex items-center gap-2">
           <FileText className="h-5 w-5" />
@@ -221,426 +410,421 @@ export function EscritoToolsTester() {
 
         <Separator />
 
-        {/* Add Operation */}
-        <div className="space-y-3">
-          <Label>Add Operation</Label>
-          
-          <Select 
-            value={currentOperation.type} 
-            onValueChange={(value) => setCurrentOperation(prev => ({ ...prev, type: value as any }))}
-          >
-            <SelectTrigger>
-              <SelectValue placeholder="Select operation type" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="replace">Replace Text</SelectItem>
-              <SelectItem value="insert">Insert Text</SelectItem>
-              <SelectItem value="delete">Delete Text</SelectItem>
-              <SelectItem value="add_mark">Add Mark (Bold, Italic, etc.)</SelectItem>
-              <SelectItem value="remove_mark">Remove Mark</SelectItem>
-              <SelectItem value="replace_mark">Replace Mark</SelectItem>
-              <SelectItem value="add_paragraph">Add Paragraph</SelectItem>
-            </SelectContent>
-          </Select>
+        {/* Testing Tabs */}
+        <Tabs defaultValue="text" className="flex-1 flex flex-col">
+          <TabsList className="grid w-full grid-cols-3">
+            <TabsTrigger value="text" className="flex items-center gap-1">
+              <Type className="h-3 w-3" />
+              Text
+            </TabsTrigger>
+            <TabsTrigger value="html-diff" className="flex items-center gap-1">
+              <Code className="h-3 w-3" />
+              HTML Diff
+            </TabsTrigger>
+            <TabsTrigger value="html-insert" className="flex items-center gap-1">
+              <Plus className="h-3 w-3" />
+              HTML Insert
+            </TabsTrigger>
+          </TabsList>
 
-          {currentOperation.type === 'replace' && (
-            <div className="space-y-2">
-              <div>
-                <Label>Find Text</Label>
-                <Input
-                  placeholder="Text to find"
-                  value={currentOperation.findText || ''}
-                  onChange={(e) => setCurrentOperation(prev => ({ ...prev, findText: e.target.value }))}
-                />
+          {/* Text Operations Tab */}
+          <TabsContent value="text" className="flex-1 flex flex-col gap-4 overflow-hidden">
+            {/* Add Operation */}
+            <div className="space-y-3">
+              <Label>Add Operation</Label>
+              
+              <Select 
+                value={currentOperation.type} 
+                onValueChange={(value) => setCurrentOperation(prev => ({ ...prev, type: value as any }))}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select operation type" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="replace">Replace Text</SelectItem>
+                  <SelectItem value="insert">Insert Text</SelectItem>
+                  <SelectItem value="delete">Delete Text</SelectItem>
+                  <SelectItem value="add_mark">Add Mark (Bold, Italic, etc.)</SelectItem>
+                  <SelectItem value="remove_mark">Remove Mark</SelectItem>
+                  <SelectItem value="replace_mark">Replace Mark</SelectItem>
+                  <SelectItem value="add_paragraph">Add Paragraph</SelectItem>
+                </SelectContent>
+              </Select>
+
+              {currentOperation.type === 'replace' && (
+                <div className="space-y-2">
+                  <div>
+                    <Label>Find Text</Label>
+                    <Input
+                      placeholder="Text to find"
+                      value={currentOperation.findText || ''}
+                      onChange={(e) => setCurrentOperation(prev => ({ ...prev, findText: e.target.value }))}
+                    />
+                  </div>
+                  <div>
+                    <Label>Replace With</Label>
+                    <Input
+                      placeholder="Replacement text"
+                      value={currentOperation.replaceText || ''}
+                      onChange={(e) => setCurrentOperation(prev => ({ ...prev, replaceText: e.target.value }))}
+                    />
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Checkbox
+                      id="replaceAll"
+                      checked={currentOperation.replaceAll || false}
+                      onCheckedChange={(checked) => setCurrentOperation(prev => ({ ...prev, replaceAll: !!checked }))}
+                    />
+                    <Label htmlFor="replaceAll" className="text-sm">Replace all occurrences</Label>
+                  </div>
+                </div>
+              )}
+
+              {currentOperation.type === 'insert' && (
+                <div className="space-y-2">
+                  <div>
+                    <Label>Text to Insert</Label>
+                    <Textarea
+                      placeholder="Text to insert"
+                      value={currentOperation.insertText || ''}
+                      onChange={(e) => setCurrentOperation(prev => ({ ...prev, insertText: e.target.value }))}
+                      rows={2}
+                    />
+                  </div>
+                  <div>
+                    <Label>After Text (optional)</Label>
+                    <Input
+                      placeholder="Insert after this text"
+                      value={currentOperation.afterText || ''}
+                      onChange={(e) => setCurrentOperation(prev => ({ ...prev, afterText: e.target.value }))}
+                    />
+                  </div>
+                  <div>
+                    <Label>Before Text (optional)</Label>
+                    <Input
+                      placeholder="Insert before this text"
+                      value={currentOperation.beforeText || ''}
+                      onChange={(e) => setCurrentOperation(prev => ({ ...prev, beforeText: e.target.value }))}
+                    />
+                  </div>
+                </div>
+              )}
+
+              {currentOperation.type === 'delete' && (
+                <div className="space-y-2">
+                  <div>
+                    <Label>Text to Delete</Label>
+                    <Input
+                      placeholder="Text to delete"
+                      value={currentOperation.deleteText || ''}
+                      onChange={(e) => setCurrentOperation(prev => ({ ...prev, deleteText: e.target.value }))}
+                    />
+                  </div>
+                </div>
+              )}
+
+              <Button onClick={addOperation} size="sm" className="w-full">
+                <Plus className="h-4 w-4 mr-2" />
+                Add Operation
+              </Button>
+            </div>
+
+            {/* Operations List */}
+            <div className="flex-1 space-y-2 overflow-hidden">
+              <div className="flex items-center justify-between">
+                <Label>Operations ({operations.length})</Label>
+                <Button variant="outline" size="sm" onClick={clearOperations}>
+                  <RotateCcw className="h-4 w-4" />
+                </Button>
               </div>
-              <div>
-                <Label>Replace With</Label>
-                <Input
-                  placeholder="Replacement text"
-                  value={currentOperation.replaceText || ''}
-                  onChange={(e) => setCurrentOperation(prev => ({ ...prev, replaceText: e.target.value }))}
-                />
-              </div>
-              <div className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  id="replaceAll"
-                  checked={currentOperation.replaceAll || false}
-                  onChange={(e) => setCurrentOperation(prev => ({ ...prev, replaceAll: e.target.checked }))}
-                />
-                <Label htmlFor="replaceAll" className="text-sm">Replace all occurrences</Label>
+              
+              <div className="space-y-2 overflow-y-auto flex-1">
+                {operations.map((op) => (
+                  <div key={op.id} className="border rounded p-2 bg-gray-50">
+                    <div className="flex items-center justify-between mb-1">
+                      <Badge variant="outline" className="text-xs">
+                        {op.type}
+                      </Badge>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => removeOperation(op.id)}
+                        className="h-6 w-6 p-0"
+                      >
+                        <Trash2 className="h-3 w-3" />
+                      </Button>
+                    </div>
+                    <div className="text-xs space-y-1">
+                      {op.type === 'replace' && (
+                        <>
+                          <div><strong>Find:</strong> {op.findText}</div>
+                          <div><strong>Replace:</strong> {op.replaceText}</div>
+                        </>
+                      )}
+                      {op.type === 'insert' && (
+                        <div><strong>Insert:</strong> {op.insertText}</div>
+                      )}
+                      {op.type === 'delete' && (
+                        <div><strong>Delete:</strong> {op.deleteText}</div>
+                      )}
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
-          )}
 
-          {currentOperation.type === 'insert' && (
-            <div className="space-y-2">
-              <div>
-                <Label>Text to Insert</Label>
-                <Textarea
-                  placeholder="Text to insert"
-                  value={currentOperation.insertText || ''}
-                  onChange={(e) => setCurrentOperation(prev => ({ ...prev, insertText: e.target.value }))}
-                  rows={2}
-                />
-              </div>
-              <div>
-                <Label>After Text (optional)</Label>
-                <Input
-                  placeholder="Insert after this text"
-                  value={currentOperation.afterText || ''}
-                  onChange={(e) => setCurrentOperation(prev => ({ ...prev, afterText: e.target.value }))}
-                />
-              </div>
-              <div>
-                <Label>Before Text (optional)</Label>
-                <Input
-                  placeholder="Insert before this text"
-                  value={currentOperation.beforeText || ''}
-                  onChange={(e) => setCurrentOperation(prev => ({ ...prev, beforeText: e.target.value }))}
-                />
+            {/* Test Button */}
+            <Button 
+              onClick={testOperations} 
+              disabled={isLoading || operations.length === 0}
+              className="w-full"
+            >
+              {isLoading ? (
+                <>
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                  Testing...
+                </>
+              ) : (
+                <>
+                  <Play className="h-4 w-4 mr-2" />
+                  Test Text Operations
+                </>
+              )}
+            </Button>
+          </TabsContent>
+
+          {/* HTML Diff Tab */}
+          <TabsContent value="html-diff" className="flex-1 flex flex-col gap-4 overflow-hidden">
+            {/* Test Options */}
+            <div className="space-y-3">
+              <Label>Test Options</Label>
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <Checkbox
+                    id="caseSensitive"
+                    checked={testOptions.caseSensitive}
+                    onCheckedChange={(checked) => setTestOptions(prev => ({ ...prev, caseSensitive: !!checked }))}
+                  />
+                  <Label htmlFor="caseSensitive" className="text-sm">Case Sensitive</Label>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Checkbox
+                    id="preferLastContext"
+                    checked={testOptions.preferLastContext}
+                    onCheckedChange={(checked) => setTestOptions(prev => ({ ...prev, preferLastContext: !!checked }))}
+                  />
+                  <Label htmlFor="preferLastContext" className="text-sm">Prefer Last Context</Label>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Checkbox
+                    id="strict"
+                    checked={testOptions.strict}
+                    onCheckedChange={(checked) => setTestOptions(prev => ({ ...prev, strict: !!checked }))}
+                  />
+                  <Label htmlFor="strict" className="text-sm">Strict Mode</Label>
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-sm">Chunk Size</Label>
+                  <Input
+                    type="number"
+                    value={testOptions.chunkSize}
+                    onChange={(e) => setTestOptions(prev => ({ ...prev, chunkSize: parseInt(e.target.value) || 32000 }))}
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-sm">Chunk Index (optional)</Label>
+                  <Input
+                    type="number"
+                    placeholder="Leave empty for whole document"
+                    value={testOptions.chunkIndex || ''}
+                    onChange={(e) => setTestOptions(prev => ({ ...prev, chunkIndex: e.target.value ? parseInt(e.target.value) : undefined }))}
+                  />
+                </div>
               </div>
             </div>
-          )}
 
-          {currentOperation.type === 'delete' && (
-            <div className="space-y-2">
-              <div>
-                <Label>Text to Delete</Label>
-                <Input
-                  placeholder="Text to delete"
-                  value={currentOperation.deleteText || ''}
-                  onChange={(e) => setCurrentOperation(prev => ({ ...prev, deleteText: e.target.value }))}
-                />
-              </div>
-            </div>
-          )}
-
-          {currentOperation.type === 'add_mark' && (
-            <div className="space-y-2">
-              <div>
-                <Label>Text to Mark</Label>
-                <Input
-                  placeholder="Text to add mark to"
-                  value={currentOperation.text || ''}
-                  onChange={(e) => setCurrentOperation(prev => ({ ...prev, text: e.target.value }))}
-                />
-              </div>
-              <div>
-                <Label>Mark Type</Label>
-                <Select 
-                  value={currentOperation.markType || ''} 
-                  onValueChange={(value) => setCurrentOperation(prev => ({ ...prev, markType: value as any }))}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select mark type" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="bold">Bold</SelectItem>
-                    <SelectItem value="italic">Italic</SelectItem>
-                    <SelectItem value="code">Code</SelectItem>
-                    <SelectItem value="strike">Strikethrough</SelectItem>
-                    <SelectItem value="underline">Underline</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <Label>Context Before (optional)</Label>
-                <Input
-                  placeholder="Text that should appear before"
-                  value={currentOperation.contextBefore || ''}
-                  onChange={(e) => setCurrentOperation(prev => ({ ...prev, contextBefore: e.target.value }))}
-                />
-              </div>
-              <div>
-                <Label>Context After (optional)</Label>
-                <Input
-                  placeholder="Text that should appear after"
-                  value={currentOperation.contextAfter || ''}
-                  onChange={(e) => setCurrentOperation(prev => ({ ...prev, contextAfter: e.target.value }))}
-                />
-              </div>
-            </div>
-          )}
-
-          {currentOperation.type === 'remove_mark' && (
-            <div className="space-y-2">
-              <div>
-                <Label>Text to Remove Mark From</Label>
-                <Input
-                  placeholder="Text to remove mark from"
-                  value={currentOperation.text || ''}
-                  onChange={(e) => setCurrentOperation(prev => ({ ...prev, text: e.target.value }))}
-                />
-              </div>
-              <div>
-                <Label>Mark Type to Remove</Label>
-                <Select 
-                  value={currentOperation.markType || ''} 
-                  onValueChange={(value) => setCurrentOperation(prev => ({ ...prev, markType: value as any }))}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select mark type" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="bold">Bold</SelectItem>
-                    <SelectItem value="italic">Italic</SelectItem>
-                    <SelectItem value="code">Code</SelectItem>
-                    <SelectItem value="strike">Strikethrough</SelectItem>
-                    <SelectItem value="underline">Underline</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <Label>Context Before (optional)</Label>
-                <Input
-                  placeholder="Text that should appear before"
-                  value={currentOperation.contextBefore || ''}
-                  onChange={(e) => setCurrentOperation(prev => ({ ...prev, contextBefore: e.target.value }))}
-                />
-              </div>
-              <div>
-                <Label>Context After (optional)</Label>
-                <Input
-                  placeholder="Text that should appear after"
-                  value={currentOperation.contextAfter || ''}
-                  onChange={(e) => setCurrentOperation(prev => ({ ...prev, contextAfter: e.target.value }))}
-                />
-              </div>
-            </div>
-          )}
-
-          {currentOperation.type === 'replace_mark' && (
-            <div className="space-y-2">
-              <div>
-                <Label>Text to Change Mark</Label>
-                <Input
-                  placeholder="Text to change mark on"
-                  value={currentOperation.text || ''}
-                  onChange={(e) => setCurrentOperation(prev => ({ ...prev, text: e.target.value }))}
-                />
-              </div>
-              <div>
-                <Label>Current Mark Type</Label>
-                <Select 
-                  value={currentOperation.oldMarkType || ''} 
-                  onValueChange={(value) => setCurrentOperation(prev => ({ ...prev, oldMarkType: value as any }))}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select current mark" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="bold">Bold</SelectItem>
-                    <SelectItem value="italic">Italic</SelectItem>
-                    <SelectItem value="code">Code</SelectItem>
-                    <SelectItem value="strike">Strikethrough</SelectItem>
-                    <SelectItem value="underline">Underline</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <Label>New Mark Type</Label>
-                <Select 
-                  value={currentOperation.newMarkType || ''} 
-                  onValueChange={(value) => setCurrentOperation(prev => ({ ...prev, newMarkType: value as any }))}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select new mark" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="bold">Bold</SelectItem>
-                    <SelectItem value="italic">Italic</SelectItem>
-                    <SelectItem value="code">Code</SelectItem>
-                    <SelectItem value="strike">Strikethrough</SelectItem>
-                    <SelectItem value="underline">Underline</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <Label>Context Before (optional)</Label>
-                <Input
-                  placeholder="Text that should appear before"
-                  value={currentOperation.contextBefore || ''}
-                  onChange={(e) => setCurrentOperation(prev => ({ ...prev, contextBefore: e.target.value }))}
-                />
-              </div>
-              <div>
-                <Label>Context After (optional)</Label>
-                <Input
-                  placeholder="Text that should appear after"
-                  value={currentOperation.contextAfter || ''}
-                  onChange={(e) => setCurrentOperation(prev => ({ ...prev, contextAfter: e.target.value }))}
-                />
-              </div>
-            </div>
-          )}
-
-          {currentOperation.type === 'add_paragraph' && (
-            <div className="space-y-2">
-              <div>
-                <Label>Paragraph Content</Label>
-                <Textarea
-                  placeholder="Content for the new paragraph"
-                  value={currentOperation.content || ''}
-                  onChange={(e) => setCurrentOperation(prev => ({ ...prev, content: e.target.value }))}
-                  rows={3}
-                />
-              </div>
-              <div>
-                <Label>Paragraph Type</Label>
-                <Select 
-                  value={currentOperation.paragraphType || ''} 
-                  onValueChange={(value) => setCurrentOperation(prev => ({ ...prev, paragraphType: value as any }))}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select paragraph type" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="paragraph">Paragraph</SelectItem>
-                    <SelectItem value="heading">Heading</SelectItem>
-                    <SelectItem value="blockquote">Blockquote</SelectItem>
-                    <SelectItem value="bulletList">Bullet List</SelectItem>
-                    <SelectItem value="orderedList">Ordered List</SelectItem>
-                    <SelectItem value="codeBlock">Code Block</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              {currentOperation.paragraphType === 'heading' && (
+            {/* Add HTML Diff */}
+            <div className="space-y-3">
+              <Label>Add HTML Diff</Label>
+              <div className="space-y-2">
                 <div>
-                  <Label>Heading Level</Label>
+                  <Label>Context (optional)</Label>
+                  <Input
+                    placeholder="Context text for anchoring"
+                    value={currentHtmlDiff.context || ''}
+                    onChange={(e) => setCurrentHtmlDiff(prev => ({ ...prev, context: e.target.value }))}
+                  />
+                </div>
+                <div>
+                  <Label>Delete Text</Label>
+                  <Input
+                    placeholder="Text to delete"
+                    value={currentHtmlDiff.delete || ''}
+                    onChange={(e) => setCurrentHtmlDiff(prev => ({ ...prev, delete: e.target.value }))}
+                  />
+                </div>
+                <div>
+                  <Label>Insert Text</Label>
+                  <Input
+                    placeholder="Text to insert"
+                    value={currentHtmlDiff.insert || ''}
+                    onChange={(e) => setCurrentHtmlDiff(prev => ({ ...prev, insert: e.target.value }))}
+                  />
+                </div>
+              </div>
+              <Button onClick={addHtmlDiff} size="sm" className="w-full">
+                <Plus className="h-4 w-4 mr-2" />
+                Add HTML Diff
+              </Button>
+            </div>
+
+            {/* HTML Diffs List */}
+            <div className="flex-1 space-y-2 overflow-hidden">
+              <div className="flex items-center justify-between">
+                <Label>HTML Diffs ({htmlDiffs.length})</Label>
+                <Button variant="outline" size="sm" onClick={clearHtmlDiffs}>
+                  <RotateCcw className="h-4 w-4" />
+                </Button>
+              </div>
+              
+              <div className="space-y-2 overflow-y-auto flex-1">
+                {htmlDiffs.map((diff) => (
+                  <div key={diff.id} className="border rounded p-2 bg-gray-50">
+                    <div className="flex items-center justify-between mb-1">
+                      <Badge variant="outline" className="text-xs">
+                        HTML Diff
+                      </Badge>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => removeHtmlDiff(diff.id)}
+                        className="h-6 w-6 p-0"
+                      >
+                        <Trash2 className="h-3 w-3" />
+                      </Button>
+                    </div>
+                    <div className="text-xs space-y-1">
+                      {diff.context && <div><strong>Context:</strong> {diff.context}</div>}
+                      <div><strong>Delete:</strong> {diff.delete}</div>
+                      <div><strong>Insert:</strong> {diff.insert}</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Test Button */}
+            <Button 
+              onClick={testHtmlDiffs} 
+              disabled={isLoading || htmlDiffs.length === 0}
+              className="w-full"
+            >
+              {isLoading ? (
+                <>
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                  Testing...
+                </>
+              ) : (
+                <>
+                  <Play className="h-4 w-4 mr-2" />
+                  Test HTML Diffs
+                </>
+              )}
+            </Button>
+          </TabsContent>
+
+          {/* HTML Insert Tab */}
+          <TabsContent value="html-insert" className="flex-1 flex flex-col gap-4 overflow-hidden">
+            {/* Add HTML Insertion */}
+            <div className="space-y-3">
+              <Label>Add HTML Insertion</Label>
+              <div className="space-y-2">
+                <div>
+                  <Label>HTML Content</Label>
+                  <Textarea
+                    placeholder="<p>HTML content to insert</p>"
+                    value={currentHtmlInsertion.html || ''}
+                    onChange={(e) => setCurrentHtmlInsertion(prev => ({ ...prev, html: e.target.value }))}
+                    rows={3}
+                  />
+                </div>
+                <div>
+                  <Label>Insert Position</Label>
                   <Select 
-                    value={currentOperation.headingLevel?.toString() || ''} 
-                    onValueChange={(value) => setCurrentOperation(prev => ({ ...prev, headingLevel: parseInt(value) }))}
+                    value={currentHtmlInsertion.position?.toString() || 'documentEnd'} 
+                    onValueChange={(value) => setCurrentHtmlInsertion(prev => ({ ...prev, position: value }))}
                   >
                     <SelectTrigger>
-                      <SelectValue placeholder="Select heading level" />
+                      <SelectValue placeholder="Select position" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="1">H1</SelectItem>
-                      <SelectItem value="2">H2</SelectItem>
-                      <SelectItem value="3">H3</SelectItem>
-                      <SelectItem value="4">H4</SelectItem>
-                      <SelectItem value="5">H5</SelectItem>
-                      <SelectItem value="6">H6</SelectItem>
+                      <SelectItem value="documentStart">Document Start</SelectItem>
+                      <SelectItem value="documentEnd">Document End</SelectItem>
+                      <SelectItem value="document">Replace Entire Document</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
-              )}
-              <div>
-                <Label>After Text (optional)</Label>
-                <Input
-                  placeholder="Insert after this text"
-                  value={currentOperation.afterText || ''}
-                  onChange={(e) => setCurrentOperation(prev => ({ ...prev, afterText: e.target.value }))}
-                />
               </div>
-              <div>
-                <Label>Before Text (optional)</Label>
-                <Input
-                  placeholder="Insert before this text"
-                  value={currentOperation.beforeText || ''}
-                  onChange={(e) => setCurrentOperation(prev => ({ ...prev, beforeText: e.target.value }))}
-                />
+              <Button onClick={addHtmlInsertion} size="sm" className="w-full">
+                <Plus className="h-4 w-4 mr-2" />
+                Add HTML Insertion
+              </Button>
+            </div>
+
+            {/* HTML Insertions List */}
+            <div className="flex-1 space-y-2 overflow-hidden">
+              <div className="flex items-center justify-between">
+                <Label>HTML Insertions ({htmlInsertions.length})</Label>
+                <Button variant="outline" size="sm" onClick={clearHtmlInsertions}>
+                  <RotateCcw className="h-4 w-4" />
+                </Button>
+              </div>
+              
+              <div className="space-y-2 overflow-y-auto flex-1">
+                {htmlInsertions.map((insertion) => (
+                  <div key={insertion.id} className="border rounded p-2 bg-gray-50">
+                    <div className="flex items-center justify-between mb-1">
+                      <Badge variant="outline" className="text-xs">
+                        HTML Insert
+                      </Badge>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => removeHtmlInsertion(insertion.id)}
+                        className="h-6 w-6 p-0"
+                      >
+                        <Trash2 className="h-3 w-3" />
+                      </Button>
+                    </div>
+                    <div className="text-xs space-y-1">
+                      <div><strong>Position:</strong> {insertion.position}</div>
+                      <div><strong>HTML:</strong> {insertion.html.substring(0, 50)}...</div>
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
-          )}
 
-          <Button onClick={addOperation} size="sm" className="w-full">
-            <Plus className="h-4 w-4 mr-2" />
-            Add Operation
-          </Button>
-        </div>
-
-        <Separator />
-
-        {/* Operations List */}
-        <div className="flex-1 space-y-2 overflow-hidden">
-          <div className="flex items-center justify-between">
-            <Label>Operations ({operations.length})</Label>
-            <Button variant="outline" size="sm" onClick={clearOperations}>
-              <RotateCcw className="h-4 w-4" />
+            {/* Test Button */}
+            <Button 
+              onClick={testHtmlInsertions} 
+              disabled={isLoading || htmlInsertions.length === 0}
+              className="w-full"
+            >
+              {isLoading ? (
+                <>
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                  Testing...
+                </>
+              ) : (
+                <>
+                  <Play className="h-4 w-4 mr-2" />
+                  Test HTML Insertions
+                </>
+              )}
             </Button>
-          </div>
-          
-          <div className="space-y-2 overflow-y-auto flex-1">
-            {operations.map((op) => (
-              <div key={op.id} className="border rounded p-2 bg-gray-50">
-                <div className="flex items-center justify-between mb-1">
-                  <Badge variant="outline" className="text-xs">
-                    {op.type}
-                  </Badge>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => removeOperation(op.id)}
-                    className="h-6 w-6 p-0"
-                  >
-                    <Trash2 className="h-3 w-3" />
-                  </Button>
-                </div>
-                <div className="text-xs space-y-1">
-                  {op.type === 'replace' && (
-                    <>
-                      <div><strong>Find:</strong> {op.findText}</div>
-                      <div><strong>Replace:</strong> {op.replaceText}</div>
-                    </>
-                  )}
-                  {op.type === 'insert' && (
-                    <div><strong>Insert:</strong> {op.insertText}</div>
-                  )}
-                  {op.type === 'delete' && (
-                    <div><strong>Delete:</strong> {op.deleteText}</div>
-                  )}
-                  {op.type === 'add_mark' && (
-                    <>
-                      <div><strong>Text:</strong> {op.text}</div>
-                      <div><strong>Add Mark:</strong> {op.markType}</div>
-                    </>
-                  )}
-                  {op.type === 'remove_mark' && (
-                    <>
-                      <div><strong>Text:</strong> {op.text}</div>
-                      <div><strong>Remove Mark:</strong> {op.markType}</div>
-                    </>
-                  )}
-                  {op.type === 'replace_mark' && (
-                    <>
-                      <div><strong>Text:</strong> {op.text}</div>
-                      <div><strong>Change:</strong> {op.oldMarkType} → {op.newMarkType}</div>
-                    </>
-                  )}
-                  {op.type === 'add_paragraph' && (
-                    <>
-                      <div><strong>Content:</strong> {op.content}</div>
-                      <div><strong>Type:</strong> {op.paragraphType}{op.headingLevel ? ` (H${op.headingLevel})` : ''}</div>
-                      {op.afterText && <div><strong>After:</strong> {op.afterText}</div>}
-                      {op.beforeText && <div><strong>Before:</strong> {op.beforeText}</div>}
-                    </>
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Test Button */}
-        <Button 
-          onClick={testOperations} 
-          disabled={isLoading || operations.length === 0}
-          className="w-full"
-        >
-          {isLoading ? (
-            <>
-              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-              Testing...
-            </>
-          ) : (
-            <>
-              <Play className="h-4 w-4 mr-2" />
-              Test Operations
-            </>
-          )}
-        </Button>
+          </TabsContent>
+        </Tabs>
 
         <Separator />
 

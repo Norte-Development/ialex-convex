@@ -13,6 +13,9 @@ export { legislationFindTool } from './legislationFindTool';
 export { legislationReadTool } from './legislationReadTool';
 export { planAndTrackTool, markTaskCompleteTool } from './planAndTrackTool';
 export { rewriteEscritoSectionTool } from './rewriteEscritoSectionTool';
+export { insertContentTool } from './insertContentTool';
+export { applyDiffTool } from './applyDiffTool';
+export { readNodeRangeTool } from './readNodeRangeTool';
 
 // Export validation helpers
 export { validateEditType, validateMarkType, validateParagraphType } from './validation';

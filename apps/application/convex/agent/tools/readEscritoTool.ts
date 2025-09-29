@@ -821,7 +821,7 @@ export const getFullEscrito = (doc: Node): { text: string; wordCount: number; st
  * });
  * ``` */
 const readEscritoTool = createTool({
-  description: "Read an Escrito from the case. Use this tool to review escrito content before editing, verify changes after editing, or understand the current state of the document. Supports multiple read operations: 'outline' for structure, 'chunk' for specific sections, 'full' for complete content, and range operations for specific text selections.",
+  description: "Read an Escrito from the case. Use this tool to review escrito content before editing, verify changes after editing, or understand the current state of the document. Supports multiple read operations: 'outline' for structure, 'chunk' for specific sections, 'full' for complete content, and range operations for specific text selections. Automatically excludes deleted change tracking content from all output.",
   args: z.object({
     escritoId: z.any().describe("The Escrito ID (Convex doc id)"),
     operation: z.enum(["outline", "chunk", "full", "getTextSelection", "getJsonSelection", "getTextRange", "getJsonRange", "getTextChunks", "getJsonChunks"]).describe("Which read operation to perform"),

@@ -15,7 +15,10 @@ import {
   legislationReadTool,
   planAndTrackTool,
   markTaskCompleteTool,
-  rewriteEscritoSectionTool
+  rewriteEscritoSectionTool,
+  readNodeRangeTool,
+  applyDiffTool,
+  insertContentTool
 } from "./tools/index";
 
 /**
@@ -52,14 +55,17 @@ export const agent = new Agent(components.agent, {
     readDocumento: readDocumentTool,
     listCaseDocumentos: listCaseDocumentsTool,
     queryDocumento: queryDocumentTool,
-    editEscrito: editEscritoTool,
-    getEscritoStats: getEscritoStatsTool,
-    readEscrito: readEscritoTool,
+    // editEscrito: editEscritoTool,
+    // getEscritoStats: getEscritoStatsTool,
+    // readEscrito: readEscritoTool,
     searchLegislation: legislationFindTool,
     readLegislation: legislationReadTool,
     planAndTrack: planAndTrackTool,
     markTaskComplete: markTaskCompleteTool,
-    rewriteEscritoSection: rewriteEscritoSectionTool,
+    // rewriteEscritoSection: rewriteEscritoSectionTool,
+    insertContentTool,
+    applyDiffTool,
+    readNodeRangeTool
   }
 });
 
