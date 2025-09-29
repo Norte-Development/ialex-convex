@@ -6,7 +6,7 @@ import { cva } from "class-variance-authority";
 import { cn } from "@/lib/utils";
 
 const selectItemVariants = cva(
-  "relative flex w-full cursor-default items-center gap-2 rounded-sm py-1.5 pr-8 pl-2 text-sm outline-hidden select-none data-[disabled]:pointer-events-none data-[disabled]:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 *:[span]:last:flex *:[span]:last:items-center *:[span]:last:gap-2 [&_svg:not([class*='text-'])]:text-muted-foreground border-2 border-transparent cursor-pointer hover:bg-secondary",
+  "relative flex w-full cursor-pointer items-center gap-3 rounded-sm py-2.5 px-3 text-sm outline-hidden select-none data-[disabled]:pointer-events-none data-[disabled]:opacity-50 transition-colors hover:bg-[#E8F0FE] data-[state=checked]:border-l-2 data-[state=checked]:border-l-blue-600",
   {
     variants: {
       variant: {
@@ -25,10 +25,12 @@ const selectTriggerVariants = cva(
   {
     variants: {
       variant: {
-        default:
-          "hover:border-primary [&:not([data-placeholder])]:bg-primary [&:not([data-placeholder])]:border-primary [&:not([data-placeholder])]:text-white [&:not([data-placeholder])]:[&_svg]:text-white",
+        default: "",
         tertiary:
           "hover:border-tertiary [&:not([data-placeholder])]:bg-tertiary [&:not([data-placeholder])]:border-tertiary [&:not([data-placeholder])]:text-white [&:not([data-placeholder])]:[&_svg]:text-white",
+
+        primary:
+          "hover:border-primary [&:not([data-placeholder])]:bg-primary [&:not([data-placeholder])]:border-primary [&:not([data-placeholder])]:text-white [&:not([data-placeholder])]:[&_svg]:text-white",
       },
     },
     defaultVariants: {
@@ -91,7 +93,7 @@ function SelectContent({
       <SelectPrimitive.Content
         data-slot="select-content"
         className={cn(
-          "bg-popover text-popover-foreground data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 relative z-50 max-h-(--radix-select-content-available-height) min-w-[8rem] origin-(--radix-select-content-transform-origin) overflow-x-hidden overflow-y-auto rounded-md border shadow-md",
+          "bg-popover  text-popover-foreground data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 relative z-50 max-h-(--radix-select-content-available-height) min-w-[8rem] origin-(--radix-select-content-transform-origin) overflow-x-hidden overflow-y-auto rounded-md border shadow-md",
           position === "popper" &&
             "data-[side=bottom]:translate-y-1 data-[side=left]:-translate-x-1 data-[side=right]:translate-x-1 data-[side=top]:-translate-y-1",
           className,
@@ -102,9 +104,9 @@ function SelectContent({
         <SelectScrollUpButton />
         <SelectPrimitive.Viewport
           className={cn(
-            "p-1",
+            "p-0",
             position === "popper" &&
-              "h-[var(--radix-select-trigger-height)] w-full min-w-[var(--radix-select-trigger-width)] scroll-my-1",
+              "h-[var(--radix-select-trigger-height)] w-full min-w-[var(--radix-select-trigger-width)]",
           )}
         >
           {children}
@@ -142,11 +144,17 @@ function SelectItem({
       className={cn(selectItemVariants({ variant }), className)}
       {...props}
     >
-      <span className="absolute right-2 flex size-3.5 items-center justify-center">
-        <SelectPrimitive.ItemIndicator>
-          <CheckIcon className="size-4" />
+      {/* Radio button style indicator */}
+      <div className="flex items-center justify-center w-5 h-5 relative">
+        {/* Unselected state - empty circle (always rendered as base) */}
+        <div className="w-5 h-5 rounded-full border-1 border-gray-200" />
+        {/* Selected state - filled blue circle with white dot (overlays when selected) */}
+        <SelectPrimitive.ItemIndicator className="absolute inset-0 flex items-center justify-center">
+          <div className="w-5 h-5 rounded-full bg-blue-600 flex items-center justify-center">
+            <div className="w-2 h-2 rounded-full bg-white" />
+          </div>
         </SelectPrimitive.ItemIndicator>
-      </span>
+      </div>
       <SelectPrimitive.ItemText>{children}</SelectPrimitive.ItemText>
     </SelectPrimitive.Item>
   );
