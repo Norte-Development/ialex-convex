@@ -83,43 +83,70 @@ export function findMatches(
   const matches: NormalizedMatch[] = [];
   const text = docIndex.normalizedText;
 
+  console.log(`  [findMatches] Searching for normalized query: "${q}"`);
+  console.log(`  [findMatches] Document length: ${text.length}, Query length: ${q.length}`);
+  
   let start = 0;
+  let matchCount = 0;
   while (start <= text.length - q.length) {
     const idx = text.indexOf(q, start);
     if (idx === -1) break;
 
+    matchCount++;
+    console.log(`  [findMatches] Potential match #${matchCount} found at position ${idx}`);
+    
     const end = idx + q.length;
 
     if (opts.wholeWord && !isWholeWord(text, idx, end)) {
+      console.log(`    ❌ Whole word check FAILED - rejecting match`);
       start = idx + 1;
       continue;
     }
+    console.log(`    ✅ Whole word check passed (or disabled)`);
 
     // Context checks on normalized text
     if (opts.contextBefore) {
       const beforeSlice = text.slice(Math.max(0, idx - opts.contextWindow), idx);
-      if (!beforeSlice.includes(normalizeQuery(opts.contextBefore, opts))) {
+      const normalizedContextBefore = normalizeQuery(opts.contextBefore, opts);
+      console.log(`    [Context Before Check]`);
+      console.log(`      Raw context: "${opts.contextBefore}"`);
+      console.log(`      Normalized context: "${normalizedContextBefore}"`);
+      console.log(`      Before slice (${opts.contextWindow} chars): "${beforeSlice}"`);
+      console.log(`      Contains? ${beforeSlice.includes(normalizedContextBefore)}`);
+      if (!beforeSlice.includes(normalizedContextBefore)) {
+        console.log(`      ❌ Context before check FAILED - rejecting match`);
         start = idx + 1;
         continue;
       }
+      console.log(`      ✅ Context before check PASSED`);
     }
     if (opts.contextAfter) {
       const afterSlice = text.slice(end, Math.min(text.length, end + opts.contextWindow));
-      if (!afterSlice.includes(normalizeQuery(opts.contextAfter, opts))) {
+      const normalizedContextAfter = normalizeQuery(opts.contextAfter, opts);
+      console.log(`    [Context After Check]`);
+      console.log(`      Raw context: "${opts.contextAfter}"`);
+      console.log(`      Normalized context: "${normalizedContextAfter}"`);
+      console.log(`      After slice (${opts.contextWindow} chars): "${afterSlice}"`);
+      console.log(`      Contains? ${afterSlice.includes(normalizedContextAfter)}`);
+      if (!afterSlice.includes(normalizedContextAfter)) {
+        console.log(`      ❌ Context after check FAILED - rejecting match`);
         start = idx + 1;
         continue;
       }
+      console.log(`      ✅ Context after check PASSED`);
     }
 
     // Map to PM positions; to is exclusive, so add 1 char past last
     const fromPos = docIndex.normToPmPos[idx];
     const lastCharPos = docIndex.normToPmPos[Math.max(idx, end - 1)];
     const toPos = lastCharPos + 1;
+    console.log(`    ✅✅ MATCH ACCEPTED - Adding to results (PM pos: ${fromPos} to ${toPos})`);
     matches.push({ normStart: idx, normEnd: end, from: fromPos, to: toPos });
 
     start = idx + 1;
   }
 
+  console.log(`  [findMatches] Total matches found: ${matches.length}`);
   return matches;
 }
 

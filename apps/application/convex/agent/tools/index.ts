@@ -12,7 +12,7 @@ export { searchLegislationTool } from './searchLegislationTool';
 export { legislationFindTool } from './legislationFindTool';
 export { legislationReadTool } from './legislationReadTool';
 export { planAndTrackTool, markTaskCompleteTool } from './planAndTrackTool';
-export { rewriteEscritoSectionTool } from './rewriteEscritoSectionTool';
+export { insertContentTool } from './insertContentTool';
 
 // Export validation helpers
 export { validateEditType, validateMarkType, validateParagraphType } from './validation';

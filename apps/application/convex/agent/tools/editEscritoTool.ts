@@ -54,13 +54,42 @@ import { Id } from "../../_generated/dataModel";
  * });
  *
  * @example
- * // Delete 2nd occurrence of specific text
+ * // Delete 2nd occurrence of specific text (using replace with empty string)
  * await editEscritoTool.handler(ctx, {
  *   escritoId: "escrito_123",
  *   edits: [{
- *     type: "delete",
- *     deleteText: "redundant clause",
+ *     type: "replace",
+ *     findText: "redundant clause",
+ *     replaceText: "",
  *     occurrenceIndex: 2
+ *   }]
+ * });
+ *
+ * @example
+ * // Delete text with context for precise targeting
+ * await editEscritoTool.handler(ctx, {
+ *   escritoId: "escrito_123",
+ *   edits: [{
+ *     type: "replace",
+ *     findText: "unnecessary",
+ *     replaceText: "",
+ *     contextBefore: "This is an",
+ *     contextAfter: "statement that should be removed"
+ *   }]
+ * });
+ *
+ * @example
+ * // Delete specific instance when multiple similar texts exist
+ * // Document: "The plaintiff argued... The defendant argued... The plaintiff concluded..."
+ * // To delete only the second "argued", use context:
+ * await editEscritoTool.handler(ctx, {
+ *   escritoId: "escrito_123",
+ *   edits: [{
+ *     type: "replace",
+ *     findText: "argued",
+ *     replaceText: "",
+ *     contextBefore: "defendant",
+ *     contextAfter: "..."
  *   }]
  * });
  *
@@ -133,22 +162,21 @@ import { Id } from "../../_generated/dataModel";
  */
 export const editEscritoTool = createTool({
   description:
-    "Edit an Escrito by finding and replacing text content, adding/removing formatting marks, manipulating paragraph structure, and transforming document elements. Much easier than position-based editing - just provide the text to find and what to replace it with, or specify mark/paragraph operations. Includes precise occurrence control: target specific occurrences (e.g., 'change the 3rd occurrence') or limit changes (e.g., 'change first 2 occurrences'). Validation errors are logged but don't prevent valid edits. Any edit with a 'content' field is applied regardless of validation issues.",
+    "Edit an Escrito by finding and replacing text content, adding/removing formatting marks, manipulating paragraph structure, and transforming document elements. Much easier than position-based editing - just provide the text to find and what to replace it with, or specify mark/paragraph operations. Includes precise targeting with contextBefore/contextAfter for accurate text location, occurrence control (e.g., 'change the 3rd occurrence'), and change limiting (e.g., 'change first 2 occurrences'). Context parameters help ensure edits target the correct text when multiple similar instances exist. Validation errors are logged but don't prevent valid edits. Any edit with a 'content' field is applied regardless of validation issues.",
   args: z
     .object({
       escritoId: z.string().describe("The Escrito ID (Convex doc id)"),
       edits: z.array(
         z.object({
-          type: z.string().optional().describe("Edit operation type: replace, insert, delete, addMark, removeMark, replaceMark, addParagraph"),
+          type: z.string().optional().describe("Edit operation type: replace, insert, addMark, removeMark, replaceMark, addParagraph"),
           // Replace operation fields
-          findText: z.string().optional().describe("Text to find and replace"),
-          replaceText: z.string().optional().describe("Text to replace it with"),
-          // Insert/Delete operation fields
+          findText: z.string().optional().describe("EXACT text to find and replace. Must match EXACTLY (character-by-character, including ALL punctuation, spaces). CRITICAL: Do NOT include \\n (newlines) between paragraphs - paragraphs are separate nodes. Only include \\n for explicit line breaks WITHIN a paragraph. Be PRECISE - only the specific text requested. Example: to delete 'III. REMUNERACIÓN', use 'III. REMUNERACIÓN' (no \\n), NOT 'III. REMUNERACIÓN\\n\\n3.1...'"),
+          replaceText: z.string().optional().describe("Text to replace findText with. Use empty string \"\" to delete. Must be provided (use \"\" for deletion)."),
+          // Insert operation fields
           insertText: z.string().optional().describe("Text to insert"),
-          deleteText: z.string().optional().describe("Text to delete"),
           // Common context fields
-          contextBefore: z.string().optional().describe("Text that should appear before (for precise targeting)"),
-          contextAfter: z.string().optional().describe("Text that should appear after (for precise targeting)"),
+          contextBefore: z.string().optional().describe("ACTUAL TEXT that appears IMMEDIATELY before the target (within 80 characters distance). Must be text from the SAME or ADJACENT paragraph, NOT distant section titles. If target is 'XII. RESCISIÓN', use text from the END of previous section like 'responsabilidad por ello.', NOT the previous section title 'XI. FUERZA MAYOR' which might be 500+ chars away. NO \\n characters."),
+          contextAfter: z.string().optional().describe("ACTUAL TEXT that appears IMMEDIATELY after the target (within 80 characters distance). Must be text from the SAME or NEXT paragraph, NOT distant titles. Use text like '12.1. Rescisión sin causa:' that's actually close. NO \\n characters."),
           // Mark operation fields
           text: z.string().optional().describe("Text to apply mark operation to"),
           markType: z.string().optional().describe("Mark type: bold, italic, code, strike, underline"),
@@ -185,6 +213,40 @@ export const editEscritoTool = createTool({
         caseId: caseId as Id<"cases">,
         requiredLevel: "advanced"
       } )
+
+      // ========== COMPREHENSIVE INPUT LOGGING ==========
+      console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+      console.log("🔧 EDIT ESCRITO TOOL - RAW INPUT RECEIVED");
+      console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+      console.log("📝 Escrito ID:", escritoId);
+      console.log("📊 Number of edits:", edits?.length ?? 0);
+      console.log("");
+      console.log("📋 RAW EDITS ARRAY (full detail):");
+      console.log(JSON.stringify(edits, null, 2));
+      console.log("");
+      
+      // Log each edit with better formatting
+      if (Array.isArray(edits)) {
+        edits.forEach((edit, index) => {
+          console.log(`\n--- Edit #${index + 1} ---`);
+          console.log(`Type: ${edit?.type ?? 'MISSING'}`);
+          
+          // Log all properties of the edit
+          if (edit && typeof edit === 'object') {
+            Object.entries(edit).forEach(([key, value]) => {
+              if (key !== 'type') {
+                const displayValue = typeof value === 'string' && value.length > 100 
+                  ? value.substring(0, 100) + '...' 
+                  : value;
+                console.log(`  ${key}: ${JSON.stringify(displayValue)}`);
+              }
+            });
+          }
+        });
+      }
+      console.log("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+      console.log("🔍 Starting validation process...\n");
+      // ========== END LOGGING ==========
 
       // Validate inputs in handler for better error control
       const escritoIdError = validateStringParam(escritoId, "escritoId");
@@ -356,10 +418,16 @@ export const editEscritoTool = createTool({
           validationErrors.push(`Edit ${i}: Missing or invalid findText property`);
           continue;
         }
-        if (!edit.replaceText || typeof edit.replaceText !== 'string') {
+        // replaceText can be an empty string (for deletion), so only check if it's undefined or not a string
+        if (edit.replaceText === undefined || typeof edit.replaceText !== 'string') {
           console.log(`Skipping ${edit.type} at index ${i}: missing or invalid replaceText property`);
           validationErrors.push(`Edit ${i}: Missing or invalid replaceText property`);
           continue;
+        }
+        
+        // Suggest context usage for better precision
+        if (!edit.contextBefore && !edit.contextAfter && !edit.occurrenceIndex && !edit.maxOccurrences && !edit.replaceAll) {
+          console.log(`Hint for replace operation ${i}: Consider adding contextBefore/contextAfter, occurrenceIndex, or maxOccurrences for more precise targeting when multiple instances of "${edit.findText}" might exist`);
         }
       }
 
@@ -372,14 +440,7 @@ export const editEscritoTool = createTool({
         }
       }
 
-      // Validate delete operation
-      if (edit.type === 'delete') {
-        if (!edit.deleteText || typeof edit.deleteText !== 'string') {
-          console.log(`Skipping ${edit.type} at index ${i}: missing or invalid deleteText property`);
-          validationErrors.push(`Edit ${i}: Missing or invalid deleteText property`);
-          continue;
-        }
-      }
+      // Note: delete operations are now handled by replace with empty string
 
       // If we get here, the edit passed validation
       validEdits.push(edit);
@@ -412,14 +473,41 @@ export const editEscritoTool = createTool({
       };
     }
 
+    // ========== LOGGING VALID EDITS SENT TO MUTATION ==========
+    console.log("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+    console.log("✅ VALIDATION COMPLETE - SENDING TO MUTATION");
+    console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+    console.log(`📊 Valid edits: ${validEdits.length}/${edits.length}`);
+    console.log(`❌ Validation errors: ${validationErrors.length}`);
+    
+    if (validationErrors.length > 0) {
+      console.log("\n⚠️  Validation Errors:");
+      validationErrors.forEach((err, idx) => {
+        console.log(`  ${idx + 1}. ${err}`);
+      });
+    }
+    
+    console.log("\n📤 VALID EDITS BEING SENT:");
+    console.log(JSON.stringify(validEdits, null, 2));
+    console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n");
+    // ========== END LOGGING ==========
+    
     // Apply text-based operations directly using the new mutation
     const result = await ctx.runMutation(
-      api.functions.escritosTransforms.applyTextBasedOperations,
+      api.functions.escritosTransforms.index.applyTextBasedOperations,
       {
         escritoId: escritoId as any,
         edits: validEdits,
       }
     );
+
+    // ========== LOGGING MUTATION RESULT ==========
+    console.log("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+    console.log("✨ MUTATION RESULT");
+    console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+    console.log("Result:", JSON.stringify(result, null, 2));
+    console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n");
+    // ========== END LOGGING ==========
 
     // Return detailed response with validation information
     const message = validationErrors.length > 0
