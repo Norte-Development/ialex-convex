@@ -117,9 +117,12 @@ export const OnboardingFlow: React.FC = () => {
       return;
     }
 
-    // Paso 7 → Paso 5 o Paso 6 (depende de role)
+    // Paso 7 → Paso 3, 5 o 6 (depende de hasDespacho y role)
     if (currentStep === 7) {
-      if (formData.role === "abogado") {
+      // Si es autónomo (no tiene despacho), vuelve al paso 3
+      if (formData.hasDespacho === false) {
+        setCurrentStep(3);
+      } else if (formData.role === "abogado") {
         setCurrentStep(6); // Vuelve a matrícula
       } else {
         setCurrentStep(5); // Vuelve a rol
@@ -136,7 +139,6 @@ export const OnboardingFlow: React.FC = () => {
   const handleComplete = async () => {
     setIsLoading(true);
     try {
-      // Mockeo de datos a enviar al backend
       const onboardingData = {
         fullName: formData.fullName,
         hasDespacho: formData.hasDespacho,
@@ -152,9 +154,6 @@ export const OnboardingFlow: React.FC = () => {
         isOnboardingComplete: true,
       };
 
-      console.log("📤 Datos de onboarding a enviar:", onboardingData);
-
-      // TODO: Reemplazar con la llamada real al backend
       await updateOnboarding(onboardingData);
 
       console.log("✅ Onboarding completado exitosamente");
@@ -354,29 +353,44 @@ export const OnboardingFlow: React.FC = () => {
       // Paso 8: Especialización
       case 8:
         return (
-          <div className="space-y-6">
+          <div className="space-y-4">
             <div className="text-center">
-              <h2 className="text-2xl font-bold mb-2">
-                Especialidades Legales
+              <h2 className="text-[24px] font-[400] mb-2 text-tertiary">
+                ¿En que area se especializa?
               </h2>
-              <p className="text-gray-600">
-                Selecciona las áreas del derecho en las que te especializas.
-              </p>
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-3 gap-2 max-w-[550px] mx-auto max-h-[200px] overflow-y-auto">
               {legalSpecializations.map((specialization) => (
-                <button
+                <label
                   key={specialization}
-                  onClick={() => handleSpecializationToggle(specialization)}
-                  className={`p-3 text-sm border rounded-lg transition-colors ${
+                  className={`flex items-center gap-2 px-2 py-1.5 text-xs rounded-md cursor-pointer transition-colors ${
                     formData.specializations.includes(specialization)
-                      ? "bg-blue-500 text-white border-blue-500"
-                      : "bg-white text-gray-700 border-gray-300 hover:border-blue-300"
+                      ? "bg-[#E8F0FE] border-l-2 border-l-blue-600"
+                      : "bg-white hover:bg-[#E8F0FE]"
                   }`}
                 >
-                  {specialization}
-                </button>
+                  <input
+                    type="checkbox"
+                    checked={formData.specializations.includes(specialization)}
+                    onChange={() => handleSpecializationToggle(specialization)}
+                    className="sr-only"
+                  />
+                  {/* Radio button indicator */}
+                  <div className="flex items-center justify-center w-4 h-4 relative flex-shrink-0">
+                    <div className="w-4 h-4 rounded-full border-1 border-gray-200" />
+                    {formData.specializations.includes(specialization) && (
+                      <div className="absolute inset-0 flex items-center justify-center">
+                        <div className="w-4 h-4 rounded-full bg-blue-600 flex items-center justify-center">
+                          <div className="w-1.5 h-1.5 rounded-full bg-white" />
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                  <span className="text-left leading-tight">
+                    {specialization}
+                  </span>
+                </label>
               ))}
             </div>
           </div>
@@ -386,64 +400,13 @@ export const OnboardingFlow: React.FC = () => {
       case 9:
         return (
           <div className="space-y-6">
-            <div className="text-center">
-              <h2 className="text-2xl font-bold mb-2">¡Todo listo!</h2>
-              <p className="text-gray-600">
-                Tu perfil ha sido configurado exitosamente.
+            <div className="text-center flex flex-col items-center">
+              <h2 className="text-[24px] font-[400] mb-2 text-tertiary">
+                ¡Gracias por responder!
+              </h2>
+              <p className="text-black mb-10 text-[14px]">
+                Empecemos a trabajar juntos
               </p>
-            </div>
-
-            <div className="bg-gray-50 p-4 rounded-lg">
-              <h3 className="font-medium mb-2">Resumen de tu perfil:</h3>
-              <div className="text-sm text-gray-600 space-y-1">
-                {formData.fullName && (
-                  <p>
-                    <strong>Nombre:</strong> {formData.fullName}
-                  </p>
-                )}
-                {formData.despachoName && (
-                  <p>
-                    <strong>Despacho:</strong> {formData.despachoName}
-                  </p>
-                )}
-                {formData.hasDespacho === false && (
-                  <p>
-                    <strong>Tipo:</strong> Autónomo
-                  </p>
-                )}
-                {formData.role && (
-                  <p>
-                    <strong>Rol:</strong> {formData.role}
-                  </p>
-                )}
-                {formData.barNumber && (
-                  <p>
-                    <strong>Matrícula:</strong> {formData.barNumber}
-                  </p>
-                )}
-                {formData.firmName && (
-                  <p>
-                    <strong>Firma:</strong> {formData.firmName}
-                  </p>
-                )}
-                {formData.workLocation && (
-                  <p>
-                    <strong>Ubicación:</strong> {formData.workLocation}
-                  </p>
-                )}
-                {formData.experienceYears && (
-                  <p>
-                    <strong>Experiencia:</strong> {formData.experienceYears}{" "}
-                    años
-                  </p>
-                )}
-                {formData.specializations.length > 0 && (
-                  <p>
-                    <strong>Especialidades:</strong>{" "}
-                    {formData.specializations.join(", ")}
-                  </p>
-                )}
-              </div>
             </div>
           </div>
         );
@@ -457,14 +420,7 @@ export const OnboardingFlow: React.FC = () => {
     <div className="min-h-screen  flex items-center justify-center p-4">
       <div className=" h-[385px] w-[669px] relative bg-[#F4F7FC] rounded-[8px] flex flex-col justify-center items-center ">
         {/* Progress indicator */}
-        <Button
-          className="text-black absolute top-4 left-4"
-          size={"sm"}
-          onClick={() => handleBack()}
-        >
-          {" "}
-          Anterior
-        </Button>
+
         {/* Step content */}
         {renderStep()}
 
@@ -477,7 +433,7 @@ export const OnboardingFlow: React.FC = () => {
               className="bg-tertiary rounded-[8px] text-white hover:bg-tertiary/90 !px-20"
               size={"lg"}
             >
-              {isLoading ? "Completando..." : "Ingresar a iAlex"}
+              {isLoading ? "Completando..." : "Ingresar"}
             </Button>
           ) : currentStep > 1 ? (
             <>
@@ -503,7 +459,7 @@ export const OnboardingFlow: React.FC = () => {
                       hasDespacho: false,
                       despachoName: "",
                     });
-                    handleNext();
+                    setCurrentStep(7);
                   }}
                   className="text-blue-500 !text-[12px]"
                 >

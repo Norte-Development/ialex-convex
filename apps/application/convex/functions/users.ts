@@ -210,6 +210,10 @@ export const searchUsers = query({
 export const updateOnboardingInfo = mutation({
   args: {
     clerkId: v.optional(v.string()),
+    fullName: v.optional(v.string()),
+    hasDespacho: v.optional(v.boolean()),
+    despachoName: v.optional(v.string()),
+    role: v.optional(v.string()),
     specializations: v.optional(v.array(v.string())),
     barNumber: v.optional(v.string()),
     firmName: v.optional(v.string()),
@@ -245,6 +249,10 @@ export const updateOnboardingInfo = mutation({
     const updateData: any = {};
 
     // Only update provided fields
+    if (args.fullName !== undefined) updateData.fullName = args.fullName;
+    if (args.hasDespacho !== undefined) updateData.hasDespacho = args.hasDespacho;
+    if (args.despachoName !== undefined) updateData.despachoName = args.despachoName;
+    if (args.role !== undefined) updateData.role = args.role;
     if (args.specializations !== undefined)
       updateData.specializations = args.specializations;
     if (args.barNumber !== undefined) updateData.barNumber = args.barNumber;
