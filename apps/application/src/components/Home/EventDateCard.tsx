@@ -17,7 +17,7 @@ export default function EventDateCard({ event }: { event: any }) {
       to={`/eventos/${event._id}`}
       className="h-[91px] cursor-pointer flex justify-center items-end w-[233px] bg-[#F4F7FC] rounded-3xl"
     >
-      <div className="w-[35%]  h-full  border-r-2 border-black flex flex-col justify-center items-center">
+      <div className="w-[35%]  h-full  border-r-1 border-black flex flex-col justify-center items-center">
         <span className="text-tertiary text-[20px] font-[700] ">
           {new Date(event.date).getDate()}
         </span>

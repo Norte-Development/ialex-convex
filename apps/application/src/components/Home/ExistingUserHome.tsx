@@ -54,20 +54,28 @@ const ExistingUserHome = () => {
           />
         ))}
       </div>
-      <div className="mt-10 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3  gap-4 mb-10">
-        {events.map((event) => (
-          <EventCard key={event._id} event={event} />
-        ))}
-      </div>
-      <div className="mt-10 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-10">
-        {eventsWithDate.map((event) => (
-          <EventDateCard key={event._id} event={event} />
-        ))}
-      </div>
-      <div className="flex w-full justify-end  items-center mb-10">
-        <Button variant={"secondary"} size={"lg"}>
-          Ver todos <CircleArrowRight className="inline" />
-        </Button>
+      <div className="flex flex-col justify-center  items-start w-full">
+        <p className="text-center font-[400] text-[24px] text-tertiary">
+          Vuelve a tu trabajo
+        </p>
+        <div className="mt-10 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 w-full  gap-4 mb-10 ">
+          {events.map((event) => (
+            <EventCard key={event._id} event={event} />
+          ))}
+        </div>
+        <p className="text-center font-[400] text-[24px] text-tertiary">
+          Proximos Eventos
+        </p>
+        <div className="mt-10 w-full grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-10">
+          {eventsWithDate.map((event) => (
+            <EventDateCard key={event._id} event={event} />
+          ))}
+        </div>
+        <div className="flex w-full justify-end  items-center mb-10">
+          <Button variant={"secondary"} size={"lg"} className="text-black">
+            Ver todos <CircleArrowRight className="inline text-primary" />
+          </Button>
+        </div>
       </div>
     </>
   );
