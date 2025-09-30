@@ -418,8 +418,26 @@ export const OnboardingFlow: React.FC = () => {
 
   return (
     <div className="min-h-screen  flex items-center justify-center p-4">
-      <div className=" h-[385px] w-[669px] relative bg-[#F4F7FC] rounded-[8px] flex flex-col justify-center items-center ">
+      <div className=" h-[385px] w-[669px] relative bg-[#F4F7FC] rounded-[8px] flex flex-col justify-start items-center ">
         {/* Progress indicator */}
+        <div
+          className={`${currentStep === 8 ? "mb-10" : "mb-20"} mt-2 w-full px-8`}
+        >
+          <div className="flex justify-between items-center mb-2">
+            <span className="text-xs text-gray-600">
+              Paso {currentStep} de 9
+            </span>
+            <span className="text-xs text-gray-600">
+              {Math.round((currentStep / 9) * 100)}%
+            </span>
+          </div>
+          <div className="w-full bg-gray-200 rounded-full h-2">
+            <div
+              className="bg-tertiary h-2 rounded-full transition-all duration-300"
+              style={{ width: `${(currentStep / 9) * 100}%` }}
+            />
+          </div>
+        </div>
 
         {/* Step content */}
         {renderStep()}
