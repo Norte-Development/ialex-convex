@@ -21,6 +21,16 @@ export function buildDocIndex(doc: any, options?: SearchOptions): DocIndex {
   const rawPmPos: number[] = []; // parallel to rawChars
 
   doc.descendants((node: any, pos: number) => {
+    // Handle change nodes - skip deleted ones, but process added ones
+    if (node.type && (node.type.name === "inlineChange" || node.type.name === "blockChange" || node.type.name === "lineBreakChange")) {
+      const changeType = node.attrs?.changeType;
+      if (changeType === "deleted") {
+        return false; // Skip this node and its children entirely
+      }
+      // For added/modified change nodes, continue processing their children
+      return true;
+    }
+
     if (node.isText) {
       const text = node.text || "";
       for (let i = 0; i < text.length; i++) {

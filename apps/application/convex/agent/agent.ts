@@ -59,7 +59,7 @@ export const agent = new Agent(components.agent, {
     readLegislation: legislationReadTool,
     planAndTrack: planAndTrackTool,
     markTaskComplete: markTaskCompleteTool,
-    rewriteEscritoSection: rewriteEscritoSectionTool,
+    // rewriteEscritoSection: rewriteEscritoSectionTool,
   }
 });
 

@@ -8,7 +8,7 @@ import {
 } from "../../../../packages/shared/src/diff/jsonDiff";
 import { EditorState } from "@tiptap/pm/state";
 import { buildDocIndex, findMatches, selectByOccurrence, findAnchorPosition } from "../agent/normalizedSearch";
-import { api } from "../_generated/api";
+import { api, components } from "../_generated/api";
 
 /**
  * Apply text-based operations to an Escrito.
@@ -119,7 +119,7 @@ export const applyTextBasedOperations = mutation({
     if (!escrito) throw new Error("Escrito not found");
 
     // Get the current document content
-    const documentContent = await ctx.runQuery(api.prosemirror.getSnapshot, {
+    const documentContent = await ctx.runQuery(components.prosemirrorSync.lib.getSnapshot, {
       id: escrito.prosemirrorId,
     });
     if (!documentContent?.content) {
@@ -329,6 +329,14 @@ export const applyTextBasedOperations = mutation({
       const matches: Array<{ start: number; end: number; marks: any[] }> = [];
 
       doc.descendants((node: any, pos: number) => {
+        // Skip deleted change nodes entirely - they should not be included in text matching
+        if (node.type && (node.type.name === "inlineChange" || node.type.name === "blockChange" || node.type.name === "lineBreakChange")) {
+          const changeType = node.attrs?.changeType;
+          if (changeType === "deleted") {
+            return false; // Skip this node and its children
+          }
+        }
+
         if (node.isText) {
           const textContent = node.text || "";
           const wordMatches = findAllTextWithWordBoundary(textContent, text);
@@ -364,6 +372,14 @@ export const applyTextBasedOperations = mutation({
       const matches: Array<{ start: number; end: number; marks: any[] }> = [];
 
       doc.descendants((node: any, pos: number) => {
+        // Skip deleted change nodes entirely - they should not be included in text matching
+        if (node.type && (node.type.name === "inlineChange" || node.type.name === "blockChange" || node.type.name === "lineBreakChange")) {
+          const changeType = node.attrs?.changeType;
+          if (changeType === "deleted") {
+            return false; // Skip this node and its children
+          }
+        }
+
         if (node.isText) {
           const textContent = node.text || "";
           const wordMatches = findAllTextWithWordBoundary(textContent, text);
@@ -399,6 +415,14 @@ export const applyTextBasedOperations = mutation({
       }> = [];
 
       doc.descendants((node: any, pos: number) => {
+        // Skip deleted change nodes entirely - they should not be included in text matching
+        if (node.type && (node.type.name === "inlineChange" || node.type.name === "blockChange" || node.type.name === "lineBreakChange")) {
+          const changeType = node.attrs?.changeType;
+          if (changeType === "deleted") {
+            return false; // Skip this node and its children
+          }
+        }
+
         if (node.isBlock && !node.isText) {
           const blockText = node.textContent || "";
           // For block-level text search, we can use includes() since we're looking for the text anywhere in the block
@@ -428,6 +452,14 @@ export const applyTextBasedOperations = mutation({
         let insertPos = 0;
         let found = false;
         doc.descendants((node: any, pos: number) => {
+          // Skip deleted change nodes entirely - they should not be included in text matching
+          if (node.type && (node.type.name === "inlineChange" || node.type.name === "blockChange" || node.type.name === "lineBreakChange")) {
+            const changeType = node.attrs?.changeType;
+            if (changeType === "deleted") {
+              return false; // Skip this node and its children
+            }
+          }
+
           if (node.isText && !found) {
             const text = node.text || "";
             const wordMatches = findAllTextWithWordBoundary(text, afterText);
@@ -452,6 +484,14 @@ export const applyTextBasedOperations = mutation({
         let insertPos = 0;
         let found = false;
         doc.descendants((node: any, pos: number) => {
+          // Skip deleted change nodes entirely - they should not be included in text matching
+          if (node.type && (node.type.name === "inlineChange" || node.type.name === "blockChange" || node.type.name === "lineBreakChange")) {
+            const changeType = node.attrs?.changeType;
+            if (changeType === "deleted") {
+              return false; // Skip this node and its children
+            }
+          }
+
           if (node.isText && !found) {
             const text = node.text || "";
             const wordMatches = findAllTextWithWordBoundary(text, beforeText);
@@ -483,27 +523,9 @@ export const applyTextBasedOperations = mutation({
         return schema.text(content);
       }
 
-      // Split content by newlines and create text nodes with hard breaks
-      const parts = content.split("\n");
-      const nodes = [];
-
-      for (let i = 0; i < parts.length; i++) {
-        if (parts[i]) {
-          nodes.push(schema.text(parts[i]));
-        }
-        // Add hard break between text parts (except after the last part)
-        if (i < parts.length - 1) {
-          // Check if hardBreak node exists in schema
-          if (schema.nodes.hardBreak) {
-            nodes.push(schema.nodes.hardBreak.create());
-          } else {
-            // Fallback: create a space if hardBreak is not available
-            nodes.push(schema.text(" "));
-          }
-        }
-      }
-
-      return nodes;
+      // For content with newlines, let ProseMirror handle the conversion naturally
+      // by using insertText which automatically converts \n to hard breaks
+      return content;
     };
 
     // Helper function to create nodes of different types
@@ -745,7 +767,15 @@ export const applyTextBasedOperations = mutation({
               .slice()
               .reverse()
               .forEach((m) => {
-                tr = tr.replaceWith(m.from, m.to, schema.text(op.text));
+                // Use createTextContent to properly handle newlines
+                const replacementContent = createTextContent(schema, op.text);
+                if (typeof replacementContent === 'string') {
+                  // For strings with newlines, use insertText which handles newlines naturally
+                  tr = tr.delete(m.from, m.to).insertText(replacementContent, m.from);
+                } else {
+                  // For simple text nodes, use replaceWith
+                  tr = tr.replaceWith(m.from, m.to, replacementContent);
+                }
             });
           } else if (
             op.type === "insert_text" &&
@@ -777,7 +807,15 @@ export const applyTextBasedOperations = mutation({
               },
             );
             if (anchor == null) continue;
-            tr = tr.insertText(op.text, anchor);
+            // Use createTextContent to properly handle newlines
+            const insertionContent = createTextContent(schema, op.text);
+            if (typeof insertionContent === 'string') {
+              // For strings with newlines, use insertText which handles newlines naturally
+              tr = tr.insertText(insertionContent, anchor);
+            } else {
+              // For simple text nodes, use insert
+              tr = tr.insert(anchor, insertionContent);
+            }
           } else if (op.type === "delete_text" && op.deleteText) {
             const docIndex = buildDocIndex(tr.doc, {
               caseInsensitive: false,
@@ -1011,7 +1049,15 @@ export const applyTextBasedOperations = mutation({
 
             if (op.type === "insert_text" && typeof op.pos === "number") {
               if (op.pos >= 0 && op.pos <= docSize) {
-                tr = tr.insertText(op.text, op.pos);
+                // Use createTextContent to properly handle newlines
+                const insertionContent = createTextContent(schema, op.text);
+                if (typeof insertionContent === 'string') {
+                  // For strings with newlines, use insertText which handles newlines naturally
+                  tr = tr.insertText(insertionContent, op.pos);
+                } else {
+                  // For simple text nodes, use insert
+                  tr = tr.insert(op.pos, insertionContent);
+                }
               }
             } else if (
               op.type === "replace_range" &&
@@ -1019,7 +1065,15 @@ export const applyTextBasedOperations = mutation({
               typeof op.to === "number"
             ) {
               if (op.from >= 0 && op.to <= docSize && op.from <= op.to) {
-                tr = tr.replaceRangeWith(op.from, op.to, schema.text(op.text));
+                // Use createTextContent to properly handle newlines
+                const replacementContent = createTextContent(schema, op.text);
+                if (typeof replacementContent === 'string') {
+                  // For strings with newlines, use insertText which handles newlines naturally
+                  tr = tr.delete(op.from, op.to).insertText(replacementContent, op.from);
+                } else {
+                  // For simple text nodes, use replaceRangeWith
+                  tr = tr.replaceRangeWith(op.from, op.to, replacementContent);
+                }
               }
             } else if (
               op.type === "delete_text" &&
@@ -1102,7 +1156,7 @@ export const rewriteSectionByAnchors = mutation({
     const escrito = await ctx.db.get(escritoId);
     if (!escrito) throw new Error("Escrito not found");
 
-    const snapshot = await ctx.runQuery(api.prosemirror.getSnapshot, {
+    const snapshot = await ctx.runQuery(components.prosemirrorSync.lib.getSnapshot, {
       id: escrito.prosemirrorId,
     });
     if (!snapshot?.content) throw new Error("Document content not found");
