@@ -202,7 +202,7 @@ export const streamAsync = internalAction({
 
             providerOptions: {
               openai: {
-                reasoningEffort: 'medium',
+                reasoningEffort: 'low',
                 reasoningSummary: "auto"
               },
             },

@@ -109,6 +109,7 @@ export const applyTextBasedOperations = mutation({
           headingLevel: v.optional(v.number()),
           afterText: v.optional(v.string()),
           beforeText: v.optional(v.string()),
+          occurrenceIndex: v.optional(v.number()),
         }),
       ),
     ),
