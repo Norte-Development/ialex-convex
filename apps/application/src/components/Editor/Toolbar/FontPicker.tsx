@@ -26,7 +26,7 @@ const FONTS = [
 export function FontPicker({ editor }: FontPickerProps) {
   const [selectedFont, setSelectedFont] = useState("Calibri");
 
-  const handleFontChange = (fontName: string, fontValue: string) => {
+  const handleFontChange = (fontName: string) => {
     setSelectedFont(fontName);
     // Note: This would require a custom extension to fully implement
     // For now, this is a UI placeholder
@@ -49,7 +49,7 @@ export function FontPicker({ editor }: FontPickerProps) {
         {FONTS.map((font) => (
           <DropdownMenuItem
             key={font.value}
-            onClick={() => handleFontChange(font.name, font.value)}
+            onClick={() => handleFontChange(font.name)}
             className="cursor-pointer"
             style={{ fontFamily: font.value }}
           >
