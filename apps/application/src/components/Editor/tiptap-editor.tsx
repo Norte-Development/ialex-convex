@@ -1,270 +1,32 @@
-import { useEditor, EditorContent, useEditorState } from "@tiptap/react";
+import { useEditor, EditorContent } from "@tiptap/react";
 import type { Editor } from "@tiptap/core";
 import { useEffect } from "react";
 import StarterKit from "@tiptap/starter-kit";
 import TextAlign from "@tiptap/extension-text-align";
 import Underline from "@tiptap/extension-underline";
 import { TextStyle } from "@tiptap/extension-text-style";
+//@ts-ignore
+import { Color } from "@tiptap/extension-color";
 import { useTiptapSync } from "@convex-dev/prosemirror-sync/tiptap";
-import { UnderlineIcon } from "lucide-react";
 import {
   InlineChange,
   BlockChange,
   LineBreakChange,
 } from "../../../../../packages/shared/src/tiptap/changeNodes";
 import { TrackingExtension } from "./extensions/tracking";
+import { PaginationPlus } from "tiptap-pagination-plus";
 import "./editor-styles.css";
-import {
-  Bold,
-  Italic,
-  AlignLeft,
-  AlignCenter,
-  AlignRight,
-  AlignJustify,
-  Quote,
-  Code,
-  Strikethrough,
-} from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Separator } from "@/components/ui/separator";
 import { api } from "../../../convex/_generated/api";
 import { useEscrito } from "@/context/EscritoContext";
+import { SuggestionsMenu } from "./suggestions-menu";
+import { RibbonBar } from "./Ribbon";
+import { StatusBar } from "./StatusBar";
 
 interface TiptapProps {
   documentId?: string;
   onReady?: (editor: Editor) => void;
   onDestroy?: () => void;
   readOnly?: boolean;
-}
-
-function MenuBar({ editor }: { editor: Editor }) {
-  // Read the current editor's state, and re-render the component when it changes
-  const editorState = useEditorState({
-    editor,
-    selector: (ctx) => {
-      return {
-        isBold: ctx.editor.isActive("bold") ?? false,
-        canBold: ctx.editor.can().toggleMark("bold") ?? false,
-        isItalic: ctx.editor.isActive("italic") ?? false,
-        canItalic: ctx.editor.can().toggleMark("italic") ?? false,
-        isStrike: ctx.editor.isActive("strike") ?? false,
-        canStrike: ctx.editor.can().toggleMark("strike") ?? false,
-        isCode: ctx.editor.isActive("code") ?? false,
-        canCode: ctx.editor.can().toggleMark("code") ?? false,
-        isUnderline: ctx.editor.isActive("underline") ?? false,
-        canUnderline:
-          ctx.editor.can().chain().toggleUnderline?.().run() ?? false,
-        isParagraph: ctx.editor.isActive("paragraph") ?? false,
-        isHeading1: ctx.editor.isActive("heading", { level: 1 }) ?? false,
-        isHeading2: ctx.editor.isActive("heading", { level: 2 }) ?? false,
-        isHeading3: ctx.editor.isActive("heading", { level: 3 }) ?? false,
-        isBulletList: ctx.editor.isActive("bulletList") ?? false,
-        isOrderedList: ctx.editor.isActive("orderedList") ?? false,
-        isCodeBlock: ctx.editor.isActive("codeBlock") ?? false,
-        isBlockquote: ctx.editor.isActive("blockquote") ?? false,
-        textAlignLeft: ctx.editor.isActive({ textAlign: "left" }) ?? false,
-        textAlignCenter: ctx.editor.isActive({ textAlign: "center" }) ?? false,
-        textAlignRight: ctx.editor.isActive({ textAlign: "right" }) ?? false,
-        textAlignJustify:
-          ctx.editor.isActive({ textAlign: "justify" }) ?? false,
-        canUndo: true,
-        canRedo: true,
-      };
-    },
-  });
-
-  return (
-    <div className="border-b border-gray-200 bg-gray-50/50 px-4 py-3 ">
-      <div className="flex items-center gap-1 flex-wrap">
-        {/* Undo/Redo */}
-        {/* <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => editor.chain().focus().}
-          disabled={!editorState.canUndo}
-          className="h-8 w-8 p-0 hover:bg-gray-100 disabled:opacity-50"
-        >
-          <Undo className="h-4 w-4" />
-        </Button> */}
-        {/* <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => editor.chain().focus().redo().run()}
-          disabled={!editorState.canRedo}
-          className="h-8 w-8 p-0 hover:bg-gray-100 disabled:opacity-50"
-        >
-          <Redo className="h-4 w-4" />
-        </Button> */}
-
-        <Separator orientation="vertical" className="h-6 mx-2" />
-
-        {/* Text Formatting */}
-        <Button
-          variant={editorState.isBold ? "secondary" : "ghost"}
-          size="sm"
-          onClick={() => editor.chain().focus().toggleMark("bold").run()}
-          disabled={!editorState.canBold}
-          className="h-8 w-8 p-0 hover:bg-gray-100"
-        >
-          <Bold className="h-4 w-4" />
-        </Button>
-        <Button
-          variant={editorState.isItalic ? "secondary" : "ghost"}
-          size="sm"
-          onClick={() => editor.chain().focus().toggleMark("italic").run()}
-          disabled={!editorState.canItalic}
-          className="h-8 w-8 p-0 hover:bg-gray-100"
-        >
-          <Italic className="h-4 w-4" />
-        </Button>
-        <Button
-          variant={editorState.isUnderline ? "secondary" : "ghost"}
-          size="sm"
-          onClick={() => editor.chain().focus().toggleUnderline?.().run()}
-          disabled={!editorState.canUnderline}
-          className="h-8 w-8 p-0 hover:bg-gray-100"
-        >
-          <UnderlineIcon className="h-4 w-4" />
-        </Button>
-        <Button
-          variant={editorState.isStrike ? "secondary" : "ghost"}
-          size="sm"
-          onClick={() => editor.chain().focus().toggleMark("strike").run()}
-          disabled={!editorState.canStrike}
-          className="h-8 w-8 p-0 hover:bg-gray-100"
-        >
-          <Strikethrough className="h-4 w-4" />
-        </Button>
-        <Button
-          variant={editorState.isCode ? "secondary" : "ghost"}
-          size="sm"
-          onClick={() => editor.chain().focus().toggleMark("code").run()}
-          disabled={!editorState.canCode}
-          className="h-8 w-8 p-0 hover:bg-gray-100"
-        >
-          <Code className="h-4 w-4" />
-        </Button>
-
-        <Separator orientation="vertical" className="h-6 mx-2" />
-
-        {/* Headings */}
-        <Button
-          variant={editorState.isHeading1 ? "secondary" : "ghost"}
-          size="sm"
-          onClick={() =>
-            editor.chain().focus().toggleMark("heading", { level: 1 }).run()
-          }
-          className="h-8 px-2 hover:bg-gray-100 text-xs font-bold"
-        >
-          H1
-        </Button>
-        <Button
-          variant={editorState.isHeading2 ? "secondary" : "ghost"}
-          size="sm"
-          onClick={() =>
-            editor.chain().focus().toggleMark("heading", { level: 2 }).run()
-          }
-          className="h-8 px-2 hover:bg-gray-100 text-xs font-bold"
-        >
-          H2
-        </Button>
-        <Button
-          variant={editorState.isHeading3 ? "secondary" : "ghost"}
-          size="sm"
-          onClick={() =>
-            editor.chain().focus().toggleMark("heading", { level: 3 }).run()
-          }
-          className="h-8 px-2 hover:bg-gray-100 text-xs font-bold"
-        >
-          H3
-        </Button>
-
-        <Separator orientation="vertical" className="h-6 mx-2" />
-
-        {/* Text Alignment */}
-        <Button
-          variant={editorState.textAlignLeft ? "secondary" : "ghost"}
-          size="sm"
-          onClick={() => editor.chain().focus().setTextAlign("left").run()}
-          className="h-8 w-8 p-0 hover:bg-gray-100"
-        >
-          <AlignLeft className="h-4 w-4" />
-        </Button>
-        <Button
-          variant={editorState.textAlignCenter ? "secondary" : "ghost"}
-          size="sm"
-          onClick={() => editor.chain().focus().setTextAlign("center").run()}
-          className="h-8 w-8 p-0 hover:bg-gray-100"
-        >
-          <AlignCenter className="h-4 w-4" />
-        </Button>
-        <Button
-          variant={editorState.textAlignRight ? "secondary" : "ghost"}
-          size="sm"
-          onClick={() => editor.chain().focus().setTextAlign("right").run()}
-          className="h-8 w-8 p-0 hover:bg-gray-100"
-        >
-          <AlignRight className="h-4 w-4" />
-        </Button>
-        <Button
-          variant={editorState.textAlignJustify ? "secondary" : "ghost"}
-          size="sm"
-          onClick={() => editor.chain().focus().setTextAlign("justify").run()}
-          className="h-8 w-8 p-0 hover:bg-gray-100"
-        >
-          <AlignJustify className="h-4 w-4" />
-        </Button>
-
-        <Separator orientation="vertical" className="h-6 mx-2" />
-
-        {/* Lists and Blocks */}
-        {/* <Button
-          variant={editorState.isBulletList ? "secondary" : "ghost"}
-          size="sm"
-          onClick={() => editor.chain().focus().toggleList('bullet').run()}
-          className="h-8 w-8 p-0 hover:bg-gray-100"
-        >
-          <List className="h-4 w-4" />
-        </Button> */}
-        {/* <Button
-          variant={editorState.isOrderedList ? "secondary" : "ghost"}
-          size="sm"
-          onClick={() => editor.chain().focus().toggleOrderedList().run()}
-          className="h-8 w-8 p-0 hover:bg-gray-100"
-        > */}
-        {/* <ListOrdered className="h-4 w-4" />
-        </Button> */}
-        <Button
-          variant={editorState.isBlockquote ? "secondary" : "ghost"}
-          size="sm"
-          onClick={() => editor.chain().focus().toggleMark("blockquote").run()}
-          className="h-8 w-8 p-0 hover:bg-gray-100"
-        >
-          <Quote className="h-4 w-4" />
-        </Button>
-        <Button
-          variant={editorState.isCodeBlock ? "secondary" : "ghost"}
-          size="sm"
-          onClick={() => editor.chain().focus().toggleMark("codeBlock").run()}
-          className="h-8 w-8 p-0 hover:bg-gray-100"
-        >
-          <Code className="h-4 w-4" />
-        </Button>
-
-        <Separator orientation="vertical" className="h-6 mx-2" />
-
-        {/* Additional formatting */}
-        {/* <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => editor.chain().focus().setHorizontalRule().run()}
-          className="h-8 w-8 p-0 hover:bg-gray-100"
-        >
-          <Minus className="h-4 w-4" />
-        </Button> */}
-      </div>
-    </div>
-  );
 }
 
 // Define empty document structure outside component to avoid recreating object
@@ -296,6 +58,7 @@ export function Tiptap({
           horizontalRule: false,
         }),
         TextStyle,
+        Color,
         InlineChange,
         BlockChange,
         LineBreakChange,
@@ -304,6 +67,21 @@ export function Tiptap({
           types: ["heading", "paragraph"],
         }),
         Underline,
+        PaginationPlus.configure({
+          pageHeight: 1100,        // Height of each page in pixels (approximately A4)
+          pageGap: 20,             // Gap between pages
+          pageBreakBackground: "#F3F4F6", // Light gray for page gaps
+          pageHeaderHeight: 40,    // Header height
+          pageFooterHeight: 40,    // Footer height
+          footerLeft: "Página {page}", // Page number on left
+          footerRight: "",         // Empty right footer
+          headerLeft: "",          // Empty left header
+          headerRight: "",         // Empty right header
+          marginTop: 60,           // Top margin
+          marginBottom: 60,        // Bottom margin
+          marginLeft: 70,          // Left margin
+          marginRight: 70,         // Right margin
+        }),
         ...(sync.extension ? [sync.extension] : []),
       ],
       content: sync.initialContent,
@@ -313,7 +91,7 @@ export function Tiptap({
           class: `legal-editor-content prose prose-lg focus:outline-none px-12 py-8 min-h-screen ${readOnly ? "cursor-default select-text" : ""}`,
           "data-placeholder": readOnly
             ? ""
-            : "Start writing your legal document...",
+            : "Comience a escribir su documento legal...",
         },
       },
       onUpdate: ({ editor }) => {
@@ -408,6 +186,7 @@ export function Tiptap({
     );
   }
 
+
   if (sync.initialContent === null) {
     return (
       <div className="legal-editor-content prose prose-lg px-12 py-8 min-h-screen flex items-center justify-center">
@@ -431,9 +210,9 @@ export function Tiptap({
 
   // Editor is ready - render the full editor
   return (
-    <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-      {/* Toolbar - Only show if not readOnly */}
-      {!readOnly && <MenuBar editor={editor} />}
+    <div className="office-editor-container">
+      {/* Ribbon - Only show if not readOnly */}
+      {!readOnly && <RibbonBar editor={editor} />}
 
       {/* Read-only banner */}
       {readOnly && (
@@ -454,22 +233,18 @@ export function Tiptap({
       )}
 
       {/* Editor Content */}
-      <div className="bg-white min-h-[600px] w-full">
+      <div className="office-editor-content">
         <EditorContent
           editor={editor}
           className="legal-editor-content-wrapper w-full"
         />
       </div>
 
-      {/* Footer */}
-      <div className="border-t border-gray-200 bg-gray-50/50 px-4 py-2">
-        <div className="text-xs text-gray-500 flex justify-between items-center">
-          <span>
-            Words: {editor.storage.characterCount?.words() || 0} | Characters:{" "}
-            {editor.storage.characterCount?.characters() || 0}
-          </span>
-        </div>
-      </div>
+      {/* Status Bar */}
+      <StatusBar editor={editor} />
+
+      {/* Floating Suggestions Menu */}
+      <SuggestionsMenu editor={editor} />
     </div>
   );
 }
