@@ -147,13 +147,17 @@ export const OnboardingFlow: React.FC = () => {
 
       // Solo agregar campos con valores válidos
       if (formData.fullName) onboardingData.fullName = formData.fullName;
-      if (formData.hasDespacho !== null) onboardingData.hasDespacho = formData.hasDespacho;
-      if (formData.despachoName) onboardingData.despachoName = formData.despachoName;
+      if (formData.hasDespacho !== null)
+        onboardingData.hasDespacho = formData.hasDespacho;
+      if (formData.despachoName)
+        onboardingData.despachoName = formData.despachoName;
       if (formData.firmName) onboardingData.firmName = formData.firmName;
-      if (formData.workLocation) onboardingData.workLocation = formData.workLocation;
+      if (formData.workLocation)
+        onboardingData.workLocation = formData.workLocation;
       if (formData.role) onboardingData.role = formData.role;
       if (formData.barNumber) onboardingData.barNumber = formData.barNumber;
-      if (formData.experienceYears) onboardingData.experienceYears = formData.experienceYears;
+      if (formData.experienceYears)
+        onboardingData.experienceYears = formData.experienceYears;
       if (formData.bio) onboardingData.bio = formData.bio;
       if (formData.specializations && formData.specializations.length > 0) {
         onboardingData.specializations = formData.specializations;
@@ -527,7 +531,6 @@ export const OnboardingFlow: React.FC = () => {
                   onClick={() => {
                     setFormData({
                       ...formData,
-                      hasDespacho: false,
                       barNumber: "",
                     });
                     handleNext();
