@@ -5,6 +5,7 @@ import StarterKit from "@tiptap/starter-kit";
 import TextAlign from "@tiptap/extension-text-align";
 import Underline from "@tiptap/extension-underline";
 import { TextStyle } from "@tiptap/extension-text-style";
+//@ts-ignore
 import { Color } from "@tiptap/extension-color";
 import { useTiptapSync } from "@convex-dev/prosemirror-sync/tiptap";
 import {
