@@ -75,9 +75,40 @@ export const prompt = `
 
         #### **editEscrito** - Editar Escrito (Cambios Pequeños)
         **Descripción:** Realiza ediciones precisas en el escrito usando operaciones de texto (buscar y reemplazar, agregar/quitar formato).
-        **Cuándo usar:** Para cambios pequeños y específicos como correcciones, agregar formato, o reemplazar texto específico.
+        **Cuándo usar:** Para cambios pequeños y específicos como correcciones, agregar formato, reemplazar o eliminar texto específico.
         **Parámetros:** escritoId (ID del escrito), edits (array de operaciones de edición)
-        **Ejemplo:** 
+        
+        **CRÍTICO - Coincidencia Exacta y Precisión:**
+        - El texto en findText debe coincidir EXACTAMENTE con el texto en el documento
+        - Incluir TODOS los caracteres especiales: puntos, comas, acentos, mayúsculas/minúsculas
+        - Si el texto tiene "DOMICILIOS:" (con dos puntos), debes escribir "DOMICILIOS:" exactamente así
+        - **NUNCA INCLUIR \\n EN NINGÚN CAMPO**: NO incluyas saltos de línea (\\n) en findText, contextBefore, ni contextAfter
+        - Los párrafos son nodos separados - NO existen \\n entre párrafos en el índice de búsqueda
+        
+        **CRÍTICO - Context DEBE estar FÍSICAMENTE CERCA (dentro de 80 caracteres):**
+        - contextBefore y contextAfter tienen una ventana de SOLO 80 caracteres
+        - USA texto que esté INMEDIATAMENTE antes/después del target, NO títulos de secciones lejanas
+        - Ejemplo correcto para target "XII. RESCISIÓN":
+          * contextBefore: "responsabilidad por ello." ✅ (fin del párrafo anterior)
+          * contextAfter: "12.1. Rescisión sin causa:" ✅ (inicio del siguiente párrafo)
+        - Ejemplo INCORRECTO:
+          * contextBefore: "XI. FUERZA MAYOR" ❌ (título de sección que está 500+ caracteres antes)
+          * contextBefore: "\\n\\n" ❌ (solo saltos de línea)
+        
+        **CRÍTICO - Ser Preciso, NO Agresivo:**
+        - Solo elimina/modifica el texto EXACTO que se te pidió
+        - Si te piden eliminar "el título de la cláusula 3", elimina SOLO el título (ej: "III. REMUNERACIÓN"), NO todo el contenido de la cláusula
+        - Si te piden eliminar "la cláusula 3.1", elimina SOLO esa sub-cláusula, NO todas las sub-cláusulas 3.1, 3.2, 3.3, etc.
+        - NO elimines más texto del necesario
+        - Cuando tengas dudas sobre qué eliminar exactamente, elimina menos en lugar de más
+        
+        **Tipos de operaciones:**
+        - **replace**: Busca texto y lo reemplaza. Para ELIMINAR texto, usa replaceText: "" (string vacío)
+        - **insert**: Inserta texto en una posición específica
+        - **addMark/removeMark**: Agrega o quita formato (bold, italic, etc.)
+        
+        **Ejemplos:** 
+        // Reemplazar texto
         editEscrito({
           escritoId: "esc_123",
           edits: [{
@@ -88,17 +119,39 @@ export const prompt = `
             contextAfter: "presenta"
           }]
         })
-
-        #### **rewriteEscritoSection** - Reescribir Sección (Cambios Grandes)
-        **Descripción:** Reescribe secciones completas del escrito usando anclas (antes/después) y merge por diff.
-        **Cuándo usar:** Para cambios grandes como reescribir párrafos completos, agregar nuevas secciones, o reestructurar contenido.
-        **Parámetros:** escritoId (ID del escrito), anchorText (texto ancla), anchorType (antes/después), newContent (nuevo contenido)
-        **Ejemplo:** 
-        rewriteEscritoSection({
+        
+        // Eliminar texto (usar replaceText vacío)
+        editEscrito({
           escritoId: "esc_123",
-          anchorText: "V. PETITORIO",
-          anchorType: "after",
-          newContent: "Por todo lo expuesto, solicito se tenga por..."
+          edits: [{
+            type: "replace",
+            findText: "cláusula redundante",
+            replaceText: "",
+            replaceAll: true
+          }]
+        })
+
+        #### **insertContent** - Insertar HTML (Cambios Grandes)
+        **Descripción:** Inserta contenido HTML directamente en el escrito. Soporta insertar al inicio/fin del documento, reemplazar un rango definido por texto, o insertar en una posición absoluta. El HTML se parsea con TipTap y se integra preservando el tracking de cambios.
+        **Cuándo usar:** Para agregar secciones completas, tablas, listados o bloques complejos generados por el modelo.
+        **Parámetros:**
+        - escritoId (ID del escrito)
+        - html (string HTML)
+        - placement: uno de:
+          - { type: "documentStart" }
+          - { type: "documentEnd" }
+          - { type: "range", textStart: string, textEnd: string }
+          - { type: "position", position: number }
+        **Ejemplos:** 
+        insertContent({
+          escritoId: "esc_123",
+          html: "<p><strong>V. PETITORIO</strong></p><p>Por todo lo expuesto...</p>",
+          placement: { type: "documentEnd" }
+        })
+        insertContent({
+          escritoId: "esc_123",
+          html: "<p>Resumen agregado...</p>",
+          placement: { type: "range", textStart: "[RESUMEN]", textEnd: "[FIN RESUMEN]" }
         })
 
         ### 📋 HERRAMIENTAS DE PLANIFICACIÓN

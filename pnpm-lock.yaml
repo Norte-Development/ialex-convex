@@ -289,6 +289,9 @@ importers:
       '@tiptap/core':
         specifier: ^3.2.1
         version: 3.4.4(@tiptap/pm@3.4.4)
+      '@tiptap/html':
+        specifier: ^3.6.2
+        version: 3.6.2(@tiptap/core@3.4.4(@tiptap/pm@3.4.4))(@tiptap/pm@3.4.4)(happy-dom@18.0.1)
       '@tiptap/pm':
         specifier: ^3.2.1
         version: 3.4.4
@@ -388,7 +391,7 @@ importers:
         version: 1.3.8
       vitest:
         specifier: ^2.1.9
-        version: 2.1.9(@edge-runtime/vm@5.0.0)(@types/node@22.18.6)(lightningcss@1.30.1)
+        version: 2.1.9(@edge-runtime/vm@5.0.0)(@types/node@22.18.6)(happy-dom@18.0.1)(lightningcss@1.30.1)
 
   apps/document-processor:
     dependencies:
@@ -2406,6 +2409,13 @@ packages:
       '@tiptap/core': ^3.4.4
       '@tiptap/pm': ^3.4.4
 
+  '@tiptap/html@3.6.2':
+    resolution: {integrity: sha512-48ibDQwsW4TQBskUmLghitP4H3L/XobeYYfHcBvTtKCqTAXo8QWkph+UdYZ7L/j9Mqhb5r2JdaxzLLOqD9y/Lw==}
+    peerDependencies:
+      '@tiptap/core': ^3.6.2
+      '@tiptap/pm': ^3.6.2
+      happy-dom: ^18.0.1
+
   '@tiptap/pm@3.4.4':
     resolution: {integrity: sha512-D3jj8yBoDvdpcyG9kLPISQJMwNv9Ip9mz3a9oHo9XbR6hhr7x0t4s9WhiXZ1W5ToYM3BRl522hxsmJafJTpaWg==}
 
@@ -2617,6 +2627,9 @@ packages:
   '@types/node@18.19.127':
     resolution: {integrity: sha512-gSjxjrnKXML/yo0BO099uPixMqfpJU0TKYjpfLU7TrtA2WWDki412Np/RSTPRil1saKBhvVVKzVx/p/6p94nVA==}
 
+  '@types/node@20.19.18':
+    resolution: {integrity: sha512-KeYVbfnbsBCyKG8e3gmUqAfyZNcoj/qpEbHRkQkfZdKOBrU7QQ+BsTdfqLSWX9/m1ytYreMhpKvp+EZi3UFYAg==}
+
   '@types/node@22.18.6':
     resolution: {integrity: sha512-r8uszLPpeIWbNKtvWRt/DbVi5zbqZyj1PTmhRMqBMvDnaz1QpmSKujUtJLrqGZeoM8v72MfYggDceY4K1itzWQ==}
 
@@ -2681,6 +2694,9 @@ packages:
 
   '@types/webidl-conversions@7.0.3':
     resolution: {integrity: sha512-CiJJvcRtIgzadHCYXw7dqEnMNRjhGZlYK05Mj9OyktqV8uVT8fD2BFOB7S1uwBE3Kj2Z+4UyPmFw/Ixgw/LAlA==}
+
+  '@types/whatwg-mimetype@3.0.2':
+    resolution: {integrity: sha512-c2AKvDT8ToxLIOUlN51gTiHXflsfIFisS4pO7pDPoKouJCESkhZnEy623gwP9laCy5lnLDAw1vAzu2vM2YLOrA==}
 
   '@types/whatwg-url@11.0.5':
     resolution: {integrity: sha512-coYR071JRaHa+xoEvvYqvnIHaVqaYrLPbsufM9BF63HkwI5Lgmy2QR8Q5K/lYDYo5AK82wOvSOS0UsLTpTG7uQ==}
@@ -3991,6 +4007,10 @@ packages:
 
   hachure-fill@0.5.2:
     resolution: {integrity: sha512-3GKBOn+m2LX9iq+JC1064cSFprJY4jL1jCXTcpnfER5HYE2l/4EfWSGzkPa/ZDBmYI0ZOEj5VHV/eKnPGkHuOg==}
+
+  happy-dom@18.0.1:
+    resolution: {integrity: sha512-qn+rKOW7KWpVTtgIUi6RVmTBZJSe2k0Db0vh1f7CWrWclkkc7/Q+FrOfkZIb2eiErLyqu5AXEzE7XthO9JVxRA==}
+    engines: {node: '>=20.0.0'}
 
   harden-react-markdown@1.0.5:
     resolution: {integrity: sha512-uN+PdsmySN4gdczqM0DXzltS4dELSO4U/p/QVLiiypyZMBR1CaewgQTI7ZxArFazBoCk7lGRVvYsyxos0VHGNg==}
@@ -6599,6 +6619,10 @@ packages:
     resolution: {integrity: sha512-OqedPIGOfsDlo31UNwYbCFMSaO9m9G/0faIHj5/dZFDMFqPTcx6UwqyOy3COEaEOg/9VsGIpdqn62W5KhoKSpg==}
     engines: {node: '>=0.8.0'}
 
+  whatwg-mimetype@3.0.0:
+    resolution: {integrity: sha512-nt+N2dzIutVRxARx1nghPKGv1xHikU7HKdfafKkLNLindmPU/ch3U31NOCGGA/dmPcmb1VlofO0vnKAcsm0o/Q==}
+    engines: {node: '>=12'}
+
   whatwg-url@14.2.0:
     resolution: {integrity: sha512-De72GdQZzNTUBBChsXueQUnPKDkg/5A5zp7pFDuQAj5UFoENpiACU0wlCvzpAGnTkj++ihpKwKyYewn/XNUbKw==}
     engines: {node: '>=18'}
@@ -8410,6 +8434,12 @@ snapshots:
       '@tiptap/core': 3.4.4(@tiptap/pm@3.4.4)
       '@tiptap/pm': 3.4.4
 
+  '@tiptap/html@3.6.2(@tiptap/core@3.4.4(@tiptap/pm@3.4.4))(@tiptap/pm@3.4.4)(happy-dom@18.0.1)':
+    dependencies:
+      '@tiptap/core': 3.4.4(@tiptap/pm@3.4.4)
+      '@tiptap/pm': 3.4.4
+      happy-dom: 18.0.1
+
   '@tiptap/pm@3.4.4':
     dependencies:
       prosemirror-changeset: 2.3.1
@@ -8722,6 +8752,10 @@ snapshots:
     dependencies:
       undici-types: 5.26.5
 
+  '@types/node@20.19.18':
+    dependencies:
+      undici-types: 6.21.0
+
   '@types/node@22.18.6':
     dependencies:
       undici-types: 6.21.0
@@ -8791,6 +8825,8 @@ snapshots:
   '@types/uuid@10.0.0': {}
 
   '@types/webidl-conversions@7.0.3': {}
+
+  '@types/whatwg-mimetype@3.0.2': {}
 
   '@types/whatwg-url@11.0.5':
     dependencies:
@@ -10341,6 +10377,12 @@ snapshots:
       - supports-color
 
   hachure-fill@0.5.2: {}
+
+  happy-dom@18.0.1:
+    dependencies:
+      '@types/node': 20.19.18
+      '@types/whatwg-mimetype': 3.0.2
+      whatwg-mimetype: 3.0.0
 
   harden-react-markdown@1.0.5(react-markdown@10.1.0(@types/react@19.1.13)(react@19.1.1))(react@19.1.1):
     dependencies:
@@ -13212,7 +13254,7 @@ snapshots:
       tsx: 4.20.5
       yaml: 2.8.1
 
-  vitest@2.1.9(@edge-runtime/vm@5.0.0)(@types/node@22.18.6)(lightningcss@1.30.1):
+  vitest@2.1.9(@edge-runtime/vm@5.0.0)(@types/node@22.18.6)(happy-dom@18.0.1)(lightningcss@1.30.1):
     dependencies:
       '@vitest/expect': 2.1.9
       '@vitest/mocker': 2.1.9(vite@5.4.20(@types/node@22.18.6)(lightningcss@1.30.1))
@@ -13237,6 +13279,7 @@ snapshots:
     optionalDependencies:
       '@edge-runtime/vm': 5.0.0
       '@types/node': 22.18.6
+      happy-dom: 18.0.1
     transitivePeerDependencies:
       - less
       - lightningcss
@@ -13286,6 +13329,8 @@ snapshots:
       websocket-extensions: 0.1.4
 
   websocket-extensions@0.1.4: {}
+
+  whatwg-mimetype@3.0.0: {}
 
   whatwg-url@14.2.0:
     dependencies:
