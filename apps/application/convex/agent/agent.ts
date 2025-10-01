@@ -15,7 +15,7 @@ import {
   legislationReadTool,
   planAndTrackTool,
   markTaskCompleteTool,
-  rewriteEscritoSectionTool
+  insertContentTool
 } from "./tools/index";
 
 /**
@@ -59,7 +59,7 @@ export const agent = new Agent(components.agent, {
     readLegislation: legislationReadTool,
     planAndTrack: planAndTrackTool,
     markTaskComplete: markTaskCompleteTool,
-    // rewriteEscritoSection: rewriteEscritoSectionTool,
+    // insertContent: insertContentTool,
   }
 });
 

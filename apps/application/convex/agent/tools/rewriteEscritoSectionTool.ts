@@ -69,7 +69,7 @@ export const rewriteEscritoSectionTool = createTool({
       if (!escrito) return createErrorResponse("Escrito not found");
       if (escrito.caseId !== caseId) return createErrorResponse("Escrito does not belong to current case");
 
-      const res = await ctx.runMutation(api.functions.escritosTransforms.rewriteSectionByAnchors, {
+      const res = await ctx.runMutation(api.functions.escritosTransforms.index.rewriteSectionByAnchors, {
         escritoId: args.escritoId as any,
         targetText: args.targetText,
         anchors: {
