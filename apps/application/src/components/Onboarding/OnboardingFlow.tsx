@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -139,20 +139,25 @@ export const OnboardingFlow: React.FC = () => {
   const handleComplete = async () => {
     setIsLoading(true);
     try {
-      const onboardingData = {
-        fullName: formData.fullName,
-        hasDespacho: formData.hasDespacho,
-        despachoName: formData.despachoName,
-        firmName: formData.firmName,
-        workLocation: formData.workLocation,
-        role: formData.role,
-        barNumber: formData.barNumber,
-        experienceYears: formData.experienceYears,
-        bio: formData.bio,
-        specializations: formData.specializations,
+      // Construir objeto solo con campos que tienen valores válidos (no null, no undefined, no strings vacíos)
+      const onboardingData: any = {
         onboardingStep: 9,
         isOnboardingComplete: true,
       };
+
+      // Solo agregar campos con valores válidos
+      if (formData.fullName) onboardingData.fullName = formData.fullName;
+      if (formData.hasDespacho !== null) onboardingData.hasDespacho = formData.hasDespacho;
+      if (formData.despachoName) onboardingData.despachoName = formData.despachoName;
+      if (formData.firmName) onboardingData.firmName = formData.firmName;
+      if (formData.workLocation) onboardingData.workLocation = formData.workLocation;
+      if (formData.role) onboardingData.role = formData.role;
+      if (formData.barNumber) onboardingData.barNumber = formData.barNumber;
+      if (formData.experienceYears) onboardingData.experienceYears = formData.experienceYears;
+      if (formData.bio) onboardingData.bio = formData.bio;
+      if (formData.specializations && formData.specializations.length > 0) {
+        onboardingData.specializations = formData.specializations;
+      }
 
       await updateOnboarding(onboardingData);
 
@@ -164,203 +169,216 @@ export const OnboardingFlow: React.FC = () => {
     }
   };
 
+  // Validar si el botón "Siguiente" debe estar deshabilitado
+  const isNextDisabled = () => {
+    if (currentStep === 2 && !formData.fullName) return true;
+    if (currentStep === 3 && !formData.despachoName) return true;
+    if (currentStep === 5 && formData.role === null) return true;
+    return false;
+  };
+
+  // Manejar tecla Enter
+  useEffect(() => {
+    const handleKeyPress = (e: KeyboardEvent) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+
+        if (currentStep === 9) {
+          if (!isLoading) {
+            handleComplete();
+          }
+        } else if (currentStep > 1) {
+          if (!isNextDisabled()) {
+            handleNext();
+          }
+        } else if (currentStep === 1) {
+          handleNext();
+        }
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyPress);
+    return () => window.removeEventListener("keydown", handleKeyPress);
+  }, [currentStep, formData, isLoading]);
+
   const renderStep = () => {
     switch (currentStep) {
       // Paso 1: Bienvenida
       case 1:
         return (
-          <div className="space-y-6">
-            <div className="text-center">
-              <h2 className="text-[24px] font-[400] mb-2 text-tertiary">
-                ¡Bienvenido a iAlex!
-              </h2>
-              <p className="text-black mb-10 text-[14px]">
-                Vamos a configurar su perfil profesional
-              </p>
-              <Button
-                onClick={handleNext}
-                className="bg-tertiary rounded-[8px] text-white hover:bg-tertiary/90 px-20"
-                size={"lg"}
-              >
-                Comenzar
-              </Button>
-            </div>
+          <div className="text-center max-w-xl  w-full">
+            <h2 className="text-2xl 2xl:text-3xl font-[400] mb-3 md:mb-4 text-tertiary">
+              ¡Bienvenido a iAlex!
+            </h2>
+            <p className="text-black mb-8 md:mb-10 text-sm md:text-base">
+              Vamos a configurar su perfil profesional
+            </p>
+            <Button
+              onClick={handleNext}
+              className="bg-tertiary rounded-[8px] text-white hover:bg-tertiary/90 !px-20"
+              size={"lg"}
+            >
+              Comenzar
+            </Button>
           </div>
         );
 
       // Paso 2: Información básica
       case 2:
         return (
-          <div className="space-y-6">
-            <div className="text-center flex flex-col items-center">
-              <h2 className="text-[24px] font-[400] mb-2 text-tertiary">
-                ¿Cuál es su nombre?
-              </h2>
-              <Input
-                type="text"
-                value={formData.fullName || ""}
-                onChange={(e) =>
-                  setFormData({ ...formData, fullName: e.target.value })
-                }
-                className="bg-white placeholder:text-gray-400 max-w-[254px] rounded-full h-[26px]"
-                placeholder="Nombre y apellido"
-              />
-            </div>
+          <div className="text-center flex flex-col items-center max-w-xl w-full">
+            <h2 className="text-[24px] 2xl:text-3xl font-[400] mb-4 text-tertiary">
+              ¿Cuál es su nombre?
+            </h2>
+            <Input
+              type="text"
+              value={formData.fullName || ""}
+              onChange={(e) =>
+                setFormData({ ...formData, fullName: e.target.value })
+              }
+              className="bg-white placeholder:text-gray-400 max-w-[254px] 2xl:w-full  rounded-full h-[26px]"
+              placeholder="Nombre y apellido"
+            />
           </div>
         );
 
       // Paso 3: ¿Tiene despacho?
       case 3:
         return (
-          <div className="space-y-6">
-            <div className="text-center flex flex-col items-center">
-              <h2 className="text-[24px] font-[400] mb-2 text-tertiary">
-                ¿Cuál es el nombre de su despacho?
-              </h2>
-              <Input
-                type="text"
-                value={formData.despachoName || ""}
-                onChange={(e) => {
-                  const value = e.target.value;
-                  setFormData({
-                    ...formData,
-                    despachoName: value,
-                    hasDespacho: value.length > 0 ? true : null,
-                  });
-                }}
-                className="bg-white placeholder:text-gray-400 max-w-[254px] rounded-full h-[26px]"
-                placeholder="Ej: Pérez & Asociados"
-              />
-            </div>
+          <div className="text-center flex flex-col items-center max-w-xl w-full">
+            <h2 className="text-[24px] 2xl:text-3xl font-[400] mb-4 text-tertiary">
+              ¿Cuál es el nombre de su despacho?
+            </h2>
+            <Input
+              type="text"
+              value={formData.despachoName || ""}
+              onChange={(e) => {
+                const value = e.target.value;
+                setFormData({
+                  ...formData,
+                  despachoName: value,
+                  hasDespacho: value.length > 0 ? true : null,
+                });
+              }}
+              className="bg-white placeholder:text-gray-400 max-w-[254px] 2xl:w-full  rounded-full h-[26px]"
+              placeholder="Ej: Pérez & Asociados"
+            />
           </div>
         );
 
       // Paso 4: Información del despacho (CONDICIONAL)
       case 4:
         return (
-          <div className="space-y-6">
-            <div className="text-center flex flex-col items-center">
-              <h2 className="text-[24px] font-[400] mb-2 text-tertiary">
-                ¿Donde se encuentra el despacho?
-              </h2>
-              <Input
-                type="text"
-                value={formData.workLocation || ""}
-                onChange={(e) => {
-                  const value = e.target.value;
-                  setFormData({
-                    ...formData,
-                    workLocation: value,
-                  });
-                }}
-                className="bg-white placeholder:text-gray-400 max-w-[254px] rounded-full h-[26px]"
-                placeholder="Ej: Buenos Aires, Argentina"
-              />
-            </div>
+          <div className="text-center flex flex-col items-center max-w-xl w-full">
+            <h2 className="text-[24px] 2xl:text-3xl font-[400] mb-4 text-tertiary">
+              ¿Dónde se encuentra el despacho?
+            </h2>
+            <Input
+              type="text"
+              value={formData.workLocation || ""}
+              onChange={(e) => {
+                const value = e.target.value;
+                setFormData({
+                  ...formData,
+                  workLocation: value,
+                });
+              }}
+              className="bg-white placeholder:text-gray-400 max-w-[254px] 2xl:w-full  rounded-full h-[26px]"
+              placeholder="Ej: Buenos Aires, Argentina"
+            />
           </div>
         );
 
       // Paso 5: ¿Cuál es su rol?
       case 5:
         return (
-          <div className="space-y-6">
-            <div className="text-center flex flex-col items-center">
-              <h2 className="text-[24px] font-[400] mb-2 text-tertiary">
-                ¿Cuál es su rol allí?
-              </h2>
-              <Select
-                value={formData.role || undefined}
-                onValueChange={(value) =>
-                  setFormData({ ...formData, role: value as any })
-                }
-              >
-                <SelectTrigger className="bg-white max-w-[254px]">
-                  <SelectValue placeholder="Selecciona un rol" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectGroup>
-                    <SelectItem value="abogado" className="hover:bg-gray-100">
-                      Abogado
-                    </SelectItem>
-                    <SelectItem
-                      value="secretario"
-                      className="hover:bg-gray-100"
-                    >
-                      Secretario/a
-                    </SelectItem>
-                    <SelectItem value="asistente" className="hover:bg-gray-100">
-                      Asistente legal
-                    </SelectItem>
-                    <SelectItem value="otro" className="hover:bg-gray-100">
-                      Otro
-                    </SelectItem>
-                  </SelectGroup>
-                </SelectContent>
-              </Select>
-            </div>
+          <div className="text-center flex flex-col items-center max-w-xl w-full">
+            <h2 className="text-[24px] 2xl:text-3xl font-[400] mb-4 text-tertiary">
+              ¿Cuál es su rol allí?
+            </h2>
+            <Select
+              value={formData.role || undefined}
+              onValueChange={(value) =>
+                setFormData({ ...formData, role: value as any })
+              }
+            >
+              <SelectTrigger className="bg-white max-w-[254px]">
+                <SelectValue placeholder="Selecciona un rol" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectGroup>
+                  <SelectItem value="abogado" className="hover:bg-gray-100">
+                    Abogado
+                  </SelectItem>
+                  <SelectItem value="secretario" className="hover:bg-gray-100">
+                    Secretario/a
+                  </SelectItem>
+                  <SelectItem value="asistente" className="hover:bg-gray-100">
+                    Asistente legal
+                  </SelectItem>
+                  <SelectItem value="otro" className="hover:bg-gray-100">
+                    Otro
+                  </SelectItem>
+                </SelectGroup>
+              </SelectContent>
+            </Select>
           </div>
         );
 
       // Paso 6: Número de matrícula (CONDICIONAL - solo abogados)
       case 6:
         return (
-          <div className="space-y-6">
-            <div className="text-center flex flex-col items-center">
-              <h2 className="text-[24px] font-[400] mb-2 text-tertiary">
-                ¿Cual es su numero de matrícula?
-              </h2>
-              <Input
-                type="text"
-                value={formData.barNumber || ""}
-                onChange={(e) => {
-                  const value = e.target.value;
-                  setFormData({
-                    ...formData,
-                    barNumber: value,
-                  });
-                }}
-                className="bg-white placeholder:text-gray-400 max-w-[254px] rounded-full h-[26px]"
-                placeholder="Ej: 123456"
-              />
-            </div>
+          <div className="text-center flex flex-col items-center max-w-xl w-full">
+            <h2 className="text-[24px] 2xl:text-3xl font-[400] mb-4 text-tertiary">
+              ¿Cuál es su número de matrícula?
+            </h2>
+            <Input
+              type="text"
+              value={formData.barNumber || ""}
+              onChange={(e) => {
+                const value = e.target.value;
+                setFormData({
+                  ...formData,
+                  barNumber: value,
+                });
+              }}
+              className="bg-white placeholder:text-gray-400 max-w-[254px] 2xl:w-full rounded-full h-[26px]"
+              placeholder="Ej: 123456"
+            />
           </div>
         );
 
       // Paso 7: Cuéntenos sobre usted
       case 7:
         return (
-          <div className="space-y-6">
-            <div className="text-center flex flex-col items-center">
-              <h2 className="text-[24px] font-[400] mb-2 text-tertiary">
-                Cuéntenos sobre usted
-              </h2>
-              <Textarea
-                value={formData.bio || ""}
-                onChange={(e) => {
-                  const value = e.target.value;
-                  setFormData({
-                    ...formData,
-                    bio: value,
-                  });
-                }}
-                className="bg-white placeholder:text-gray-400   h-[26px]"
-                placeholder="Ej: Abogado especializado en siniestros"
-              />
-            </div>
+          <div className="text-center flex flex-col items-center max-w-xl w-full">
+            <h2 className="text-[24px] 2xl:text-3xl font-[400] mb-4 text-tertiary">
+              Cuéntenos sobre usted
+            </h2>
+            <Textarea
+              value={formData.bio || ""}
+              onChange={(e) => {
+                const value = e.target.value;
+                setFormData({
+                  ...formData,
+                  bio: value,
+                });
+              }}
+              className="bg-white placeholder:text-gray-400 h-[26px] "
+              placeholder="Ej: Abogado especializado en siniestros"
+            />
           </div>
         );
 
       // Paso 8: Especialización
       case 8:
         return (
-          <div className="space-y-4">
-            <div className="text-center">
-              <h2 className="text-[24px] font-[400] mb-2 text-tertiary">
-                ¿En que area se especializa?
-              </h2>
-            </div>
+          <div className="flex flex-col items-center max-w-2xl w-full">
+            <h2 className="text-[24px] 2xl:text-3xl font-[400] mb-4 text-tertiary text-center">
+              ¿En qué área se especializa?
+            </h2>
 
-            <div className="grid grid-cols-3 gap-2 max-w-[550px] mx-auto max-h-[200px] overflow-y-auto">
+            <div className="grid grid-cols-3 gap-2 w-full max-w-[550px] max-h-[200px] overflow-y-auto">
               {legalSpecializations.map((specialization) => (
                 <label
                   key={specialization}
@@ -387,7 +405,7 @@ export const OnboardingFlow: React.FC = () => {
                       </div>
                     )}
                   </div>
-                  <span className="text-left leading-tight">
+                  <span className="text-left leading-tight ">
                     {specialization}
                   </span>
                 </label>
@@ -399,15 +417,13 @@ export const OnboardingFlow: React.FC = () => {
       // Paso 9: Despedida
       case 9:
         return (
-          <div className="space-y-6">
-            <div className="text-center flex flex-col items-center">
-              <h2 className="text-[24px] font-[400] mb-2 text-tertiary">
-                ¡Gracias por responder!
-              </h2>
-              <p className="text-black mb-10 text-[14px]">
-                Empecemos a trabajar juntos
-              </p>
-            </div>
+          <div className="text-center flex flex-col items-center max-w-xl w-full">
+            <h2 className="text-[24px] 2xl:text-3xl font-[400] mb-4 text-tertiary">
+              ¡Gracias por responder!
+            </h2>
+            <p className="text-black text-[14px]">
+              Empecemos a trabajar juntos
+            </p>
           </div>
         );
 
@@ -417,12 +433,17 @@ export const OnboardingFlow: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen  flex items-center justify-center p-4">
-      <div className=" h-[385px] w-[669px] relative bg-[#F4F7FC] rounded-[8px] flex flex-col justify-start items-center ">
-        {/* Progress indicator */}
-        <div
-          className={`${currentStep === 8 ? "mb-10" : "mb-20"} mt-2 w-full px-8`}
-        >
+    <div className="h-screen flex items-center justify-center p-4">
+      <div className="w-[70%] h-[60%] 2xl:w-[50%] 2xl:h-[45%] bg-[#F4F7FC] rounded-[8px] flex flex-col">
+        {/* Header con Progress indicator - siempre arriba */}
+        <div className="flex-shrink-0 w-full px-8 pt-2 pb-4 relative">
+          <Button
+            variant={"ghost"}
+            className="top-10 left-2 text-[12px] text-gray-500  absolute"
+            onClick={handleBack}
+          >
+            Volver
+          </Button>
           <div className="flex justify-between items-center mb-2">
             <span className="text-xs text-gray-600">
               Paso {currentStep} de 9
@@ -439,11 +460,13 @@ export const OnboardingFlow: React.FC = () => {
           </div>
         </div>
 
-        {/* Step content */}
-        {renderStep()}
+        {/* Step content - centrado verticalmente en el espacio restante */}
+        <div className="flex-1 flex items-center justify-center px-4">
+          {renderStep()}
+        </div>
 
-        {/* Navigation buttons */}
-        <div className="flex flex-col justify-between mt-8">
+        {/* Navigation buttons - siempre abajo */}
+        <div className="flex-shrink-0 flex flex-col items-center pb-8 px-4">
           {currentStep === 9 ? (
             <Button
               onClick={handleComplete}
@@ -458,11 +481,7 @@ export const OnboardingFlow: React.FC = () => {
               <Button
                 onClick={handleNext}
                 className="bg-white flex gap-1 text-[14px]  text-black hover:bg-white/90 !py-1 !px-15"
-                disabled={
-                  (currentStep === 2 && !formData.fullName) ||
-                  (currentStep === 3 && !formData.despachoName) ||
-                  (currentStep === 5 && formData.role === null)
-                }
+                disabled={isNextDisabled()}
               >
                 Siguiente
                 <CircleArrowRight className=" text-tertiary " size={10} />
@@ -481,7 +500,7 @@ export const OnboardingFlow: React.FC = () => {
                   }}
                   className="text-blue-500 !text-[12px]"
                 >
-                  Soy autonomo
+                  Soy autónomo
                 </Button>
               )}
               {currentStep === 4 && (
