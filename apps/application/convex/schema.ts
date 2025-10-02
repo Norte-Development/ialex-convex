@@ -54,6 +54,7 @@ export default defineSchema({
     // Extended profile information (collected during onboarding)
     specializations: v.optional(v.array(v.string())), // Legal specializations
     barNumber: v.optional(v.string()), // Bar registration number
+    hasDespacho: v.optional(v.boolean()), // Whether user works at a law firm
     firmName: v.optional(v.string()), // Law firm name
     workLocation: v.optional(v.string()), // Work location/city
     experienceYears: v.optional(v.number()), // Years of experience

@@ -12,6 +12,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { toast } from "sonner";
 
 interface OnboardingData {
   // Paso 2: Nombre
@@ -167,7 +168,7 @@ export const OnboardingFlow: React.FC = () => {
 
       console.log("✅ Onboarding completado exitosamente");
     } catch (error) {
-      console.error("❌ Error completing onboarding:", error);
+      toast.error(`❌ Error completing onboarding: ${error instanceof Error ? error.message : String(error)}`);
     } finally {
       setIsLoading(false);
     }
