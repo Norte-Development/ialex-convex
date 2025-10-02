@@ -60,7 +60,7 @@ export {
 } from "./testReadEscritoHelpers";
 
 // Template Management (Modelos)
-export { createModelo, getModelos, getModelo, incrementModeloUsage } from "./templates";
+export { createModelo, getModelos, getModelo, searchModelos, incrementModeloUsage } from "./templates";
 
 // Team Management
 export {

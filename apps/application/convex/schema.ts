@@ -242,7 +242,11 @@ export default defineSchema({
     .index("by_category", ["category"])
     .index("by_created_by", ["createdBy"])
     .index("by_public_status", ["isPublic"])
-    .index("by_active_status", ["isActive"]),
+    .index("by_active_status", ["isActive"])
+    .searchIndex("search_templates", {
+      searchField: "name",
+      filterFields: ["category", "isPublic", "isActive", "createdBy"]
+    }),
 
   // Teams - organizational teams/departments for firm management
   teams: defineTable({

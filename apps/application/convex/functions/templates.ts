@@ -265,6 +265,124 @@ export const getModelo = query({
 });
 
 /**
+ * Search templates using full-text search with optional filtering.
+ * 
+ * @param {Object} args - The function arguments
+ * @param {string} args.searchTerm - The search term to look for in template names
+ * @param {Object} args.paginationOpts - Pagination options (numItems, cursor)
+ * @param {string} [args.category] - Filter by category
+ * @param {boolean} [args.isPublic] - Filter by public/private status
+ * @param {string} [args.content_type] - Filter by content format
+ * @returns {Promise<Object>} Paginated result with page, isDone, and continueCursor
+ * @throws {Error} When not authenticated
+ * 
+ * @description This function performs full-text search on template names using Convex's
+ * search index. It returns templates that the user can access (public templates or
+ * their own private templates) and matches the search criteria.
+ * 
+ * The search is performed on the template name field and can be combined with
+ * additional filters for category, public status, and content type.
+ * 
+ * @example
+ * ```javascript
+ * // Search for templates containing "demanda"
+ * const result = await searchModelos({ 
+ *   searchTerm: "demanda",
+ *   paginationOpts: { numItems: 20, cursor: null } 
+ * });
+ * 
+ * // Search with additional filters
+ * const civilTemplates = await searchModelos({ 
+ *   searchTerm: "civil",
+ *   paginationOpts: { numItems: 10, cursor: null },
+ *   category: "Derecho Civil",
+ *   isPublic: true 
+ * });
+ * ```
+ */
+export const searchModelos = query({
+  args: {
+    searchTerm: v.string(),
+    paginationOpts: paginationOptsValidator,
+    category: v.optional(v.string()),
+    isPublic: v.optional(v.boolean()),
+    content_type: v.optional(v.string()),
+  },
+  returns: v.object({
+    page: v.array(v.object({
+      _id: v.id("modelos"),
+      _creationTime: v.number(),
+      name: v.string(),
+      description: v.optional(v.string()),
+      category: v.string(),
+      content: v.optional(v.string()),
+      content_type: v.optional(v.string()),
+      mimeType: v.optional(v.string()),
+      originalFileName: v.optional(v.string()),
+      isPublic: v.boolean(),
+      createdBy: v.union(v.id("users"), v.literal("system")),
+      tags: v.optional(v.array(v.string())),
+      usageCount: v.number(),
+      isActive: v.boolean(),
+    })),
+    isDone: v.boolean(),
+    continueCursor: v.union(v.string(), v.null()),
+  }),
+  handler: async (ctx, args) => {
+    const currentUser = await getCurrentUserFromAuth(ctx);
+    
+    // Build the search query with filters
+    let searchQuery = ctx.db
+      .query("modelos")
+      .withSearchIndex("search_templates", (q) => {
+        let query = q.search("name", args.searchTerm);
+        
+        // Apply filters
+        if (args.category) {
+          query = query.eq("category", args.category);
+        }
+        if (args.isPublic !== undefined) {
+          query = query.eq("isPublic", args.isPublic);
+        }
+        query = query.eq("isActive", true); // Only active templates
+        
+        return query;
+      });
+    
+    // Get all matching templates first (we need to filter by access permissions)
+    const allModelos = await searchQuery.collect();
+    
+    // Filter to show only public templates OR private templates created by current user
+    let filteredModelos = allModelos.filter(m => 
+      m.isPublic || m.createdBy === currentUser._id
+    );
+    
+    // Apply additional filters that aren't supported by the search index
+    if (args.content_type) {
+      filteredModelos = filteredModelos.filter(m => m.content_type === args.content_type);
+    }
+    
+    // Sort by creation time (newest first) for consistent pagination
+    filteredModelos.sort((a, b) => b._creationTime - a._creationTime);
+    
+    // Implement pagination manually since we need to filter after collection
+    const { numItems, cursor } = args.paginationOpts;
+    const startIndex = cursor ? parseInt(cursor, 10) : 0;
+    const endIndex = startIndex + numItems;
+    
+    const page = filteredModelos.slice(startIndex, endIndex);
+    const isDone = endIndex >= filteredModelos.length;
+    const continueCursor = isDone ? null : endIndex.toString();
+    
+    return {
+      page,
+      isDone,
+      continueCursor,
+    };
+  },
+});
+
+/**
  * Increments the usage count for a template when it's used.
  * 
  * @param {Object} args - The function arguments

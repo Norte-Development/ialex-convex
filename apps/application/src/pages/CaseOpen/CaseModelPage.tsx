@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import type { Id } from "../../../convex/_generated/dataModel";
@@ -23,23 +23,31 @@ export default function CaseModelPage() {
   );
   const [searchValue, setSearchValue] = useState("");
 
-  const templates = useQuery(api.functions.templates.getModelos, {
-    paginationOpts: { numItems: 100, cursor: null }
-  });
-  const isLoadingTemplates = templates === undefined;
+  // Use search when there's a search term, otherwise use regular list
+  const hasSearchTerm = searchValue.trim().length > 0;
 
-  const modelos = useMemo(() => {
-    const allTemplates = templates?.page ?? [];
-    if (!searchValue.trim()) return allTemplates;
-    
-    const searchLower = searchValue.toLowerCase();
-    return allTemplates.filter(template => 
-      template.name.toLowerCase().includes(searchLower) ||
-      template.category.toLowerCase().includes(searchLower) ||
-      template.description?.toLowerCase().includes(searchLower) ||
-      template.tags?.some(tag => tag.toLowerCase().includes(searchLower))
-    );
-  }, [templates, searchValue]);
+  const searchResults = useQuery(
+    api.functions.templates.searchModelos,
+    hasSearchTerm
+      ? {
+          searchTerm: searchValue.trim(),
+          paginationOpts: { numItems: 100, cursor: null }
+        }
+      : "skip",
+  );
+
+  const listResults = useQuery(
+    api.functions.templates.getModelos,
+    !hasSearchTerm
+      ? {
+          paginationOpts: { numItems: 100, cursor: null }
+        }
+      : "skip",
+  );
+
+  const templates = hasSearchTerm ? searchResults : listResults;
+  const isLoadingTemplates = templates === undefined;
+  const modelos = templates?.page ?? [];
 
   const createEscrito = useMutation(api.functions.documents.createEscrito);
 
