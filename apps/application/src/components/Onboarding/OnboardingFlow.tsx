@@ -40,15 +40,50 @@ interface OnboardingData {
   specializations: string[];
 }
 
+const STORAGE_KEY = "ialex-onboarding-progress";
+
 export const OnboardingFlow: React.FC = () => {
   const { user, updateOnboarding } = useAuth();
-  const [currentStep, setCurrentStep] = useState(1);
-  const [formData, setFormData] = useState<OnboardingData>({
-    hasDespacho: null,
-    role: null,
-    specializations: [],
-  });
+
+  // Cargar datos persistidos al iniciar
+  const loadPersistedData = () => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        return {
+          step: parsed.step || 1,
+          data: parsed.data || {
+            hasDespacho: null,
+            role: null,
+            specializations: [],
+          },
+        };
+      }
+    } catch (error) {
+      console.error("Error loading persisted onboarding data:", error);
+    }
+    return {
+      step: 1,
+      data: { hasDespacho: null, role: null, specializations: [] },
+    };
+  };
+
+  const persisted = loadPersistedData();
+  const [currentStep, setCurrentStep] = useState(persisted.step);
+  const [formData, setFormData] = useState<OnboardingData>(persisted.data);
   const [isLoading, setIsLoading] = useState(false);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(
+        STORAGE_KEY,
+        JSON.stringify({ step: currentStep, data: formData }),
+      );
+    } catch (error) {
+      console.error("Error saving onboarding progress:", error);
+    }
+  }, [currentStep, formData]);
 
   const legalSpecializations = [
     "Derecho Civil",
@@ -164,6 +199,8 @@ export const OnboardingFlow: React.FC = () => {
       }
 
       await updateOnboarding(onboardingData);
+
+      localStorage.removeItem(STORAGE_KEY);
 
       console.log("✅ Onboarding completado exitosamente");
     } catch (error) {
