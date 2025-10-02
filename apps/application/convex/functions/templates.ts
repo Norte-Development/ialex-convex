@@ -1,5 +1,6 @@
 import { v } from "convex/values";
 import { query, mutation } from "../_generated/server";
+import { paginationOptsValidator } from "convex/server";
 import { getCurrentUserFromAuth } from "../auth_utils";
 
 // ========================================
@@ -87,13 +88,14 @@ export const createModelo = mutation({
 });
 
 /**
- * Retrieves templates accessible to the current user with optional filtering.
+ * Retrieves templates accessible to the current user with optional filtering and pagination.
  * 
  * @param {Object} args - The function arguments
+ * @param {Object} args.paginationOpts - Pagination options (numItems, cursor)
  * @param {"json" | "html"} [args.content_type] - Filter by content format
  * @param {string} [args.category] - Filter by category
  * @param {boolean} [args.isPublic] - Filter by public/private status
- * @returns {Promise<Object[]>} Array of template documents accessible to the user
+ * @returns {Promise<Object>} Paginated result with page, isDone, and continueCursor
  * @throws {Error} When not authenticated
  * 
  * @description This function returns templates that the user can access, which includes:
@@ -102,46 +104,78 @@ export const createModelo = mutation({
  * 
  * The results can be filtered by content type, category, or public status.
  * Only active templates are returned.
+ * Results are paginated for better performance with large template collections.
  * 
  * @example
  * ```javascript
- * // Get all accessible templates
- * const allTemplates = await getModelos({});
+ * // Get first page of all accessible templates (20 items)
+ * const result = await getModelos({ 
+ *   paginationOpts: { numItems: 20, cursor: null } 
+ * });
  * 
- * // Get only HTML templates
- * const htmlTemplates = await getModelos({ content_type: "html" });
+ * // Get next page using cursor
+ * const nextPage = await getModelos({ 
+ *   paginationOpts: { numItems: 20, cursor: result.continueCursor } 
+ * });
+ * 
+ * // Get only HTML templates with pagination
+ * const htmlTemplates = await getModelos({ 
+ *   paginationOpts: { numItems: 10, cursor: null },
+ *   content_type: "html" 
+ * });
  * 
  * // Get only public civil law templates
  * const civilTemplates = await getModelos({ 
+ *   paginationOpts: { numItems: 15, cursor: null },
  *   category: "Derecho Civil",
  *   isPublic: true 
  * });
- * 
- * // Get only my private templates
- * const myPrivateTemplates = await getModelos({ isPublic: false });
  * ```
  */
 export const getModelos = query({
   args: {
+    paginationOpts: paginationOptsValidator,
     category: v.optional(v.string()),
     isPublic: v.optional(v.boolean()),
     content_type: v.optional(v.string()),
   },
+  returns: v.object({
+    page: v.array(v.object({
+      _id: v.id("modelos"),
+      _creationTime: v.number(),
+      name: v.string(),
+      description: v.optional(v.string()),
+      category: v.string(),
+      content: v.optional(v.string()),
+      content_type: v.optional(v.string()),
+      mimeType: v.optional(v.string()),
+      originalFileName: v.optional(v.string()),
+      isPublic: v.boolean(),
+      createdBy: v.union(v.id("users"), v.literal("system")),
+      tags: v.optional(v.array(v.string())),
+      usageCount: v.number(),
+      isActive: v.boolean(),
+    })),
+    isDone: v.boolean(),
+    continueCursor: v.union(v.string(), v.null()),
+  }),
   handler: async (ctx, args) => {
     const currentUser = await getCurrentUserFromAuth(ctx);
     
+    // Start with all active templates
     let modelosQuery = ctx.db
       .query("modelos")
       .withIndex("by_active_status", (q) => q.eq("isActive", true));
     
-    const modelos = await modelosQuery.collect();
+    // Get all templates first (we need to filter by access permissions)
+    const allModelos = await modelosQuery.collect();
     
     // Filter to show only public templates OR private templates created by current user
-    let filteredModelos = modelos.filter(m => 
+    let filteredModelos = allModelos.filter(m => 
       m.isPublic || m.createdBy === currentUser._id
     );
     
-    
+    // Apply additional filters
     if (args.category) {
       filteredModelos = filteredModelos.filter(m => m.category === args.category);
     }
@@ -154,7 +188,23 @@ export const getModelos = query({
       filteredModelos = filteredModelos.filter(m => m.isPublic === args.isPublic);
     }
     
-    return filteredModelos;
+    // Sort by creation time (newest first) for consistent pagination
+    filteredModelos.sort((a, b) => b._creationTime - a._creationTime);
+    
+    // Implement pagination manually since we need to filter after collection
+    const { numItems, cursor } = args.paginationOpts;
+    const startIndex = cursor ? parseInt(cursor, 10) : 0;
+    const endIndex = startIndex + numItems;
+    
+    const page = filteredModelos.slice(startIndex, endIndex);
+    const isDone = endIndex >= filteredModelos.length;
+    const continueCursor = isDone ? null : endIndex.toString();
+    
+    return {
+      page,
+      isDone,
+      continueCursor,
+    };
   },
 });
 

@@ -23,11 +23,13 @@ export default function CaseModelPage() {
   );
   const [searchValue, setSearchValue] = useState("");
 
-  const templates = useQuery(api.functions.templates.getModelos, {});
+  const templates = useQuery(api.functions.templates.getModelos, {
+    paginationOpts: { numItems: 100, cursor: null }
+  });
   const isLoadingTemplates = templates === undefined;
 
   const modelos = useMemo(() => {
-    const allTemplates = templates ?? [];
+    const allTemplates = templates?.page ?? [];
     if (!searchValue.trim()) return allTemplates;
     
     const searchLower = searchValue.toLowerCase();

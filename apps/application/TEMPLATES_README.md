@@ -64,28 +64,104 @@ const jsonTemplateId = await createTemplate({
 import { api } from "@/convex/_generated/api";
 import { useQuery } from "convex/react";
 
-// Get all accessible templates
-const allTemplates = useQuery(api.functions.getModelos, {});
+// Get first page of all accessible templates (20 items)
+const firstPage = useQuery(api.functions.templates.getModelos, {
+  paginationOpts: { numItems: 20, cursor: null }
+});
 
-// Filter by category
-const civilTemplates = useQuery(api.functions.getModelos, {
+// Get next page using cursor
+const nextPage = useQuery(api.functions.templates.getModelos, {
+  paginationOpts: { 
+    numItems: 20, 
+    cursor: firstPage?.continueCursor || null 
+  }
+});
+
+// Filter by category with pagination
+const civilTemplates = useQuery(api.functions.templates.getModelos, {
+  paginationOpts: { numItems: 15, cursor: null },
   category: "Derecho Civil"
 });
 
-// Filter by content type
-const htmlTemplates = useQuery(api.functions.getModelos, {
+// Filter by content type with pagination
+const htmlTemplates = useQuery(api.functions.templates.getModelos, {
+  paginationOpts: { numItems: 10, cursor: null },
   content_type: "html"
 });
 
-// Get only public templates
-const publicTemplates = useQuery(api.functions.getModelos, {
+// Get only public templates with pagination
+const publicTemplates = useQuery(api.functions.templates.getModelos, {
+  paginationOpts: { numItems: 25, cursor: null },
   isPublic: true
 });
 
 // Get a specific template
-const template = useQuery(api.functions.getModelo, {
+const template = useQuery(api.functions.templates.getModelo, {
   modeloId: "template_id_here"
 });
+```
+
+### Pagination Response Structure
+
+The `getModelos` query returns a paginated response with the following structure:
+
+```typescript
+{
+  page: Template[],           // Array of template documents
+  isDone: boolean,           // Whether this is the last page
+  continueCursor: string | null  // Cursor for the next page (null if isDone is true)
+}
+```
+
+### Pagination Best Practices
+
+1. **Page Size**: Use reasonable page sizes (10-50 items) for optimal performance
+2. **Cursor Management**: Always check `isDone` before attempting to load more pages
+3. **State Management**: Store the current cursor in your component state for navigation
+4. **Loading States**: Show loading indicators while fetching new pages
+5. **Error Handling**: Handle cases where pagination fails gracefully
+
+```typescript
+// Example React component with pagination
+function TemplateList() {
+  const [cursor, setCursor] = useState<string | null>(null);
+  const [templates, setTemplates] = useState<Template[]>([]);
+  
+  const { data, isLoading } = useQuery(api.functions.templates.getModelos, {
+    paginationOpts: { numItems: 20, cursor }
+  });
+  
+  useEffect(() => {
+    if (data) {
+      if (cursor === null) {
+        // First page
+        setTemplates(data.page);
+      } else {
+        // Append to existing templates
+        setTemplates(prev => [...prev, ...data.page]);
+      }
+    }
+  }, [data, cursor]);
+  
+  const loadMore = () => {
+    if (data && !data.isDone) {
+      setCursor(data.continueCursor);
+    }
+  };
+  
+  return (
+    <div>
+      {templates.map(template => (
+        <TemplateCard key={template._id} template={template} />
+      ))}
+      {data && !data.isDone && (
+        <button onClick={loadMore} disabled={isLoading}>
+          {isLoading ? 'Loading...' : 'Load More'}
+        </button>
+      )}
+    </div>
+  );
+}
 ```
 
 ### Using Templates
