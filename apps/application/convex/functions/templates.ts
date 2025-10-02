@@ -125,24 +125,8 @@ export const getModelos = query({
   args: {
     category: v.optional(v.string()),
     isPublic: v.optional(v.boolean()),
+    content_type: v.optional(v.string()),
   },
-  returns: v.array(
-    v.object({
-      _id: v.id("modelos"),
-      _creationTime: v.number(),
-      name: v.string(),
-      description: v.optional(v.string()),
-      category: v.string(),
-      content: v.optional(v.string()),
-      mimeType: v.optional(v.string()),
-      originalFileName: v.optional(v.string()),
-      isPublic: v.boolean(),
-      createdBy: v.union(v.id("users"), v.literal("system")),
-      tags: v.optional(v.array(v.string())),
-      usageCount: v.number(),
-      isActive: v.boolean(),
-    })
-  ),
   handler: async (ctx, args) => {
     const currentUser = await getCurrentUserFromAuth(ctx);
     
@@ -160,6 +144,10 @@ export const getModelos = query({
     
     if (args.category) {
       filteredModelos = filteredModelos.filter(m => m.category === args.category);
+    }
+
+    if (args.content_type) {
+      filteredModelos = filteredModelos.filter(m => m.content_type === args.content_type);
     }
     
     if (args.isPublic !== undefined) {

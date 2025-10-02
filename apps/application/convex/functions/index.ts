@@ -61,7 +61,6 @@ export {
 
 // Template Management (Modelos)
 export { createModelo, getModelos, getModelo, incrementModeloUsage } from "./templates";
-export { seedTemplates } from "./seedTemplates";
 
 // Team Management
 export {

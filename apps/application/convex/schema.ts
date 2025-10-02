@@ -232,6 +232,7 @@ export default defineSchema({
     content: v.optional(v.string()),
     mimeType: v.optional(v.string()),
     originalFileName: v.optional(v.string()),
+    content_type: v.optional(v.string()),
     isPublic: v.boolean(), // False = only team can access, True = anyone can access
     createdBy: v.union(v.id("users"), v.literal("system")),
     tags: v.optional(v.array(v.string())),

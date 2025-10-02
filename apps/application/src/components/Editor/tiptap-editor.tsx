@@ -1,6 +1,6 @@
 // components/editor/Tiptap.tsx
 import { useEditor, EditorContent } from "@tiptap/react";
-import { useEffect } from "react";
+import { useEffect, forwardRef, useImperativeHandle } from "react";
 import { useTiptapSync } from "@convex-dev/prosemirror-sync/tiptap";
 import { Editor, JSONContent } from "@tiptap/core";
 import { MenuBar } from "./MenuBar";
@@ -11,6 +11,7 @@ import { useEscrito } from "@/context/EscritoContext";
 import "./editor-styles.css";
 import { useTemplate } from "./template";
 import { Id } from "../../../convex/_generated/dataModel";
+import EscritosLoadingState from "../Escritos/EscritosLoadingState";
 
 interface TiptapProps {
   documentId?: string;
@@ -25,13 +26,17 @@ const EMPTY_DOC = {
   content: [{ type: "paragraph", attrs: { textAlign: null }, content: [] }],
 };
 
-export function Tiptap({
+export interface TiptapRef {
+  getContent: () => JSONContent | null;
+}
+
+export const Tiptap = forwardRef<TiptapRef, TiptapProps>(({
   documentId = "default-document",
   templateId = null,
   onReady,
   onDestroy,
   readOnly = false,
-}: TiptapProps) {
+}, ref) => {
   const sync = useTiptapSync(api.prosemirror, documentId);
   const { setEscritoId, setCursorPosition, setTextAroundCursor } = useEscrito();
 
@@ -82,10 +87,16 @@ export function Tiptap({
     if (editor) editor.setEditable(!readOnly);
   }, [editor, readOnly]);
 
+  console.log("editor", editor?.getJSON());
+
+  useImperativeHandle(ref, () => ({
+    getContent: () => editor?.getJSON() ?? null,
+  }));
+
   if (sync.isLoading)
-    return <div className="flex items-center justify-center h-96">Loading…</div>;
+    return <EscritosLoadingState />
   if (!editor)
-    return <div className="flex items-center justify-center h-96">Init…</div>;
+    return <EscritosLoadingState />
 
   return (
     <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
@@ -105,4 +116,4 @@ export function Tiptap({
       </div>
     </div>
   );
-}
+})
