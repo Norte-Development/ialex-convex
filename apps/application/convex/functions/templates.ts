@@ -2,6 +2,7 @@ import { v } from "convex/values";
 import { query, mutation } from "../_generated/server";
 import { paginationOptsValidator } from "convex/server";
 import { getCurrentUserFromAuth } from "../auth_utils";
+import { api } from "../_generated/api";
 
 // ========================================
 // MODELOS (TEMPLATES) MANAGEMENT
@@ -59,7 +60,7 @@ export const createModelo = mutation({
     description: v.optional(v.string()),
     category: v.string(),
     content: v.optional(v.string()),
-    mimeType: v.optional(v.string()),
+    content_type: v.optional(v.string()),
     originalFileName: v.optional(v.string()),
     isPublic: v.boolean(),
     tags: v.optional(v.array(v.string())),
@@ -73,7 +74,7 @@ export const createModelo = mutation({
       description: args.description,
       category: args.category,
       content: args.content,
-      mimeType: args.mimeType,
+      content_type: args.content_type,
       originalFileName: args.originalFileName,
       isPublic: args.isPublic,
       createdBy: currentUser._id,
@@ -148,7 +149,6 @@ export const getModelos = query({
       category: v.string(),
       content: v.optional(v.string()),
       content_type: v.optional(v.string()),
-      mimeType: v.optional(v.string()),
       originalFileName: v.optional(v.string()),
       isPublic: v.boolean(),
       createdBy: v.union(v.id("users"), v.literal("system")),
@@ -237,7 +237,7 @@ export const getModelo = query({
       description: v.optional(v.string()),
       category: v.string(),
       content: v.optional(v.string()),
-      mimeType: v.optional(v.string()),
+      content_type: v.optional(v.string()),
       originalFileName: v.optional(v.string()),
       isPublic: v.boolean(),
       createdBy: v.union(v.id("users"), v.literal("system")),
@@ -259,6 +259,7 @@ export const getModelo = query({
     if (!modelo.isPublic && modelo.createdBy !== currentUser._id && modelo.createdBy !== "system") {
       throw new Error("Unauthorized: Cannot access private template");
     }
+
     
     return modelo;
   },
@@ -317,7 +318,6 @@ export const searchModelos = query({
       category: v.string(),
       content: v.optional(v.string()),
       content_type: v.optional(v.string()),
-      mimeType: v.optional(v.string()),
       originalFileName: v.optional(v.string()),
       isPublic: v.boolean(),
       createdBy: v.union(v.id("users"), v.literal("system")),

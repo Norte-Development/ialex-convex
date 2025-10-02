@@ -28,7 +28,6 @@ import { JSONContent } from "@tiptap/core";
 export function useTemplate({ templateId }: { templateId: Id<"modelos"> }) {
 
     const template = useQuery(api.functions.templates.getModelo, { modeloId: templateId });
-
     const jsonDoc = generateJSON(template?.content || "", extensions);  
     return jsonDoc;
 }

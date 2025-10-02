@@ -230,7 +230,6 @@ export default defineSchema({
     description: v.optional(v.string()),
     category: v.string(), // e.g., "Derecho Civil", "Derecho Mercantil"
     content: v.optional(v.string()),
-    mimeType: v.optional(v.string()),
     originalFileName: v.optional(v.string()),
     content_type: v.optional(v.string()),
     isPublic: v.boolean(), // False = only team can access, True = anyone can access
