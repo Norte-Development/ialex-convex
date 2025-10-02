@@ -150,8 +150,7 @@ export const OnboardingFlow: React.FC = () => {
       if (formData.fullName) onboardingData.fullName = formData.fullName;
       if (formData.hasDespacho !== null)
         onboardingData.hasDespacho = formData.hasDespacho;
-      if (formData.despachoName)
-        onboardingData.despachoName = formData.despachoName;
+      onboardingData.despachoName = formData.despachoName;
       if (formData.firmName) onboardingData.firmName = formData.firmName;
       if (formData.workLocation)
         onboardingData.workLocation = formData.workLocation;
@@ -168,7 +167,9 @@ export const OnboardingFlow: React.FC = () => {
 
       console.log("✅ Onboarding completado exitosamente");
     } catch (error) {
-      toast.error(`❌ Error completing onboarding: ${error instanceof Error ? error.message : String(error)}`);
+      toast.error(
+        `❌ Error completing onboarding: ${error instanceof Error ? error.message : String(error)}`,
+      );
     } finally {
       setIsLoading(false);
     }
