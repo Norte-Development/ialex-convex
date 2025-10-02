@@ -5,30 +5,42 @@ import { generateHTML, generateJSON } from '@tiptap/html'
 import { extensions } from "./extensions";
 import { JSONContent } from "@tiptap/core";
 
+const EMPTY_DOC = {
+  type: "doc",
+  content: [{ type: "paragraph", attrs: { textAlign: null }, content: [] }],
+};
+
 /**
  * Custom hook to fetch and process a template for use in the TipTap editor.
  * 
  * This hook retrieves a template from the database and converts its HTML content
  * to JSON format that can be consumed by the TipTap editor.
  * 
- * @param templateId - The unique identifier of the template to fetch
- * @returns The template content converted to TipTap JSON format, or undefined if template is not found
+ * @param templateId - The unique identifier of the template to fetch (null to skip)
+ * @returns The template content converted to TipTap JSON format, or EMPTY_DOC if no template
  * 
  * @example
  * ```tsx
  * const templateId = "k1234567890abcdef" as Id<"modelos">;
  * const jsonDoc = useTemplate({ templateId });
  * 
- * if (jsonDoc) {
- *   // Use the template in your editor
- *   editor.commands.setContent(jsonDoc);
- * }
+ * // Or skip loading template
+ * const jsonDoc = useTemplate({ templateId: null });
  * ```
  */
-export function useTemplate({ templateId }: { templateId: Id<"modelos"> }) {
+export function useTemplate({ templateId }: { templateId: Id<"modelos"> | null }) {
 
-    const template = useQuery(api.functions.templates.getModelo, { modeloId: templateId });
+    const template = useQuery(
+        api.functions.templates.getModelo, 
+        templateId ? { modeloId: templateId } : "skip"
+    );
+    
+    if (!templateId) {
+        return EMPTY_DOC;
+    }
+    
     const jsonDoc = generateJSON(template?.content || "", extensions);  
+    
     return jsonDoc;
 }
 

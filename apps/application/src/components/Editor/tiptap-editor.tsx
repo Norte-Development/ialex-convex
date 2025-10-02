@@ -1,6 +1,6 @@
 // components/editor/Tiptap.tsx
 import { useEditor, EditorContent } from "@tiptap/react";
-import { useEffect, forwardRef, useImperativeHandle } from "react";
+import { useEffect, forwardRef, useImperativeHandle, useRef } from "react";
 import { useTiptapSync } from "@convex-dev/prosemirror-sync/tiptap";
 import { Editor, JSONContent } from "@tiptap/core";
 import { MenuBar } from "./MenuBar";
@@ -12,6 +12,8 @@ import "./editor-styles.css";
 import { useTemplate } from "./template";
 import { Id } from "../../../convex/_generated/dataModel";
 import EscritosLoadingState from "../Escritos/EscritosLoadingState";
+import { useMutation } from "convex/react";
+import { useSearchParams } from "react-router-dom";
 
 interface TiptapProps {
   documentId?: string;
@@ -20,11 +22,6 @@ interface TiptapProps {
   readOnly?: boolean;
   templateId?: Id<"modelos"> | null;
 }
-
-const EMPTY_DOC = {
-  type: "doc",
-  content: [{ type: "paragraph", attrs: { textAlign: null }, content: [] }],
-};
 
 export interface TiptapRef {
   getContent: () => JSONContent | null;
@@ -39,8 +36,14 @@ export const Tiptap = forwardRef<TiptapRef, TiptapProps>(({
 }, ref) => {
   const sync = useTiptapSync(api.prosemirror, documentId);
   const { setEscritoId, setCursorPosition, setTextAroundCursor } = useEscrito();
+  const incrementModeloUsage = useMutation(api.functions.templates.incrementModeloUsage);
+  const [searchParams, setSearchParams] = useSearchParams();
+  
+  // Track if template has been applied to prevent reapplying on reload
+  const templateAppliedRef = useRef(false);
 
-  const initialContent = templateId ? useTemplate({ templateId }) : EMPTY_DOC;
+  // Always call useTemplate hook to maintain hook order (passes null to skip when no template)
+  const initialContent = useTemplate({ templateId });
 
   const editor = useEditor(
     {
@@ -79,9 +82,24 @@ export const Tiptap = forwardRef<TiptapRef, TiptapProps>(({
 
   useEffect(() => {
     if (sync.initialContent === null && !sync.isLoading && "create" in sync) {
-      sync.create(initialContent as JSONContent);
+      // Only apply template if it hasn't been applied before
+      if (templateId && !templateAppliedRef.current) {
+        sync.create(initialContent as JSONContent);
+        templateAppliedRef.current = true;
+        
+        // Increment template usage counter
+        incrementModeloUsage({ modeloId: templateId });
+        
+        // Remove templateId from URL after applying to prevent reapplication on reload
+        const newSearchParams = new URLSearchParams(searchParams);
+        newSearchParams.delete("templateId");
+        setSearchParams(newSearchParams, { replace: true });
+      } else if (!templateId) {
+        // No template, just create empty document
+        sync.create(initialContent as JSONContent);
+      }
     }
-  }, [sync]);
+  }, [sync, templateId, initialContent, searchParams, setSearchParams, incrementModeloUsage]);
 
   useEffect(() => {
     if (editor) editor.setEditable(!readOnly);
