@@ -58,6 +58,7 @@ import type * as functions_legalDb from "../functions/legalDb.js";
 import type * as functions_legislation from "../functions/legislation.js";
 import type * as functions_permissions from "../functions/permissions.js";
 import type * as functions_seedCases from "../functions/seedCases.js";
+import type * as functions_seedTemplates from "../functions/seedTemplates.js";
 import type * as functions_teams from "../functions/teams.js";
 import type * as functions_templates from "../functions/templates.js";
 import type * as functions_testReadEscritoHelpers from "../functions/testReadEscritoHelpers.js";
@@ -141,6 +142,7 @@ declare const fullApi: ApiFromModules<{
   "functions/legislation": typeof functions_legislation;
   "functions/permissions": typeof functions_permissions;
   "functions/seedCases": typeof functions_seedCases;
+  "functions/seedTemplates": typeof functions_seedTemplates;
   "functions/teams": typeof functions_teams;
   "functions/templates": typeof functions_templates;
   "functions/testReadEscritoHelpers": typeof functions_testReadEscritoHelpers;
