@@ -229,7 +229,6 @@ export default defineSchema({
     name: v.string(),
     description: v.optional(v.string()),
     category: v.string(), // e.g., "Derecho Civil", "Derecho Mercantil"
-    content_type: v.union(v.literal("json"), v.literal("html")),
     content: v.optional(v.string()),
     mimeType: v.optional(v.string()),
     originalFileName: v.optional(v.string()),

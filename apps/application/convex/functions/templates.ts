@@ -57,7 +57,6 @@ export const createModelo = mutation({
     name: v.string(),
     description: v.optional(v.string()),
     category: v.string(),
-    content_type: v.union(v.literal("json"), v.literal("html")),
     content: v.optional(v.string()),
     mimeType: v.optional(v.string()),
     originalFileName: v.optional(v.string()),
@@ -72,7 +71,6 @@ export const createModelo = mutation({
       name: args.name,
       description: args.description,
       category: args.category,
-      content_type: args.content_type,
       content: args.content,
       mimeType: args.mimeType,
       originalFileName: args.originalFileName,
@@ -125,7 +123,6 @@ export const createModelo = mutation({
  */
 export const getModelos = query({
   args: {
-    content_type: v.optional(v.union(v.literal("json"), v.literal("html"))),
     category: v.optional(v.string()),
     isPublic: v.optional(v.boolean()),
   },
@@ -136,7 +133,6 @@ export const getModelos = query({
       name: v.string(),
       description: v.optional(v.string()),
       category: v.string(),
-      content_type: v.union(v.literal("json"), v.literal("html")),
       content: v.optional(v.string()),
       mimeType: v.optional(v.string()),
       originalFileName: v.optional(v.string()),
@@ -161,9 +157,6 @@ export const getModelos = query({
       m.isPublic || m.createdBy === currentUser._id
     );
     
-    if (args.content_type) {
-      filteredModelos = filteredModelos.filter(m => m.content_type === args.content_type);
-    }
     
     if (args.category) {
       filteredModelos = filteredModelos.filter(m => m.category === args.category);
@@ -205,7 +198,6 @@ export const getModelo = query({
       name: v.string(),
       description: v.optional(v.string()),
       category: v.string(),
-      content_type: v.union(v.literal("json"), v.literal("html")),
       content: v.optional(v.string()),
       mimeType: v.optional(v.string()),
       originalFileName: v.optional(v.string()),
