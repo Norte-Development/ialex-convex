@@ -252,6 +252,7 @@ export const updateOnboardingInfo = mutation({
     if (args.fullName !== undefined) updateData.name = args.fullName;
     if (args.hasDespacho !== undefined)
       updateData.hasDespacho = args.hasDespacho;
+    if (args.despachoName !== undefined) updateData.firmName = args.despachoName;
     if (args.role !== undefined) updateData.role = args.role;
     if (args.specializations !== undefined)
       updateData.specializations = args.specializations;

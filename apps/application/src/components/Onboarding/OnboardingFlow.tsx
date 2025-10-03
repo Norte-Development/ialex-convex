@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -109,7 +109,7 @@ export const OnboardingFlow: React.FC = () => {
   };
 
   // Lógica de navegación condicional
-  const handleNext = () => {
+  const handleNext = useCallback(() => {
     // Paso 3 → Paso 4 o Paso 5 (depende de hasDespacho)
     if (currentStep === 3) {
       if (formData.hasDespacho === true) {
@@ -140,7 +140,7 @@ export const OnboardingFlow: React.FC = () => {
     if (currentStep < 9) {
       setCurrentStep(currentStep + 1);
     }
-  };
+  }, [currentStep, formData.hasDespacho, formData.role]);
 
   const handleBack = () => {
     // Paso 5 → Paso 3 o Paso 4 (depende de si tiene despacho)
@@ -172,7 +172,7 @@ export const OnboardingFlow: React.FC = () => {
     }
   };
 
-  const handleComplete = async () => {
+  const handleComplete = useCallback(async () => {
     setIsLoading(true);
     try {
       // Construir objeto solo con campos que tienen valores válidos (no null, no undefined, no strings vacíos)
@@ -210,15 +210,15 @@ export const OnboardingFlow: React.FC = () => {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [formData, updateOnboarding]);
 
   // Validar si el botón "Siguiente" debe estar deshabilitado
-  const isNextDisabled = () => {
+  const isNextDisabled = useCallback(() => {
     if (currentStep === 2 && !formData.fullName) return true;
     if (currentStep === 3 && !formData.despachoName) return true;
     if (currentStep === 5 && formData.role === null) return true;
     return false;
-  };
+  }, [currentStep, formData.fullName, formData.despachoName, formData.role]);
 
   // Manejar tecla Enter
   useEffect(() => {
@@ -242,7 +242,7 @@ export const OnboardingFlow: React.FC = () => {
 
     window.addEventListener("keydown", handleKeyPress);
     return () => window.removeEventListener("keydown", handleKeyPress);
-  }, [currentStep, formData, isLoading]);
+  }, [currentStep, isLoading, handleComplete, handleNext, isNextDisabled]);
 
   const renderStep = () => {
     switch (currentStep) {
