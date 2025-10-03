@@ -25,7 +25,7 @@ export const insertContentTool = createTool({
     const htmlErr = validateStringParam(args.html, "html");
     if (htmlErr) return htmlErr;
     if (!args.placement || typeof args.placement !== 'object') {
-      return createErrorResponse("Invalid placement object");
+      return createErrorResponse("Objeto de ubicación inválido");
     }
 
     // Basic validation for placement variants
@@ -38,7 +38,7 @@ export const insertContentTool = createTool({
     }
     if (placement.type === 'position') {
       if (typeof placement.position !== 'number' || !Number.isFinite(placement.position)) {
-        return createErrorResponse("placement.position must be a finite number");
+        return createErrorResponse("placement.position debe ser un número finito");
       }
     }
 
@@ -48,7 +48,15 @@ export const insertContentTool = createTool({
       placement,
     });
 
-    return { ok: true, message: result?.message ?? 'HTML inserted', details: { placementType: placement.type } };
+    return `# ✅ Contenido Insertado Exitosamente
+
+## Resultado de la Operación
+- **Estado**: Éxito
+- **Mensaje**: ${result?.message ?? 'Contenido HTML insertado correctamente'}
+- **Tipo de Ubicación**: ${placement.type}
+
+## Detalles
+El contenido HTML se ha insertado en el documento según la ubicación especificada.`;
   }
 } as any);
 

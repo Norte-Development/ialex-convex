@@ -59,17 +59,24 @@ export const getEscritoTool = createTool({
       const escrito = await ctx.runQuery(internal.functions.documents.internalGetEscrito, { escritoId: escritoId as any });
 
       if (!escrito) {
-        return createErrorResponse(`Escrito not found with ID: ${escritoId}`);
+        return createErrorResponse(`Escrito no encontrado con ID: ${escritoId}`);
       }
 
       // Get the actual document content using ProseMirror snapshot
       const documentContent = await ctx.runQuery(api.prosemirror.getSnapshot, { id: escrito.prosemirrorId });
 
-      return {
-        content: documentContent
-      };
+      return `# 📄 Contenido del Escrito
+
+## Información del Documento
+- **ID del Escrito**: ${escritoId}
+
+## Contenido
+${documentContent || 'Sin contenido disponible'}
+
+---
+*Nota: Esta herramienta está deprecada. Usa readEscritoTool para mejor funcionalidad y rendimiento.*`;
     } catch (error) {
-      return createErrorResponse(`Unexpected error: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      return createErrorResponse(`Error inesperado: ${error instanceof Error ? error.message : 'Error desconocido'}`);
     }
   }
 } as any);

@@ -59,19 +59,19 @@ export const queryDocumentTool = createTool({
 
       // Verify authentication using agent context
       if (!ctx.userId) {
-        return createErrorResponse("Not authenticated");
+        return createErrorResponse("No autenticado");
       }
 
       // Extract caseId from thread metadata
       if (!ctx.threadId) {
-        return createErrorResponse("No thread context available");
+        return createErrorResponse("No hay contexto de hilo disponible");
       }
 
       const { userId: threadUserId } = await getThreadMetadata(ctx, components.agent, { threadId: ctx.threadId });
 
       // Extract caseId from threadUserId format: "case:${caseId}_${userId}"
       if (!threadUserId?.startsWith("case:")) {
-        return createErrorResponse("This tool can only be used within a case context");
+        return createErrorResponse("Esta herramienta solo puede usarse dentro de un contexto de caso");
       }
 
       // Get document metadata using internal helper (bypasses permission checks)
@@ -80,17 +80,17 @@ export const queryDocumentTool = createTool({
       });
 
       if (!document) {
-        return createErrorResponse("Document not found");
+        return createErrorResponse("Documento no encontrado");
       }
 
       // Verify document belongs to the current case
       if (document.caseId !== caseId) {
-        return createErrorResponse("Document does not belong to the current case");
+        return createErrorResponse("El documento no pertenece al caso actual");
       }
 
       // Check if document is processed
       if (document.processingStatus !== "completed") {
-        return createErrorResponse(`Document is not ready for querying. Status: ${document.processingStatus}`);
+        return createErrorResponse(`El documento no está listo para consultas. Estado: ${document.processingStatus}`);
       }
 
       // Perform semantic search within the specific document
@@ -102,25 +102,46 @@ export const queryDocumentTool = createTool({
       });
 
       if (!searchResults || searchResults.length === 0) {
-        return {
-          documentId,
-          documentTitle: document.title,
-          query,
-          results: [],
-          message: "No relevant content found for the given query in this document."
-        };
+        return `# 🔍 Consulta de Documento - Sin Resultados
+
+## Información del Documento
+- **ID del Documento**: ${documentId}
+- **Título**: ${document.title}
+
+## Consulta
+**Término de búsqueda**: "${query}"
+
+## Resultados
+No se encontró contenido relevante para la consulta en este documento.
+
+---
+*Búsqueda semántica realizada en el documento.*`;
       }
 
-      return {
-        documentId,
-        documentTitle: document.title,
-        query,
-        results: searchResults,
-        totalResults: searchResults.length,
-        message: `Found ${searchResults.length} relevant chunk(s) in the document.`
-      };
+      return `# 🔍 Consulta de Documento
+
+## Información del Documento
+- **ID del Documento**: ${documentId}
+- **Título**: ${document.title}
+
+## Consulta
+**Término de búsqueda**: "${query}"
+
+## Estadísticas
+- **Resultados encontrados**: ${searchResults.length}
+- **Límite de resultados**: ${limit}
+
+## Resultados Relevantes
+${searchResults.map((result, index) => `
+### ${index + 1}. Fragmento ${result.chunkIndex || 'N/A'}
+- **Puntuación de Relevancia**: ${result.score ? result.score.toFixed(3) : 'N/A'}
+- **Contenido**: ${result.text || 'Sin contenido disponible'}
+`).join('\n')}
+
+---
+*Búsqueda semántica realizada en el documento.*`;
     } catch (error) {
-      return createErrorResponse(`Unexpected error: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      return createErrorResponse(`Error inesperado: ${error instanceof Error ? error.message : 'Error desconocido'}`);
     }
   }
 } as any);

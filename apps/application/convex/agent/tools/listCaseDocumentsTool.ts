@@ -56,14 +56,14 @@ export const listCaseDocumentsTool = createTool({
 
       // Extract caseId from thread metadata
       if (!ctx.threadId) {
-        return createErrorResponse("No thread context available");
+        return createErrorResponse("No hay contexto de hilo disponible");
       }
 
       const { userId: threadUserId } = await getThreadMetadata(ctx, components.agent, { threadId: ctx.threadId });
 
       // Extract caseId from threadUserId format: "case:${caseId}_${userId}"
       if (!threadUserId?.startsWith("case:")) {
-        return createErrorResponse("This tool can only be used within a case context");
+        return createErrorResponse("Esta herramienta solo puede usarse dentro de un contexto de caso");
       }
 
       // Get all documents for this case using internal helper (bypasses permission checks)
@@ -91,12 +91,31 @@ export const listCaseDocumentsTool = createTool({
         failedDocuments: documentList.filter(d => d.processingStatus === "failed").length
       };
 
-      return {
-        summary,
-        documents: documentList
-      };
+      return `# 📁 Documentos del Caso
+
+## Resumen
+- **Total de Documentos**: ${summary.totalDocuments}
+- **Documentos Legibles**: ${summary.readableDocuments}
+- **Documentos en Procesamiento**: ${summary.processingDocuments}
+- **Documentos Fallidos**: ${summary.failedDocuments}
+
+## Lista de Documentos
+${documentList.length === 0 ? 'No hay documentos en este caso.' : documentList.map((doc, index) => `
+### ${index + 1}. ${doc.title || 'Sin título'}
+- **ID del Documento**: ${doc.documentId}
+- **Nombre del Archivo**: ${doc.fileName || 'N/A'}
+- **Tipo de Documento**: ${doc.documentType}
+- **Estado de Procesamiento**: ${doc.processingStatus}
+- **Total de Fragmentos**: ${doc.totalChunks}
+- **¿Se Puede Leer?**: ${doc.canRead ? 'Sí' : 'No'}
+- **Tamaño del Archivo**: ${doc.fileSize ? `${Math.round(doc.fileSize / 1024)} KB` : 'N/A'}
+- **Fecha de Creación**: ${new Date(doc.createdAt).toLocaleDateString()}
+`).join('\n')}
+
+---
+*Lista de documentos del caso actual.*`;
     } catch (error) {
-      return createErrorResponse(`Unexpected error: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      return createErrorResponse(`Error inesperado: ${error instanceof Error ? error.message : 'Error desconocido'}`);
     }
   }
 } as any);

@@ -64,7 +64,7 @@ export const getEscritoStatsTool = createTool({
       const escrito = await ctx.runQuery(internal.functions.documents.internalGetEscrito, { escritoId: args.escritoId as any });
       
       if (!escrito) {
-        return createErrorResponse(`Escrito with ID ${args.escritoId} not found`);
+        return createErrorResponse(`Escrito con ID ${args.escritoId} no encontrado`);
       }
       
       const doc = await prosemirrorSync.getDoc(ctx, escrito.prosemirrorId, buildServerSchema());
@@ -72,13 +72,23 @@ export const getEscritoStatsTool = createTool({
           words: countWords(doc),
           paragraphs: countParagraphs(doc),
       }
-      return { 
-          stats,
-          escritoId: escrito._id,
-          version: doc.version,
-      };
+      
+      const response = `# Estadísticas del Escrito
+
+                        ## Información del Documento
+                        - **ID del Escrito**: ${escrito._id}
+                        - **Versión**: ${doc.version}
+
+                        ## Estadísticas de Contenido
+                        - **Cantidad de Palabras**: ${stats.words.toLocaleString()} palabras
+                        - **Cantidad de Párrafos**: ${stats.paragraphs} párrafos
+
+                        ## Estructura del Documento
+                        ${stats.paragraphs === 1 ? 'Documento de un solo párrafo' : `${stats.paragraphs} párrafos`} con un promedio de ${stats.paragraphs > 0 ? Math.round(stats.words / stats.paragraphs) : 0} palabras por párrafo.`;
+
+      return response;
     } catch (error) {
-      return createErrorResponse(`Unexpected error: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      return createErrorResponse(`Error inesperado: ${error instanceof Error ? error.message : 'Error desconocido'}`);
     }
   }
 } as any);

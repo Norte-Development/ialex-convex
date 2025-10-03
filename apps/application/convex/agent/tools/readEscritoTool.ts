@@ -855,7 +855,7 @@ const readEscritoTool = createTool({
       const escrito = await ctx.runQuery(internal.functions.documents.internalGetEscrito, { escritoId: args.escritoId as any });
 
       if (!escrito) {
-        return createErrorResponse(`Escrito with ID ${args.escritoId} not found`);
+        return createErrorResponse(`Escrito con ID ${args.escritoId} no encontrado`);
       }
       
       const doc = await prosemirrorSync.getDoc(ctx, escrito.prosemirrorId, buildServerSchema());
@@ -887,10 +887,10 @@ const readEscritoTool = createTool({
           const sem = getEscritoChunks(doc.doc, args.chunkIndex ?? 0, args.contextWindow ?? 0);
           return sem.map(ch => ({ from: ch.startPos, to: ch.endPos, json: getJsonSlice(doc.doc, ch.startPos, ch.endPos), index: ch.chunkIndex, total: sem.length }));
         default:
-          return createErrorResponse(`Invalid operation: ${args.operation}`);
+          return createErrorResponse(`Operación inválida: ${args.operation}`);
       }
     } catch (error) {
-      return createErrorResponse(`Unexpected error: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      return createErrorResponse(`Error inesperado: ${error instanceof Error ? error.message : 'Error desconocido'}`);
     }
   }
 } as any);

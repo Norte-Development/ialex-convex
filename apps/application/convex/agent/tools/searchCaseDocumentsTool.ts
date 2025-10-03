@@ -37,7 +37,7 @@ export const searchCaseDocumentsTool = createTool({
       const {caseId, userId} = getUserAndCaseIds(ctx.userId as string);
 
       if (!caseId || !userId){
-        return createErrorResponse("Invalid user context");
+        return createErrorResponse("Contexto de usuario inválido");
       }
       
       await ctx.runQuery(internal.auth_utils.internalCheckNewCaseAccess,{
@@ -61,30 +61,44 @@ export const searchCaseDocumentsTool = createTool({
 
       // Use userId directly from ctx instead of getCurrentUserFromAuth
       if (!ctx.userId) {
-        return createErrorResponse("Not authenticated");
+        return createErrorResponse("No autenticado");
       }
 
       // Extract caseId from thread metadata
       if (!ctx.threadId) {
-        return createErrorResponse("No thread context available");
+        return createErrorResponse("No hay contexto de hilo disponible");
       }
 
       const { userId: threadUserId } = await getThreadMetadata(ctx, components.agent, { threadId: ctx.threadId });
 
       // Extract caseId from threadUserId format: "case:${caseId}_${userId}"
       if (!threadUserId?.startsWith("case:")) {
-        return createErrorResponse("This tool can only be used within a case context");
+        return createErrorResponse("Esta herramienta solo puede usarse dentro de un contexto de caso");
       }
 
       // Call the action to perform the search with clustering
-      return await ctx.runAction(api.rag.qdrantUtils.caseDocuments.searchCaseDocumentsWithClustering, {
+      const results = await ctx.runAction(api.rag.qdrantUtils.caseDocuments.searchCaseDocumentsWithClustering, {
         query: args.query.trim(),
         caseId,
         limit: Math.min(limit, 50), // Cap at 50 to prevent abuse
         contextWindow: Math.min(contextWindow, 20) // Cap at 20 to prevent abuse
       });
+
+      return `# 🔍 Búsqueda de Documentos del Caso
+
+## Consulta
+**Término de búsqueda**: "${args.query.trim()}"
+
+## Configuración de Búsqueda
+- **Límite de resultados**: ${Math.min(limit, 50)}
+- **Ventana de contexto**: ${Math.min(contextWindow, 20)}
+
+## Resultados
+${results.length === 0 ? 'No se encontraron documentos relevantes para la consulta.' : results}
+---
+*Búsqueda semántica realizada en los documentos del caso.*`;
     } catch (error) {
-      return createErrorResponse(`Unexpected error: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      return createErrorResponse(`Error inesperado: ${error instanceof Error ? error.message : 'Error desconocido'}`);
     }
   }
 } as any);

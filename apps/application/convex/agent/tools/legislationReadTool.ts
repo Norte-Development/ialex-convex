@@ -69,7 +69,7 @@ export const legislationReadTool = createTool({
       
       // Verify authentication
       if (!ctx.userId) {
-        return createErrorResponse("Not authenticated");
+        return createErrorResponse("No autenticado");
       }
 
       // Get document metadata to verify it exists and get title
@@ -79,7 +79,7 @@ export const legislationReadTool = createTool({
       });
 
       if (!normative) {
-        return createErrorResponse("Legislation document not found");
+        return createErrorResponse("Documento legislativo no encontrado");
       }
 
       // Get total chunks from Qdrant
@@ -89,7 +89,7 @@ export const legislationReadTool = createTool({
 
       // Validate chunk index
       if (chunkIndex >= totalChunks) {
-        return createErrorResponse(`Chunk index ${chunkIndex} is beyond document length (${totalChunks} chunks)`);
+        return createErrorResponse(`Índice de fragmento ${chunkIndex} está más allá de la longitud del documento (${totalChunks} fragmentos)`);
       }
 
       // Calculate the actual number of chunks to read
@@ -107,33 +107,38 @@ export const legislationReadTool = createTool({
       });
 
       if (!chunksContent || chunksContent.length === 0) {
-        return createErrorResponse(`No chunks found in range ${chunkIndex} to ${chunkIndex + actualChunkCount - 1}`);
+        return createErrorResponse(`No se encontraron fragmentos en el rango ${chunkIndex} a ${chunkIndex + actualChunkCount - 1}`);
       }
 
       // Combine chunks content
       const combinedContent = chunksContent.join('\n\n');
 
-      return {
-        documentId,
-        documentTitle: normative.title || "Legislation Document",
-        chunkIndex,
-        chunkCount: actualChunkCount,
-        totalChunks,
-        content: combinedContent,
-        hasMoreChunks: chunkIndex + actualChunkCount < totalChunks,
-        nextChunkIndex: chunkIndex + actualChunkCount,
-        progress: `${chunkIndex + actualChunkCount}/${totalChunks}`,
-        isLastChunk: chunkIndex + actualChunkCount >= totalChunks,
-        chunksRead: actualChunkCount,
-        contextWindowUsed: contextWindow,
-        expandedRange: { startIndex: effectiveStartIndex, endIndex: effectiveEndIndex },
-        // Citation metadata for agent
-        citationId: documentId,
-        citationType: 'leg',
-        citationTitle: normative.title || "Legislation Document",
-      };
+      return `# 📖 Lectura de Documento Legislativo
+
+## Información del Documento
+- **ID del Documento**: ${documentId}
+- **Título**: ${normative.title || "Documento Legislativo"}
+- **Fragmentos Totales**: ${totalChunks}
+
+## Progreso de Lectura
+- **Fragmento Actual**: ${chunkIndex + 1}
+- **Fragmentos Leídos**: ${actualChunkCount}
+- **Progreso**: ${chunkIndex + actualChunkCount}/${totalChunks}
+- **¿Hay Más Fragmentos?**: ${chunkIndex + actualChunkCount < totalChunks ? 'Sí' : 'No'}
+- **¿Es el Último Fragmento?**: ${chunkIndex + actualChunkCount >= totalChunks ? 'Sí' : 'No'}
+
+## Configuración de Lectura
+- **Ventana de Contexto**: ${contextWindow}
+- **Rango Expandido**: ${effectiveStartIndex} - ${effectiveEndIndex}
+${chunkIndex + actualChunkCount < totalChunks ? `- **Siguiente Fragmento**: ${chunkIndex + actualChunkCount}` : ''}
+
+## Contenido
+${combinedContent || 'Sin contenido disponible'}
+
+---
+*Documento legislativo leído progresivamente.*`;
     } catch (error) {
-      return createErrorResponse(`Unexpected error: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      return createErrorResponse(`Error inesperado: ${error instanceof Error ? error.message : 'Error desconocido'}`);
     }
   }
 } as any);
