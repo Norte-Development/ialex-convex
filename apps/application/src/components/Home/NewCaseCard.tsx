@@ -29,7 +29,7 @@ export default function NewCaseCard({ caseItem }: { caseItem: any }) {
       className="h-[129px] cursor-pointer flex flex-col justify-between items-center w-[233px] bg-[#E2EFF7] rounded-2xl group"
     >
       <div className="text-[10px]  mt-3 w-full px-6 flex flex-col justify-center items-start">
-        <p className="font-bold text-[12px] truncate w-full">
+        <p className="font-bold mb-3 text-[12px] truncate w-full">
           {caseItem.title}
         </p>
         <div className="flex flex-col gap-1">
@@ -37,13 +37,17 @@ export default function NewCaseCard({ caseItem }: { caseItem: any }) {
             <FileArchive size={14} />
             <span className="truncate">0000000000</span>
           </div>
-          <div className="flex items-center gap-1">
-            <UserCheck size={14} />
-            <span className="truncate">{user?.name}</span>
-          </div>
-          <div className="flex items-center gap-1">
-            <Clock size={14} />
-            <span className="truncate">{formatDate(caseItem.endDate)}</span>
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-1">
+              <UserCheck size={14} />
+              <span className="truncate">{user?.name}</span>
+            </div>
+            {caseItem.endDate && (
+              <div className="flex items-center gap-1">
+                <Clock size={14} />
+                <span className="truncate">{formatDate(caseItem.endDate)}</span>
+              </div>
+            )}
           </div>
         </div>
       </div>
