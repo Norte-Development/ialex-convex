@@ -222,7 +222,8 @@ export default defineSchema({
     .index("by_created_by", ["createdBy"])
     .index("by_archived_status", ["isArchived"])
     .index("by_presentation_date", ["presentationDate"])
-    .index("by_last_edited", ["lastEditedAt"]),
+    .index("by_last_edited", ["lastEditedAt"])
+    .index("by_prosemirror_id", ["prosemirrorId"]),
 
   // Document Templates (Modelos) - independent reusable templates
   modelos: defineTable({

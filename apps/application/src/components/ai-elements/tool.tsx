@@ -2,25 +2,28 @@
 import { cn } from "@/lib/utils"
 import type { ToolUIPart } from "ai"
 import { CheckCircleIcon, CircleIcon, ClockIcon, XCircleIcon } from "lucide-react"
-import type { ComponentProps } from "react"
+import type { ComponentProps, ReactNode } from "react"
+import { CreateEscritoPreview } from "./CreateEscritoPreview"
 
 export type ToolProps = ComponentProps<"div"> & {
   type: string
   state: ToolUIPart["state"]
+  output?: ToolUIPart["output"]
 }
 
-const getActionLabel = (toolName: string) => {
+const getActionLabel = (toolName: string): ReactNode => {
   if (!toolName) return "Procesando"
 
   const action = toolName.split(/(?=[A-Z])/)[0].toLowerCase()
 
-  const actionLabels: Record<string, string> = {
+  const actionLabels: Record<string, ReactNode> = {
     search: "Investigando",
     read: "Leyendo",
     list: "Listando",
     query: "Consultando",
     edit: "Editando",
     get: "Obteniendo",
+    manage: "Preparando",
   }
 
   return actionLabels[action] || action
@@ -52,6 +55,18 @@ const getStatusDisplay = (status: ToolUIPart["state"]) => {
 export const Tool = ({ className, type, state, ...props }: ToolProps) => {
   const actionLabel = getActionLabel(type)
   const statusDisplay = getStatusDisplay(state)
+
+  
+
+  // Check if this is a createEscrito action
+  const output = props.output as Record<string, unknown> | undefined
+  const isCreateEscrito = 
+    state === "output-available" && 
+    output?.action === "createEscrito"
+
+  if (isCreateEscrito) {
+    return <CreateEscritoPreview output={props.output} />
+  }
 
   return (
     <div 

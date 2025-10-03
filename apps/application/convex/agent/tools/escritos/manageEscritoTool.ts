@@ -1,8 +1,8 @@
 import { createTool, ToolCtx } from "@convex-dev/agent";
-import { api, internal } from "../../_generated/api";
+import { api, internal } from "../../../_generated/api";
 import { z } from "zod";
-import { getUserAndCaseIds, createErrorResponse, validateStringParam } from "./utils";
-import { Id } from "../../_generated/dataModel";
+import { getUserAndCaseIds, createErrorResponse, validateStringParam } from "../utils";
+import { Id } from "../../../_generated/dataModel";
 
 /**
  * Tool for managing Escritos - create, update metadata, apply templates, and list escritos.
@@ -38,10 +38,10 @@ import { Id } from "../../_generated/dataModel";
 export const manageEscritoTool = createTool({
   description: "Tool for managing Escritos - create, update metadata, apply templates, and list escritos. Comprehensive escrito lifecycle management tool that handles creation, metadata updates, template application, and listing operations.",
   args: z.object({
-    action: z.any().describe("Action to perform: 'create', 'update_metadata', 'apply_template', or 'list'"),
-    caseId: z.any().optional().describe("Case ID for create/list operations"),
+    action: z.any().describe("Action to perform: 'create', 'apply_template', or 'list'"),
+    caseId: z.any().optional().describe("Case ID for create/list operations. Should be the current case unless specified otherwise."),
     escritoId: z.any().optional().describe("Escrito ID for update operations"),
-    templateId: z.any().optional().describe("Template ID for apply_template action"),
+    templateId: z.any().optional().describe("Template ID. If provided with create, it will apply the template to the new escrito. If provided with apply_template, it will apply the template to the existing escrito."),
     title: z.any().optional().describe("Title for new escrito or metadata update"),
     status: z.any().optional().describe("Status for metadata update: 'borrador' or 'terminado'"),
     mergeWithExisting: z.any().optional().describe("Whether to merge template content with existing escrito (default: false)")
@@ -66,50 +66,19 @@ export const manageEscritoTool = createTool({
           const titleError = validateStringParam(args.title, "title");
           if (titleError) return titleError;
 
-          const targetCaseId = args.caseId.trim();
-          const title = args.title.trim();
+          const targetCaseId: Id<"cases"> = args.caseId.trim();
+          const title: string = args.title.trim();
 
-          // TODO: Implement create escrito logic
-          // This would create a new escrito in the specified case
-          return `# ✅ Escrito Creado
-
-## Información del Nuevo Escrito
-- **Título**: ${title}
-- **Caso**: ${targetCaseId}
-- **Estado**: Borrador
-- **Creado por**: Usuario actual
-
-## Próximos Pasos
-1. El escrito ha sido creado exitosamente
-2. Puedes usar editEscritoTool para agregar contenido
-3. Usa readEscritoTool para revisar el documento
-
----
-*Funcionalidad de creación de escritos - implementación pendiente*`;
-        }
-
-        case "update_metadata": {
-          const escritoIdError = validateStringParam(args.escritoId, "escritoId");
-          if (escritoIdError) return escritoIdError;
-
-          const escritoId = args.escritoId.trim();
-          const title = args.title?.trim();
-          const status = args.status;
-
-          // TODO: Implement update metadata logic
-          // This would update the escrito's metadata (title, status, etc.)
-          return `# ✅ Metadatos Actualizados
-
-## Información del Escrito
-- **ID del Escrito**: ${escritoId}
-${title ? `- **Nuevo Título**: ${title}` : ''}
-${status ? `- **Nuevo Estado**: ${status}` : ''}
-
-## Cambios Realizados
-Los metadatos del escrito han sido actualizados exitosamente.
-
----
-*Funcionalidad de actualización de metadatos - implementación pendiente*`;
+          return {
+            action: "createEscrito",
+            parameters: {
+              title: title,
+              caseId: targetCaseId,
+              prosemirrorId: crypto.randomUUID(),
+              templateId: args.templateId || undefined,
+            },
+            message: `Escrito "${title}" listo para crear en el caso ${targetCaseId}`
+          };
         }
 
         case "apply_template": {
@@ -170,7 +139,7 @@ La plantilla ha sido aplicada exitosamente al escrito.
         }
 
         default:
-          return createErrorResponse(`Acción no soportada: ${action}. Use 'create', 'update_metadata', 'apply_template', o 'list'.`);
+          return createErrorResponse(`Acción no soportada: ${action}. Use 'create', 'apply_template', o 'list'.`);
       }
     } catch (error) {
       return createErrorResponse(`Error inesperado: ${error instanceof Error ? error.message : 'Error desconocido'}`);

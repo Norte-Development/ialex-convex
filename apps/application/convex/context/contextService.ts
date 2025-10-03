@@ -288,6 +288,7 @@ export class ContextService {
       const caseInfo = contextBundle.case;
       sections.push(`## Current Case
 - Title: ${caseInfo.title}
+- ID: ${caseInfo.id}
 - Description: ${caseInfo.description || 'No description'}
 - Status: ${caseInfo.status}
 - Priority: ${caseInfo.priority}

@@ -1,8 +1,8 @@
 import { createTool, ToolCtx } from "@convex-dev/agent";
-import { api, internal } from "../../_generated/api";
+import { api, internal } from "../../../_generated/api";
 import { z } from "zod";
-import { getUserAndCaseIds, createErrorResponse, validateStringParam, validateNumberParam } from "./utils";
-import { Id } from "../../_generated/dataModel";
+import { getUserAndCaseIds, createErrorResponse, validateStringParam, validateNumberParam } from "../utils";
+import { Id } from "../../../_generated/dataModel";
 
 /**
  * Tool for searching and retrieving client information.

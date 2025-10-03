@@ -14,6 +14,7 @@ import { CitationParser } from "../ai-elements/citation-parser";
 import type { SidebarMessageProps } from "./types/message-types";
 import { LegislationModal } from "./legislation-modal";
 import { useState, useEffect } from "react";
+import { ToolUIPart } from "ai";
 
 export function SidebarMessage({
   message,
@@ -257,7 +258,7 @@ export function SidebarMessage({
                   : "input-streaming";
             
             return (
-              <Tool key={index} className="mb-4" type={part.type.replace("tool-", "")} state={toolState}>
+              <Tool key={index} className="mb-4" type={part.type.replace("tool-", "")} state={toolState} output={(part as any)?.output as ToolUIPart["output"]}>
               </Tool>
             );
           }

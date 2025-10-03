@@ -1,9 +1,9 @@
 import { createTool, ToolCtx, getThreadMetadata } from "@convex-dev/agent";
-import { components } from "../../_generated/api";
-import { internal } from "../../_generated/api";
+import { components } from "../../../_generated/api";
+import { internal } from "../../../_generated/api";
 import { z } from "zod";
-import { getUserAndCaseIds, createErrorResponse } from "./utils";
-import { Id } from "../../_generated/dataModel";
+import { getUserAndCaseIds, createErrorResponse } from "../utils";
+import { Id } from "../../../_generated/dataModel";
 
 /**
  * Tool for listing all documents in the current case with their processing status and chunk counts.
