@@ -1,9 +1,9 @@
 import { createTool, ToolCtx } from "@convex-dev/agent";
-import { api, internal } from "../../_generated/api";
+import { api, internal } from "../../../_generated/api";
 import { z } from "zod";
-import { validateEditType, validateMarkType, validateParagraphType, normalizeEditType } from "./validation";
-import { getUserAndCaseIds, createErrorResponse, validateStringParam } from "./utils";
-import { Id } from "../../_generated/dataModel";
+import { validateEditType, validateMarkType, validateParagraphType, normalizeEditType } from "../validation";
+import { getUserAndCaseIds, createErrorResponse, validateStringParam } from "../utils";
+import { Id } from "../../../_generated/dataModel";
 
 /**
  * Tool for editing Escritos by text-based operations including text manipulation and mark formatting.

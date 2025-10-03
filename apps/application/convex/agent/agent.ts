@@ -23,7 +23,7 @@ import {
  * Main agent instance for the legal assistant system.
  * 
  * This agent is configured with:
- * - Name: "Legal Assistant Agent" for identification
+ * - Name: "iAlex - Agente Legal" for identification
  * - Chat model: GPT-5-mini for cost-effective AI interactions
  * - Integration with Convex components for thread management
  * 
@@ -31,14 +31,12 @@ import {
  * functionality within the application.
  */
 export const agent = new Agent(components.agent, {
-  name: "Legal Assistant Agent",
+  name: "iAlex - Agente Legal",
   languageModel: openai.responses('gpt-5-mini'),
   stopWhen: stepCountIs(15),
-  // Default call settings per 0.2.x: place maxRetries here
   callSettings: {
     maxRetries: 3,
   },
-  // Ensure proper storage and context for v5
   storageOptions: {
     saveMessages: "all"
   },

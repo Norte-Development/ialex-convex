@@ -1,20 +1,19 @@
 // Export all tools
-export { editEscritoTool } from './editEscritoTool';
-export { getEscritoTool } from './getEscritoTool';
-export { searchCaseDocumentsTool } from './searchCaseDocumentsTool';
-export { queryDocumentTool } from './queryDocumentTool';
-export { getEscritoStatsTool } from './getEscritoStatsTool';
-export { readEscritoTool } from './readEscritoTool';
-export { searchLegislationTool } from './searchLegislationTool';
-export { legislationFindTool } from './legislationFindTool';
-export { legislationReadTool } from './legislationReadTool';
-export { planAndTrackTool, markTaskCompleteTool } from './planAndTrackTool';
-export { insertContentTool } from './insertContentTool';
+export { editEscritoTool } from './escritos/editEscritoTool';
+export { searchCaseDocumentsTool } from './documents/searchCaseDocumentsTool';
+export { queryDocumentTool } from './documents/queryDocumentTool';
+export { getEscritoStatsTool } from './escritos/getEscritoStatsTool';
+export { readEscritoTool } from './escritos/readEscritoTool';
+export { searchLegislationTool } from './legislation/searchLegislationTool';
+export { legislationFindTool } from './legislation/legislationFindTool';
+export { legislationReadTool } from './legislation/legislationReadTool';
+export { planAndTrackTool, markTaskCompleteTool } from './planning/planAndTrackTool';
+export { insertContentTool } from './escritos/insertContentTool';
 
 // New consolidated tools
-export { manageEscritoTool } from './manageEscritoTool';
-export { searchClientsTool } from './searchClientsTool';
-export { searchTemplatesTool } from './searchTemplatesTool';
+export { manageEscritoTool } from './escritos/manageEscritoTool';
+export { searchClientsTool } from './clients/searchClientsTool';
+export { searchTemplatesTool } from './templates/searchTemplatesTool';
 
 // Export validation helpers
 export { validateEditType, validateMarkType, validateParagraphType } from './validation';

@@ -1,8 +1,8 @@
 import { createTool, ToolCtx } from "@convex-dev/agent";
 import { z } from "zod";
-import { api, internal } from "../../_generated/api";
-import { getUserAndCaseIds, validateStringParam, createErrorResponse } from "./utils";
-import { Id } from "../../_generated/dataModel";
+import { api, internal } from "../../../_generated/api";
+import { getUserAndCaseIds, validateStringParam, createErrorResponse } from "../utils";
+import { Id } from "../../../_generated/dataModel";
 
 export const insertContentTool = createTool({
   description: "Insert HTML content into an Escrito at documentStart, documentEnd, a text-defined range, or an absolute position.",

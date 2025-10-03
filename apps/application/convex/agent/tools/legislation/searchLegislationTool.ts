@@ -1,8 +1,8 @@
 import { createTool } from "@convex-dev/agent";
 import { z } from "zod";
-import { internal } from "../../_generated/api";
-import { createErrorResponse, validateStringParam } from "./utils";
-import { LegislationSearchResult } from "../../rag/qdrantUtils/types";
+import { internal } from "../../../_generated/api";
+import { createErrorResponse, validateStringParam } from "../utils";
+import { LegislationSearchResult } from "../../../rag/qdrantUtils/types";
 
 /**
  * Tool for searching legislation and normative documents using Qdrant hybrid search.
