@@ -229,23 +229,25 @@ export default defineSchema({
     name: v.string(),
     description: v.optional(v.string()),
     category: v.string(), // e.g., "Derecho Civil", "Derecho Mercantil"
-    content: v.optional(v.string()),
+    templateType: v.union(
+      v.literal("escrito"), // Tiptap JSON template for escritos
+      v.literal("document"), // File-based template for documents
+    ),
+    // For escrito templates (Tiptap JSON)
+    prosemirrorId: v.optional(v.string()), // Tiptap JSON template content
+    mimeType: v.optional(v.string()),
     originalFileName: v.optional(v.string()),
-    content_type: v.optional(v.string()),
     isPublic: v.boolean(), // False = only team can access, True = anyone can access
-    createdBy: v.union(v.id("users"), v.literal("system")),
+    createdBy: v.id("users"),
     tags: v.optional(v.array(v.string())),
     usageCount: v.number(), // Number of times this template has been used
     isActive: v.boolean(),
   })
     .index("by_category", ["category"])
+    .index("by_type", ["templateType"])
     .index("by_created_by", ["createdBy"])
     .index("by_public_status", ["isPublic"])
-    .index("by_active_status", ["isActive"])
-    .searchIndex("search_templates", {
-      searchField: "name",
-      filterFields: ["category", "isPublic", "isActive", "createdBy"]
-    }),
+    .index("by_active_status", ["isActive"]),
 
   // Teams - organizational teams/departments for firm management
   teams: defineTable({

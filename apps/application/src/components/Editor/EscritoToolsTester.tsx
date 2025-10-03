@@ -64,7 +64,7 @@ export function EscritoToolsTester() {
   );
 
   // Mutations
-  const applyTextBasedOperations = useMutation(api.functions.escritosTransforms.index.applyTextBasedOperations);
+  const applyTextBasedOperations = useMutation(api.functions.escritosTransforms.applyTextBasedOperations);
 
   const addLog = (message: string, type: 'info' | 'success' | 'error' = 'info') => {
     const timestamp = new Date().toLocaleTimeString();
