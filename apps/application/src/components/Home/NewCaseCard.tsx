@@ -28,23 +28,30 @@ export default function NewCaseCard({ caseItem }: { caseItem: any }) {
       to={`/caso/${caseItem._id}`}
       className="h-[129px] cursor-pointer flex flex-col justify-between items-center w-[233px] bg-[#E2EFF7] rounded-2xl group"
     >
-      <div className=" text-[10px]  mt-3 w-full text-center flex flex-col justify-center items-center">
-        <p className="font-bold text-[12px]">{caseItem.title}</p>
-        <div className="flex items-center justify-center gap-1">
-          <FileArchive size={14} />
-          0000000000
-        </div>
-        <div className="flex items-center justify-center gap-1">
-          <UserCheck size={14} />
-          {user?.name}
-        </div>
-        <div className="flex items-center justify-center gap-1">
-          <Clock size={14} />
-          {formatDate(caseItem.endDate)}
+      <div className="text-[10px]  mt-3 w-full px-6 flex flex-col justify-center items-start">
+        <p className="font-bold text-[12px] truncate w-full">
+          {caseItem.title}
+        </p>
+        <div className="flex flex-col gap-1">
+          <div className="flex items-center gap-1">
+            <FileArchive size={14} />
+            <span className="truncate">0000000000</span>
+          </div>
+          <div className="flex items-center gap-1">
+            <UserCheck size={14} />
+            <span className="truncate">{user?.name}</span>
+          </div>
+          <div className="flex items-center gap-1">
+            <Clock size={14} />
+            <span className="truncate">{formatDate(caseItem.endDate)}</span>
+          </div>
         </div>
       </div>
       <div className="w-full h-[40px] pl-3 flex justify-between items-center bg-[#f4f7fc] ">
-        <Badge variant={"outline"} className="mr-3">
+        <Badge
+          variant={"outline"}
+          className="mr-3 text-[#5E47D2] border-[#BCB0F5]"
+        >
           {caseItem.status}
         </Badge>
         <div className="flex items-center justify-center gap-2">
