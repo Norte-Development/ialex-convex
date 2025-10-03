@@ -1,250 +1,137 @@
+// components/editor/Tiptap.tsx
 import { useEditor, EditorContent } from "@tiptap/react";
-import type { Editor } from "@tiptap/core";
-import { useEffect } from "react";
-import StarterKit from "@tiptap/starter-kit";
-import TextAlign from "@tiptap/extension-text-align";
-import Underline from "@tiptap/extension-underline";
-import { TextStyle } from "@tiptap/extension-text-style";
-//@ts-ignore
-import { Color } from "@tiptap/extension-color";
+import { useEffect, forwardRef, useImperativeHandle, useRef } from "react";
 import { useTiptapSync } from "@convex-dev/prosemirror-sync/tiptap";
-import {
-  InlineChange,
-  BlockChange,
-  LineBreakChange,
-} from "../../../../../packages/shared/src/tiptap/changeNodes";
-import { TrackingExtension } from "./extensions/tracking";
-import { PaginationPlus } from "tiptap-pagination-plus";
-import "./editor-styles.css";
+import { Editor, JSONContent } from "@tiptap/core";
+import { MenuBar } from "./MenuBar";
+import { extensions } from "./extensions";
+import { updateCursorContext } from "./cursorUtils";
 import { api } from "../../../convex/_generated/api";
 import { useEscrito } from "@/context/EscritoContext";
-import { SuggestionsMenu } from "./suggestions-menu";
-import { RibbonBar } from "./Ribbon";
-import { StatusBar } from "./StatusBar";
+import "./editor-styles.css";
+import { useTemplate } from "./template";
+import { Id } from "../../../convex/_generated/dataModel";
+import EscritosLoadingState from "../Escritos/EscritosLoadingState";
+import { useMutation } from "convex/react";
+import { useSearchParams } from "react-router-dom";
 
 interface TiptapProps {
   documentId?: string;
   onReady?: (editor: Editor) => void;
   onDestroy?: () => void;
   readOnly?: boolean;
+  templateId?: Id<"modelos"> | null;
 }
 
-// Define empty document structure outside component to avoid recreating object
-const EMPTY_DOC = {
-  type: "doc",
-  content: [
-    {
-      type: "paragraph",
-      attrs: { textAlign: null },
-      content: [],
-    },
-  ],
-};
+export interface TiptapRef {
+  getContent: () => JSONContent | null;
+}
 
-export function Tiptap({
+export const Tiptap = forwardRef<TiptapRef, TiptapProps>(({
   documentId = "default-document",
+  templateId = null,
   onReady,
   onDestroy,
   readOnly = false,
-}: TiptapProps) {
+}, ref) => {
   const sync = useTiptapSync(api.prosemirror, documentId);
-  const { setCursorPosition, setTextAroundCursor, setEscritoId } = useEscrito();
+  const { setEscritoId, setCursorPosition, setTextAroundCursor } = useEscrito();
+  const incrementModeloUsage = useMutation(api.functions.templates.incrementModeloUsage);
+  const [searchParams, setSearchParams] = useSearchParams();
+  
+  // Track if template has been applied to prevent reapplying on reload
+  const templateAppliedRef = useRef(false);
 
-  // Always call useEditor hook - don't make it conditional
+  // Always call useTemplate hook to maintain hook order (passes null to skip when no template)
+  const initialContent = useTemplate({ templateId });
+
   const editor = useEditor(
     {
-      extensions: [
-        StarterKit.configure({
-          horizontalRule: false,
-        }),
-        TextStyle,
-        Color,
-        InlineChange,
-        BlockChange,
-        LineBreakChange,
-        TrackingExtension,
-        TextAlign.configure({
-          types: ["heading", "paragraph"],
-        }),
-        Underline,
-        PaginationPlus.configure({
-          pageHeight: 1100,        // Height of each page in pixels (approximately A4)
-          pageGap: 20,             // Gap between pages
-          pageBreakBackground: "#F3F4F6", // Light gray for page gaps
-          pageHeaderHeight: 40,    // Header height
-          pageFooterHeight: 40,    // Footer height
-          footerLeft: "Página {page}", // Page number on left
-          footerRight: "",         // Empty right footer
-          headerLeft: "",          // Empty left header
-          headerRight: "",         // Empty right header
-          marginTop: 60,           // Top margin
-          marginBottom: 60,        // Bottom margin
-          marginLeft: 70,          // Left margin
-          marginRight: 70,         // Right margin
-        }),
-        ...(sync.extension ? [sync.extension] : []),
-      ],
+      extensions: [...extensions, ...(sync.extension ? [sync.extension] : [])],
       content: sync.initialContent,
-      editable: !readOnly, // Make editor read-only based on permissions
+      editable: !readOnly,
       editorProps: {
         attributes: {
-          class: `legal-editor-content prose prose-lg focus:outline-none px-12 py-8 min-h-screen ${readOnly ? "cursor-default select-text" : ""}`,
+          class: `legal-editor-content prose prose-lg focus:outline-none px-12 py-8 min-h-screen ${
+            readOnly ? "cursor-default select-text" : ""
+          }`,
           "data-placeholder": readOnly
             ? ""
             : "Comience a escribir su documento legal...",
         },
       },
-      onUpdate: ({ editor }) => {
-        // Update cursor position and text around cursor when content changes
-        updateCursorContext(editor);
-      },
-      onSelectionUpdate: ({ editor }) => {
-        // Update cursor position and text around cursor when selection changes
-        updateCursorContext(editor);
-      },
+      onUpdate: ({ editor }) =>
+        updateCursorContext(editor, setCursorPosition, setTextAroundCursor),
+      onSelectionUpdate: ({ editor }) =>
+        updateCursorContext(editor, setCursorPosition, setTextAroundCursor),
     },
-    [sync.initialContent, sync.extension],
+    [sync.initialContent, sync.extension, setCursorPosition, setTextAroundCursor],
   );
-
-  const updateCursorContext = (editor: Editor) => {
-    const { from, to } = editor.state.selection;
-
-    // Get cursor position in terms of line and column
-    const pos = editor.state.doc.resolve(from);
-    const line = pos.parentOffset;
-    const column = from - pos.start();
-
-    // Set cursor position
-    setCursorPosition({ line, column });
-
-    // Get text around cursor
-    const doc = editor.state.doc;
-    const beforeText = doc.textBetween(Math.max(0, from - 100), from);
-    const afterText = doc.textBetween(to, Math.min(doc.content.size, to + 100));
-
-    // Get current line text
-    const lineStart = pos.start();
-    const lineEnd = pos.end();
-    const currentLineText = doc.textBetween(lineStart, lineEnd);
-
-    const textContext = {
-      before: beforeText,
-      after: afterText,
-      currentLine: currentLineText,
-    };
-
-    setTextAroundCursor(textContext);
-
-    // Debug logging
-    console.log("Cursor context updated:", {
-      position: { line, column },
-      textContext,
-    });
-  };
 
   useEffect(() => {
     if (editor && onReady) {
-      console.log("TipTap editor ready");
       onReady(editor);
-
-      // Set the document ID as escritoId when editor is ready
       setEscritoId(documentId);
-
-      // Initial cursor context update
-      updateCursorContext(editor);
+      updateCursorContext(editor, setCursorPosition, setTextAroundCursor);
     }
-  }, [editor, onReady, documentId, setEscritoId]);
+  }, [editor, setCursorPosition, setTextAroundCursor]);
 
   useEffect(() => {
-    return () => {
-      if (onDestroy) {
-        console.log("TipTap component unmounting");
-        onDestroy();
-      }
-    };
+    return () => onDestroy?.();
   }, [onDestroy]);
 
-  // Ensure all hooks are called before any conditional returns
   useEffect(() => {
     if (sync.initialContent === null && !sync.isLoading && "create" in sync) {
-      console.log("Auto-creating document with ID:", documentId);
-      sync.create(EMPTY_DOC);
+      // Only apply template if it hasn't been applied before
+      if (templateId && !templateAppliedRef.current) {
+        sync.create(initialContent as JSONContent);
+        templateAppliedRef.current = true;
+        
+        // Increment template usage counter
+        incrementModeloUsage({ modeloId: templateId });
+        
+        // Remove templateId from URL after applying to prevent reapplication on reload
+        const newSearchParams = new URLSearchParams(searchParams);
+        newSearchParams.delete("templateId");
+        setSearchParams(newSearchParams, { replace: true });
+      } else if (!templateId) {
+        // No template, just create empty document
+        sync.create(initialContent as JSONContent);
+      }
     }
-  }, [sync, documentId]);
+  }, [sync, templateId, initialContent, searchParams, setSearchParams, incrementModeloUsage]);
 
   useEffect(() => {
-    if (editor) {
-      editor.setEditable(!readOnly);
-    }
+    if (editor) editor.setEditable(!readOnly);
   }, [editor, readOnly]);
 
-  if (sync.isLoading) {
-    return (
-      <div className="flex items-center justify-center h-96 bg-white rounded-lg shadow-sm border border-gray-200">
-        <div className="text-gray-500">Cargando documento...</div>
-      </div>
-    );
-  }
+  console.log("editor", editor?.getJSON());
 
+  useImperativeHandle(ref, () => ({
+    getContent: () => editor?.getJSON() ?? null,
+  }));
 
-  if (sync.initialContent === null) {
-    return (
-      <div className="legal-editor-content prose prose-lg px-12 py-8 min-h-screen flex items-center justify-center">
-        <p className="text-gray-500">
-          {sync.initialContent === null
-            ? "Creating document..."
-            : "Loading document..."}
-        </p>
-      </div>
-    );
-  }
+  if (sync.isLoading)
+    return <EscritosLoadingState />
+  if (!editor)
+    return <EscritosLoadingState />
 
-  // Editor not ready yet
-  if (!editor) {
-    return (
-      <div className="flex items-center justify-center h-96 bg-white rounded-lg shadow-sm border border-gray-200">
-        <div className="text-gray-500">Loading editor...</div>
-      </div>
-    );
-  }
-
-  // Editor is ready - render the full editor
   return (
-    <div className="office-editor-container">
-      {/* Ribbon - Only show if not readOnly */}
-      {!readOnly && <RibbonBar editor={editor} />}
+    <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+      {!readOnly && <MenuBar editor={editor} />}
 
-      {/* Read-only banner */}
       {readOnly && (
-        <div className="bg-amber-50 border-b border-amber-200 px-4 py-2">
-          <div className="flex items-center gap-2 text-amber-800 text-sm">
-            <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
-              <path
-                fillRule="evenodd"
-                d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z"
-                clipRule="evenodd"
-              />
-            </svg>
-            <span>
-              Modo de solo lectura - No tienes permisos para editar este escrito
-            </span>
-          </div>
+        <div className="bg-amber-50 border-b border-amber-200 px-4 py-2 text-amber-800 text-sm">
+          Modo de solo lectura - No tienes permisos para editar este escrito
         </div>
       )}
 
-      {/* Editor Content */}
-      <div className="office-editor-content">
-        <EditorContent
-          editor={editor}
-          className="legal-editor-content-wrapper w-full"
-        />
+      <EditorContent editor={editor} className="w-full min-h-[600px]" />
+
+      <div className="border-t border-gray-200 bg-gray-50/50 px-4 py-2 text-xs text-gray-500">
+        Words: {editor.storage.characterCount?.words() ?? 0} | Characters:{" "}
+        {editor.storage.characterCount?.characters() ?? 0}
       </div>
-
-      {/* Status Bar */}
-      <StatusBar editor={editor} />
-
-      {/* Floating Suggestions Menu */}
-      <SuggestionsMenu editor={editor} />
     </div>
   );
-}
+})
