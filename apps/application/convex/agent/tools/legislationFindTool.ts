@@ -88,9 +88,13 @@ export const legislationFindTool = createTool({
           id: r.id,
           documentId: r.document_id ?? null,
           title: r.title ?? null,
-          tipoNorma: r.tipo_norma ?? null,
+          tipoGeneral: r.tipo_general ?? null,
+          tipoDetalle: r.tipo_detalle ?? null,
           jurisdiccion: r.jurisdiccion ?? null,
+          estado: r.estado ?? null,
+          subestado: r.subestado ?? null,
           publicationDate: r.publication_ts ? new Date(r.publication_ts * 1000).toISOString() : null,
+          sanctionDate: r.sanction_ts ? new Date(r.sanction_ts * 1000).toISOString() : null,
           snippet: (r.text || "").slice(0, 500),
           relationsCount: Array.isArray(r.relaciones) ? r.relaciones.length : 0,
           url: r.url ?? null,
@@ -98,7 +102,7 @@ export const legislationFindTool = createTool({
           // Citation metadata for agent
           citationId: r.document_id || r.id,
           citationType: 'leg',
-          citationTitle: r.title || `${r.tipo_norma} ${r.number || ''}`.trim(),
+          citationTitle: r.title || `${r.tipo_general} ${r.number || ''}`.trim(),
         }));
 
         return `# 🔍 Resultados de Búsqueda Legislativa
@@ -114,9 +118,13 @@ export const legislationFindTool = createTool({
 ${results.length === 0 ? 'No se encontraron resultados para la consulta.' : resultsList.map(r => `
 ### ${r.rank}. ${r.title || 'Sin título'}
 - **ID del Documento**: ${r.documentId || 'N/A'}
-- **Tipo de Norma**: ${r.tipoNorma || 'N/A'}
+- **Tipo General**: ${r.tipoGeneral || 'N/A'}
+- **Tipo Detalle**: ${r.tipoDetalle || 'N/A'}
 - **Jurisdicción**: ${r.jurisdiccion || 'N/A'}
+- **Estado**: ${r.estado || 'N/A'}
+- **Subestado**: ${r.subestado || 'N/A'}
 - **Fecha de Publicación**: ${r.publicationDate ? new Date(r.publicationDate).toLocaleDateString() : 'N/A'}
+- **Fecha de Sanción**: ${r.sanctionDate ? new Date(r.sanctionDate).toLocaleDateString() : 'N/A'}
 - **Relaciones**: ${r.relationsCount}
 - **Puntuación de Relevancia**: ${r.score.toFixed(3)}
 - **Vista Previa**: ${r.snippet || 'Sin contenido disponible'}

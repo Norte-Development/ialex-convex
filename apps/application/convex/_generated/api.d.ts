@@ -30,7 +30,6 @@ import type * as agent_tools_readDocumentTool from "../agent/tools/readDocumentT
 import type * as agent_tools_readEscritoTool from "../agent/tools/readEscritoTool.js";
 import type * as agent_tools_rewriteEscritoSectionTool from "../agent/tools/rewriteEscritoSectionTool.js";
 import type * as agent_tools_searchCaseDocumentsTool from "../agent/tools/searchCaseDocumentsTool.js";
-import type * as agent_tools_searchFallosTool from "../agent/tools/searchFallosTool.js";
 import type * as agent_tools_searchLegislationTool from "../agent/tools/searchLegislationTool.js";
 import type * as agent_tools_utils from "../agent/tools/utils.js";
 import type * as agent_tools_validation from "../agent/tools/validation.js";
@@ -113,7 +112,6 @@ declare const fullApi: ApiFromModules<{
   "agent/tools/readEscritoTool": typeof agent_tools_readEscritoTool;
   "agent/tools/rewriteEscritoSectionTool": typeof agent_tools_rewriteEscritoSectionTool;
   "agent/tools/searchCaseDocumentsTool": typeof agent_tools_searchCaseDocumentsTool;
-  "agent/tools/searchFallosTool": typeof agent_tools_searchFallosTool;
   "agent/tools/searchLegislationTool": typeof agent_tools_searchLegislationTool;
   "agent/tools/utils": typeof agent_tools_utils;
   "agent/tools/validation": typeof agent_tools_validation;

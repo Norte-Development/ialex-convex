@@ -1,7 +1,6 @@
 // Export all tools
 export { editEscritoTool } from './editEscritoTool';
 export { getEscritoTool } from './getEscritoTool';
-export { searchFallosTool } from './searchFallosTool';
 export { searchCaseDocumentsTool } from './searchCaseDocumentsTool';
 export { readDocumentTool } from './readDocumentTool';
 export { queryDocumentTool } from './queryDocumentTool';

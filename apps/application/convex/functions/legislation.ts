@@ -21,6 +21,43 @@ const estadoValidator = v.union(
   v.literal("sin_registro_oficial")
 );
 
+// Validator for Subestado enum
+const subestadoValidator = v.union(
+  v.literal("alcance_general"),
+  v.literal("individual_modificatoria_o_sin_eficacia"),
+  v.literal("vetada"),
+  v.literal("derogada"),
+  v.literal("abrogada_implicita"),
+  v.literal("ley_caduca"),
+  v.literal("refundida_ley_caduca"),
+  v.literal("sin_registro")
+);
+
+// Validator for TipoGeneral enum
+const tipoGeneralValidator = v.union(
+  v.literal("ley"),
+  v.literal("decreto"),
+  v.literal("resolucion"),
+  v.literal("ordenanza"),
+  v.literal("reglamento")
+);
+
+// Validator for TipoDetalle enum
+const tipoDetalleValidator = v.union(
+  v.literal("ley"),
+  v.literal("decreto"),
+  v.literal("resolucion"),
+  v.literal("ordenanza"),
+  v.literal("reglamento")
+);
+
+// Validator for TipoContenido enum
+const tipoContenidoValidator = v.union(
+  v.literal("leg"),
+  v.literal("jur"),
+  v.literal("adm")
+);
+
 // Validator for SortBy enum
 const sortByValidator = v.union(
   v.literal("sanction_date"),
@@ -40,13 +77,28 @@ const filtersValidator = v.optional(v.object({
   type: v.optional(v.string()),
   jurisdiccion: v.optional(v.string()),
   estado: v.optional(estadoValidator),
+  subestado: v.optional(subestadoValidator),
+  tipo_general: v.optional(tipoGeneralValidator),
+  tipo_detalle: v.optional(tipoDetalleValidator),
+  tipo_contenido: v.optional(tipoContenidoValidator),
   sanction_date_from: v.optional(v.string()),
   sanction_date_to: v.optional(v.string()),
   publication_date_from: v.optional(v.string()),
   publication_date_to: v.optional(v.string()),
   number: v.optional(v.number()),
   search: v.optional(v.string()),
-  vigencia_actual: v.optional(v.boolean())
+  vigencia_actual: v.optional(v.boolean()),
+  // New fields from payload
+  content_hash: v.optional(v.string()),
+  date_ts_from: v.optional(v.number()),
+  date_ts_to: v.optional(v.number()),
+  sanction_ts_from: v.optional(v.number()),
+  sanction_ts_to: v.optional(v.number()),
+  publication_ts_from: v.optional(v.number()),
+  publication_ts_to: v.optional(v.number()),
+  fuente: v.optional(v.string()),
+  country_code: v.optional(v.string()),
+  document_id: v.optional(v.string())
 }));
 
 export const getNormatives = action({

@@ -3,7 +3,6 @@ import { Agent, stepCountIs } from "@convex-dev/agent";
 import { openai } from "@ai-sdk/openai";
 
 import {
-  searchFallosTool,
   searchCaseDocumentsTool,
   readDocumentTool,
   listCaseDocumentsTool,
@@ -47,7 +46,6 @@ export const agent = new Agent(components.agent, {
   },
 
   tools: {
-    searchFallos: searchFallosTool,
     searchCaseDocumentos: searchCaseDocumentsTool,
     readDocumento: readDocumentTool,
     listCaseDocumentos: listCaseDocumentsTool,

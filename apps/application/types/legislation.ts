@@ -6,7 +6,17 @@ export type Estado =
 export type Subestado = 
   | "alcance_general" | "individual_modificatoria_o_sin_eficacia"
   | "vetada" | "derogada" | "abrogada_implicita"
-  | "ley_caduca" | "refundida_ley_caduca";
+  | "ley_caduca" | "refundida_ley_caduca"
+  | "sin_registro";
+
+export type TipoGeneral = 
+  | "ley" | "decreto" | "resolucion" | "ordenanza" | "reglamento";
+
+export type TipoDetalle = 
+  | "ley" | "decreto" | "resolucion" | "ordenanza" | "reglamento";
+
+export type TipoContenido = 
+  | "leg" | "jur" | "adm";
 
 export type TipoRelacion = 
   | "modifica" | "es_modificada_por" | "deroga" | "es_derogada_por"
@@ -91,16 +101,35 @@ export interface NormativeChunk {
 }
 
 export interface Relacion {
-  target_id: string;
   tipo: TipoRelacion;
-  alcance?: "total" | "parcial";
-  articulo?: string;
-  desde?: string;
-  hasta?: string;
-  fuente_url?: string;
-  fuente_cita?: string;
-  confidence?: number;
-  textual_cita?: string;
+  document_id: string;
+  collection: string;
+}
+
+// New Paraguay-specific legislation interface matching the payload structure
+export interface ParaguayLegislationDoc {
+  content_hash: string;
+  date_ts: number;
+  fuente: string;
+  tipo_contenido: TipoContenido;
+  publication_ts: number;
+  text: string;
+  tags: string[];
+  country_code: string;
+  title: string;
+  estado: Estado;
+  subestado: Subestado;
+  tipo_general: TipoGeneral;
+  citas: string[];
+  tipo_detalle: TipoDetalle;
+  index: number;
+  last_ingested_run_id: string;
+  relaciones: Relacion[];
+  jurisdiccion: string;
+  number: string;
+  document_id: string;
+  url: string;
+  sanction_ts: number;
 }
 
 // Search interfaces
@@ -147,6 +176,10 @@ export interface NormativeFilters {
   type?: string;
   jurisdiccion?: string;
   estado?: Estado;
+  subestado?: Subestado;
+  tipo_general?: TipoGeneral;
+  tipo_detalle?: TipoDetalle;
+  tipo_contenido?: TipoContenido;
   sanction_date_from?: string;
   sanction_date_to?: string;
   publication_date_from?: string;
@@ -154,6 +187,17 @@ export interface NormativeFilters {
   number?: number;
   search?: string; // text search in title and content
   vigencia_actual?: boolean;
+  // New fields from payload
+  content_hash?: string;
+  date_ts_from?: number;
+  date_ts_to?: number;
+  sanction_ts_from?: number;
+  sanction_ts_to?: number;
+  publication_ts_from?: number;
+  publication_ts_to?: number;
+  fuente?: string;
+  country_code?: string;
+  document_id?: string;
 }
 
 export interface ListNormativesParams {
