@@ -4,17 +4,19 @@ import { openai } from "@ai-sdk/openai";
 
 import {
   searchCaseDocumentsTool,
-  readDocumentTool,
-  listCaseDocumentsTool,
   queryDocumentTool,
   editEscritoTool,
   getEscritoStatsTool,
   readEscritoTool,
+  searchLegislationTool,
   legislationFindTool,
   legislationReadTool,
   planAndTrackTool,
   markTaskCompleteTool,
-  insertContentTool
+  insertContentTool,
+  manageEscritoTool,
+  searchClientsTool,
+  searchTemplatesTool
 } from "./tools/index";
 
 /**
@@ -47,17 +49,19 @@ export const agent = new Agent(components.agent, {
 
   tools: {
     searchCaseDocumentos: searchCaseDocumentsTool,
-    readDocumento: readDocumentTool,
-    listCaseDocumentos: listCaseDocumentsTool,
     queryDocumento: queryDocumentTool,
     editEscrito: editEscritoTool,
     getEscritoStats: getEscritoStatsTool,
     readEscrito: readEscritoTool,
-    searchLegislation: legislationFindTool,
+    searchLegislation: searchLegislationTool,
+    searchLegislationAdvanced: legislationFindTool,
     readLegislation: legislationReadTool,
     planAndTrack: planAndTrackTool,
     markTaskComplete: markTaskCompleteTool,
     insertContent: insertContentTool,
+    manageEscrito: manageEscritoTool,
+    searchClients: searchClientsTool,
+    searchTemplates: searchTemplatesTool,
   }
 });
 
