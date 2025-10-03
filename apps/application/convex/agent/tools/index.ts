@@ -13,7 +13,7 @@ export { insertContentTool } from './escritos/insertContentTool';
 // New consolidated tools
 export { manageEscritoTool } from './escritos/manageEscritoTool';
 export { searchClientsTool } from './clients/searchClientsTool';
-export { searchTemplatesTool } from './templates/searchTemplatesTool';
+export { searchTemplatesTool } from './modelos/searchTemplatesTool';
 
 // Export validation helpers
 export { validateEditType, validateMarkType, validateParagraphType } from './validation';

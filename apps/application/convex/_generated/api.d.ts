@@ -32,7 +32,7 @@ import type * as agent_tools_legislation_legislationFindTool from "../agent/tool
 import type * as agent_tools_legislation_legislationReadTool from "../agent/tools/legislation/legislationReadTool.js";
 import type * as agent_tools_legislation_searchLegislationTool from "../agent/tools/legislation/searchLegislationTool.js";
 import type * as agent_tools_planning_planAndTrackTool from "../agent/tools/planning/planAndTrackTool.js";
-import type * as agent_tools_templates_searchTemplatesTool from "../agent/tools/templates/searchTemplatesTool.js";
+import type * as agent_tools_templates_searchTemplatesTool from "../agent/tools/modelos/searchTemplatesTool.js";
 import type * as agent_tools_utils from "../agent/tools/utils.js";
 import type * as agent_tools_validation from "../agent/tools/validation.js";
 import type * as auth_utils from "../auth_utils.js";
