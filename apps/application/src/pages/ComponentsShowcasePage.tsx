@@ -12,7 +12,7 @@ import {
 import WindowModal from "@/components/ui/WindowModal";
 import NavBar from "@/components/Layout/Navbar/NavBar";
 import ModelsTable from "@/components/Models/ModelsTable";
-import EventCard from "@/components/Home/EventCard";
+import EventCard from "@/components/Home/NewCaseCard";
 import EventDateCard from "@/components/Home/EventDateCard";
 import { Badge } from "@/components/ui/badge";
 

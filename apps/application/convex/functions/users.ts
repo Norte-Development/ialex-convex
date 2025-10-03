@@ -426,5 +426,29 @@ export const searchAvailableUsersForCase = query({
 });
 
 /**
+ * Get user by ID
+ */
+export const getUserById = query({
+  args: { userId: v.id("users") },
+  handler: async (ctx, args) => {
+    const user = await ctx.db.get(args.userId);
+    
+    if (!user) {
+      return null;
+    }
+
+    // Return only necessary fields for privacy
+    return {
+      _id: user._id,
+      email: user.email,
+      name: user.name,
+      role: user.role,
+      firmName: user.firmName,
+      specializations: user.specializations,
+    };
+  },
+});
+
+/**
  * Search for users by name or email
  */

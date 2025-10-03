@@ -2,16 +2,10 @@ import CaseCards from "./CaseCards";
 import { useQuery } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import { Case } from "types/cases";
-import EventCard from "./EventCard";
+import NewCaseCard from "./NewCaseCard";
 import EventDateCard from "./EventDateCard";
 import { Button } from "../ui/button";
 import { CircleArrowRight } from "lucide-react";
-
-const events = [
-  { _id: "1", name: "Evento 1" },
-  { _id: "2", name: "Evento 2" },
-  { _id: "3", name: "Evento 3" },
-];
 
 const eventsWithDate = [
   {
@@ -44,23 +38,14 @@ const ExistingUserHome = () => {
 
   return (
     <>
-      <div className="grid lg:grid-cols-3 md:grid-cols-2 sm:grid-cols-1  gap-10 ">
-        {/** Lo dejamos para acceder mas rapido a los casos despues lo fletamos */}
-        {cases.map((caseItem: Case) => (
-          <CaseCards
-            key={caseItem._id}
-            id={caseItem._id}
-            name={caseItem.title}
-          />
-        ))}
-      </div>
+      <div className="grid lg:grid-cols-3 md:grid-cols-2 sm:grid-cols-1  gap-10 "></div>
       <div className="flex flex-col justify-center  items-start w-full">
         <p className="text-center font-[400] text-[24px] text-tertiary">
           Vuelve a tu trabajo
         </p>
         <div className="mt-10 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 w-full  gap-4 mb-10 ">
-          {events.map((event) => (
-            <EventCard key={event._id} event={event} />
+          {cases.map((caseItem) => (
+            <NewCaseCard key={caseItem._id} caseItem={caseItem} />
           ))}
         </div>
         <p className="text-center font-[400] text-[24px] text-tertiary">
