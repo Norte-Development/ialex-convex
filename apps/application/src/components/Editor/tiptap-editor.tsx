@@ -57,7 +57,7 @@ export const Tiptap = forwardRef<TiptapRef, TiptapProps>(({
           }`,
           "data-placeholder": readOnly
             ? ""
-            : "Start writing your legal document...",
+            : "Comience a escribir su documento legal...",
         },
       },
       onUpdate: ({ editor }) =>
