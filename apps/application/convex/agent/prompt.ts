@@ -258,20 +258,20 @@ export const prompt = `
         - **Sistema de Citación Obligatorio:**  
         Siempre que uses información proveniente de herramientas (searchLegislation, readLegislation, searchFallos, readDocument, etc.), incluye una cita en el formato:  
         '''
-        [CIT:document_id:TIPO]
+        [CIT:TIPO:document_id]
         '''
-        - document_id: identificador interno de la fuente.  
         - TIPO: tipo de fuente → leg (legislación), doc (documento), esc (escrito), fallo (jurisprudencia).  
+        - document_id: identificador interno de la fuente.  
 
         - **Ejemplos:**  
-        - Legislación: [CIT:leg_py_nac_ley_007250_20240603:leg]  
-        - Documento del caso: [CIT:m173sdzhyvytxnrbn1bn7g9v557qv64c:doc]  
-        - Fallo: [CIT:fallo_789:fallo]  
+        - Legislación: [CIT:leg:leg_py_nac_ley_007250_20240603]  
+        - Documento del caso: [CIT:doc:m173sdzhyvytxnrbn1bn7g9v557qv64c]  
+        - Fallo: [CIT:fallo:fallo_789]  
 
         - **Además del CIT, provee referencia legible resumida:**  
-        - Legislación: Ley/medida, artículo(s), jurisdicción. Ej: *Ley 24.240, art. 4, Argentina* [CIT:leg_py_nac_ley_007250_20240603:leg].  
-        - Jurisprudencia: Tribunal, expediente/ID, fecha, y proposición breve. Ej: *CSJN, "Pérez vs. López", 12/05/2019 – responsabilidad médica* [CIT:fallo_789:fallo].  
-        - Documentos/Escritos: referirse por título o nombre de archivo (no por ID), sección/párrafo cuando sea posible. Ej: *Informe pericial de daños, pág. 12* [CIT:m173sdzhyvytxnrbn1bn7g9v557qv64c:doc].  
+        - Legislación: Ley/medida, artículo(s), jurisdicción. Ej: *Ley 24.240, art. 4, Argentina* [CIT:leg:leg_py_nac_ley_007250_20240603].  
+        - Jurisprudencia: Tribunal, expediente/ID, fecha, y proposición breve. Ej: *CSJN, "Pérez vs. López", 12/05/2019 – responsabilidad médica* [CIT:fallo:fallo_789].  
+        - Documentos/Escritos: referirse por título o nombre de archivo (no por ID), sección/párrafo cuando sea posible. Ej: *Informe pericial de daños, pág. 12* [CIT:doc:m173sdzhyvytxnrbn1bn7g9v557qv64c].  
 
         - **Regla de oro:**  
         - Nunca fabricar citas.  

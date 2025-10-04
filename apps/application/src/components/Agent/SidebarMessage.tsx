@@ -9,8 +9,7 @@ import { Copy, ThumbsUp, ThumbsDown } from "lucide-react";
 import {
   Tool,
 } from "../ai-elements/tool";
-import { Response } from "../ai-elements/response";
-import { CitationParser } from "../ai-elements/citation-parser";
+import { MessageText } from "../ai-elements/message-text";
 import type { SidebarMessageProps } from "./types/message-types";
 import { LegislationModal } from "./legislation-modal";
 import { useState, useEffect } from "react";
@@ -122,19 +121,15 @@ export function SidebarMessage({
                 key={index}
                 className={cn("prose prose-sm max-w-none whitespace-pre-wrap")}
               >
-                {isUser ? (
-                  <Response>{displayText}</Response>
-                ) : (
-                  <CitationParser 
-                    text={displayText}
-                    onCitationClick={(id, type) => {
-                      console.log('Citation clicked:', { id, type });
-                      setOpen(true);
-                      setNormativeId(id);
-                      // TODO: Implement citation click handler
-                    }}
-                  />
-                )}
+                <MessageText
+                  text={displayText}
+                  renderMarkdown={true}
+                  onCitationClick={!isUser ? (id, type) => {
+                    console.log('Citation clicked:', { id, type });
+                    setOpen(true);
+                    setNormativeId(id);
+                  } : undefined}
+                />
                 {!isUser && isStreaming && !allToolsCompleted && (
                   <div className="flex items-center gap-1 mt-2">
                     <Loader size={12} />

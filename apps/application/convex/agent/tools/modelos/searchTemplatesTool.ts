@@ -3,12 +3,13 @@ import { api, internal } from "../../../_generated/api";
 import { z } from "zod";
 import { getUserAndCaseIds, createErrorResponse, validateStringParam, validateNumberParam } from "../utils";
 import { Id } from "../../../_generated/dataModel";
+import { createContentSummary, generateTemplateSummary } from "../utils/sanitizeContent";
 
 /**
  * Tool for searching and retrieving template information.
  * Supports searching by name, category, content type, or getting specific templates.
  *
- * @description Tool for searching and retrieving template information. Supports searching by name, category, content type, or getting specific templates. Returns comprehensive template details including content preview. Perfect for finding and previewing templates before applying them to escritos.
+ * @description Tool for searching and retrieving template information. Supports searching by name, category, content type, or getting specific templates. Returns template summaries and brief descriptions without raw content or IDs. Perfect for finding and understanding templates before applying them to escritos.
  * @param {Object} args - Search parameters
  * @param {string} [args.searchTerm] - Search term to filter templates by name or description
  * @param {string} [args.category] - Filter by category (e.g., "Derecho Civil", "Derecho Mercantil")
@@ -37,13 +38,13 @@ import { Id } from "../../../_generated/dataModel";
  * });
  */
 export const searchTemplatesTool = createTool({
-  description: "Tool for searching and retrieving template information. Supports searching by name, category, content type, or getting specific templates. Returns comprehensive template details including content preview. Perfect for finding and previewing templates before applying them to escritos.",
+  description: "Tool for searching and retrieving template information. Supports searching by name, category, content type, or getting specific templates. Returns template summaries and brief descriptions without raw content or IDs. Perfect for finding and understanding templates before applying them to escritos.",
   args: z.object({
-    searchTerm: z.any().optional().describe("Search term to filter templates by name or description"),
-    category: z.any().optional().describe("Filter by category (e.g., 'Derecho Civil', 'Derecho Mercantil')"),
-    contentType: z.any().optional().describe("Filter by content type: 'html' or 'json'"),
-    templateId: z.any().optional().describe("Get specific template by ID"),
-    limit: z.any().optional().describe("Maximum number of results to return (default: 20, max: 100)")
+    searchTerm: z.string().optional().describe("Search term to filter templates by name or description"),
+    category: z.string().optional().describe("Filter by category (e.g., 'Derecho Civil', 'Derecho Mercantil')"),
+    contentType: z.string().optional().describe("Filter by content type: 'html' or 'json'"),
+    templateId: z.string().optional().describe("Get specific template by ID"),
+    limit: z.number().min(1).max(100).optional().describe("Maximum number of results to return (default: 20, max: 100)")
   }).required({}),
   handler: async (ctx: ToolCtx, args: any) => {
     try {
@@ -62,106 +63,239 @@ export const searchTemplatesTool = createTool({
       const limitError = validateNumberParam(args.limit, "limit", 1, 100, 20);
       if (limitError) return limitError;
       const limit = args.limit !== undefined ? args.limit : 20;
-
-      // TODO: Implement template search logic
-      // This would search for templates using the provided parameters
       
       if (templateId) {
+        // Get specific template by ID
+        const template = await ctx.runQuery(internal.functions.templates.internalGetModelo, {
+          modeloId: templateId as Id<"modelos">,
+          userId: userId as Id<"users">
+        });
+        
+        if (!template) {
+          return createErrorResponse(`Plantilla con ID "${templateId}" no encontrada`);
+        }
+        
+        const contentPreview = template.content 
+          ? (template.content.length > 200 
+              ? template.content.substring(0, 200) + "..." 
+              : template.content)
+          : "Sin contenido";
+        
         return `# 📄 Plantilla Específica
 
 ## Información de la Plantilla
 - **ID de la Plantilla**: ${templateId}
+- **Nombre**: ${template.name}
+- **Categoría**: ${template.category}
+- **Tipo de Contenido**: ${template.content_type || 'No especificado'}
+- **Pública**: ${template.isPublic ? 'Sí' : 'No'}
+- **Usos**: ${template.usageCount}
+- **Fecha de Creación**: ${new Date(template._creationTime).toLocaleDateString('es-ES')}
 
-## Detalles
-*Funcionalidad de obtención de plantilla específica - implementación pendiente*
+## Descripción
+${template.description || 'Sin descripción disponible'}
 
-## Contenido
-*Vista previa del contenido de la plantilla*
+## Vista Previa del Contenido
+\`\`\`${template.content_type || 'text'}
+${contentPreview}
+\`\`\`
 
-## Información Adicional
-- **Categoría**: Por implementar
-- **Tipo de Contenido**: Por implementar
-- **Fecha de Creación**: Por implementar
-- **Número de Usos**: Por implementar
+## Tags
+${template.tags && template.tags.length > 0 ? template.tags.map((tag: string) => `- ${tag}`).join('\n') : 'Sin tags'}
 
-## Próximos Pasos
-1. Implementar obtención de plantilla por ID
-2. Retornar contenido completo de la plantilla
-3. Incluir metadatos de la plantilla
-4. Mostrar vista previa del contenido
+## Estado
+- **Activa**: ${template.isActive ? 'Sí' : 'No'}
+- **Creada por**: ${template.createdBy === 'system' ? 'Sistema' : 'Usuario'}
 
 ---
-*Funcionalidad de plantilla específica - implementación pendiente*`;
+*Plantilla específica obtenida exitosamente*`;
       } else if (searchTerm) {
-        return `# 🔍 Búsqueda de Plantillas
+        // Search templates by search term
+        const searchResult = await ctx.runQuery(internal.functions.templates.internalSearchModelos, {
+          searchTerm,
+          paginationOpts: { numItems: limit, cursor: null },
+          category: category || undefined,
+          content_type: contentType || undefined,
+          userId: userId as Id<"users">
+        });
+        
+        const templates = searchResult.page;
+        
+        if (templates.length === 0) {
+          return `# 🔍 Búsqueda de Plantillas
 
 ## Término de Búsqueda
 **Buscar**: "${searchTerm}"
 
 ## Resultados
-*Funcionalidad de búsqueda de plantillas - implementación pendiente*
+❌ **No se encontraron plantillas** que coincidan con el término de búsqueda.
 
 ## Información Adicional
 - **Límite de Resultados**: ${limit}
-- **Total Encontradas**: Por implementar
+- **Total Encontradas**: 0
+- **Filtros Aplicados**: Término de búsqueda
+${category ? `- **Categoría**: ${category}` : ''}
+${contentType ? `- **Tipo de Contenido**: ${contentType}` : ''}
+
+## Sugerencias
+1. Verifica la ortografía del término de búsqueda
+2. Intenta con términos más generales
+3. Usa filtros de categoría para refinar la búsqueda
+
+---
+*Búsqueda completada sin resultados*`;
+        }
+        
+        const templatesList = templates.map((template: any, index: number) => {
+          return `${index + 1}. ${generateTemplateSummary(template)}`;
+        }).join('\n\n');
+        
+        return `# 🔍 Búsqueda de Plantillas
+
+## Término de Búsqueda
+**Buscar**: "${searchTerm}"
+
+## Resultados Encontrados
+${templatesList}
+
+## Información Adicional
+- **Límite de Resultados**: ${limit}
+- **Total Encontradas**: ${templates.length}
+- **Más resultados disponibles**: ${searchResult.isDone ? 'No' : 'Sí'}
 - **Filtros Aplicados**: Término de búsqueda
 ${category ? `- **Categoría**: ${category}` : ''}
 ${contentType ? `- **Tipo de Contenido**: ${contentType}` : ''}
 
 ## Próximos Pasos
-1. Implementar búsqueda por nombre y descripción
-2. Retornar lista de plantillas coincidentes
-3. Incluir vista previa del contenido
-4. Mostrar metadatos de cada plantilla
+1. Usa el nombre de una plantilla para obtener más detalles
+2. Aplica filtros adicionales para refinar la búsqueda
+3. Considera usar términos de búsqueda más específicos
 
 ---
-*Funcionalidad de búsqueda de plantillas - implementación pendiente*`;
+*Búsqueda completada exitosamente*`;
       } else if (category || contentType) {
-        return `# 📋 Plantillas Filtradas
+        // Filter templates by category and/or content type
+        const filterResult = await ctx.runQuery(internal.functions.templates.internalGetModelos, {
+          paginationOpts: { numItems: limit, cursor: null },
+          category: category || undefined,
+          content_type: contentType || undefined,
+          userId: userId as Id<"users">
+        });
+        
+        const templates = filterResult.page;
+        
+        if (templates.length === 0) {
+          return `# 📋 Plantillas Filtradas
 
 ## Filtros Aplicados
 ${category ? `- **Categoría**: ${category}` : ''}
 ${contentType ? `- **Tipo de Contenido**: ${contentType}` : ''}
 
 ## Resultados
-*Funcionalidad de filtrado de plantillas - implementación pendiente*
+❌ **No se encontraron plantillas** que coincidan con los filtros aplicados.
 
 ## Información Adicional
 - **Límite de Resultados**: ${limit}
-- **Total Encontradas**: Por implementar
+- **Total Encontradas**: 0
+- **Filtros Activos**: Categoría y/o tipo de contenido
+
+## Sugerencias
+1. Verifica que la categoría sea correcta
+2. Intenta con un tipo de contenido diferente
+3. Usa un término de búsqueda para refinar los resultados
+
+---
+*Filtrado completado sin resultados*`;
+        }
+        
+        const templatesList = templates.map((template: any, index: number) => {
+          return `${index + 1}. ${generateTemplateSummary(template)}`;
+        }).join('\n\n');
+        
+        return `# 📋 Plantillas Filtradas
+
+## Filtros Aplicados
+${category ? `- **Categoría**: ${category}` : ''}
+${contentType ? `- **Tipo de Contenido**: ${contentType}` : ''}
+
+## Resultados Encontrados
+${templatesList}
+
+## Información Adicional
+- **Límite de Resultados**: ${limit}
+- **Total Encontradas**: ${templates.length}
+- **Más resultados disponibles**: ${filterResult.isDone ? 'No' : 'Sí'}
 - **Filtros Activos**: Categoría y/o tipo de contenido
 
 ## Próximos Pasos
-1. Implementar filtrado por categoría
-2. Implementar filtrado por tipo de contenido
-3. Retornar plantillas que coincidan con los filtros
-4. Incluir información relevante de cada plantilla
+1. Usa el nombre de una plantilla para obtener más detalles
+2. Combina con términos de búsqueda para resultados más específicos
+3. Explora otras categorías o tipos de contenido
 
 ---
-*Funcionalidad de filtrado de plantillas - implementación pendiente*`;
+*Filtrado completado exitosamente*`;
       } else {
-        return `# 📋 Todas las Plantillas
+        // Get all templates
+        const allTemplatesResult = await ctx.runQuery(internal.functions.templates.internalGetModelos, {
+          paginationOpts: { numItems: limit, cursor: null },
+          userId: userId as Id<"users">
+        });
+        
+        const templates = allTemplatesResult.page;
+        
+        if (templates.length === 0) {
+          return `# 📋 Todas las Plantillas
 
 ## Búsqueda General
 Sin filtros específicos aplicados.
 
 ## Resultados
-*Funcionalidad de listado general de plantillas - implementación pendiente*
+❌ **No hay plantillas disponibles** en el sistema.
 
 ## Información Adicional
 - **Límite de Resultados**: ${limit}
-- **Total de Plantillas**: Por implementar
-- **Plantillas Públicas**: Por implementar
-- **Plantillas Privadas**: Por implementar
+- **Total de Plantillas**: 0
+- **Plantillas Públicas**: 0
+- **Plantillas Privadas**: 0
 
-## Próximos Pasos
-1. Implementar listado paginado de todas las plantillas
-2. Incluir información básica de cada plantilla
-3. Mostrar categorías y tipos de contenido
-4. Permitir acceso a plantillas públicas y privadas del usuario
+## Sugerencias
+1. Contacta al administrador para agregar plantillas al sistema
+2. Crea tu primera plantilla personalizada
+3. Verifica los permisos de acceso
 
 ---
-*Funcionalidad de listado general de plantillas - implementación pendiente*`;
+*Listado general completado sin resultados*`;
+        }
+        
+        const publicCount = templates.filter((t: any) => t.isPublic).length;
+        const privateCount = templates.filter((t: any) => !t.isPublic).length;
+        
+        const templatesList = templates.map((template: any, index: number) => {
+          return `${index + 1}. ${generateTemplateSummary(template)}`;
+        }).join('\n\n');
+        
+        return `# 📋 Todas las Plantillas
+
+## Búsqueda General
+Sin filtros específicos aplicados.
+
+## Resultados Encontrados
+${templatesList}
+
+## Información Adicional
+- **Límite de Resultados**: ${limit}
+- **Total de Plantillas**: ${templates.length}
+- **Plantillas Públicas**: ${publicCount}
+- **Plantillas Privadas**: ${privateCount}
+- **Más resultados disponibles**: ${allTemplatesResult.isDone ? 'No' : 'Sí'}
+
+## Próximos Pasos
+1. Usa el nombre de una plantilla para obtener más detalles
+2. Aplica filtros por categoría o tipo de contenido
+3. Usa términos de búsqueda para encontrar plantillas específicas
+
+---
+*Listado general completado exitosamente*`;
       }
     } catch (error) {
       return createErrorResponse(`Error inesperado: ${error instanceof Error ? error.message : 'Error desconocido'}`);
