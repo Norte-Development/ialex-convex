@@ -46,8 +46,15 @@ export function CreateEscritoPreview({ output }: CreateEscritoPreviewProps) {
       } else {
         toast.success("Escrito creado exitosamente")
       }
+
+      if (templateId) {
+        navigate(`/caso/${currentCase?._id}/escritos/${result.escritoId}?templateId=${templateId}`)
+      } else {
+        navigate(`/caso/${currentCase?._id}/escritos/${result.escritoId}`)
+      }
       
-      navigate(`/caso/${currentCase?._id}/escritos/${result.escritoId}?templateId=${templateId}`)
+      return
+      
     } catch (error) {
       console.error("Error creating escrito:", error)
       toast.error("Error al crear el escrito")
