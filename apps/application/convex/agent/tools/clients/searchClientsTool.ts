@@ -46,6 +46,10 @@ export const searchCaseClientsTool = createTool({
   handler: async (ctx: ToolCtx, args: any) => {
     try {
       const {caseId, userId} = getUserAndCaseIds(ctx.userId as string);
+
+      if (!caseId) {
+        return createErrorResponse("No esta en un caso");
+      }
       
       await ctx.runQuery(internal.auth_utils.internalCheckNewCaseAccess,{
         userId: userId as Id<"users">,
