@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { useQuery, useMutation } from "convex/react";
 import { useAuth, useUser } from "@clerk/clerk-react";
-import { CustomSignUp } from "@/components/Auth/CustomSignUp";
+import { SignUp } from "@clerk/clerk-react";
 import { api } from "../../convex/_generated/api";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -163,9 +163,22 @@ export default function SignupInvitePage() {
             </p>
           </div>
           
-          <CustomSignUp
+          <SignUp 
             redirectUrl={window.location.href}
-            teamName={inviteDetails.teamName}
+            localization={{
+              locale: "es"
+            }}
+            appearance={{
+              elements: {
+                formButtonPrimary: "bg-blue-600 hover:bg-blue-700 text-sm normal-case",
+                card: "shadow-lg",
+                headerTitle: "text-gray-900",
+                headerSubtitle: "text-gray-600",
+                socialButtonsBlockButton: "border border-gray-300 hover:bg-gray-50",
+                formFieldInput: "border border-gray-300 focus:border-blue-500 focus:ring-1 focus:ring-blue-500",
+                footerActionLink: "text-blue-600 hover:text-blue-800"
+              }
+            }}
           />
           
           <div className="mt-4 text-center">

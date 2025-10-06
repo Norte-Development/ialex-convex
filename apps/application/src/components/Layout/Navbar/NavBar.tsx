@@ -14,13 +14,15 @@ export default function NavBar() {
   const location = useLocation();
 
   const isInCaseContext = location.pathname.includes("/caso/");
+  const isActive = (path: string) =>
+    location.pathname === path || location.pathname.startsWith(path + "/");
 
   return (
     <nav
       className={`${isInCaseContext ? "flex flex-row-reverse" : "flex "} fixed px-5 justify-between items-center h-14 w-full bg-background text-foreground border-b border-border top-0 left-0 z-50 mb-5`}
     >
       <div className={` flex  items-center gap-4`}>
-        <Settings className="cursor-pointer" size={20} />
+        <Settings className="cursor-pointer" size={20} aria-hidden="true" />
         <UserButton
           appearance={{
             elements: {
@@ -36,23 +38,77 @@ export default function NavBar() {
             <Breadcrumbs />
           </div>
         ) : (
-          <div className="flex gap-4">
-            <Link to="/base-de-datos">
-              <FileSearch2 className="cursor-pointer" size={20} />
+          <div className="flex items-center gap-6">
+            <Link
+              to="/"
+              aria-label="Inicio"
+              className="flex items-center gap-2 font-semibold hover:opacity-100 opacity-90 transition-opacity"
+            >
+              <span>IAlex</span>
             </Link>
-            <Link to="/clientes">
-              <UserIcon
-                fill="currentColor"
-                className="cursor-pointer"
-                size={20}
-              />
-            </Link>
-            <Link to="/modelos">
-              <BookCheck size={20} className="cursor-pointer" />
-            </Link>
-            <Link to="/equipo">
-              <UsersRound className="cursor-pointer" size={20} />
-            </Link>
+            <div className="flex gap-4 items-center">
+              <Link
+                to="/base-de-datos"
+                aria-label="Base de datos"
+                aria-current={isActive("/base-de-datos") ? "page" : undefined}
+                title="Base de datos"
+              >
+                <FileSearch2
+                  className={`cursor-pointer transition-opacity ${
+                    isActive("/base-de-datos")
+                      ? "opacity-100"
+                      : "opacity-60 hover:opacity-100"
+                  }`}
+                  size={20}
+                />
+              </Link>
+              <Link
+                to="/clientes"
+                aria-label="Clientes"
+                aria-current={isActive("/clientes") ? "page" : undefined}
+                title="Clientes"
+              >
+                <UserIcon
+                  fill="currentColor"
+                  className={`cursor-pointer transition-opacity ${
+                    isActive("/clientes")
+                      ? "opacity-100"
+                      : "opacity-60 hover:opacity-100"
+                  }`}
+                  size={20}
+                />
+              </Link>
+              <Link
+                to="/modelos"
+                aria-label="Modelos"
+                aria-current={isActive("/modelos") ? "page" : undefined}
+                title="Modelos"
+              >
+                <BookCheck
+                  size={20}
+                  className={`cursor-pointer transition-opacity ${
+                    isActive("/modelos")
+                      ? "opacity-100"
+                      : "opacity-60 hover:opacity-100"
+                  }`}
+                />
+              </Link>
+              <Link
+                to="/equipo"
+                aria-label="Equipo"
+                aria-current={isActive("/equipo") ? "page" : undefined}
+                title="Equipo"
+              >
+                <UsersRound
+                  className={`cursor-pointer transition-opacity ${
+                    isActive("/equipo")
+                      ? "opacity-100"
+                      : "opacity-60 hover:opacity-100"
+                  }`}
+                  size={20}
+                />
+              </Link>
+            </div>
           </div>
         )}
       </div>
