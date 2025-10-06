@@ -146,6 +146,10 @@ export const legalAgentWorkflow = workflow.define({
   },
   handler: async (step, args): Promise<void> => {
     console.log("Starting legal agent workflow");
+    const userMessage = await saveMessage(step, components.agent, {
+        threadId: args.threadId,
+        prompt: args.prompt,
+      });
 
     const contextBundle = await step.runMutation(
       internal.agent.workflow.gatherContextForWorkflow,
@@ -160,11 +164,6 @@ export const legalAgentWorkflow = workflow.define({
         currentEscritoId: args.currentEscritoId,
       },
     );
-
-    const userMessage = await saveMessage(step, components.agent, {
-      threadId: args.threadId,
-      prompt: args.prompt,
-    });
 
     await step.runAction(
       internal.agent.workflow.streamWithContextAction,
