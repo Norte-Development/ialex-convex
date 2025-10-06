@@ -1,8 +1,8 @@
 import { createTool, ToolCtx } from "@convex-dev/agent";
-import { api, internal } from "../../_generated/api";
+import { api, internal } from "../../../_generated/api";
 import { z } from "zod";
-import { getUserAndCaseIds, createErrorResponse, validateStringParam } from "./utils";
-import { Id } from "../../_generated/dataModel";
+import { getUserAndCaseIds, createErrorResponse, validateStringParam } from "../utils";
+import { Id } from "../../../_generated/dataModel";
 
 /**
  * Unified legislation finder tool.
@@ -72,7 +72,7 @@ export const legislationFindTool = createTool({
       switch (operation) {
         case "search": {
           const queryError = validateStringParam(args.query, "query");
-          if (queryError) return { kind: "error", error: queryError.error };
+          if (queryError) return queryError;
           const query = args.query.trim();
 
         // Use hybrid Qdrant search
@@ -82,29 +82,57 @@ export const legislationFindTool = createTool({
         );
 
         // Map to compact search response with snippet and relations count
-        return {
-          kind: "search",
-          query,
-          resultsCount: results.length,
-          results: results.map((r, i: number) => ({
-            rank: i + 1,
-            score: r.score,
-            id: r.id,
-            documentId: r.document_id ?? null,
-            title: r.title ?? null,
-            tipoNorma: r.tipo_norma ?? null,
-            jurisdiccion: r.jurisdiccion ?? null,
-            publicationDate: r.publication_ts ? new Date(r.publication_ts * 1000).toISOString() : null,
-            snippet: (r.text || "").slice(0, 500),
-            relationsCount: Array.isArray(r.relaciones) ? r.relaciones.length : 0,
-            url: r.url ?? null,
-            content: r.text ?? null,
-            // Citation metadata for agent
-            citationId: r.document_id || r.id,
-            citationType: 'leg',
-            citationTitle: r.title || `${r.tipo_norma} ${r.number || ''}`.trim(),
-          })),
-        };
+        const resultsList = results.map((r, i: number) => ({
+          rank: i + 1,
+          score: r.score,
+          id: r.id,
+          documentId: r.document_id ?? null,
+          title: r.title ?? null,
+          tipoGeneral: r.tipo_general ?? null,
+          tipoDetalle: r.tipo_detalle ?? null,
+          jurisdiccion: r.jurisdiccion ?? null,
+          estado: r.estado ?? null,
+          subestado: r.subestado ?? null,
+          publicationDate: r.publication_ts ? new Date(r.publication_ts * 1000).toISOString() : null,
+          sanctionDate: r.sanction_ts ? new Date(r.sanction_ts * 1000).toISOString() : null,
+          snippet: (r.text || "").slice(0, 500),
+          relationsCount: Array.isArray(r.relaciones) ? r.relaciones.length : 0,
+          url: r.url ?? null,
+          content: r.text ?? null,
+          // Citation metadata for agent
+          citationId: r.document_id || r.id,
+          citationType: 'leg',
+          citationTitle: r.title || `${r.tipo_general} ${r.number || ''}`.trim(),
+        }));
+
+        return `# 🔍 Resultados de Búsqueda Legislativa
+
+## Consulta
+**Término de búsqueda**: "${query}"
+
+## Estadísticas
+- **Resultados encontrados**: ${results.length}
+- **Tiempo de búsqueda**: ${new Date().toLocaleString()}
+
+## Resultados
+${results.length === 0 ? 'No se encontraron resultados para la consulta.' : resultsList.map(r => `
+### ${r.rank}. ${r.title || 'Sin título'}
+- **ID del Documento**: ${r.documentId || 'N/A'}
+- **Tipo General**: ${r.tipoGeneral || 'N/A'}
+- **Tipo Detalle**: ${r.tipoDetalle || 'N/A'}
+- **Jurisdicción**: ${r.jurisdiccion || 'N/A'}
+- **Estado**: ${r.estado || 'N/A'}
+- **Subestado**: ${r.subestado || 'N/A'}
+- **Fecha de Publicación**: ${r.publicationDate ? new Date(r.publicationDate).toLocaleDateString() : 'N/A'}
+- **Fecha de Sanción**: ${r.sanctionDate ? new Date(r.sanctionDate).toLocaleDateString() : 'N/A'}
+- **Relaciones**: ${r.relationsCount}
+- **Puntuación de Relevancia**: ${r.score.toFixed(3)}
+- **Vista Previa**: ${r.snippet || 'Sin contenido disponible'}
+${r.url ? `- **URL**: ${r.url}` : ''}
+`).join('\n')}
+
+---
+*Búsqueda realizada en la base de datos legislativa.*`;
       }
 
       case "browse": {
@@ -140,22 +168,56 @@ export const legislationFindTool = createTool({
           country_code: item.country_code,
         }));
 
-        return {
-          kind: "browse",
-          items: lightweightItems,
-          pagination: result.pagination,
-        };
+        return `# 📋 Navegación de Legislación
+
+## Filtros Aplicados
+${Object.keys(filters).length > 0 ? Object.entries(filters).map(([key, value]) => `- **${key}**: ${value}`).join('\n') : 'Sin filtros aplicados'}
+
+## Paginación
+- **Elementos por página**: ${limit}
+- **Página actual**: ${Math.floor(offset / limit) + 1}
+- **Total de elementos**: ${result.pagination.total}
+- **Elementos mostrados**: ${lightweightItems.length}
+
+## Resultados
+${lightweightItems.length === 0 ? 'No se encontraron elementos que coincidan con los filtros.' : lightweightItems.map((item, index) => `
+### ${offset + index + 1}. ${item.title || 'Sin título'}
+- **ID del Documento**: ${item.document_id}
+- **Tipo**: ${item.type || 'N/A'}
+- **Jurisdicción**: ${item.jurisdiccion || 'N/A'}
+- **Estado**: ${item.estado || 'N/A'}
+- **Número**: ${item.numero || 'N/A'}
+- **Fuente**: ${item.fuente || 'N/A'}
+- **Materia**: ${item.materia || 'N/A'}
+- **Resumen**: ${item.resumen || 'Sin resumen disponible'}
+${item.url ? `- **URL**: ${item.url}` : ''}
+`).join('\n')}
+
+---
+*Navegación realizada en la base de datos legislativa.*`;
       }
 
       case "facets": {
         const filters = args.filters || {};
         const facets = await ctx.runAction(api.functions.legislation.getNormativesFacets, { filters });
-        return { kind: "facets", facets };
+        return `# 📊 Facetas de Legislación
+
+## Filtros Aplicados
+${Object.keys(filters).length > 0 ? Object.entries(filters).map(([key, value]) => `- **${key}**: ${value}`).join('\n') : 'Sin filtros aplicados'}
+
+## Facetas Disponibles
+${Object.keys(facets).length === 0 ? 'No hay facetas disponibles.' : Object.entries(facets).map(([facetName, facetData]) => `
+### ${facetName}
+${Array.isArray(facetData) ? facetData.map(item => `- **${item.value}**: ${item.count} elementos`).join('\n') : `- **Total**: ${facetData} elementos`}
+`).join('\n')}
+
+---
+*Facetas generadas para la base de datos legislativa.*`;
       }
 
         case "metadata": {
           const documentIdError = validateStringParam(args.documentId, "documentId");
-          if (documentIdError) return { kind: "error", error: documentIdError.error };
+          if (documentIdError) return documentIdError;
           const documentId = args.documentId.trim();
 
         const normative = await ctx.runAction(api.functions.legislation.getNormativeById, {
@@ -164,7 +226,7 @@ export const legislationFindTool = createTool({
         });
 
         if (!normative) {
-          return { kind: "metadata", documentId, notFound: true };
+          return createErrorResponse(`Documento legislativo no encontrado con ID: ${documentId}`);
         }
 
         // Compute presence flags
@@ -177,20 +239,25 @@ export const legislationFindTool = createTool({
           ...rest
         } = normative;
 
-        return {
-          kind: "metadata",
-          documentId,
-          hasContent,
-          relationsCount,
-          normative: rest,
-        };
+        return `# 📄 Metadatos del Documento Legislativo
+
+## Información del Documento
+- **ID del Documento**: ${documentId}
+- **Tiene Contenido**: ${hasContent ? 'Sí' : 'No'}
+- **Número de Relaciones**: ${relationsCount}
+
+## Metadatos
+${Object.keys(rest).length === 0 ? 'No hay metadatos adicionales disponibles.' : Object.entries(rest).map(([key, value]) => `- **${key}**: ${typeof value === 'object' ? JSON.stringify(value) : value}`).join('\n')}
+
+---
+*Metadatos obtenidos de la base de datos legislativa.*`;
       }
 
         default:
-          return { kind: "error", error: `Unsupported operation: ${operation}` };
+          return createErrorResponse(`Operación no soportada: ${operation}`);
       }
     } catch (error) {
-      return { kind: "error", error: `Unexpected error: ${error instanceof Error ? error.message : 'Unknown error'}` };
+      return createErrorResponse(`Error inesperado: ${error instanceof Error ? error.message : 'Error desconocido'}`);
     }
   },
 } as any);

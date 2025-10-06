@@ -1,5 +1,5 @@
 import { v } from "convex/values";
-import { query, mutation } from "../_generated/server";
+import { query, mutation, internalQuery } from "../_generated/server";
 import { paginationOptsValidator } from "convex/server";
 import { getCurrentUserFromAuth } from "../auth_utils";
 import { api } from "../_generated/api";
@@ -382,6 +382,87 @@ export const searchModelos = query({
   },
 });
 
+
+export const internalSearchModelos = internalQuery({
+  args: {
+    searchTerm: v.string(),
+    paginationOpts: paginationOptsValidator,
+    category: v.optional(v.string()),
+    isPublic: v.optional(v.boolean()),
+    content_type: v.optional(v.string()),
+    userId: v.id("users"), // Add missing userId parameter
+  },
+  returns: v.object({
+    page: v.array(v.object({
+      _id: v.id("modelos"),
+      _creationTime: v.number(),
+      name: v.string(),
+      description: v.optional(v.string()),
+      category: v.string(),
+      content: v.optional(v.string()),
+      content_type: v.optional(v.string()),
+      originalFileName: v.optional(v.string()),
+      isPublic: v.boolean(),
+      createdBy: v.union(v.id("users"), v.literal("system")),
+      tags: v.optional(v.array(v.string())),
+      usageCount: v.number(),
+      isActive: v.boolean(),
+    })),
+    isDone: v.boolean(),
+    continueCursor: v.union(v.string(), v.null()),
+  }),
+  handler: async (ctx, args) => {
+    // Build the search query with filters
+    let searchQuery = ctx.db
+      .query("modelos")
+      .withSearchIndex("search_templates", (q) => {
+        let query = q.search("name", args.searchTerm);
+        
+        // Apply filters
+        if (args.category) {
+          query = query.eq("category", args.category);
+        }
+        if (args.isPublic !== undefined) {
+          query = query.eq("isPublic", args.isPublic);
+        }
+        query = query.eq("isActive", true); // Only active templates
+        
+        return query;
+      });
+    
+    // Get all matching templates first (we need to filter by access permissions)
+    const allModelos = await searchQuery.collect();
+    
+    // Filter to show only public templates OR private templates created by current user
+    let filteredModelos = allModelos.filter(m => 
+      m.isPublic || m.createdBy === args.userId
+    );
+    
+    // Apply additional filters that aren't supported by the search index
+    if (args.content_type) {
+      filteredModelos = filteredModelos.filter(m => m.content_type === args.content_type);
+    }
+    
+    // Sort by creation time (newest first) for consistent pagination
+    filteredModelos.sort((a, b) => b._creationTime - a._creationTime);
+    
+    // Implement pagination manually since we need to filter after collection
+    const { numItems, cursor } = args.paginationOpts;
+    const startIndex = cursor ? parseInt(cursor, 10) : 0;
+    const endIndex = startIndex + numItems;
+    
+    const page = filteredModelos.slice(startIndex, endIndex);
+    const isDone = endIndex >= filteredModelos.length;
+    const continueCursor = isDone ? null : endIndex.toString();
+    
+    return {
+      page,
+      isDone,
+      continueCursor,
+    };
+  },
+});
+
 /**
  * Increments the usage count for a template when it's used.
  * 
@@ -423,5 +504,125 @@ export const incrementModeloUsage = mutation({
     });
     
     return null;
+  },
+});
+
+/**
+ * Internal helper for agent tools to get a specific template by ID without permission checks.
+ * Agent tools have full read access by design.
+ */
+export const internalGetModelo = internalQuery({
+  args: {
+    modeloId: v.id("modelos"),
+    userId: v.id("users"), // Required to filter accessible templates
+  },
+  returns: v.union(
+    v.object({
+      _id: v.id("modelos"),
+      _creationTime: v.number(),
+      name: v.string(),
+      description: v.optional(v.string()),
+      category: v.string(),
+      content: v.optional(v.string()),
+      content_type: v.optional(v.string()),
+      originalFileName: v.optional(v.string()),
+      isPublic: v.boolean(),
+      createdBy: v.union(v.id("users"), v.literal("system")),
+      tags: v.optional(v.array(v.string())),
+      usageCount: v.number(),
+      isActive: v.boolean(),
+    }),
+    v.null()
+  ),
+  handler: async (ctx, args) => {
+    const modelo = await ctx.db.get(args.modeloId);
+    if (!modelo) {
+      return null;
+    }
+    
+    // Check if user can access this template (public OR own private template OR system template)
+    if (!modelo.isPublic && modelo.createdBy !== args.userId && modelo.createdBy !== "system") {
+      return null; // Return null instead of throwing for agent tools
+    }
+    
+    return modelo;
+  },
+});
+
+/**
+ * Internal helper for agent tools to get templates with filtering and pagination without permission checks.
+ * Agent tools have full read access by design.
+ */
+export const internalGetModelos = internalQuery({
+  args: {
+    paginationOpts: paginationOptsValidator,
+    category: v.optional(v.string()),
+    isPublic: v.optional(v.boolean()),
+    content_type: v.optional(v.string()),
+    userId: v.id("users"), // Required to filter accessible templates
+  },
+  returns: v.object({
+    page: v.array(v.object({
+      _id: v.id("modelos"),
+      _creationTime: v.number(),
+      name: v.string(),
+      description: v.optional(v.string()),
+      category: v.string(),
+      content: v.optional(v.string()),
+      content_type: v.optional(v.string()),
+      originalFileName: v.optional(v.string()),
+      isPublic: v.boolean(),
+      createdBy: v.union(v.id("users"), v.literal("system")),
+      tags: v.optional(v.array(v.string())),
+      usageCount: v.number(),
+      isActive: v.boolean(),
+    })),
+    isDone: v.boolean(),
+    continueCursor: v.union(v.string(), v.null()),
+  }),
+  handler: async (ctx, args) => {
+    // Start with all active templates
+    let modelosQuery = ctx.db
+      .query("modelos")
+      .withIndex("by_active_status", (q) => q.eq("isActive", true));
+    
+    // Get all templates first (we need to filter by access permissions)
+    const allModelos = await modelosQuery.collect();
+    
+    // Filter to show only public templates OR private templates created by current user
+    let filteredModelos = allModelos.filter(m => 
+      m.isPublic || m.createdBy === args.userId
+    );
+    
+    // Apply additional filters
+    if (args.category) {
+      filteredModelos = filteredModelos.filter(m => m.category === args.category);
+    }
+
+    if (args.content_type) {
+      filteredModelos = filteredModelos.filter(m => m.content_type === args.content_type);
+    }
+    
+    if (args.isPublic !== undefined) {
+      filteredModelos = filteredModelos.filter(m => m.isPublic === args.isPublic);
+    }
+    
+    // Sort by creation time (newest first) for consistent pagination
+    filteredModelos.sort((a, b) => b._creationTime - a._creationTime);
+    
+    // Implement pagination manually since we need to filter after collection
+    const { numItems, cursor } = args.paginationOpts;
+    const startIndex = cursor ? parseInt(cursor, 10) : 0;
+    const endIndex = startIndex + numItems;
+    
+    const page = filteredModelos.slice(startIndex, endIndex);
+    const isDone = endIndex >= filteredModelos.length;
+    const continueCursor = isDone ? null : endIndex.toString();
+    
+    return {
+      page,
+      isDone,
+      continueCursor,
+    };
   },
 }); 

@@ -1,8 +1,8 @@
 import { createTool, ToolCtx } from "@convex-dev/agent";
-import { api, internal } from "../../_generated/api";
+import { api, internal } from "../../../_generated/api";
 import { z } from "zod";
-import { Id } from "../../_generated/dataModel";
-import { getUserAndCaseIds, createErrorResponse, validateStringParam } from "./utils";
+import { Id } from "../../../_generated/dataModel";
+import { getUserAndCaseIds, createErrorResponse, validateStringParam } from "../utils";
 
 /**
  * Builds a human-readable description of the anchor configuration
@@ -66,8 +66,8 @@ export const rewriteEscritoSectionTool = createTool({
 
       // Basic fetch to ensure escrito exists and belongs to case
       const escrito = await ctx.runQuery(internal.functions.documents.internalGetEscrito, { escritoId: args.escritoId as any });
-      if (!escrito) return createErrorResponse("Escrito not found");
-      if (escrito.caseId !== caseId) return createErrorResponse("Escrito does not belong to current case");
+      if (!escrito) return createErrorResponse("Escrito no encontrado");
+      if (escrito.caseId !== caseId) return createErrorResponse("El escrito no pertenece al caso actual");
 
       const res = await ctx.runMutation(api.functions.escritosTransforms.index.rewriteSectionByAnchors, {
         escritoId: args.escritoId as any,
@@ -83,30 +83,35 @@ export const rewriteEscritoSectionTool = createTool({
       const anchorDescription = buildAnchorDescription(args.afterText, args.beforeText, args.occurrenceIndex);
       const targetLength = args.targetText.length;
       
-      return {
-        ok: res.ok,
-        message: res.ok 
-          ? `Successfully rewrote section ${anchorDescription} with ${targetLength} characters of new content`
-          : res.message || "Failed to rewrite section",
-        details: {
-          anchorDescription,
-          targetTextLength: targetLength,
-          anchors: {
-            afterText: args.afterText || null,
-            beforeText: args.beforeText || null,
-            occurrenceIndex: args.occurrenceIndex || null,
-          },
-          operation: "section_rewrite",
-        },
-        mutationResult: res,
-      };
+      const message = res.ok 
+        ? `Se reescribió exitosamente la sección ${anchorDescription} con ${targetLength} caracteres de contenido nuevo`
+        : res.message || "Error al reescribir la sección";
+
+      return `# ${res.ok ? '✅' : '❌'} ${res.ok ? 'Sección Reescrita Exitosamente' : 'Error al Reescribir Sección'}
+
+## Resultado de la Operación
+- **Estado**: ${res.ok ? 'Éxito' : 'Error'}
+- **Mensaje**: ${message}
+
+## Detalles de la Operación
+- **Descripción del Ancla**: ${anchorDescription}
+- **Longitud del Texto Objetivo**: ${targetLength} caracteres
+- **Operación**: Reescritura de sección
+
+## Configuración de Anclas
+- **Texto Después**: ${args.afterText || 'No especificado'}
+- **Texto Antes**: ${args.beforeText || 'No especificado'}
+- **Índice de Ocurrencia**: ${args.occurrenceIndex || 'No especificado'}
+
+---
+*Sección reescrita usando anclas de texto.*`;
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      const errorMessage = error instanceof Error ? error.message : 'Error desconocido';
       const anchorDescription = buildAnchorDescription(args.afterText, args.beforeText, args.occurrenceIndex);
       
       return {
         ok: false,
-        message: `Failed to rewrite section ${anchorDescription}: ${errorMessage}`,
+        message: `Error al reescribir la sección ${anchorDescription}: ${errorMessage}`,
         details: {
           anchorDescription,
           targetTextLength: args.targetText?.length || 0,

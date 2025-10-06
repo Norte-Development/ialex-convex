@@ -86,8 +86,22 @@ export function NormativeDetails({ jurisdiction, id, getNormativeAction }: Norma
           <div className="flex flex-wrap gap-2">
             <Badge variant="outline" className="flex items-center gap-1">
               <Tag className="w-3 h-3" />
-              {normative.type}
+              {(normative as any).tipo_general || normative.type}
             </Badge>
+
+            {(normative as any).tipo_detalle && (
+              <Badge variant="outline" className="flex items-center gap-1">
+                <FileText className="w-3 h-3" />
+                {(normative as any).tipo_detalle}
+              </Badge>
+            )}
+
+            {(normative as any).tipo_contenido && (
+              <Badge variant="outline" className="flex items-center gap-1">
+                <FileText className="w-3 h-3" />
+                {(normative as any).tipo_contenido}
+              </Badge>
+            )}
 
             {normative.numero && (
               <Badge variant="outline" className="flex items-center gap-1">
@@ -110,20 +124,27 @@ export function NormativeDetails({ jurisdiction, id, getNormativeAction }: Norma
             >
               {normative.estado}
             </Badge>
+
+            {(normative as any).subestado && (
+              <Badge variant="outline" className="flex items-center gap-1">
+                <Tag className="w-3 h-3" />
+                {(normative as any).subestado}
+              </Badge>
+            )}
           </div>
         </div>
 
         {/* Details Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Dates */}
-          {normative.dates && (
+          {(normative.dates || (normative as any).publication_ts || (normative as any).sanction_ts) && (
             <div className="space-y-3 bg-gray-50/50 p-4 rounded-lg">
               <h3 className="font-semibold text-gray-900 flex items-center gap-2">
                 <Calendar className="w-4 h-4" />
                 Fechas
               </h3>
               <div className="space-y-2 text-sm">
-                {normative.dates.publication_date && (
+                {normative.dates?.publication_date && (
                   <div className="flex justify-between">
                     <span className="font-medium text-gray-600">Publicación:</span>
                     <span className="text-gray-900">
@@ -131,7 +152,15 @@ export function NormativeDetails({ jurisdiction, id, getNormativeAction }: Norma
                     </span>
                   </div>
                 )}
-                {normative.dates.sanction_date && (
+                {(normative as any).publication_ts && (
+                  <div className="flex justify-between">
+                    <span className="font-medium text-gray-600">Publicación (TS):</span>
+                    <span className="text-gray-900">
+                      {new Date((normative as any).publication_ts * 1000).toLocaleDateString("es-ES")}
+                    </span>
+                  </div>
+                )}
+                {normative.dates?.sanction_date && (
                   <div className="flex justify-between">
                     <span className="font-medium text-gray-600">Sanción:</span>
                     <span className="text-gray-900">
@@ -139,7 +168,23 @@ export function NormativeDetails({ jurisdiction, id, getNormativeAction }: Norma
                     </span>
                   </div>
                 )}
-                {normative.dates.indexed_at && (
+                {(normative as any).sanction_ts && (
+                  <div className="flex justify-between">
+                    <span className="font-medium text-gray-600">Sanción (TS):</span>
+                    <span className="text-gray-900">
+                      {new Date((normative as any).sanction_ts * 1000).toLocaleDateString("es-ES")}
+                    </span>
+                  </div>
+                )}
+                {(normative as any).date_ts && (
+                  <div className="flex justify-between">
+                    <span className="font-medium text-gray-600">Fecha (TS):</span>
+                    <span className="text-gray-900">
+                      {new Date((normative as any).date_ts * 1000).toLocaleDateString("es-ES")}
+                    </span>
+                  </div>
+                )}
+                {normative.dates?.indexed_at && (
                   <div className="flex justify-between">
                     <span className="font-medium text-gray-600">Indexado:</span>
                     <span className="text-gray-900">
@@ -166,6 +211,18 @@ export function NormativeDetails({ jurisdiction, id, getNormativeAction }: Norma
                 <span className="font-medium text-gray-600">Fuente:</span>
                 <span className="text-gray-900">{normative.fuente}</span>
               </div>
+              {(normative as any).content_hash && (
+                <div className="flex justify-between">
+                  <span className="font-medium text-gray-600">Hash:</span>
+                  <span className="text-gray-900 font-mono text-xs">{(normative as any).content_hash.slice(0, 16)}...</span>
+                </div>
+              )}
+              {(normative as any).last_ingested_run_id && (
+                <div className="flex justify-between">
+                  <span className="font-medium text-gray-600">Última ingesta:</span>
+                  <span className="text-gray-900 font-mono text-xs">{(normative as any).last_ingested_run_id}</span>
+                </div>
+              )}
               {normative.materia && (
                 <div className="flex justify-between">
                   <span className="font-medium text-gray-600">Materia:</span>
@@ -176,6 +233,12 @@ export function NormativeDetails({ jurisdiction, id, getNormativeAction }: Norma
                 <div className="flex justify-between">
                   <span className="font-medium text-gray-600">Subestado:</span>
                   <span className="text-gray-900">{normative.subestado}</span>
+                </div>
+              )}
+              {(normative as any).relaciones && Array.isArray((normative as any).relaciones) && (normative as any).relaciones.length > 0 && (
+                <div className="flex justify-between">
+                  <span className="font-medium text-gray-600">Relaciones:</span>
+                  <span className="text-gray-900">{(normative as any).relaciones.length} documento(s)</span>
                 </div>
               )}
             </div>

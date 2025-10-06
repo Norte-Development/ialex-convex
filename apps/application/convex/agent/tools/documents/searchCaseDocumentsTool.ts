@@ -1,9 +1,10 @@
 import { createTool, ToolCtx, getThreadMetadata } from "@convex-dev/agent";
-import { components } from "../../_generated/api";
-import { api, internal } from "../../_generated/api";
+import { components } from "../../../_generated/api";
+import { api, internal } from "../../../_generated/api";
 import { z } from "zod";
-import { getUserAndCaseIds, createErrorResponse, validateStringParam, validateNumberParam } from "./utils";
-import { Id } from "../../_generated/dataModel";
+import { getUserAndCaseIds, createErrorResponse, validateStringParam, validateNumberParam } from "../utils";
+import { Id } from "../../../_generated/dataModel";
+import { createCaseDocumentsSearchTemplate, createCaseDocumentsNoResultsTemplate } from "./templates";
 
 /**
  * Tool for searching case documents using dense embeddings with semantic chunk clustering.
@@ -37,7 +38,7 @@ export const searchCaseDocumentsTool = createTool({
       const {caseId, userId} = getUserAndCaseIds(ctx.userId as string);
 
       if (!caseId || !userId){
-        return createErrorResponse("Invalid user context");
+        return createErrorResponse("Contexto de usuario inválido");
       }
       
       await ctx.runQuery(internal.auth_utils.internalCheckNewCaseAccess,{
@@ -61,30 +62,36 @@ export const searchCaseDocumentsTool = createTool({
 
       // Use userId directly from ctx instead of getCurrentUserFromAuth
       if (!ctx.userId) {
-        return createErrorResponse("Not authenticated");
+        return createErrorResponse("No autenticado");
       }
 
       // Extract caseId from thread metadata
       if (!ctx.threadId) {
-        return createErrorResponse("No thread context available");
+        return createErrorResponse("No hay contexto de hilo disponible");
       }
 
       const { userId: threadUserId } = await getThreadMetadata(ctx, components.agent, { threadId: ctx.threadId });
 
       // Extract caseId from threadUserId format: "case:${caseId}_${userId}"
       if (!threadUserId?.startsWith("case:")) {
-        return createErrorResponse("This tool can only be used within a case context");
+        return createErrorResponse("Esta herramienta solo puede usarse dentro de un contexto de caso");
       }
 
       // Call the action to perform the search with clustering
-      return await ctx.runAction(api.rag.qdrantUtils.caseDocuments.searchCaseDocumentsWithClustering, {
+      const results = await ctx.runAction(api.rag.qdrantUtils.caseDocuments.searchCaseDocumentsWithClustering, {
         query: args.query.trim(),
         caseId,
         limit: Math.min(limit, 50), // Cap at 50 to prevent abuse
         contextWindow: Math.min(contextWindow, 20) // Cap at 20 to prevent abuse
       });
+
+      if (results.length === 0) {
+        return createCaseDocumentsNoResultsTemplate(args.query.trim(), Math.min(limit, 50), Math.min(contextWindow, 20));
+      }
+      
+      return createCaseDocumentsSearchTemplate(args.query.trim(), Math.min(limit, 50), Math.min(contextWindow, 20), results);
     } catch (error) {
-      return createErrorResponse(`Unexpected error: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      return createErrorResponse(`Error inesperado: ${error instanceof Error ? error.message : 'Error desconocido'}`);
     }
   }
 } as any);

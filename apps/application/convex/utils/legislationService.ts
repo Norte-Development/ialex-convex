@@ -2,7 +2,6 @@
 
 import { MongoClient, Filter, Sort, Document, ObjectId } from 'mongodb';
 import { NormativeDoc, NormativeFilters, ListNormativesParams, SortBy, SortOrder } from '../../types/legislation';
-import { client as qdrantClient } from '../rag/qdrantUtils';
 
 // External service clients - lazy initialization
 let mongoClient: MongoClient | null = null;
@@ -18,33 +17,52 @@ const getMongoClient = (): MongoClient => {
   return mongoClient;
 };
 
-// Utility function to convert documentId to ObjectId if it's a valid ObjectId string
-const convertToObjectId = (id: string): ObjectId | string => {
-  // Check if the id is a valid ObjectId (24 hex characters)
-  if (/^[0-9a-fA-F]{24}$/.test(id)) {
-    try {
-      return new ObjectId(id);
-    } catch (error) {
-      // If conversion fails, return the original string
-      return id;
-    }
-  }
-  // If it's not a valid ObjectId format, return as string (for document_id queries)
-  return id;
-};
+// // Utility function to convert documentId to ObjectId if it's a valid ObjectId string
+// const convertToObjectId = (id: string): ObjectId | string => {
+//   // Check if the id is a valid ObjectId (24 hex characters)
+//   if (/^[0-9a-fA-F]{24}$/.test(id)) {
+//     try {
+//       return new ObjectId(id);
+//     } catch (error) {
+//       // If conversion fails, return the original string
+//       return id;
+//     }
+//   }
+//   // If it's not a valid ObjectId format, return as string (for document_id queries)
+//   return id;
+// };
 
 // Build MongoDB filter from filters object
 const buildMongoFilter = (filters: NormativeFilters): Filter<Document> => {
   const mongoFilter: Filter<Document> = {};
+  const orConditions: any[] = [];
 
   // Jurisdiccion filter
   if (filters.jurisdiccion) {
     mongoFilter.jurisdiccion = filters.jurisdiccion;
   }
 
-  // Tipo norma filter
+  // Tipo norma filter - check both old and new field names
   if (filters.type) {
-    mongoFilter.tipo_norma = filters.type;
+    orConditions.push(
+      { tipo_general: filters.type },
+      { tipo_norma: filters.type },
+      { type: filters.type }
+    );
+  }
+
+  // New field filters
+  if (filters.tipo_general) {
+    mongoFilter.tipo_general = filters.tipo_general;
+  }
+  if (filters.tipo_detalle) {
+    mongoFilter.tipo_detalle = filters.tipo_detalle;
+  }
+  if (filters.tipo_contenido) {
+    mongoFilter.tipo_contenido = filters.tipo_contenido;
+  }
+  if (filters.subestado) {
+    mongoFilter.subestado = filters.subestado;
   }
 
   // Estado filter
@@ -74,17 +92,25 @@ const buildMongoFilter = (filters: NormativeFilters): Filter<Document> => {
     }
   }
 
-  // Number filter
+  // Number filter - check both old and new field names
   if (filters.number) {
-    mongoFilter.number = filters.number;
+    orConditions.push(
+      { number: filters.number },
+      { numero: filters.number }
+    );
   }
 
   // Text search in title and content
   if (filters.search) {
-    mongoFilter.$or = [
+    orConditions.push(
       { title: { $regex: filters.search, $options: 'i' } },
       { content: { $regex: filters.search, $options: 'i' } }
-    ];
+    );
+  }
+
+  // Add $or conditions if any exist
+  if (orConditions.length > 0) {
+    mongoFilter.$or = orConditions;
   }
 
   return mongoFilter;
@@ -169,12 +195,12 @@ export const getNormatives = async (params: ListNormativesParams = {}): Promise<
     const mappedNormatives: NormativeDoc[] = normatives.map((normative) => ({
       _id: normative._id.toString(),
       document_id: normative.document_id,
-      type: normative.tipo_norma || normative.type,
+      type: normative.tipo_general || normative.tipo_norma || normative.type,
       title: normative.title,
       jurisdiccion: normative.jurisdiccion,
       estado: normative.estado,
       country_code: normative.country_code,
-      numero: normative.numero,
+      numero: normative.number || normative.numero,
       fuente: normative.fuente,
       dates: {
         publication_date: normative.publication_date,
@@ -245,12 +271,12 @@ export const getNormativeById = async (documentId: string): Promise<NormativeDoc
     return {
       _id: normative._id.toString(),
       document_id: normative.document_id,
-      type: normative.tipo_norma || normative.type,
+      type: normative.tipo_general || normative.tipo_norma || normative.type,
       title: normative.title,
       jurisdiccion: normative.jurisdiccion,
       estado: normative.estado,
       country_code: normative.country_code,
-      numero: normative.number,
+      numero: normative.number || normative.numero,
       fuente: normative.fuente,
       dates: {
         publication_date: normative.publication_date,

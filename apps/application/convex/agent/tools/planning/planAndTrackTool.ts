@@ -1,8 +1,8 @@
 import { createTool, ToolCtx } from "@convex-dev/agent";
 import { z } from "zod";
-import { api } from "../../_generated/api";
-import { getUserAndCaseIds } from "./utils";
-import { Id } from "../../_generated/dataModel";
+import { api } from "../../../_generated/api";
+import { getUserAndCaseIds } from "../utils";
+import { Id } from "../../../_generated/dataModel";
 
 export const planAndTrackTool = createTool({
   description: "Create a todo list with the provided tasks and track progress. Use this tool MANDATORY for complex tasks requiring more than 3 steps, extensive escrito editing, or multi-document analysis. This tool helps organize work, track progress, and facilitates continuation if step limits are reached. Always create the task list BEFORE starting any complex work.",

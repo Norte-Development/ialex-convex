@@ -1,9 +1,9 @@
 import { createTool, ToolCtx } from "@convex-dev/agent";
-import { api, internal } from "../../_generated/api";
+import { api, internal } from "../../../_generated/api";
 import { z } from "zod";
-import { validateEditType, validateMarkType, validateParagraphType, normalizeEditType } from "./validation";
-import { getUserAndCaseIds, createErrorResponse, validateStringParam } from "./utils";
-import { Id } from "../../_generated/dataModel";
+import { validateEditType, validateMarkType, validateParagraphType, normalizeEditType } from "../validation";
+import { getUserAndCaseIds, createErrorResponse, validateStringParam } from "../utils";
+import { Id } from "../../../_generated/dataModel";
 
 /**
  * Tool for editing Escritos by text-based operations including text manipulation and mark formatting.
@@ -251,24 +251,12 @@ export const editEscritoTool = createTool({
       // Validate inputs in handler for better error control
       const escritoIdError = validateStringParam(escritoId, "escritoId");
       if (escritoIdError) {
-        return {
-          ok: false,
-          message: escritoIdError.error,
-          validationErrors: [escritoIdError.error],
-          editsAttempted: edits.length,
-          editsApplied: 0,
-        };
+        return escritoIdError;
       }
 
     if (!Array.isArray(edits) || edits.length === 0) {
       console.log("Invalid edits: must be a non-empty array");
-      return {
-        ok: false,
-        message: "Invalid edits: must be a non-empty array",
-        validationErrors: ["Edits must be a non-empty array"],
-        editsAttempted: 0,
-        editsApplied: 0,
-      };
+      return createErrorResponse("Ediciones inválidas: debe ser un array no vacío");
     }
 
     // Validate each edit operation - log errors but don't throw
@@ -449,13 +437,7 @@ export const editEscritoTool = createTool({
     // Check if we have any valid edits
     if (validEdits.length === 0) {
       console.log("No valid edits found, returning early");
-      return {
-        ok: false,
-        message: "No valid edits to apply",
-        validationErrors,
-        editsAttempted: edits.length,
-        editsApplied: 0,
-      };
+      return createErrorResponse("No se encontraron ediciones válidas para aplicar");
     }
 
     // Load Escrito
@@ -464,13 +446,7 @@ export const editEscritoTool = createTool({
     });
     if (!escrito) {
       console.log(`Escrito not found with ID: ${escritoId}`);
-      return {
-        ok: false,
-        message: `Escrito not found with ID: ${escritoId}`,
-        validationErrors: [`Escrito not found with ID: ${escritoId}`],
-        editsAttempted: edits.length,
-        editsApplied: 0,
-      };
+      return createErrorResponse(`Escrito no encontrado con ID: ${escritoId}`);
     }
 
     // ========== LOGGING VALID EDITS SENT TO MUTATION ==========
@@ -511,25 +487,27 @@ export const editEscritoTool = createTool({
 
     // Return detailed response with validation information
     const message = validationErrors.length > 0
-      ? `Applied ${validEdits.length}/${edits.length} edits successfully. ${validationErrors.length} edits were skipped due to validation errors.`
-      : `Applied ${validEdits.length} edits successfully`;
+      ? `Se aplicaron ${validEdits.length}/${edits.length} ediciones exitosamente. ${validationErrors.length} ediciones fueron omitidas debido a errores de validación.`
+      : `Se aplicaron ${validEdits.length} ediciones exitosamente`;
 
-      return {
-        ok: true,
-        message,
-        editsApplied: validEdits.length,
-        editsAttempted: edits.length,
-        validationErrors: validationErrors.length > 0 ? validationErrors : undefined,
-        result,
-      };
+    return `# ✅ Ediciones Aplicadas Exitosamente
+
+## Resultado de la Operación
+- **Estado**: Éxito
+- **Mensaje**: ${message}
+
+## Estadísticas de Edición
+- **Ediciones Aplicadas**: ${validEdits.length}
+- **Ediciones Intentadas**: ${edits.length}
+- **Ediciones Omitidas**: ${validationErrors.length}
+
+${validationErrors.length > 0 ? `## Errores de Validación
+${validationErrors.map(error => `- ${error}`).join('\n')}` : ''}
+
+## Detalles
+Las ediciones se han aplicado al documento según las especificaciones proporcionadas.`;
     } catch (error) {
-      return {
-        ok: false,
-        message: `Unexpected error: ${error instanceof Error ? error.message : 'Unknown error'}`,
-        validationErrors: [`Unexpected error: ${error instanceof Error ? error.message : 'Unknown error'}`],
-        editsAttempted: edits.length,
-        editsApplied: 0,
-      };
+      return createErrorResponse(`Error inesperado: ${error instanceof Error ? error.message : 'Error desconocido'}`);
     }
   },
 } as any);

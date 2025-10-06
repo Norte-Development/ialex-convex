@@ -60,10 +60,16 @@ export function TableView({
 
               // Safely get properties that differ between types
               const title = normative.title;
-              const type = normative.type;
-              const numero = isNormativeDoc(normative) ? normative.numero : undefined;
+              const type = (normative as any).tipo_general || normative.type;
+              const tipoDetalle = (normative as any).tipo_detalle;
+              const tipoContenido = (normative as any).tipo_contenido;
+              // Handle both old and new number field names
+              const numero = isNormativeDoc(normative) 
+                ? normative.numero || (normative as any).number
+                : (normative as any).number;
               const jurisdiccion = normative.jurisdiccion;
               const estado = normative.estado;
+              const subestado = (normative as any).subestado;
               const resumen = normative.resumen;
 
               // Safely get sanction date
@@ -72,6 +78,11 @@ export function TableView({
                 sanctionDate = normative.dates?.sanction_date || (normative as any).sanction_date || (normative as any).promulgacion;
               } else {
                 sanctionDate = normative.sanction_date;
+              }
+
+              // Handle timestamp-based dates
+              if ((normative as any).sanction_ts) {
+                sanctionDate = new Date((normative as any).sanction_ts * 1000).toISOString().split('T')[0];
               }
 
               // Safely get vigencia_actual
@@ -96,18 +107,39 @@ export function TableView({
                     </div>
                   </TableCell>
                   <TableCell>
-                    <Badge variant="outline" className="font-medium">
-                      {type}
-                    </Badge>
+                    <div className="space-y-1">
+                      {type && (
+                        <Badge variant="outline" className="font-medium">
+                          {type}
+                        </Badge>
+                      )}
+                      {tipoDetalle && (
+                        <Badge variant="secondary" className="text-xs">
+                          {tipoDetalle}
+                        </Badge>
+                      )}
+                      {tipoContenido && (
+                        <Badge variant="outline" className="text-xs">
+                          {tipoContenido}
+                        </Badge>
+                      )}
+                    </div>
                   </TableCell>
                   <TableCell className="font-mono text-sm">
                     {numero || "-"}
                   </TableCell>
                   <TableCell className="capitalize">{jurisdiccion || "-"}</TableCell>
                   <TableCell>
-                    <Badge className={getEstadoBadgeColor(estado)}>
-                      {estado.replace("_", " ")}
-                    </Badge>
+                    <div className="space-y-1">
+                      <Badge className={getEstadoBadgeColor(estado)}>
+                        {estado.replace("_", " ")}
+                      </Badge>
+                      {subestado && (
+                        <Badge variant="outline" className="text-xs">
+                          {subestado.replace("_", " ")}
+                        </Badge>
+                      )}
+                    </div>
                   </TableCell>
                   <TableCell className="font-mono text-sm">
                     {formatDate(sanctionDate)}

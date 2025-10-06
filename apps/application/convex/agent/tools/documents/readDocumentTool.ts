@@ -1,9 +1,9 @@
 import { createTool, ToolCtx, getThreadMetadata } from "@convex-dev/agent";
-import { components } from "../../_generated/api";
-import { api, internal } from "../../_generated/api";
+import { components } from "../../../_generated/api";
+import { api, internal } from "../../../_generated/api";
 import { z } from "zod";
-import { getUserAndCaseIds, createErrorResponse, validateStringParam, validateNumberParam } from "./utils";
-import { Id } from "../../_generated/dataModel";
+import { getUserAndCaseIds, createErrorResponse, validateStringParam, validateNumberParam } from "../utils";
+import { Id } from "../../../_generated/dataModel";
 
 /**
  * Tool for reading a document progressively, chunk by chunk.
@@ -65,19 +65,19 @@ export const readDocumentTool = createTool({
 
       // Verify authentication using agent context
       if (!ctx.userId) {
-        return createErrorResponse("Not authenticated");
+        return createErrorResponse("No autenticado");
       }
 
       // Extract caseId from thread metadata
       if (!ctx.threadId) {
-        return createErrorResponse("No thread context available");
+        return createErrorResponse("No hay contexto de hilo disponible");
       }
 
       const { userId: threadUserId } = await getThreadMetadata(ctx, components.agent, { threadId: ctx.threadId });
 
       // Extract caseId from threadUserId format: "case:${caseId}_${userId}"
       if (!threadUserId?.startsWith("case:")) {
-        return createErrorResponse("This tool can only be used within a case context");
+        return createErrorResponse("Esta herramienta solo puede usarse dentro de un contexto de caso");
       }
 
       // Get document metadata using internal helper (bypasses permission checks)
@@ -86,17 +86,17 @@ export const readDocumentTool = createTool({
       });
 
       if (!document) {
-        return createErrorResponse("Document not found");
+        return createErrorResponse("Documento no encontrado");
       }
 
       // Verify document belongs to the current case
       if (document.caseId !== caseId) {
-        return createErrorResponse("Document does not belong to the current case");
+        return createErrorResponse("El documento no pertenece al caso actual");
       }
 
       // Check if document is processed
       if (document.processingStatus !== "completed") {
-        return createErrorResponse(`Document is not ready for reading. Status: ${document.processingStatus}`);
+        return createErrorResponse(`El documento no está listo para lectura. Estado: ${document.processingStatus}`);
       }
 
       // Get total chunks (prefer DB field, fallback to Qdrant count)
@@ -110,7 +110,7 @@ export const readDocumentTool = createTool({
 
       // Validate chunk index
       if (chunkIndex >= totalChunks) {
-        return createErrorResponse(`Chunk index ${chunkIndex} is beyond document length (${totalChunks} chunks)`);
+        return createErrorResponse(`Índice de fragmento ${chunkIndex} está más allá de la longitud del documento (${totalChunks} fragmentos)`);
       }
 
       // Calculate the actual number of chunks to read
@@ -125,27 +125,34 @@ export const readDocumentTool = createTool({
       });
 
       if (!chunksContent || chunksContent.length === 0) {
-        return createErrorResponse(`No chunks found in range ${chunkIndex} to ${chunkIndex + actualChunkCount - 1}`);
+        return createErrorResponse(`No se encontraron fragmentos en el rango ${chunkIndex} a ${chunkIndex + actualChunkCount - 1}`);
       }
 
       // Combine chunks content
       const combinedContent = chunksContent.join('\n\n');
 
-      return {
-        documentId,
-        documentTitle: document.title,
-        chunkIndex,
-        chunkCount: actualChunkCount,
-        totalChunks,
-        content: combinedContent,
-        hasMoreChunks: chunkIndex + actualChunkCount < totalChunks,
-        nextChunkIndex: chunkIndex + actualChunkCount,
-        progress: `${chunkIndex + actualChunkCount}/${totalChunks}`,
-        isLastChunk: chunkIndex + actualChunkCount >= totalChunks,
-        chunksRead: actualChunkCount
-      };
+      return `# 📖 Lectura de Documento
+
+## Información del Documento
+- **ID del Documento**: ${documentId}
+- **Título**: ${document.title}
+- **Fragmentos Totales**: ${totalChunks}
+
+## Progreso de Lectura
+- **Fragmento Actual**: ${chunkIndex + 1}
+- **Fragmentos Leídos**: ${actualChunkCount}
+- **Progreso**: ${chunkIndex + actualChunkCount}/${totalChunks}
+- **¿Hay Más Fragmentos?**: ${chunkIndex + actualChunkCount < totalChunks ? 'Sí' : 'No'}
+- **¿Es el Último Fragmento?**: ${chunkIndex + actualChunkCount >= totalChunks ? 'Sí' : 'No'}
+${chunkIndex + actualChunkCount < totalChunks ? `- **Siguiente Fragmento**: ${chunkIndex + actualChunkCount}` : ''}
+
+## Contenido
+${combinedContent || 'Sin contenido disponible'}
+
+---
+*Documento leído progresivamente.*`;
     } catch (error) {
-      return createErrorResponse(`Unexpected error: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      return createErrorResponse(`Error inesperado: ${error instanceof Error ? error.message : 'Error desconocido'}`);
     }
   }
 } as any);

@@ -65,8 +65,13 @@ export const getUserAndCaseIds = (
  * // Returns: { error: "Document not found" }
  * ```
  */
-export const createErrorResponse = (message: string): { error: string } => {
-  return { error: message };
+export const createErrorResponse = (message: string): string => {
+  return `# ❌ Error
+
+## Problema Encontrado
+${message}
+
+Por favor, verifica los parámetros proporcionados e intenta nuevamente.`;
 };
 
 /**
@@ -82,9 +87,9 @@ export const createErrorResponse = (message: string): { error: string } => {
  * if (error) return error;
  * ```
  */
-export const validateStringParam = (value: any, paramName: string): { error: string } | null => {
+export const validateStringParam = (value: any, paramName: string): string | null => {
   if (!value || typeof value !== 'string' || value.trim().length === 0) {
-    return createErrorResponse(`Invalid ${paramName}: must be a non-empty string`);
+    return createErrorResponse(`Parámetro inválido ${paramName}: debe ser una cadena de texto no vacía`);
   }
   return null;
 };
@@ -111,13 +116,13 @@ export const validateNumberParam = (
   min: number, 
   max: number, 
   defaultValue?: number
-): { error: string } | null => {
+): string | null => {
   if (value === undefined && defaultValue !== undefined) {
     return null; // Will use default value
   }
   
   if (typeof value !== 'number' || value < min || value > max) {
-    return createErrorResponse(`Invalid ${paramName}: must be a number between ${min} and ${max}`);
+    return createErrorResponse(`Parámetro inválido ${paramName}: debe ser un número entre ${min} y ${max}`);
   }
   return null;
 };

@@ -1,11 +1,12 @@
 import { createTool, ToolCtx } from "@convex-dev/agent";
-import { internal } from "../../_generated/api";
+import { internal } from "../../../_generated/api";
 import { z } from "zod";
-import { prosemirrorSync } from "../../prosemirror";
-import { buildServerSchema } from "../../../../../packages/shared/src/tiptap/schema";
+import { prosemirrorSync } from "../../../prosemirror";
+import { buildServerSchema } from "../../../../../../packages/shared/src/tiptap/schema";
 import { Node } from "@tiptap/pm/model";
-import { getUserAndCaseIds, createErrorResponse, validateStringParam } from "./utils";
-import { Id } from "../../_generated/dataModel";
+import { getUserAndCaseIds, createErrorResponse, validateStringParam } from "../utils";
+import { Id } from "../../../_generated/dataModel";
+import { createEscritoStatsTemplate, createEscritoNotFoundTemplate } from "./templates";
 
 /**
  * Statistics object containing document metrics
@@ -64,7 +65,7 @@ export const getEscritoStatsTool = createTool({
       const escrito = await ctx.runQuery(internal.functions.documents.internalGetEscrito, { escritoId: args.escritoId as any });
       
       if (!escrito) {
-        return createErrorResponse(`Escrito with ID ${args.escritoId} not found`);
+        return createErrorResponse(createEscritoNotFoundTemplate(args.escritoId));
       }
       
       const doc = await prosemirrorSync.getDoc(ctx, escrito.prosemirrorId, buildServerSchema());
@@ -72,13 +73,10 @@ export const getEscritoStatsTool = createTool({
           words: countWords(doc),
           paragraphs: countParagraphs(doc),
       }
-      return { 
-          stats,
-          escritoId: escrito._id,
-          version: doc.version,
-      };
+      
+      return createEscritoStatsTemplate(escrito._id, doc.version, stats);
     } catch (error) {
-      return createErrorResponse(`Unexpected error: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      return createErrorResponse(`Error inesperado: ${error instanceof Error ? error.message : 'Error desconocido'}`);
     }
   }
 } as any);
