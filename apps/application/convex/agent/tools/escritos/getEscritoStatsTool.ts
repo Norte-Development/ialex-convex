@@ -6,6 +6,7 @@ import { buildServerSchema } from "../../../../../../packages/shared/src/tiptap/
 import { Node } from "@tiptap/pm/model";
 import { getUserAndCaseIds, createErrorResponse, validateStringParam } from "../utils";
 import { Id } from "../../../_generated/dataModel";
+import { createEscritoStatsTemplate, createEscritoNotFoundTemplate } from "./templates";
 
 /**
  * Statistics object containing document metrics
@@ -64,7 +65,7 @@ export const getEscritoStatsTool = createTool({
       const escrito = await ctx.runQuery(internal.functions.documents.internalGetEscrito, { escritoId: args.escritoId as any });
       
       if (!escrito) {
-        return createErrorResponse(`Escrito con ID ${args.escritoId} no encontrado`);
+        return createErrorResponse(createEscritoNotFoundTemplate(args.escritoId));
       }
       
       const doc = await prosemirrorSync.getDoc(ctx, escrito.prosemirrorId, buildServerSchema());
@@ -73,20 +74,7 @@ export const getEscritoStatsTool = createTool({
           paragraphs: countParagraphs(doc),
       }
       
-      const response = `# Estadísticas del Escrito
-
-                        ## Información del Documento
-                        - **ID del Escrito**: ${escrito._id}
-                        - **Versión**: ${doc.version}
-
-                        ## Estadísticas de Contenido
-                        - **Cantidad de Palabras**: ${stats.words.toLocaleString()} palabras
-                        - **Cantidad de Párrafos**: ${stats.paragraphs} párrafos
-
-                        ## Estructura del Documento
-                        ${stats.paragraphs === 1 ? 'Documento de un solo párrafo' : `${stats.paragraphs} párrafos`} con un promedio de ${stats.paragraphs > 0 ? Math.round(stats.words / stats.paragraphs) : 0} palabras por párrafo.`;
-
-      return response;
+      return createEscritoStatsTemplate(escrito._id, doc.version, stats);
     } catch (error) {
       return createErrorResponse(`Error inesperado: ${error instanceof Error ? error.message : 'Error desconocido'}`);
     }

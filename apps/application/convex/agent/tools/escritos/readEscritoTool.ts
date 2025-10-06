@@ -6,6 +6,7 @@ import { buildServerSchema } from "../../../../../../packages/shared/src/tiptap/
 import { Node } from "@tiptap/pm/model";
 import { Id } from "../../../_generated/dataModel";
 import { getUserAndCaseIds, createErrorResponse, validateStringParam, validateNumberParam } from "../utils";
+import { createEscritoNotFoundTemplate } from "./templates";
 
 /**
  * Metadata describing a semantic chunk of document content.
@@ -855,7 +856,7 @@ const readEscritoTool = createTool({
       const escrito = await ctx.runQuery(internal.functions.documents.internalGetEscrito, { escritoId: args.escritoId as any });
 
       if (!escrito) {
-        return createErrorResponse(`Escrito con ID ${args.escritoId} no encontrado`);
+        return createErrorResponse(createEscritoNotFoundTemplate(args.escritoId));
       }
       
       const doc = await prosemirrorSync.getDoc(ctx, escrito.prosemirrorId, buildServerSchema());

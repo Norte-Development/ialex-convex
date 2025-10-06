@@ -15,7 +15,7 @@ import {
   markTaskCompleteTool,
   insertContentTool,
   manageEscritoTool,
-  searchClientsTool,
+  searchCaseClientsTool,
   searchTemplatesTool
 } from "./tools/index";
 
@@ -58,7 +58,7 @@ export const agent = new Agent(components.agent, {
     markTaskComplete: markTaskCompleteTool,
     insertContent: insertContentTool,
     manageEscrito: manageEscritoTool,
-    searchClients: searchClientsTool,
+    searchClients: searchCaseClientsTool,
     searchTemplates: searchTemplatesTool,
   }
 });

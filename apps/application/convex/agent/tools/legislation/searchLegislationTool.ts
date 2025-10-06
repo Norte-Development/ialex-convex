@@ -3,6 +3,7 @@ import { z } from "zod";
 import { internal } from "../../../_generated/api";
 import { createErrorResponse, validateStringParam } from "../utils";
 import { LegislationSearchResult } from "../../../rag/qdrantUtils/types";
+import { createLegislationSearchTemplate, createLegislationSearchErrorTemplate } from "./templates";
 
 /**
  * Tool for searching legislation and normative documents using Qdrant hybrid search.
@@ -41,44 +42,12 @@ export const searchLegislationTool = createTool({
       console.log("Results:", results[0].text);
 
       // Format and return results with enhanced information
-      return `# 📜 Búsqueda de Legislación
-
-## Consulta
-**Término de búsqueda**: "${validatedArgs.query}"
-
-## Estadísticas
-- **Resultados encontrados**: ${results.length}
-- **Tipo de búsqueda**: Híbrida (densa + dispersa)
-- **Colecciones consultadas**: ialex_legislation_py
-- **Tiempo de búsqueda**: ${new Date().toLocaleString()}
-
-## Resultados
-${results.length === 0 ? 'No se encontraron documentos legislativos relevantes para la consulta.' : results.map((result: LegislationSearchResult, index: number) => `
-### ${index + 1}. ${result.title || 'Sin título'}
-- **ID del Documento**: ${result.document_id || 'N/A'}
-- **Tipo General**: ${result.tipo_general || 'N/A'}
-- **Tipo Detalle**: ${result.tipo_detalle || 'N/A'}
-- **Jurisdicción**: ${result.jurisdiccion || 'N/A'}
-- **Número**: ${result.number || 'N/A'}
-- **Estado**: ${result.estado || 'N/A'}
-- **Subestado**: ${result.subestado || 'N/A'}
-- **Fuente**: ${result.fuente || 'N/A'}
-- **Tipo de Contenido**: ${result.tipo_contenido || 'N/A'}
-- **Puntuación de Relevancia**: ${result.score ? result.score.toFixed(3) : 'N/A'}
-- **Fecha de Publicación**: ${result.publication_ts ? new Date(result.publication_ts * 1000).toLocaleDateString() : 'N/A'}
-- **Fecha de Sanción**: ${result.sanction_ts ? new Date(result.sanction_ts * 1000).toLocaleDateString() : 'N/A'}
-${result.url ? `- **URL**: ${result.url}` : ''}
-${result.relaciones && result.relaciones.length > 0 ? `- **Relaciones**: ${result.relaciones.length} documento(s) relacionado(s)` : ''}
-- **Contenido**: ${result.text || 'Sin contenido disponible'}
-`).join('\n')}
-
----
-*Búsqueda híbrida realizada en la base de datos legislativa.*`;
+      return createLegislationSearchTemplate(validatedArgs.query, results);
 
     } catch (error) {
       console.error("Legislation search failed:", error);
       const errorMessage = error instanceof Error ? error.message : "Error desconocido";
-      return createErrorResponse(`Búsqueda de legislación falló: ${errorMessage}`);
+      return createErrorResponse(createLegislationSearchErrorTemplate(errorMessage));
     }
   },
 } as any);

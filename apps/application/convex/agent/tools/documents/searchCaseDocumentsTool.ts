@@ -4,6 +4,7 @@ import { api, internal } from "../../../_generated/api";
 import { z } from "zod";
 import { getUserAndCaseIds, createErrorResponse, validateStringParam, validateNumberParam } from "../utils";
 import { Id } from "../../../_generated/dataModel";
+import { createCaseDocumentsSearchTemplate, createCaseDocumentsNoResultsTemplate } from "./templates";
 
 /**
  * Tool for searching case documents using dense embeddings with semantic chunk clustering.
@@ -84,19 +85,11 @@ export const searchCaseDocumentsTool = createTool({
         contextWindow: Math.min(contextWindow, 20) // Cap at 20 to prevent abuse
       });
 
-      return `# 🔍 Búsqueda de Documentos del Caso
-
-## Consulta
-**Término de búsqueda**: "${args.query.trim()}"
-
-## Configuración de Búsqueda
-- **Límite de resultados**: ${Math.min(limit, 50)}
-- **Ventana de contexto**: ${Math.min(contextWindow, 20)}
-
-## Resultados
-${results.length === 0 ? 'No se encontraron documentos relevantes para la consulta.' : results}
----
-*Búsqueda semántica realizada en los documentos del caso.*`;
+      if (results.length === 0) {
+        return createCaseDocumentsNoResultsTemplate(args.query.trim(), Math.min(limit, 50), Math.min(contextWindow, 20));
+      }
+      
+      return createCaseDocumentsSearchTemplate(args.query.trim(), Math.min(limit, 50), Math.min(contextWindow, 20), results);
     } catch (error) {
       return createErrorResponse(`Error inesperado: ${error instanceof Error ? error.message : 'Error desconocido'}`);
     }

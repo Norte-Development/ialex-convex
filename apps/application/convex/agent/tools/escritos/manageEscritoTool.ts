@@ -3,6 +3,11 @@ import { api, internal } from "../../../_generated/api";
 import { z } from "zod";
 import { getUserAndCaseIds, createErrorResponse, validateStringParam } from "../utils";
 import { Id } from "../../../_generated/dataModel";
+import { 
+  createEscritosListTemplate, 
+  createEscritoCreateSuccessTemplate, 
+  createInvalidActionTemplate 
+} from "./templates";
 
 /**
  * Tool for managing Escritos - create, update metadata, apply templates, and list escritos.
@@ -38,13 +43,11 @@ import { Id } from "../../../_generated/dataModel";
 export const manageEscritoTool = createTool({
   description: "Tool for managing Escritos - create, update metadata, apply templates, and list escritos. Comprehensive escrito lifecycle management tool that handles creation, metadata updates, template application, and listing operations.",
   args: z.object({
-    action: z.any().describe("Action to perform: 'create', 'apply_template', or 'list'"),
-    caseId: z.any().optional().describe("Case ID for create/list operations. Should be the current case unless specified otherwise."),
+    action: z.any().describe("Action to perform: 'create', or 'list'"),
     escritoId: z.any().optional().describe("Escrito ID for update operations"),
     templateId: z.any().optional().describe("Template ID. If provided with create, it will apply the template to the new escrito. If provided with apply_template, it will apply the template to the existing escrito."),
     title: z.any().optional().describe("Title for new escrito or metadata update"),
     status: z.any().optional().describe("Status for metadata update: 'borrador' or 'terminado'"),
-    mergeWithExisting: z.any().optional().describe("Whether to merge template content with existing escrito (default: false)")
   }).required({action: true}),
   handler: async (ctx: ToolCtx, args: any) => {
     try {
@@ -77,69 +80,24 @@ export const manageEscritoTool = createTool({
               prosemirrorId: crypto.randomUUID(),
               templateId: args.templateId || undefined,
             },
-            message: `Escrito "${title}" listo para crear en el caso ${targetCaseId}`
+            message: createEscritoCreateSuccessTemplate(title, targetCaseId)
           };
         }
-
-        case "apply_template": {
-          const escritoIdError = validateStringParam(args.escritoId, "escritoId");
-          if (escritoIdError) return escritoIdError;
-
-          const templateIdError = validateStringParam(args.templateId, "templateId");
-          if (templateIdError) return templateIdError;
-
-          const escritoId = args.escritoId.trim();
-          const templateId = args.templateId.trim();
-          const mergeWithExisting = args.mergeWithExisting || false;
-
-          // TODO: Implement apply template logic
-          // This would apply a template to an existing escrito
-          return `# ✅ Plantilla Aplicada
-
-## Información de la Operación
-- **ID del Escrito**: ${escritoId}
-- **ID de la Plantilla**: ${templateId}
-- **Fusión con Contenido Existente**: ${mergeWithExisting ? 'Sí' : 'No'}
-
-## Resultado
-La plantilla ha sido aplicada exitosamente al escrito.
-
-## Próximos Pasos
-1. Revisa el contenido aplicado usando readEscritoTool
-2. Realiza ajustes necesarios usando editEscritoTool
-3. Actualiza el estado si es necesario
-
----
-*Funcionalidad de aplicación de plantillas - implementación pendiente*`;
-        }
-
         case "list": {
           const caseIdError = validateStringParam(args.caseId, "caseId");
           if (caseIdError) return caseIdError;
 
           const targetCaseId = args.caseId.trim();
 
-          // TODO: Implement list escritos logic
-          // This would list all escritos in the specified case
-          return `# 📋 Lista de Escritos
+          const escritos = await ctx.runQuery(internal.functions.documents.getEscritosForAgent, {
+            caseId: targetCaseId as Id<"cases">,
+          });
 
-## Caso
-- **ID del Caso**: ${targetCaseId}
-
-## Escritos Encontrados
-*Funcionalidad de listado de escritos - implementación pendiente*
-
-## Información Adicional
-- **Total de Escritos**: Por implementar
-- **Estados**: Por implementar
-- **Fechas de Creación**: Por implementar
-
----
-*Funcionalidad de listado de escritos - implementación pendiente*`;
+          return createEscritosListTemplate(targetCaseId, escritos);
         }
 
         default:
-          return createErrorResponse(`Acción no soportada: ${action}. Use 'create', 'apply_template', o 'list'.`);
+          return createErrorResponse(createInvalidActionTemplate(action));
       }
     } catch (error) {
       return createErrorResponse(`Error inesperado: ${error instanceof Error ? error.message : 'Error desconocido'}`);

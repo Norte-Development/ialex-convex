@@ -12,7 +12,7 @@ export { insertContentTool } from './escritos/insertContentTool';
 
 // New consolidated tools
 export { manageEscritoTool } from './escritos/manageEscritoTool';
-export { searchClientsTool } from './clients/searchClientsTool';
+export { searchCaseClientsTool } from './clients/searchClientsTool';
 export { searchTemplatesTool } from './modelos/searchTemplatesTool';
 
 // Export validation helpers
