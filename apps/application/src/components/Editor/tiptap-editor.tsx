@@ -29,6 +29,8 @@ import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { api } from "../../../convex/_generated/api";
 import { useEscrito } from "@/context/EscritoContext";
+import { RibbonBar } from "./Ribbon/RibbonBar";
+import { SuggestionsMenu } from "./suggestions-menu";
 
 interface TiptapProps {
   documentId?: string;
@@ -431,9 +433,9 @@ export function Tiptap({
 
   // Editor is ready - render the full editor
   return (
-    <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+    <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden relative">
       {/* Toolbar - Only show if not readOnly */}
-      {!readOnly && <MenuBar editor={editor} />}
+      {!readOnly && <RibbonBar editor={editor} />}
 
       {/* Read-only banner */}
       {readOnly && (
@@ -454,11 +456,14 @@ export function Tiptap({
       )}
 
       {/* Editor Content */}
-      <div className="bg-white min-h-[600px] w-full">
+      <div className="bg-white min-h-[600px] w-full relative">
         <EditorContent
           editor={editor}
           className="legal-editor-content-wrapper w-full"
         />
+        
+        {/* Floating Suggestions Menu - Only show if not readOnly */}
+        {!readOnly && <SuggestionsMenu editor={editor} />}
       </div>
 
       {/* Footer */}

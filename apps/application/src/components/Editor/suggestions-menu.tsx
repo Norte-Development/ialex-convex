@@ -263,7 +263,7 @@ export function SuggestionsMenu({ editor, className }: SuggestionsMenuProps) {
   return (
     <div
       className={cn(
-        "absolute bottom-6 left-1/2 transform -translate-x-1/2 z-50 bg-white rounded-md shadow-md border border-gray-200 p-1.5 flex items-center gap-1",
+        "fixed bottom-6 left-1/2 transform -translate-x-1/2 z-50 bg-white rounded-md shadow-lg border border-gray-200 p-1.5 flex items-center gap-1",
         className,
       )}
     >
