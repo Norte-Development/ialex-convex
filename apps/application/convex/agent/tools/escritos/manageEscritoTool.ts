@@ -52,6 +52,10 @@ export const manageEscritoTool = createTool({
   handler: async (ctx: ToolCtx, args: any) => {
     try {
       const {caseId, userId} = getUserAndCaseIds(ctx.userId as string);
+
+      if (!caseId) {
+        return createErrorResponse("No esta en un caso")
+      }
       
       await ctx.runQuery(internal.auth_utils.internalCheckNewCaseAccess,{
         userId: userId as Id<"users">,
@@ -63,13 +67,13 @@ export const manageEscritoTool = createTool({
 
       switch (action) {
         case "create": {
-          const caseIdError = validateStringParam(args.caseId, "caseId");
+          const caseIdError = validateStringParam(caseId, "caseId");
           if (caseIdError) return caseIdError;
 
           const titleError = validateStringParam(args.title, "title");
           if (titleError) return titleError;
 
-          const targetCaseId: Id<"cases"> = args.caseId.trim();
+          const targetCaseId: Id<"cases"> = caseId as Id<"cases">;
           const title: string = args.title.trim();
 
           return {
@@ -84,10 +88,7 @@ export const manageEscritoTool = createTool({
           };
         }
         case "list": {
-          const caseIdError = validateStringParam(args.caseId, "caseId");
-          if (caseIdError) return caseIdError;
-
-          const targetCaseId = args.caseId.trim();
+          const targetCaseId = caseId.trim();
 
           const escritos = await ctx.runQuery(internal.functions.documents.getEscritosForAgent, {
             caseId: targetCaseId as Id<"cases">,
