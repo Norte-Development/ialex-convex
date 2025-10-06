@@ -4,11 +4,19 @@ import { cn } from '@/lib/utils';
 import { type ComponentProps, memo } from 'react';
 import { Streamdown } from 'streamdown';
 import remarkCitation from '@/lib/remark-citation';
+import type { MermaidConfig } from 'mermaid';
 import remarkGfm from 'remark-gfm';
 import { createMarkdownComponents } from '@/lib/markdown-components';
 
 type ResponseProps = ComponentProps<typeof Streamdown> & {
   onCitationClick?: (id: string, type: string) => void;
+};
+
+const mermaidConfig: MermaidConfig = {
+  theme: 'dark',
+  flowchart: {
+    curve: 'basis',
+  },
 };
 
 export const Response = memo(
@@ -23,6 +31,7 @@ export const Response = memo(
         )}
         remarkPlugins={[remarkGfm, remarkCitation]}
         components={components}
+        mermaidConfig={mermaidConfig}
         {...props}
       />
     );

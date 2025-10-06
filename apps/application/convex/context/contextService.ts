@@ -1,5 +1,3 @@
-import { query, internalQuery, internalMutation } from "../_generated/server";
-import { v } from "convex/values";
 import { Id } from "../_generated/dataModel";
 
 // Types for the Context Service
