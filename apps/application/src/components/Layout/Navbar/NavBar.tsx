@@ -11,15 +11,14 @@ export default function NavBar() {
   const { toggleChatbot } = useChatbot();
 
   const isInCaseContext = location.pathname.includes("/caso/");
-  const isActive = (path: string) =>
-    location.pathname === path || location.pathname.startsWith(path + "/");
 
   const menuOptions = [
     { label: "Equipos", path: "/equipos" },
     { label: "Clientes", path: "/clientes" },
     { label: "Casos", path: "/casos" },
     { label: "Escritos", path: "/escrito" },
-    { label: "Legales", path: "/legales" },
+    { label: "Modelos", path: "/modelos" },
+    { label: "Legales", path: "/base-de-datos" },
   ];
 
   return (

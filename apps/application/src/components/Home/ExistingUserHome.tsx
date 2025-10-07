@@ -1,7 +1,5 @@
-import CaseCards from "./CaseCards";
 import { useQuery } from "convex/react";
 import { api } from "../../../convex/_generated/api";
-import { Case } from "types/cases";
 import NewCaseCard from "./NewCaseCard";
 import EventDateCard from "./EventDateCard";
 import { Button } from "../ui/button";
