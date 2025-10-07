@@ -59,12 +59,6 @@ export const searchTemplatesTool = createTool({
   handler: async (ctx: ToolCtx, args: any) => {
     try {
       const {caseId, userId} = getUserAndCaseIds(ctx.userId as string);
-      
-      await ctx.runQuery(internal.auth_utils.internalCheckNewCaseAccess,{
-        userId: userId as Id<"users">,
-        caseId: caseId as Id<"cases">,
-        requiredLevel: "basic"
-      } )
 
       const searchTerm = args.searchTerm?.trim();
       const category = args.category?.trim();
