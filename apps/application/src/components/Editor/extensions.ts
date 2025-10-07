@@ -3,6 +3,10 @@ import StarterKit from "@tiptap/starter-kit";
 import TextAlign from "@tiptap/extension-text-align";
 import Underline from "@tiptap/extension-underline";
 import { TextStyle } from "@tiptap/extension-text-style";
+import { Table } from "@tiptap/extension-table";
+import { TableRow } from "@tiptap/extension-table-row";
+import { TableHeader } from "@tiptap/extension-table-header";
+import { TableCell } from "@tiptap/extension-table-cell";
 import {
   InlineChange,
   BlockChange,
@@ -19,4 +23,12 @@ export const extensions = [
   TrackingExtension,
   TextAlign.configure({ types: ["heading", "paragraph"] }),
   Underline,
+  // Table extensions
+  Table.configure({
+    resizable: true,
+    allowTableNodeSelection: true,
+  }),
+  TableRow,
+  TableHeader,
+  TableCell,
 ];

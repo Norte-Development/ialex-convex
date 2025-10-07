@@ -87,16 +87,43 @@ export function useDocxToHtml() {
         .replace(/\s*o:[^=]*="[^"]*"/g, "")
         .replace(/\s*w:[^=]*="[^"]*"/g, "")
 
-        // Remove empty paragraphs and excessive whitespace
+        // Remove empty paragraphs and excessive whitespace (but preserve table structure)
         .replace(/<p[^>]*>\s*<\/p>/g, "")
         .replace(/<p[^>]*>(\s|&nbsp;)*<\/p>/g, "")
 
-        // Clean up spacing
+        // Clean up spacing but preserve table formatting
         .replace(/\n\s*\n/g, "\n")
-        .replace(/>\s+</g, "><")
+        .replace(/>\s+</g, (match) => {
+          // Don't compress whitespace inside table elements
+          if (
+            match.includes("table") ||
+            match.includes("tr") ||
+            match.includes("td") ||
+            match.includes("th")
+          ) {
+            return match;
+          }
+          return "><";
+        })
 
-        // Remove unsupported inline styles that might conflict with TipTap
-        .replace(/style="[^"]*"/g, "")
+        // Remove most inline styles but preserve essential table styles
+        .replace(/style="[^"]*"/g, (match) => {
+          // Keep table-related styles that might be important
+          if (
+            match.includes("width") ||
+            match.includes("border") ||
+            match.includes("text-align")
+          ) {
+            return match;
+          }
+          return "";
+        })
+
+        // Ensure table elements have proper structure
+        .replace(/<table[^>]*>/g, "<table>")
+        .replace(/<tr[^>]*>/g, "<tr>")
+        .replace(/<td[^>]*>/g, "<td>")
+        .replace(/<th[^>]*>/g, "<th>")
 
         // Clean up any remaining whitespace
         .trim()
@@ -275,11 +302,11 @@ export function useDocxToHtml() {
       const issues: string[] = [];
       const suggestions: string[] = [];
 
-      // Check for common TipTap incompatibilities
+      // Check for supported features
       if (html.includes("<table")) {
-        issues.push("Contains tables - TipTap table extension may be needed");
-        suggestions.push(
-          "Consider enabling TipTap Table extension or converting tables to lists",
+        // Tables are now supported, just inform about the feature
+        console.log(
+          "Document contains tables - will be converted with table support",
         );
       }
 

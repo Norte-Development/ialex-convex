@@ -17,7 +17,14 @@ export function InsertTab({ editor }: InsertTabProps) {
             variant="ghost"
             size="sm"
             className="flex flex-col items-center gap-1 h-auto py-2 px-3 hover:bg-office-hover"
-            title="Insertar tabla"
+            title="Insertar tabla 3x3"
+            onClick={() => {
+              editor
+                .chain()
+                .focus()
+                .insertTable({ rows: 3, cols: 3, withHeaderRow: true })
+                .run();
+            }}
           >
             <Table className="h-6 w-6" />
             <span className="text-xs">Tabla</span>
@@ -85,4 +92,3 @@ export function InsertTab({ editor }: InsertTabProps) {
     </div>
   );
 }
-
