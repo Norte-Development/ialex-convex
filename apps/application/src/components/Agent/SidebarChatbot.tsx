@@ -1,7 +1,6 @@
 import type React from "react"
 import { useCallback, useEffect, useState, useRef } from "react"
 import { cn } from "@/lib/utils"
-import { ToggleButton } from "./ToggleButton"
 import { ResizeHandle } from "./ResizeHandle"
 import { SidebarHeader } from "./SidebarHeader"
 import { ChatContent } from "./ChatContent"
@@ -62,9 +61,6 @@ export default function SidebarChatbot({
 
   return (
     <>
-      {/* Toggle Button */}
-      {!isOpen && <ToggleButton onToggle={onToggle} />}
-
       {/* Sidebar */}
       <div
         ref={sidebarRef}

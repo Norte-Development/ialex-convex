@@ -1,35 +1,59 @@
-import {
-  UserIcon,
-  Settings,
-  UsersRound,
-  FileSearch2,
-  BookCheck,
-} from "lucide-react";
+import { Bell, Search, MessageCircle } from "lucide-react";
 import { useLocation } from "react-router-dom";
 import Breadcrumbs from "./BreadCrumbs";
-import { Link } from "react-router-dom";
 import { UserButton } from "@clerk/clerk-react";
+import { Input } from "@/components/ui/input";
+import CollapsibleMenuButton from "./CollapsibleMenuButton";
+import { useChatbot } from "@/context/ChatbotContext";
 
 export default function NavBar() {
   const location = useLocation();
+  const { toggleChatbot } = useChatbot();
 
   const isInCaseContext = location.pathname.includes("/caso/");
-  const isActive = (path: string) =>
-    location.pathname === path || location.pathname.startsWith(path + "/");
+
+  const menuOptions = [
+    { label: "Inicio", path: "/" },
+    { label: "Equipos", path: "/equipos" },
+    { label: "Clientes", path: "/clientes" },
+    { label: "Casos", path: "/casos" },
+    { label: "Modelos", path: "/modelos" },
+    { label: "Legales", path: "/base-de-datos" },
+  ];
 
   return (
     <nav
-      className={`${isInCaseContext ? "flex flex-row-reverse" : "flex "} fixed px-5 justify-between items-center h-14 w-full bg-background text-foreground border-b border-border top-0 left-0 z-50 mb-5`}
+      className={`flex flex-row-reverse fixed px-5 justify-between items-center h-14 w-full bg-background text-foreground border-b border-border top-0 left-0 z-50 mb-5`}
     >
-      <div className={` flex  items-center gap-4`}>
-        <Settings className="cursor-pointer" size={20} aria-hidden="true" />
-        <UserButton
-          appearance={{
-            elements: {
-              avatarBox: "w-8 h-8",
-            },
-          }}
-          showName={false}
+      <div className={` flex  items-center gap-5`}>
+        <div className="flex items-center justify-center gap-2">
+          <Bell className="cursor-pointer" size={20} />
+          <UserButton
+            appearance={{
+              elements: {
+                avatarBox: "w-8 h-8",
+              },
+            }}
+            showName={false}
+          />
+        </div>
+        {isInCaseContext && (
+          <button
+            onClick={toggleChatbot}
+            className="  text-[#3946D7] cursor-pointer p-2 rounded-full transition-all duration-200 hover:scale-105"
+          >
+            <MessageCircle className="w-5 h-5" />
+          </button>
+        )}
+      </div>
+      <div className={`flex justify-center items-center relative w-[30%]`}>
+        <Input
+          placeholder="Buscar"
+          className="w-full rounded-full placeholder:text-[14px] h-fit"
+        />
+        <Search
+          className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400"
+          size={16}
         />
       </div>
       <div className={`flex gap-4 justify-center items-center `}>
@@ -38,77 +62,8 @@ export default function NavBar() {
             <Breadcrumbs />
           </div>
         ) : (
-          <div className="flex items-center gap-6">
-            <Link
-              to="/"
-              aria-label="Inicio"
-              className="flex items-center gap-2 font-semibold hover:opacity-100 opacity-90 transition-opacity"
-            >
-              <span>IAlex</span>
-            </Link>
-            <div className="flex gap-4 items-center">
-              <Link
-                to="/base-de-datos"
-                aria-label="Base de datos"
-                aria-current={isActive("/base-de-datos") ? "page" : undefined}
-                title="Base de datos"
-              >
-                <FileSearch2
-                  className={`cursor-pointer transition-opacity ${
-                    isActive("/base-de-datos")
-                      ? "opacity-100"
-                      : "opacity-60 hover:opacity-100"
-                  }`}
-                  size={20}
-                />
-              </Link>
-              <Link
-                to="/clientes"
-                aria-label="Clientes"
-                aria-current={isActive("/clientes") ? "page" : undefined}
-                title="Clientes"
-              >
-                <UserIcon
-                  fill="currentColor"
-                  className={`cursor-pointer transition-opacity ${
-                    isActive("/clientes")
-                      ? "opacity-100"
-                      : "opacity-60 hover:opacity-100"
-                  }`}
-                  size={20}
-                />
-              </Link>
-              <Link
-                to="/modelos"
-                aria-label="Modelos"
-                aria-current={isActive("/modelos") ? "page" : undefined}
-                title="Modelos"
-              >
-                <BookCheck
-                  size={20}
-                  className={`cursor-pointer transition-opacity ${
-                    isActive("/modelos")
-                      ? "opacity-100"
-                      : "opacity-60 hover:opacity-100"
-                  }`}
-                />
-              </Link>
-              <Link
-                to="/equipo"
-                aria-label="Equipo"
-                aria-current={isActive("/equipo") ? "page" : undefined}
-                title="Equipo"
-              >
-                <UsersRound
-                  className={`cursor-pointer transition-opacity ${
-                    isActive("/equipo")
-                      ? "opacity-100"
-                      : "opacity-60 hover:opacity-100"
-                  }`}
-                  size={20}
-                />
-              </Link>
-            </div>
+          <div className="flex gap-4">
+            <CollapsibleMenuButton options={menuOptions} />
           </div>
         )}
       </div>

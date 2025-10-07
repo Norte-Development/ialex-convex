@@ -165,7 +165,6 @@ function CaseTeamsPageInner() {
             <div>
               <p className="text-sm font-medium text-gray-500">Estado</p>
               <Badge
-                variant="outline"
                 className={
                   currentCase.status === "en progreso"
                     ? "bg-green-100 text-green-800"
@@ -286,14 +285,13 @@ function CaseTeamsPageInner() {
 
                     <div className="flex items-center gap-3">
                       <Badge
-                        variant="outline"
                         className={`flex items-center gap-1 ${getAccessLevelColor(team.accessLevel)}`}
                       >
                         {getAccessLevelIcon(team.accessLevel)}
                         {getAccessLevelText(team.accessLevel)}
                       </Badge>
 
-                      <Badge variant="outline">
+                      <Badge>
                         {team.isActive !== undefined
                           ? team.isActive
                             ? "Activo"
