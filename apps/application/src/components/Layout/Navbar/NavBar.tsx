@@ -1,12 +1,21 @@
-import { Bell, Menu, Search } from "lucide-react";
+import { Bell, Search } from "lucide-react";
 import { useLocation } from "react-router-dom";
 import Breadcrumbs from "./BreadCrumbs";
 import { UserButton } from "@clerk/clerk-react";
 import { Input } from "@/components/ui/input";
+import CollapsibleMenuButton from "./CollapsibleMenuButton";
 export default function NavBar() {
   const location = useLocation();
 
   const isInCaseContext = location.pathname.includes("/caso/");
+
+  const menuOptions = [
+    { label: "Equipos", path: "/equipos" },
+    { label: "Clientes", path: "/clientes" },
+    { label: "Casos", path: "/casos" },
+    { label: "Escritos", path: "/escritos" },
+    { label: "Legales", path: "/legales" },
+  ];
 
   return (
     <nav
@@ -37,7 +46,7 @@ export default function NavBar() {
           </div>
         ) : (
           <div className="flex gap-4">
-            <Menu />
+            <CollapsibleMenuButton options={menuOptions} />
           </div>
         )}
       </div>
