@@ -56,7 +56,6 @@ import type * as functions_escritosTransforms_helpers_prosemirrorHelpers from ".
 import type * as functions_escritosTransforms_helpers_searchHelpers from "../functions/escritosTransforms/helpers/searchHelpers.js";
 import type * as functions_escritosTransforms_index from "../functions/escritosTransforms/index.js";
 import type * as functions_escritosTransforms_insertHtmlContent from "../functions/escritosTransforms/insertHtmlContent.js";
-import type * as functions_escritosTransforms_insertTemplate from "../functions/escritosTransforms/insertTemplate.js";
 import type * as functions_escritosTransforms_rewriteSectionByAnchors from "../functions/escritosTransforms/rewriteSectionByAnchors.js";
 import type * as functions_escritosTransforms_types from "../functions/escritosTransforms/types.js";
 import type * as functions_folders from "../functions/folders.js";
@@ -147,7 +146,6 @@ declare const fullApi: ApiFromModules<{
   "functions/escritosTransforms/helpers/searchHelpers": typeof functions_escritosTransforms_helpers_searchHelpers;
   "functions/escritosTransforms/index": typeof functions_escritosTransforms_index;
   "functions/escritosTransforms/insertHtmlContent": typeof functions_escritosTransforms_insertHtmlContent;
-  "functions/escritosTransforms/insertTemplate": typeof functions_escritosTransforms_insertTemplate;
   "functions/escritosTransforms/rewriteSectionByAnchors": typeof functions_escritosTransforms_rewriteSectionByAnchors;
   "functions/escritosTransforms/types": typeof functions_escritosTransforms_types;
   "functions/folders": typeof functions_folders;
