@@ -21,7 +21,7 @@ import type { Reference, ReferenceWithOriginal } from "./types/reference-types"
 import { Button } from "@/components/ui/button"
 
 export function ChatContent() {
-  const { threadId, createThreadWithTitle } = useThread()
+  const { threadId, createThreadWithTitle, setThreadId } = useThread()
   const { caseId } = useCase()
   const { escritoId, cursorPosition } = useEscrito()
   const { user } = useAuth()
@@ -59,9 +59,12 @@ export function ChatContent() {
   }
 
   const messages = useThreadMessages(api.agent.streaming.listMessages, threadId ? { threadId } : "skip", {
-    initialNumItems: 20,
+    initialNumItems: 5,
     stream: true,
   })
+
+  // Determine if messages are loading
+  const isLoadingMessages = threadId && !messages.results && messages.status !== "Exhausted"
 
   const scrollToBottom = useCallback((behavior: ScrollBehavior = "smooth") => {
     if (!messagesContainerRef.current) return
@@ -244,7 +247,7 @@ export function ChatContent() {
     }
   }, [handleContentResize])
 
-  const sendMessage = useMutation(api.agent.streaming.initiateAsyncStreaming).withOptimisticUpdate(
+  const initiateWorkflow = useMutation(api.agent.workflow.initiateWorkflowStreaming).withOptimisticUpdate(
     optimisticallySendMessage(api.agent.streaming.listMessages),
   )
 
@@ -279,36 +282,32 @@ export function ChatContent() {
     setAwaitingResponse(true) // Set awaiting response state
 
     // If no thread exists, create one with the truncated message as title
-    if (!threadId) {
-      const truncatedTitle = cleanMessage.length > 50 ? cleanMessage.substring(0, 50) + "..." : cleanMessage
+    try {
+      let activeThreadId = threadId
+      if (!activeThreadId) {
+        const truncatedTitle = cleanMessage.length > 50 ? `${cleanMessage.substring(0, 50)}...` : cleanMessage
+        activeThreadId = await createThreadWithTitle(truncatedTitle, caseId || undefined)
+      }
 
-      createThreadWithTitle(truncatedTitle, caseId || undefined)
-        .then((newThreadId) => {
-          // Send the message after thread is created with rich context
-          void sendMessage({
-            threadId: newThreadId,
-            prompt: cleanMessage, // Use the clean message
-            userId: user._id as Id<"users">,
-            caseId: caseId || undefined,
-            ...currentViewContext,
-          }).catch(() => {
-            // Handle error if needed
-          })
-        })
-        .catch(() => {
-          // Handle error if needed
-        })
-    } else {
-      // Thread exists, send message normally with rich context
-      void sendMessage({
-        threadId,
-        prompt: cleanMessage, // Use the clean message
-        userId: user._id as Id<"users">,
-        caseId: caseId || undefined,
-        ...currentViewContext,
-      }).catch(() => {
-        // Handle error if needed
+      const { threadId: newThreadId, workflowId } = await initiateWorkflow({
+        prompt: cleanMessage,
+        threadId: activeThreadId,
+        caseId: caseId ?? undefined,
+        currentPage: currentViewContext.currentPage,
+        currentView: currentViewContext.currentView,
+        selectedItems: currentViewContext.selectedItems,
+        cursorPosition: currentViewContext.cursorPosition,
+        searchQuery: currentViewContext.searchQuery,
+        currentEscritoId: currentViewContext.currentEscritoId,
       })
+
+      if (!threadId) {
+        setThreadId(newThreadId)
+      }
+      console.debug("Workflow started", { workflowId, threadId: newThreadId })
+    } catch (error) {
+      console.error("Failed to initiate workflow", error)
+      setAwaitingResponse(false)
     }
   }
 
@@ -421,7 +420,12 @@ export function ChatContent() {
           </div>
         )}
 
-        {messages.results?.length > 0 ? (
+        {isLoadingMessages ? (
+          <div className="flex flex-col items-center justify-center h-full text-center text-gray-500 text-sm">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-400 mb-2" />
+            <p>Cargando mensajes...</p>
+          </div>
+        ) : messages.results?.length > 0 ? (
           toUIMessages(messages.results ?? []).map((m) => (
             <SidebarMessage 
               key={m.key} 

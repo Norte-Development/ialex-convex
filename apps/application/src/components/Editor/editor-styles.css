@@ -1,3 +1,149 @@
+/* MS Office Color Palette */
+:root {
+  --office-blue: #2B579A;
+  --office-hover: #E7F3FF;
+  --office-active: #CCE4F7;
+  --office-border: #D1D5DB;
+  --office-background: #FFFFFF;
+  --office-gray: #F3F4F6;
+}
+
+/* Office Editor Container */
+.office-editor-container {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  background-color: var(--office-background);
+  border-radius: 0.5rem;
+  overflow: hidden;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+/* Ribbon Styles */
+.ribbon-container {
+  background-color: var(--office-background);
+  border-bottom: 1px solid var(--office-border);
+}
+
+.ribbon-tabs {
+  display: flex;
+  gap: 2px;
+  background-color: var(--office-gray);
+  padding: 0 8px;
+  border-bottom: 1px solid var(--office-border);
+}
+
+.ribbon-tab {
+  padding: 8px 16px;
+  font-size: 0.875rem;
+  font-weight: 400;
+  color: #374151;
+  background-color: transparent;
+  border: none;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  border-bottom: 2px solid transparent;
+}
+
+.ribbon-tab:hover {
+  background-color: rgba(255, 255, 255, 0.6);
+}
+
+.ribbon-tab-active {
+  background-color: var(--office-background);
+  color: var(--office-blue);
+  border-bottom: 2px solid var(--office-blue);
+  font-weight: 500;
+}
+
+.ribbon-content {
+  padding: 8px 12px;
+  background-color: var(--office-background);
+  min-height: 100px;
+}
+
+.ribbon-tab-content {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.ribbon-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.ribbon-group-label {
+  font-size: 0.65rem;
+  color: #6B7280;
+  text-transform: uppercase;
+  letter-spacing: 0.025em;
+  padding: 0 4px;
+  font-weight: 400;
+}
+
+.ribbon-group-content {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 4px;
+  background-color: var(--office-background);
+  border-radius: 4px;
+}
+
+.ribbon-separator {
+  width: 1px;
+  height: 80px;
+  background-color: var(--office-border);
+  margin: 0 4px;
+}
+
+/* Office Button Styles */
+.hover\:bg-office-hover:hover {
+  background-color: var(--office-hover) !important;
+}
+
+.bg-office-active {
+  background-color: var(--office-active) !important;
+}
+
+/* Office Editor Content Area */
+.office-editor-content {
+  flex: 1;
+  overflow-y: auto;
+  background-color: var(--office-gray);
+  padding: 20px;
+}
+
+/* Status Bar */
+.status-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 4px 16px;
+  background-color: var(--office-background);
+  border-top: 1px solid var(--office-border);
+  font-size: 0.75rem;
+  color: #6B7280;
+  min-height: 28px;
+}
+
+.status-bar-left,
+.status-bar-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.status-bar-item {
+  padding: 0 4px;
+}
+
+.status-bar-separator {
+  color: var(--office-border);
+}
+
 .legal-editor-content {
   width: 800px;
   max-width: 800px;
@@ -405,4 +551,78 @@
 
 [data-semantic-type="block_change"][data-change="added"]:has(li) li {
   color: #047857;
+}
+
+/* Pagination styles */
+.pagination-plus {
+  background: #f9fafb;
+  padding: 20px;
+  min-height: 100vh;
+}
+
+.pagination-page {
+  background: white;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1), 0 1px 2px rgba(0, 0, 0, 0.06);
+  margin: 0 auto 20px;
+  position: relative;
+  width: 800px;
+  max-width: 800px;
+}
+
+.pagination-page-content {
+  min-height: 1000px;
+}
+
+.pagination-header,
+.pagination-footer {
+  font-size: 0.75rem;
+  color: #6b7280;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0 70px;
+  height: 40px;
+}
+
+.pagination-header {
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.pagination-footer {
+  border-top: 1px solid #e5e7eb;
+}
+
+.pagination-break {
+  background: #f3f4f6;
+  height: 20px;
+  width: 100%;
+}
+
+/* Ensure page breaks work properly */
+.page-break {
+  page-break-after: always;
+  break-after: page;
+}
+
+/* Print styles for pagination */
+@media print {
+  .pagination-page {
+    box-shadow: none;
+    margin: 0;
+    page-break-after: always;
+  }
+  
+  .pagination-break {
+    display: none;
+  }
+  
+  .pagination-footer {
+    position: fixed;
+    bottom: 0;
+  }
+  
+  .pagination-header {
+    position: fixed;
+    top: 0;
+  }
 }

@@ -16,24 +16,32 @@ import type * as agent_streamAbort from "../agent/streamAbort.js";
 import type * as agent_streaming from "../agent/streaming.js";
 import type * as agent_textNormalization from "../agent/textNormalization.js";
 import type * as agent_threads from "../agent/threads.js";
-import type * as agent_tools_editEscritoTool from "../agent/tools/editEscritoTool.js";
-import type * as agent_tools_getEscritoStatsTool from "../agent/tools/getEscritoStatsTool.js";
-import type * as agent_tools_getEscritoTool from "../agent/tools/getEscritoTool.js";
+import type * as agent_tools_clients_searchClientsTool from "../agent/tools/clients/searchClientsTool.js";
+import type * as agent_tools_clients_templates from "../agent/tools/clients/templates.js";
+import type * as agent_tools_documents_listCaseDocumentsTool from "../agent/tools/documents/listCaseDocumentsTool.js";
+import type * as agent_tools_documents_queryDocumentTool from "../agent/tools/documents/queryDocumentTool.js";
+import type * as agent_tools_documents_readDocumentTool from "../agent/tools/documents/readDocumentTool.js";
+import type * as agent_tools_documents_searchCaseDocumentsTool from "../agent/tools/documents/searchCaseDocumentsTool.js";
+import type * as agent_tools_documents_templates from "../agent/tools/documents/templates.js";
+import type * as agent_tools_escritos_editEscritoTool from "../agent/tools/escritos/editEscritoTool.js";
+import type * as agent_tools_escritos_getEscritoStatsTool from "../agent/tools/escritos/getEscritoStatsTool.js";
+import type * as agent_tools_escritos_insertContentTool from "../agent/tools/escritos/insertContentTool.js";
+import type * as agent_tools_escritos_manageEscritoTool from "../agent/tools/escritos/manageEscritoTool.js";
+import type * as agent_tools_escritos_readEscritoTool from "../agent/tools/escritos/readEscritoTool.js";
+import type * as agent_tools_escritos_rewriteEscritoSectionTool from "../agent/tools/escritos/rewriteEscritoSectionTool.js";
+import type * as agent_tools_escritos_templates from "../agent/tools/escritos/templates.js";
 import type * as agent_tools_index from "../agent/tools/index.js";
-import type * as agent_tools_insertContentTool from "../agent/tools/insertContentTool.js";
-import type * as agent_tools_legislationFindTool from "../agent/tools/legislationFindTool.js";
-import type * as agent_tools_legislationReadTool from "../agent/tools/legislationReadTool.js";
-import type * as agent_tools_listCaseDocumentsTool from "../agent/tools/listCaseDocumentsTool.js";
-import type * as agent_tools_planAndTrackTool from "../agent/tools/planAndTrackTool.js";
-import type * as agent_tools_queryDocumentTool from "../agent/tools/queryDocumentTool.js";
-import type * as agent_tools_readDocumentTool from "../agent/tools/readDocumentTool.js";
-import type * as agent_tools_readEscritoTool from "../agent/tools/readEscritoTool.js";
-import type * as agent_tools_rewriteEscritoSectionTool from "../agent/tools/rewriteEscritoSectionTool.js";
-import type * as agent_tools_searchCaseDocumentsTool from "../agent/tools/searchCaseDocumentsTool.js";
-import type * as agent_tools_searchFallosTool from "../agent/tools/searchFallosTool.js";
-import type * as agent_tools_searchLegislationTool from "../agent/tools/searchLegislationTool.js";
+import type * as agent_tools_legislation_legislationFindTool from "../agent/tools/legislation/legislationFindTool.js";
+import type * as agent_tools_legislation_legislationReadTool from "../agent/tools/legislation/legislationReadTool.js";
+import type * as agent_tools_legislation_searchLegislationTool from "../agent/tools/legislation/searchLegislationTool.js";
+import type * as agent_tools_legislation_templates from "../agent/tools/legislation/templates.js";
+import type * as agent_tools_modelos_searchTemplatesTool from "../agent/tools/modelos/searchTemplatesTool.js";
+import type * as agent_tools_modelos_templates from "../agent/tools/modelos/templates.js";
+import type * as agent_tools_planning_planAndTrackTool from "../agent/tools/planning/planAndTrackTool.js";
+import type * as agent_tools_utils_sanitizeContent from "../agent/tools/utils/sanitizeContent.js";
 import type * as agent_tools_utils from "../agent/tools/utils.js";
 import type * as agent_tools_validation from "../agent/tools/validation.js";
+import type * as agent_workflow from "../agent/workflow.js";
 import type * as auth_utils from "../auth_utils.js";
 import type * as context_context from "../context/context.js";
 import type * as context_contextService from "../context/contextService.js";
@@ -99,24 +107,32 @@ declare const fullApi: ApiFromModules<{
   "agent/streaming": typeof agent_streaming;
   "agent/textNormalization": typeof agent_textNormalization;
   "agent/threads": typeof agent_threads;
-  "agent/tools/editEscritoTool": typeof agent_tools_editEscritoTool;
-  "agent/tools/getEscritoStatsTool": typeof agent_tools_getEscritoStatsTool;
-  "agent/tools/getEscritoTool": typeof agent_tools_getEscritoTool;
+  "agent/tools/clients/searchClientsTool": typeof agent_tools_clients_searchClientsTool;
+  "agent/tools/clients/templates": typeof agent_tools_clients_templates;
+  "agent/tools/documents/listCaseDocumentsTool": typeof agent_tools_documents_listCaseDocumentsTool;
+  "agent/tools/documents/queryDocumentTool": typeof agent_tools_documents_queryDocumentTool;
+  "agent/tools/documents/readDocumentTool": typeof agent_tools_documents_readDocumentTool;
+  "agent/tools/documents/searchCaseDocumentsTool": typeof agent_tools_documents_searchCaseDocumentsTool;
+  "agent/tools/documents/templates": typeof agent_tools_documents_templates;
+  "agent/tools/escritos/editEscritoTool": typeof agent_tools_escritos_editEscritoTool;
+  "agent/tools/escritos/getEscritoStatsTool": typeof agent_tools_escritos_getEscritoStatsTool;
+  "agent/tools/escritos/insertContentTool": typeof agent_tools_escritos_insertContentTool;
+  "agent/tools/escritos/manageEscritoTool": typeof agent_tools_escritos_manageEscritoTool;
+  "agent/tools/escritos/readEscritoTool": typeof agent_tools_escritos_readEscritoTool;
+  "agent/tools/escritos/rewriteEscritoSectionTool": typeof agent_tools_escritos_rewriteEscritoSectionTool;
+  "agent/tools/escritos/templates": typeof agent_tools_escritos_templates;
   "agent/tools/index": typeof agent_tools_index;
-  "agent/tools/insertContentTool": typeof agent_tools_insertContentTool;
-  "agent/tools/legislationFindTool": typeof agent_tools_legislationFindTool;
-  "agent/tools/legislationReadTool": typeof agent_tools_legislationReadTool;
-  "agent/tools/listCaseDocumentsTool": typeof agent_tools_listCaseDocumentsTool;
-  "agent/tools/planAndTrackTool": typeof agent_tools_planAndTrackTool;
-  "agent/tools/queryDocumentTool": typeof agent_tools_queryDocumentTool;
-  "agent/tools/readDocumentTool": typeof agent_tools_readDocumentTool;
-  "agent/tools/readEscritoTool": typeof agent_tools_readEscritoTool;
-  "agent/tools/rewriteEscritoSectionTool": typeof agent_tools_rewriteEscritoSectionTool;
-  "agent/tools/searchCaseDocumentsTool": typeof agent_tools_searchCaseDocumentsTool;
-  "agent/tools/searchFallosTool": typeof agent_tools_searchFallosTool;
-  "agent/tools/searchLegislationTool": typeof agent_tools_searchLegislationTool;
+  "agent/tools/legislation/legislationFindTool": typeof agent_tools_legislation_legislationFindTool;
+  "agent/tools/legislation/legislationReadTool": typeof agent_tools_legislation_legislationReadTool;
+  "agent/tools/legislation/searchLegislationTool": typeof agent_tools_legislation_searchLegislationTool;
+  "agent/tools/legislation/templates": typeof agent_tools_legislation_templates;
+  "agent/tools/modelos/searchTemplatesTool": typeof agent_tools_modelos_searchTemplatesTool;
+  "agent/tools/modelos/templates": typeof agent_tools_modelos_templates;
+  "agent/tools/planning/planAndTrackTool": typeof agent_tools_planning_planAndTrackTool;
+  "agent/tools/utils/sanitizeContent": typeof agent_tools_utils_sanitizeContent;
   "agent/tools/utils": typeof agent_tools_utils;
   "agent/tools/validation": typeof agent_tools_validation;
+  "agent/workflow": typeof agent_workflow;
   auth_utils: typeof auth_utils;
   "context/context": typeof context_context;
   "context/contextService": typeof context_contextService;
@@ -3602,6 +3618,200 @@ export declare const components: {
             score: number;
             startOrder: number;
           }>;
+        }
+      >;
+    };
+  };
+  workflow: {
+    journal: {
+      load: FunctionReference<
+        "query",
+        "internal",
+        { workflowId: string },
+        {
+          journalEntries: Array<{
+            _creationTime: number;
+            _id: string;
+            step: {
+              args: any;
+              argsSize: number;
+              completedAt?: number;
+              functionType: "query" | "mutation" | "action";
+              handle: string;
+              inProgress: boolean;
+              name: string;
+              runResult?:
+                | { kind: "success"; returnValue: any }
+                | { error: string; kind: "failed" }
+                | { kind: "canceled" };
+              startedAt: number;
+              workId?: string;
+            };
+            stepNumber: number;
+            workflowId: string;
+          }>;
+          logLevel: "DEBUG" | "TRACE" | "INFO" | "REPORT" | "WARN" | "ERROR";
+          ok: boolean;
+          workflow: {
+            _creationTime: number;
+            _id: string;
+            args: any;
+            generationNumber: number;
+            logLevel?: any;
+            name?: string;
+            onComplete?: { context?: any; fnHandle: string };
+            runResult?:
+              | { kind: "success"; returnValue: any }
+              | { error: string; kind: "failed" }
+              | { kind: "canceled" };
+            startedAt?: any;
+            state?: any;
+            workflowHandle: string;
+          };
+        }
+      >;
+      startStep: FunctionReference<
+        "mutation",
+        "internal",
+        {
+          generationNumber: number;
+          name: string;
+          retry?:
+            | boolean
+            | { base: number; initialBackoffMs: number; maxAttempts: number };
+          schedulerOptions?: { runAt?: number } | { runAfter?: number };
+          step: {
+            args: any;
+            argsSize: number;
+            completedAt?: number;
+            functionType: "query" | "mutation" | "action";
+            handle: string;
+            inProgress: boolean;
+            name: string;
+            runResult?:
+              | { kind: "success"; returnValue: any }
+              | { error: string; kind: "failed" }
+              | { kind: "canceled" };
+            startedAt: number;
+            workId?: string;
+          };
+          workflowId: string;
+          workpoolOptions?: {
+            defaultRetryBehavior?: {
+              base: number;
+              initialBackoffMs: number;
+              maxAttempts: number;
+            };
+            logLevel?: "DEBUG" | "TRACE" | "INFO" | "REPORT" | "WARN" | "ERROR";
+            maxParallelism?: number;
+            retryActionsByDefault?: boolean;
+          };
+        },
+        {
+          _creationTime: number;
+          _id: string;
+          step: {
+            args: any;
+            argsSize: number;
+            completedAt?: number;
+            functionType: "query" | "mutation" | "action";
+            handle: string;
+            inProgress: boolean;
+            name: string;
+            runResult?:
+              | { kind: "success"; returnValue: any }
+              | { error: string; kind: "failed" }
+              | { kind: "canceled" };
+            startedAt: number;
+            workId?: string;
+          };
+          stepNumber: number;
+          workflowId: string;
+        }
+      >;
+    };
+    workflow: {
+      cancel: FunctionReference<
+        "mutation",
+        "internal",
+        { workflowId: string },
+        null
+      >;
+      cleanup: FunctionReference<
+        "mutation",
+        "internal",
+        { workflowId: string },
+        boolean
+      >;
+      complete: FunctionReference<
+        "mutation",
+        "internal",
+        {
+          generationNumber: number;
+          runResult:
+            | { kind: "success"; returnValue: any }
+            | { error: string; kind: "failed" }
+            | { kind: "canceled" };
+          workflowId: string;
+        },
+        null
+      >;
+      create: FunctionReference<
+        "mutation",
+        "internal",
+        {
+          maxParallelism?: number;
+          onComplete?: { context?: any; fnHandle: string };
+          startAsync?: boolean;
+          workflowArgs: any;
+          workflowHandle: string;
+          workflowName: string;
+        },
+        string
+      >;
+      getStatus: FunctionReference<
+        "query",
+        "internal",
+        { workflowId: string },
+        {
+          inProgress: Array<{
+            _creationTime: number;
+            _id: string;
+            step: {
+              args: any;
+              argsSize: number;
+              completedAt?: number;
+              functionType: "query" | "mutation" | "action";
+              handle: string;
+              inProgress: boolean;
+              name: string;
+              runResult?:
+                | { kind: "success"; returnValue: any }
+                | { error: string; kind: "failed" }
+                | { kind: "canceled" };
+              startedAt: number;
+              workId?: string;
+            };
+            stepNumber: number;
+            workflowId: string;
+          }>;
+          logLevel: "DEBUG" | "TRACE" | "INFO" | "REPORT" | "WARN" | "ERROR";
+          workflow: {
+            _creationTime: number;
+            _id: string;
+            args: any;
+            generationNumber: number;
+            logLevel?: any;
+            name?: string;
+            onComplete?: { context?: any; fnHandle: string };
+            runResult?:
+              | { kind: "success"; returnValue: any }
+              | { error: string; kind: "failed" }
+              | { kind: "canceled" };
+            startedAt?: any;
+            state?: any;
+            workflowHandle: string;
+          };
         }
       >;
     };

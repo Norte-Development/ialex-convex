@@ -3,26 +3,27 @@ import { Agent, stepCountIs } from "@convex-dev/agent";
 import { openai } from "@ai-sdk/openai";
 
 import {
-  searchFallosTool,
   searchCaseDocumentsTool,
-  readDocumentTool,
-  listCaseDocumentsTool,
   queryDocumentTool,
   editEscritoTool,
   getEscritoStatsTool,
   readEscritoTool,
+  searchLegislationTool,
   legislationFindTool,
   legislationReadTool,
   planAndTrackTool,
   markTaskCompleteTool,
-  insertContentTool
+  insertContentTool,
+  manageEscritoTool,
+  searchCaseClientsTool,
+  searchTemplatesTool
 } from "./tools/index";
 
 /**
  * Main agent instance for the legal assistant system.
  * 
  * This agent is configured with:
- * - Name: "Legal Assistant Agent" for identification
+ * - Name: "iAlex - Agente Legal" for identification
  * - Chat model: GPT-5-mini for cost-effective AI interactions
  * - Integration with Convex components for thread management
  * 
@@ -30,14 +31,12 @@ import {
  * functionality within the application.
  */
 export const agent = new Agent(components.agent, {
-  name: "Legal Assistant Agent",
-  languageModel: openai.responses('gpt-5'),
-  stopWhen: stepCountIs(15),
-  // Default call settings per 0.2.x: place maxRetries here
+  name: "iAlex - Agente Legal",
+  languageModel: openai.responses('gpt-5-mini'),
+  stopWhen: stepCountIs(25),
   callSettings: {
     maxRetries: 3,
   },
-  // Ensure proper storage and context for v5
   storageOptions: {
     saveMessages: "all"
   },
@@ -47,19 +46,20 @@ export const agent = new Agent(components.agent, {
   },
 
   tools: {
-    searchFallos: searchFallosTool,
     searchCaseDocumentos: searchCaseDocumentsTool,
-    readDocumento: readDocumentTool,
-    listCaseDocumentos: listCaseDocumentsTool,
     queryDocumento: queryDocumentTool,
     editEscrito: editEscritoTool,
     getEscritoStats: getEscritoStatsTool,
     readEscrito: readEscritoTool,
-    searchLegislation: legislationFindTool,
+    searchLegislation: searchLegislationTool,
+    searchLegislationAdvanced: legislationFindTool,
     readLegislation: legislationReadTool,
     planAndTrack: planAndTrackTool,
     markTaskComplete: markTaskCompleteTool,
-    // insertContent: insertContentTool,
+    insertContent: insertContentTool,
+    manageEscrito: manageEscritoTool,
+    searchClients: searchCaseClientsTool,
+    searchTemplates: searchTemplatesTool,
   }
 });
 

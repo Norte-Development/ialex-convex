@@ -2,7 +2,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from ".
 import { Input } from "../ui/input"
 import { FileText, Calendar, MapPin } from "lucide-react"
 import { Collapsible, CollapsibleContent } from "../ui/collapsible"
-import type { NormativeFilters, Estado } from "../../../types/legislation"
+import type { NormativeFilters, Estado, Subestado, TipoGeneral, TipoDetalle, TipoContenido } from "../../../types/legislation"
 
 interface FiltersPanelProps {
   showFilters: boolean
@@ -20,6 +20,23 @@ interface FiltersPanelProps {
 
 const estadoOptions: Estado[] = [
   "vigente", "derogada", "caduca", "anulada", "suspendida", "abrogada", "sin_registro_oficial"
+]
+
+const subestadoOptions: Subestado[] = [
+  "alcance_general", "individual_modificatoria_o_sin_eficacia", "vetada", "derogada", 
+  "abrogada_implicita", "ley_caduca", "refundida_ley_caduca", "sin_registro"
+]
+
+const tipoGeneralOptions: TipoGeneral[] = [
+  "ley", "decreto", "resolucion", "ordenanza", "reglamento"
+]
+
+const tipoDetalleOptions: TipoDetalle[] = [
+  "ley", "decreto", "resolucion", "ordenanza", "reglamento"
+]
+
+const tipoContenidoOptions: TipoContenido[] = [
+  "leg", "jur", "adm"
 ]
 
 const tipoOptions = [
@@ -53,18 +70,70 @@ export function FiltersPanel({
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
               <FileText className="w-4 h-4 inline mr-1" />
-              Tipo
+              Tipo General
             </label>
             <Select
-              value={filters.type || ""}
-              onValueChange={(value) => onFilterChange("type", value === "all" ? undefined : value)}
+              value={filters.tipo_general || ""}
+              onValueChange={(value) => onFilterChange("tipo_general", value === "all" ? undefined : value)}
             >
               <SelectTrigger>
                 <SelectValue placeholder="Todos los tipos" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Todos</SelectItem>
-                {tipoOptions.map((tipo) => (
+                {tipoGeneralOptions.map((tipo) => (
+                  <SelectItem key={tipo} value={tipo}>
+                    {tipo.charAt(0).toUpperCase() + tipo.slice(1)}
+                    {facets?.types?.[tipo] && (
+                      <span className="text-gray-500 ml-1">({facets.types[tipo]})</span>
+                    )}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              <FileText className="w-4 h-4 inline mr-1" />
+              Tipo Detalle
+            </label>
+            <Select
+              value={filters.tipo_detalle || ""}
+              onValueChange={(value) => onFilterChange("tipo_detalle", value === "all" ? undefined : value)}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Todos los tipos detalle" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos</SelectItem>
+                {tipoDetalleOptions.map((tipo) => (
+                  <SelectItem key={tipo} value={tipo}>
+                    {tipo.charAt(0).toUpperCase() + tipo.slice(1)}
+                    {facets?.types?.[tipo] && (
+                      <span className="text-gray-500 ml-1">({facets.types[tipo]})</span>
+                    )}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              <FileText className="w-4 h-4 inline mr-1" />
+              Tipo Contenido
+            </label>
+            <Select
+              value={filters.tipo_contenido || ""}
+              onValueChange={(value) => onFilterChange("tipo_contenido", value === "all" ? undefined : value)}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Todos los tipos contenido" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos</SelectItem>
+                {tipoContenidoOptions.map((tipo) => (
                   <SelectItem key={tipo} value={tipo}>
                     {tipo.charAt(0).toUpperCase() + tipo.slice(1)}
                     {facets?.types?.[tipo] && (
@@ -122,6 +191,31 @@ export function FiltersPanel({
                     {estado.charAt(0).toUpperCase() + estado.slice(1).replace("_", " ")}
                     {facets?.estados?.[estado] && (
                       <span className="text-gray-500 ml-1">({facets.estados[estado]})</span>
+                    )}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Subestado</label>
+            <Select
+              value={filters.subestado || ""}
+              onValueChange={(value) =>
+                onFilterChange("subestado", value === "all" ? undefined : (value as Subestado))
+              }
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Todos los subestados" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos</SelectItem>
+                {subestadoOptions.map((subestado) => (
+                  <SelectItem key={subestado} value={subestado}>
+                    {subestado.charAt(0).toUpperCase() + subestado.slice(1).replace("_", " ")}
+                    {facets?.estados?.[subestado] && (
+                      <span className="text-gray-500 ml-1">({facets.estados[subestado]})</span>
                     )}
                   </SelectItem>
                 ))}

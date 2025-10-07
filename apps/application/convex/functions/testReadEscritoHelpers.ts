@@ -7,7 +7,7 @@ import {
   getEscritoChunks as getEscritoChunksNew, 
   getEscritoOutline as getEscritoOutlineNew,
   getFullEscrito as getFullEscritoNew 
-} from "../agent/tools/readEscritoTool";
+} from "../agent/tools/escritos/readEscritoTool";
 
 // Legacy functions removed - now using the redesigned implementations
 
