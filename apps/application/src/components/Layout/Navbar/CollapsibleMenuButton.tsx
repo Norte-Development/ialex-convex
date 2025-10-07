@@ -19,7 +19,7 @@ interface CollapsibleMenuButtonProps {
 
 export default function CollapsibleMenuButton({
   options,
-  label = "Menu",
+  label = "Menú",
 }: CollapsibleMenuButtonProps) {
   const [isOpen, setIsOpen] = useState(false);
 
