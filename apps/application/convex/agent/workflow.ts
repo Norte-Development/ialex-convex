@@ -239,13 +239,44 @@ export const streamWithContextAction = internalAction({
             console.log("Tool call repair triggered:", args);
             return null;
           },
-          onError: (error) => {
-            if ((error as any)?.name === "AbortError" || (error as any)?.message?.includes("aborted")) {
-              console.log("Stream was aborted by user");
-              return;
+          onAbort: () => {
+            console.log(`[Stream Abort Callback] Thread ${threadId}: Stream abort callback triggered`);
+          },
+          onError: (event) => {
+            const error = event.error as Error;
+            const errorName = error?.name || 'Unknown';
+            const errorMessage = error?.message || String(error) || 'No message';
+            const errorString = String(error).toLowerCase();
+            
+            // Check if this is an abort error (user cancelled the stream)
+            if (
+              errorName === "AbortError" || 
+              errorMessage === "AbortError" ||
+              errorMessage.toLowerCase().includes("abort") || 
+              errorString.includes("abort")
+            ) {
+              console.log(`[Stream Abort in onError] Thread ${threadId}: Abort detected in error handler`);
+              return; // Don't throw for user-initiated aborts
             }
-            console.error("Error streaming text", error);
-            return;
+
+            // Check for timeout errors
+            if (errorMessage.includes("timeout") || errorMessage.includes("timed out")) {
+              console.error(`[Stream Timeout] Thread ${threadId}:`, errorMessage);
+              return; // Don't throw for timeouts, let the catch handle it
+            }
+
+            // Check for network errors
+            if (errorMessage.includes("network") || errorMessage.includes("ECONNRESET") || errorMessage.includes("ETIMEDOUT")) {
+              console.error(`[Stream Network Error] Thread ${threadId}:`, errorMessage);
+              return; // Don't throw for network errors, let the catch handle it
+            }
+
+            // Log other errors but don't throw (let the catch block handle them)
+            console.error(`[Stream Error] Thread ${threadId}:`, {
+              name: errorName,
+              message: errorMessage,
+              stack: error?.stack,
+            });
           },
         },
         {
@@ -258,12 +289,46 @@ export const streamWithContextAction = internalAction({
           },
         },
       );
+      
+      console.log(`[Stream Complete] Thread ${threadId}: Stream completed successfully`);
     } catch (error) {
-      if ((error as any)?.name === "AbortError" || (error as any)?.message?.includes("aborted")) {
-        console.log("Stream was aborted by user (caught in try-catch)");
+      const err = error as Error;
+      const errorName = err?.name || 'Unknown';
+      const errorMessage = err?.message || 'No message';
+      const errorString = String(error).toLowerCase();
+      
+      // Handle abort errors gracefully (user cancelled)
+      // Check name, message, and string representation for abort-related keywords
+      if (
+        errorName === "AbortError" || 
+        errorMessage === "AbortError" ||
+        errorMessage.toLowerCase().includes("abort") || 
+        errorString.includes("abort")
+      ) {
+        console.log(`[Stream Abort Caught] Thread ${threadId}: Stream was successfully aborted by user`);
         return null;
       }
-      console.error("Uncaught error in streamText:", error);
+
+      // Handle timeout errors
+      if (errorMessage.includes("timeout") || errorMessage.includes("timed out")) {
+        console.error(`[Stream Timeout Caught] Thread ${threadId}: Stream timed out - ${errorMessage}`);
+        // Don't re-throw timeout errors, return gracefully
+        return null;
+      }
+
+      // Handle network errors
+      if (errorMessage.includes("network") || errorMessage.includes("ECONNRESET") || errorMessage.includes("ETIMEDOUT")) {
+        console.error(`[Stream Network Error Caught] Thread ${threadId}: Network error - ${errorMessage}`);
+        // Don't re-throw network errors, return gracefully
+        return null;
+      }
+
+      // For all other errors, log and re-throw
+      console.error(`[Stream Fatal Error] Thread ${threadId}:`, {
+        name: errorName,
+        message: errorMessage,
+        stack: err?.stack,
+      });
       throw error;
     }
 
