@@ -1,5 +1,5 @@
-import { useParams } from "react-router-dom";
-import { useAction, useQuery } from "convex/react";
+import { useParams, useNavigate } from "react-router-dom";
+import { useAction, useQuery, useMutation } from "convex/react";
 import { useEffect, useState } from "react";
 import { api } from "../../../convex/_generated/api";
 import { Id } from "../../../convex/_generated/dataModel";
@@ -18,16 +18,22 @@ import { Button } from "@/components/ui/button";
 import { usePermissions } from "@/context/CasePermissionsContext";
 import DocumentViewer from "@/components/Documents/DocumentViewer";
 import { useDocxToHtml } from "@/hooks/useDocxToHtml";
+import { generateJSON } from "@tiptap/html";
+import { extensions } from "@/components/Editor/extensions";
+import { toast } from "sonner";
 
 export default function CaseDocumentPage() {
   const { documentId } = useParams();
+  const navigate = useNavigate();
 
   // Permisos usando el nuevo sistema
   const { can } = usePermissions();
 
   // Hook para conversión DOCX a HTML
-  const { convertDocxToHtml, validateHtmlForTipTap, isConverting } =
-    useDocxToHtml();
+  const { convertDocxToHtml, isConverting } = useDocxToHtml();
+
+  // Mutations
+  const createEscrito = useMutation(api.functions.documents.createEscrito);
 
   // Estado para mostrar resultado de conversión
   const [conversionResult, setConversionResult] = useState<string | null>(null);
@@ -67,6 +73,7 @@ export default function CaseDocumentPage() {
   const handleCreateEscrito = async () => {
     if (!document || !documentUrl) {
       console.error("No document or URL available");
+      toast.error("No hay documento disponible");
       return;
     }
 
@@ -75,84 +82,117 @@ export default function CaseDocumentPage() {
       document.mimeType !==
       "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
     ) {
-      setConversionResult(
-        "Error: Solo se pueden convertir archivos DOCX a escritos.",
-      );
+      toast.error("Solo se pueden convertir archivos DOCX a escritos");
       return;
     }
 
     try {
-      console.log("Iniciando conversión de DOCX a HTML...");
-      setConversionResult("Descargando documento...");
+      console.log("Iniciando conversión completa DOCX → Escrito...");
+      toast.loading("Descargando documento...", { id: "docx-conversion" });
 
-      // Descargar el archivo DOCX
+      // Paso 1: Descargar el archivo DOCX
       const response = await fetch(documentUrl);
       if (!response.ok) {
         throw new Error(`Error descargando archivo: ${response.status}`);
       }
 
       const arrayBuffer = await response.arrayBuffer();
-      setConversionResult("Convirtiendo DOCX a HTML...");
+      toast.loading("Convirtiendo DOCX a HTML...", { id: "docx-conversion" });
 
-      // Convertir DOCX a HTML
+      // Paso 2: Convertir DOCX a HTML
       const result = await convertDocxToHtml(arrayBuffer, {
         includeImages: false, // Por ahora sin imágenes para simplificar
         useCustomStyleMapping: true,
       });
 
-      if (result.success) {
-        console.log("Conversión exitosa:", result);
-
-        // Validar HTML para TipTap
-        const validation = validateHtmlForTipTap(result.html);
-
-        let resultMessage = `✅ Conversión exitosa!\n\n`;
-        resultMessage += `📊 Estadísticas:\n`;
-        resultMessage += `- HTML generado: ${result.html.length} caracteres\n`;
-        resultMessage += `- Texto extraído: ${result.text.length} caracteres\n`;
-
-        if (result.analysis) {
-          resultMessage += `- Párrafos: ${result.analysis.paragraphCount}\n`;
-          resultMessage += `- Complejidad: ${result.analysis.estimatedComplexity}\n`;
-          resultMessage += `- Tiene encabezados: ${result.analysis.hasHeadings ? "Sí" : "No"}\n`;
-          resultMessage += `- Tiene tablas: ${result.analysis.hasTables ? "Sí" : "No"}\n`;
-          resultMessage += `- Tiene imágenes: ${result.analysis.hasImages ? "Sí" : "No"}\n`;
-        }
-
-        if (result.messages.length > 0) {
-          resultMessage += `\n⚠️ Advertencias:\n`;
-          result.messages.forEach((msg) => {
-            resultMessage += `- ${msg}\n`;
-          });
-        }
-
-        if (!validation.isValid) {
-          resultMessage += `\n🔍 Validación TipTap:\n`;
-          validation.issues.forEach((issue) => {
-            resultMessage += `- ⚠️ ${issue}\n`;
-          });
-          validation.suggestions.forEach((suggestion) => {
-            resultMessage += `- 💡 ${suggestion}\n`;
-          });
-        } else {
-          resultMessage += `\n✅ HTML compatible con TipTap\n`;
-        }
-
-        // Mostrar preview del HTML (primeros 500 caracteres)
-        resultMessage += `\n📄 Preview HTML:\n`;
-        resultMessage += `${result.html.substring(0, 1000)}${result.html.length > 1000 ? "..." : ""}`;
-
-        setConversionResult(resultMessage);
-      } else {
-        console.error("Error en conversión:", result.error);
-        setConversionResult(
-          `❌ Error en conversión: ${result.error}\n\nTexto extraído como fallback:\n${result.text.substring(0, 500)}...`,
-        );
+      if (!result.success) {
+        throw new Error(result.error || "Error en conversión DOCX → HTML");
       }
+
+      toast.loading("Convirtiendo HTML a formato TipTap...", {
+        id: "docx-conversion",
+      });
+
+      // Paso 3: Convertir HTML a TipTap JSON
+      let tiptapJson;
+      try {
+        tiptapJson = generateJSON(result.html, extensions);
+
+        // Validar que el JSON generado tenga contenido
+        if (
+          !tiptapJson ||
+          !tiptapJson.content ||
+          tiptapJson.content.length === 0
+        ) {
+          throw new Error("No se pudo generar contenido TipTap válido");
+        }
+
+        console.log("TipTap JSON generado:", tiptapJson);
+      } catch (jsonError) {
+        console.error("Error generando JSON TipTap:", jsonError);
+        throw new Error("Error convirtiendo HTML a formato TipTap");
+      }
+
+      toast.loading("Creando escrito en la base de datos...", {
+        id: "docx-conversion",
+      });
+
+      // Paso 4: Crear escrito en la base de datos
+      const prosemirrorId = crypto.randomUUID();
+      const escritoTitle = `${document.title.replace(/\.(docx|doc)$/i, "")} (Convertido)`;
+
+      const { escritoId, alreadyExists } = await createEscrito({
+        title: escritoTitle,
+        caseId: document.caseId,
+        prosemirrorId: prosemirrorId,
+      });
+
+      if (alreadyExists) {
+        console.log("Escrito ya existía, usando el existente");
+      }
+
+      console.log("Escrito creado exitosamente:", { escritoId, prosemirrorId });
+
+      // Paso 5: Almacenar el contenido TipTap temporalmente para el editor
+      // Lo guardamos en sessionStorage para que el editor lo use al cargar
+      const escritoData = {
+        initialContent: tiptapJson,
+        fromDocxConversion: true,
+        originalDocumentId: documentId,
+        conversionMetadata: {
+          originalTitle: document.title,
+          htmlLength: result.html.length,
+          textLength: result.text.length,
+          analysis: result.analysis,
+          messages: result.messages,
+        },
+      };
+
+      sessionStorage.setItem(
+        `escrito-initial-${prosemirrorId}`,
+        JSON.stringify(escritoData),
+      );
+
+      toast.success("¡Escrito creado exitosamente!", { id: "docx-conversion" });
+
+      // Paso 6: Navegar al editor del escrito creado
+      console.log(
+        "Navegando al escrito:",
+        `/cases/${document.caseId}/escritos/${escritoId}`,
+      );
+      navigate(`/caso/${document.caseId}/escritos/${escritoId}`);
     } catch (error) {
-      console.error("Error creando escrito:", error);
+      console.error("Error completo en conversión:", error);
+      const errorMessage =
+        error instanceof Error ? error.message : "Error desconocido";
+      toast.error(`Error: ${errorMessage}`, {
+        id: "docx-conversion",
+        duration: 5000,
+      });
+
+      // Mostrar detalles del error para debugging
       setConversionResult(
-        `❌ Error: ${error instanceof Error ? error.message : "Error desconocido"}`,
+        `❌ Error: ${errorMessage}\n\nConsulta la consola para más detalles.`,
       );
     }
   };
