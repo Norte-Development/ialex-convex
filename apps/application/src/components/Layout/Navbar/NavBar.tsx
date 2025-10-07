@@ -13,6 +13,7 @@ export default function NavBar() {
   const isInCaseContext = location.pathname.includes("/caso/");
 
   const menuOptions = [
+    { label: "Inicio", path: "/" },
     { label: "Equipos", path: "/equipos" },
     { label: "Clientes", path: "/clientes" },
     { label: "Casos", path: "/casos" },
