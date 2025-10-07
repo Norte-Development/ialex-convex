@@ -10,18 +10,27 @@ import {
   Clock,
   Loader2,
   CheckCircle,
+  FileText,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { usePermissions } from "@/context/CasePermissionsContext";
 import DocumentViewer from "@/components/Documents/DocumentViewer";
+import { useDocxToHtml } from "@/hooks/useDocxToHtml";
 
 export default function CaseDocumentPage() {
   const { documentId } = useParams();
 
   // Permisos usando el nuevo sistema
   const { can } = usePermissions();
+
+  // Hook para conversión DOCX a HTML
+  const { convertDocxToHtml, validateHtmlForTipTap, isConverting } =
+    useDocxToHtml();
+
+  // Estado para mostrar resultado de conversión
+  const [conversionResult, setConversionResult] = useState<string | null>(null);
 
   // Fetch the specific document
   const document = useQuery(
@@ -53,6 +62,100 @@ export default function CaseDocumentPage() {
       cancelled = true;
     };
   }, [documentId, getDocumentUrlAction]);
+
+  // Función para crear escrito desde DOCX
+  const handleCreateEscrito = async () => {
+    if (!document || !documentUrl) {
+      console.error("No document or URL available");
+      return;
+    }
+
+    // Solo permitir conversión de archivos DOCX
+    if (
+      document.mimeType !==
+      "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+    ) {
+      setConversionResult(
+        "Error: Solo se pueden convertir archivos DOCX a escritos.",
+      );
+      return;
+    }
+
+    try {
+      console.log("Iniciando conversión de DOCX a HTML...");
+      setConversionResult("Descargando documento...");
+
+      // Descargar el archivo DOCX
+      const response = await fetch(documentUrl);
+      if (!response.ok) {
+        throw new Error(`Error descargando archivo: ${response.status}`);
+      }
+
+      const arrayBuffer = await response.arrayBuffer();
+      setConversionResult("Convirtiendo DOCX a HTML...");
+
+      // Convertir DOCX a HTML
+      const result = await convertDocxToHtml(arrayBuffer, {
+        includeImages: false, // Por ahora sin imágenes para simplificar
+        useCustomStyleMapping: true,
+      });
+
+      if (result.success) {
+        console.log("Conversión exitosa:", result);
+
+        // Validar HTML para TipTap
+        const validation = validateHtmlForTipTap(result.html);
+
+        let resultMessage = `✅ Conversión exitosa!\n\n`;
+        resultMessage += `📊 Estadísticas:\n`;
+        resultMessage += `- HTML generado: ${result.html.length} caracteres\n`;
+        resultMessage += `- Texto extraído: ${result.text.length} caracteres\n`;
+
+        if (result.analysis) {
+          resultMessage += `- Párrafos: ${result.analysis.paragraphCount}\n`;
+          resultMessage += `- Complejidad: ${result.analysis.estimatedComplexity}\n`;
+          resultMessage += `- Tiene encabezados: ${result.analysis.hasHeadings ? "Sí" : "No"}\n`;
+          resultMessage += `- Tiene tablas: ${result.analysis.hasTables ? "Sí" : "No"}\n`;
+          resultMessage += `- Tiene imágenes: ${result.analysis.hasImages ? "Sí" : "No"}\n`;
+        }
+
+        if (result.messages.length > 0) {
+          resultMessage += `\n⚠️ Advertencias:\n`;
+          result.messages.forEach((msg) => {
+            resultMessage += `- ${msg}\n`;
+          });
+        }
+
+        if (!validation.isValid) {
+          resultMessage += `\n🔍 Validación TipTap:\n`;
+          validation.issues.forEach((issue) => {
+            resultMessage += `- ⚠️ ${issue}\n`;
+          });
+          validation.suggestions.forEach((suggestion) => {
+            resultMessage += `- 💡 ${suggestion}\n`;
+          });
+        } else {
+          resultMessage += `\n✅ HTML compatible con TipTap\n`;
+        }
+
+        // Mostrar preview del HTML (primeros 500 caracteres)
+        resultMessage += `\n📄 Preview HTML:\n`;
+        resultMessage += `${result.html.substring(0, 1000)}${result.html.length > 1000 ? "..." : ""}`;
+
+        setConversionResult(resultMessage);
+      } else {
+        console.error("Error en conversión:", result.error);
+        setConversionResult(
+          `❌ Error en conversión: ${result.error}\n\nTexto extraído como fallback:\n${result.text.substring(0, 500)}...`,
+        );
+      }
+    } catch (error) {
+      console.error("Error creando escrito:", error);
+      setConversionResult(
+        `❌ Error: ${error instanceof Error ? error.message : "Error desconocido"}`,
+      );
+    }
+  };
 
   const getDocumentTypeColor = (documentType: string) => {
     switch (documentType) {
@@ -222,6 +325,26 @@ export default function CaseDocumentPage() {
                   Descargar
                 </Button>
               )}
+
+              {/* Botón para crear escrito desde DOCX */}
+              {can.escritos.write &&
+                document?.mimeType ===
+                  "application/vnd.openxmlformats-officedocument.wordprocessingml.document" && (
+                  <Button
+                    variant="default"
+                    size="sm"
+                    onClick={handleCreateEscrito}
+                    disabled={!documentUrl || isConverting}
+                    title="Convertir DOCX a escrito editable"
+                  >
+                    {isConverting ? (
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    ) : (
+                      <FileText className="h-4 w-4 mr-2" />
+                    )}
+                    {isConverting ? "Convirtiendo..." : "Crear Escrito"}
+                  </Button>
+                )}
             </div>
           </div>
 
@@ -270,6 +393,29 @@ export default function CaseDocumentPage() {
           </div>
         </div>
       </div>
+
+      {/* Resultado de Conversión */}
+      {conversionResult && (
+        <div className="mx-6 mb-4 bg-white border border-gray-200 rounded-lg p-4">
+          <h3 className="text-lg font-medium text-gray-900 mb-3">
+            Resultado de Conversión DOCX → HTML
+          </h3>
+          <div className="bg-gray-50 p-4 rounded-md">
+            <pre className="text-sm text-gray-700 whitespace-pre-wrap font-mono">
+              {conversionResult}
+            </pre>
+          </div>
+          <div className="mt-3 flex justify-end">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setConversionResult(null)}
+            >
+              Cerrar
+            </Button>
+          </div>
+        </div>
+      )}
 
       {/* Document Viewer */}
       <div className="flex-1 p-6 bg-gray-50">
