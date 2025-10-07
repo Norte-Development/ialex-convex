@@ -33,7 +33,7 @@ import {
 export const agent = new Agent(components.agent, {
   name: "iAlex - Agente Legal",
   languageModel: openai.responses('gpt-5-mini'),
-  stopWhen: stepCountIs(15),
+  stopWhen: stepCountIs(25),
   callSettings: {
     maxRetries: 3,
   },

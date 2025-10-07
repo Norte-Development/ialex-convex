@@ -24,18 +24,55 @@ import { authorizeThreadAccess } from "./threads";
  */
 export const abortStreamByOrder = mutation({
   args: { threadId: v.string(), order: v.number() },
+  returns: v.object({
+    success: v.boolean(),
+    message: v.string(),
+  }),
   handler: async (ctx, { threadId, order }) => {
-    await authorizeThreadAccess(ctx, threadId);
-    if (
-      await abortStream(ctx, components.agent, {
+    try {
+      // Verify user has access to this thread
+      await authorizeThreadAccess(ctx, threadId);
+      
+      console.log(`[Abort Request] Thread ${threadId}, Order ${order}: Attempting to abort stream`);
+      
+      // Attempt to abort the stream
+      const aborted = await abortStream(ctx, components.agent, {
         threadId,
         order,
-        reason: "Aborting explicitly",
-      })
-    ) {
-      console.log("Aborted stream", threadId, order);
-    } else {
-      console.log("No stream found", threadId, order);
+        reason: "User requested abort",
+      });
+      
+      if (aborted) {
+        console.log(`[Abort Success] Thread ${threadId}, Order ${order}: Stream successfully aborted`);
+        return {
+          success: true,
+          message: "Stream aborted successfully",
+        };
+      } else {
+        console.log(`[Abort Not Found] Thread ${threadId}, Order ${order}: No active stream found to abort`);
+        return {
+          success: false,
+          message: "No active stream found to abort",
+        };
+      }
+    } catch (error) {
+      const err = error as Error;
+      console.error(`[Abort Error] Thread ${threadId}, Order ${order}:`, {
+        name: err?.name,
+        message: err?.message,
+        stack: err?.stack,
+      });
+      
+      // Re-throw authorization errors
+      if (err?.message?.includes("access") || err?.message?.includes("permission")) {
+        throw error;
+      }
+      
+      // For other errors, return failure status
+      return {
+        success: false,
+        message: `Failed to abort stream: ${err?.message || 'Unknown error'}`,
+      };
     }
   },
 });
