@@ -38,6 +38,7 @@ import type { Reference } from "./types/reference-types";
 export function ChatInput({
   onSendMessage,
   isStreaming,
+  onAbortStream,
   placeholder = "¿En qué trabajamos hoy?",
   minHeight = 50,
   maxHeight = 100,
@@ -175,6 +176,17 @@ export function ChatInput({
   // Combined disabled state: prop disabled OR streaming
   const isInputDisabled = disabled || isStreaming;
 
+  /**
+   * Handles button click - either submit or abort based on streaming state
+   */
+  const handleButtonClick = (e: React.MouseEvent) => {
+    if (isStreaming && onAbortStream) {
+      e.preventDefault();
+      onAbortStream();
+    }
+    // For non-streaming state, let the form handle submission naturally
+  };
+
   return (
     <div className="border-t border-gray-200 p-4 bg-gray-50">
       {/* 
@@ -214,10 +226,12 @@ export function ChatInput({
           <PromptInputToolbar className=" flex justify-end">
             <PromptInputSubmit
               status={status}
-              disabled={!prompt.trim() || isInputDisabled}
+              disabled={!isStreaming && (!prompt.trim() || isInputDisabled)}
               aria-label={isStreaming ? "Detener" : "Enviar mensaje"}
               variant={"ghost"}
               size={"sm"}
+              type={isStreaming ? "button" : "submit"}
+              onClick={handleButtonClick}
             />
           </PromptInputToolbar>
         </PromptInput>

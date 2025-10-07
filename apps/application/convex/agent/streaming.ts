@@ -2,8 +2,6 @@ import { paginationOptsValidator } from "convex/server";
 import { vStreamArgs } from "@convex-dev/agent";
 import { internal } from "../_generated/api";
 import {
-  action,
-  httpAction,
   internalAction,
   mutation,
   query,
@@ -13,6 +11,7 @@ import { authorizeThreadAccess } from "./threads";
 import { agent } from "./agent";
 import { ContextService } from "../context/contextService";
 import {prompt} from "./prompt";
+import { buildServerSchema } from "../../../../packages/shared/src/tiptap/schema";
 
 /**
  * Initiates asynchronous streaming for a message in a thread.
@@ -58,7 +57,6 @@ export const initiateAsyncStreaming = mutation({
         viewContext
       );
 
-      console.log("contextBundle", contextBundle);
 
       const { messageId } = await agent.saveMessage(ctx, {
         threadId: args.threadId,
@@ -169,43 +167,84 @@ export const streamAsync = internalAction({
       // Format the rich context into a system message
       const contextString = ContextService.formatContextForAgent(contextBundle);
 
+      // Build ProseMirror schema summary at runtime and append to system message
+      const schema = buildServerSchema();
+      const nodeSpecs: Array<string> = [];
+      (schema.spec.nodes as any).forEach((name: string, spec: any) => {
+        const attrs = spec && spec.attrs ? Object.keys(spec.attrs) : [];
+        nodeSpecs.push(`${name}${attrs.length ? ` {attrs: ${attrs.join(", ")}}` : ""}`);
+      });
+      const markSpecs: Array<string> = [];
+      (schema.spec.marks as any).forEach((name: string, spec: any) => {
+        const attrs = spec && spec.attrs ? Object.keys(spec.attrs) : [];
+        markSpecs.push(`${name}${attrs.length ? ` {attrs: ${attrs.join(", ")}}` : ""}`);
+      });
+      const schemaSummary = `ProseMirror Schema Summary\n- Nodes: ${nodeSpecs.join(", ")}\n- Marks: ${markSpecs.join(", ")}`;
+      console.log("schemaSummary", schemaSummary);
       const systemMessage = `Sos el asistente legal IALEX. Aquí está el contexto actual:
 
           ${contextString}
+
+          ---
+          ${schemaSummary}
+          ---
 
           Instrucciones:
           ${prompt}
 
 `;
 
-      const result = await thread.streamText(
-        {
-          system: systemMessage,
-          promptMessageId,
-          experimental_repairToolCall: async (...args: any[]) => {
-            console.log("Tool call repair triggered:", args);
-            return null; // Allow repair by returning null
-          },
-          onError: (error) => {
-            console.error("Error streaming text", error);
-            return;
-            // throw error;
-          },
-        },
-        // more custom delta options (`true` uses defaults)
-        {
-          saveStreamDeltas: {
-            chunking: "word",
-            throttleMs: 100,
-          },
-          contextOptions: {
-            searchOtherThreads: true,
-          },
+      try {
+        const result = await thread.streamText(
+          {
+            system: systemMessage,
+            promptMessageId,
 
-        },
-      );
-      // Don't return anything - the streaming is handled automatically
-      // The result object is used internally by the Convex Agent system
+            providerOptions: {
+              openai: {
+                reasoningEffort: 'low',
+                reasoningSummary: "auto"
+              },
+            },
+           
+            experimental_repairToolCall: async (...args: any[]) => {
+              console.log("Tool call repair triggered:", args);
+              return null; // Allow repair by returning null
+            },
+            onError: (error) => {
+              // Handle AbortError gracefully - this is expected when user cancels the stream
+              if ((error as any)?.name === 'AbortError' || (error as any)?.message?.includes('aborted')) {
+                console.log("Stream was aborted by user");
+                return;
+              }
+              console.error("Error streaming text", error);
+              return;
+              // throw error;
+            },
+          },
+          // more custom delta options (`true` uses defaults)
+          {
+            saveStreamDeltas: {
+              chunking: "word",
+              throttleMs: 100,
+            },
+            contextOptions: {
+              searchOtherThreads: true,
+            },
+
+          },
+        );
+        // Don't return anything - the streaming is handled automatically
+        // The result object is used internally by the Convex Agent system
+      } catch (error) {
+        // Handle any uncaught errors, including AbortError
+        if ((error as any)?.name === 'AbortError' || (error as any)?.message?.includes('aborted')) {
+          console.log("Stream was aborted by user (caught in try-catch)");
+          return;
+        }
+        console.error("Uncaught error in streamText:", error);
+        throw error; // Re-throw non-abort errors
+      }
     },
   });
 

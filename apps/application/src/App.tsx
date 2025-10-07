@@ -115,92 +115,98 @@ const AppWithThread = () => {
               {/* Main routing with Clerk's Protect component */}
               <Suspense fallback={<AppSkeleton />}>
                 <Routes>
-                {/* Public authentication routes */}
-                <Route path="/signin" element={<SignInPage />} />
-                <Route path="/signup" element={<SignUpPage />} />
+                  {/* Public authentication routes */}
+                  <Route path="/signin" element={<SignInPage />} />
+                  <Route path="/signup" element={<SignUpPage />} />
 
-                {/* Public invitation routes */}
-                <Route path="/invites/accept" element={<AcceptInvitePage />} />
-                <Route path="/invites/signup" element={<SignupInvitePage />} />
+                  {/* Public invitation routes */}
+                  <Route
+                    path="/invites/accept"
+                    element={<AcceptInvitePage />}
+                  />
+                  <Route
+                    path="/invites/signup"
+                    element={<SignupInvitePage />}
+                  />
 
-                {/* Protected routes using Clerk's Protect component */}
-                <Route
-                  path="/"
-                  element={
-                    <ProtectedRoute>
-                      <HomePage />
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="/casos"
-                  element={
-                    <ProtectedRoute>
-                      <CasesPage />
-                    </ProtectedRoute>
-                  }
-                />
-                {/* Rutas de casos envueltas con CaseProvider */}
-                <Route
-                  path="/caso/:id/*"
-                  element={
-                    <ProtectedRoute>
-                      <CaseRoutesWrapper />
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="/clientes"
-                  element={
-                    <ProtectedRoute>
-                      <ClientsPage />
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="/modelos"
-                  element={
-                    <ProtectedRoute>
-                      <ModelsPage />
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="/base-de-datos"
-                  element={
-                    <ProtectedRoute>
-                      <DataBasePage />
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="/equipo"
-                  element={
-                    <ProtectedRoute>
-                      <TeamPage />
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="/equipos/:id"
-                  element={
-                    <ProtectedRoute>
-                      <TeamManagePage />
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="/componentes"
-                  element={
-                    <ProtectedRoute>
-                      <ComponentsShowcasePage />
-                    </ProtectedRoute>
-                  }
-                />
-              </Routes>
-            </Suspense>
-          </div>
-        </ThreadProvider>
+                  {/* Protected routes using Clerk's Protect component */}
+                  <Route
+                    path="/"
+                    element={
+                      <ProtectedRoute>
+                        <HomePage />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/casos"
+                    element={
+                      <ProtectedRoute>
+                        <CasesPage />
+                      </ProtectedRoute>
+                    }
+                  />
+                  {/* Rutas de casos envueltas con CaseProvider */}
+                  <Route
+                    path="/caso/:id/*"
+                    element={
+                      <ProtectedRoute>
+                        <CaseRoutesWrapper />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/clientes"
+                    element={
+                      <ProtectedRoute>
+                        <ClientsPage />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/modelos"
+                    element={
+                      <ProtectedRoute>
+                        <ModelsPage />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/base-de-datos"
+                    element={
+                      <ProtectedRoute>
+                        <DataBasePage />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/equipo"
+                    element={
+                      <ProtectedRoute>
+                        <TeamPage />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/equipos/:id"
+                    element={
+                      <ProtectedRoute>
+                        <TeamManagePage />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/componentes"
+                    element={
+                      <ProtectedRoute>
+                        <ComponentsShowcasePage />
+                      </ProtectedRoute>
+                    }
+                  />
+                </Routes>
+              </Suspense>
+            </div>
+          </ThreadProvider>
         </ChatbotProvider>
       </PageProvider>
     </QueryClientProvider>

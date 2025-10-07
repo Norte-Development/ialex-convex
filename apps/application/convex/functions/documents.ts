@@ -457,17 +457,21 @@ export const deleteDocument = mutation({
 /**
  * Creates a new escrito (legal writing/brief) for a case.
  *
+ * This mutation is idempotent: if an escrito with the given prosemirrorId already exists,
+ * it returns the existing escrito instead of creating a duplicate. This prevents accidental
+ * duplicate creation from multiple calls with the same prosemirrorId.
+ *
  * The ProseMirror document will be created client-side when the editor loads,
  * following the empty document pattern for collaborative editing.
  *
  * @param {Object} args - The function arguments
  * @param {string} args.title - The escrito title
  * @param {string} args.caseId - The ID of the case this escrito belongs to
- * @param {string} args.prosemirrorId - The UUID for the ProseMirror document
+ * @param {string} args.prosemirrorId - The UUID for the ProseMirror document (must be unique)
  * @param {number} [args.presentationDate] - Optional timestamp for when this will be presented
  * @param {string} [args.courtName] - Name of the court where this will be filed
  * @param {string} [args.expedientNumber] - Court expedient/case number
- * @returns {Promise<{escritoId: string, prosemirrorId: string}>} IDs for the created escrito and its ProseMirror document
+ * @returns {Promise<{escritoId: string, prosemirrorId: string, alreadyExists: boolean}>} IDs for the created (or existing) escrito, its ProseMirror document, and a flag indicating if it already existed
  * @throws {Error} When not authenticated or lacking full case access
  *
  * @example
@@ -496,6 +500,24 @@ export const createEscrito = mutation({
     const currentUser = await getCurrentUserFromAuth(ctx);
     await requireNewCaseAccess(ctx, currentUser._id, args.caseId, "advanced");
 
+    // IDEMPOTENCY CHECK: Check if an escrito with this prosemirrorId already exists
+    const existingEscrito = await ctx.db
+      .query("escritos")
+      .withIndex("by_prosemirror_id", (q) => 
+        q.eq("prosemirrorId", args.prosemirrorId)
+      )
+      .first();
+
+    if (existingEscrito) {
+      console.log("Escrito with prosemirrorId already exists:", existingEscrito._id);
+      // Return the existing escrito instead of creating a duplicate
+      return { 
+        escritoId: existingEscrito._id, 
+        prosemirrorId: existingEscrito.prosemirrorId,
+        alreadyExists: true 
+      };
+    }
+
     // Just store the escrito record with the provided prosemirrorId
     // The ProseMirror document will be created client-side when the editor loads
     const escritoId = await ctx.db.insert("escritos", {
@@ -513,7 +535,7 @@ export const createEscrito = mutation({
     });
 
     console.log("Created escrito with id:", escritoId);
-    return { escritoId, prosemirrorId: args.prosemirrorId };
+    return { escritoId, prosemirrorId: args.prosemirrorId, alreadyExists: false };
   },
 });
 
@@ -637,6 +659,15 @@ export const getEscritos = query({
   },
 });
 
+export const getEscritosForAgent = internalQuery({
+  args: {
+    caseId: v.id("cases"),
+  },
+  handler: async (ctx, args) => {
+    return await ctx.db.query("escritos").withIndex("by_case", (q) => q.eq("caseId", args.caseId)).filter((q) => q.eq(q.field("isArchived"), false)).order("desc").collect();
+  },
+});
+
 /**
  * Retrieves a specific escrito by ID.
  *
@@ -674,6 +705,15 @@ export const getEscrito = query({
     return escrito;
   },
 });
+
+export const internalGetEscrito = internalQuery({
+  args: {
+    escritoId: v.id("escritos"),
+  },
+  handler: async (ctx, args) => {
+    return await ctx.db.get(args.escritoId);
+  },
+})
 
 /**
  * Archives or unarchives an escrito.

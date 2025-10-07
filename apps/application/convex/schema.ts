@@ -223,23 +223,27 @@ export default defineSchema({
     .index("by_created_by", ["createdBy"])
     .index("by_archived_status", ["isArchived"])
     .index("by_presentation_date", ["presentationDate"])
-    .index("by_last_edited", ["lastEditedAt"]),
+    .index("by_last_edited", ["lastEditedAt"])
+    .index("by_prosemirror_id", ["prosemirrorId"]),
 
   // Document Templates (Modelos) - independent reusable templates
   modelos: defineTable({
     name: v.string(),
     description: v.optional(v.string()),
     category: v.string(), // e.g., "Derecho Civil", "Derecho Mercantil"
-    templateType: v.union(
+    templateType: v.optional(v.union(
       v.literal("escrito"), // Tiptap JSON template for escritos
       v.literal("document"), // File-based template for documents
-    ),
+    )),
+    // Legacy fields for backward compatibility
+    content: v.optional(v.string()), // Legacy HTML content field
+    content_type: v.optional(v.string()), // Legacy content type field
     // For escrito templates (Tiptap JSON)
     prosemirrorId: v.optional(v.string()), // Tiptap JSON template content
     mimeType: v.optional(v.string()),
     originalFileName: v.optional(v.string()),
     isPublic: v.boolean(), // False = only team can access, True = anyone can access
-    createdBy: v.id("users"),
+    createdBy: v.union(v.id("users"), v.literal("system")), // Allow system templates
     tags: v.optional(v.array(v.string())),
     usageCount: v.number(), // Number of times this template has been used
     isActive: v.boolean(),
@@ -248,7 +252,11 @@ export default defineSchema({
     .index("by_type", ["templateType"])
     .index("by_created_by", ["createdBy"])
     .index("by_public_status", ["isPublic"])
-    .index("by_active_status", ["isActive"]),
+    .index("by_active_status", ["isActive"])
+    .searchIndex("search_templates", {
+      searchField: "name",
+      filterFields: ["category", "isPublic", "isActive"]
+    }),
 
   // Teams - organizational teams/departments for firm management
   teams: defineTable({
@@ -362,6 +370,56 @@ export default defineSchema({
     .index("by_invited_by", ["invitedBy"])
     .index("by_team_and_email", ["teamId", "email"])
     .index("by_expires_at", ["expiresAt"]),
+
+  // ========================================
+  // TODO PLANNING & TRACKING (Phase 1)
+  // ========================================
+
+  // Todo Lists: High-level containers for tasks, optionally tied to a case and/or agent thread
+  todoLists: defineTable({
+    title: v.string(),
+    createdBy: v.id("users"),
+    caseId: v.optional(v.id("cases")),
+    // Agent thread id (from @convex-dev/agent threads). Stored as string.
+    threadId: v.optional(v.string()),
+    status: v.optional(
+      v.union(
+        v.literal("active"),
+        v.literal("completed"),
+        v.literal("archived"),
+      ),
+    ),
+    isActive: v.boolean(),
+    // Optional cached progress percent (0-100). Can be derived in queries.
+    progressPercent: v.optional(v.number()),
+  })
+    .index("by_created_by", ["createdBy"]) 
+    .index("by_case", ["caseId"]) 
+    .index("by_thread", ["threadId"]) 
+    .index("by_status", ["status"]) 
+    .index("by_active", ["isActive"]),
+
+  // Todo Items: Individual tasks belonging to a list
+  todoItems: defineTable({
+    listId: v.id("todoLists"),
+    title: v.string(),
+    description: v.optional(v.string()),
+    status: v.union(
+      v.literal("pending"),
+      v.literal("in_progress"),
+      v.literal("completed"),
+      v.literal("blocked"),
+    ),
+    order: v.number(),
+    assignedTo: v.optional(v.id("users")),
+    dueDate: v.optional(v.number()),
+    blockedReason: v.optional(v.string()),
+    createdBy: v.id("users"),
+  })
+    .index("by_list", ["listId"]) 
+    .index("by_status", ["status"]) 
+    .index("by_list_and_status", ["listId", "status"]) 
+    .index("by_assigned_to", ["assignedTo"]),
 
   // ========================================
   // NEW UNIFIED PERMISSIONS SYSTEM

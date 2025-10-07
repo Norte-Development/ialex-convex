@@ -60,7 +60,16 @@ export {
 } from "./testReadEscritoHelpers";
 
 // Template Management (Modelos)
-export { createModelo, getModelos, incrementModeloUsage } from "./templates";
+export { 
+  createModelo, 
+  getModelos, 
+  getModelo,
+  searchModelos,
+  incrementModeloUsage,
+  internalGetModelo,
+  internalSearchModelos,
+  internalGetModelos,
+} from "./templates";
 
 // Team Management
 export {
@@ -78,3 +87,13 @@ export {
   getTeamsWithCaseAccess,
   grantTeamMemberCaseAccess,
 } from "./teams";
+
+// Todo Planning & Tracking (Phase 1)
+export {
+  createTodoList,
+  addTodoItem,
+  updateTodoItem,
+  listTodoListsByThread,
+  listTodoItemsByList,
+  getOrCreateThreadTodoList,
+} from "./todos";

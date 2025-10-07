@@ -292,7 +292,7 @@ app.get("/status/:id", async (req: Request, res: Response) => {
     const job = await queue.getJob(req.params.id);
     if (!job) return res.status(404).json({ error: "not found" });
     const state = await job.getState();
-    const progress = job.progress();
+    const progress = job.progress;
     res.json({ state, progress, attemptsMade: job.attemptsMade });
   } catch (error) {
     logger.error("Failed to get job status", { error: String(error) });

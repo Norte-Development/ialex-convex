@@ -35,14 +35,6 @@ export async function authorizeThreadAccess(
   if (requireUser && !userId) {
     throw new Error("Unauthorized: user is required");
   }
-  const { userId: threadUserId } = await getThreadMetadata(
-    ctx,
-    components.agent,
-    { threadId },
-  );
-  // if (requireUser && threadUserId !== userId) {
-  //     throw new Error("Unauthorized: user does not match user thread")
-  // }
 }
 
 /**
