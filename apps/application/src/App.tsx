@@ -14,6 +14,7 @@ import { HighlightProvider } from "./context/HighlightContext";
 import { EscritoProvider } from "./context/EscritoContext";
 import { PageProvider } from "./context/PageContext";
 import { CasePermissionsProvider } from "./context/CasePermissionsContext";
+import { ChatbotProvider } from "./context/ChatbotContext";
 
 // Lazy load pages to reduce initial bundle size
 const HomePage = lazy(() => import("./pages/HomePage"));
@@ -103,16 +104,17 @@ const AppWithThread = () => {
   return (
     <QueryClientProvider client={queryClient}>
       <PageProvider>
-        <ThreadProvider>
-          <div>
-            {/* Show authentication loading skeleton while Convex auth is initializing */}
-            <AuthLoading>
-              <AppSkeleton />
-            </AuthLoading>
+        <ChatbotProvider>
+          <ThreadProvider>
+            <div>
+              {/* Show authentication loading skeleton while Convex auth is initializing */}
+              <AuthLoading>
+                <AppSkeleton />
+              </AuthLoading>
 
-            {/* Main routing with Clerk's Protect component */}
-            <Suspense fallback={<AppSkeleton />}>
-              <Routes>
+              {/* Main routing with Clerk's Protect component */}
+              <Suspense fallback={<AppSkeleton />}>
+                <Routes>
                 {/* Public authentication routes */}
                 <Route path="/signin" element={<SignInPage />} />
                 <Route path="/signup" element={<SignUpPage />} />
@@ -199,6 +201,7 @@ const AppWithThread = () => {
             </Suspense>
           </div>
         </ThreadProvider>
+        </ChatbotProvider>
       </PageProvider>
     </QueryClientProvider>
   );
