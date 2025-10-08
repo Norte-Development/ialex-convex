@@ -15,6 +15,7 @@ import {
 } from "../../../../../packages/shared/src/tiptap/changeNodes";
 import { TrackingExtension } from "./extensions/tracking";
 import { DocumentHeader, DocumentFooter } from "./extensions/header-footer";
+import { Pagination } from "tiptap-pagination-breaks";
 
 export const extensions = [
   StarterKit.configure({ horizontalRule: false }),
@@ -44,4 +45,12 @@ export const extensions = [
   // Header and Footer extensions
   DocumentHeader,
   DocumentFooter,
+  // Pagination extension - automatic page breaks
+  Pagination.configure({
+    pageHeight: 1056, // A4 height in pixels (approx 29.7cm)
+    pageWidth: 816, // A4 width in pixels (approx 21cm)
+    pageMargin: 96, // 1 inch margin
+    label: "Página",
+    showPageNumber: true,
+  }),
 ];

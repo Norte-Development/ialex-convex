@@ -412,6 +412,9 @@ importers:
       tailwind-merge:
         specifier: ^3.3.1
         version: 3.3.1
+      tiptap-pagination-breaks:
+        specifier: ^1.0.3
+        version: 1.0.3(@tiptap/pm@3.6.5)
       tiptap-pagination-plus:
         specifier: ^1.1.8
         version: 1.2.0(@tiptap/core@3.6.5(@tiptap/pm@3.6.5))(@tiptap/pm@3.6.5)
@@ -2402,6 +2405,11 @@ packages:
     resolution: {integrity: sha512-CLABiR+h5PYfOWr/z+vWFt5VsOA2ekQeRQBFSKlcoW6Ndx/f8rfyVmq4LbgOM4GG2qtxAxjLYLOpCNTYm4uKzw==}
     peerDependencies:
       react: ^18 || ^19
+
+  '@tiptap/core@2.26.2':
+    resolution: {integrity: sha512-cr30QWJECl5j7qUUG4Z4BDitHgJIBWipbC3JbjoDtumgZLedGa5SV+JiGa4GUhNt9E34Pw1BH0gBDL4adGHiLg==}
+    peerDependencies:
+      '@tiptap/pm': ^2.7.0
 
   '@tiptap/core@3.6.5':
     resolution: {integrity: sha512-CgXuhevQbBcPfxaXzGZgIY9+aVMSAd68Q21g3EONz1iZBw026QgiaLhGK6jgGTErZL4GoNL/P+gC5nFCvN7+cA==}
@@ -6327,6 +6335,9 @@ packages:
     resolution: {integrity: sha512-n1cw8k1k0x4pgA2+9XrOkFydTerNcJ1zWCO5Nn9scWHTD+5tp8dghT2x1uduQePZTZgd3Tupf+x9BxJjeJi77Q==}
     engines: {node: '>=14.0.0'}
 
+  tiptap-pagination-breaks@1.0.3:
+    resolution: {integrity: sha512-t7Q9lG40Me73WHxHxKu4UG16VLSF9IcV2uoUSL86oZxv1OZxexlG0gTrUBxa8RMB+lPq2ienb+s9dlL2djvjmg==}
+
   tiptap-pagination-plus@1.2.0:
     resolution: {integrity: sha512-5Iy9UhZt0BWCJxkvEg556FaIbSpoUbReFsHgrC3+iscqJ193DSgW9eNLT691Y4RfbhIDOzdBSo/mmTTZgsa5JQ==}
     peerDependencies:
@@ -8588,6 +8599,10 @@ snapshots:
     dependencies:
       '@tanstack/query-core': 5.90.2
       react: 19.2.0
+
+  '@tiptap/core@2.26.2(@tiptap/pm@3.6.5)':
+    dependencies:
+      '@tiptap/pm': 3.6.5
 
   '@tiptap/core@3.6.5(@tiptap/pm@3.6.5)':
     dependencies:
@@ -13195,6 +13210,13 @@ snapshots:
   tinyrainbow@1.2.0: {}
 
   tinyspy@3.0.2: {}
+
+  tiptap-pagination-breaks@1.0.3(@tiptap/pm@3.6.5):
+    dependencies:
+      '@tiptap/core': 2.26.2(@tiptap/pm@3.6.5)
+      prosemirror-state: 1.4.3
+    transitivePeerDependencies:
+      - '@tiptap/pm'
 
   tiptap-pagination-plus@1.2.0(@tiptap/core@3.6.5(@tiptap/pm@3.6.5))(@tiptap/pm@3.6.5):
     dependencies:
