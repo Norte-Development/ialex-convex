@@ -7,6 +7,7 @@ import StarterKit from "@tiptap/starter-kit";
 import TextAlign from "@tiptap/extension-text-align";
 import Underline from "@tiptap/extension-underline";
 import { TextStyle } from "@tiptap/extension-text-style";
+import Image from "@tiptap/extension-image";
 import { Table } from "@tiptap/extension-table";
 import { TableRow } from "@tiptap/extension-table-row";
 import { TableHeader } from "@tiptap/extension-table-header";
@@ -33,6 +34,11 @@ export const parseHtmlToTiptapJson = internalAction({
       LineBreakChange,
       TextAlign.configure({ types: ["heading", "paragraph"] }),
       Underline,
+      // Image extension
+      Image.configure({
+        inline: true,
+        allowBase64: true,
+      }),
       // Table extensions
       Table.configure({
         resizable: true,

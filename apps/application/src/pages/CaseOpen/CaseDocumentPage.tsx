@@ -101,7 +101,7 @@ export default function CaseDocumentPage() {
 
       // Paso 2: Convertir DOCX a HTML
       const result = await convertDocxToHtml(arrayBuffer, {
-        includeImages: false, // Por ahora sin imágenes para simplificar
+        includeImages: true, // Incluir imágenes como base64
         useCustomStyleMapping: true,
       });
 

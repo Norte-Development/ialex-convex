@@ -302,6 +302,32 @@
     display: block;
   }
 
+  .editor-image {
+    max-width: 100%;
+    height: auto;
+    display: block;
+    margin: 1rem auto;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+  }
+
+  .editor-image:hover {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  }
+
+  .editor-image.ProseMirror-selectednode {
+    outline: 2px solid var(--office-blue);
+    outline-offset: 2px;
+  }
+
+  /* Image container for better control */
+  p img,
+  div img {
+    max-width: 100%;
+    height: auto;
+  }
+
   /* Selection styles */
   ::selection {
     background-color: rgb(147 197 253);
