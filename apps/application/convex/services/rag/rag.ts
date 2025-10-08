@@ -1,5 +1,5 @@
 // convex/rag.ts
-import { components } from "../_generated/api";
+import { components } from "../../../_generated/api";
 import { RAG } from "@convex-dev/rag";
 // Any AI SDK model that supports embeddings will work.
 import { openai } from "@ai-sdk/openai";

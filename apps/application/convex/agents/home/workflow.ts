@@ -4,7 +4,7 @@ import { v } from "convex/values";
 import { createThread, saveMessage } from "@convex-dev/agent";
 import { agent } from "./agent";
 import { internalAction, mutation } from "../../_generated/server";
-import { getCurrentUserFromAuth } from "../../auth_utils";
+import { getCurrentUserFromAuth } from "../../services/auth/authUtils";
 import { authorizeThreadAccess } from "../threads";
 import { prompt } from "./prompt";
 

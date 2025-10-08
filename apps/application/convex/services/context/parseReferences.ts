@@ -1,8 +1,7 @@
 import { v } from "convex/values";
-import { mutation, query } from "../_generated/server";
-import { getCurrentUserFromAuth } from "../services/auth/authUtils";
-import { Id } from "../_generated/dataModel";
-import { checkNewCaseAccess } from "../services/auth/authUtils";
+import { mutation, query } from "../../../_generated/server";
+import { getCurrentUserFromAuth, checkNewCaseAccess } from "../auth/authUtils";
+import { Id } from "../../../_generated/dataModel";
 
 // Types for @-references
 interface ParsedReference {

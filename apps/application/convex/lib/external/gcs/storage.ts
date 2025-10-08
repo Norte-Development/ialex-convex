@@ -2,7 +2,7 @@
 // Minimal GCS V4 signed URL generator using Web Crypto (RSASSA-PKCS1-v1_5 + SHA-256)
 // Works in Convex function/HTTP action environments without GCP SDKs.
 import { Storage } from "@google-cloud/storage";
-import { internalAction } from "../../_generated/server";
+import { internalAction } from "../../../_generated/server";
 import { v } from "convex/values";
 
 export const storage = new Storage({

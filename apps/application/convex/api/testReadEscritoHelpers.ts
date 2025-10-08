@@ -1,6 +1,6 @@
 import { mutation } from "../_generated/server";
 import { v } from "convex/values";
-import { prosemirrorSync } from "../prosemirror";
+import { prosemirrorSync } from "../lib/prosemirror/prosemirrorSync";
 import { buildServerSchema } from "../../../../packages/shared/src/tiptap/schema";
 import { Node } from "@tiptap/pm/model";
 import { 

@@ -1,6 +1,6 @@
-import { httpAction } from "../../_generated/server";
+import { httpAction } from "../../../_generated/server";
 import { httpRouter } from "convex/server";
-import { internal } from "../../_generated/api";
+import { internal } from "../../../_generated/api";
 
 const http = httpRouter();
 

@@ -1,7 +1,7 @@
-import { query, mutation } from "../_generated/server";
+import { query, mutation } from "../../../_generated/server";
 import { v } from "convex/values";
 import { ContextService, type ContextBundle } from "./contextService";
-import { Id } from "../_generated/dataModel";
+import { Id } from "../../../_generated/dataModel";
 
 // Re-export parseReferences functions
 export { parseAtReferences, getReferencesSuggestions } from "./parseReferences";

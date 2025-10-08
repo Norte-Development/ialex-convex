@@ -1,4 +1,4 @@
-import { components } from "../_generated/api";
+import { components } from "../../../_generated/api";
 import { ProsemirrorSync } from "@convex-dev/prosemirror-sync";
 
 export const prosemirrorSync = new ProsemirrorSync(components.prosemirrorSync);

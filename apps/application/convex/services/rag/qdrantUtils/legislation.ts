@@ -1,6 +1,6 @@
 'use node'
 
-import { action, internalAction, query } from "../../_generated/server";
+import { action, internalAction, query } from "../../../_generated/server";
 import { v } from "convex/values";
 import { embed } from "ai";
 import { openai } from "@ai-sdk/openai";

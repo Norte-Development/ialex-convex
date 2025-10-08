@@ -1,7 +1,7 @@
 import { createTool, ToolCtx } from "@convex-dev/agent";
 import { internal } from "../../../_generated/api";
 import { z } from "zod";
-import { prosemirrorSync } from "../../../prosemirror";
+import { prosemirrorSync } from "../../../lib/prosemirror/prosemirrorSync";
 import { buildServerSchema } from "../../../../../../packages/shared/src/tiptap/schema";
 import { Node } from "@tiptap/pm/model";
 import { getUserAndCaseIds, createErrorResponse, validateStringParam } from "../shared/utils";

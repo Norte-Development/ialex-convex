@@ -1,8 +1,8 @@
-import { action } from "../../_generated/server";
+import { action } from "../../../_generated/server";
 import { v } from "convex/values";
-import { prosemirrorSync } from "../../prosemirror";
+import { prosemirrorSync } from "../../lib/prosemirror/prosemirrorSync";
 import { buildServerSchema } from "../../../../../packages/shared/src/tiptap/schema";
-import { internal, components } from "../../_generated/api";
+import { internal, components } from "../../../_generated/api";
 import { EditorState } from "@tiptap/pm/state";
 import { buildDocIndex, findMatches } from "../../agents/core/utils/normalizedSearch";
 import { getStandardSearchOptions } from "./helpers/searchHelpers";

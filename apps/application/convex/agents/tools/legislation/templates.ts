@@ -5,7 +5,7 @@
  * Templates are separated from tool logic to improve maintainability and reusability.
  */
 
-import { LegislationSearchResult } from "../../../rag/qdrantUtils/types";
+import { LegislationSearchResult } from "../../services/rag/qdrantUtils/types";
 
 /**
  * Template for legislation search results
