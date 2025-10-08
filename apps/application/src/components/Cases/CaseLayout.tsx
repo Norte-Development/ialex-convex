@@ -1,6 +1,6 @@
 import type React from "react";
 import CaseSidebar from "./CaseSideBar";
-import SidebarChatbot from "../Agent/SidebarChatbot";
+import SidebarChatbot from "../CaseAgent/SidebarChatbot";
 import { useLayout } from "@/context/LayoutContext";
 import { useChatbot } from "@/context/ChatbotContext";
 import { useState, useEffect, useCallback } from "react";
