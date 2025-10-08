@@ -178,7 +178,7 @@ export default function CaseDocumentPage() {
       // Paso 6: Navegar al editor del escrito creado
       console.log(
         "Navegando al escrito:",
-        `/cases/${document.caseId}/escritos/${escritoId}`,
+        `/caso/${document.caseId}/escritos/${escritoId}`,
       );
       navigate(`/caso/${document.caseId}/escritos/${escritoId}`);
     } catch (error) {
