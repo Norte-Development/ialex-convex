@@ -14,6 +14,7 @@ import {
   LineBreakChange,
 } from "../../../../../packages/shared/src/tiptap/changeNodes";
 import { TrackingExtension } from "./extensions/tracking";
+import { DocumentHeader, DocumentFooter } from "./extensions/header-footer";
 
 export const extensions = [
   StarterKit.configure({ horizontalRule: false }),
@@ -40,4 +41,7 @@ export const extensions = [
   TableRow,
   TableHeader,
   TableCell,
+  // Header and Footer extensions
+  DocumentHeader,
+  DocumentFooter,
 ];

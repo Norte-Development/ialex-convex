@@ -17,6 +17,7 @@ import {
   BlockChange,
   LineBreakChange,
 } from "../../../../packages/shared/src/tiptap/changeNodes";
+import { DocumentHeader, DocumentFooter } from "../extensions/header-footer";
 
 /**
  * Parse HTML into TipTap JSON using Node-only @tiptap/html/server.
@@ -47,6 +48,9 @@ export const parseHtmlToTiptapJson = internalAction({
       TableRow,
       TableHeader,
       TableCell,
+      // Header and Footer extensions
+      DocumentHeader,
+      DocumentFooter,
     ];
 
     const json = generateJSON(html, extensions);

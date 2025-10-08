@@ -725,3 +725,130 @@
   cursor: ew-resize;
   cursor: col-resize;
 }
+
+/* Header and Footer Styles  */
+.ProseMirror .document-header,
+.ProseMirror .document-footer {
+  position: relative;
+  min-height: 50px;
+  padding: 12px 0;
+  margin: 0;
+  background-color: transparent;
+  border: none;
+  transition: all 0.2s ease;
+}
+
+/* Subtle border line */
+.ProseMirror .document-header {
+  border-bottom: 1px solid #e0e0e0;
+  margin-bottom: 20px;
+}
+
+.ProseMirror .document-footer {
+  border-top: 1px solid #e0e0e0;
+  margin-top: 20px;
+}
+
+/* Active/Focus state */
+.ProseMirror .document-header.ProseMirror-selectednode,
+.ProseMirror .document-footer.ProseMirror-selectednode,
+.ProseMirror .document-header:focus-within,
+.ProseMirror .document-footer:focus-within {
+  background-color: #f5f8fa;
+  border-color: #90b8d8;
+  box-shadow: 0 0 0 1px #90b8d8 inset;
+}
+
+.ProseMirror .document-header:focus-within {
+  border-bottom-color: #90b8d8;
+}
+
+.ProseMirror .document-footer:focus-within {
+  border-top-color: #90b8d8;
+}
+
+/* Hover state - subtle highlight */
+.ProseMirror .document-header:hover,
+.ProseMirror .document-footer:hover {
+  background-color: #fafbfc;
+}
+
+/* Label indicator when active/focused */
+.ProseMirror .document-header:focus-within::before,
+.ProseMirror .document-footer:focus-within::before {
+  content: "";
+  position: absolute;
+  right: 10px;
+  top: 10px;
+  font-size: 11px;
+  color: #666;
+  font-weight: 500;
+  opacity: 0.7;
+}
+
+.ProseMirror .document-header:focus-within::before {
+  content: "Encabezado";
+}
+
+.ProseMirror .document-footer:focus-within::before {
+  content: "Pie de Página";
+}
+
+/* Content styling */
+.ProseMirror .document-header p,
+.ProseMirror .document-footer p {
+  margin: 4px 0;
+  font-size: 11pt;
+  color: #333;
+  line-height: 1.4;
+}
+
+.ProseMirror .document-header p:first-child,
+.ProseMirror .document-footer p:first-child {
+  margin-top: 0;
+}
+
+.ProseMirror .document-header p:last-child,
+.ProseMirror .document-footer p:last-child {
+  margin-bottom: 0;
+}
+
+/* Empty placeholder */
+.ProseMirror .document-header:empty::after,
+.ProseMirror .document-footer:empty::after {
+  content: "";
+  color: #999;
+  font-size: 11pt;
+  font-style: italic;
+  pointer-events: none;
+}
+
+.ProseMirror .document-header:empty::after {
+  content: "Escribir encabezado...";
+}
+
+.ProseMirror .document-footer:empty::after {
+  content: "Escribir pie de página...";
+}
+
+/* Print styles for headers and footers */
+@media print {
+  .ProseMirror .document-header,
+  .ProseMirror .document-footer {
+    background-color: transparent;
+    box-shadow: none;
+  }
+
+  .ProseMirror .document-header::before,
+  .ProseMirror .document-footer::before {
+    display: none;
+  }
+
+  .ProseMirror .document-header {
+    border-bottom: 1px solid #e0e0e0;
+  }
+
+  .ProseMirror .document-footer {
+    border-top: 1px solid #e0e0e0;
+  }
+}
