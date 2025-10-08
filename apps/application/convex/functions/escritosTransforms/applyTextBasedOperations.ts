@@ -9,7 +9,7 @@ import {
   findMatches,
   selectByOccurrence,
   findAnchorPosition,
-} from "../../agent/normalizedSearch";
+} from "../../agents/core/utils/normalizedSearch";
 import { textBasedEditValidator } from "./types";
 import {
   createTextContent,

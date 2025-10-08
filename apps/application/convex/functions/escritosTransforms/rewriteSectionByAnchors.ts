@@ -4,7 +4,7 @@ import { prosemirrorSync } from "../../prosemirror";
 import { buildServerSchema } from "../../../../../packages/shared/src/tiptap/schema";
 import { components } from "../../_generated/api";
 import { EditorState } from "@tiptap/pm/state";
-import { buildDocIndex, findAnchorPosition } from "../../agent/normalizedSearch";
+import { buildDocIndex, findAnchorPosition } from "../../agents/core/utils/normalizedSearch";
 import { createParagraphNodesFromText } from "./helpers/prosemirrorHelpers";
 import { getStandardSearchOptions } from "./helpers/searchHelpers";
 import { applyDiffMerge } from "./helpers/diffHelpers";

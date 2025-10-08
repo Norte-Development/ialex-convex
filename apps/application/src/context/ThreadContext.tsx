@@ -15,7 +15,7 @@ function getThreadIdFromHash() {
 }
 
 export function ThreadProvider({ children }: { children: React.ReactNode }) {
-  const createThread = useMutation(api.agent.threads.createNewThread)
+  const createThread = useMutation(api.agents.threads.createNewThread)
   const [threadId, setThreadId] = useState<string | undefined>(
     typeof window !== "undefined" ? getThreadIdFromHash() : undefined,
   )
