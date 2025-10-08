@@ -58,7 +58,7 @@ export function ChatContent() {
     }
   }
 
-  const messages = useThreadMessages(api.agent.streaming.listMessages, threadId ? { threadId } : "skip", {
+  const messages = useThreadMessages(api.agents.case.streaming.listMessages, threadId ? { threadId } : "skip", {
     initialNumItems: 5,
     stream: true,
   })
@@ -247,11 +247,11 @@ export function ChatContent() {
     }
   }, [handleContentResize])
 
-  const initiateWorkflow = useMutation(api.agent.workflow.initiateWorkflowStreaming).withOptimisticUpdate(
-    optimisticallySendMessage(api.agent.streaming.listMessages),
+  const initiateWorkflow = useMutation(api.agents.case.workflow.initiateWorkflowStreaming).withOptimisticUpdate(
+    optimisticallySendMessage(api.agents.case.streaming.listMessages),
   )
 
-  const abortStreamByOrder = useMutation(api.agent.streamAbort.abortStreamByOrder)
+  const abortStreamByOrder = useMutation(api.agents.core.streaming.streamAbort.abortStreamByOrder)
   const parseAtReferences = useMutation(api.context.context.parseAtReferences)
 
   const handleSendMessage = async (prompt: string) => {
