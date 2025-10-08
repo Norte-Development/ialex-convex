@@ -1,7 +1,7 @@
 import { v } from "convex/values";
 import { query, mutation, action, internalQuery } from "../_generated/server";
-import { getCurrentUserFromAuth, requireNewCaseAccess } from "../auth_utils";
-import { prosemirrorSync } from "../prosemirror";
+import { getCurrentUserFromAuth, requireNewCaseAccess } from "../services/auth/authUtils";
+import { prosemirrorSync } from "../lib/prosemirror/prosemirrorSync";
 import { internal, api } from "../_generated/api";
 
 
@@ -61,7 +61,7 @@ export const generateUploadUrl = action({
       bucket: string;
       object: string;
       expiresSeconds: number;
-    } = await ctx.runAction(internal.utils.gcs.generateGcsV4SignedUrlAction, {
+    } = await ctx.runAction(internal.lib.external.gcs.generateGcsV4SignedUrlAction, {
       bucket,
       object: objectPath,
       expiresSeconds: ttl,
@@ -381,7 +381,7 @@ export const getDocumentUrl = action({
         throw new Error("Missing GCS signing configuration");
 
       const { url: signedUrl }: { url: string } = await ctx.runAction(
-        internal.utils.gcs.generateGcsV4SignedUrlAction,
+        internal.lib.external.gcs.generateGcsV4SignedUrlAction,
         { bucket, object, expiresSeconds: ttl, method: "GET" },
       );
       return signedUrl;

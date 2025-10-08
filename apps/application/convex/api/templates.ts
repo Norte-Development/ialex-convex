@@ -1,7 +1,7 @@
 import { v } from "convex/values";
 import { query, mutation, internalQuery } from "../_generated/server";
 import { paginationOptsValidator } from "convex/server";
-import { getCurrentUserFromAuth } from "../auth_utils";
+import { getCurrentUserFromAuth } from "../services/auth/authUtils";
 import { api } from "../_generated/api";
 
 // ========================================

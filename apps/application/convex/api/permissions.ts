@@ -6,7 +6,7 @@ import {
   AccessLevel,
   grantNewCaseAccess,
   requireNewCaseAccess,
-} from "../auth_utils";
+} from "../services/auth/authUtils";
 
 // Permission types for validation - matching frontend constants
 const permissionTypes = v.union(

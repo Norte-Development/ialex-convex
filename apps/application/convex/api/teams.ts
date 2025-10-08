@@ -6,7 +6,7 @@ import {
   grantNewCaseAccess,
   checkNewCaseAccess,
   requireNewCaseAccess,
-} from "../auth_utils";
+} from "../services/auth/authUtils";
 import { internal } from "../_generated/api";
 
 const newAccessLevelType = v.union(

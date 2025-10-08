@@ -1,6 +1,6 @@
 import { v } from "convex/values";
 import { query, mutation } from "../_generated/server";
-import { getCurrentUserFromAuth, requireNewCaseAccess } from "../auth_utils";
+import { getCurrentUserFromAuth, requireNewCaseAccess } from "../services/auth/authUtils";
 
 // ========================================
 // FOLDER MANAGEMENT

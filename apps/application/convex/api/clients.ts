@@ -1,6 +1,6 @@
 import { v } from "convex/values";
 import { query, mutation, internalQuery } from "../_generated/server";
-import { getCurrentUserFromAuth } from "../auth_utils";
+import { getCurrentUserFromAuth } from "../services/auth/authUtils";
 
 // ========================================
 // CLIENT MANAGEMENT

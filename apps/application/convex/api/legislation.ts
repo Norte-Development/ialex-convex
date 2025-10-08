@@ -7,8 +7,8 @@ import {
   getNormativeById as getNormativeByIdService,
   getNormativesFacets as getNormativesFacetsService,
   PaginatedResult 
-} from "../utils/legislationService";
-import { Estado, NormativeDoc, ListNormativesParams } from "../../types/legislation";
+} from "../lib/external/legislationService";
+import { Estado, NormativeDoc, ListNormativesParams } from "../types/legislation";
 
 // Validator for Estado enum
 const estadoValidator = v.union(

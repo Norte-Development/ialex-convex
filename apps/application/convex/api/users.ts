@@ -1,7 +1,7 @@
 import { v } from "convex/values";
 import { query, mutation, action } from "../_generated/server";
-import { getCurrentUserFromAuth } from "../auth_utils";
-import { requireNewCaseAccess } from "../auth_utils";
+import { getCurrentUserFromAuth } from "../services/auth/authUtils";
+import { requireNewCaseAccess } from "../services/auth/authUtils";
 
 // ========================================
 // CLERK USER SYNC FUNCTIONS

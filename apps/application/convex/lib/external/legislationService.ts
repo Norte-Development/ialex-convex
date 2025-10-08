@@ -119,7 +119,7 @@ const buildMongoFilter = (filters: NormativeFilters): Filter<Document> => {
 // Build MongoDB sort from sort parameters
 const buildMongoSort = (sortBy?: SortBy, sortOrder: SortOrder = 'desc'): Sort => {
   const order = sortOrder === 'asc' ? 1 : -1;
-  
+
   switch (sortBy) {
     case 'sanction_date':
       return { sanction_date: order };
@@ -245,7 +245,7 @@ export const getNormativeById = async (documentId: string): Promise<NormativeDoc
 
     // Create query filter - try both _id and document_id
     const queryFilter = { document_id: documentId }
-      
+
 
     // Use projection to limit fields returned from MongoDB (exclude large content fields)
     const normative = await collection.findOne(

@@ -1,8 +1,8 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { convexTest } from 'convex-test';
 import { api } from '../../_generated/api';
-import schema from '../../schema';
-import { modules } from '../../test.setup';
+import schema from '../../../schema';
+import { modules } from '../../helpers/test.setup';
 
 describe('applyTextBasedOperations integration', () => {
   let t: ReturnType<typeof convexTest>;

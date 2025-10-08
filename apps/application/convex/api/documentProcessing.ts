@@ -7,9 +7,9 @@ import {
 } from "../_generated/server";
 import { v } from "convex/values";
 import { internal } from "../_generated/api";
-import { rag } from "../rag/rag";
+import { rag } from "../services/rag/rag";
 import { Id } from "../_generated/dataModel";
-import { getCurrentUserFromAuth, requireNewCaseAccess } from "../auth_utils";
+import { getCurrentUserFromAuth, requireNewCaseAccess } from "../services/auth/authUtils";
 
 // ========================================
 // RAG CHUNKER ACTION
@@ -182,7 +182,7 @@ export const processDocument = internalAction({
 
       // Offload to external microservice instead of internal RAG processing
       const { url } = await ctx.runAction(
-        internal.utils.gcs.generateGcsV4SignedUrlAction,
+        internal.lib.external.gcs.generateGcsV4SignedUrlAction,
         {
           bucket: document.gcsBucket as string,
           object: document.gcsObject as string,
