@@ -5,7 +5,7 @@ import { logger } from "../middleware/logging.js";
 
 const connection = new IORedis(process.env.REDIS_URL || "redis://localhost:6379", {
   maxRetriesPerRequest: null,
-  enableOfflineQueue: false,
+  enableOfflineQueue: true,
   lazyConnect: true,
   connectTimeout: 60000,
   commandTimeout: 900000, // 15 minutes for long document processing operations

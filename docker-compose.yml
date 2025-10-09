@@ -3,7 +3,7 @@ services:
     image: redis:7-alpine
     ports:
       - "6379:6379"
-    command: redis-server --appendonly yes --maxmemory 512mb --maxmemory-policy allkeys-lru
+    command: redis-server --appendonly yes --maxmemory 1024mb --maxmemory-policy noeviction
     volumes:
       - redis_data:/data
     healthcheck:
@@ -13,7 +13,7 @@ services:
       retries: 3
     restart: unless-stopped
 
-  document-processor:
+  document-processor-1:
     build:
       context: .
       dockerfile: apps/document-processor/Dockerfile
@@ -24,7 +24,9 @@ services:
     environment:
       - PORT=4001
       - REDIS_URL=redis://redis:6379
-      - WORKER_CONCURRENCY=2
+      - WORKER_CONCURRENCY=6
+      - EMBED_BATCH=512
+      - MAX_PARALLEL_EMBED_BATCHES=3
       - OPENAI_API_KEY=${OPENAI_API_KEY}
       - QDRANT_URL=${QDRANT_URL}
       - QDRANT_API_KEY=${QDRANT_API_KEY}
@@ -40,6 +42,52 @@ services:
       timeout: 10s
       retries: 3
       start_period: 40s
+    restart: unless-stopped
+
+  document-processor-2:
+    build:
+      context: .
+      dockerfile: apps/document-processor/Dockerfile
+    env_file:
+      - .env.local
+    environment:
+      - PORT=4002
+      - REDIS_URL=redis://redis:6379
+      - WORKER_CONCURRENCY=6
+      - EMBED_BATCH=512
+      - MAX_PARALLEL_EMBED_BATCHES=3
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - QDRANT_URL=${QDRANT_URL}
+      - QDRANT_API_KEY=${QDRANT_API_KEY}
+      - HMAC_SECRET=${HMAC_SECRET}
+      - MISTRAL_API_KEY=${MISTRAL_API_KEY}
+      - DEEPGRAM_API_KEY=${DEEPGRAM_API_KEY}
+    depends_on:
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  document-processor-3:
+    build:
+      context: .
+      dockerfile: apps/document-processor/Dockerfile
+    env_file:
+      - .env.local
+    environment:
+      - PORT=4003
+      - REDIS_URL=redis://redis:6379
+      - WORKER_CONCURRENCY=6
+      - EMBED_BATCH=512
+      - MAX_PARALLEL_EMBED_BATCHES=3
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - QDRANT_URL=${QDRANT_URL}
+      - QDRANT_API_KEY=${QDRANT_API_KEY}
+      - HMAC_SECRET=${HMAC_SECRET}
+      - MISTRAL_API_KEY=${MISTRAL_API_KEY}
+      - DEEPGRAM_API_KEY=${DEEPGRAM_API_KEY}
+    depends_on:
+      redis:
+        condition: service_healthy
     restart: unless-stopped
 
 volumes:
