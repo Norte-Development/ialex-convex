@@ -1,25 +1,89 @@
-import React, { useState } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useAuth } from "@/context/AuthContext";
+import { CircleArrowRight } from "lucide-react";
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { toast } from "sonner";
 
 interface OnboardingData {
-  specializations: string[];
-  barNumber?: string;
+  // Paso 2: Nombre
+  fullName?: string;
+
+  // Paso 3: ¿Tiene despacho?
+  hasDespacho: boolean | null;
+  despachoName?: string;
+
+  // Paso 4: Información del despacho (CONDICIONAL)
   firmName?: string;
   workLocation?: string;
-  experienceYears?: number;
+
+  // Paso 5: ¿Cuál es su rol?
+  role: "abogado" | "secretario" | "asistente" | "otro" | null;
+
+  // Paso 6: Número de matrícula (CONDICIONAL - solo si role === "abogado")
+  barNumber?: string;
+
+  // Paso 7: Cuéntenos sobre usted
   bio?: string;
+  experienceYears?: number;
+
+  // Paso 8: Especialización
+  specializations: string[];
 }
+
+const STORAGE_KEY = "ialex-onboarding-progress";
 
 export const OnboardingFlow: React.FC = () => {
   const { user, updateOnboarding } = useAuth();
-  const [currentStep, setCurrentStep] = useState(1);
-  const [formData, setFormData] = useState<OnboardingData>({
-    specializations: [],
-  });
+
+  // Cargar datos persistidos al iniciar
+  const loadPersistedData = () => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        return {
+          step: parsed.step || 1,
+          data: parsed.data || {
+            hasDespacho: null,
+            role: null,
+            specializations: [],
+          },
+        };
+      }
+    } catch (error) {
+      console.error("Error loading persisted onboarding data:", error);
+    }
+    return {
+      step: 1,
+      data: { hasDespacho: null, role: null, specializations: [] },
+    };
+  };
+
+  const persisted = loadPersistedData();
+  const [currentStep, setCurrentStep] = useState(persisted.step);
+  const [formData, setFormData] = useState<OnboardingData>(persisted.data);
   const [isLoading, setIsLoading] = useState(false);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(
+        STORAGE_KEY,
+        JSON.stringify({ step: currentStep, data: formData }),
+      );
+    } catch (error) {
+      console.error("Error saving onboarding progress:", error);
+    }
+  }, [currentStep, formData]);
 
   const legalSpecializations = [
     "Derecho Civil",
@@ -40,182 +104,369 @@ export const OnboardingFlow: React.FC = () => {
     const updated = formData.specializations.includes(specialization)
       ? formData.specializations.filter((s) => s !== specialization)
       : [...formData.specializations, specialization];
-    
+
     setFormData({ ...formData, specializations: updated });
   };
 
-  const handleNext = () => {
-    if (currentStep < 4) {
+  // Lógica de navegación condicional
+  const handleNext = useCallback(() => {
+    // Paso 3 → Paso 4 o Paso 5 (depende de hasDespacho)
+    if (currentStep === 3) {
+      if (formData.hasDespacho === true) {
+        setCurrentStep(4); // Va a info del despacho
+      } else {
+        setCurrentStep(5); // Salta directo a rol
+      }
+      return;
+    }
+
+    // Paso 4 → Paso 5 (después de info del despacho)
+    if (currentStep === 4) {
+      setCurrentStep(5);
+      return;
+    }
+
+    // Paso 5 → Paso 6 o Paso 7 (depende de role)
+    if (currentStep === 5) {
+      if (formData.role === "abogado") {
+        setCurrentStep(6); // Va a número de matrícula
+      } else {
+        setCurrentStep(7); // Salta a "Cuéntenos sobre usted"
+      }
+      return;
+    }
+
+    // Navegación normal para otros pasos
+    if (currentStep < 9) {
       setCurrentStep(currentStep + 1);
     }
-  };
+  }, [currentStep, formData.hasDespacho, formData.role]);
 
   const handleBack = () => {
+    // Paso 5 → Paso 3 o Paso 4 (depende de si tiene despacho)
+    if (currentStep === 5) {
+      if (formData.hasDespacho === true) {
+        setCurrentStep(4); // Vuelve a info del despacho
+      } else {
+        setCurrentStep(3); // Vuelve a pregunta de despacho
+      }
+      return;
+    }
+
+    // Paso 7 → Paso 3, 5 o 6 (depende de hasDespacho y role)
+    if (currentStep === 7) {
+      // Si es autónomo (no tiene despacho), vuelve al paso 3
+      if (formData.hasDespacho === false) {
+        setCurrentStep(3);
+      } else if (formData.role === "abogado") {
+        setCurrentStep(6); // Vuelve a matrícula
+      } else {
+        setCurrentStep(5); // Vuelve a rol
+      }
+      return;
+    }
+
+    // Navegación normal para otros pasos
     if (currentStep > 1) {
       setCurrentStep(currentStep - 1);
     }
   };
 
-  const handleComplete = async () => {
+  const handleComplete = useCallback(async () => {
     setIsLoading(true);
     try {
-      await updateOnboarding({
-        ...formData,
-        onboardingStep: 4,
+      // Construir objeto solo con campos que tienen valores válidos (no null, no undefined, no strings vacíos)
+      const onboardingData: any = {
+        onboardingStep: 9,
         isOnboardingComplete: true,
-      });
+      };
+
+      // Solo agregar campos con valores válidos
+      if (formData.fullName) onboardingData.fullName = formData.fullName;
+      if (formData.hasDespacho !== null)
+        onboardingData.hasDespacho = formData.hasDespacho;
+      onboardingData.despachoName = formData.despachoName;
+      if (formData.firmName) onboardingData.firmName = formData.firmName;
+      if (formData.workLocation)
+        onboardingData.workLocation = formData.workLocation;
+      if (formData.role) onboardingData.role = formData.role;
+      if (formData.barNumber) onboardingData.barNumber = formData.barNumber;
+      if (formData.experienceYears)
+        onboardingData.experienceYears = formData.experienceYears;
+      if (formData.bio) onboardingData.bio = formData.bio;
+      if (formData.specializations && formData.specializations.length > 0) {
+        onboardingData.specializations = formData.specializations;
+      }
+
+      await updateOnboarding(onboardingData);
+
+      localStorage.removeItem(STORAGE_KEY);
+
+      console.log("✅ Onboarding completado exitosamente");
     } catch (error) {
-      console.error("Error completing onboarding:", error);
+      toast.error(
+        `❌ Error completing onboarding: ${error instanceof Error ? error.message : String(error)}`,
+      );
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [formData, updateOnboarding]);
+
+  // Validar si el botón "Siguiente" debe estar deshabilitado
+  const isNextDisabled = useCallback(() => {
+    if (currentStep === 2 && !formData.fullName) return true;
+    if (currentStep === 3 && !formData.despachoName) return true;
+    if (currentStep === 5 && formData.role === null) return true;
+    return false;
+  }, [currentStep, formData.fullName, formData.despachoName, formData.role]);
+
+  // Manejar tecla Enter
+  useEffect(() => {
+    const handleKeyPress = (e: KeyboardEvent) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+
+        if (currentStep === 9) {
+          if (!isLoading) {
+            handleComplete();
+          }
+        } else if (currentStep > 1) {
+          if (!isNextDisabled()) {
+            handleNext();
+          }
+        } else if (currentStep === 1) {
+          handleNext();
+        }
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyPress);
+    return () => window.removeEventListener("keydown", handleKeyPress);
+  }, [currentStep, isLoading, handleComplete, handleNext, isNextDisabled]);
 
   const renderStep = () => {
     switch (currentStep) {
+      // Paso 1: Bienvenida
       case 1:
         return (
-          <div className="space-y-6">
-            <div className="text-center">
-              <h2 className="text-2xl font-bold mb-2">¡Bienvenido a iAlex!</h2>
-              <p className="text-gray-600">
-                Empecemos configurando tu perfil profesional.
-              </p>
-            </div>
-            
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium mb-2">
-                  Número de matrícula (opcional)
-                </label>
-                <Input
-                  value={formData.barNumber || ""}
-                  onChange={(e) => setFormData({ ...formData, barNumber: e.target.value })}
-                  placeholder="Ingresa tu número de matrícula"
-                />
-                <p className="text-sm text-gray-500 mt-1">
-                  Si eres abogado matriculado, puedes ingresar tu número de matrícula.
-                </p>
-              </div>
-            </div>
+          <div className="text-center max-w-xl  w-full">
+            <h2 className="text-2xl 2xl:text-3xl font-[400] mb-3 md:mb-4 text-tertiary">
+              ¡Bienvenido a iAlex!
+            </h2>
+            <p className="text-black mb-8 md:mb-10 text-sm md:text-base">
+              Vamos a configurar su perfil profesional
+            </p>
+            <Button
+              onClick={handleNext}
+              className="bg-tertiary rounded-[8px] text-white hover:bg-tertiary/90 !px-20"
+              size={"lg"}
+            >
+              Comenzar
+            </Button>
           </div>
         );
 
+      // Paso 2: Información básica
       case 2:
         return (
-          <div className="space-y-6">
-            <div className="text-center">
-              <h2 className="text-2xl font-bold mb-2">Especialidades Legales</h2>
-              <p className="text-gray-600">
-                Selecciona las áreas del derecho en las que te especializas.
-              </p>
-            </div>
-            
-            <div className="grid grid-cols-2 gap-3">
+          <div className="text-center flex flex-col items-center max-w-xl w-full">
+            <h2 className="text-[24px] 2xl:text-3xl font-[400] mb-4 text-tertiary">
+              ¿Cuál es su nombre?
+            </h2>
+            <Input
+              type="text"
+              value={formData.fullName || ""}
+              onChange={(e) =>
+                setFormData({ ...formData, fullName: e.target.value })
+              }
+              className="bg-white placeholder:text-gray-400 max-w-[254px] 2xl:w-full  rounded-full h-[26px]"
+              placeholder="Nombre y apellido"
+            />
+          </div>
+        );
+
+      // Paso 3: ¿Tiene despacho?
+      case 3:
+        return (
+          <div className="text-center flex flex-col items-center max-w-xl w-full">
+            <h2 className="text-[24px] 2xl:text-3xl font-[400] mb-4 text-tertiary">
+              ¿Cuál es el nombre de su despacho?
+            </h2>
+            <Input
+              type="text"
+              value={formData.despachoName || ""}
+              onChange={(e) => {
+                const value = e.target.value;
+                setFormData({
+                  ...formData,
+                  despachoName: value,
+                  hasDespacho: value.length > 0 ? true : null,
+                });
+              }}
+              className="bg-white placeholder:text-gray-400 max-w-[254px] 2xl:w-full  rounded-full h-[26px]"
+              placeholder="Ej: Pérez & Asociados"
+            />
+          </div>
+        );
+
+      // Paso 4: Información del despacho (CONDICIONAL)
+      case 4:
+        return (
+          <div className="text-center flex flex-col items-center max-w-xl w-full">
+            <h2 className="text-[24px] 2xl:text-3xl font-[400] mb-4 text-tertiary">
+              ¿Dónde se encuentra el despacho?
+            </h2>
+            <Input
+              type="text"
+              value={formData.workLocation || ""}
+              onChange={(e) => {
+                const value = e.target.value;
+                setFormData({
+                  ...formData,
+                  workLocation: value,
+                });
+              }}
+              className="bg-white placeholder:text-gray-400 max-w-[254px] 2xl:w-full  rounded-full h-[26px]"
+              placeholder="Ej: Buenos Aires, Argentina"
+            />
+          </div>
+        );
+
+      // Paso 5: ¿Cuál es su rol?
+      case 5:
+        return (
+          <div className="text-center flex flex-col items-center max-w-xl w-full">
+            <h2 className="text-[24px] 2xl:text-3xl font-[400] mb-4 text-tertiary">
+              ¿Cuál es su rol allí?
+            </h2>
+            <Select
+              value={formData.role || undefined}
+              onValueChange={(value) =>
+                setFormData({ ...formData, role: value as any })
+              }
+            >
+              <SelectTrigger className="bg-white max-w-[254px]">
+                <SelectValue placeholder="Selecciona un rol" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectGroup>
+                  <SelectItem value="abogado" className="hover:bg-gray-100">
+                    Abogado
+                  </SelectItem>
+                  <SelectItem value="secretario" className="hover:bg-gray-100">
+                    Secretario/a
+                  </SelectItem>
+                  <SelectItem value="asistente" className="hover:bg-gray-100">
+                    Asistente legal
+                  </SelectItem>
+                  <SelectItem value="otro" className="hover:bg-gray-100">
+                    Otro
+                  </SelectItem>
+                </SelectGroup>
+              </SelectContent>
+            </Select>
+          </div>
+        );
+
+      // Paso 6: Número de matrícula (CONDICIONAL - solo abogados)
+      case 6:
+        return (
+          <div className="text-center flex flex-col items-center max-w-xl w-full">
+            <h2 className="text-[24px] 2xl:text-3xl font-[400] mb-4 text-tertiary">
+              ¿Cuál es su número de matrícula?
+            </h2>
+            <Input
+              type="text"
+              value={formData.barNumber || ""}
+              onChange={(e) => {
+                const value = e.target.value;
+                setFormData({
+                  ...formData,
+                  barNumber: value,
+                });
+              }}
+              className="bg-white placeholder:text-gray-400 max-w-[254px] 2xl:w-full rounded-full h-[26px]"
+              placeholder="Ej: 123456"
+            />
+          </div>
+        );
+
+      // Paso 7: Cuéntenos sobre usted
+      case 7:
+        return (
+          <div className="text-center flex flex-col items-center max-w-xl w-full">
+            <h2 className="text-[24px] 2xl:text-3xl font-[400] mb-4 text-tertiary">
+              Cuéntenos sobre usted
+            </h2>
+            <Textarea
+              value={formData.bio || ""}
+              onChange={(e) => {
+                const value = e.target.value;
+                setFormData({
+                  ...formData,
+                  bio: value,
+                });
+              }}
+              className="bg-white placeholder:text-gray-400 h-[26px] "
+              placeholder="Ej: Abogado especializado en siniestros"
+            />
+          </div>
+        );
+
+      // Paso 8: Especialización
+      case 8:
+        return (
+          <div className="flex flex-col items-center max-w-2xl w-full">
+            <h2 className="text-[24px] 2xl:text-3xl font-[400] mb-4 text-tertiary text-center">
+              ¿En qué área se especializa?
+            </h2>
+
+            <div className="grid grid-cols-3 gap-2 w-full max-w-[550px] max-h-[200px] overflow-y-auto">
               {legalSpecializations.map((specialization) => (
-                <button
+                <label
                   key={specialization}
-                  onClick={() => handleSpecializationToggle(specialization)}
-                  className={`p-3 text-sm border rounded-lg transition-colors ${
+                  className={`flex items-center gap-2 px-2 py-1.5 text-xs rounded-md cursor-pointer transition-colors ${
                     formData.specializations.includes(specialization)
-                      ? "bg-blue-500 text-white border-blue-500"
-                      : "bg-white text-gray-700 border-gray-300 hover:border-blue-300"
+                      ? "bg-[#E8F0FE] border-l-2 border-l-blue-600"
+                      : "bg-white hover:bg-[#E8F0FE]"
                   }`}
                 >
-                  {specialization}
-                </button>
+                  <input
+                    type="checkbox"
+                    checked={formData.specializations.includes(specialization)}
+                    onChange={() => handleSpecializationToggle(specialization)}
+                    className="sr-only"
+                  />
+                  {/* Radio button indicator */}
+                  <div className="flex items-center justify-center w-4 h-4 relative flex-shrink-0">
+                    <div className="w-4 h-4 rounded-full border-1 border-gray-200" />
+                    {formData.specializations.includes(specialization) && (
+                      <div className="absolute inset-0 flex items-center justify-center">
+                        <div className="w-4 h-4 rounded-full bg-blue-600 flex items-center justify-center">
+                          <div className="w-1.5 h-1.5 rounded-full bg-white" />
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                  <span className="text-left leading-tight ">
+                    {specialization}
+                  </span>
+                </label>
               ))}
             </div>
           </div>
         );
 
-      case 3:
+      // Paso 9: Despedida
+      case 9:
         return (
-          <div className="space-y-6">
-            <div className="text-center">
-              <h2 className="text-2xl font-bold mb-2">Información Profesional</h2>
-              <p className="text-gray-600">
-                Cuéntanos más sobre tu experiencia profesional.
-              </p>
-            </div>
-            
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium mb-2">
-                  Nombre del despacho/firma (opcional)
-                </label>
-                <Input
-                  value={formData.firmName || ""}
-                  onChange={(e) => setFormData({ ...formData, firmName: e.target.value })}
-                  placeholder="Ej: Estudio Jurídico García & Asociados"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium mb-2">
-                  Ubicación de trabajo (opcional)
-                </label>
-                <Input
-                  value={formData.workLocation || ""}
-                  onChange={(e) => setFormData({ ...formData, workLocation: e.target.value })}
-                  placeholder="Ej: Buenos Aires, Argentina"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium mb-2">
-                  Años de experiencia (opcional)
-                </label>
-                <Input
-                  type="number"
-                  value={formData.experienceYears || ""}
-                  onChange={(e) => setFormData({ ...formData, experienceYears: parseInt(e.target.value) || undefined })}
-                  placeholder="Ej: 5"
-                  min="0"
-                  max="50"
-                />
-              </div>
-            </div>
-          </div>
-        );
-
-      case 4:
-        return (
-          <div className="space-y-6">
-            <div className="text-center">
-              <h2 className="text-2xl font-bold mb-2">Última información</h2>
-              <p className="text-gray-600">
-                Agrega una breve descripción profesional (opcional).
-              </p>
-            </div>
-            
-            <div>
-              <label className="block text-sm font-medium mb-2">
-                Biografía profesional
-              </label>
-              <Textarea
-                value={formData.bio || ""}
-                onChange={(e) => setFormData({ ...formData, bio: e.target.value })}
-                placeholder="Describe brevemente tu experiencia y enfoque profesional..."
-                className="min-h-[120px]"
-                maxLength={500}
-              />
-              <p className="text-sm text-gray-500 mt-1">
-                {(formData.bio || "").length}/500 caracteres
-              </p>
-            </div>
-
-            <div className="bg-gray-50 p-4 rounded-lg">
-              <h3 className="font-medium mb-2">Resumen de tu perfil:</h3>
-              <div className="text-sm text-gray-600 space-y-1">
-                {formData.barNumber && <p><strong>Matrícula:</strong> {formData.barNumber}</p>}
-                {formData.specializations.length > 0 && (
-                  <p><strong>Especialidades:</strong> {formData.specializations.join(", ")}</p>
-                )}
-                {formData.firmName && <p><strong>Firma:</strong> {formData.firmName}</p>}
-                {formData.experienceYears && <p><strong>Experiencia:</strong> {formData.experienceYears} años</p>}
-              </div>
-            </div>
+          <div className="text-center flex flex-col items-center max-w-xl w-full">
+            <h2 className="text-[24px] 2xl:text-3xl font-[400] mb-4 text-tertiary">
+              ¡Gracias por responder!
+            </h2>
+            <p className="text-black text-[14px]">
+              Empecemos a trabajar juntos
+            </p>
           </div>
         );
 
@@ -225,59 +476,113 @@ export const OnboardingFlow: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
-      <div className="max-w-2xl w-full bg-white rounded-lg shadow-lg p-8">
-        {/* Progress indicator */}
-        <div className="mb-8">
-          <div className="flex justify-between mb-2">
-            {[1, 2, 3, 4].map((step) => (
-              <div
-                key={step}
-                className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${
-                  step <= currentStep
-                    ? "bg-blue-500 text-white"
-                    : "bg-gray-200 text-gray-500"
-                }`}
-              >
-                {step}
-              </div>
-            ))}
+    <div className="h-screen flex items-center justify-center p-4">
+      <div className="w-[70%] h-[60%] 2xl:w-[50%] 2xl:h-[45%] bg-[#F4F7FC] rounded-[8px] flex flex-col">
+        {/* Header con Progress indicator - siempre arriba */}
+        <div className="flex-shrink-0 w-full px-8 pt-2 pb-4 relative">
+          <Button
+            variant={"ghost"}
+            className="top-10 left-2 text-[12px] text-gray-500  absolute"
+            onClick={handleBack}
+          >
+            Volver
+          </Button>
+          <div className="flex justify-between items-center mb-2">
+            <span className="text-xs text-gray-600">
+              Paso {currentStep} de 9
+            </span>
+            <span className="text-xs text-gray-600">
+              {Math.round((currentStep / 9) * 100)}%
+            </span>
           </div>
           <div className="w-full bg-gray-200 rounded-full h-2">
             <div
-              className="bg-blue-500 h-2 rounded-full transition-all duration-300"
-              style={{ width: `${(currentStep / 4) * 100}%` }}
+              className="bg-tertiary h-2 rounded-full transition-all duration-300"
+              style={{ width: `${(currentStep / 9) * 100}%` }}
             />
           </div>
         </div>
 
-        {/* Step content */}
-        {renderStep()}
+        {/* Step content - centrado verticalmente en el espacio restante */}
+        <div className="flex-1 flex items-center justify-center px-4">
+          {renderStep()}
+        </div>
 
-        {/* Navigation buttons */}
-        <div className="flex justify-between mt-8">
-          <Button
-            variant="outline"
-            onClick={handleBack}
-            disabled={currentStep === 1}
-          >
-            Anterior
-          </Button>
-          
-          {currentStep < 4 ? (
-            <Button onClick={handleNext}>
-              Siguiente
-            </Button>
-          ) : (
-            <Button 
+        {/* Navigation buttons - siempre abajo */}
+        <div className="flex-shrink-0 flex flex-col items-center pb-8 px-4">
+          {currentStep === 9 ? (
+            <Button
               onClick={handleComplete}
               disabled={isLoading}
+              className="bg-tertiary rounded-[8px] text-white hover:bg-tertiary/90 !px-20"
+              size={"lg"}
             >
-              {isLoading ? "Completando..." : "Completar configuración"}
+              {isLoading ? "Completando..." : "Ingresar"}
             </Button>
-          )}
+          ) : currentStep > 1 ? (
+            <>
+              <Button
+                onClick={handleNext}
+                className="bg-white flex gap-1 text-[14px]  text-black hover:bg-white/90 !py-1 !px-15"
+                disabled={isNextDisabled()}
+              >
+                Siguiente
+                <CircleArrowRight className=" text-tertiary " size={10} />
+              </Button>
+              {currentStep === 3 && (
+                <Button
+                  variant={"ghost"}
+                  size={"sm"}
+                  onClick={() => {
+                    setFormData({
+                      ...formData,
+                      hasDespacho: false,
+                      despachoName: "",
+                    });
+                    setCurrentStep(7);
+                  }}
+                  className="text-blue-500 !text-[12px]"
+                >
+                  Soy autónomo
+                </Button>
+              )}
+              {currentStep === 4 && (
+                <Button
+                  variant={"ghost"}
+                  size={"sm"}
+                  onClick={() => {
+                    setFormData({
+                      ...formData,
+                      hasDespacho: false,
+                      despachoName: "",
+                    });
+                    handleNext();
+                  }}
+                  className="text-blue-500 !text-[12px]"
+                >
+                  Omitir pregunta
+                </Button>
+              )}
+              {currentStep === 6 && (
+                <Button
+                  variant={"ghost"}
+                  size={"sm"}
+                  onClick={() => {
+                    setFormData({
+                      ...formData,
+                      barNumber: "",
+                    });
+                    handleNext();
+                  }}
+                  className="text-blue-500 !text-[12px]"
+                >
+                  Prefiero no agregarlo
+                </Button>
+              )}
+            </>
+          ) : null}
         </div>
       </div>
     </div>
   );
-}; 
+};

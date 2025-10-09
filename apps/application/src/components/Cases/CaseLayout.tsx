@@ -1,7 +1,8 @@
 import type React from "react";
 import CaseSidebar from "./CaseSideBar";
-import SidebarChatbot from "../Agent/SidebarChatbot";
+import SidebarChatbot from "../CaseAgent/SidebarChatbot";
 import { useLayout } from "@/context/LayoutContext";
+import { useChatbot } from "@/context/ChatbotContext";
 import { useState, useEffect, useCallback } from "react";
 import { useDropzone } from "react-dropzone";
 import { useAction, useMutation } from "convex/react";
@@ -39,15 +40,7 @@ function InnerCaseLayout({ children }: CaseDetailLayoutProps) {
   const { isCaseSidebarOpen } = useLayout();
   const { currentCase } = useCase();
   const { hasAccess, isLoading, can } = usePermissions();
-  const [isChatbotOpen, setIsChatbotOpen] = useState(() => {
-    try {
-      const stored = localStorage.getItem("chatbot-open");
-      return stored !== null ? JSON.parse(stored) : false;
-    } catch {
-      return false;
-    }
-  });
-  const [chatbotWidth, setChatbotWidth] = useState(380);
+  const { isChatbotOpen, toggleChatbot, chatbotWidth, setChatbotWidth } = useChatbot();
   const [isResizing, setIsResizing] = useState(false);
   const [uploadFiles, setUploadFiles] = useState<UploadFile[]>([]);
   const [isGlobalDragActive, setIsGlobalDragActive] = useState(false);
@@ -60,30 +53,9 @@ function InnerCaseLayout({ children }: CaseDetailLayoutProps) {
   );
   const createDocument = useMutation(api.functions.documents.createDocument);
 
-  // Load saved width from localStorage
-  useEffect(() => {
-    const savedWidth = localStorage.getItem("chatbot-width");
-    if (savedWidth) {
-      setChatbotWidth(Number.parseInt(savedWidth, 10));
-    }
-  }, []);
-
   // Save width to localStorage
   const handleWidthChange = (newWidth: number) => {
     setChatbotWidth(newWidth);
-    localStorage.setItem("chatbot-width", newWidth.toString());
-  };
-
-  const toggleChatbot = () => {
-    setIsChatbotOpen((prev: boolean) => {
-      const newValue = !prev;
-      try {
-        localStorage.setItem("chatbot-open", JSON.stringify(newValue));
-      } catch {
-        // Ignore localStorage errors
-      }
-      return newValue;
-    });
   };
 
   const handleResizeStart = () => {

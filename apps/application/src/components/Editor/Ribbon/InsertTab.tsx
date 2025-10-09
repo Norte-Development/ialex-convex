@@ -17,7 +17,14 @@ export function InsertTab({ editor }: InsertTabProps) {
             variant="ghost"
             size="sm"
             className="flex flex-col items-center gap-1 h-auto py-2 px-3 hover:bg-office-hover"
-            title="Insertar tabla"
+            title="Insertar tabla 3x3"
+            onClick={() => {
+              editor
+                .chain()
+                .focus()
+                .insertTable({ rows: 3, cols: 3, withHeaderRow: true })
+                .run();
+            }}
           >
             <Table className="h-6 w-6" />
             <span className="text-xs">Tabla</span>
@@ -36,6 +43,23 @@ export function InsertTab({ editor }: InsertTabProps) {
             size="sm"
             className="flex flex-col items-center gap-1 h-auto py-2 px-3 hover:bg-office-hover"
             title="Insertar imagen"
+            onClick={() => {
+              const input = document.createElement("input");
+              input.type = "file";
+              input.accept = "image/*";
+              input.onchange = (e: Event) => {
+                const file = (e.target as HTMLInputElement).files?.[0];
+                if (file) {
+                  const reader = new FileReader();
+                  reader.onload = (event) => {
+                    const base64 = event.target?.result as string;
+                    editor.chain().focus().setImage({ src: base64 }).run();
+                  };
+                  reader.readAsDataURL(file);
+                }
+              };
+              input.click();
+            }}
           >
             <Image className="h-6 w-6" />
             <span className="text-xs">Imagen</span>
@@ -85,4 +109,3 @@ export function InsertTab({ editor }: InsertTabProps) {
     </div>
   );
 }
-

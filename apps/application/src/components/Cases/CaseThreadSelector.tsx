@@ -53,7 +53,7 @@ export function AIAgentThreadSelector() {
 
   // Use search function when there's a search term, otherwise use regular list
   const searchResults = useQuery(
-    api.agent.threads.searchThreads,
+    api.agents.threads.searchThreads,
     hasSearchTerm
       ? {
           searchTerm: debouncedSearchTerm.trim(),
@@ -63,7 +63,7 @@ export function AIAgentThreadSelector() {
   );
 
   const listResults = useQuery(
-    api.agent.threads.listThreads,
+    api.agents.threads.listThreads,
     !hasSearchTerm
       ? {
           paginationOpts: { numItems: 50, cursor: null as any },

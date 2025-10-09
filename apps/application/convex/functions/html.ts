@@ -7,7 +7,16 @@ import StarterKit from "@tiptap/starter-kit";
 import TextAlign from "@tiptap/extension-text-align";
 import Underline from "@tiptap/extension-underline";
 import { TextStyle } from "@tiptap/extension-text-style";
-import { InlineChange, BlockChange, LineBreakChange } from "../../../../packages/shared/src/tiptap/changeNodes";
+import Image from "@tiptap/extension-image";
+import { Table } from "@tiptap/extension-table";
+import { TableRow } from "@tiptap/extension-table-row";
+import { TableHeader } from "@tiptap/extension-table-header";
+import { TableCell } from "@tiptap/extension-table-cell";
+import {
+  InlineChange,
+  BlockChange,
+  LineBreakChange,
+} from "../../../../packages/shared/src/tiptap/changeNodes";
 
 /**
  * Parse HTML into TipTap JSON using Node-only @tiptap/html/server.
@@ -25,11 +34,22 @@ export const parseHtmlToTiptapJson = internalAction({
       LineBreakChange,
       TextAlign.configure({ types: ["heading", "paragraph"] }),
       Underline,
+      // Image extension
+      Image.configure({
+        inline: true,
+        allowBase64: true,
+      }),
+      // Table extensions
+      Table.configure({
+        resizable: true,
+        allowTableNodeSelection: true,
+      }),
+      TableRow,
+      TableHeader,
+      TableCell,
     ];
 
     const json = generateJSON(html, extensions);
     return JSON.stringify(json);
   },
 });
-
-

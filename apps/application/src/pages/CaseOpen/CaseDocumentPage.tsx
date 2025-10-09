@@ -1,5 +1,5 @@
-import { useParams } from "react-router-dom";
-import { useAction, useQuery } from "convex/react";
+import { useParams, useNavigate } from "react-router-dom";
+import { useAction, useQuery, useMutation } from "convex/react";
 import { useEffect, useState } from "react";
 import { api } from "../../../convex/_generated/api";
 import { Id } from "../../../convex/_generated/dataModel";
@@ -10,18 +10,33 @@ import {
   Clock,
   Loader2,
   CheckCircle,
+  FileText,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { usePermissions } from "@/context/CasePermissionsContext";
 import DocumentViewer from "@/components/Documents/DocumentViewer";
+import { useDocxToHtml } from "@/hooks/useDocxToHtml";
+import { generateJSON } from "@tiptap/html";
+import { extensions } from "@/components/Editor/extensions";
+import { toast } from "sonner";
 
 export default function CaseDocumentPage() {
   const { documentId } = useParams();
+  const navigate = useNavigate();
 
   // Permisos usando el nuevo sistema
   const { can } = usePermissions();
+
+  // Hook para conversión DOCX a HTML
+  const { convertDocxToHtml, isConverting } = useDocxToHtml();
+
+  // Mutations
+  const createEscrito = useMutation(api.functions.documents.createEscrito);
+
+  // Estado para mostrar resultado de conversión
+  const [conversionResult, setConversionResult] = useState<string | null>(null);
 
   // Fetch the specific document
   const document = useQuery(
@@ -53,6 +68,134 @@ export default function CaseDocumentPage() {
       cancelled = true;
     };
   }, [documentId, getDocumentUrlAction]);
+
+  // Función para crear escrito desde DOCX
+  const handleCreateEscrito = async () => {
+    if (!document || !documentUrl) {
+      console.error("No document or URL available");
+      toast.error("No hay documento disponible");
+      return;
+    }
+
+    // Solo permitir conversión de archivos DOCX
+    if (
+      document.mimeType !==
+      "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+    ) {
+      toast.error("Solo se pueden convertir archivos DOCX a escritos");
+      return;
+    }
+
+    try {
+      console.log("Iniciando conversión completa DOCX → Escrito...");
+      toast.loading("Descargando documento...", { id: "docx-conversion" });
+
+      // Paso 1: Descargar el archivo DOCX
+      const response = await fetch(documentUrl);
+      if (!response.ok) {
+        throw new Error(`Error descargando archivo: ${response.status}`);
+      }
+
+      const arrayBuffer = await response.arrayBuffer();
+      toast.loading("Convirtiendo DOCX a HTML...", { id: "docx-conversion" });
+
+      // Paso 2: Convertir DOCX a HTML
+      const result = await convertDocxToHtml(arrayBuffer, {
+        includeImages: true, // Incluir imágenes como base64
+        useCustomStyleMapping: true,
+      });
+
+      if (!result.success) {
+        throw new Error(result.error || "Error en conversión DOCX → HTML");
+      }
+
+      toast.loading("Convirtiendo HTML a formato TipTap...", {
+        id: "docx-conversion",
+      });
+
+      // Paso 3: Convertir HTML a TipTap JSON
+      let tiptapJson;
+      try {
+        tiptapJson = generateJSON(result.html, extensions);
+
+        // Validar que el JSON generado tenga contenido
+        if (
+          !tiptapJson ||
+          !tiptapJson.content ||
+          tiptapJson.content.length === 0
+        ) {
+          throw new Error("No se pudo generar contenido TipTap válido");
+        }
+
+        console.log("TipTap JSON generado:", tiptapJson);
+      } catch (jsonError) {
+        console.error("Error generando JSON TipTap:", jsonError);
+        throw new Error("Error convirtiendo HTML a formato TipTap");
+      }
+
+      toast.loading("Creando escrito en la base de datos...", {
+        id: "docx-conversion",
+      });
+
+      // Paso 4: Crear escrito en la base de datos
+      const prosemirrorId = crypto.randomUUID();
+      const escritoTitle = `${document.title.replace(/\.(docx|doc)$/i, "")} (Convertido)`;
+
+      const { escritoId, alreadyExists } = await createEscrito({
+        title: escritoTitle,
+        caseId: document.caseId,
+        prosemirrorId: prosemirrorId,
+      });
+
+      if (alreadyExists) {
+        console.log("Escrito ya existía, usando el existente");
+      }
+
+      console.log("Escrito creado exitosamente:", { escritoId, prosemirrorId });
+
+      // Paso 5: Almacenar el contenido TipTap temporalmente para el editor
+      // Lo guardamos en sessionStorage para que el editor lo use al cargar
+      const escritoData = {
+        initialContent: tiptapJson,
+        fromDocxConversion: true,
+        originalDocumentId: documentId,
+        conversionMetadata: {
+          originalTitle: document.title,
+          htmlLength: result.html.length,
+          textLength: result.text.length,
+          analysis: result.analysis,
+          messages: result.messages,
+        },
+      };
+
+      sessionStorage.setItem(
+        `escrito-initial-${prosemirrorId}`,
+        JSON.stringify(escritoData),
+      );
+
+      toast.success("¡Escrito creado exitosamente!", { id: "docx-conversion" });
+
+      // Paso 6: Navegar al editor del escrito creado
+      console.log(
+        "Navegando al escrito:",
+        `/caso/${document.caseId}/escritos/${escritoId}`,
+      );
+      navigate(`/caso/${document.caseId}/escritos/${escritoId}`);
+    } catch (error) {
+      console.error("Error completo en conversión:", error);
+      const errorMessage =
+        error instanceof Error ? error.message : "Error desconocido";
+      toast.error(`Error: ${errorMessage}`, {
+        id: "docx-conversion",
+        duration: 5000,
+      });
+
+      // Mostrar detalles del error para debugging
+      setConversionResult(
+        `❌ Error: ${errorMessage}\n\nConsulta la consola para más detalles.`,
+      );
+    }
+  };
 
   const getDocumentTypeColor = (documentType: string) => {
     switch (documentType) {
@@ -222,6 +365,26 @@ export default function CaseDocumentPage() {
                   Descargar
                 </Button>
               )}
+
+              {/* Botón para crear escrito desde DOCX */}
+              {can.escritos.write &&
+                document?.mimeType ===
+                  "application/vnd.openxmlformats-officedocument.wordprocessingml.document" && (
+                  <Button
+                    variant="default"
+                    size="sm"
+                    onClick={handleCreateEscrito}
+                    disabled={!documentUrl || isConverting}
+                    title="Convertir DOCX a escrito editable"
+                  >
+                    {isConverting ? (
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    ) : (
+                      <FileText className="h-4 w-4 mr-2" />
+                    )}
+                    {isConverting ? "Convirtiendo..." : "Crear Escrito"}
+                  </Button>
+                )}
             </div>
           </div>
 
@@ -270,6 +433,29 @@ export default function CaseDocumentPage() {
           </div>
         </div>
       </div>
+
+      {/* Resultado de Conversión */}
+      {conversionResult && (
+        <div className="mx-6 mb-4 bg-white border border-gray-200 rounded-lg p-4">
+          <h3 className="text-lg font-medium text-gray-900 mb-3">
+            Resultado de Conversión DOCX → HTML
+          </h3>
+          <div className="bg-gray-50 p-4 rounded-md">
+            <pre className="text-sm text-gray-700 whitespace-pre-wrap font-mono">
+              {conversionResult}
+            </pre>
+          </div>
+          <div className="mt-3 flex justify-end">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setConversionResult(null)}
+            >
+              Cerrar
+            </Button>
+          </div>
+        </div>
+      )}
 
       {/* Document Viewer */}
       <div className="flex-1 p-6 bg-gray-50">

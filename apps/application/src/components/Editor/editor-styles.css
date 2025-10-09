@@ -1,11 +1,11 @@
 /* MS Office Color Palette */
 :root {
-  --office-blue: #2B579A;
-  --office-hover: #E7F3FF;
-  --office-active: #CCE4F7;
-  --office-border: #D1D5DB;
-  --office-background: #FFFFFF;
-  --office-gray: #F3F4F6;
+  --office-blue: #2b579a;
+  --office-hover: #e7f3ff;
+  --office-active: #cce4f7;
+  --office-border: #d1d5db;
+  --office-background: #ffffff;
+  --office-gray: #f3f4f6;
 }
 
 /* Office Editor Container */
@@ -76,7 +76,7 @@
 
 .ribbon-group-label {
   font-size: 0.65rem;
-  color: #6B7280;
+  color: #6b7280;
   text-transform: uppercase;
   letter-spacing: 0.025em;
   padding: 0 4px;
@@ -125,7 +125,7 @@
   background-color: var(--office-background);
   border-top: 1px solid var(--office-border);
   font-size: 0.75rem;
-  color: #6B7280;
+  color: #6b7280;
   min-height: 28px;
 }
 
@@ -151,7 +151,7 @@
   overflow-wrap: break-word;
   word-wrap: break-word;
   word-break: break-word;
-  
+
   :first-child {
     margin-top: 0;
   }
@@ -213,7 +213,9 @@
     color: rgb(17 24 39);
     font-size: 0.875rem;
     padding: 0.25em 0.3em;
-    font-family: ui-monospace, SFMono-Regular, "SF Mono", Consolas, "Liberation Mono", Menlo, monospace;
+    font-family:
+      ui-monospace, SFMono-Regular, "SF Mono", Consolas, "Liberation Mono",
+      Menlo, monospace;
     white-space: pre-wrap;
     word-break: break-all;
   }
@@ -222,7 +224,9 @@
     background: rgb(17 24 39);
     border-radius: 0.5rem;
     color: rgb(255 255 255);
-    font-family: ui-monospace, SFMono-Regular, "SF Mono", Consolas, "Liberation Mono", Menlo, monospace;
+    font-family:
+      ui-monospace, SFMono-Regular, "SF Mono", Consolas, "Liberation Mono",
+      Menlo, monospace;
     margin: 1.5rem 0;
     padding: 0.75rem 1rem;
     overflow-x: auto;
@@ -298,6 +302,32 @@
     display: block;
   }
 
+  .editor-image {
+    max-width: 100%;
+    height: auto;
+    display: block;
+    margin: 1rem auto;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+  }
+
+  .editor-image:hover {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  }
+
+  .editor-image.ProseMirror-selectednode {
+    outline: 2px solid var(--office-blue);
+    outline-offset: 2px;
+  }
+
+  /* Image container for better control */
+  p img,
+  div img {
+    max-width: 100%;
+    height: auto;
+  }
+
   /* Selection styles */
   ::selection {
     background-color: rgb(147 197 253);
@@ -353,15 +383,15 @@
   .legal-editor-content {
     padding: 1rem !important;
   }
-  
+
   .legal-editor-content h1 {
     font-size: 1.5rem;
   }
-  
+
   .legal-editor-content h2 {
     font-size: 1.25rem;
   }
-  
+
   .legal-editor-content h3 {
     font-size: 1.125rem;
   }
@@ -396,7 +426,8 @@
   position: relative;
   margin: 0 4px !important;
   vertical-align: middle;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-family:
+    -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
 }
 
 [data-semantic-type="line_break"][data-change="added"] {
@@ -562,7 +593,9 @@
 
 .pagination-page {
   background: white;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1), 0 1px 2px rgba(0, 0, 0, 0.06);
+  box-shadow:
+    0 1px 3px rgba(0, 0, 0, 0.1),
+    0 1px 2px rgba(0, 0, 0, 0.06);
   margin: 0 auto 20px;
   position: relative;
   width: 800px;
@@ -611,18 +644,84 @@
     margin: 0;
     page-break-after: always;
   }
-  
+
   .pagination-break {
     display: none;
   }
-  
+
   .pagination-footer {
     position: fixed;
     bottom: 0;
   }
-  
+
   .pagination-header {
     position: fixed;
     top: 0;
   }
+}
+
+/* Table Styles */
+.ProseMirror table {
+  border-collapse: collapse;
+  margin: 0;
+  overflow: hidden;
+  table-layout: fixed;
+  width: 100%;
+}
+
+.ProseMirror table td,
+.ProseMirror table th {
+  border: 1px solid #ced4da;
+  box-sizing: border-box;
+  min-width: 1em;
+  padding: 3px 5px;
+  position: relative;
+  vertical-align: top;
+}
+
+.ProseMirror table td > *,
+.ProseMirror table th > * {
+  margin-bottom: 0;
+}
+
+.ProseMirror table th {
+  background-color: #f1f3f4;
+  font-weight: bold;
+  text-align: left;
+}
+
+.ProseMirror table .selectedCell:after {
+  background: rgba(200, 200, 255, 0.4);
+  content: "";
+  left: 0;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  pointer-events: none;
+  position: absolute;
+  z-index: 2;
+}
+
+.ProseMirror table .column-resize-handle {
+  background-color: #adf;
+  bottom: -2px;
+  position: absolute;
+  right: -2px;
+  top: 0;
+  width: 4px;
+  pointer-events: none;
+}
+
+.ProseMirror table p {
+  margin: 0;
+}
+
+.ProseMirror .tableWrapper {
+  padding: 1rem 0;
+  overflow-x: auto;
+}
+
+.ProseMirror .resize-cursor {
+  cursor: ew-resize;
+  cursor: col-resize;
 }

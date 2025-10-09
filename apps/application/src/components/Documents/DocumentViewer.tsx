@@ -81,7 +81,11 @@ export default function DocumentViewer({
 
   if (isPdf(mimeType)) {
     return (
-      <iframe src={url} title={title} className={`w-full ${heightClassName} border-0`} />
+      <iframe
+        src={url}
+        title={title}
+        className={`w-full ${heightClassName} border-0`}
+      />
     );
   }
 
@@ -101,10 +105,13 @@ export default function DocumentViewer({
   if (exceedsComplexLimit) {
     return (
       <div className="flex flex-col items-center justify-center bg-white rounded-lg border border-gray-200 p-6 text-center">
-        <h3 className="text-lg font-semibold text-gray-900 mb-2">Archivo demasiado grande para vista previa</h3>
+        <h3 className="text-lg font-semibold text-gray-900 mb-2">
+          Archivo demasiado grande para vista previa
+        </h3>
         <p className="text-gray-600 mb-4 max-w-md">
-          Los archivos de Word, Excel y PowerPoint mayores a 5MB no pueden visualizarse en el navegador.
-          Puedes descargar el archivo para verlo localmente.
+          Los archivos de Word, Excel y PowerPoint mayores a 5MB no pueden
+          visualizarse en el navegador. Puedes descargar el archivo para verlo
+          localmente.
         </p>
         <a
           href={url}
@@ -119,7 +126,9 @@ export default function DocumentViewer({
   }
 
   return (
-    <div className={`bg-white rounded-lg shadow-sm border border-gray-200 overflow-auto ${heightClassName}`}>
+    <div
+      className={`bg-white rounded-lg shadow-sm border border-gray-200 overflow-auto ${heightClassName}`}
+    >
       <Suspense
         fallback={
           <div className="flex items-center justify-center w-full h-full">
@@ -134,15 +143,9 @@ export default function DocumentViewer({
         {isVideo(mimeType) && <VideoViewer url={url} title={title} />}
         {isAudio(mimeType) && <AudioViewer url={url} title={title} />}
         {isPptx(mimeType) && <PptxViewer url={url} title={title} />}
-        {![
-          isDocx,
-          isXlsx,
-          isCsv,
-          isTxt,
-          isVideo,
-          isAudio,
-          isPptx,
-        ].some((fn) => fn(mimeType)) && (
+        {![isDocx, isXlsx, isCsv, isTxt, isVideo, isAudio, isPptx].some((fn) =>
+          fn(mimeType),
+        ) && (
           <div className="p-6 text-center text-gray-600">
             Vista previa no disponible para este tipo de archivo.
           </div>
@@ -151,5 +154,3 @@ export default function DocumentViewer({
     </div>
   );
 }
-
-

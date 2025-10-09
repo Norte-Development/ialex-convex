@@ -210,6 +210,10 @@ export const searchUsers = query({
 export const updateOnboardingInfo = mutation({
   args: {
     clerkId: v.optional(v.string()),
+    fullName: v.optional(v.string()),
+    hasDespacho: v.optional(v.boolean()),
+    despachoName: v.optional(v.string()),
+    role: v.optional(v.string()),
     specializations: v.optional(v.array(v.string())),
     barNumber: v.optional(v.string()),
     firmName: v.optional(v.string()),
@@ -244,7 +248,12 @@ export const updateOnboardingInfo = mutation({
 
     const updateData: any = {};
 
-    // Only update provided fields
+    // Only update provided fields (map to correct schema fields)
+    if (args.fullName !== undefined) updateData.name = args.fullName;
+    if (args.hasDespacho !== undefined)
+      updateData.hasDespacho = args.hasDespacho;
+    if (args.despachoName !== undefined) updateData.firmName = args.despachoName;
+    if (args.role !== undefined) updateData.role = args.role;
     if (args.specializations !== undefined)
       updateData.specializations = args.specializations;
     if (args.barNumber !== undefined) updateData.barNumber = args.barNumber;
@@ -413,6 +422,30 @@ export const searchAvailableUsersForCase = query({
 
     console.log(`Available users after filtering: ${availableUsers.length}`);
     return availableUsers;
+  },
+});
+
+/**
+ * Get user by ID
+ */
+export const getUserById = query({
+  args: { userId: v.id("users") },
+  handler: async (ctx, args) => {
+    const user = await ctx.db.get(args.userId);
+    
+    if (!user) {
+      return null;
+    }
+
+    // Return only necessary fields for privacy
+    return {
+      _id: user._id,
+      email: user.email,
+      name: user.name,
+      role: user.role,
+      firmName: user.firmName,
+      specializations: user.specializations,
+    };
   },
 });
 

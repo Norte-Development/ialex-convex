@@ -1,8 +1,8 @@
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { 
-  TemplateTable, 
-  TemplatePreviewDialog, 
-  TemplateSearchBar 
+import {
+  TemplateTable,
+  TemplatePreviewDialog,
+  TemplateSearchBar,
 } from "@/components/Templates";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "../../convex/_generated/api";
@@ -17,9 +17,8 @@ export default function ModelsPage() {
   const navigate = useNavigate();
   const { currentCase } = useCase();
   const { can } = usePermissions();
-  const [previewTemplateId, setPreviewTemplateId] = useState<Id<"modelos"> | null>(
-    null,
-  );
+  const [previewTemplateId, setPreviewTemplateId] =
+    useState<Id<"modelos"> | null>(null);
   const [searchValue, setSearchValue] = useState("");
 
   // Use search when there's a search term, otherwise use regular list
@@ -30,7 +29,7 @@ export default function ModelsPage() {
     hasSearchTerm
       ? {
           searchTerm: searchValue.trim(),
-          paginationOpts: { numItems: 100, cursor: null }
+          paginationOpts: { numItems: 100, cursor: null },
         }
       : "skip",
   );
@@ -39,7 +38,7 @@ export default function ModelsPage() {
     api.functions.templates.getModelos,
     !hasSearchTerm
       ? {
-          paginationOpts: { numItems: 100, cursor: null }
+          paginationOpts: { numItems: 100, cursor: null },
         }
       : "skip",
   );
@@ -127,7 +126,7 @@ export default function ModelsPage() {
         </TabsContent>
         <TabsContent value="Mis Modelos" className="min-w-[90%]">
           <TemplateTable
-            templates={modelos.filter(t => !t.isPublic)}
+            templates={modelos.filter((t) => !t.isPublic)}
             isLoading={isLoadingTemplates}
             onPreview={handlePreviewTemplate}
             onCreateFromTemplate={handleCreateFromTemplate}

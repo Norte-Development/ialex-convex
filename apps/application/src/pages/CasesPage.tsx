@@ -2,8 +2,16 @@ import CaseGrid from "../components/Cases/CaseGrid";
 import CreateCaseDialog from "../components/Cases/CreateCaseDialog";
 import { useCase } from "@/context/CaseContext";
 import { CaseProvider } from "@/context/CaseContext";
+import { useQuery } from "convex/react";
+import { api } from "../../convex/_generated/api";
+import { Case } from "types/cases";
+import CaseTable from "@/components/Cases/CaseTable";
+
 function CasesContent() {
   const { currentCase } = useCase();
+  const cases = useQuery(api.functions.cases.getCases, {}) as
+    | Case[]
+    | undefined;
 
   return (
     <div
@@ -14,7 +22,7 @@ function CasesContent() {
         <CreateCaseDialog />
       </div>
       <div className="w-full flex justify-start">
-        <CaseGrid />
+        <CaseTable cases={cases} />
       </div>
     </div>
   );
