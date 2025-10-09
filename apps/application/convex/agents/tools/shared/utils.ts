@@ -3,11 +3,11 @@
  *
  * Expected formats:
  * - `"case:{caseId}_{userId}"` → returns both caseId and userId
- * - `"someUserId"` → treated as a raw userId (caseId will be `null`)
+ * - `"user:someUserId"` → treated as a raw userId (caseId will be `null`)
  *
  * @param threadUserId - The identifier of the thread user.
  *   - Format: `"case:{caseId}_{userId}"` (preferred)
- *   - Or just `"userId"` (fallback mode)
+ *   - Or just `"user:userId"` (fallback mode)
  *
  * @returns An object containing:
  *   - `caseId`: The extracted case ID (or `null` if fallback)
@@ -21,7 +21,7 @@
  * getUserAndCaseIds("case:1234_5678");
  * // { caseId: "1234", userId: "5678" }
  *
- * getUserAndCaseIds("5678");
+ * getUserAndCaseIds("user:5678");
  * // { caseId: null, userId: "5678" }
  * ```
  */
@@ -49,7 +49,7 @@ export const getUserAndCaseIds = (
     }
   
     // Fallback: treat as just userId
-    return { caseId: null, userId: threadUserId };
+    return { caseId: null, userId: threadUserId.replace("user:", "") };
   };
 
 /**

@@ -3,9 +3,10 @@ import express, { Request, Response } from "express";
 import crypto from "crypto";
 import { z } from "zod";
 import { queue } from "./services/queueService";
-import { initQdrant } from "./services/qdrantService";
+import { initQdrant, initLibraryQdrant } from "./services/qdrantService";
 import { logger } from "./middleware/logging";
 import { processDocumentJob } from "./jobs/processDocumentJob";
+import { processLibraryDocumentJob } from "./jobs/processLibraryDocumentJob";
 import { getDeepgramStats } from "./services/deepgramService";
 import { getTimeoutConfig } from "./utils/timeoutUtils";
 import { getSupportedFormats } from "./services/mediaProcessingService";
@@ -244,6 +245,91 @@ app.post("/test-process-document", handleUpload, async (req: Request, res: Respo
   }
 });
 
+// Test endpoint for library document uploads (bypasses signed URL requirement)
+app.post("/test-process-library-document", handleUpload, async (req: Request, res: Response) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: "No file uploaded" });
+    }
+
+    const {
+      createdBy,
+      libraryDocumentId,
+      userId,
+      teamId,
+      folderId,
+      originalFileName,
+      callbackUrl,
+      hmacSecret,
+      chunking,
+      documentType
+    } = req.body;
+
+    // Validate file size against our custom limits
+    const sizeLimit = getFileSizeLimitForUpload(req.file.mimetype);
+    if (req.file.size > sizeLimit) {
+      const limitMB = Math.round(sizeLimit / (1024 * 1024));
+      const actualMB = Math.round(req.file.size / (1024 * 1024));
+      logger.warn("File too large in test library upload", {
+        fileName: req.file.originalname,
+        size: req.file.size,
+        limit: sizeLimit,
+        mimeType: req.file.mimetype
+      });
+      return res.status(413).json({
+        error: "File too large",
+        code: "FILE_TOO_LARGE",
+        message: `File too large: ${actualMB}MB exceeds limit of ${limitMB}MB for ${req.file.mimetype}`,
+        details: {
+          fileSize: req.file.size,
+          limit: sizeLimit,
+          mimeType: req.file.mimetype
+        }
+      });
+    }
+
+    // Create a temporary file URL (for testing purposes)
+    const tempFileUrl = `file://${req.file.originalname}`;
+
+    // Add the file to the job queue
+    const jobData = {
+      signedUrl: tempFileUrl,
+      contentType: req.file.mimetype,
+      createdBy: createdBy || 'test-user',
+      libraryDocumentId: libraryDocumentId || `test-library-doc-${Date.now()}`,
+      userId: userId || undefined,
+      teamId: teamId || undefined,
+      folderId: folderId || undefined,
+      documentType: documentType || undefined,
+      originalFileName: originalFileName || req.file.originalname,
+      callbackUrl: callbackUrl || 'http://localhost:3000/test-callback',
+      hmacSecret: hmacSecret || 'test-secret',
+      chunking: chunking ? JSON.parse(chunking) : undefined,
+      // Store the file buffer for processing
+      fileBuffer: req.file.buffer
+    };
+
+    const job = await queue.add("process-library-document", jobData, {
+      attempts: 5,
+      backoff: { type: "exponential", delay: 2000 },
+      removeOnComplete: 1000,
+      removeOnFail: 1000,
+    });
+
+    logger.info("queued test library document", {
+      jobId: job.id,
+      libraryDocumentId: jobData.libraryDocumentId,
+      fileSize: req.file.size,
+      mimeType: req.file.mimetype
+    });
+    res.json({ jobId: job.id });
+
+  } catch (error: any) {
+    logger.error("Failed to queue test library document", { error: String(error) });
+    res.status(500).json({ error: "Failed to queue test library document processing" });
+  }
+});
+
 // Ingestion endpoint
 const ingestSchema = z.object({
   signedUrl: z.string().url(),
@@ -253,6 +339,28 @@ const ingestSchema = z.object({
   createdBy: z.string().optional(),
   caseId: z.string(),
   documentId: z.string(),
+  documentType: z.string().optional(),
+  originalFileName: z.string().optional(),
+  callbackUrl: z.string().url(),
+  hmacSecret: z.string().optional(),
+  chunking: z
+    .object({
+      maxTokens: z.number().min(64).max(2048).default(400),
+      overlapRatio: z.number().min(0).max(0.5).default(0.15),
+      pageWindow: z.number().min(1).max(100).default(50),
+    })
+    .optional(),
+});
+
+// Library document ingestion schema
+const libraryIngestSchema = z.object({
+  signedUrl: z.string().url(),
+  contentType: z.string().optional(),
+  createdBy: z.string(),
+  libraryDocumentId: z.string(),
+  userId: z.string().optional(),
+  teamId: z.string().optional(),
+  folderId: z.string().optional(),
   documentType: z.string().optional(),
   originalFileName: z.string().optional(),
   callbackUrl: z.string().url(),
@@ -286,6 +394,26 @@ app.post("/process-document", async (req: Request, res: Response) => {
   }
 });
 
+app.post("/process-library-document", async (req: Request, res: Response) => {
+  try {
+    const parsed = libraryIngestSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ error: parsed.error.flatten() });
+    }
+    const job = await queue.add("process-library-document", parsed.data, {
+      attempts: 5,
+      backoff: { type: "exponential", delay: 2000 },
+      removeOnComplete: 1000,
+      removeOnFail: 1000,
+    });
+    logger.info("queued library document", { jobId: job.id, libraryDocumentId: parsed.data.libraryDocumentId });
+    res.json({ jobId: job.id });
+  } catch (error) {
+    logger.error("Failed to queue library document", { error: String(error) });
+    res.status(500).json({ error: "Failed to queue library document processing" });
+  }
+});
+
 // Optional: simple polling status
 app.get("/status/:id", async (req: Request, res: Response) => {
   try {
@@ -311,6 +439,13 @@ try {
   logger.info("Document processing worker registered successfully");
 } catch (error) {
   logger.error("Failed to register document processing worker", { error: String(error) });
+}
+
+try {
+  processLibraryDocumentJob(queue);
+  logger.info("Library document processing worker registered successfully");
+} catch (error) {
+  logger.error("Failed to register library document processing worker", { error: String(error) });
 }
 
 // Custom error handler for multer errors (must be after all routes)
@@ -376,6 +511,12 @@ app.listen(port, async () => {
     logger.info("Qdrant initialized");
   } catch (e) {
     logger.error("Qdrant init failed", { error: String(e) });
+  }
+  try {
+    await initLibraryQdrant();
+    logger.info("Library Qdrant collection initialized");
+  } catch (e) {
+    logger.error("Library Qdrant init failed", { error: String(e) });
   }
   logger.info(`document-processor listening on ${port}`);
 });

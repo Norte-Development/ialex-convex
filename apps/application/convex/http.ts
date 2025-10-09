@@ -77,6 +77,52 @@ http.route({
   }),
 });
 
+http.route({
+  path: "/webhooks/library-document-processed",
+  method: "POST",
+  handler: httpAction(async (ctx, req) => {
+    const hmacSecret = process.env.HMAC_SECRET;
+    const signature = req.headers.get("x-signature") || "";
+    const bodyText = await req.text();
+    
+    if (hmacSecret && signature) {
+      const isValid = await verifyHmac(bodyText, signature, hmacSecret);
+      if (!isValid) {
+        return new Response("invalid signature", { status: 401 });
+      }
+    }
+
+    let payload: any;
+    try {
+      payload = JSON.parse(bodyText);
+    } catch {
+      return new Response("invalid json", { status: 400 });
+    }
+
+    const libraryDocumentId = payload.libraryDocumentId;
+    const status = payload.status;
+    const totalChunks = payload.totalChunks as number | undefined;
+    const error = payload.error as string | undefined;
+
+    if (!libraryDocumentId || !status) {
+      return new Response("missing fields", { status: 400 });
+    }
+
+    await ctx.runMutation(internal.functions.libraryDocumentProcessing.updateLibraryDocumentProcessingStatus, {
+      libraryDocumentId,
+      status,
+      processingCompletedAt: Date.now(),
+      processingError: error,
+      totalChunks,
+    });
+
+    return new Response(JSON.stringify({ ok: true }), {
+      status: 200,
+      headers: { "Content-Type": "application/json" },
+    });
+  }),
+});
+
 // Optional: HTTP route to mint a signed GET for testing/debug (not required by app as getDocumentUrl query handles this)
 http.route({
   path: "/signed-download",
