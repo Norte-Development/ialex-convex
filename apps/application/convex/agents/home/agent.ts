@@ -2,6 +2,14 @@ import { components } from "../../_generated/api";
 import { Agent, stepCountIs } from "@convex-dev/agent";
 import { openai } from "@ai-sdk/openai";
 
+import {
+  searchLibraryDocumentsTool,
+  listLibraryDocumentsTool,
+  readLibraryDocumentTool,
+  legislationFindTool,
+  legislationReadTool,
+} from "../tools";
+
 /**
  * Main agent instance for the legal assistant system.
  * 
@@ -28,6 +36,13 @@ export const agent = new Agent(components.agent, {
     excludeToolMessages: false,
   },
 
+  tools: {
+    searchLibraryDocuments: searchLibraryDocumentsTool,
+    listLibraryDocuments: listLibraryDocumentsTool,
+    readLibraryDocument: readLibraryDocumentTool,
+    searchLegislation: legislationFindTool,
+    readLegislation: legislationReadTool,
+  }
 });
 
 

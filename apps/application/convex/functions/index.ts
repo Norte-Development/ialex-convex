@@ -97,3 +97,29 @@ export {
   listTodoItemsByList,
   getOrCreateThreadTodoList,
 } from "./todos";
+
+// Library Document Management
+export {
+  generateUploadUrl as generateLibraryUploadUrl,
+  createLibraryDocument,
+  getLibraryDocuments,
+  getAllAccessibleLibraryDocuments,
+  getLibraryDocument,
+  getLibraryDocumentUrl,
+  deleteLibraryDocument,
+  moveLibraryDocument,
+  updateLibraryDocument,
+} from "./libraryDocument";
+
+// Library Folder Management
+export {
+  createLibraryFolder,
+  getLibraryFolders,
+  getLibraryFolder,
+  updateLibraryFolder,
+  archiveLibraryFolder,
+  restoreLibraryFolder,
+  moveLibraryFolder,
+  getLibraryFolderPath,
+  deleteLibraryFolder,
+} from "./libraryFolders";

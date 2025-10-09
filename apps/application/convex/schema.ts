@@ -454,4 +454,62 @@ export default defineSchema({
     .index("by_granted_by", ["grantedBy"])
     .index("by_active_status", ["isActive"])
     .index("by_expires_at", ["expiresAt"]),
-});
+
+  // ========================================
+  // LIBRARY - DOCUMENTS AND FOLDERS
+  // ========================================
+
+  libraryFolders: defineTable({
+    name: v.string(),
+    description: v.optional(v.string()),
+    // Either userId (personal) OR teamId (team library)
+    userId: v.optional(v.id("users")),
+    teamId: v.optional(v.id("teams")),
+    parentFolderId: v.optional(v.id("libraryFolders")),
+    color: v.optional(v.string()),
+    isArchived: v.boolean(),
+    createdBy: v.id("users"),
+    sortOrder: v.optional(v.number()),
+  })
+    .index("by_user", ["userId"])
+    .index("by_team", ["teamId"])
+    .index("by_parent", ["parentFolderId"])
+    .index("by_active_status", ["isArchived"])
+    .index("by_created_by", ["createdBy"])
+    .index("by_sort_order", ["sortOrder"]),
+
+  // Library Documents - files stored in Convex storage or GCS
+  libraryDocuments: defineTable({
+    title: v.string(),
+    userId: v.optional(v.id("users")),
+    teamId: v.optional(v.id("teams")),
+    description: v.optional(v.string()),
+    folderId: v.optional(v.id("libraryFolders")),
+    createdBy: v.id("users"),
+    gcsBucket: v.optional(v.string()),
+    gcsObject: v.optional(v.string()),
+    mimeType: v.string(),
+    fileSize: v.number(),
+    tags: v.optional(v.array(v.string())),
+    processingStatus: v.optional(v.union(
+      v.literal("pending"),
+      v.literal("processing"),
+      v.literal("completed"),
+      v.literal("failed"),
+    )),
+    // Add these missing processing fields:
+    processingStartedAt: v.optional(v.number()),
+    processingCompletedAt: v.optional(v.number()),
+    processingError: v.optional(v.string()),
+    totalChunks: v.optional(v.number()), // Number of chunks created
+  }).index("by_user", ["userId"])
+    .index("by_team", ["teamId"])
+    .index("by_folder", ["folderId"])
+    .index("by_type", ["mimeType"])
+    .index("by_created_by", ["createdBy"])
+    .index("by_gcs_object", ["gcsObject"])
+    .index("by_processing_status", ["processingStatus"]),
+
+
+})
+   

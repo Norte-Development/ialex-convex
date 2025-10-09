@@ -26,9 +26,45 @@ export function CasePermissionsProvider({
 export function usePermissions() {
   const ctx = useContext(CasePermissionsContext);
   if (!ctx) {
-    throw new Error(
-      "usePermissions must be used within CasePermissionsProvider.",
-    );
+    // Return default values with no permissions instead of throwing
+    return {
+      hasAccess: false,
+      accessLevel: null,
+      source: null,
+      isLoading: false,
+      hasAccessLevel: () => false,
+      hasPermission: () => false,
+      can: {
+        viewCase: false,
+        editCase: false,
+        deleteCase: false,
+        manageCase: false,
+        docs: {
+          read: false,
+          write: false,
+          delete: false,
+        },
+        escritos: {
+          read: false,
+          write: false,
+          delete: false,
+        },
+        clients: {
+          read: false,
+          write: false,
+          delete: false,
+        },
+        teams: {
+          read: false,
+          write: false,
+        },
+        chat: false,
+        permissions: {
+          grant: false,
+          revoke: false,
+        },
+      },
+    };
   }
   return ctx;
 }

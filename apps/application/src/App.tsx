@@ -39,6 +39,8 @@ const CaseDocumentPage = lazy(
 const ComponentsShowcasePage = lazy(
   () => import("./pages/ComponentsShowcasePage"),
 );
+const LibraryPage = lazy(() => import("./pages/LibraryPage"));
+const LibraryDocumentPage = lazy(() => import("./pages/LibraryDocumentPage"));
 
 // Wrapper to provide CasePermissionsProvider with caseId from CaseContext
 const CaseRoutesWrapper: React.FC = () => {
@@ -200,6 +202,22 @@ const AppWithThread = () => {
                     element={
                       <ProtectedRoute>
                         <ComponentsShowcasePage />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/biblioteca"
+                    element={
+                      <ProtectedRoute>
+                        <LibraryPage />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/biblioteca/documento/:documentId"
+                    element={
+                      <ProtectedRoute>
+                        <LibraryDocumentPage />
                       </ProtectedRoute>
                     }
                   />
