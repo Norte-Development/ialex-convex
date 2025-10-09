@@ -272,27 +272,27 @@ export class ContextService {
     const sections: string[] = [];
 
     // User information
-    sections.push(`## User Information
-- Name: ${contextBundle.user.name}
+    sections.push(`## Informacion del usuario
+- Nombre: ${contextBundle.user.name}
 - Email: ${contextBundle.user.email}
-- Role: ${contextBundle.user.role || 'Not specified'}
-- Specializations: ${contextBundle.user.specializations?.join(', ') || 'Not specified'}
-- Firm: ${contextBundle.user.firmName || 'Not specified'}
-- Experience: ${contextBundle.user.experienceYears ? `${contextBundle.user.experienceYears} years` : 'Not specified'}
-- Teams: ${contextBundle.user.teams?.map(t => `${t.name} (${t.role})`).join(', ') || 'Not specified'}`);
+- Rol: ${contextBundle.user.role || 'No especificado'}
+- Especialidades: ${contextBundle.user.specializations?.join(', ') || 'No especificado'}
+- Firma: ${contextBundle.user.firmName || 'No especificado'}
+- Experiencia: ${contextBundle.user.experienceYears ? `${contextBundle.user.experienceYears} years` : 'No especificado'}
+- Equipos: ${contextBundle.user.teams?.map(t => `${t.name} (${t.role})`).join(', ') || 'No especificado'}`);
 
     // Case information
     if (contextBundle.case) {
       const caseInfo = contextBundle.case;
-      sections.push(`## Current Case
+      sections.push(`## Caso actual
 - Title: ${caseInfo.title}
 - ID: ${caseInfo.id}
-- Description: ${caseInfo.description || 'No description'}
-- Status: ${caseInfo.status}
-- Priority: ${caseInfo.priority}
-- Category: ${caseInfo.category || 'Not specified'}
-- Start Date: ${new Date(caseInfo.startDate).toLocaleDateString()}
-- End Date: ${caseInfo.endDate ? new Date(caseInfo.endDate).toLocaleDateString() : 'Not set'}
+- Descripcion: ${caseInfo.description || 'No description'}
+- Estado: ${caseInfo.status}
+- Prioridad: ${caseInfo.priority}
+- Categoria: ${caseInfo.category || 'No especificado'}
+- Fecha de inicio: ${new Date(caseInfo.startDate).toLocaleDateString()}
+- Fecha de fin: ${caseInfo.endDate ? new Date(caseInfo.endDate).toLocaleDateString() : 'No especificado'}
 - Tags: ${caseInfo.tags?.join(', ') || 'None'}`);
     }
 
@@ -301,7 +301,7 @@ export class ContextService {
       const clientInfo = contextBundle.clients
         .map(client => `- ${client.name} (${client.clientType}${client.role ? `, ${client.role}` : ''})`)
         .join('\n');
-      sections.push(`## Case Clients
+      sections.push(`## Clientes del caso
 ${clientInfo}`);
     }
 
@@ -309,23 +309,23 @@ ${clientInfo}`);
     if (contextBundle.currentView.currentPage) {
       const view = contextBundle.currentView;
       let viewSection = `## Current View
-- Page: ${view.currentPage}
-- View Mode: ${view.currentView || 'Default'}`;
+- Pagina: ${view.currentPage}
+- Modo de vista: ${view.currentView || 'Default'}`;
 
       if (view.selectedItems && view.selectedItems.length > 0) {
-        viewSection += `\n- Selected Items: ${view.selectedItems.length} item(s)`;
+        viewSection += `\n- Items seleccionados: ${view.selectedItems.length} item(s)`;
       }
 
       if (view.cursorPosition) {
-        viewSection += `\n- Cursor Position: Line ${view.cursorPosition}`;
+        viewSection += `\n- Posicion del cursor: Line ${view.cursorPosition}`;
       }
 
       if (view.searchQuery) {
-        viewSection += `\n- Search Query: "${view.searchQuery}"`;
+        viewSection += `\n- Consulta de busqueda: "${view.searchQuery}"`;
       }
 
       if (view.currentEscritoId) {
-        viewSection += `\n- Working on Escrito: ${view.currentEscritoId}`;
+        viewSection += `\n- Trabajando en Escrito: ${view.currentEscritoId}`;
       }
 
       sections.push(viewSection);
@@ -334,10 +334,10 @@ ${clientInfo}`);
     // Recent activity
     if (contextBundle.recentActivity.length > 0) {
       const activityInfo = contextBundle.recentActivity
-        .slice(0, 5) // Limit to last 5 activities
+        .slice(0, 5) // Limitar a las últimas 5 actividades
         .map(activity => `- ${activity.action} on ${activity.entityType} (${new Date(activity.timestamp).toLocaleTimeString()})`)
         .join('\n');
-      sections.push(`## Recent Activity
+      sections.push(`## Actividad reciente
 ${activityInfo}`);
     }
 

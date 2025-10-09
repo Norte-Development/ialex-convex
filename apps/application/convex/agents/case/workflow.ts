@@ -210,16 +210,15 @@ export const streamWithContextAction = internalAction({
     });
     const schemaSummary = `ProseMirror Schema Summary\n- Nodes: ${nodeSpecs.join(", ")}\n- Marks: ${markSpecs.join(", ")}`;
 
-    const systemMessage = `Sos el asistente legal IALEX. Aquí está el contexto actual:
+    const systemMessage = `
 
-      ${contextString}
+    ${prompt}
+    ---
+    ${contextString}
 
-      ---
-      ${schemaSummary}
-      ---
-
-      Instrucciones:
-      ${prompt}
+    ---
+    ${schemaSummary}
+      
     `;
 
     const { thread } = await agent.continueThread(ctx, { threadId });
@@ -282,10 +281,10 @@ export const streamWithContextAction = internalAction({
         {
           saveStreamDeltas: {
             chunking: "line",
-            throttleMs: 250,
+            throttleMs: 50,
           },
           contextOptions: {
-            searchOtherThreads: true,
+            searchOtherThreads: false,
           },
         },
       );
