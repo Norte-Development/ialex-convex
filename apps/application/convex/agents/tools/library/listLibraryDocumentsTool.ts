@@ -71,7 +71,7 @@ export const listLibraryDocumentsTool = createTool({
         description: doc.description || "Sin descripción",
         scope: doc.teamId ? "Equipo" : "Personal",
         processingStatus: doc.processingStatus || "unknown",
-        // totalChunks: doc.totalChunks || 0,
+        totalChunks: doc.totalChunks || 0,
         canRead: (doc.processingStatus === "completed" || !doc.processingStatus),
         fileSize: doc.fileSize,
         tags: doc.tags || [],
