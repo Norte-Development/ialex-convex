@@ -110,7 +110,7 @@ ${documentList.length === 0 ? 'No hay documentos en tu biblioteca.' : documentLi
 - **Ámbito**: ${doc.scope}
 - **Descripción**: ${doc.description}
 - **Estado de Procesamiento**: ${doc.processingStatus}
-- **Total de Fragmentos**:
+- **Total de Fragmentos**: ${doc.totalChunks}
 - **¿Se Puede Leer?**: ${doc.canRead ? 'Sí' : 'No'}
 - **Tamaño del Archivo**: ${doc.fileSize ? `${Math.round(doc.fileSize / 1024)} KB` : 'N/A'}
 - **Etiquetas**: ${doc.tags.length > 0 ? doc.tags.join(', ') : 'Sin etiquetas'}
