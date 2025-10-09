@@ -17,6 +17,10 @@ import {
 
   legislationFindTool,
   legislationReadTool,
+
+  searchLibraryDocumentsTool,
+  listLibraryDocumentsTool,
+  readLibraryDocumentTool,
 } from "../tools";
 
 /**
@@ -59,6 +63,9 @@ export const agent = new Agent(components.agent, {
     manageEscrito: manageEscritoTool,
     searchClients: searchCaseClientsTool,
     searchTemplates: searchTemplatesTool,
+    searchLibraryDocuments: searchLibraryDocumentsTool,
+    listLibraryDocuments: listLibraryDocumentsTool,
+    readLibraryDocument: readLibraryDocumentTool,
   }
 });
 

@@ -23,6 +23,9 @@ export * from './planning';
 // Legislation tools
 export * from './legislation';
 
+// Library tools
+export * from './library';
+
 // Shared utilities
 export * from './shared';
 

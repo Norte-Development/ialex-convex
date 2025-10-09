@@ -1,5 +1,5 @@
 import { v } from "convex/values";
-import { query, mutation } from "../_generated/server";
+import { query, mutation, internalQuery } from "../_generated/server";
 import {
   getCurrentUserFromAuth,
   AccessLevel,
@@ -1706,5 +1706,28 @@ export const createUserAndJoinTeam = mutation({
       `Created user ${userId} and added to team with membership ${membershipId}`,
     );
     return { userId, membershipId };
+  },
+});
+
+// ========================================
+// INTERNAL FUNCTIONS
+// ========================================
+
+/**
+ * Internal query to get user team memberships.
+ * Used by agents to search team libraries.
+ */
+export const getUserTeamMembershipsInternal = internalQuery({
+  args: {
+    userId: v.id("users"),
+  },
+  handler: async (ctx, args) => {
+    const memberships = await ctx.db
+      .query("teamMemberships")
+      .withIndex("by_user", (q) => q.eq("userId", args.userId))
+      .filter((q) => q.eq(q.field("isActive"), true))
+      .collect();
+
+    return memberships;
   },
 });
