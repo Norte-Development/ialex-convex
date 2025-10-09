@@ -231,7 +231,7 @@ export const streamWithContextAction = internalAction({
           promptMessageId,
           providerOptions: {
             openai: {
-              reasoningEffort: "low",
+              reasoningEffort: "minimal",
               reasoningSummary: "auto",
             },
           },
@@ -281,8 +281,8 @@ export const streamWithContextAction = internalAction({
         },
         {
           saveStreamDeltas: {
-            chunking: "word",
-            throttleMs: 50,
+            chunking: "line",
+            throttleMs: 250,
           },
           contextOptions: {
             searchOtherThreads: true,
