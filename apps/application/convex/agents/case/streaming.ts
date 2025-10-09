@@ -9,7 +9,7 @@ import {
 import { v } from "convex/values";
 import { authorizeThreadAccess } from "../threads";
 import { agent } from "./agent";
-import { ContextService } from "../../context/contextService";
+import { ContextService } from "../../services/context/contextService";
 import {prompt} from "./prompt";
 import { buildServerSchema } from "../../../../../packages/shared/src/tiptap/schema";
 

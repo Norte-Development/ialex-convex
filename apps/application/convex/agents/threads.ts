@@ -9,10 +9,10 @@ import {
   QueryCtx,
 } from "../_generated/server";
 import { getThreadMetadata, vMessage } from "@convex-dev/agent";
-import { getCurrentUserFromAuth } from "../auth_utils";
+import { getCurrentUserFromAuth } from "../services/auth/authUtils";
 import { agent } from "./case/agent";
 import { paginationOptsValidator } from "convex/server";
-import { checkNewCaseAccess } from "../auth_utils";
+import { checkNewCaseAccess } from "../services/auth/authUtils";
 import { Id } from "../_generated/dataModel";
 
 /**
