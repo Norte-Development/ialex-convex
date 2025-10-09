@@ -43,7 +43,14 @@ export const CaseProvider: React.FC<CaseProviderProps> = ({ children }) => {
 export const useCase = (): CaseContextType => {
   const context = useContext(CaseContext);
   if (context === undefined) {
-    throw new Error("useCase must be used within a CaseProvider");
+    // Return default values instead of throwing
+    return {
+      currentCase: null,
+      isLoading: false,
+      error: null,
+      caseId: null,
+      caseTitle: null,
+    };
   }
   return context;
 };

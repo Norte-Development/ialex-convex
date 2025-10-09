@@ -1,4 +1,4 @@
-import { useQuery, useMutation, useAction } from "convex/react";
+import { useQuery, useMutation, useAction, usePaginatedQuery } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import { LibraryScope, SortOption, ViewMode } from "@/pages/LibraryPage";
 import { FolderCard } from "./FolderCard";
@@ -8,7 +8,8 @@ import { EditFolderDialog } from "./EditFolderDialog";
 import { EditDocumentDialog } from "./EditDocumentDialog";
 import { Doc, Id } from "../../../convex/_generated/dataModel";
 import { toast } from "sonner";
-import { FileText } from "lucide-react";
+import { FileText, ChevronRight } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 interface LibraryGridProps {
   activeScope: LibraryScope;
@@ -40,12 +41,18 @@ export function LibraryGrid({
       : { teamId: activeScope.teamId, parentFolderId: currentFolderId }
   );
 
-  // Fetch documents - userId is handled server-side via auth
-  const documents = useQuery(
+  // Fetch documents with pagination - userId is handled server-side via auth
+  const {
+    results: documents,
+    status: documentsStatus,
+    loadMore,
+    isLoading: isLoadingDocuments,
+  } = usePaginatedQuery(
     api.functions.libraryDocument.getLibraryDocuments,
     activeScope.type === "personal"
       ? { folderId: currentFolderId }
-      : { teamId: activeScope.teamId, folderId: currentFolderId }
+      : { teamId: activeScope.teamId, folderId: currentFolderId },
+    { initialNumItems: 50 }
   );
 
   const deleteFolder = useMutation(api.functions.libraryFolders.deleteLibraryFolder);
@@ -150,6 +157,19 @@ export function LibraryGrid({
           ))}
         </div>
 
+        {documentsStatus === "CanLoadMore" && (
+          <div className="flex justify-center pt-4">
+            <Button
+              onClick={() => loadMore(50)}
+              variant="outline"
+              disabled={isLoadingDocuments}
+            >
+              {isLoadingDocuments ? "Cargando..." : "Cargar más documentos"}
+              <ChevronRight className="ml-2 h-4 w-4" />
+            </Button>
+          </div>
+        )}
+
         <EditFolderDialog
           folder={editingFolder}
           open={!!editingFolder}
@@ -206,6 +226,19 @@ export function LibraryGrid({
           <p className="mt-1 text-xs text-muted-foreground">
             Comienza subiendo un archivo o creando una carpeta
           </p>
+        </div>
+      )}
+
+      {documentsStatus === "CanLoadMore" && (
+        <div className="flex justify-center pt-4">
+          <Button
+            onClick={() => loadMore(50)}
+            variant="outline"
+            disabled={isLoadingDocuments}
+          >
+            {isLoadingDocuments ? "Cargando..." : "Cargar más documentos"}
+            <ChevronRight className="ml-2 h-4 w-4" />
+          </Button>
         </div>
       )}
 

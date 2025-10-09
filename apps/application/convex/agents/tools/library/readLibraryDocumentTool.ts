@@ -1,7 +1,8 @@
 import { createTool, ToolCtx } from "@convex-dev/agent";
-import { api } from "../../../_generated/api";
+import { api, internal } from "../../../_generated/api";
 import { z } from "zod";
 import { createErrorResponse, validateStringParam, validateNumberParam } from "../shared/utils";
+import { Id } from "../../../_generated/dataModel";
 
 /**
  * Tool for reading a library document progressively, chunk by chunk.
@@ -61,8 +62,8 @@ export const readLibraryDocumentTool = createTool({
       console.log("Reading library document:", { documentId, chunkIndex, chunkCount });
 
       // Get library document metadata (includes permission check)
-      const document = await ctx.runQuery(api.functions.libraryDocument.getLibraryDocument, {
-        documentId: documentId as any
+      const document = await ctx.runQuery(internal.functions.libraryDocument.getLibraryDocumentForAgent, {
+        documentId: documentId as Id<"libraryDocuments">
       });
 
       if (!document) {
@@ -75,7 +76,7 @@ export const readLibraryDocumentTool = createTool({
       }
 
       // Get total chunks (prefer DB field, fallback to Qdrant count)
-      let totalChunks = 0;
+      let totalChunks = document.totalChunks || 0;
       if (totalChunks === 0) {
         totalChunks = await ctx.runAction(api.rag.qdrantUtils.libraryDocuments.getLibraryDocumentChunkCount, {
           libraryDocumentId: documentId

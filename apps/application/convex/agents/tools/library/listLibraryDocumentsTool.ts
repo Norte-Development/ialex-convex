@@ -1,5 +1,5 @@
 import { createTool, ToolCtx } from "@convex-dev/agent";
-import { api, internal } from "../../../_generated/api";
+import { internal } from "../../../_generated/api";
 import { z } from "zod";
 import { createErrorResponse } from "../shared/utils";
 import { Id } from "../../../_generated/dataModel";
@@ -32,7 +32,10 @@ import { Id } from "../../../_generated/dataModel";
  */
 export const listLibraryDocumentsTool = createTool({
   description: "List all library documents accessible to you with their processing status and chunk counts. Includes both your personal library and all team libraries you have access to. Use this to see what reference documents, templates, and knowledge base articles are available.",
-  args: z.object({}),
+  args: z.object({
+    limit: z.any().optional().describe("Maximum number of documents to return (default: 10)"),
+    offset: z.any().optional().describe("Offset for pagination (default: 0)"),
+  }),
   handler: async (ctx: ToolCtx, args: any) => {
     try {
       // Verify authentication using agent context
@@ -55,10 +58,14 @@ export const listLibraryDocumentsTool = createTool({
       console.log("Listing library documents for user:", userId);
 
       // Get all accessible library documents (personal + team libraries)
-      const documents = await ctx.runQuery(api.functions.libraryDocument.getAllAccessibleLibraryDocuments, {});
+      const result = await ctx.runQuery(internal.functions.libraryDocument.getAllAccessibleLibraryDocumentsForAgent, {
+        userId: userId as Id<"users">,
+        limit: args.limit !== undefined ? args.limit : 10,
+        offset: args.offset !== undefined ? args.offset : 0
+      });
 
       // Format document information for the agent
-      const documentList = documents.map(doc => ({
+      const documentList = result.documents.map(doc => ({
         documentId: doc._id,
         title: doc.title,
         description: doc.description || "Sin descripción",
@@ -72,7 +79,8 @@ export const listLibraryDocumentsTool = createTool({
       }));
 
       const summary = {
-        totalDocuments: documentList.length,
+        totalDocuments: result.totalCount,
+        currentPage: documentList.length,
         personalDocuments: documentList.filter(d => d.scope === "Personal").length,
         teamDocuments: documentList.filter(d => d.scope === "Equipo").length,
         readableDocuments: documentList.filter(d => d.canRead).length,
@@ -80,15 +88,20 @@ export const listLibraryDocumentsTool = createTool({
         failedDocuments: documentList.filter(d => d.processingStatus === "failed").length
       };
 
+      const limit = args.limit !== undefined ? args.limit : 10;
+      const offset = args.offset !== undefined ? args.offset : 0;
+
       return `# 📚 Documentos de Biblioteca
 
 ## Resumen
 - **Total de Documentos**: ${summary.totalDocuments}
-- **Documentos Personales**: ${summary.personalDocuments}
-- **Documentos de Equipo**: ${summary.teamDocuments}
-- **Documentos Legibles**: ${summary.readableDocuments}
-- **Documentos en Procesamiento**: ${summary.processingDocuments}
-- **Documentos Fallidos**: ${summary.failedDocuments}
+- **Mostrando**: ${summary.currentPage} documentos (${offset + 1} - ${offset + summary.currentPage})
+- **Documentos Personales** (en esta página): ${summary.personalDocuments}
+- **Documentos de Equipo** (en esta página): ${summary.teamDocuments}
+- **Documentos Legibles** (en esta página): ${summary.readableDocuments}
+- **Documentos en Procesamiento** (en esta página): ${summary.processingDocuments}
+- **Documentos Fallidos** (en esta página): ${summary.failedDocuments}
+- **Hay más documentos**: ${result.hasMore ? `Sí (usa offset: ${result.nextOffset} para ver más)` : 'No'}
 
 ## Lista de Documentos
 ${documentList.length === 0 ? 'No hay documentos en tu biblioteca.' : documentList.map((doc, index) => `

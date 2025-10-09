@@ -1,6 +1,7 @@
-import { action, mutation, query } from "../_generated/server";
+import { action, mutation, query, internalQuery } from "../_generated/server";
 import { api, internal } from "../_generated/api";
 import { v } from "convex/values";
+import { paginationOptsValidator } from "convex/server";
 import { getCurrentUserFromAuth } from "../auth_utils";
 
 // ========================================
@@ -163,17 +164,19 @@ export const createLibraryDocument = mutation({
 });
 
 /**
- * Gets library documents for a user or team.
+ * Gets library documents for a user or team with pagination.
  *
  * @param {Object} args - The function arguments
  * @param {string} [args.teamId] - Team ID for team library (optional, defaults to personal)
  * @param {string} [args.folderId] - Optional folder filter
- * @returns {Promise<Object[]>} Array of library documents
+ * @param {Object} args.paginationOpts - Pagination options with numItems and cursor
+ * @returns {Promise<Object>} Paginated results with page, isDone, and continueCursor
  */
 export const getLibraryDocuments = query({
   args: {
     teamId: v.optional(v.id("teams")),
     folderId: v.optional(v.id("libraryFolders")),
+    paginationOpts: paginationOptsValidator,
   },
   handler: async (ctx, args) => {
     const currentUser = await getCurrentUserFromAuth(ctx);
@@ -196,37 +199,48 @@ export const getLibraryDocuments = query({
     if (args.folderId) {
       query = ctx.db
         .query("libraryDocuments")
-        .withIndex("by_folder", (q) => q.eq("folderId", args.folderId));
+        .withIndex("by_folder", (q) => q.eq("folderId", args.folderId))
+        .order("desc");
     } else if (args.teamId) {
       query = ctx.db
         .query("libraryDocuments")
-        .withIndex("by_team", (q) => q.eq("teamId", args.teamId));
+        .withIndex("by_team", (q) => q.eq("teamId", args.teamId))
+        .order("desc");
     } else {
       // Personal library - use currentUser._id from auth
       query = ctx.db
         .query("libraryDocuments")
-        .withIndex("by_user", (q) => q.eq("userId", currentUser._id));
+        .withIndex("by_user", (q) => q.eq("userId", currentUser._id))
+        .order("desc");
     }
 
-    const documents = await query.collect();
-    return documents;
+    return await query.paginate(args.paginationOpts);
   },
 });
 
 /**
- * Gets all library documents accessible to the current user (personal + all teams).
+ * Gets all library documents accessible to the current user (personal + all teams) with pagination.
  *
- * @returns {Promise<Object[]>} Array of all accessible library documents
+ * @param {Object} args - The function arguments
+ * @param {number} [args.limit=20] - Maximum number of documents to return (default: 20)
+ * @param {number} [args.offset=0] - Number of documents to skip (default: 0)
+ * @returns {Promise<Object>} Object with documents array and pagination metadata
  */
 export const getAllAccessibleLibraryDocuments = query({
-  args: {},
-  handler: async (ctx) => {
+  args: {
+    limit: v.optional(v.number()),
+    offset: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
     const currentUser = await getCurrentUserFromAuth(ctx);
+    const limit = args.limit ?? 20;
+    const offset = args.offset ?? 0;
 
     // Get personal library documents
     const personalDocs = await ctx.db
       .query("libraryDocuments")
       .withIndex("by_user", (q) => q.eq("userId", currentUser._id))
+      .order("desc")
       .collect();
 
     // Get all active team memberships
@@ -242,11 +256,91 @@ export const getAllAccessibleLibraryDocuments = query({
       const docs = await ctx.db
         .query("libraryDocuments")
         .withIndex("by_team", (q) => q.eq("teamId", membership.teamId))
+        .order("desc")
         .collect();
       teamDocs.push(...docs);
     }
 
-    return [...personalDocs, ...teamDocs];
+    // Combine and sort by creation time (descending)
+    const allDocs = [...personalDocs, ...teamDocs].sort(
+      (a, b) => b._creationTime - a._creationTime
+    );
+
+    // Apply pagination
+    const paginatedDocs = allDocs.slice(offset, offset + limit);
+    const hasMore = offset + limit < allDocs.length;
+
+    return {
+      documents: paginatedDocs,
+      totalCount: allDocs.length,
+      hasMore,
+      nextOffset: hasMore ? offset + limit : null,
+    };
+  },
+});
+
+
+
+/**
+ * Gets all library documents accessible to the specified user (personal + all teams) with pagination.
+ *
+ * @param {Object} args - The function arguments
+ * @param {string} args.userId - The user ID
+ * @param {number} [args.limit=20] - Maximum number of documents to return (default: 20)
+ * @param {number} [args.offset=0] - Number of documents to skip (default: 0)
+ * @returns {Promise<Object>} Object with documents array and pagination metadata
+ */
+export const getAllAccessibleLibraryDocumentsForAgent = internalQuery({
+  args: {
+    userId: v.id("users"),
+    limit: v.optional(v.number()),
+    offset: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const limit = args.limit ?? 20;
+    const offset = args.offset ?? 0;
+
+    // Get personal library documents
+    const personalDocs = await ctx.db
+      .query("libraryDocuments")
+      .withIndex("by_user", (q) => q.eq("userId", args.userId))
+      .order("desc")
+      .collect();
+
+    // Get all active team memberships
+    const teamMemberships = await ctx.db
+      .query("teamMemberships")
+      .withIndex("by_user", (q) => q.eq("userId", args.userId))
+      .filter((q) => q.eq(q.field("isActive"), true))
+      .collect();
+
+    // Get documents from all teams
+    const teamDocs = [];
+    for (const membership of teamMemberships) {
+      const docs = await ctx.db
+        .query("libraryDocuments")
+        .withIndex("by_team", (q) => q.eq("teamId", membership.teamId))
+        .order("desc")
+        .collect();
+      teamDocs.push(...docs);
+    }
+
+    // Combine and sort by creation time (descending)
+    const allDocs = [...personalDocs, ...teamDocs].sort(
+      (a, b) => b._creationTime - a._creationTime
+    );
+
+    // Apply pagination
+    const paginatedDocs = allDocs.slice(offset, offset + limit);
+    const hasMore = offset + limit < allDocs.length;
+
+    return {
+      documents: paginatedDocs,
+      totalCount: allDocs.length,
+      hasMore,
+      nextOffset: hasMore ? offset + limit : null,
+    };
+
   },
 });
 
@@ -288,6 +382,25 @@ export const getLibraryDocument = query({
     return document;
   },
 });
+
+/**
+ * Gets a single library document by ID without permission check.
+ *
+ * @param {Object} args - The function arguments
+ * @param {string} args.documentId - The document ID
+ * @returns {Promise<Object>} The library document
+ */
+export const getLibraryDocumentForAgent = internalQuery({
+  args: {
+    documentId: v.id("libraryDocuments"),
+  },
+  handler: async (ctx, args) => {
+    const document = await ctx.db.get(args.documentId);
+    return document;
+  },
+});
+
+
 
 /**
  * Gets a download URL for a library document.
