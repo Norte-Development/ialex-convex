@@ -166,21 +166,19 @@ export const createLibraryDocument = mutation({
  * Gets library documents for a user or team.
  *
  * @param {Object} args - The function arguments
- * @param {string} [args.userId] - User ID for personal library
- * @param {string} [args.teamId] - Team ID for team library
+ * @param {string} [args.teamId] - Team ID for team library (optional, defaults to personal)
  * @param {string} [args.folderId] - Optional folder filter
  * @returns {Promise<Object[]>} Array of library documents
  */
 export const getLibraryDocuments = query({
   args: {
-    userId: v.optional(v.id("users")),
     teamId: v.optional(v.id("teams")),
     folderId: v.optional(v.id("libraryFolders")),
   },
   handler: async (ctx, args) => {
     const currentUser = await getCurrentUserFromAuth(ctx);
 
-    // Validate access
+    // Validate team access if teamId is provided
     if (args.teamId) {
       const isTeamMember = await ctx.db
         .query("teamMemberships")
@@ -191,8 +189,6 @@ export const getLibraryDocuments = query({
         .first();
 
       if (!isTeamMember) throw new Error("Not a team member");
-    } else if (args.userId && args.userId !== currentUser._id) {
-      throw new Error("Cannot access another user's personal library");
     }
 
     // Query documents
@@ -206,10 +202,10 @@ export const getLibraryDocuments = query({
         .query("libraryDocuments")
         .withIndex("by_team", (q) => q.eq("teamId", args.teamId));
     } else {
-      const targetUserId = args.userId || currentUser._id;
+      // Personal library - use currentUser._id from auth
       query = ctx.db
         .query("libraryDocuments")
-        .withIndex("by_user", (q) => q.eq("userId", targetUserId));
+        .withIndex("by_user", (q) => q.eq("userId", currentUser._id));
     }
 
     const documents = await query.collect();

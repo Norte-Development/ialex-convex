@@ -18,6 +18,7 @@ export default function NavBar() {
     { label: "Clientes", path: "/clientes" },
     { label: "Casos", path: "/casos" },
     { label: "Modelos", path: "/modelos" },
+    { label: "Biblioteca", path: "/biblioteca" },
     { label: "Legales", path: "/base-de-datos" },
   ];
 

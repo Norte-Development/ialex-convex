@@ -107,15 +107,13 @@ export const createLibraryFolder = mutation({
  * Retrieves all library folders for a user or team.
  *
  * @param {Object} args - The function arguments
- * @param {string} [args.userId] - User ID for personal library
- * @param {string} [args.teamId] - Team ID for team library
+ * @param {string} [args.teamId] - Team ID for team library (optional, defaults to personal)
  * @param {string} [args.parentFolderId] - Optional parent folder filter
  * @param {boolean} [args.includeArchived] - Include archived folders
  * @returns {Promise<Object[]>} Array of folders sorted by sortOrder then name
  */
 export const getLibraryFolders = query({
   args: {
-    userId: v.optional(v.id("users")),
     teamId: v.optional(v.id("teams")),
     parentFolderId: v.optional(v.id("libraryFolders")),
     includeArchived: v.optional(v.boolean()),
@@ -123,7 +121,7 @@ export const getLibraryFolders = query({
   handler: async (ctx, args) => {
     const currentUser = await getCurrentUserFromAuth(ctx);
 
-    // Validate access
+    // Validate team access if teamId is provided
     if (args.teamId) {
       const isTeamMember = await ctx.db
         .query("teamMemberships")
@@ -134,8 +132,6 @@ export const getLibraryFolders = query({
         .first();
 
       if (!isTeamMember) throw new Error("Not a team member");
-    } else if (args.userId && args.userId !== currentUser._id) {
-      throw new Error("Cannot access another user's personal library");
     }
 
     // Query folders based on scope
@@ -149,10 +145,10 @@ export const getLibraryFolders = query({
         )
         .collect();
     } else {
-      const targetUserId = args.userId || currentUser._id;
+      // Personal library - use currentUser._id from auth
       folders = await ctx.db
         .query("libraryFolders")
-        .withIndex("by_user", (q) => q.eq("userId", targetUserId))
+        .withIndex("by_user", (q) => q.eq("userId", currentUser._id))
         .filter((q) =>
           q.eq(q.field("parentFolderId"), args.parentFolderId || undefined),
         )

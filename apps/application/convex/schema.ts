@@ -497,6 +497,11 @@ export default defineSchema({
       v.literal("completed"),
       v.literal("failed"),
     )),
+    // Add these missing processing fields:
+    processingStartedAt: v.optional(v.number()),
+    processingCompletedAt: v.optional(v.number()),
+    processingError: v.optional(v.string()),
+    totalChunks: v.optional(v.number()), // Number of chunks created
   }).index("by_user", ["userId"])
     .index("by_team", ["teamId"])
     .index("by_folder", ["folderId"])
