@@ -280,7 +280,10 @@ export const streamWithContextAction = internalAction({
           },
         },
         {
-          saveStreamDeltas: false,
+          saveStreamDeltas: {
+            chunking: "line",
+            throttleMs: 250,
+          },
           contextOptions: {
             searchOtherThreads: true,
           },
