@@ -23,6 +23,7 @@ import type * as agents_core_utils_textNormalization from "../agents/core/utils/
 import type * as agents_home_agent from "../agents/home/agent.js";
 import type * as agents_home_index from "../agents/home/index.js";
 import type * as agents_home_prompt from "../agents/home/prompt.js";
+import type * as agents_home_streaming from "../agents/home/streaming.js";
 import type * as agents_home_workflow from "../agents/home/workflow.js";
 import type * as agents_index from "../agents/index.js";
 import type * as agents_threads from "../agents/threads.js";
@@ -129,6 +130,7 @@ declare const fullApi: ApiFromModules<{
   "agents/home/agent": typeof agents_home_agent;
   "agents/home/index": typeof agents_home_index;
   "agents/home/prompt": typeof agents_home_prompt;
+  "agents/home/streaming": typeof agents_home_streaming;
   "agents/home/workflow": typeof agents_home_workflow;
   "agents/index": typeof agents_index;
   "agents/threads": typeof agents_threads;

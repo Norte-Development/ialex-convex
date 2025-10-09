@@ -10,6 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { runAllTypeTests } from "./types.test";
 import { TestUseHomeThreads } from "./hooks.test";
+import { StreamingTest } from "./streaming.test";
 
 export function TestRunner() {
   const [logs, setLogs] = useState<string[]>([]);
@@ -60,9 +61,10 @@ export function TestRunner() {
         </CardHeader>
         <CardContent>
           <Tabs defaultValue="types" className="w-full">
-            <TabsList className="grid w-full grid-cols-3">
+            <TabsList className="grid w-full grid-cols-4">
               <TabsTrigger value="types">1. Types</TabsTrigger>
               <TabsTrigger value="hooks">2. Hooks</TabsTrigger>
+              <TabsTrigger value="streaming">3. Streaming</TabsTrigger>
               <TabsTrigger value="plan">Plan</TabsTrigger>
             </TabsList>
 
@@ -122,6 +124,36 @@ export function TestRunner() {
               </Card>
             </TabsContent>
 
+            {/* STREAMING TAB */}
+            <TabsContent value="streaming" className="space-y-4">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-lg">Streaming Test</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">
+                      Thread ID (requerido para testear streaming)
+                    </label>
+                    <input
+                      type="text"
+                      value={selectedThreadId || ""}
+                      onChange={(e) => setSelectedThreadId(e.target.value || undefined)}
+                      placeholder="Pega un threadId aquí..."
+                      className="w-full px-3 py-2 border rounded-md text-sm font-mono"
+                    />
+                    {!selectedThreadId && (
+                      <p className="text-xs text-amber-600">
+                        ⚠️ Necesitas un threadId para testear streaming. Créalo en la tab "Hooks" primero.
+                      </p>
+                    )}
+                  </div>
+
+                  <StreamingTest threadId={selectedThreadId} />
+                </CardContent>
+              </Card>
+            </TabsContent>
+
             {/* PLAN TAB */}
             <TabsContent value="plan" className="space-y-4">
               <Card>
@@ -158,14 +190,16 @@ export function TestRunner() {
                     </div>
 
                     <div className="space-y-2">
-                      <div className="flex items-center gap-2 text-muted-foreground">
-                        <span className="font-bold">⏳ FASE 3:</span>
-                        <span className="font-semibold">Validar Backend</span>
+                      <div className="flex items-center gap-2">
+                        <span className="font-bold text-blue-600">🔄 FASE 3:</span>
+                        <span className="font-semibold">Validar Streaming</span>
                       </div>
                       <div className="pl-6 text-sm text-muted-foreground">
-                        <div>• Testear funciones de Convex directamente</div>
-                        <div>• Verificar workflow de creación</div>
-                        <div>• Verificar streaming de mensajes</div>
+                        <div>• Verificar streaming en tiempo real</div>
+                        <div>• Monitorear velocidad de caracteres</div>
+                        <div>• Validar que no aparezca todo de golpe</div>
+                        <div>• Testear con mensajes cortos, medios y largos</div>
+                        <div>• Verificar ~50-100 chars/sec</div>
                       </div>
                     </div>
 
