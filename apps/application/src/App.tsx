@@ -40,6 +40,13 @@ const ComponentsShowcasePage = lazy(
   () => import("./pages/ComponentsShowcasePage"),
 );
 
+// Lazy load TestRunner for development
+const TestRunner = lazy(() =>
+  import("./components/HomeAgent/__tests__/TestRunner").then((module) => ({
+    default: module.TestRunner,
+  })),
+);
+
 // Wrapper to provide CasePermissionsProvider with caseId from CaseContext
 const CaseRoutesWrapper: React.FC = () => {
   return (
@@ -200,6 +207,15 @@ const AppWithThread = () => {
                     element={
                       <ProtectedRoute>
                         <ComponentsShowcasePage />
+                      </ProtectedRoute>
+                    }
+                  />
+                  {/* Development testing route */}
+                  <Route
+                    path="/test-homeagent"
+                    element={
+                      <ProtectedRoute>
+                        <TestRunner />
                       </ProtectedRoute>
                     }
                   />
