@@ -4,12 +4,12 @@ import { timeoutWrappers } from './timeoutUtils.js';
 
 // File size limits in bytes (configurable via env vars)
 export const FILE_SIZE_LIMITS: Record<string, number> = {
-  'application/pdf': parseInt(process.env.MAX_PDF_SIZE_MB || '100') * 1024 * 1024, // 100MB default
+  'application/pdf': parseInt(process.env.MAX_PDF_SIZE_MB || '500') * 1024 * 1024, // 100MB default
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document': parseInt(process.env.MAX_DOCX_SIZE_MB || '50') * 1024 * 1024, // 50MB default
   'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': parseInt(process.env.MAX_XLSX_SIZE_MB || '50') * 1024 * 1024, // 50MB default
   'application/vnd.openxmlformats-officedocument.presentationml.presentation': parseInt(process.env.MAX_PPTX_SIZE_MB || '50') * 1024 * 1024, // 50MB default
-  'text/csv': parseInt(process.env.MAX_CSV_SIZE_MB || '100') * 1024 * 1024, // 100MB default
-  'text/plain': parseInt(process.env.MAX_TXT_SIZE_MB || '100') * 1024 * 1024, // 100MB default
+  'text/csv': parseInt(process.env.MAX_CSV_SIZE_MB || '500') * 1024 * 1024, // 100MB default
+  'text/plain': parseInt(process.env.MAX_TXT_SIZE_MB || '500') * 1024 * 1024, // 100MB default
   // Audio/Video limits - these are more permissive since Deepgram has no size/duration limits
   'audio/mpeg': parseInt(process.env.MAX_AUDIO_SIZE_MB || '500') * 1024 * 1024, // 500MB default
   'audio/wav': parseInt(process.env.MAX_AUDIO_SIZE_MB || '500') * 1024 * 1024,
