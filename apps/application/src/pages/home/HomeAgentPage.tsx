@@ -45,7 +45,7 @@ export default function HomeAgentPage() {
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+    if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       handleSendMessage();
     }
@@ -133,10 +133,6 @@ export default function HomeAgentPage() {
                 <div className="flex items-center justify-between">
                   <p className="text-sm text-muted-foreground">
                     Presiona{" "}
-                    <kbd className="px-2 py-1 text-xs bg-muted rounded">
-                      Ctrl
-                    </kbd>{" "}
-                    +{" "}
                     <kbd className="px-2 py-1 text-xs bg-muted rounded">
                       Enter
                     </kbd>{" "}

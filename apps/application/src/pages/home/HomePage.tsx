@@ -43,7 +43,7 @@ export default function HomePage() {
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+    if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       handleSendMessage();
     }
@@ -69,7 +69,7 @@ export default function HomePage() {
               onClick={handleSendMessage}
               disabled={!inputValue.trim() || isCreating}
               size="icon"
-              className="absolute right-3 bottom-3 bg-transparent hover:bg-transparent text-black"
+              className="absolute right-3 bottom-3 bg-transparent disabled:bg-transparent hover:bg-transparent text-black"
             >
               {isCreating ? <Loader size={20} /> : <CircleArrowUp size={20} />}
             </Button>
