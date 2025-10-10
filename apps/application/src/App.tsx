@@ -40,6 +40,12 @@ const ComponentsShowcasePage = lazy(
   () => import("./pages/ComponentsShowcasePage"),
 );
 
+// AI Agent pages
+const HomeAgentPage = lazy(() => import("./pages/home/HomeAgentPage"));
+const HomeAgentChatPage = lazy(
+  () => import("./pages/home/HomeAgentThreadPage"),
+);
+
 // Lazy load TestRunner for development
 const TestRunner = lazy(() =>
   import("./components/HomeAgent/__tests__/TestRunner").then((module) => ({
@@ -207,6 +213,23 @@ const AppWithThread = () => {
                     element={
                       <ProtectedRoute>
                         <ComponentsShowcasePage />
+                      </ProtectedRoute>
+                    }
+                  />
+                  {/* AI Agent routes */}
+                  <Route
+                    path="/ai"
+                    element={
+                      <ProtectedRoute>
+                        <HomeAgentPage />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/ai/:threadId"
+                    element={
+                      <ProtectedRoute>
+                        <HomeAgentChatPage />
                       </ProtectedRoute>
                     }
                   />
