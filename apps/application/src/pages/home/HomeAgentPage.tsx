@@ -125,7 +125,7 @@ export default function HomeAgentPage() {
                   onClick={handleSendMessage}
                   disabled={!inputValue.trim() || isCreating}
                   size="icon"
-                  className="gap-2 absolute right-5 text-black hover:bg-trans bottom-10 bg-transparent"
+                  className="gap-2 absolute right-5 disabled:bg-transparent text-black hover:bg-trans bottom-10 bg-transparent"
                 >
                   <CircleArrowUp size={15} />
                 </Button>
