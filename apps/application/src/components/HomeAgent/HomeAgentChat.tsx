@@ -34,6 +34,11 @@ import {
   PromptInputSubmit,
 } from "@/components/ai-elements/prompt-input";
 import { Response } from "@/components/ai-elements/response";
+import { Loader } from "@/components/ai-elements/loader";
+import { Actions, Action } from "@/components/ai-elements/actions";
+import { Copy, RotateCw, Check } from "lucide-react";
+import { formatDistanceToNow } from "date-fns";
+import { es } from "date-fns/locale";
 
 export interface HomeAgentChatProps {
   /** ID del thread de conversación */
@@ -55,6 +60,7 @@ export function HomeAgentChat({
   className = "",
 }: HomeAgentChatProps) {
   const [inputValue, setInputValue] = useState("");
+  const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null);
 
   // Hook de Convex con streaming habilitado
   const messagesResult = useThreadMessages(
@@ -65,6 +71,8 @@ export function HomeAgentChat({
       stream: true, // ← Habilita streaming en tiempo real
     },
   );
+
+  console.log("messagesResult", messagesResult);
 
   // Hook para enviar mensajes
   const { sendMessage, messagesLoading } = useHomeThreads({ threadId });
@@ -93,6 +101,28 @@ export function HomeAgentChat({
   // Determinar el estado del chat para el botón de submit
   const chatStatus = messagesLoading ? "streaming" : "awaiting-message";
 
+  // Función para copiar mensaje al clipboard
+  const handleCopyMessage = async (messageId: string, text: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopiedMessageId(messageId);
+      setTimeout(() => setCopiedMessageId(null), 2000);
+    } catch (error) {
+      console.error("Error copying to clipboard:", error);
+    }
+  };
+
+  // Función para regenerar respuesta
+  const handleRegenerateMessage = async (messageText: string) => {
+    if (!threadId || messagesLoading) return;
+
+    try {
+      await sendMessage(messageText);
+    } catch (error) {
+      console.error("Error regenerating message:", error);
+    }
+  };
+
   return (
     <div className={`flex flex-col h-full w-3/4 ${className}`}>
       {/* Conversation with auto-scroll */}
@@ -107,7 +137,7 @@ export function HomeAgentChat({
               <div className="text-muted-foreground">No hay mensajes</div>
             </div>
           ) : (
-            messages.map((msg: any) => {
+            messages.map((msg: any, index: number) => {
               const messageText =
                 msg.text ||
                 msg.parts
@@ -117,34 +147,75 @@ export function HomeAgentChat({
                 "";
 
               const isUser = msg.role === "user";
-              const messageAge = Date.now() - (msg._creationTime || 0);
-              const isRecent = messageAge < 5000;
+              const messageId = msg._id || msg.id;
+              const isCopied = copiedMessageId === messageId;
+
+              // Encontrar el último mensaje del usuario antes de este mensaje de IA
+              const lastUserMessage =
+                !isUser && index > 0
+                  ? messages[index - 1]?.role === "user"
+                    ? messages[index - 1]
+                    : null
+                  : null;
 
               return (
-                <Message key={msg._id || msg.id} from={msg.role}>
+                <Message key={messageId} from={msg.role}>
                   <MessageContent>
-                    <div className="flex items-center gap-2 mb-1">
-                      {!isUser && isRecent && (
-                        <span className="text-blue-600 text-[10px] animate-pulse">
-                          🔄
-                        </span>
-                      )}
-                    </div>
                     {isUser ? (
-                      // Mensajes del usuario: texto plano
                       <div className="whitespace-pre-wrap text-sm">
                         {messageText || "..."}
                       </div>
                     ) : (
-                      // Mensajes de la IA: markdown con Response
                       <Response className="text-sm">
                         {messageText || "..."}
                       </Response>
                     )}
-                    <div className="text-[10px] opacity-70 mt-1">
-                      {messageAge < 1000
-                        ? "ahora"
-                        : `hace ${Math.floor(messageAge / 1000)}s`}
+                    <div className="flex items-center justify-between mt-2">
+                      <div className="text-[10px] opacity-70">
+                        {msg._creationTime
+                          ? formatDistanceToNow(msg._creationTime, {
+                              addSuffix: true,
+                              locale: es,
+                            })
+                          : "ahora"}
+                      </div>
+
+                      {/* Actions - Solo para mensajes de la IA */}
+                      {!isUser && (
+                        <Actions>
+                          <Action
+                            tooltip={isCopied ? "¡Copiado!" : "Copiar"}
+                            onClick={() =>
+                              handleCopyMessage(messageId, messageText)
+                            }
+                          >
+                            {isCopied ? (
+                              <Check className="size-4" />
+                            ) : (
+                              <Copy className="size-4" />
+                            )}
+                          </Action>
+
+                          {lastUserMessage && (
+                            <Action
+                              tooltip="Regenerar respuesta"
+                              onClick={() => {
+                                const userText =
+                                  lastUserMessage.text ||
+                                  lastUserMessage.parts
+                                    ?.filter((p: any) => p.type === "text")
+                                    .map((p: any) => p.text)
+                                    .join("") ||
+                                  "";
+                                handleRegenerateMessage(userText);
+                              }}
+                              disabled={messagesLoading}
+                            >
+                              <RotateCw className="size-4" />
+                            </Action>
+                          )}
+                        </Actions>
+                      )}
                     </div>
                   </MessageContent>
                   <MessageAvatar
@@ -154,6 +225,14 @@ export function HomeAgentChat({
                 </Message>
               );
             })
+          )}
+          {messagesLoading && (
+            <div className="flex items-center gap-2 py-4">
+              <Loader size={20} />
+              <span className="text-muted-foreground text-sm">
+                iAlex está escribiendo...
+              </span>
+            </div>
           )}
         </ConversationContent>
         <ConversationScrollButton />

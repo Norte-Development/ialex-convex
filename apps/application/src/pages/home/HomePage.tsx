@@ -7,6 +7,7 @@ import ExistingUserHome from "@/components/Home/ExistingUserHome";
 import NewUserHome from "@/components/Home/NewUserHome";
 import { CircleArrowUp } from "lucide-react";
 import { useHomeThreads } from "@/components/HomeAgent/hooks/useHomeThreads";
+import { Loader } from "@/components/ai-elements/loader";
 
 export default function HomePage() {
   const { user } = useAuth();
@@ -70,7 +71,7 @@ export default function HomePage() {
               size="icon"
               className="absolute right-3 bottom-3 bg-transparent hover:bg-transparent text-black"
             >
-              <CircleArrowUp size={20} />
+              {isCreating ? <Loader size={20} /> : <CircleArrowUp size={20} />}
             </Button>
           </div>
         </div>
