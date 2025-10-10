@@ -33,6 +33,7 @@ import {
   PromptInputToolbar,
   PromptInputSubmit,
 } from "@/components/ai-elements/prompt-input";
+import { Response } from "@/components/ai-elements/response";
 
 export interface HomeAgentChatProps {
   /** ID del thread de conversación */
@@ -129,9 +130,17 @@ export function HomeAgentChat({
                         </span>
                       )}
                     </div>
-                    <div className="whitespace-pre-wrap text-sm">
-                      {messageText || "..."}
-                    </div>
+                    {isUser ? (
+                      // Mensajes del usuario: texto plano
+                      <div className="whitespace-pre-wrap text-sm">
+                        {messageText || "..."}
+                      </div>
+                    ) : (
+                      // Mensajes de la IA: markdown con Response
+                      <Response className="text-sm">
+                        {messageText || "..."}
+                      </Response>
+                    )}
                     <div className="text-[10px] opacity-70 mt-1">
                       {messageAge < 1000
                         ? "ahora"
