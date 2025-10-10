@@ -39,6 +39,8 @@ import { Actions, Action } from "@/components/ai-elements/actions";
 import { Copy, RotateCw, Check } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { es } from "date-fns/locale";
+import { Tool } from "@/components/ai-elements/tool";
+import type { ToolUIPart } from "ai";
 
 export interface HomeAgentChatProps {
   /** ID del thread de conversación */
@@ -161,7 +163,65 @@ export function HomeAgentChat({
               return (
                 <Message key={messageId} from={msg.role}>
                   <MessageContent>
-                    {isUser ? (
+                    {/* Renderizar parts en orden cronológico */}
+                    {msg.parts && msg.parts.length > 0 ? (
+                      msg.parts.map((part: any, partIndex: number) => {
+                        // Renderizar texto
+                        if (part.type === "text") {
+                          const displayText = part.text;
+
+                          if (isUser) {
+                            return (
+                              <div
+                                key={partIndex}
+                                className="whitespace-pre-wrap text-sm"
+                              >
+                                {displayText || "..."}
+                              </div>
+                            );
+                          } else {
+                            return (
+                              <Response key={partIndex} className="text-sm">
+                                {displayText || "..."}
+                              </Response>
+                            );
+                          }
+                        }
+
+                        // Renderizar tool calls
+                        if (part.type?.startsWith("tool-")) {
+                          const aiSDKState = part.state;
+                          const outputType = part.output?.type as
+                            | string
+                            | undefined;
+                          const isError =
+                            aiSDKState === "output-available" &&
+                            (outputType?.startsWith("error-") ?? false);
+
+                          // Mapear estados a estados del componente Tool
+                          const toolState = isError
+                            ? "output-error"
+                            : aiSDKState === "output-available"
+                              ? "output-available"
+                              : aiSDKState === "input-available"
+                                ? "input-available"
+                                : "input-streaming";
+
+                          return (
+                            <Tool
+                              key={partIndex}
+                              className="mb-2"
+                              type={part.type.replace("tool-", "")}
+                              state={toolState}
+                              output={part.output as ToolUIPart["output"]}
+                            />
+                          );
+                        }
+
+                        return null;
+                      })
+                    ) : // Fallback si no hay parts
+                    isUser ? (
                       <div className="whitespace-pre-wrap text-sm">
                         {messageText || "..."}
                       </div>
