@@ -12,7 +12,7 @@ import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
-import { MessageCircle, CircleArrowUp } from "lucide-react";
+import { CircleArrowUp } from "lucide-react";
 import { useHomeThreads } from "@/components/HomeAgent/hooks/useHomeThreads";
 import { HomeAgentLayout } from "@/components/HomeAgent/HomeAgentLayout";
 
@@ -125,7 +125,7 @@ export default function HomeAgentPage() {
                   onClick={handleSendMessage}
                   disabled={!inputValue.trim() || isCreating}
                   size="icon"
-                  className="gap-2 absolute right-5 bottom-10"
+                  className="gap-2 absolute right-5 text-black hover:bg-transparent bottom-10 bg-transparent"
                 >
                   <CircleArrowUp size={15} />
                 </Button>

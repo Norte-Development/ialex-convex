@@ -17,7 +17,7 @@ import { CasePermissionsProvider } from "./context/CasePermissionsContext";
 import { ChatbotProvider } from "./context/ChatbotContext";
 
 // Lazy load pages to reduce initial bundle size
-const HomePage = lazy(() => import("./pages/HomePage"));
+const HomePage = lazy(() => import("./pages/home/HomePage"));
 const CasesPage = lazy(() => import("./pages/CasesPage"));
 const CaseDetailPage = lazy(() => import("./pages/CaseOpen/CaseDetailPage"));
 const ClientsPage = lazy(() => import("./pages/ClientsPage"));
