@@ -26,6 +26,10 @@ export * from './legislation';
 // Library tools
 export * from './library';
 
+// Doctrine tools
+export * from './doctrine';
+
+
 // Shared utilities
 export * from './shared';
 

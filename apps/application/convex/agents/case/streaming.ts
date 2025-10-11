@@ -226,10 +226,10 @@ export const streamAsync = internalAction({
           {
             saveStreamDeltas: {
               chunking: "word",
-              throttleMs: 100,
+              throttleMs: 50, // Reduced from 100ms for faster UI updates
             },
             contextOptions: {
-              searchOtherThreads: true,
+              searchOtherThreads: false, // Disabled to reduce latency
             },
 
           },

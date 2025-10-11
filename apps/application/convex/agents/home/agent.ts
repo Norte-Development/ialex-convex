@@ -8,6 +8,8 @@ import {
   readLibraryDocumentTool,
   legislationFindTool,
   legislationReadTool,
+  searchDoctrineTool,
+  readDoctrineTool,
 } from "../tools";
 
 /**
@@ -42,6 +44,8 @@ export const agent = new Agent(components.agent, {
     readLibraryDocument: readLibraryDocumentTool,
     searchLegislation: legislationFindTool,
     readLegislation: legislationReadTool,
+    searchDoctrine: searchDoctrineTool,
+    readDoctrine: readDoctrineTool,
   }
 });
 

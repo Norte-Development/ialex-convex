@@ -4,7 +4,6 @@ import { Message, MessageContent, MessageAvatar } from "../ai-elements/message";
 import { Reasoning, ReasoningContent, ReasoningTrigger } from "../ai-elements/reasoning";
 import { Sources, SourcesTrigger, SourcesContent } from "../ai-elements/source";
 import { Actions, Action } from "../ai-elements/actions";
-import { Loader } from "../ai-elements/loader";
 import { Copy, ThumbsUp, ThumbsDown } from "lucide-react";
 import {
   Tool,
@@ -91,6 +90,20 @@ export function SidebarMessage({
             "!bg-red-100 !text-red-800 border-l-2 border-red-400",
         )}
       >
+        {/* Show thinking indicator if message has no parts yet or is empty */}
+        {!isUser && shouldStream && (!message.parts || message.parts.length === 0 || !messageText || messageText.trim() === "") && (
+          <div className="flex items-center gap-2">
+            <div className="flex gap-1">
+              <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: "0ms" }} />
+              <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: "150ms" }} />
+              <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: "300ms" }} />
+            </div>
+            <span className="text-xs text-gray-500 italic">
+              Pensando...
+            </span>
+          </div>
+        )}
+        
         {/* Message parts in chronological order */}
         {message.parts?.map((part, index) => {
           if (part.type === "text") {
@@ -108,7 +121,11 @@ export function SidebarMessage({
             ) {
               return (
                 <div key={index} className="flex items-center gap-2">
-                  <Loader size={12} />
+                  <div className="flex gap-1">
+                    <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: "0ms" }} />
+                    <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: "150ms" }} />
+                    <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: "300ms" }} />
+                  </div>
                   <span className="text-xs text-gray-500 italic">
                     Pensando...
                   </span>
@@ -130,14 +147,6 @@ export function SidebarMessage({
                     setNormativeId(id);
                   } : undefined}
                 />
-                {!isUser && isStreaming && !allToolsCompleted && (
-                  <div className="flex items-center gap-1 mt-2">
-                    <Loader size={12} />
-                    <span className="text-xs text-gray-500">
-                      Escribiendo...
-                    </span>
-                  </div>
-                )}
               </div>
             );
           }
