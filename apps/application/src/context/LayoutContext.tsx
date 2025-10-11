@@ -13,6 +13,8 @@ interface LayoutContextType {
   // toggleSidebar: () => void;
   isCaseSidebarOpen: boolean;
   toggleCaseSidebar: () => void;
+  isHomeAgentSidebarOpen: boolean;
+  toggleHomeAgentSidebar: () => void;
   isEscritosOpen: boolean;
   toggleEscritos: () => void;
   isDocumentosOpen: boolean;
@@ -82,6 +84,9 @@ export const LayoutProvider: React.FC<LayoutProviderProps> = ({ children }) => {
   const [isCaseSidebarOpen, setCaseSidebarOpen] = useState(() =>
     getStoredBoolean("case-sidebar-open", true),
   );
+  const [isHomeAgentSidebarOpen, setHomeAgentSidebarOpen] = useState(() =>
+    getStoredBoolean("home-agent-sidebar-open", true),
+  );
   const [isEscritosOpen, setEscritosOpen] = useState(() =>
     getStoredBoolean("escritos-open", false),
   );
@@ -121,6 +126,14 @@ export const LayoutProvider: React.FC<LayoutProviderProps> = ({ children }) => {
     setCaseSidebarOpen((prev) => {
       const newValue = !prev;
       setStoredBoolean("case-sidebar-open", newValue);
+      return newValue;
+    });
+  };
+
+  const toggleHomeAgentSidebar = () => {
+    setHomeAgentSidebarOpen((prev) => {
+      const newValue = !prev;
+      setStoredBoolean("home-agent-sidebar-open", newValue);
       return newValue;
     });
   };
@@ -174,6 +187,8 @@ export const LayoutProvider: React.FC<LayoutProviderProps> = ({ children }) => {
         // toggleSidebar,
         isCaseSidebarOpen,
         toggleCaseSidebar,
+        isHomeAgentSidebarOpen,
+        toggleHomeAgentSidebar,
         isEscritosOpen,
         toggleEscritos,
         isDocumentosOpen,

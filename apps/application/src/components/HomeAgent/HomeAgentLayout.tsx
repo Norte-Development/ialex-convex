@@ -2,11 +2,12 @@
  * HomeAgentLayout Component
  *
  * Layout compartido para todas las páginas del HomeAgent
- * Incluye el selector de threads en el header
+ * Incluye la sidebar de threads
  */
 
 import { ReactNode } from "react";
-import { ThreadSelector } from "./ThreadSelector";
+import { HomeAgentSidebar } from "./HomeAgentSidebar";
+import { useLayout } from "@/context/LayoutContext";
 
 interface HomeAgentLayoutProps {
   children: ReactNode;
@@ -17,16 +18,20 @@ export function HomeAgentLayout({
   children,
   currentThreadId,
 }: HomeAgentLayoutProps) {
+  const { isHomeAgentSidebarOpen } = useLayout();
+
   return (
-    <div className="flex flex-col h-screen w-full relative ">
-      {/* Header con selector de threads */}
-      <div className="border-b bg-background">
-        <div className="container mx-auto px-4 py-3 absolute top-15 left-0 right-0 z-10 ">
-          <ThreadSelector currentThreadId={currentThreadId} />
-        </div>
+    <div className="flex h-screen w-full overflow-hidden">
+      {/* Sidebar de threads */}
+      <div
+        className={`transition-all duration-300 ease-in-out ${
+          isHomeAgentSidebarOpen ? "w-64" : "w-0"
+        }`}
+      >
+        <HomeAgentSidebar currentThreadId={currentThreadId} />
       </div>
 
-      {/* Contenido */}
+      {/* Contenido principal */}
       <div className="flex-1 overflow-hidden">{children}</div>
     </div>
   );
