@@ -50,11 +50,11 @@ function HookDisplay({ hook }: { hook: UseHomeThreadsReturn }) {
 
   const testCreateThread = async () => {
     try {
-      addLog("🔄 Creating new thread...");
-      const threadId = await hook.createThread("Test message");
-      addLog(`✅ Thread created: ${threadId}`);
+      addLog("🔄 Starting new conversation...");
+      await hook.startNewConversation();
+      addLog(`✅ New conversation ready (thread will be created on first message)`);
     } catch (error) {
-      addLog(`❌ Error creating thread: ${error}`);
+      addLog(`❌ Error starting conversation: ${error}`);
     }
   };
 
@@ -196,7 +196,7 @@ export function validateHookBehavior(hook: UseHomeThreadsReturn): string[] {
     "threads",
     "threadsLoading",
     "hasMoreThreads",
-    "createThread",
+    "startNewConversation",
     "currentThread",
     "currentThreadLoading",
     "messages",
@@ -231,8 +231,8 @@ export function validateHookBehavior(hook: UseHomeThreadsReturn): string[] {
   }
 
   // Test 4: Functions are callable
-  if (typeof hook.createThread !== "function") {
-    errors.push("createThread should be a function");
+  if (typeof hook.startNewConversation !== "function") {
+    errors.push("startNewConversation should be a function");
   }
   if (typeof hook.sendMessage !== "function") {
     errors.push("sendMessage should be a function");

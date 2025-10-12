@@ -179,8 +179,13 @@ export const initiateWorkflowStreaming = mutation({
 
     let threadId = args.threadId;
     if (!threadId) {
+      // Use first 50 chars of message as thread title
+      const truncatedTitle = args.prompt.length > 50 
+        ? `${args.prompt.substring(0, 50)}...` 
+        : args.prompt;
+      
       threadId = await ctx.runMutation(api.agents.threads.createNewThread, {
-        title: "Legal Agent Conversation",
+        title: truncatedTitle,
       });
     } else {
       await authorizeThreadAccess(ctx, threadId);

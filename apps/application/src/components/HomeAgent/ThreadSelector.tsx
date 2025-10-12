@@ -23,7 +23,7 @@ interface ThreadSelectorProps {
 
 export function ThreadSelector({ currentThreadId }: ThreadSelectorProps) {
   const navigate = useNavigate();
-  const { threads, isLoading, createThread } = useHomeThreads();
+  const { threads, isLoading } = useHomeThreads();
 
   console.log(threads);
 
@@ -33,15 +33,9 @@ export function ThreadSelector({ currentThreadId }: ThreadSelectorProps) {
     navigate(`/ai/${threadId}`);
   };
 
-  const handleNewThread = async () => {
-    try {
-      const threadId = await createThread("Nueva conversación");
-      if (threadId) {
-        navigate(`/ai/${threadId}`);
-      }
-    } catch (error) {
-      console.error("Error creating thread:", error);
-    }
+  const handleNewThread = () => {
+    // Just navigate to /ai to clear thread - new thread will be created on first message
+    navigate("/ai");
   };
 
   const handleGoHome = () => {

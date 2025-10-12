@@ -14,6 +14,7 @@
  */
 
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { useThreadMessages, toUIMessages } from "@convex-dev/agent/react";
 import { api } from "../../../convex/_generated/api";
 import { useHomeThreads } from "./hooks/useHomeThreads";
@@ -61,6 +62,7 @@ export function HomeAgentChat({
   initialNumItems = 50,
   className = "",
 }: HomeAgentChatProps) {
+  const navigate = useNavigate();
   const [inputValue, setInputValue] = useState("");
   const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null);
 
@@ -88,13 +90,17 @@ export function HomeAgentChat({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!inputValue.trim() || !threadId || messagesLoading) return;
+    if (!inputValue.trim() || messagesLoading) return;
 
     const message = inputValue.trim();
     setInputValue("");
 
     try {
-      await sendMessage(message);
+      const result = await sendMessage(message);
+      // If no thread was set, navigate to the new thread
+      if (!threadId && result.threadId) {
+        navigate(`/ai/${result.threadId}`);
+      }
     } catch (error) {
       console.error("Error sending message:", error);
     }
@@ -304,12 +310,12 @@ export function HomeAgentChat({
           value={inputValue}
           onChange={(e) => setInputValue(e.target.value)}
           placeholder="Escribe tu mensaje..."
-          disabled={!threadId || messagesLoading}
+          disabled={messagesLoading}
         />
         <PromptInputToolbar>
           <div className="flex-1" />
           <PromptInputSubmit
-            disabled={!inputValue.trim() || !threadId}
+            disabled={!inputValue.trim()}
             status={chatStatus as any}
           />
         </PromptInputToolbar>

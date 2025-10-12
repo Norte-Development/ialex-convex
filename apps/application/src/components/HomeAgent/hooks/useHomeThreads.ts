@@ -30,7 +30,7 @@ export interface UseHomeThreadsReturn {
   threads: HomeThread[];
   threadsLoading: boolean;
   hasMoreThreads: boolean;
-  createThread: (initialMessage?: string) => Promise<string>;
+  startNewConversation: () => Promise<string>;
 
   // Current Thread
   currentThread: HomeThread | null;
@@ -94,32 +94,26 @@ export function useHomeThreads(options: UseHomeThreadsOptions = {}): UseHomeThre
   // ========================================
 
   /**
-   * Create a new thread with an initial message
+   * Start a new conversation (just clears the current thread)
    */
-  const createThread = useCallback(
-    async (initialMessage?: string) => {
-      const result = await workflowMutation({
-        prompt: initialMessage || "Hola",
-        threadId: "", // Empty threadId creates a new thread
-      });
-
-      return result.threadId;
+  const startNewConversation = useCallback(
+    () => {
+      // Don't create a thread - just return empty string to clear current thread
+      // Thread will be created when user sends first message
+      return Promise.resolve("");
     },
-    [workflowMutation],
+    [],
   );
 
   /**
-   * Send a message to the current thread
+   * Send a message to the current thread or create a new one if none exists
    */
   const sendMessage = useCallback(
     async (content: string) => {
-      if (!threadId) {
-        throw new Error("No thread selected. Use createThread() to start a new conversation.");
-      }
-
+      // Thread will be created with message as title in backend if threadId is empty
       return await workflowMutation({
         prompt: content,
-        threadId,
+        threadId: threadId || "", // Empty string will trigger thread creation in backend
       });
     },
     [threadId, workflowMutation],
@@ -157,7 +151,7 @@ export function useHomeThreads(options: UseHomeThreadsOptions = {}): UseHomeThre
     threads,
     threadsLoading,
     hasMoreThreads: threadsResult?.isDone === false,
-    createThread,
+    startNewConversation,
 
     // Current Thread
     currentThread,

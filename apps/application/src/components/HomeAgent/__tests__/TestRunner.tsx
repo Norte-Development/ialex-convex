@@ -184,7 +184,7 @@ export function TestRunner() {
                         <div>• Testear useHomeThreads unificado</div>
                         <div>• Verificar queries de threads</div>
                         <div>• Verificar queries de mensajes</div>
-                        <div>• Testear createThread y sendMessage</div>
+                        <div>• Testear startNewConversation y sendMessage</div>
                         <div>• Validar estados de loading</div>
                       </div>
                     </div>
