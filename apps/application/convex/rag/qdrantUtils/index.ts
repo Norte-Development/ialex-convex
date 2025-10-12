@@ -15,5 +15,15 @@ export {
   deleteDocumentChunks,
 } from './caseDocuments';
 
+// Export library document functions
+export {
+  searchLibraryDocumentsWithClustering,
+  getLibraryDocumentChunkByIndex,
+  getLibraryDocumentChunksByRange,
+  searchLibraryDocumentChunks,
+  getLibraryDocumentChunkCount,
+  deleteLibraryDocumentChunksFromQdrant,
+} from './libraryDocuments';
+
 // Export legislation functions
 export { searchNormatives } from './legislation';

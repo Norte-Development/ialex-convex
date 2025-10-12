@@ -17,6 +17,13 @@ import {
 
   legislationFindTool,
   legislationReadTool,
+
+  searchLibraryDocumentsTool,
+  listLibraryDocumentsTool,
+  readLibraryDocumentTool,
+
+  searchDoctrineTool,
+  readDoctrineTool,
 } from "../tools";
 
 /**
@@ -32,7 +39,7 @@ import {
  */
 export const agent = new Agent(components.agent, {
   name: "iAlex - Agente Legal de tu caso",
-  languageModel: openai.responses('gpt-5-mini'),
+  languageModel: openai.responses('gpt-5'),
   stopWhen: stepCountIs(25),
   callSettings: {
     maxRetries: 3,
@@ -41,8 +48,8 @@ export const agent = new Agent(components.agent, {
     saveMessages: "all"
   },
   contextOptions: {
-    recentMessages: 50,
-    excludeToolMessages: false,
+    recentMessages: 20, // Reduced from 50 to prevent context bloat
+    excludeToolMessages: true, // Exclude verbose tool messages to keep context lean
   },
 
   tools: {
@@ -56,9 +63,14 @@ export const agent = new Agent(components.agent, {
     planAndTrack: planAndTrackTool,
     markTaskComplete: markTaskCompleteTool,
     insertContent: insertContentTool,
-    manageEscrito: manageEscritoTool,
+    // manageEscrito: manageEscritoTool,
     searchClients: searchCaseClientsTool,
     searchTemplates: searchTemplatesTool,
+    searchLibraryDocuments: searchLibraryDocumentsTool,
+    listLibraryDocuments: listLibraryDocumentsTool,
+    readLibraryDocument: readLibraryDocumentTool,
+    searchDoctrine: searchDoctrineTool,
+    readDoctrine: readDoctrineTool,
   }
 });
 

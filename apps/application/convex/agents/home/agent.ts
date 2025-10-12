@@ -7,6 +7,16 @@ import {
   searchTemplatesTool,
 } from "../tools";
 
+import {
+  searchLibraryDocumentsTool,
+  listLibraryDocumentsTool,
+  readLibraryDocumentTool,
+  legislationFindTool,
+  legislationReadTool,
+  searchDoctrineTool,
+  readDoctrineTool,
+} from "../tools";
+
 /**
  * Main agent instance for the legal assistant system.
  * 
@@ -32,9 +42,14 @@ export const agent = new Agent(components.agent, {
     recentMessages: 50,
     excludeToolMessages: false,
   },
+
   tools: {
+    searchLibraryDocuments: searchLibraryDocumentsTool,
+    listLibraryDocuments: listLibraryDocumentsTool,
+    readLibraryDocument: readLibraryDocumentTool,
     searchLegislation: legislationFindTool,
     readLegislation: legislationReadTool,
-    searchTemplates: searchTemplatesTool,
+    searchDoctrine: searchDoctrineTool,
+    readDoctrine: readDoctrineTool,
   }
 });

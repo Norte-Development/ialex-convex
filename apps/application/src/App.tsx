@@ -39,6 +39,8 @@ const CaseDocumentPage = lazy(
 const ComponentsShowcasePage = lazy(
   () => import("./pages/ComponentsShowcasePage"),
 );
+const LibraryPage = lazy(() => import("./pages/LibraryPage"));
+const LibraryDocumentPage = lazy(() => import("./pages/LibraryDocumentPage"));
 
 // AI Agent pages
 const HomeAgentPage = lazy(() => import("./pages/home/HomeAgentPage"));
@@ -222,6 +224,11 @@ const AppWithThread = () => {
                     element={
                       <ProtectedRoute>
                         <HomeAgentPage />
+                  <Route
+                    path="/biblioteca"
+                    element={
+                      <ProtectedRoute>
+                        <LibraryPage />
                       </ProtectedRoute>
                     }
                   />
@@ -239,6 +246,10 @@ const AppWithThread = () => {
                     element={
                       <ProtectedRoute>
                         <TestRunner />
+                    path="/biblioteca/documento/:documentId"
+                    element={
+                      <ProtectedRoute>
+                        <LibraryDocumentPage />
                       </ProtectedRoute>
                     }
                   />

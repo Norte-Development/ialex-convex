@@ -66,7 +66,7 @@ export function createEscritoCreateSuccessTemplate(
   title: string,
   caseId: string
 ): string {
-  return `Escrito "${title}" listo para crear en el caso ${caseId}`;
+  return `Escrito "${title}" listo para crear en el caso ${caseId}. Esto solo muestra la opción de crear el escrito al usuario, no lo crea.`;
 }
 
 /**

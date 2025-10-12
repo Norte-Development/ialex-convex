@@ -136,6 +136,7 @@ export const legalAgentWorkflow = workflow.define({
     userId: v.id("users"),
     threadId: v.string(),
     prompt: v.string(),
+    promptMessageId: v.string(), // Message ID from the mutation
     caseId: v.optional(v.id("cases")),
     currentPage: v.optional(v.string()),
     currentView: v.optional(v.string()),
@@ -146,10 +147,8 @@ export const legalAgentWorkflow = workflow.define({
   },
   handler: async (step, args): Promise<void> => {
     console.log("Starting legal agent workflow");
-    const userMessage = await saveMessage(step, components.agent, {
-        threadId: args.threadId,
-        prompt: args.prompt,
-      });
+    // User message already saved by initiateWorkflowStreaming mutation
+    const userMessage = { messageId: args.promptMessageId };
 
     const contextBundle = await step.runMutation(
       internal.agents.case.workflow.gatherContextForWorkflow,
@@ -210,16 +209,15 @@ export const streamWithContextAction = internalAction({
     });
     const schemaSummary = `ProseMirror Schema Summary\n- Nodes: ${nodeSpecs.join(", ")}\n- Marks: ${markSpecs.join(", ")}`;
 
-    const systemMessage = `Sos el asistente legal IALEX. Aquí está el contexto actual:
+    const systemMessage = `
 
-      ${contextString}
+    ${prompt}
+    ---
+    ${contextString}
 
-      ---
-      ${schemaSummary}
-      ---
-
-      Instrucciones:
-      ${prompt}
+    ---
+    ${schemaSummary}
+      
     `;
 
     const { thread } = await agent.continueThread(ctx, { threadId });
@@ -231,7 +229,7 @@ export const streamWithContextAction = internalAction({
           promptMessageId,
           providerOptions: {
             openai: {
-              reasoningEffort: "low",
+              reasoningEffort: "minimal",
               reasoningSummary: "auto",
             },
           },
@@ -282,10 +280,10 @@ export const streamWithContextAction = internalAction({
         {
           saveStreamDeltas: {
             chunking: "word",
-            throttleMs: 50,
+            throttleMs: 50, // Balanced for performance and responsiveness
           },
           contextOptions: {
-            searchOtherThreads: true,
+            searchOtherThreads: false,
           },
         },
       );
@@ -351,8 +349,9 @@ export const initiateWorkflowStreaming = mutation({
   returns: v.object({
     workflowId: v.string(),
     threadId: v.string(),
+    messageId: v.string(),
   }),
-  handler: async (ctx, args): Promise<{workflowId: string, threadId: string}> => {
+  handler: async (ctx, args): Promise<{workflowId: string, threadId: string, messageId: string}> => {
     const user = await getCurrentUserFromAuth(ctx);
 
     let threadId = args.threadId;
@@ -365,6 +364,13 @@ export const initiateWorkflowStreaming = mutation({
       await authorizeThreadAccess(ctx, threadId);
     }
 
+    // Save the user's message immediately so optimistic UI works correctly
+    const { messageId } = await agent.saveMessage(ctx, {
+      threadId,
+      prompt: args.prompt,
+      skipEmbeddings: true, // Generate embeddings lazily
+    });
+
     const workflowId = await workflow.start(
       ctx,
       internal.agents.case.workflow.legalAgentWorkflow,
@@ -372,6 +378,7 @@ export const initiateWorkflowStreaming = mutation({
         userId: user._id,
         threadId,
         prompt: args.prompt,
+        promptMessageId: messageId, // Pass the message ID to the workflow
         caseId: args.caseId,
         currentPage: args.currentPage,
         currentView: args.currentView,
@@ -382,6 +389,6 @@ export const initiateWorkflowStreaming = mutation({
       },
     );
 
-    return { workflowId, threadId };
+    return { workflowId, threadId, messageId };
   },
 });
