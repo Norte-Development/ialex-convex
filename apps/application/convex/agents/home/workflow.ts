@@ -114,7 +114,7 @@ export const streamWithContextAction = internalAction({
             throttleMs: 50,
           },
           contextOptions: {
-            searchOtherThreads: true,
+            searchOtherThreads: false,
           },
         },
       );
