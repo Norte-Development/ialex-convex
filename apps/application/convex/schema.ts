@@ -510,6 +510,24 @@ export default defineSchema({
     .index("by_gcs_object", ["gcsObject"])
     .index("by_processing_status", ["processingStatus"]),
 
+  // ========================================
+  // AGENT RULES - USER & CASE SCOPED
+  // ========================================
+  agentRules: defineTable({
+    name: v.string(),
+    content: v.string(),
+    scope: v.union(v.literal("user"), v.literal("case")),
+    userId: v.optional(v.id("users")),
+    caseId: v.optional(v.id("cases")),
+    isActive: v.boolean(),
+    createdBy: v.id("users"),
+    order: v.optional(v.number()),
+  })
+    .index("by_user_and_active", ["userId", "isActive"]) 
+    .index("by_case_and_active", ["caseId", "isActive"]) 
+    .index("by_scope", ["scope"]) 
+    .index("by_created_by", ["createdBy"]),
+
 
 })
    

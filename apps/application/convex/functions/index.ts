@@ -123,3 +123,13 @@ export {
   getLibraryFolderPath,
   deleteLibraryFolder,
 } from "./libraryFolders";
+
+// Agent Rules Management
+export {
+  createRule as createAgentRule,
+  updateRule as updateAgentRule,
+  deleteRule as deleteAgentRule,
+  toggleRuleActive as toggleAgentRuleActive,
+  getUserRules,
+  getCaseRules,
+} from "./agentRules";
