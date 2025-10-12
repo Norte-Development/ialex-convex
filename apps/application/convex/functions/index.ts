@@ -123,3 +123,6 @@ export {
   getLibraryFolderPath,
   deleteLibraryFolder,
 } from "./libraryFolders";
+
+// Global Search
+export { globalSearch } from "./search";
