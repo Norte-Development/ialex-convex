@@ -77,7 +77,7 @@ export function useGlobalSearch() {
 
   // Query search results
   const results = useQuery(
-    api.functions.globalSearch,
+    api.functions.search.globalSearch,
     debouncedQuery.trim().length > 0 ? { query: debouncedQuery, limit: 5 } : "skip"
   );
 
