@@ -1,7 +1,7 @@
 import { WorkflowManager } from "@convex-dev/workflow";
-import { components, internal } from "../../_generated/api";
+import { components, internal, api } from "../../_generated/api";
 import { v } from "convex/values";
-import { createThread, saveMessage } from "@convex-dev/agent";
+import { saveMessage } from "@convex-dev/agent";
 import { agent } from "./agent";
 import { internalAction, internalMutation, mutation } from "../../_generated/server";
 import { getCurrentUserFromAuth } from "../../auth_utils";
@@ -356,9 +356,9 @@ export const initiateWorkflowStreaming = mutation({
 
     let threadId = args.threadId;
     if (!threadId) {
-      threadId = await createThread(ctx, components.agent, {
-        userId: user._id,
+      threadId = await ctx.runMutation(api.agents.threads.createNewThread, {
         title: "Legal Agent Conversation",
+        caseId: args.caseId,
       });
     } else {
       await authorizeThreadAccess(ctx, threadId);

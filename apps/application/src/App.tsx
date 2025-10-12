@@ -224,11 +224,6 @@ const AppWithThread = () => {
                     element={
                       <ProtectedRoute>
                         <HomeAgentPage />
-                  <Route
-                    path="/biblioteca"
-                    element={
-                      <ProtectedRoute>
-                        <LibraryPage />
                       </ProtectedRoute>
                     }
                   />
@@ -246,6 +241,18 @@ const AppWithThread = () => {
                     element={
                       <ProtectedRoute>
                         <TestRunner />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/biblioteca"
+                    element={
+                      <ProtectedRoute>
+                        <LibraryPage />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
                     path="/biblioteca/documento/:documentId"
                     element={
                       <ProtectedRoute>

@@ -2,12 +2,6 @@ import { components } from "../../_generated/api";
 import { Agent, stepCountIs } from "@convex-dev/agent";
 import { openai } from "@ai-sdk/openai";
 import {
-  legislationFindTool,
-  legislationReadTool,
-  searchTemplatesTool,
-} from "../tools";
-
-import {
   searchLibraryDocumentsTool,
   listLibraryDocumentsTool,
   readLibraryDocumentTool,
