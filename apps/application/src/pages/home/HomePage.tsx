@@ -15,7 +15,7 @@ export default function HomePage() {
   const [inputValue, setInputValue] = useState("");
   const [isCreating, setIsCreating] = useState(false);
 
-  const { createThread } = useHomeThreads();
+  const { sendMessage } = useHomeThreads();
 
   // This component will only render when user is authenticated and loaded
   // Show new user experience if they're missing key info or just completed onboarding
@@ -28,12 +28,12 @@ export default function HomePage() {
     setIsCreating(true);
 
     try {
-      // Crear thread Y enviar mensaje en una sola operación
-      const threadId = await createThread(message);
+      // Send message (will create thread automatically with message as title)
+      const result = await sendMessage(message);
 
-      if (threadId) {
-        // Navegar al thread (el mensaje ya fue enviado)
-        navigate(`/ai/${threadId}`);
+      if (result.threadId) {
+        // Navigate to the new thread
+        navigate(`/ai/${result.threadId}`);
       }
     } catch (error) {
       console.error("Error creating thread:", error);

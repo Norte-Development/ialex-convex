@@ -55,7 +55,7 @@ export function ChatContent() {
   const isScrollingProgrammaticallyRef = useRef(false)
   const resizeObserverRef = useRef<ResizeObserver | null>(null)
 
-  const [isPending, startTransition] = useTransition()
+  const [_isPending, startTransition] = useTransition()
 
   // Handle removing references from context bar
   const handleRemoveReference = useCallback(
