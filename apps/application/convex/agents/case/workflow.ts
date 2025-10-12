@@ -171,7 +171,7 @@ export const legalAgentWorkflow = workflow.define({
         promptMessageId: userMessage.messageId,
         contextBundle,
       },
-      { retry: true },
+      { retry: false },
     );
 
     console.log("Legal agent workflow completed");

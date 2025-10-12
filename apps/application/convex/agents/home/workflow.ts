@@ -30,7 +30,7 @@ export const legalAgentWorkflow = workflow.define({
         threadId: args.threadId,
         promptMessageId: userMessage.messageId,
       },
-      { retry: true },
+      { retry: false },
     );
 
     console.log("Home agent workflow completed");
