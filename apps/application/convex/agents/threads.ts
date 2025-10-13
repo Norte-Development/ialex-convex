@@ -270,6 +270,29 @@ export const getThreadDetails = query({
 });
 
 /**
+ * Lists messages for a specific thread.
+ *
+ * @param threadId - The ID of the thread to get messages from
+ * @param paginationOpts - Pagination options for the query
+ * @returns Promise resolving to paginated messages
+ * @throws {Error} When user doesn't have access to the thread
+ */
+export const getThreadMessages = query({
+  args: {
+    threadId: v.string(),
+    paginationOpts: paginationOptsValidator,
+  },
+  handler: async (ctx, { threadId, paginationOpts }) => {
+    await authorizeThreadAccess(ctx, threadId);
+    const messages = await agent.listMessages(ctx, {
+      threadId,
+      paginationOpts,
+    });
+    return messages;
+  },
+});
+
+/**
  * Updates the title and summary of a thread using AI generation.
  *
  * NOTE: This function is currently commented out and not in use.

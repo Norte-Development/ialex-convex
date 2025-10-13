@@ -1,7 +1,6 @@
 import { components } from "../../_generated/api";
 import { Agent, stepCountIs } from "@convex-dev/agent";
 import { openai } from "@ai-sdk/openai";
-
 import {
   searchLibraryDocumentsTool,
   listLibraryDocumentsTool,
@@ -48,6 +47,3 @@ export const agent = new Agent(components.agent, {
     readDoctrine: readDoctrineTool,
   }
 });
-
-
-
