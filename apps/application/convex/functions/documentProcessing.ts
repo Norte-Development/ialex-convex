@@ -305,7 +305,8 @@ export const updateDocumentProcessingStatus = internalMutation({
         { documentId: args.documentId as Id<"documents"> }
       );
       
-      if (document && document.createdBy) {
+
+      if ((document && document.createdBy) && (args.status === "completed" || args.status === "failed")) {
         const user = await ctx.db.get(document.createdBy);
         const docTitle = String(document.title);
         const userName = String(user?.name || "Usuario");
