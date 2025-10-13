@@ -133,3 +133,6 @@ export {
   getUserRules,
   getCaseRules,
 } from "./agentRules";
+
+// Global Search
+export { globalSearch } from "./search";

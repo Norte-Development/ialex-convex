@@ -92,6 +92,7 @@ import type * as functions_libraryDocument from "../functions/libraryDocument.js
 import type * as functions_libraryDocumentProcessing from "../functions/libraryDocumentProcessing.js";
 import type * as functions_libraryFolders from "../functions/libraryFolders.js";
 import type * as functions_permissions from "../functions/permissions.js";
+import type * as functions_search from "../functions/search.js";
 import type * as functions_seedCases from "../functions/seedCases.js";
 import type * as functions_teams from "../functions/teams.js";
 import type * as functions_templates from "../functions/templates.js";
@@ -213,6 +214,7 @@ declare const fullApi: ApiFromModules<{
   "functions/libraryDocumentProcessing": typeof functions_libraryDocumentProcessing;
   "functions/libraryFolders": typeof functions_libraryFolders;
   "functions/permissions": typeof functions_permissions;
+  "functions/search": typeof functions_search;
   "functions/seedCases": typeof functions_seedCases;
   "functions/teams": typeof functions_teams;
   "functions/templates": typeof functions_templates;

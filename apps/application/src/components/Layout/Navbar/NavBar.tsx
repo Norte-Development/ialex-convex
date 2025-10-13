@@ -1,14 +1,26 @@
-import { Bell, Search, MessageCircle } from "lucide-react";
+import { Bell, Search, MessageCircle, X } from "lucide-react";
 import { useLocation } from "react-router-dom";
 import Breadcrumbs from "./BreadCrumbs";
 import { UserButton } from "@clerk/clerk-react";
 import { Input } from "@/components/ui/input";
 import CollapsibleMenuButton from "./CollapsibleMenuButton";
 import { useChatbot } from "@/context/ChatbotContext";
+import { useGlobalSearch } from "@/hooks/useGlobalSearch";
+import SearchDropdown from "@/components/Search/SearchDropdown";
 
 export default function NavBar() {
   const location = useLocation();
   const { toggleChatbot } = useChatbot();
+  const {
+    searchQuery,
+    results,
+    isLoading,
+    isOpen,
+    handleSearch,
+    clearSearch,
+    handleResultClick,
+    setIsOpen,
+  } = useGlobalSearch();
 
   const isInCaseContext = location.pathname.includes("/caso/");
 
@@ -51,11 +63,34 @@ export default function NavBar() {
       <div className={`flex justify-center items-center relative w-[30%]`}>
         <Input
           placeholder="Buscar"
-          className="w-full rounded-full placeholder:text-[14px] h-fit"
+          className="w-full rounded-full placeholder:text-[14px] h-fit pr-20"
+          value={searchQuery}
+          onChange={(e) => handleSearch(e.target.value)}
+          onFocus={() => {
+            if (searchQuery.trim().length > 0) {
+              setIsOpen(true);
+            }
+          }}
         />
+        {searchQuery && (
+          <button
+            onClick={clearSearch}
+            className="absolute right-10 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
+          >
+            <X size={16} />
+          </button>
+        )}
         <Search
           className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400"
           size={16}
+        />
+        <SearchDropdown
+          isOpen={isOpen}
+          isLoading={isLoading}
+          results={results}
+          searchQuery={searchQuery}
+          onResultClick={handleResultClick}
+          onClose={() => setIsOpen(false)}
         />
       </div>
       <div className={`flex gap-4 justify-center items-center `}>
