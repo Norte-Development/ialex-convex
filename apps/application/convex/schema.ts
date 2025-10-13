@@ -66,20 +66,20 @@ export default defineSchema({
         // General
         language: v.string(),
         timezone: v.string(),
-        
+
         // Notifications
         emailNotifications: v.boolean(),
         caseUpdates: v.optional(v.boolean()),
         documentProcessing: v.optional(v.boolean()),
         teamInvitations: v.optional(v.boolean()),
         agentResponses: v.optional(v.boolean()),
-        
+
         // Agent Preferences
         agentResponseStyle: v.optional(v.string()),
         defaultJurisdiction: v.optional(v.string()),
         autoIncludeContext: v.optional(v.boolean()),
         citationFormat: v.optional(v.string()),
-        
+
         // Privacy & Security
         sessionTimeout: v.optional(v.number()),
         activityLogVisible: v.optional(v.boolean()),
@@ -111,7 +111,7 @@ export default defineSchema({
     .index("by_active_status", ["isActive"])
     .searchIndex("search_clients", {
       searchField: "name",
-      filterFields: ["isActive"]
+      filterFields: ["isActive"],
     }),
 
   // Cases table - legal cases (removed clientId for many-to-many relationship)
@@ -143,7 +143,7 @@ export default defineSchema({
     .index("by_priority", ["priority"])
     .searchIndex("search_cases", {
       searchField: "title",
-      filterFields: ["isArchived"]
+      filterFields: ["isArchived"],
     }),
 
   // Client-Case relationship (many-to-many)
@@ -227,7 +227,7 @@ export default defineSchema({
     .index("by_gcs_object", ["gcsObject"])
     .index("by_processing_status", ["processingStatus"])
     .searchIndex("search_documents", {
-      searchField: "title"
+      searchField: "title",
     }),
 
   // Escritos table - Tiptap JSON documents (legal writings/briefs)
@@ -255,7 +255,7 @@ export default defineSchema({
     .index("by_prosemirror_id", ["prosemirrorId"])
     .searchIndex("search_escritos", {
       searchField: "title",
-      filterFields: ["isArchived"]
+      filterFields: ["isArchived"],
     }),
 
   // Document Templates (Modelos) - independent reusable templates
@@ -263,10 +263,12 @@ export default defineSchema({
     name: v.string(),
     description: v.optional(v.string()),
     category: v.string(), // e.g., "Derecho Civil", "Derecho Mercantil"
-    templateType: v.optional(v.union(
-      v.literal("escrito"), // Tiptap JSON template for escritos
-      v.literal("document"), // File-based template for documents
-    )),
+    templateType: v.optional(
+      v.union(
+        v.literal("escrito"), // Tiptap JSON template for escritos
+        v.literal("document"), // File-based template for documents
+      ),
+    ),
     // Legacy fields for backward compatibility
     content: v.optional(v.string()), // Legacy HTML content field
     content_type: v.optional(v.string()), // Legacy content type field
@@ -287,7 +289,7 @@ export default defineSchema({
     .index("by_active_status", ["isActive"])
     .searchIndex("search_templates", {
       searchField: "name",
-      filterFields: ["category", "isPublic", "isActive"]
+      filterFields: ["category", "isPublic", "isActive"],
     }),
 
   // Teams - organizational teams/departments for firm management
@@ -425,10 +427,10 @@ export default defineSchema({
     // Optional cached progress percent (0-100). Can be derived in queries.
     progressPercent: v.optional(v.number()),
   })
-    .index("by_created_by", ["createdBy"]) 
-    .index("by_case", ["caseId"]) 
-    .index("by_thread", ["threadId"]) 
-    .index("by_status", ["status"]) 
+    .index("by_created_by", ["createdBy"])
+    .index("by_case", ["caseId"])
+    .index("by_thread", ["threadId"])
+    .index("by_status", ["status"])
     .index("by_active", ["isActive"]),
 
   // Todo Items: Individual tasks belonging to a list
@@ -448,9 +450,9 @@ export default defineSchema({
     blockedReason: v.optional(v.string()),
     createdBy: v.id("users"),
   })
-    .index("by_list", ["listId"]) 
-    .index("by_status", ["status"]) 
-    .index("by_list_and_status", ["listId", "status"]) 
+    .index("by_list", ["listId"])
+    .index("by_status", ["status"])
+    .index("by_list_and_status", ["listId", "status"])
     .index("by_assigned_to", ["assignedTo"]),
 
   // ========================================
@@ -523,18 +525,21 @@ export default defineSchema({
     mimeType: v.string(),
     fileSize: v.number(),
     tags: v.optional(v.array(v.string())),
-    processingStatus: v.optional(v.union(
-      v.literal("pending"),
-      v.literal("processing"),
-      v.literal("completed"),
-      v.literal("failed"),
-    )),
+    processingStatus: v.optional(
+      v.union(
+        v.literal("pending"),
+        v.literal("processing"),
+        v.literal("completed"),
+        v.literal("failed"),
+      ),
+    ),
     // Add these missing processing fields:
     processingStartedAt: v.optional(v.number()),
     processingCompletedAt: v.optional(v.number()),
     processingError: v.optional(v.string()),
     totalChunks: v.optional(v.number()), // Number of chunks created
-  }).index("by_user", ["userId"])
+  })
+    .index("by_user", ["userId"])
     .index("by_team", ["teamId"])
     .index("by_folder", ["folderId"])
     .index("by_type", ["mimeType"])
@@ -542,7 +547,7 @@ export default defineSchema({
     .index("by_gcs_object", ["gcsObject"])
     .index("by_processing_status", ["processingStatus"])
     .searchIndex("search_library_documents", {
-      searchField: "title"
+      searchField: "title",
     }),
 
   // ========================================
@@ -558,11 +563,106 @@ export default defineSchema({
     createdBy: v.id("users"),
     order: v.optional(v.number()),
   })
-    .index("by_user_and_active", ["userId", "isActive"]) 
-    .index("by_case_and_active", ["caseId", "isActive"]) 
-    .index("by_scope", ["scope"]) 
+    .index("by_user_and_active", ["userId", "isActive"])
+    .index("by_case_and_active", ["caseId", "isActive"])
+    .index("by_scope", ["scope"])
     .index("by_created_by", ["createdBy"]),
 
+  // ========================================
+  // EVENTS & CALENDAR SYSTEM
+  // ========================================
 
-})
-   
+  events: defineTable({
+    title: v.string(),
+    description: v.optional(v.string()),
+
+    caseId: v.optional(v.id("cases")), // Si existe → evento de caso
+    teamId: v.optional(v.id("teams")), // Si existe → evento de equipo
+    // Si ambos son null → evento personal
+
+    eventType: v.union(
+      // Eventos de caso
+      v.literal("audiencia"),
+      v.literal("plazo"),
+      v.literal("reunion_cliente"),
+      v.literal("presentacion"),
+
+      // Eventos de equipo
+      v.literal("reunion_equipo"),
+
+      // Eventos personales
+      v.literal("personal"),
+      v.literal("otro"),
+    ),
+
+    // Fechas y tiempo
+    startDate: v.number(),
+    endDate: v.number(),
+    allDay: v.boolean(),
+
+    // Ubicación
+    location: v.optional(v.string()),
+    isVirtual: v.boolean(),
+    meetingUrl: v.optional(v.string()), // Para despues esto va a servir
+
+    // Recordatorios (minutos antes del evento)
+    reminderMinutes: v.optional(v.array(v.number())), // [15, 60, 1440] = 15min, 1h, 1día
+
+    // Estado
+    status: v.union(
+      v.literal("programado"),
+      v.literal("completado"),
+      v.literal("cancelado"),
+      v.literal("reprogramado"),
+    ),
+
+    // Metadata
+    createdBy: v.id("users"),
+    isArchived: v.boolean(),
+
+    // Notas adicionales
+    notes: v.optional(v.string()),
+  })
+    .index("by_case", ["caseId"])
+    .index("by_team", ["teamId"])
+    .index("by_created_by", ["createdBy"])
+    .index("by_start_date", ["startDate"])
+    .index("by_status", ["status"])
+    .index("by_type", ["eventType"])
+    .index("by_case_and_date", ["caseId", "startDate"])
+    .index("by_team_and_date", ["teamId", "startDate"])
+    .index("by_archived_status", ["isArchived"])
+    .searchIndex("search_events", {
+      searchField: "title",
+      filterFields: ["isArchived", "status"],
+    }),
+
+  // Event Participants - Users invited to events
+  eventParticipants: defineTable({
+    eventId: v.id("events"),
+    userId: v.id("users"),
+
+    // Rol en el evento
+    role: v.union(
+      v.literal("organizador"),
+      v.literal("participante"),
+      v.literal("opcional"),
+    ),
+
+    // Estado de asistencia
+    attendanceStatus: v.union(
+      v.literal("pendiente"),
+      v.literal("aceptado"),
+      v.literal("rechazado"),
+      v.literal("tentativo"),
+    ),
+
+    addedBy: v.id("users"),
+    isActive: v.boolean(),
+  })
+    .index("by_event", ["eventId"])
+    .index("by_user", ["userId"])
+    .index("by_event_and_user", ["eventId", "userId"])
+    .index("by_attendance_status", ["attendanceStatus"])
+    .index("by_active_status", ["isActive"]),
+});
