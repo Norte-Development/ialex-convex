@@ -13,7 +13,7 @@ import { createErrorResponse, validateStringParam } from "../shared/utils";
  */
 export const legislationFindTool = createTool({
   description:
-    "Find legislation: hybrid search, browse by filters, fetch facets, or get metadata. Use operation to choose behavior.",
+    "Find legislation: hybrid search with filters, browse by filters, fetch facets, or get metadata. IMPORTANT: You can search by number alone without a query - just provide filters.number with the numeric part (e.g., 7302 for law 7302/2024). Query is optional when filtering by number.",
   args: z
     .object({
       operation: z
@@ -40,7 +40,7 @@ export const legislationFindTool = createTool({
           sanction_date_to: z.string().optional(),
           publication_date_from: z.string().optional(),
           publication_date_to: z.string().optional(),
-          number: z.number().optional(),
+          number: z.union([z.number(), z.string()]).optional().describe("Law number (use only numeric part, e.g., 7302 for law 7302/2024)"),
           search: z.string().optional(),
           vigencia_actual: z.boolean().optional(),
         })
@@ -50,8 +50,8 @@ export const legislationFindTool = createTool({
       offset: z.number().optional(),
       sortBy: z.enum(["sanction_date", "updated_at", "created_at", "relevancia"]).optional(),
       sortOrder: z.enum(["asc", "desc"]).optional(),
-      // Search-specific
-      query: z.string().optional(),
+      // Search-specific (optional when filtering by number)
+      query: z.string().optional().describe("Search query text - optional when using number filter"),
       // Metadata
       documentId: z.string().optional(),
     })
@@ -59,18 +59,47 @@ export const legislationFindTool = createTool({
   handler: async (ctx: ToolCtx, args: any) => {
     try {
 
+      console.log("args", args);
+
       const operation = args.operation as string;
 
       switch (operation) {
         case "search": {
+        // Build filters for Qdrant search
+        const filters = args.filters || {};
+        const qdrantFilters: any = {};
+        
+        if (filters.jurisdiccion) qdrantFilters.jurisdiccion = filters.jurisdiccion;
+        if (filters.type) qdrantFilters.tipo_norma = filters.type;
+        if (filters.estado) qdrantFilters.estado = filters.estado;
+        if (filters.number) {
+          // Extract numeric part if it's a string like "7302/2024"
+          const numberStr = String(filters.number);
+          const match = numberStr.match(/^\d+/);
+          qdrantFilters.number = match ? match[0] : numberStr;
+        }
+
+        // Query is optional when filtering by number
+        let query = "";
+        if (args.query && typeof args.query === 'string') {
+          query = args.query.trim();
+        } else if (qdrantFilters.number) {
+          // Use number as query when no query is provided
+          query = qdrantFilters.number;
+        } else {
+          // Require query if no number filter is provided
           const queryError = validateStringParam(args.query, "query");
           if (queryError) return queryError;
-          const query = args.query.trim();
-
-        // Use hybrid Qdrant search
+          query = args.query.trim();
+        }
+        
+        // Use hybrid Qdrant search with filters
         const results = await ctx.runAction(
           internal.rag.qdrantUtils.legislation.searchNormatives,
-          { query }
+          { 
+            query,
+            filters: Object.keys(qdrantFilters).length > 0 ? qdrantFilters : undefined
+          }
         );
 
         // Map to compact search response with snippet and relations count
@@ -80,6 +109,7 @@ export const legislationFindTool = createTool({
           id: r.id,
           documentId: r.document_id ?? null,
           title: r.title ?? null,
+          number: r.number ?? null,
           tipoGeneral: r.tipo_general ?? null,
           tipoDetalle: r.tipo_detalle ?? null,
           jurisdiccion: r.jurisdiccion ?? null,
@@ -100,7 +130,8 @@ export const legislationFindTool = createTool({
         return `# 🔍 Resultados de Búsqueda Legislativa
 
 ## Consulta
-**Término de búsqueda**: "${query}"
+${args.query ? `**Término de búsqueda**: "${query}"` : `**Búsqueda por número**: ${qdrantFilters.number || 'N/A'}`}
+${Object.keys(qdrantFilters).length > 0 ? `\n## Filtros Aplicados\n${Object.entries(qdrantFilters).map(([key, value]) => `- **${key}**: ${value}`).join('\n')}` : ''}
 
 ## Estadísticas
 - **Resultados encontrados**: ${results.length}
@@ -110,6 +141,7 @@ export const legislationFindTool = createTool({
 ${results.length === 0 ? 'No se encontraron resultados para la consulta.' : resultsList.map(r => `
 ### ${r.rank}. ${r.title || 'Sin título'}
 - **ID del Documento**: ${r.documentId || 'N/A'}
+- **Número**: ${r.number || 'N/A'}
 - **Tipo General**: ${r.tipoGeneral || 'N/A'}
 - **Tipo Detalle**: ${r.tipoDetalle || 'N/A'}
 - **Jurisdicción**: ${r.jurisdiccion || 'N/A'}

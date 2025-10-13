@@ -26,8 +26,14 @@ export const prompt = `
         **Cuándo usar:** Para búsquedas complejas con filtros, navegación paginada, o cuando necesites metadatos específicos.
         **Parámetros:** 
         - operation: "search", "browse", "facets", o "metadata"
-        - query (para búsqueda), filters (para filtros), documentId (para metadatos)
-        **Ejemplo:** searchLegislationAdvanced({operation: "search", query: "responsabilidad civil"})
+        - query (opcional cuando se filtra por número), filters (para filtros), documentId (para metadatos)
+        **IMPORTANTE - Búsqueda por Número:**
+        - Puedes buscar leyes por número SIN necesidad de query: usa solo filters.number
+        - Usa solo la parte numérica (ej: 7302 para ley 7302/2024)
+        - El query es opcional cuando proporcionas filters.number
+        **Ejemplos:** 
+        - searchLegislationAdvanced({operation: "search", query: "responsabilidad civil"})
+        - searchLegislationAdvanced({operation: "search", filters: {number: 7302}}) // Busca ley 7302 sin query
 
         #### **readLegislation** - Lectura de Legislación
         **Descripción:** Lee documentos legislativos progresivamente, chunk por chunk, para análisis sistemático.

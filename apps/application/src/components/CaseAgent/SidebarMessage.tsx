@@ -67,6 +67,27 @@ export function SidebarMessage({
     }
   }, [message.parts, onContentChange]);
 
+  // Helper to calculate cumulative text length up to a given text part
+  const getCumulativeTextLength = (upToIndex: number) => {
+    let length = 0;
+    message.parts?.forEach((part, idx) => {
+      if (part.type === "text" && idx < upToIndex) {
+        length += (part as any).text.length;
+      }
+    });
+    return length;
+  };
+
+  // Find the index of the last text part for streaming logic
+  // Use a manual search since Array.prototype.findLastIndex may not be available in this environment.
+  const lastTextPartIndex = (() => {
+    const parts = message.parts || [];
+    for (let i = parts.length - 1; i >= 0; i--) {
+      if ((parts[i] as any).type === "text") return i;
+    }
+    return -1;
+  })();
+
   return (
     <Message
       from={message.role}
@@ -107,16 +128,40 @@ export function SidebarMessage({
         {/* Message parts in chronological order */}
         {message.parts?.map((part, index) => {
           if (part.type === "text") {
-            const displayText = isUser
-              ? part.text
-              : shouldStream
-                ? visibleText
-                : messageText;
+            const partText = (part as any).text;
+            
+            // For user messages, just show the text as-is
+            if (isUser) {
+              return (
+                <div
+                  key={index}
+                  className={cn("prose prose-sm max-w-none whitespace-pre-wrap")}
+                >
+                  <MessageText
+                    text={partText}
+                    renderMarkdown={true}
+                  />
+                </div>
+              );
+            }
+
+            // For assistant messages:
+            // Only apply streaming to the LAST text part, and only show this part's portion
+            const isLastTextPart = index === lastTextPartIndex;
+            let displayText = partText;
+
+            if (shouldStream && isLastTextPart) {
+              // Calculate where this part's text starts in the combined text
+              const startPos = getCumulativeTextLength(index);
+              const endPos = startPos + partText.length;
+              
+              // Extract only this part's text from the visible (streamed) text
+              displayText = visibleText.slice(startPos, endPos);
+            }
 
             if (
               !isUser &&
               shouldStream &&
-              visibleText === "" &&
               (!displayText || displayText.trim() === "")
             ) {
               return (
