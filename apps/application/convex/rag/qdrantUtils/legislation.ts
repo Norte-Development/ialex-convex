@@ -31,7 +31,7 @@ const generateSparseEmbeddings = async (queries: string[]) => {
  **/
 export const searchNormatives = internalAction({
   args: {
-    query: v.string(),
+    query: v.optional(v.string()),
     filters: v.optional(v.object({
       jurisdiccion: v.optional(v.string()),
       tipo_norma: v.optional(v.string()),
@@ -79,219 +79,339 @@ export const searchNormatives = internalAction({
     score: v.number(),
   })),
   handler: async (ctx, args) => {
-    const { query, filters } = args;
-    const limit = args.limit ?? 10;
-    const contextWindow = args.contextWindow ?? 0;
-
-    const sparseEmbeddings = await generateSparseEmbeddings([query]);
-
-
-    // Extract the actual embeddings data - this might need adjustment based on the API response structure
-    let sparseEmbeddingData;
-    if (Array.isArray(sparseEmbeddings) && sparseEmbeddings.length > 0) {
-      sparseEmbeddingData = sparseEmbeddings[0];
-    } else if (sparseEmbeddings && typeof sparseEmbeddings === 'object') {
-      // If it's an object, try to find the embeddings in common property names
-      sparseEmbeddingData = sparseEmbeddings.embeddings || sparseEmbeddings.data || sparseEmbeddings.result || sparseEmbeddings[0];
-    } else {
-      throw new Error('Unable to extract sparse embeddings from API response');
-    }
-
-
-    const denseEmbeddings = await embed({
-      model: openai.textEmbeddingModel("text-embedding-3-small"),
-      value: query,
-    });
-
-
-    // Check if the collection exists
     try {
-      const collections = await client.getCollections();
-      const hasCollection = collections.collections?.some(c => c.name === 'ialex_legislation_py');
-      if (!hasCollection) {
-        throw new Error('Collection "ialex_legislation_py" does not exist');
-      }
-    } catch (collectionError) {
-      console.error('Collection check failed:', collectionError);
-      throw new Error(`Collection validation failed: ${collectionError instanceof Error ? collectionError.message : String(collectionError)}`);
-    }
+      const { query, filters } = args;
+      const limit = args.limit ?? 10;
+      const contextWindow = args.contextWindow ?? 0;
+      
+      console.log('searchNormatives called with:', {
+        query: query || '(empty)',
+        filters: filters || {},
+        limit,
+        contextWindow
+      });
+      
+      // Skip vector generation if no query is provided (filter-only search)
+      const useVectors = query && query.trim().length > 0;
+      
+      let sparseEmbeddingData;
+      let denseEmbeddings;
 
+      if (useVectors) {
+        try {
+          console.log('Generating sparse embeddings for query:', query);
+          const sparseEmbeddings = await generateSparseEmbeddings([query]);
 
-    // Build Qdrant filter
-    const must: Array<any> = [];
-    if (filters) {
-      if (filters.jurisdiccion) must.push({ key: 'jurisdiccion', match: { value: filters.jurisdiccion } });
-      if (filters.tipo_norma) must.push({ key: 'tipo_norma', match: { value: filters.tipo_norma } });
-      if (filters.estado) must.push({ key: 'estado', match: { value: filters.estado } });
-      if (filters.tipo_contenido) must.push({ key: 'tipo_contenido', match: { value: filters.tipo_contenido } });
-      if (filters.country_code) must.push({ key: 'country_code', match: { value: filters.country_code } });
-      if (filters.document_id) must.push({ key: 'document_id', match: { value: filters.document_id } });
-      if (filters.number) must.push({ key: 'number', match: { value: String(filters.number) } });
-      if (filters.publication_ts_from || filters.publication_ts_to) {
-        const range: any = {};
-        if (filters.publication_ts_from) range.gte = filters.publication_ts_from;
-        if (filters.publication_ts_to) range.lte = filters.publication_ts_to;
-        must.push({ key: 'publication_ts', range });
-      }
-      if (filters.sanction_ts_from || filters.sanction_ts_to) {
-        const range: any = {};
-        if (filters.sanction_ts_from) range.gte = filters.sanction_ts_from;
-        if (filters.sanction_ts_to) range.lte = filters.sanction_ts_to;
-        must.push({ key: 'sanction_ts', range });
-      }
-    }
-
-    const searchResults = await client.query('ialex_legislation_py', {
-      prefetch: [
-        {
-          query: sparseEmbeddingData,
-          using: "keywords",
-          limit: 50,
-        },
-        {
-          query: denseEmbeddings.embedding,
-          using: "dense",
-          limit: 50,
+          // Extract the actual embeddings data - this might need adjustment based on the API response structure
+          if (Array.isArray(sparseEmbeddings) && sparseEmbeddings.length > 0) {
+            sparseEmbeddingData = sparseEmbeddings[0];
+          } else if (sparseEmbeddings && typeof sparseEmbeddings === 'object') {
+            // If it's an object, try to find the embeddings in common property names
+            sparseEmbeddingData = sparseEmbeddings.embeddings || sparseEmbeddings.data || sparseEmbeddings.result || sparseEmbeddings[0];
+          } else {
+            console.error('Invalid sparse embeddings response:', sparseEmbeddings);
+            throw new Error('Unable to extract sparse embeddings from API response');
+          }
+          console.log('Sparse embeddings generated successfully');
+        } catch (sparseError) {
+          console.error('Sparse embeddings generation failed:', {
+            error: sparseError instanceof Error ? sparseError.message : String(sparseError),
+            query
+          });
+          throw new Error(`Sparse embeddings failed: ${sparseError instanceof Error ? sparseError.message : String(sparseError)}`);
         }
-      ],
-      query: {
-        fusion: 'rrf'
-      },
-      filter: must.length > 0 ? { must } : undefined,
-      with_payload: true,
-    });
 
-    const points: Array<any> = searchResults.points || [];
-    console.log('Legislation search results count:', points.length);
+        try {
+          console.log('Generating dense embeddings for query:', query);
+          denseEmbeddings = await embed({
+            model: openai.textEmbeddingModel("text-embedding-3-small"),
+            value: query,
+          });
+          console.log('Dense embeddings generated successfully');
+        } catch (denseError) {
+          console.error('Dense embeddings generation failed:', {
+            error: denseError instanceof Error ? denseError.message : String(denseError),
+            query
+          });
+          throw new Error(`Dense embeddings failed: ${denseError instanceof Error ? denseError.message : String(denseError)}`);
+        }
+      } else {
+        console.log('Skipping vector generation - filter-only search');
+      }
 
-    // Group results by document_id (fallback to point id)
-    const clusters = new Map<string, Array<any>>();
-    for (const p of points) {
-      const payload = p.payload || {};
-      const key = typeof payload.document_id === 'string' && payload.document_id.length > 0
-        ? payload.document_id
-        : (p.id?.toString() || 'unknown');
-      if (!clusters.has(key)) clusters.set(key, []);
-      clusters.get(key)!.push(p);
-    }
 
-    // Determine per-document cap to honor overall limit
-    const clusterCount = Math.max(1, clusters.size || 1);
-    const perDocCap = Math.max(1, Math.floor(limit / clusterCount) || 1);
+      // Check if the collection exists
+      try {
+        console.log('Checking Qdrant collection existence...');
+        const collections = await client.getCollections();
+        const hasCollection = collections.collections?.some(c => c.name === 'ialex_legislation_py');
+        if (!hasCollection) {
+          console.error('Collection "ialex_legislation_py" not found in:', collections.collections?.map(c => c.name));
+          throw new Error('Collection "ialex_legislation_py" does not exist');
+        }
+        console.log('Collection check passed');
+      } catch (collectionError) {
+        console.error('Collection check failed:', {
+          error: collectionError instanceof Error ? collectionError.message : String(collectionError),
+          stack: collectionError instanceof Error ? collectionError.stack : undefined
+        });
+        throw new Error(`Collection validation failed: ${collectionError instanceof Error ? collectionError.message : String(collectionError)}`);
+      }
 
-    const expandedResults: Array<any> = [];
 
-    // Helper to map a point to the return shape, allowing text/index overrides
-    const mapPoint = (pt: any, overrides?: { text?: string; index?: number }) => {
-      const payload = pt.payload || {};
-      const pointId = pt.id?.toString() || 'unknown';
-      const text = typeof overrides?.text === 'string' ? overrides!.text : (typeof payload.text === 'string' ? payload.text : undefined);
-      const indexVal = typeof overrides?.index === 'number' ? overrides!.index : (typeof payload.index === 'number' ? payload.index : undefined);
-      return {
-        id: typeof payload.id === 'string' ? payload.id : pointId,
-        content_hash: typeof payload.content_hash === 'string' ? payload.content_hash : undefined,
-        date_ts: typeof payload.date_ts === 'number' ? payload.date_ts : undefined,
-        fuente: typeof payload.fuente === 'string' ? payload.fuente : undefined,
-        tipo_contenido: typeof payload.tipo_contenido === 'string' ? payload.tipo_contenido : undefined,
-        publication_ts: typeof payload.publication_ts === 'number' ? payload.publication_ts : undefined,
-        text,
-        tags: Array.isArray(payload.tags) ? payload.tags : [],
-        country_code: typeof payload.country_code === 'string' ? payload.country_code : undefined,
-        title: typeof payload.title === 'string' ? payload.title : undefined,
-        estado: typeof payload.estado === 'string' ? payload.estado : undefined,
-        subestado: typeof payload.subestado === 'string' ? payload.subestado : undefined,
-        tipo_general: typeof payload.tipo_general === 'string' ? payload.tipo_general : undefined,
-        citas: Array.isArray(payload.citas) ? payload.citas : [],
-        tipo_detalle: typeof payload.tipo_detalle === 'string' ? payload.tipo_detalle : undefined,
-        index: indexVal,
-        last_ingested_run_id: typeof payload.last_ingested_run_id === 'string' ? payload.last_ingested_run_id : undefined,
-        relaciones: Array.isArray(payload.relaciones) ? payload.relaciones : [],
-        jurisdiccion: typeof payload.jurisdiccion === 'string' ? payload.jurisdiccion : undefined,
-        number: typeof payload.number === 'string' ? payload.number : undefined,
-        document_id: typeof payload.document_id === 'string' ? payload.document_id : undefined,
-        url: typeof payload.url === 'string' ? payload.url : undefined,
-        sanction_ts: typeof payload.sanction_ts === 'number' ? payload.sanction_ts : undefined,
-        // Legacy fields for backward compatibility
-        tipo_norma: typeof payload.tipo_norma === 'string' ? payload.tipo_norma : undefined,
-        type: typeof payload.type === 'string' ? payload.type : undefined,
-        tipo_organismo: typeof payload.tipo_organismo === 'string' ? payload.tipo_organismo : undefined,
-        score: pt.score,
-      };
-    };
+      // Build Qdrant filter
+      const must: Array<any> = [];
+      if (filters) {
+        console.log('Building filters from:', filters);
+        if (filters.jurisdiccion) must.push({ key: 'jurisdiccion', match: { value: filters.jurisdiccion } });
+        if (filters.tipo_norma) must.push({ key: 'tipo_norma', match: { value: filters.tipo_norma } });
+        if (filters.estado) must.push({ key: 'estado', match: { value: filters.estado } });
+        if (filters.tipo_contenido) must.push({ key: 'tipo_contenido', match: { value: filters.tipo_contenido } });
+        if (filters.country_code) must.push({ key: 'country_code', match: { value: filters.country_code } });
+        if (filters.document_id) must.push({ key: 'document_id', match: { value: filters.document_id } });
+        if (filters.number) must.push({ key: 'number', match: { value: String(filters.number) } });
+        if (filters.publication_ts_from || filters.publication_ts_to) {
+          const range: any = {};
+          if (filters.publication_ts_from) range.gte = filters.publication_ts_from;
+          if (filters.publication_ts_to) range.lte = filters.publication_ts_to;
+          must.push({ key: 'publication_ts', range });
+        }
+        if (filters.sanction_ts_from || filters.sanction_ts_to) {
+          const range: any = {};
+          if (filters.sanction_ts_from) range.gte = filters.sanction_ts_from;
+          if (filters.sanction_ts_to) range.lte = filters.sanction_ts_to;
+          must.push({ key: 'sanction_ts', range });
+        }
+        console.log('Built filter conditions:', must);
+      }
 
-    // Build expanded results with optional context window
-    for (const [docId, cl] of clusters) {
-      if (expandedResults.length >= limit) break;
-      // Sort cluster by score desc
-      cl.sort((a, b) => (b.score || 0) - (a.score || 0));
-      const tops = cl.slice(0, perDocCap);
+      let points: Array<any> = [];
 
-      for (const top of tops) {
-        if (expandedResults.length >= limit) break;
-        const payload = top.payload || {};
-        const idx: number | undefined = typeof payload.index === 'number' ? payload.index : undefined;
-
-        if (typeof idx === 'number' && contextWindow > 0) {
-          const startIndex = Math.max(0, idx - contextWindow);
-          const endIndex = idx + contextWindow;
-          try {
-            const range = await client.scroll('ialex_legislation_py', {
-              filter: {
-                must: [
-                  { key: 'document_id', match: { value: docId } },
-                  { key: 'index', range: { gte: startIndex, lte: endIndex } },
-                ]
+      if (useVectors && sparseEmbeddingData && denseEmbeddings) {
+        // Use hybrid search with vectors
+        try {
+          console.log('Executing hybrid vector search...');
+          const searchResults = await client.query('ialex_legislation_py', {
+            prefetch: [
+              {
+                query: sparseEmbeddingData,
+                using: "keywords",
+                limit: 50,
               },
+              {
+                query: denseEmbeddings.embedding,
+                using: "dense",
+                limit: 50,
+              }
+            ],
+            query: {
+              fusion: 'rrf'
+            },
+            filter: must.length > 0 ? { must } : undefined,
+            with_payload: true,
+          });
+          points = searchResults.points || [];
+          console.log('Hybrid search completed successfully, points found:', points.length);
+        } catch (searchError) {
+          console.error('Hybrid search failed:', {
+            error: searchError instanceof Error ? searchError.message : String(searchError),
+            stack: searchError instanceof Error ? searchError.stack : undefined,
+            hasFilters: must.length > 0,
+            filterCount: must.length
+          });
+          throw new Error(`Hybrid search failed: ${searchError instanceof Error ? searchError.message : String(searchError)}`);
+        }
+      } else {
+        // Filter-only search using scroll (no vectors needed)
+        if (must.length === 0) {
+          console.warn('No query and no filters provided - returning empty results');
+          points = [];
+        } else {
+          try {
+            console.log('Executing filter-only scroll search...');
+            const scrollResults = await client.scroll('ialex_legislation_py', {
+              filter: { must },
               with_payload: true,
               with_vector: false,
-              limit: 1000,
+              limit: Math.min(limit * 3, 100), // Get a bit more to account for clustering
             });
-
-            const pointsInRange = (range.points || []).sort((a: any, b: any) => {
-              const ai = (a.payload?.index as number) || 0;
-              const bi = (b.payload?.index as number) || 0;
-              return ai - bi;
+            points = (scrollResults.points || []).map((p: any) => ({
+              ...p,
+              score: 1.0, // No score for filter-only results
+            }));
+            console.log('Scroll search completed successfully, points found:', points.length);
+          } catch (scrollError) {
+            console.error('Scroll search failed:', {
+              error: scrollError instanceof Error ? scrollError.message : String(scrollError),
+              stack: scrollError instanceof Error ? scrollError.stack : undefined,
+              filters: must
             });
-            const mergedText = pointsInRange
-              .map((p: any) => (p.payload?.text as string) || '')
-              .filter((t: string) => t.trim().length > 0)
-              .join(' ');
-
-            if (mergedText.length > 0) {
-              expandedResults.push(mapPoint(top, { text: mergedText, index: idx }));
-            } else {
-              const originalText = (payload.text as string) || '';
-              if (originalText.trim().length > 0) expandedResults.push(mapPoint(top, { text: originalText, index: idx }));
-            }
-          } catch (e) {
-            console.error('Context expansion failed for doc', docId, 'index', idx, e);
-            expandedResults.push(mapPoint(top));
+            throw new Error(`Scroll search failed: ${scrollError instanceof Error ? scrollError.message : String(scrollError)}`);
           }
-        } else {
-          // No expansion requested or missing index
-          expandedResults.push(mapPoint(top));
         }
       }
-    }
+      console.log('Legislation search results:', { 
+        method: useVectors ? 'hybrid-vector' : 'filter-only',
+        count: points.length, 
+        hasFilters: must.length > 0,
+        limit 
+      });
 
-    // If we didn't fill limit due to small cluster sizes, backfill with top global results
-    if (expandedResults.length < limit) {
-      const remaining = limit - expandedResults.length;
-      const already = new Set(expandedResults.map(r => `${r.document_id}-${r.index}-${r.id}`));
-      const sortedGlobal = [...points].sort((a, b) => (b.score || 0) - (a.score || 0));
-      for (const p of sortedGlobal) {
-        const key = `${p.payload?.document_id}-${p.payload?.index}-${p.id}`;
-        if (already.has(key)) continue;
-        expandedResults.push(mapPoint(p));
-        if (expandedResults.length >= limit) break;
+      // Group results by document_id (fallback to point id)
+      console.log('Grouping results by document_id...');
+      const clusters = new Map<string, Array<any>>();
+      for (const p of points) {
+        const payload = p.payload || {};
+        const key = typeof payload.document_id === 'string' && payload.document_id.length > 0
+          ? payload.document_id
+          : (p.id?.toString() || 'unknown');
+        if (!clusters.has(key)) clusters.set(key, []);
+        clusters.get(key)!.push(p);
       }
-    }
+      console.log('Grouped into clusters:', clusters.size);
 
-    // Sort final results by score desc and limit
-    expandedResults.sort((a, b) => (b.score || 0) - (a.score || 0));
-    const finalResults = expandedResults.slice(0, limit);
-    console.log('Returning legislation results:', { total: finalResults.length, limit, contextWindow, clusters: clusterCount });
-    return finalResults;
+      // Determine per-document cap to honor overall limit
+      const clusterCount = Math.max(1, clusters.size || 1);
+      const perDocCap = Math.max(1, Math.floor(limit / clusterCount) || 1);
+      console.log('Cluster strategy:', { clusterCount, perDocCap, limit });
+
+      const expandedResults: Array<any> = [];
+
+      // Helper to map a point to the return shape, allowing text/index overrides
+      const mapPoint = (pt: any, overrides?: { text?: string; index?: number }) => {
+        const payload = pt.payload || {};
+        const pointId = pt.id?.toString() || 'unknown';
+        const text = typeof overrides?.text === 'string' ? overrides!.text : (typeof payload.text === 'string' ? payload.text : undefined);
+        const indexVal = typeof overrides?.index === 'number' ? overrides!.index : (typeof payload.index === 'number' ? payload.index : undefined);
+        return {
+          id: typeof payload.id === 'string' ? payload.id : pointId,
+          content_hash: typeof payload.content_hash === 'string' ? payload.content_hash : undefined,
+          date_ts: typeof payload.date_ts === 'number' ? payload.date_ts : undefined,
+          fuente: typeof payload.fuente === 'string' ? payload.fuente : undefined,
+          tipo_contenido: typeof payload.tipo_contenido === 'string' ? payload.tipo_contenido : undefined,
+          publication_ts: typeof payload.publication_ts === 'number' ? payload.publication_ts : undefined,
+          text,
+          tags: Array.isArray(payload.tags) ? payload.tags : [],
+          country_code: typeof payload.country_code === 'string' ? payload.country_code : undefined,
+          title: typeof payload.title === 'string' ? payload.title : undefined,
+          estado: typeof payload.estado === 'string' ? payload.estado : undefined,
+          subestado: typeof payload.subestado === 'string' ? payload.subestado : undefined,
+          tipo_general: typeof payload.tipo_general === 'string' ? payload.tipo_general : undefined,
+          citas: Array.isArray(payload.citas) ? payload.citas : [],
+          tipo_detalle: typeof payload.tipo_detalle === 'string' ? payload.tipo_detalle : undefined,
+          index: indexVal,
+          last_ingested_run_id: typeof payload.last_ingested_run_id === 'string' ? payload.last_ingested_run_id : undefined,
+          relaciones: Array.isArray(payload.relaciones) ? payload.relaciones : [],
+          jurisdiccion: typeof payload.jurisdiccion === 'string' ? payload.jurisdiccion : undefined,
+          number: typeof payload.number === 'string' ? payload.number : undefined,
+          document_id: typeof payload.document_id === 'string' ? payload.document_id : undefined,
+          url: typeof payload.url === 'string' ? payload.url : undefined,
+          sanction_ts: typeof payload.sanction_ts === 'number' ? payload.sanction_ts : undefined,
+          // Legacy fields for backward compatibility
+          tipo_norma: typeof payload.tipo_norma === 'string' ? payload.tipo_norma : undefined,
+          type: typeof payload.type === 'string' ? payload.type : undefined,
+          tipo_organismo: typeof payload.tipo_organismo === 'string' ? payload.tipo_organismo : undefined,
+          score: pt.score,
+        };
+      };
+
+      // Build expanded results with optional context window
+      console.log('Building expanded results with contextWindow:', contextWindow);
+      for (const [docId, cl] of clusters) {
+        if (expandedResults.length >= limit) break;
+        // Sort cluster by score desc
+        cl.sort((a, b) => (b.score || 0) - (a.score || 0));
+        const tops = cl.slice(0, perDocCap);
+
+        for (const top of tops) {
+          if (expandedResults.length >= limit) break;
+          const payload = top.payload || {};
+          const idx: number | undefined = typeof payload.index === 'number' ? payload.index : undefined;
+
+          if (typeof idx === 'number' && contextWindow > 0) {
+            const startIndex = Math.max(0, idx - contextWindow);
+            const endIndex = idx + contextWindow;
+            try {
+              console.log('Expanding context for doc:', docId, 'index range:', startIndex, '-', endIndex);
+              const range = await client.scroll('ialex_legislation_py', {
+                filter: {
+                  must: [
+                    { key: 'document_id', match: { value: docId } },
+                    { key: 'index', range: { gte: startIndex, lte: endIndex } },
+                  ]
+                },
+                with_payload: true,
+                with_vector: false,
+                limit: 1000,
+              });
+
+              const pointsInRange = (range.points || []).sort((a: any, b: any) => {
+                const ai = (a.payload?.index as number) || 0;
+                const bi = (b.payload?.index as number) || 0;
+                return ai - bi;
+              });
+              const mergedText = pointsInRange
+                .map((p: any) => (p.payload?.text as string) || '')
+                .filter((t: string) => t.trim().length > 0)
+                .join(' ');
+
+              if (mergedText.length > 0) {
+                expandedResults.push(mapPoint(top, { text: mergedText, index: idx }));
+              } else {
+                const originalText = (payload.text as string) || '';
+                if (originalText.trim().length > 0) expandedResults.push(mapPoint(top, { text: originalText, index: idx }));
+              }
+            } catch (e) {
+              console.error('Context expansion failed:', {
+                docId,
+                index: idx,
+                error: e instanceof Error ? e.message : String(e),
+                stack: e instanceof Error ? e.stack : undefined
+              });
+              expandedResults.push(mapPoint(top));
+            }
+          } else {
+            // No expansion requested or missing index
+            expandedResults.push(mapPoint(top));
+          }
+        }
+      }
+
+      // If we didn't fill limit due to small cluster sizes, backfill with top global results
+      if (expandedResults.length < limit) {
+        console.log('Backfilling results, current:', expandedResults.length, 'target:', limit);
+        const remaining = limit - expandedResults.length;
+        const already = new Set(expandedResults.map(r => `${r.document_id}-${r.index}-${r.id}`));
+        const sortedGlobal = [...points].sort((a, b) => (b.score || 0) - (a.score || 0));
+        for (const p of sortedGlobal) {
+          const key = `${p.payload?.document_id}-${p.payload?.index}-${p.id}`;
+          if (already.has(key)) continue;
+          expandedResults.push(mapPoint(p));
+          if (expandedResults.length >= limit) break;
+        }
+        console.log('After backfill:', expandedResults.length);
+      }
+
+      // Sort final results by score desc and limit
+      expandedResults.sort((a, b) => (b.score || 0) - (a.score || 0));
+      const finalResults = expandedResults.slice(0, limit);
+      console.log('Returning legislation results:', { 
+        method: useVectors ? 'hybrid-vector' : 'filter-only',
+        total: finalResults.length, 
+        limit, 
+        contextWindow, 
+        clusters: clusterCount 
+      });
+      return finalResults;
+    } catch (error) {
+      console.error('searchNormatives failed:', {
+        error: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : undefined,
+        query: args.query,
+        filters: args.filters
+      });
+      throw new Error(`Legislation search failed: ${error instanceof Error ? error.message : String(error)}`);
+    }
   }
 });
 
