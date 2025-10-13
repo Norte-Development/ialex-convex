@@ -223,7 +223,16 @@ export function processLibraryDocumentJob(queue: Queue) {
             )
           : undefined;
 
-        await timeoutWrappers.fileDownload(
+        logger.info("Sending success callback", {
+          libraryDocumentId: payload.libraryDocumentId,
+          callbackUrl: payload.callbackUrl,
+          totalChunks,
+          status: "completed",
+          method,
+          hasHmac: !!hmac
+        });
+
+        const response = await timeoutWrappers.fileDownload(
           () => fetch(payload.callbackUrl, {
             method: "POST",
             headers: { "Content-Type": "application/json", ...(hmac ? { "X-Signature": hmac } : {}) },
@@ -231,6 +240,31 @@ export function processLibraryDocumentJob(queue: Queue) {
           }),
           'success callback'
         );
+
+        logger.info("Callback response received", {
+          libraryDocumentId: payload.libraryDocumentId,
+          status: response.status,
+          statusText: response.statusText,
+          ok: response.ok
+        });
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          logger.error("Callback request failed", {
+            libraryDocumentId: payload.libraryDocumentId,
+            status: response.status,
+            statusText: response.statusText,
+            error: errorText,
+            callbackUrl: payload.callbackUrl
+          });
+          throw new Error(`Callback failed with status ${response.status}: ${errorText}`);
+        }
+
+        const responseData = await response.json();
+        logger.info("Callback successful", {
+          libraryDocumentId: payload.libraryDocumentId,
+          responseData
+        });
 
         console.log("done");
 
@@ -256,13 +290,40 @@ export function processLibraryDocumentJob(queue: Queue) {
             : undefined;
 
           try {
-            await fetch(payload.callbackUrl, {
+            logger.info("Sending failure callback", {
+              libraryDocumentId: payload.libraryDocumentId,
+              callbackUrl: payload.callbackUrl,
+              error: errorMessage,
+              hasHmac: !!hmac
+            });
+
+            const response = await fetch(payload.callbackUrl, {
               method: "POST",
               headers: { "Content-Type": "application/json", ...(hmac ? { "X-Signature": hmac } : {}) },
               body: failureBody,
             });
-          } catch {
+
+            logger.info("Failure callback response", {
+              libraryDocumentId: payload.libraryDocumentId,
+              status: response.status,
+              statusText: response.statusText,
+              ok: response.ok
+            });
+
+            if (!response.ok) {
+              const errorText = await response.text();
+              logger.warn("Failure callback failed to send", {
+                libraryDocumentId: payload.libraryDocumentId,
+                status: response.status,
+                error: errorText
+              });
+            }
+          } catch (callbackError) {
             // Swallow callback errors here; job will still be marked failed below
+            logger.warn("Failed to send failure callback", {
+              libraryDocumentId: payload.libraryDocumentId,
+              error: callbackError instanceof Error ? callbackError.message : String(callbackError)
+            });
           }
         }
 
