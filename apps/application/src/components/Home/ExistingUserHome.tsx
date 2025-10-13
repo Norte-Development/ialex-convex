@@ -3,62 +3,72 @@ import { api } from "../../../convex/_generated/api";
 import NewCaseCard from "./NewCaseCard";
 import EventDateCard from "./EventDateCard";
 import { Button } from "../ui/button";
-import { CircleArrowRight } from "lucide-react";
-
-const eventsWithDate = [
-  {
-    _id: "1",
-    name: "Evento 1",
-    date: "2024-10-10",
-    start: "10:00",
-    end: "12:00",
-  },
-  {
-    _id: "2",
-    name: "Evento 2",
-    date: "2024-11-15",
-    start: "14:00",
-    end: "16:00",
-  },
-  {
-    _id: "3",
-    name: "Evento 3",
-    date: "2024-12-20",
-    start: "09:00",
-    end: "11:00",
-  },
-];
+import { CircleArrowRight, Calendar } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 
 const ExistingUserHome = () => {
+  const navigate = useNavigate();
   const casesResult = useQuery(api.functions.cases.getCases, {});
+  const upcomingEvents = useQuery(api.functions.events.getUpcomingEvents, {
+    days: 7,
+  });
 
   const cases = casesResult || [];
+  const events = upcomingEvents || [];
 
   return (
     <>
-      <div className="grid lg:grid-cols-3 md:grid-cols-2 sm:grid-cols-1  gap-10 "></div>
-      <div className="flex flex-col justify-center  items-start w-full">
+      <div className="grid lg:grid-cols-3 md:grid-cols-2 sm:grid-cols-1 gap-10"></div>
+      <div className="flex flex-col justify-center items-start w-full">
         <p className="text-center font-[400] text-[24px] text-tertiary">
           Vuelve a tu trabajo
         </p>
-        <div className="mt-10 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 w-full  gap-4 mb-10 ">
-          {cases.map((caseItem) => (
-            <NewCaseCard key={caseItem._id} caseItem={caseItem} />
-          ))}
+        <div className="mt-10 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 w-full gap-4 mb-10">
+          {cases.length > 0 ? (
+            cases.map((caseItem) => (
+              <NewCaseCard key={caseItem._id} caseItem={caseItem} />
+            ))
+          ) : (
+            <p className="text-gray-500 text-sm">No tienes casos activos</p>
+          )}
         </div>
+
         <p className="text-center font-[400] text-[24px] text-tertiary">
-          Proximos Eventos
+          Próximos Eventos
         </p>
         <div className="mt-10 w-full grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-10">
-          {eventsWithDate.map((event) => (
-            <EventDateCard key={event._id} event={event} />
-          ))}
+          {events.length > 0 ? (
+            events.slice(0, 3).map((event) => (
+              <EventDateCard key={event._id} event={event} />
+            ))
+          ) : (
+            <div className="col-span-full flex flex-col items-center justify-center py-8 text-gray-500">
+              <Calendar size={48} className="mb-4 text-gray-300" />
+              <p className="text-sm">No tienes eventos próximos</p>
+              <Button
+                variant="outline"
+                size="sm"
+                className="mt-4"
+                onClick={() => navigate("/eventos")}
+              >
+                Crear evento
+              </Button>
+            </div>
+          )}
         </div>
-        <div className="flex w-full justify-end  items-center mb-10">
-          <Button variant={"secondary"} size={"lg"} className="text-black">
-            Ver todos <CircleArrowRight className="inline text-primary" />
-          </Button>
-        </div>
+
+        {events.length > 0 && (
+          <div className="flex w-full justify-end items-center mb-10">
+            <Button
+              variant={"secondary"}
+              size={"lg"}
+              className="text-black"
+              onClick={() => navigate("/eventos")}
+            >
+              Ver todos <CircleArrowRight className="inline text-primary" />
+            </Button>
+          </div>
+        )}
       </div>
     </>
   );
