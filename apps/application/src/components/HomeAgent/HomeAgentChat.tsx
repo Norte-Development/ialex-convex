@@ -35,13 +35,13 @@ import {
   PromptInputSubmit,
 } from "@/components/ai-elements/prompt-input";
 import { Response } from "@/components/ai-elements/response";
-import { Loader } from "@/components/ai-elements/loader";
 import { Actions, Action } from "@/components/ai-elements/actions";
-import { Copy, RotateCw, Check } from "lucide-react";
+import { Copy, RotateCw, Check, AlertCircle } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { es } from "date-fns/locale";
 import { Tool } from "@/components/ai-elements/tool";
 import type { ToolUIPart } from "ai";
+import { toast } from "sonner";
 
 export interface HomeAgentChatProps {
   /** ID del thread de conversación */
@@ -65,6 +65,7 @@ export function HomeAgentChat({
   const navigate = useNavigate();
   const [inputValue, setInputValue] = useState("");
   const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null);
+  const [sendError, setSendError] = useState<string | null>(null);
 
   // Hook de Convex con streaming habilitado
   const messagesResult = useThreadMessages(
@@ -88,12 +89,41 @@ export function HomeAgentChat({
     !messagesResult.results &&
     messagesResult.status !== "Exhausted";
 
+  // Detectar si hay streaming activo en los mensajes
+  const hasStreamingMessage = messages.some((msg: any) => {
+    // Si el mensaje es del usuario, no está en streaming
+    if (msg.role === "user") return false;
+
+    // Verificar si algún part está en streaming
+    if (msg.parts && msg.parts.length > 0) {
+      return msg.parts.some((part: any) => {
+        // Text parts en streaming
+        if (part.type === "text" && part.state === "streaming") return true;
+
+        // Tool calls en streaming (input-streaming o sin output todavía)
+        if (part.type?.startsWith("tool-")) {
+          return (
+            part.state === "input-streaming" || part.state === "input-available"
+          );
+        }
+
+        return false;
+      });
+    }
+
+    return false;
+  });
+
+  // Input debe estar deshabilitado si está cargando O si hay streaming
+  const isInputDisabled = messagesLoading || hasStreamingMessage;
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!inputValue.trim() || messagesLoading) return;
+    if (!inputValue.trim() || isInputDisabled) return;
 
     const message = inputValue.trim();
     setInputValue("");
+    setSendError(null);
 
     try {
       const result = await sendMessage(message);
@@ -103,11 +133,19 @@ export function HomeAgentChat({
       }
     } catch (error) {
       console.error("Error sending message:", error);
+      const errorMessage = error instanceof Error ? error.message : "Error al enviar el mensaje";
+      setSendError(errorMessage);
+      toast.error("Error al enviar mensaje", {
+        description: errorMessage,
+        duration: 5000,
+      });
+      // Restaurar el mensaje en el input para que el usuario pueda reintentarlo
+      setInputValue(message);
     }
   };
 
   // Determinar el estado del chat para el botón de submit
-  const chatStatus = messagesLoading ? "streaming" : "awaiting-message";
+  const chatStatus = isInputDisabled ? "streaming" : "awaiting-message";
 
   // Función para copiar mensaje al clipboard
   const handleCopyMessage = async (messageId: string, text: string) => {
@@ -122,12 +160,19 @@ export function HomeAgentChat({
 
   // Función para regenerar respuesta
   const handleRegenerateMessage = async (messageText: string) => {
-    if (!threadId || messagesLoading) return;
+    if (!threadId || isInputDisabled) return;
 
+    setSendError(null);
     try {
       await sendMessage(messageText);
     } catch (error) {
       console.error("Error regenerating message:", error);
+      const errorMessage = error instanceof Error ? error.message : "Error al regenerar la respuesta";
+      setSendError(errorMessage);
+      toast.error("Error al regenerar respuesta", {
+        description: errorMessage,
+        duration: 5000,
+      });
     }
   };
 
@@ -275,7 +320,7 @@ export function HomeAgentChat({
                                   "";
                                 handleRegenerateMessage(userText);
                               }}
-                              disabled={messagesLoading}
+                              disabled={isInputDisabled}
                             >
                               <RotateCw className="size-4" />
                             </Action>
@@ -292,34 +337,34 @@ export function HomeAgentChat({
               );
             })
           )}
-          {messagesLoading && (
-            <div className="flex items-center gap-2 py-4">
-              <Loader size={20} />
-              <span className="text-muted-foreground text-sm">
-                iAlex está escribiendo...
-              </span>
-            </div>
-          )}
         </ConversationContent>
         <ConversationScrollButton />
       </Conversation>
 
       {/* Prompt Input */}
-      <PromptInput onSubmit={handleSubmit} className="m-4">
-        <PromptInputTextarea
-          value={inputValue}
-          onChange={(e) => setInputValue(e.target.value)}
-          placeholder="Escribe tu mensaje..."
-          disabled={messagesLoading}
-        />
-        <PromptInputToolbar>
-          <div className="flex-1" />
-          <PromptInputSubmit
-            disabled={!inputValue.trim()}
-            status={chatStatus as any}
+      <div className="m-4">
+        {sendError && (
+          <div className="mb-2 flex items-center gap-2 rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
+            <AlertCircle className="h-4 w-4" />
+            <span>{sendError}</span>
+          </div>
+        )}
+        <PromptInput onSubmit={handleSubmit}>
+          <PromptInputTextarea
+            value={inputValue}
+            onChange={(e) => setInputValue(e.target.value)}
+            placeholder="Escribe tu mensaje..."
+            disabled={isInputDisabled}
           />
-        </PromptInputToolbar>
-      </PromptInput>
+          <PromptInputToolbar>
+            <div className="flex-1" />
+            <PromptInputSubmit
+              disabled={!inputValue.trim() || isInputDisabled}
+              status={chatStatus as any}
+            />
+          </PromptInputToolbar>
+        </PromptInput>
+      </div>
     </div>
   );
 }
