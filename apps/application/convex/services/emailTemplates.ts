@@ -43,32 +43,96 @@ export function caseUpdateTemplate(caseName: string, newStatus: string, userName
   `.trim();
 }
 
-export function documentProcessedTemplate(docName: string, userName: string): string {
+export function documentProcessedTemplate(
+  docName: string,
+  userName: string,
+  status: "success" | "failure",
+  errorMessage?: string
+): string {
+  const isSuccess = status === "success";
+
+  const title = isSuccess
+    ? "iAlex - Documento Procesado"
+    : "iAlex - Error al Procesar Documento";
+
+  const icon = isSuccess ? "✅" : "⚠️";
+  const contentMessage = isSuccess
+    ? `
+      <p>Hola ${userName},</p>
+      <p>Tu documento <strong>"${docName}"</strong> ha sido procesado exitosamente y ya está disponible para consultas.</p>
+      <p>Ahora puedes buscar información dentro de este documento usando el agente de IA.</p>
+    `
+    : `
+      <p>Hola ${userName},</p>
+      <p>Lamentablemente, hubo un problema al procesar tu documento <strong>"${docName}"</strong>.</p>
+      <p>${errorMessage ? errorMessage : "Por favor, intenta subirlo nuevamente o comunícate con el soporte."}</p>
+    `;
+
+  const button =
+    isSuccess && `
+      <div style="text-align: center;">
+        <a href="#" class="button">Abrir iAlex</a>
+      </div>
+    `;
+
   return `
 <!DOCTYPE html>
 <html>
 <head>
   <meta charset="utf-8">
   <style>
-    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; }
-    .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-    .header { background: #1a1a1a; color: white; padding: 20px; text-align: center; }
-    .content { background: #f9f9f9; padding: 30px; margin: 20px 0; }
-    .success-icon { font-size: 48px; text-align: center; margin-bottom: 20px; }
-    .footer { text-align: center; color: #666; font-size: 12px; padding: 20px; }
-    .button { display: inline-block; padding: 12px 24px; background: #1a1a1a; color: white; text-decoration: none; border-radius: 4px; margin-top: 20px; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      line-height: 1.6;
+      color: #333;
+    }
+    .container {
+      max-width: 600px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+    .header {
+      background: ${isSuccess ? "#1a1a1a" : "#b71c1c"};
+      color: white;
+      padding: 20px;
+      text-align: center;
+    }
+    .content {
+      background: #f9f9f9;
+      padding: 30px;
+      margin: 20px 0;
+    }
+    .success-icon {
+      font-size: 48px;
+      text-align: center;
+      margin-bottom: 20px;
+    }
+    .footer {
+      text-align: center;
+      color: #666;
+      font-size: 12px;
+      padding: 20px;
+    }
+    .button {
+      display: inline-block;
+      padding: 12px 24px;
+      background: #1a1a1a;
+      color: white;
+      text-decoration: none;
+      border-radius: 4px;
+      margin-top: 20px;
+    }
   </style>
 </head>
 <body>
   <div class="container">
     <div class="header">
-      <h1>iAlex - Documento Procesado</h1>
+      <h1>${title}</h1>
     </div>
     <div class="content">
-      <div class="success-icon">✅</div>
-      <p>Hola ${userName},</p>
-      <p>Tu documento <strong>"${docName}"</strong> ha sido procesado exitosamente y ya está disponible para consultas.</p>
-      <p>Ahora puedes buscar información dentro de este documento usando el agente de IA.</p>
+      <div class="success-icon">${icon}</div>
+      ${contentMessage}
+      ${button || ""}
     </div>
     <div class="footer">
       <p>iAlex - Tu asistente legal inteligente</p>

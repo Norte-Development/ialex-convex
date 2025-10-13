@@ -314,7 +314,7 @@ export const updateDocumentProcessingStatus = internalMutation({
           userId: document.createdBy,
           notificationType: "documentProcessing" as const,
           subject: `Documento procesado: ${docTitle}`,
-          htmlBody: documentProcessedTemplate(docTitle, userName),
+          htmlBody: documentProcessedTemplate(docTitle, userName, args.status === "completed" ? "success" : "failure"),
         });
       }
   },
@@ -361,7 +361,6 @@ export const onDocumentProcessingComplete = rag.defineOnComplete(
       
       if (document && document.createdBy) {
         const user = await ctx.db.get(document.createdBy);
-        const { documentProcessedTemplate } = await import("../services/emailTemplates");
         const docTitle = String(document.title);
         const userName = String(user?.name || "Usuario");
         
@@ -369,7 +368,7 @@ export const onDocumentProcessingComplete = rag.defineOnComplete(
           userId: document.createdBy,
           notificationType: "documentProcessing" as const,
           subject: `Documento procesado: ${docTitle}`,
-          htmlBody: documentProcessedTemplate(docTitle, userName),
+          htmlBody: documentProcessedTemplate(docTitle, userName, "success"),
         });
       }
     } else {
