@@ -84,6 +84,7 @@ import type * as functions_escritosTransforms_index from "../functions/escritosT
 import type * as functions_escritosTransforms_insertHtmlContent from "../functions/escritosTransforms/insertHtmlContent.js";
 import type * as functions_escritosTransforms_rewriteSectionByAnchors from "../functions/escritosTransforms/rewriteSectionByAnchors.js";
 import type * as functions_escritosTransforms_types from "../functions/escritosTransforms/types.js";
+import type * as functions_events from "../functions/events.js";
 import type * as functions_folders from "../functions/folders.js";
 import type * as functions_html from "../functions/html.js";
 import type * as functions_index from "../functions/index.js";
@@ -207,6 +208,7 @@ declare const fullApi: ApiFromModules<{
   "functions/escritosTransforms/insertHtmlContent": typeof functions_escritosTransforms_insertHtmlContent;
   "functions/escritosTransforms/rewriteSectionByAnchors": typeof functions_escritosTransforms_rewriteSectionByAnchors;
   "functions/escritosTransforms/types": typeof functions_escritosTransforms_types;
+  "functions/events": typeof functions_events;
   "functions/folders": typeof functions_folders;
   "functions/html": typeof functions_html;
   "functions/index": typeof functions_index;
