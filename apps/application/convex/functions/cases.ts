@@ -5,6 +5,7 @@ import {
   requireNewCaseAccess,
   checkNewCaseAccess,
 } from "../auth_utils";
+import { internal } from "../_generated/api";
 
 // ========================================
 // CASE MANAGEMENT
@@ -89,6 +90,69 @@ export const createCase = mutation({
 
     console.log("Created case with id:", caseId);
     return caseId;
+  },
+});
+
+/**
+ * Updates an existing case.
+ */
+export const updateCase = mutation({
+  args: {
+    caseId: v.id("cases"),
+    title: v.optional(v.string()),
+    description: v.optional(v.string()),
+    status: v.optional(
+      v.union(
+        v.literal("pendiente"),
+        v.literal("en progreso"),
+        v.literal("completado"),
+        v.literal("archivado"),
+        v.literal("cancelado"),
+      ),
+    ),
+    priority: v.optional(v.union(v.literal("low"), v.literal("medium"), v.literal("high"))),
+    category: v.optional(v.string()),
+    assignedLawyer: v.optional(v.id("users")),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const currentUser = await getCurrentUserFromAuth(ctx);
+    await requireNewCaseAccess(ctx, currentUser._id, args.caseId, "advanced");
+
+    const existingCase = await ctx.db.get(args.caseId);
+    if (!existingCase) {
+      throw new Error("Caso no encontrado");
+    }
+
+    const updates: any = {};
+    if (args.title !== undefined) updates.title = args.title;
+    if (args.description !== undefined) updates.description = args.description;
+    if (args.status !== undefined) updates.status = args.status;
+    if (args.priority !== undefined) updates.priority = args.priority;
+    if (args.category !== undefined) updates.category = args.category;
+    if (args.assignedLawyer !== undefined) updates.assignedLawyer = args.assignedLawyer;
+
+    await ctx.db.patch(args.caseId, updates);
+
+    // Send notification if status changed
+    if (args.status !== undefined && args.status !== existingCase.status) {
+      const { caseUpdateTemplate } = await import("../services/emailTemplates");
+      const assignedUser = await ctx.db.get(existingCase.assignedLawyer);
+      
+      await ctx.scheduler.runAfter(0, internal.services.notificationService.sendNotificationIfEnabled, {
+        userId: existingCase.assignedLawyer,
+        notificationType: "caseUpdate" as const,
+        subject: `Caso actualizado: ${existingCase.title}`,
+        htmlBody: caseUpdateTemplate(
+          String(existingCase.title),
+          String(args.status),
+          String(assignedUser?.name || "Usuario")
+        ),
+      });
+    }
+
+    console.log("Updated case:", args.caseId);
+    return null;
   },
 });
 

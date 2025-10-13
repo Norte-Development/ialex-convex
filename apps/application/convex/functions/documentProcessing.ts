@@ -10,6 +10,7 @@ import { internal } from "../_generated/api";
 import { rag } from "../rag/rag";
 import { Id } from "../_generated/dataModel";
 import { getCurrentUserFromAuth, requireNewCaseAccess } from "../auth_utils";
+import { documentProcessedTemplate } from "../services/emailTemplates";
 
 // ========================================
 // RAG CHUNKER ACTION
@@ -296,6 +297,26 @@ export const updateDocumentProcessingStatus = internalMutation({
     }
 
     await ctx.db.patch(args.documentId, updates);
+
+       
+      // Send notification to document owner
+      const document = await ctx.runQuery(
+        internal.functions.documentProcessing.getDocumentForProcessing,
+        { documentId: args.documentId as Id<"documents"> }
+      );
+      
+      if (document && document.createdBy) {
+        const user = await ctx.db.get(document.createdBy);
+        const docTitle = String(document.title);
+        const userName = String(user?.name || "Usuario");
+        
+        await ctx.scheduler.runAfter(0, internal.services.notificationService.sendNotificationIfEnabled, {
+          userId: document.createdBy,
+          notificationType: "documentProcessing" as const,
+          subject: `Documento procesado: ${docTitle}`,
+          htmlBody: documentProcessedTemplate(docTitle, userName),
+        });
+      }
   },
 });
 
@@ -331,6 +352,26 @@ export const onDocumentProcessingComplete = rag.defineOnComplete(
       console.log(
         `Document processing completed successfully for document: ${documentId}`,
       );
+      
+      // Send notification to document owner
+      const document = await ctx.runQuery(
+        internal.functions.documentProcessing.getDocumentForProcessing,
+        { documentId: documentId as Id<"documents"> }
+      );
+      
+      if (document && document.createdBy) {
+        const user = await ctx.db.get(document.createdBy);
+        const { documentProcessedTemplate } = await import("../services/emailTemplates");
+        const docTitle = String(document.title);
+        const userName = String(user?.name || "Usuario");
+        
+        await ctx.scheduler.runAfter(0, internal.services.notificationService.sendNotificationIfEnabled, {
+          userId: document.createdBy,
+          notificationType: "documentProcessing" as const,
+          subject: `Documento procesado: ${docTitle}`,
+          htmlBody: documentProcessedTemplate(docTitle, userName),
+        });
+      }
     } else {
       // Processing failed - update status to failed
       const errorMessage = args.error || "Unknown processing error";

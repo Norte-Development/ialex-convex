@@ -20,6 +20,12 @@ export interface UserContext {
   firmName?: string;
   experienceYears?: number;
   teams?: TeamMembership[];
+  preferences?: {
+    agentResponseStyle?: string;
+    defaultJurisdiction?: string;
+    citationFormat?: string;
+    language?: string;
+  };
 }
 
 export interface TeamMembership {
@@ -211,6 +217,12 @@ export class ContextService {
       firmName: user.firmName,
       experienceYears: user.experienceYears,
       teams,
+      preferences: user.preferences ? {
+        agentResponseStyle: user.preferences.agentResponseStyle,
+        defaultJurisdiction: user.preferences.defaultJurisdiction,
+        citationFormat: user.preferences.citationFormat,
+        language: user.preferences.language,
+      } : undefined,
     };
   }
 

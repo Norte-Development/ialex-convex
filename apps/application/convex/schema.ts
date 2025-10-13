@@ -63,9 +63,26 @@ export default defineSchema({
     // User preferences
     preferences: v.optional(
       v.object({
+        // General
         language: v.string(),
         timezone: v.string(),
-        notifications: v.boolean(),
+        
+        // Notifications
+        emailNotifications: v.boolean(),
+        caseUpdates: v.optional(v.boolean()),
+        documentProcessing: v.optional(v.boolean()),
+        teamInvitations: v.optional(v.boolean()),
+        agentResponses: v.optional(v.boolean()),
+        
+        // Agent Preferences
+        agentResponseStyle: v.optional(v.string()),
+        defaultJurisdiction: v.optional(v.string()),
+        autoIncludeContext: v.optional(v.boolean()),
+        citationFormat: v.optional(v.string()),
+        
+        // Privacy & Security
+        sessionTimeout: v.optional(v.number()),
+        activityLogVisible: v.optional(v.boolean()),
       }),
     ),
   })

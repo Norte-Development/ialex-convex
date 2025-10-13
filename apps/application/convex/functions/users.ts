@@ -70,7 +70,7 @@ export const getOrCreateUser = mutation({
       return existingUser._id;
     }
 
-    // Create new user
+    // Create new user with default preferences
     const userId = await ctx.db.insert("users", {
       clerkId: args.clerkId,
       name: args.name,
@@ -78,6 +78,21 @@ export const getOrCreateUser = mutation({
       isActive: true,
       isOnboardingComplete: false,
       onboardingStep: 1,
+      preferences: {
+        language: "es-AR",
+        timezone: "America/Argentina/Buenos_Aires",
+        emailNotifications: true,
+        caseUpdates: true,
+        documentProcessing: true,
+        teamInvitations: true,
+        agentResponses: true,
+        agentResponseStyle: "formal",
+        defaultJurisdiction: "argentina",
+        autoIncludeContext: true,
+        citationFormat: "apa",
+        sessionTimeout: 60,
+        activityLogVisible: true,
+      },
     });
 
     console.log("Created new user with id:", userId);
@@ -446,6 +461,45 @@ export const getUserById = query({
       firmName: user.firmName,
       specializations: user.specializations,
     };
+  },
+});
+
+/**
+ * Update user preferences
+ */
+export const updateUserPreferences = mutation({
+  args: {
+    preferences: v.object({
+      // General
+      language: v.string(),
+      timezone: v.string(),
+      
+      // Notifications
+      emailNotifications: v.boolean(),
+      caseUpdates: v.optional(v.boolean()),
+      documentProcessing: v.optional(v.boolean()),
+      teamInvitations: v.optional(v.boolean()),
+      agentResponses: v.optional(v.boolean()),
+      
+      // Agent Preferences
+      agentResponseStyle: v.optional(v.string()),
+      defaultJurisdiction: v.optional(v.string()),
+      autoIncludeContext: v.optional(v.boolean()),
+      citationFormat: v.optional(v.string()),
+      
+      // Privacy & Security
+      sessionTimeout: v.optional(v.number()),
+      activityLogVisible: v.optional(v.boolean()),
+    }),
+  },
+  handler: async (ctx, args) => {
+    const currentUser = await getCurrentUserFromAuth(ctx);
+    
+    await ctx.db.patch(currentUser._id, {
+      preferences: args.preferences,
+    });
+    
+    return { success: true };
   },
 });
 

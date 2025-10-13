@@ -2,7 +2,7 @@
 
 import type React from "react"
 import { useCallback, useEffect, useState } from "react"
-import { useAction } from "convex/react"
+import { useAction, useQuery as useConvexQuery } from "convex/react"
 import { api } from "../../../convex/_generated/api"
 import { useQuery } from "@tanstack/react-query"
 import { Button } from "../ui/button"

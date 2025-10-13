@@ -70,6 +70,7 @@ import type * as context_context from "../context/context.js";
 import type * as context_contextService from "../context/contextService.js";
 import type * as context_parseReferences from "../context/parseReferences.js";
 import type * as firebaseAdmin from "../firebaseAdmin.js";
+import type * as functions_agentRules from "../functions/agentRules.js";
 import type * as functions_cases from "../functions/cases.js";
 import type * as functions_clients from "../functions/clients.js";
 import type * as functions_documentProcessing from "../functions/documentProcessing.js";
@@ -107,6 +108,8 @@ import type * as rag_qdrantUtils_libraryDocuments from "../rag/qdrantUtils/libra
 import type * as rag_qdrantUtils_types from "../rag/qdrantUtils/types.js";
 import type * as rag_rag from "../rag/rag.js";
 import type * as rag_utils from "../rag/utils.js";
+import type * as services_emailTemplates from "../services/emailTemplates.js";
+import type * as services_notificationService from "../services/notificationService.js";
 import type * as utils_gcs from "../utils/gcs.js";
 import type * as utils_legislationService from "../utils/legislationService.js";
 import type * as utils_resend from "../utils/resend.js";
@@ -188,6 +191,7 @@ declare const fullApi: ApiFromModules<{
   "context/contextService": typeof context_contextService;
   "context/parseReferences": typeof context_parseReferences;
   firebaseAdmin: typeof firebaseAdmin;
+  "functions/agentRules": typeof functions_agentRules;
   "functions/cases": typeof functions_cases;
   "functions/clients": typeof functions_clients;
   "functions/documentProcessing": typeof functions_documentProcessing;
@@ -225,6 +229,8 @@ declare const fullApi: ApiFromModules<{
   "rag/qdrantUtils/types": typeof rag_qdrantUtils_types;
   "rag/rag": typeof rag_rag;
   "rag/utils": typeof rag_utils;
+  "services/emailTemplates": typeof services_emailTemplates;
+  "services/notificationService": typeof services_notificationService;
   "utils/gcs": typeof utils_gcs;
   "utils/legislationService": typeof utils_legislationService;
   "utils/resend": typeof utils_resend;
