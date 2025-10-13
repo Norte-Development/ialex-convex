@@ -36,11 +36,15 @@ const CaseDataBasePage = lazy(() => import("./pages/CaseOpen/CaseDataBase"));
 const CaseDocumentPage = lazy(
   () => import("./pages/CaseOpen/CaseDocumentPage"),
 );
+const CaseSettingsRulesPage = lazy(
+  () => import("./pages/CaseOpen/CaseSettingsRulesPage"),
+);
 const ComponentsShowcasePage = lazy(
   () => import("./pages/ComponentsShowcasePage"),
 );
 const LibraryPage = lazy(() => import("./pages/LibraryPage"));
 const LibraryDocumentPage = lazy(() => import("./pages/LibraryDocumentPage"));
+const UserPreferencesPage = lazy(() => import("./pages/UserPreferencesPage"));
 
 // AI Agent pages
 const HomeAgentPage = lazy(() => import("./pages/home/HomeAgentPage"));
@@ -73,6 +77,10 @@ const CaseRoutesWrapper: React.FC = () => {
               <Route
                 path="documentos/:documentId"
                 element={<CaseDocumentPage />}
+              />
+              <Route
+                path="configuracion/reglas"
+                element={<CaseSettingsRulesPage />}
               />
             </Routes>
           </HighlightProvider>
@@ -257,6 +265,14 @@ const AppWithThread = () => {
                     element={
                       <ProtectedRoute>
                         <LibraryDocumentPage />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/preferencias"
+                    element={
+                      <ProtectedRoute>
+                        <UserPreferencesPage />
                       </ProtectedRoute>
                     }
                   />

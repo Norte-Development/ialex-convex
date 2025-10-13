@@ -31,6 +31,12 @@ const vContextBundle = v.object({
         }),
       ),
     ),
+    preferences: v.optional(v.object({
+      agentResponseStyle: v.optional(v.string()),
+      defaultJurisdiction: v.optional(v.string()),
+      citationFormat: v.optional(v.string()),
+      language: v.optional(v.string()),
+    })),
   }),
   case: v.union(
     v.null(),

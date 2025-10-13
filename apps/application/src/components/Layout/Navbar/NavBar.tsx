@@ -32,6 +32,7 @@ export default function NavBar() {
     { label: "Modelos", path: "/modelos" },
     { label: "Biblioteca", path: "/biblioteca" },
     { label: "Legales", path: "/base-de-datos" },
+    { label: "Preferencias", path: "/preferencias" },
   ];
 
   return (

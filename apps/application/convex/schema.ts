@@ -63,9 +63,26 @@ export default defineSchema({
     // User preferences
     preferences: v.optional(
       v.object({
+        // General
         language: v.string(),
         timezone: v.string(),
-        notifications: v.boolean(),
+        
+        // Notifications
+        emailNotifications: v.boolean(),
+        caseUpdates: v.optional(v.boolean()),
+        documentProcessing: v.optional(v.boolean()),
+        teamInvitations: v.optional(v.boolean()),
+        agentResponses: v.optional(v.boolean()),
+        
+        // Agent Preferences
+        agentResponseStyle: v.optional(v.string()),
+        defaultJurisdiction: v.optional(v.string()),
+        autoIncludeContext: v.optional(v.boolean()),
+        citationFormat: v.optional(v.string()),
+        
+        // Privacy & Security
+        sessionTimeout: v.optional(v.number()),
+        activityLogVisible: v.optional(v.boolean()),
       }),
     ),
   })
@@ -527,6 +544,24 @@ export default defineSchema({
     .searchIndex("search_library_documents", {
       searchField: "title"
     }),
+
+  // ========================================
+  // AGENT RULES - USER & CASE SCOPED
+  // ========================================
+  agentRules: defineTable({
+    name: v.string(),
+    content: v.string(),
+    scope: v.union(v.literal("user"), v.literal("case")),
+    userId: v.optional(v.id("users")),
+    caseId: v.optional(v.id("cases")),
+    isActive: v.boolean(),
+    createdBy: v.id("users"),
+    order: v.optional(v.number()),
+  })
+    .index("by_user_and_active", ["userId", "isActive"]) 
+    .index("by_case_and_active", ["caseId", "isActive"]) 
+    .index("by_scope", ["scope"]) 
+    .index("by_created_by", ["createdBy"]),
 
 
 })
