@@ -10,6 +10,7 @@ import {
   FileType2,
   Trash,
   BookCheck,
+  ListChecks,
   Plus,
   Archive,
   RotateCcw,
@@ -209,7 +210,7 @@ export default function CaseSidebar() {
           <FileSearch2
             className="cursor-pointer"
             size={20}
-            color={location.pathname === "/base-de-datos" ? "blue" : "black"}
+            color={location.pathname.includes("/base-de-datos") ? "blue" : "black"}
           />
         </Link>
 
@@ -231,6 +232,17 @@ export default function CaseSidebar() {
             />
           </Link>
         ))}
+
+        {/* Case Agent Rules */}
+        {can.viewCase && (
+          <Link to={`${basePath}/configuracion/reglas`} onClick={handleNavigationFromCase}>
+            <ListChecks
+              className="cursor-pointer"
+              size={20}
+              color={location.pathname.includes("/configuracion/reglas") ? "blue" : "black"}
+            />
+          </Link>
+        )}
 
         {/* Modelos - accessible if user can view case */}
         {can.viewCase && (

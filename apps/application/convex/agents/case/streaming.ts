@@ -102,6 +102,12 @@ export const streamAsync = internalAction({
             role: v.string(),
             joinedAt: v.number(),
           }))),
+          preferences: v.optional(v.object({
+            agentResponseStyle: v.optional(v.string()),
+            defaultJurisdiction: v.optional(v.string()),
+            citationFormat: v.optional(v.string()),
+            language: v.optional(v.string()),
+          })),
         }),
         case: v.union(
           v.null(),
@@ -181,9 +187,29 @@ export const streamAsync = internalAction({
       });
       const schemaSummary = `ProseMirror Schema Summary\n- Nodes: ${nodeSpecs.join(", ")}\n- Marks: ${markSpecs.join(", ")}`;
       console.log("schemaSummary", schemaSummary);
+      
+      // Add user preferences to system message
+      const userPrefs = contextBundle.user.preferences;
+      const responseStyleInstructions = {
+        formal: "Mantén un lenguaje legal formal y estructura profesional en todas tus respuestas.",
+        informal: "Usa lenguaje claro y accesible mientras mantienes precisión legal.",
+        conciso: "Sé breve y directo, enfócate en los puntos legales clave.",
+        detallado: "Proporciona explicaciones exhaustivas con análisis legal detallado."
+      };
+      
+      const userPrefsSection = userPrefs ? `
+
+## Preferencias del Usuario
+- Estilo de Respuesta: ${userPrefs.agentResponseStyle || "formal"}
+  ${responseStyleInstructions[userPrefs.agentResponseStyle as keyof typeof responseStyleInstructions] || responseStyleInstructions.formal}
+- Jurisdicción por Defecto: ${userPrefs.defaultJurisdiction || "argentina"}
+- Formato de Citas: ${userPrefs.citationFormat || "apa"}
+` : "";
+      
       const systemMessage = `Sos el asistente legal IALEX. Aquí está el contexto actual:
 
           ${contextString}
+          ${userPrefsSection}
 
           ---
           ${schemaSummary}

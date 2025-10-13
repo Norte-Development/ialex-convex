@@ -17,7 +17,7 @@ import { CasePermissionsProvider } from "./context/CasePermissionsContext";
 import { ChatbotProvider } from "./context/ChatbotContext";
 
 // Lazy load pages to reduce initial bundle size
-const HomePage = lazy(() => import("./pages/HomePage"));
+const HomePage = lazy(() => import("./pages/home/HomePage"));
 const CasesPage = lazy(() => import("./pages/CasesPage"));
 const CaseDetailPage = lazy(() => import("./pages/CaseOpen/CaseDetailPage"));
 const ClientsPage = lazy(() => import("./pages/ClientsPage"));
@@ -36,11 +36,28 @@ const CaseDataBasePage = lazy(() => import("./pages/CaseOpen/CaseDataBase"));
 const CaseDocumentPage = lazy(
   () => import("./pages/CaseOpen/CaseDocumentPage"),
 );
+const CaseSettingsRulesPage = lazy(
+  () => import("./pages/CaseOpen/CaseSettingsRulesPage"),
+);
 const ComponentsShowcasePage = lazy(
   () => import("./pages/ComponentsShowcasePage"),
 );
 const LibraryPage = lazy(() => import("./pages/LibraryPage"));
 const LibraryDocumentPage = lazy(() => import("./pages/LibraryDocumentPage"));
+const UserPreferencesPage = lazy(() => import("./pages/UserPreferencesPage"));
+
+// AI Agent pages
+const HomeAgentPage = lazy(() => import("./pages/home/HomeAgentPage"));
+const HomeAgentChatPage = lazy(
+  () => import("./pages/home/HomeAgentThreadPage"),
+);
+
+// Lazy load TestRunner for development
+const TestRunner = lazy(() =>
+  import("./components/HomeAgent/__tests__/TestRunner").then((module) => ({
+    default: module.TestRunner,
+  })),
+);
 
 // Wrapper to provide CasePermissionsProvider with caseId from CaseContext
 const CaseRoutesWrapper: React.FC = () => {
@@ -60,6 +77,10 @@ const CaseRoutesWrapper: React.FC = () => {
               <Route
                 path="documentos/:documentId"
                 element={<CaseDocumentPage />}
+              />
+              <Route
+                path="configuracion/reglas"
+                element={<CaseSettingsRulesPage />}
               />
             </Routes>
           </HighlightProvider>
@@ -205,6 +226,32 @@ const AppWithThread = () => {
                       </ProtectedRoute>
                     }
                   />
+                  {/* AI Agent routes */}
+                  <Route
+                    path="/ai"
+                    element={
+                      <ProtectedRoute>
+                        <HomeAgentPage />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/ai/:threadId"
+                    element={
+                      <ProtectedRoute>
+                        <HomeAgentChatPage />
+                      </ProtectedRoute>
+                    }
+                  />
+                  {/* Development testing route */}
+                  <Route
+                    path="/test-homeagent"
+                    element={
+                      <ProtectedRoute>
+                        <TestRunner />
+                      </ProtectedRoute>
+                    }
+                  />
                   <Route
                     path="/biblioteca"
                     element={
@@ -218,6 +265,14 @@ const AppWithThread = () => {
                     element={
                       <ProtectedRoute>
                         <LibraryDocumentPage />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/preferencias"
+                    element={
+                      <ProtectedRoute>
+                        <UserPreferencesPage />
                       </ProtectedRoute>
                     }
                   />

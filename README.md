@@ -1,75 +1,187 @@
-# Welcome to your Convex + React (Vite) + Clerkapp
+# iAlex - Sistema Integral de Gestión Legal
 
-This is a [Convex](https://convex.dev/) project created with [`npm create convex`](https://www.npmjs.com/package/create-convex).
+iAlex es una plataforma completa de gestión legal que combina organización tradicional de casos jurídicos con inteligencia artificial avanzada, diseñada específicamente para abogados y estudios jurídicos en Argentina.
 
-After the initial setup (<2 minutes) you'll have a working full-stack app using:
+## 📚 Documentación
 
-- Convex as your backend (database, server logic)
-- [React](https://react.dev/) as your frontend (web page interactivity)
-- [Vite](https://vitest.dev/) for optimized web hosting
-- [Tailwind](https://tailwindcss.com/) for building great looking accessible UI
-- [Clerk](https://clerk.com/) for authentication
+- **[Manual de Usuario](./MANUAL_DE_USUARIO.md)** - Guía completa para usuarios finales
+- **[PRD](./PRD_IALEX.md)** - Product Requirements Document (técnico)
+- **[Documentación Técnica](./DOCUMENTACION_IALEX.md)** - Overview técnico del sistema
+- **[Guías de Despliegue](./CI-CD-DEPLOYMENT-GUIDE.md)** - CI/CD y deployment
 
-## Get started
+## 🚀 Stack Tecnológico
 
-If you just cloned this codebase and didn't use `npm create convex`, run:
+- **Backend**: [Convex](https://convex.dev/) - Database, server logic, real-time sync
+- **Frontend**: [React](https://react.dev/) + [Vite](https://vitejs.dev/)
+- **UI**: [Tailwind CSS](https://tailwindcss.com/) + shadcn/ui
+- **Auth**: Firebase Auth con Clerk
+- **AI**: OpenAI GPT-4o-mini
+- **Storage**: Google Cloud Storage
+- **Vector DB**: Qdrant
+- **Queue**: Redis + Bull
 
+## 🛠️ Instalación y Configuración
+
+### Requisitos Previos
+
+- Node.js 18+ 
+- pnpm (package manager)
+- Cuenta en Convex
+- Cuenta en Firebase/Clerk
+- Google Cloud Storage configurado
+- Qdrant instance (local o cloud)
+- Redis instance (local o cloud)
+
+### Instalación
+
+1. **Clonar el repositorio**
+```bash
+git clone <repo-url>
+cd ialex-convex
 ```
-npm install
-npm run dev
+
+2. **Instalar dependencias**
+```bash
+pnpm install
 ```
 
-If you're reading this README on GitHub and want to use this template, run:
+3. **Configurar variables de entorno**
+```bash
+# En apps/application/
+cp .env.example .env.local
 
-```
-npm create convex@latest -- -t react-vite-clerk
-```
-
-Then:
-
-1. Follow steps 1 to 3 in the [Clerk onboarding guide](https://docs.convex.dev/auth/clerk#get-started)
-2. Paste the Issuer URL as `CLERK_JWT_ISSUER_DOMAIN` to your dev deployment environment variable settings on the Convex dashboard (see [docs](https://docs.convex.dev/auth/clerk#configuring-dev-and-prod-instances))
-3. Paste your publishable key as `VITE_CLERK_PUBLISHABLE_KEY="<your publishable key>"` to the `.env.local` file in this directory.
-
-If you want to sync Clerk user data via webhooks, check out this [example repo](https://github.com/thomasballinger/convex-clerk-users-table/).
-
-## Document Processor Microservice
-
-Run the external processor (Express) alongside Convex during development in another terminal:
-
-```
-pnpm dev:processor
+# Configurar:
+# - VITE_CONVEX_URL
+# - Firebase/Clerk credentials
+# - GCS credentials
+# - etc.
 ```
 
-### Environment Setup for Document Processor
+4. **Configurar Convex**
+```bash
+cd apps/application
+npx convex dev
+```
 
-1. Copy the environment template:
+### Ejecutar en Desarrollo
+
+**Terminal 1 - Frontend:**
+```bash
+cd apps/application
+pnpm dev
+```
+
+**Terminal 2 - Document Processor:**
+```bash
+cd apps/document-processor
+pnpm dev
+```
+
+### Configuración de Auth
+
+1. Configurar Firebase Auth o Clerk siguiendo la [guía de autenticación](./docs/authentication-quick-reference.md)
+2. Configurar las variables de entorno correspondientes
+3. Seguir los pasos en [authentication-troubleshooting.md](./docs/authentication-troubleshooting.md) si hay problemas
+
+## 📦 Microservicios
+
+### Document Processor
+
+Microservicio para procesamiento de documentos (OCR, chunking, embeddings).
+
+**Ejecutar en desarrollo:**
+```bash
+cd apps/document-processor
+pnpm dev
+```
+
+**Variables de entorno requeridas:**
 ```bash
 cp apps/document-processor/env.example apps/document-processor/.env
 ```
 
-2. Configure the required environment variables in `apps/document-processor/.env`:
-   - `OPENAI_API_KEY`: Your OpenAI API key for embeddings
-   - `QDRANT_URL`: Qdrant vector database URL (default: http://localhost:6333)
-   - `QDRANT_API_KEY`: Qdrant API key (if required)
-   - `MISTRAL_API_KEY`: Your Mistral API key for OCR
-   - `MISTRAL_OCR_ENDPOINT`: Mistral OCR endpoint URL
-   - `REDIS_URL`: Redis connection URL (default: redis://localhost:6379)
-   - `HMAC_SECRET`: Secret for webhook signature verification
+Configurar en `.env`:
+- `OPENAI_API_KEY`: Para generación de embeddings
+- `QDRANT_URL`: URL de Qdrant (default: http://localhost:6333)
+- `QDRANT_API_KEY`: API key de Qdrant (si aplica)
+- `MISTRAL_API_KEY`: Para OCR
+- `REDIS_URL`: URL de Redis (default: redis://localhost:6379)
+- `HMAC_SECRET`: Para verificación de webhooks
 
-3. Ensure Redis and Qdrant are running locally or update the URLs to point to your services.
+**Servicios requeridos:**
+- Redis en ejecución
+- Qdrant en ejecución
 
-## Learn more
+## 🏗️ Estructura del Proyecto
 
-To learn more about developing your project with Convex, check out:
+```
+ialex-convex/
+├── apps/
+│   ├── application/          # Frontend React + Convex backend
+│   │   ├── convex/          # Convex functions, schema, agents
+│   │   ├── src/             # React components y páginas
+│   │   └── types/           # TypeScript types
+│   └── document-processor/  # Microservicio de procesamiento
+├── packages/
+│   ├── database/            # Qdrant client compartido
+│   └── shared/              # Utilidades compartidas
+├── docs/                    # Documentación técnica
+└── rules/                   # Reglas de Convex y guías
 
-- The [Tour of Convex](https://docs.convex.dev/get-started) for a thorough introduction to Convex principles.
-- The rest of [Convex docs](https://docs.convex.dev/) to learn about all Convex features.
-- [Stack](https://stack.convex.dev/) for in-depth articles on advanced topics.
+## 🎯 Funcionalidades Principales
 
-## Join the community
+- ✅ **Gestión de Casos**: Organización completa de casos legales
+- ✅ **Gestión de Clientes**: Directorio de clientes con relaciones a casos
+- ✅ **Documentos**: Almacenamiento, procesamiento y búsqueda semántica
+- ✅ **Escritos Legales**: Editor colaborativo en tiempo real
+- ✅ **Asistente de IA**: Chat con IA especializada en derecho argentino
+- ✅ **Equipos**: Colaboración con permisos granulares
+- ✅ **Base de Datos Legal**: Búsqueda en legislación argentina
+- ✅ **Biblioteca**: Repositorio personal de documentos de referencia
+- ✅ **Plantillas**: Modelos reutilizables de escritos
 
-Join thousands of developers building full-stack apps with Convex:
+## 📝 Testing
 
-- Join the [Convex Discord community](https://convex.dev/community) to get help in real-time.
-- Follow [Convex on GitHub](https://github.com/get-convex/), star and contribute to the open-source implementation of Convex.
+```bash
+# Frontend tests
+cd apps/application
+pnpm test
+
+# Document processor tests
+cd apps/document-processor
+pnpm test
+```
+
+## 🚢 Deployment
+
+Ver [CI-CD-DEPLOYMENT-GUIDE.md](./CI-CD-DEPLOYMENT-GUIDE.md) para instrucciones completas de deployment.
+
+**Build para producción:**
+```bash
+pnpm build
+```
+
+## 🤝 Contribuir
+
+1. Fork el proyecto
+2. Crea una rama para tu feature (`git checkout -b feature/AmazingFeature`)
+3. Commit tus cambios (`git commit -m 'Add some AmazingFeature'`)
+4. Push a la rama (`git push origin feature/AmazingFeature`)
+5. Abre un Pull Request
+
+## 📄 Licencia
+
+Ver archivo [LICENSE.txt](./LICENSE.txt)
+
+## 📞 Soporte
+
+- **Documentación**: Ver [MANUAL_DE_USUARIO.md](./MANUAL_DE_USUARIO.md)
+- **Issues**: Usar GitHub Issues para reportar bugs
+- **Email**: soporte@ialex.com.ar
+
+## 🔗 Links Útiles
+
+- [Convex Documentation](https://docs.convex.dev/)
+- [React Documentation](https://react.dev/)
+- [Tailwind CSS](https://tailwindcss.com/)
+- [shadcn/ui](https://ui.shadcn.com/)

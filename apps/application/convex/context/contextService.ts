@@ -20,6 +20,12 @@ export interface UserContext {
   firmName?: string;
   experienceYears?: number;
   teams?: TeamMembership[];
+  preferences?: {
+    agentResponseStyle?: string;
+    defaultJurisdiction?: string;
+    citationFormat?: string;
+    language?: string;
+  };
 }
 
 export interface TeamMembership {
@@ -106,15 +112,17 @@ export class ContextService {
     const startTime = Date.now();
 
     // Gather context components in parallel
-    const [userContext, caseContext, clientContexts, recentActivity] = await Promise.all([
+    const [userContext, caseContext, clientContexts, recentActivity, userRules, caseRules] = await Promise.all([
       this.getUserContext(ctx, userId),
       caseId ? this.getCaseContext(ctx, caseId) : Promise.resolve(null),
       caseId ? this.getClientContexts(ctx, caseId) : Promise.resolve([]),
       this.getRecentActivity(ctx, userId, caseId),
+      this.getUserRules(ctx, userId),
+      caseId ? this.getCaseRules(ctx, caseId, userId) : Promise.resolve([]),
     ]);
 
-    // For now, use empty rules and basic metadata
-    const rules: RuleContext[] = [];
+    // Merge rules (user-level and case-level)
+    const rules: RuleContext[] = [...userRules, ...caseRules];
     const metadata: ContextMetadata = {
       gatheredAt: Date.now(),
       contextSources: ["user", "case", "clients", "activity"],
@@ -133,6 +141,38 @@ export class ContextService {
 
     // Optimize for token limits
     return this.optimizeForTokens(contextBundle);
+  }
+
+  // -------------------------------
+  // Rules helpers
+  // -------------------------------
+  private static async getUserRules(ctx: any, userId: Id<"users">): Promise<RuleContext[]> {
+    const rules = await ctx.db
+      .query("agentRules")
+      .withIndex("by_user_and_active", (q: any) => q.eq("userId", userId))
+      .filter((q: any) => q.eq(q.field("isActive"), true))
+      .collect();
+
+    const sorted = rules.sort((a: any, b: any) => (a.order ?? 0) - (b.order ?? 0));
+    return sorted.map((r: any) => ({
+      name: r.name,
+      description: r.content,
+    }));
+  }
+
+  private static async getCaseRules(ctx: any, caseId: Id<"cases">, userId: Id<"users">): Promise<RuleContext[]> {
+    // Note: access control is enforced in queries/mutations; here we assume caller validated
+    const rules = await ctx.db
+      .query("agentRules")
+      .withIndex("by_case_and_active", (q: any) => q.eq("caseId", caseId))
+      .filter((q: any) => q.eq(q.field("isActive"), true))
+      .collect();
+
+    const sorted = rules.sort((a: any, b: any) => (a.order ?? 0) - (b.order ?? 0));
+    return sorted.map((r: any) => ({
+      name: r.name,
+      description: r.content,
+    }));
   }
 
   /**
@@ -177,6 +217,12 @@ export class ContextService {
       firmName: user.firmName,
       experienceYears: user.experienceYears,
       teams,
+      preferences: user.preferences ? {
+        agentResponseStyle: user.preferences.agentResponseStyle,
+        defaultJurisdiction: user.preferences.defaultJurisdiction,
+        citationFormat: user.preferences.citationFormat,
+        language: user.preferences.language,
+      } : undefined,
     };
   }
 
@@ -339,6 +385,14 @@ ${clientInfo}`);
         .join('\n');
       sections.push(`## Actividad reciente
 ${activityInfo}`);
+    }
+
+    // Agent rules
+    if (contextBundle.rules.length > 0) {
+      const rulesText = contextBundle.rules
+        .map((r, idx) => `${idx + 1}. ${r.name} — ${r.description}`)
+        .join('\n');
+      sections.push(`## Reglas del Agente\n${rulesText}`);
     }
 
     return sections.join('\n\n');

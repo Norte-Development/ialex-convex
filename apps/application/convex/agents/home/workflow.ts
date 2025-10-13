@@ -1,7 +1,7 @@
 import { WorkflowManager } from "@convex-dev/workflow";
-import { components, internal } from "../../_generated/api";
+import { components, internal, api } from "../../_generated/api";
 import { v } from "convex/values";
-import { createThread, saveMessage } from "@convex-dev/agent";
+import { saveMessage } from "@convex-dev/agent";
 import { agent } from "./agent";
 import { internalAction, mutation } from "../../_generated/server";
 import { getCurrentUserFromAuth } from "../../auth_utils";
@@ -114,7 +114,7 @@ export const streamWithContextAction = internalAction({
             throttleMs: 50,
           },
           contextOptions: {
-            searchOtherThreads: true,
+            searchOtherThreads: false,
           },
         },
       );
@@ -179,9 +179,13 @@ export const initiateWorkflowStreaming = mutation({
 
     let threadId = args.threadId;
     if (!threadId) {
-      threadId = await createThread(ctx, components.agent, {
-        userId: user._id,
-        title: "Legal Agent Conversation",
+      // Use first 50 chars of message as thread title
+      const truncatedTitle = args.prompt.length > 50 
+        ? `${args.prompt.substring(0, 50)}...` 
+        : args.prompt;
+      
+      threadId = await ctx.runMutation(api.agents.threads.createNewThread, {
+        title: truncatedTitle,
       });
     } else {
       await authorizeThreadAccess(ctx, threadId);

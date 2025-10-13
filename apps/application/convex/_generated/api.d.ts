@@ -23,6 +23,7 @@ import type * as agents_core_utils_textNormalization from "../agents/core/utils/
 import type * as agents_home_agent from "../agents/home/agent.js";
 import type * as agents_home_index from "../agents/home/index.js";
 import type * as agents_home_prompt from "../agents/home/prompt.js";
+import type * as agents_home_streaming from "../agents/home/streaming.js";
 import type * as agents_home_workflow from "../agents/home/workflow.js";
 import type * as agents_index from "../agents/index.js";
 import type * as agents_threads from "../agents/threads.js";
@@ -70,6 +71,7 @@ import type * as context_context from "../context/context.js";
 import type * as context_contextService from "../context/contextService.js";
 import type * as context_parseReferences from "../context/parseReferences.js";
 import type * as firebaseAdmin from "../firebaseAdmin.js";
+import type * as functions_agentRules from "../functions/agentRules.js";
 import type * as functions_cases from "../functions/cases.js";
 import type * as functions_clients from "../functions/clients.js";
 import type * as functions_documentProcessing from "../functions/documentProcessing.js";
@@ -91,6 +93,7 @@ import type * as functions_libraryDocument from "../functions/libraryDocument.js
 import type * as functions_libraryDocumentProcessing from "../functions/libraryDocumentProcessing.js";
 import type * as functions_libraryFolders from "../functions/libraryFolders.js";
 import type * as functions_permissions from "../functions/permissions.js";
+import type * as functions_search from "../functions/search.js";
 import type * as functions_seedCases from "../functions/seedCases.js";
 import type * as functions_teams from "../functions/teams.js";
 import type * as functions_templates from "../functions/templates.js";
@@ -107,6 +110,8 @@ import type * as rag_qdrantUtils_libraryDocuments from "../rag/qdrantUtils/libra
 import type * as rag_qdrantUtils_types from "../rag/qdrantUtils/types.js";
 import type * as rag_rag from "../rag/rag.js";
 import type * as rag_utils from "../rag/utils.js";
+import type * as services_emailTemplates from "../services/emailTemplates.js";
+import type * as services_notificationService from "../services/notificationService.js";
 import type * as utils_gcs from "../utils/gcs.js";
 import type * as utils_legislationService from "../utils/legislationService.js";
 import type * as utils_resend from "../utils/resend.js";
@@ -141,6 +146,7 @@ declare const fullApi: ApiFromModules<{
   "agents/home/agent": typeof agents_home_agent;
   "agents/home/index": typeof agents_home_index;
   "agents/home/prompt": typeof agents_home_prompt;
+  "agents/home/streaming": typeof agents_home_streaming;
   "agents/home/workflow": typeof agents_home_workflow;
   "agents/index": typeof agents_index;
   "agents/threads": typeof agents_threads;
@@ -188,6 +194,7 @@ declare const fullApi: ApiFromModules<{
   "context/contextService": typeof context_contextService;
   "context/parseReferences": typeof context_parseReferences;
   firebaseAdmin: typeof firebaseAdmin;
+  "functions/agentRules": typeof functions_agentRules;
   "functions/cases": typeof functions_cases;
   "functions/clients": typeof functions_clients;
   "functions/documentProcessing": typeof functions_documentProcessing;
@@ -209,6 +216,7 @@ declare const fullApi: ApiFromModules<{
   "functions/libraryDocumentProcessing": typeof functions_libraryDocumentProcessing;
   "functions/libraryFolders": typeof functions_libraryFolders;
   "functions/permissions": typeof functions_permissions;
+  "functions/search": typeof functions_search;
   "functions/seedCases": typeof functions_seedCases;
   "functions/teams": typeof functions_teams;
   "functions/templates": typeof functions_templates;
@@ -225,6 +233,8 @@ declare const fullApi: ApiFromModules<{
   "rag/qdrantUtils/types": typeof rag_qdrantUtils_types;
   "rag/rag": typeof rag_rag;
   "rag/utils": typeof rag_utils;
+  "services/emailTemplates": typeof services_emailTemplates;
+  "services/notificationService": typeof services_notificationService;
   "utils/gcs": typeof utils_gcs;
   "utils/legislationService": typeof utils_legislationService;
   "utils/resend": typeof utils_resend;

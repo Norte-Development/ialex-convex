@@ -1,10 +1,122 @@
 import { v } from "convex/values";
 import { query, mutation, internalQuery } from "../_generated/server";
 import { getCurrentUserFromAuth } from "../auth_utils";
+import type { QueryCtx } from "../_generated/server";
+import type { Doc } from "../_generated/dataModel";
 
 // ========================================
 // CLIENT MANAGEMENT
 // ========================================
+
+/**
+ * Helper function to get all case IDs that a user has access to.
+ * Includes cases the user created, is assigned to, has team access to, or has explicit user permissions for.
+ */
+async function getAccessibleCaseIds(
+  ctx: QueryCtx,
+  userId: string,
+): Promise<Set<string>> {
+  const caseIds = new Set<string>();
+
+  // 1. Cases the user created or is assigned to
+  const ownedCases = await ctx.db
+    .query("cases")
+    .filter((q) =>
+      q.or(
+        q.eq(q.field("createdBy"), userId),
+        q.eq(q.field("assignedLawyer"), userId),
+      ),
+    )
+    .collect();
+  ownedCases.forEach((c) => caseIds.add(c._id));
+
+  // 2. Cases accessible through team membership
+  const teamMemberships = await ctx.db
+    .query("teamMemberships")
+    .withIndex("by_user", (q) => q.eq("userId", userId as any))
+    .filter((q) => q.eq(q.field("isActive"), true))
+    .collect();
+
+  const teamCaseAccess = await Promise.all(
+    teamMemberships.map((membership) =>
+      ctx.db
+        .query("teamCaseAccess")
+        .withIndex("by_team", (q) => q.eq("teamId", membership.teamId))
+        .filter((q) => q.eq(q.field("isActive"), true))
+        .collect(),
+    ),
+  );
+  teamCaseAccess.flat().forEach((access) => caseIds.add(access.caseId));
+
+  // 3. Cases with explicit user permissions
+  const userCaseAccess = await ctx.db
+    .query("userCaseAccess")
+    .withIndex("by_user", (q) => q.eq("userId", userId as any))
+    .filter((q) => q.eq(q.field("isActive"), true))
+    .collect();
+  userCaseAccess.forEach((access) => caseIds.add(access.caseId));
+
+  return caseIds;
+}
+
+/**
+ * Helper function to batch fetch client cases to avoid N+1 queries.
+ * Fetches all client-case relationships and case data in batches.
+ */
+async function batchFetchClientCases(
+  ctx: QueryCtx,
+  clients: Array<Doc<"clients">>,
+) {
+  if (clients.length === 0) return [];
+
+  // Batch fetch all client-case relationships for all clients
+  const allRelations = await Promise.all(
+    clients.map(async (client) => {
+      const relations = await ctx.db
+        .query("clientCases")
+        .withIndex("by_client", (q) => q.eq("clientId", client._id))
+        .filter((q) => q.eq(q.field("isActive"), true))
+        .collect();
+      return { clientId: client._id, relations };
+    }),
+  );
+
+  // Collect all unique case IDs
+  const caseIdsSet = new Set<string>();
+  for (const { relations } of allRelations) {
+    for (const relation of relations) {
+      caseIdsSet.add(relation.caseId);
+    }
+  }
+
+  // Batch fetch all case data
+  const casesMap = new Map<string, Doc<"cases"> | null>();
+  await Promise.all(
+    Array.from(caseIdsSet).map(async (caseId) => {
+      const caseData = await ctx.db.get(caseId as any) as Doc<"cases"> | null;
+      casesMap.set(caseId, caseData);
+    }),
+  );
+
+  // Assemble the result
+  return clients.map((client) => {
+    const clientRelations = allRelations.find(
+      (r) => r.clientId === client._id,
+    );
+    const cases = (clientRelations?.relations || [])
+      .map((relation) => ({
+        case: casesMap.get(relation.caseId) || null,
+        role: relation.role,
+        relationId: relation._id,
+      }))
+      .filter(({ case: caseData }) => caseData !== null);
+
+    return {
+      ...client,
+      cases,
+    };
+  });
+}
 
 /**
  * Creates a new client record in the system.
@@ -132,30 +244,133 @@ export const getClients = query({
       }),
     ),
   },
+  returns: v.object({
+    page: v.array(
+      v.object({
+        _id: v.id("clients"),
+        _creationTime: v.number(),
+        name: v.string(),
+        email: v.optional(v.string()),
+        phone: v.optional(v.string()),
+        dni: v.optional(v.string()),
+        cuit: v.optional(v.string()),
+        address: v.optional(v.string()),
+        clientType: v.union(v.literal("individual"), v.literal("company")),
+        isActive: v.boolean(),
+        notes: v.optional(v.string()),
+        createdBy: v.id("users"),
+        cases: v.array(
+          v.object({
+            case: v.union(
+              v.object({
+                _id: v.id("cases"),
+                _creationTime: v.number(),
+                title: v.string(),
+                description: v.optional(v.string()),
+                status: v.union(
+                  v.literal("pendiente"),
+                  v.literal("en progreso"),
+                  v.literal("completado"),
+                  v.literal("archivado"),
+                  v.literal("cancelado"),
+                ),
+                category: v.optional(v.string()),
+                priority: v.union(
+                  v.literal("low"),
+                  v.literal("medium"),
+                  v.literal("high"),
+                ),
+                startDate: v.number(),
+                endDate: v.optional(v.number()),
+                assignedLawyer: v.id("users"),
+                createdBy: v.id("users"),
+                isArchived: v.boolean(),
+                tags: v.optional(v.array(v.string())),
+                estimatedHours: v.optional(v.number()),
+                actualHours: v.optional(v.number()),
+              }),
+              v.null(),
+            ),
+            role: v.optional(v.string()),
+            relationId: v.id("clientCases"),
+          }),
+        ),
+      }),
+    ),
+    isDone: v.boolean(),
+    continueCursor: v.optional(v.string()),
+  }),
   handler: async (ctx, args) => {
     // Require authentication to view clients
-    await getCurrentUserFromAuth(ctx);
+    const currentUser = await getCurrentUserFromAuth(ctx);
+
+    // Get all cases the user has access to
+    const accessibleCaseIds = await getAccessibleCaseIds(ctx, currentUser._id);
+
+    // Get all clients associated with accessible cases
+    const accessibleClientIds = new Set<string>();
+    const clientCaseRelations = await ctx.db
+      .query("clientCases")
+      .filter((q) => q.eq(q.field("isActive"), true))
+      .collect();
+
+    for (const relation of clientCaseRelations) {
+      if (accessibleCaseIds.has(relation.caseId)) {
+        accessibleClientIds.add(relation.clientId);
+      }
+    }
+
+    // ALSO include clients created by the current user (even if not associated with cases)
+    const clientsCreatedByUser = await ctx.db
+      .query("clients")
+      .withIndex("by_created_by", (q) => q.eq("createdBy", currentUser._id))
+      .filter((q) => q.eq(q.field("isActive"), true))
+      .collect();
+
+    clientsCreatedByUser.forEach((client) =>
+      accessibleClientIds.add(client._id),
+    );
 
     let clientsResult;
 
     if (args.search) {
-      // When searching, return all matching results without pagination
-      const allClients = await ctx.db
+      // Use search index for better performance instead of loading all clients
+      const searchResults = await ctx.db
+        .query("clients")
+        .withSearchIndex("search_clients", (q) =>
+          q.search("name", args.search!).eq("isActive", true),
+        )
+        .take(100);
+
+      // Also search by DNI/CUIT manually (since search index only covers name)
+      const dniCuitResults = await ctx.db
         .query("clients")
         .withIndex("by_active_status", (q) => q.eq("isActive", true))
+        .filter(
+          (q) =>
+            q.or(
+              q.eq(q.field("dni"), args.search!),
+              q.eq(q.field("cuit"), args.search!),
+            ),
+        )
         .collect();
 
-      // Apply search filter
-      const searchLower = args.search.toLowerCase();
-      const filteredClients = allClients.filter(
-        (client) =>
-          client.name.toLowerCase().includes(searchLower) ||
-          (client.dni && client.dni.includes(args.search!)) ||
-          (client.cuit && client.cuit.includes(args.search!)),
+      // Merge and deduplicate results
+      const allResults = [...searchResults];
+      const existingIds = new Set(searchResults.map((c) => c._id));
+      for (const result of dniCuitResults) {
+        if (!existingIds.has(result._id)) {
+          allResults.push(result);
+        }
+      }
+
+      // Filter by accessible clients
+      const filteredResults = allResults.filter((c) =>
+        accessibleClientIds.has(c._id),
       );
 
       clientsResult = {
-        page: filteredClients,
+        page: filteredResults,
         isDone: true,
         continueCursor: undefined,
       };
@@ -163,48 +378,34 @@ export const getClients = query({
       // For non-search queries, use Convex's built-in pagination
       const numItems = Math.min(args.paginationOpts?.numItems ?? 10, 100);
 
-      clientsResult = await ctx.db
+      const allClients = await ctx.db
         .query("clients")
         .withIndex("by_active_status", (q) => q.eq("isActive", true))
-        .paginate({
-          cursor: args.paginationOpts?.cursor ?? null,
-          numItems,
-        });
+        .collect();
+
+      // Filter by accessible clients
+      const filteredClients = allClients.filter((c) =>
+        accessibleClientIds.has(c._id),
+      );
+
+      // Manual pagination for filtered results
+      const startIdx = args.paginationOpts?.cursor
+        ? parseInt(args.paginationOpts.cursor)
+        : 0;
+      const endIdx = startIdx + numItems;
+      const page = filteredClients.slice(startIdx, endIdx);
+      const isDone = endIdx >= filteredClients.length;
+      const continueCursor = isDone ? undefined : endIdx.toString();
+
+      clientsResult = {
+        page,
+        isDone,
+        continueCursor,
+      };
     }
 
-    // For each client in the current page, get their associated cases
-    const clientsWithCases = await Promise.all(
-      clientsResult.page.map(async (client) => {
-        // Get all active client-case relationships for this client
-        const clientCaseRelations = await ctx.db
-          .query("clientCases")
-          .withIndex("by_client", (q) => q.eq("clientId", client._id))
-          .filter((q) => q.eq(q.field("isActive"), true))
-          .collect();
-
-        // Get the case data for each relationship
-        const cases = await Promise.all(
-          clientCaseRelations.map(async (relation) => {
-            const caseData = await ctx.db.get(relation.caseId);
-            return {
-              case: caseData,
-              role: relation.role,
-              relationId: relation._id,
-            };
-          }),
-        );
-
-        // Filter out any cases that might have been deleted
-        const validCases = cases.filter(
-          ({ case: caseData }) => caseData !== null,
-        );
-
-        return {
-          ...client,
-          cases: validCases,
-        };
-      }),
-    );
+    // Batch fetch related data to avoid N+1 queries
+    const clientsWithCases = await batchFetchClientCases(ctx, clientsResult.page);
 
     return {
       page: clientsWithCases,
@@ -232,31 +433,95 @@ export const getClients = query({
  */
 export const getClientById = query({
   args: { clientId: v.id("clients") },
+  returns: v.union(
+    v.object({
+      _id: v.id("clients"),
+      _creationTime: v.number(),
+      name: v.string(),
+      email: v.optional(v.string()),
+      phone: v.optional(v.string()),
+      dni: v.optional(v.string()),
+      cuit: v.optional(v.string()),
+      address: v.optional(v.string()),
+      clientType: v.union(v.literal("individual"), v.literal("company")),
+      isActive: v.boolean(),
+      notes: v.optional(v.string()),
+      createdBy: v.id("users"),
+      cases: v.array(
+        v.object({
+          case: v.union(
+            v.object({
+              _id: v.id("cases"),
+              _creationTime: v.number(),
+              title: v.string(),
+              description: v.optional(v.string()),
+              status: v.union(
+                v.literal("pendiente"),
+                v.literal("en progreso"),
+                v.literal("completado"),
+                v.literal("archivado"),
+                v.literal("cancelado"),
+              ),
+              category: v.optional(v.string()),
+              priority: v.union(
+                v.literal("low"),
+                v.literal("medium"),
+                v.literal("high"),
+              ),
+              startDate: v.number(),
+              endDate: v.optional(v.number()),
+              assignedLawyer: v.id("users"),
+              createdBy: v.id("users"),
+              isArchived: v.boolean(),
+              tags: v.optional(v.array(v.string())),
+              estimatedHours: v.optional(v.number()),
+              actualHours: v.optional(v.number()),
+            }),
+            v.null(),
+          ),
+          role: v.optional(v.string()),
+          relationId: v.id("clientCases"),
+        }),
+      ),
+    }),
+    v.null(),
+  ),
   handler: async (ctx, args) => {
-    await getCurrentUserFromAuth(ctx);
+    const currentUser = await getCurrentUserFromAuth(ctx);
 
     const client = await ctx.db.get(args.clientId);
     if (!client || client.isActive === false) return null;
 
-    const relations = await ctx.db
-      .query("clientCases")
-      .withIndex("by_client", (q) => q.eq("clientId", args.clientId))
-      .filter((q) => q.eq(q.field("isActive"), true))
-      .collect();
+    // Check if user created this client OR has access via cases
+    const userCreatedClient = client.createdBy === currentUser._id;
 
-    const cases = await Promise.all(
-      relations.map(async (relation) => {
-        const caseData = await ctx.db.get(relation.caseId);
-        return caseData
-          ? { case: caseData, role: relation.role, relationId: relation._id }
-          : null;
-      }),
-    );
+    if (!userCreatedClient) {
+      // Check if user has access to this client via their accessible cases
+      const accessibleCaseIds = await getAccessibleCaseIds(
+        ctx,
+        currentUser._id,
+      );
 
-    return {
-      ...client,
-      cases: cases.filter(Boolean),
-    } as any;
+      // Check if this client is associated with any accessible cases
+      const clientCaseRelations = await ctx.db
+        .query("clientCases")
+        .withIndex("by_client", (q) => q.eq("clientId", args.clientId))
+        .filter((q) => q.eq(q.field("isActive"), true))
+        .collect();
+
+      const hasAccess = clientCaseRelations.some((relation) =>
+        accessibleCaseIds.has(relation.caseId),
+      );
+
+      if (!hasAccess) {
+        return null; // User doesn't have access to this client
+      }
+    }
+
+    // Use batch fetching for single client as well for consistency
+    const [clientWithCases] = await batchFetchClientCases(ctx, [client]);
+
+    return clientWithCases;
   },
 });
 
@@ -308,18 +573,43 @@ export const updateClient = mutation({
     isActive: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
-    await getCurrentUserFromAuth(ctx);
+    const currentUser = await getCurrentUserFromAuth(ctx);
 
     const { clientId, ...patch } = args;
 
+    // Get current client data
+    const currentClient = await ctx.db.get(clientId);
+    if (!currentClient) {
+      throw new Error("Client not found");
+    }
+
+    // Check if user created this client OR has access via cases
+    const userCreatedClient = currentClient.createdBy === currentUser._id;
+
+    if (!userCreatedClient) {
+      // Check if user has access to this client via their accessible cases
+      const accessibleCaseIds = await getAccessibleCaseIds(
+        ctx,
+        currentUser._id,
+      );
+
+      const clientCaseRelations = await ctx.db
+        .query("clientCases")
+        .withIndex("by_client", (q) => q.eq("clientId", clientId))
+        .filter((q) => q.eq(q.field("isActive"), true))
+        .collect();
+
+      const hasAccess = clientCaseRelations.some((relation) =>
+        accessibleCaseIds.has(relation.caseId),
+      );
+
+      if (!hasAccess) {
+        throw new Error("You don't have permission to update this client");
+      }
+    }
+
     // Ensure DNI vs CUIT consistency when switching clientType
     if (patch.clientType) {
-      // Get current client data to check for existing incompatible fields
-      const currentClient = await ctx.db.get(clientId);
-      if (!currentClient) {
-        throw new Error("Client not found");
-      }
-
       if (patch.clientType === "individual") {
         // keep dni, clear cuit (both explicitly passed empty strings and existing values)
         if (patch.cuit === "" || currentClient.cuit) {
@@ -360,20 +650,47 @@ export const updateClient = mutation({
 export const deleteClient = mutation({
   args: { clientId: v.id("clients") },
   handler: async (ctx, args) => {
-    await getCurrentUserFromAuth(ctx);
+    const currentUser = await getCurrentUserFromAuth(ctx);
 
-    // Soft delete client
-    await ctx.db.patch(args.clientId, { isActive: false } as any);
+    // Check if client exists
+    const client = await ctx.db.get(args.clientId);
+    if (!client) {
+      throw new Error("Client not found");
+    }
 
-    // Deactivate relations
-    const relations = await ctx.db
+    // Check if user created this client OR has access via cases
+    const userCreatedClient = client.createdBy === currentUser._id;
+
+    const clientCaseRelations = await ctx.db
       .query("clientCases")
       .withIndex("by_client", (q) => q.eq("clientId", args.clientId))
       .filter((q) => q.eq(q.field("isActive"), true))
       .collect();
 
+    if (!userCreatedClient) {
+      // Check if user has access to this client via their accessible cases
+      const accessibleCaseIds = await getAccessibleCaseIds(
+        ctx,
+        currentUser._id,
+      );
+
+      const hasAccess = clientCaseRelations.some((relation) =>
+        accessibleCaseIds.has(relation.caseId),
+      );
+
+      if (!hasAccess) {
+        throw new Error("You don't have permission to delete this client");
+      }
+    }
+
+    // Soft delete client
+    await ctx.db.patch(args.clientId, { isActive: false } as any);
+
+    // Deactivate relations
     await Promise.all(
-      relations.map((rel) => ctx.db.patch(rel._id, { isActive: false } as any)),
+      clientCaseRelations.map((rel) =>
+        ctx.db.patch(rel._id, { isActive: false } as any),
+      ),
     );
 
     return { ok: true } as const;
@@ -387,7 +704,7 @@ export const deleteClient = mutation({
  * @param {Object} args - Search parameters
  * @param {string} [args.searchTerm] - Search term to filter clients by name, DNI, or CUIT
  * @param {Id<"cases">} [args.caseId] - Filter by case (returns clients in specific case)
- * @param {number} [args.limit=20] - Maximum number of results to return (default: 20)
+ * @param {number} [args.limit=20] - Maximum number of results to return (default: 20, max: 100)
  * @returns {Promise<Array>} Array of clients with their associated cases
  * @internal This is an internal query used by agent tools
  */
@@ -430,7 +747,7 @@ export const searchClientsForAgent = internalQuery({
   ),
   handler: async (ctx, args) => {
     const limit = Math.min(args.limit ?? 20, 100);
-    let clients;
+    let clients: Array<Doc<"clients">> = [];
     const caseId = args.caseId;
 
     if (caseId) {
@@ -439,9 +756,9 @@ export const searchClientsForAgent = internalQuery({
         .query("clientCases")
         .withIndex("by_case", (q) => q.eq("caseId", caseId))
         .filter((q) => q.eq(q.field("isActive"), true))
-        .take(limit);
+        .collect();
 
-      // Get the client data for each relationship
+      // Batch fetch client data
       const clientsData = await Promise.all(
         clientCaseRelations.map(async (relation) => {
           const client = await ctx.db.get(relation.clientId);
@@ -449,68 +766,62 @@ export const searchClientsForAgent = internalQuery({
         }),
       );
 
-      // Filter out null values
-      clients = clientsData.filter((c) => c !== null);
+      // Filter out null values and apply limit
+      clients = clientsData
+        .filter((c): c is Doc<"clients"> => c !== null)
+        .slice(0, limit);
     } else if (args.searchTerm) {
-      // Search by name, DNI, or CUIT
-      const allClients = await ctx.db
+      // Use search index for name search
+      const searchResults = await ctx.db
+        .query("clients")
+        .withSearchIndex("search_clients", (q) =>
+          q.search("name", args.searchTerm!).eq("isActive", true),
+        )
+        .take(limit);
+
+      // Also search by DNI/CUIT
+      const dniCuitResults = await ctx.db
         .query("clients")
         .withIndex("by_active_status", (q) => q.eq("isActive", true))
-        .collect();
-
-      const searchLower = args.searchTerm.toLowerCase();
-      clients = allClients
         .filter(
-          (client) =>
-            client.name.toLowerCase().includes(searchLower) ||
-            (client.dni && client.dni.includes(args.searchTerm!)) ||
-            (client.cuit && client.cuit.includes(args.searchTerm!)),
+          (q) =>
+            q.or(
+              q.eq(q.field("dni"), args.searchTerm!),
+              q.eq(q.field("cuit"), args.searchTerm!),
+            ),
         )
-        .slice(0, limit);
+        .take(limit);
+
+      // Merge and deduplicate, then apply limit
+      const allResults = [...searchResults];
+      const existingIds = new Set(searchResults.map((c) => c._id));
+      for (const result of dniCuitResults) {
+        if (!existingIds.has(result._id)) {
+          allResults.push(result);
+        }
+      }
+      clients = allResults.slice(0, limit);
     } else {
-      // No filters: get all active clients
+      // No filters: get all active clients with consistent limit
       clients = await ctx.db
         .query("clients")
         .withIndex("by_active_status", (q) => q.eq("isActive", true))
         .take(limit);
     }
 
-    // For each client, get their associated cases
-    const clientsWithCases = await Promise.all(
-      clients.map(async (client) => {
-        // Get all active client-case relationships for this client
-        const clientCaseRelations = await ctx.db
-          .query("clientCases")
-          .withIndex("by_client", (q) => q.eq("clientId", client._id))
-          .filter((q) => q.eq(q.field("isActive"), true))
-          .collect();
+    // Use batch fetching to get cases for all clients
+    const clientsWithBasicCases = await batchFetchClientCases(ctx, clients);
 
-        // Get the case data for each relationship
-        const cases = await Promise.all(
-          clientCaseRelations.map(async (relation) => {
-            const caseData = await ctx.db.get(relation.caseId);
-            if (!caseData) return null;
-
-            return {
-              caseId: caseData._id,
-              caseTitle: caseData.title,
-              caseStatus: caseData.status,
-              role: relation.role,
-              relationId: relation._id,
-            };
-          }),
-        );
-
-        // Filter out any cases that might have been deleted
-        const validCases = cases.filter((c) => c !== null);
-
-        return {
-          ...client,
-          cases: validCases,
-        };
-      }),
-    );
-
-    return clientsWithCases;
+    // Transform to the format expected by the agent
+    return clientsWithBasicCases.map((client) => ({
+      ...client,
+      cases: client.cases.map(({ case: caseData, role, relationId }) => ({
+        caseId: caseData!._id,
+        caseTitle: caseData!.title,
+        caseStatus: caseData!.status,
+        role,
+        relationId,
+      })),
+    }));
   },
 });

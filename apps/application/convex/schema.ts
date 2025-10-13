@@ -63,9 +63,26 @@ export default defineSchema({
     // User preferences
     preferences: v.optional(
       v.object({
+        // General
         language: v.string(),
         timezone: v.string(),
-        notifications: v.boolean(),
+        
+        // Notifications
+        emailNotifications: v.boolean(),
+        caseUpdates: v.optional(v.boolean()),
+        documentProcessing: v.optional(v.boolean()),
+        teamInvitations: v.optional(v.boolean()),
+        agentResponses: v.optional(v.boolean()),
+        
+        // Agent Preferences
+        agentResponseStyle: v.optional(v.string()),
+        defaultJurisdiction: v.optional(v.string()),
+        autoIncludeContext: v.optional(v.boolean()),
+        citationFormat: v.optional(v.string()),
+        
+        // Privacy & Security
+        sessionTimeout: v.optional(v.number()),
+        activityLogVisible: v.optional(v.boolean()),
       }),
     ),
   })
@@ -91,7 +108,11 @@ export default defineSchema({
     .index("by_cuit", ["cuit"])
     .index("by_email", ["email"])
     .index("by_created_by", ["createdBy"])
-    .index("by_active_status", ["isActive"]),
+    .index("by_active_status", ["isActive"])
+    .searchIndex("search_clients", {
+      searchField: "name",
+      filterFields: ["isActive"]
+    }),
 
   // Cases table - legal cases (removed clientId for many-to-many relationship)
   cases: defineTable({
@@ -119,7 +140,11 @@ export default defineSchema({
     .index("by_assigned_lawyer", ["assignedLawyer"])
     .index("by_created_by", ["createdBy"])
     .index("by_archived_status", ["isArchived"])
-    .index("by_priority", ["priority"]),
+    .index("by_priority", ["priority"])
+    .searchIndex("search_cases", {
+      searchField: "title",
+      filterFields: ["isArchived"]
+    }),
 
   // Client-Case relationship (many-to-many)
   clientCases: defineTable({
@@ -200,7 +225,10 @@ export default defineSchema({
     .index("by_created_by", ["createdBy"])
     .index("by_file_id", ["fileId"])
     .index("by_gcs_object", ["gcsObject"])
-    .index("by_processing_status", ["processingStatus"]),
+    .index("by_processing_status", ["processingStatus"])
+    .searchIndex("search_documents", {
+      searchField: "title"
+    }),
 
   // Escritos table - Tiptap JSON documents (legal writings/briefs)
   // Simplified: removed parentEscritoId (no version control)
@@ -224,7 +252,11 @@ export default defineSchema({
     .index("by_archived_status", ["isArchived"])
     .index("by_presentation_date", ["presentationDate"])
     .index("by_last_edited", ["lastEditedAt"])
-    .index("by_prosemirror_id", ["prosemirrorId"]),
+    .index("by_prosemirror_id", ["prosemirrorId"])
+    .searchIndex("search_escritos", {
+      searchField: "title",
+      filterFields: ["isArchived"]
+    }),
 
   // Document Templates (Modelos) - independent reusable templates
   modelos: defineTable({
@@ -508,7 +540,28 @@ export default defineSchema({
     .index("by_type", ["mimeType"])
     .index("by_created_by", ["createdBy"])
     .index("by_gcs_object", ["gcsObject"])
-    .index("by_processing_status", ["processingStatus"]),
+    .index("by_processing_status", ["processingStatus"])
+    .searchIndex("search_library_documents", {
+      searchField: "title"
+    }),
+
+  // ========================================
+  // AGENT RULES - USER & CASE SCOPED
+  // ========================================
+  agentRules: defineTable({
+    name: v.string(),
+    content: v.string(),
+    scope: v.union(v.literal("user"), v.literal("case")),
+    userId: v.optional(v.id("users")),
+    caseId: v.optional(v.id("cases")),
+    isActive: v.boolean(),
+    createdBy: v.id("users"),
+    order: v.optional(v.number()),
+  })
+    .index("by_user_and_active", ["userId", "isActive"]) 
+    .index("by_case_and_active", ["caseId", "isActive"]) 
+    .index("by_scope", ["scope"]) 
+    .index("by_created_by", ["createdBy"]),
 
 
 })
