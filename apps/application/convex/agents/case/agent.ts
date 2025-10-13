@@ -4,6 +4,7 @@ import { openai } from "@ai-sdk/openai";
 
 import {
   searchCaseDocumentsTool,
+  listCaseDocumentsTool,
   queryDocumentTool,
   editEscritoTool,
   getEscritoStatsTool,
@@ -54,6 +55,7 @@ export const agent = new Agent(components.agent, {
 
   tools: {
     searchCaseDocumentos: searchCaseDocumentsTool,
+    listCaseDocuments: listCaseDocumentsTool,
     queryDocumento: queryDocumentTool,
     editEscrito: editEscritoTool,
     getEscritoStats: getEscritoStatsTool,
