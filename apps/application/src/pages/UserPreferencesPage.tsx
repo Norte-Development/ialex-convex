@@ -20,6 +20,8 @@ const DEFAULT_PREFERENCES = {
   documentProcessing: true,
   teamInvitations: true,
   agentResponses: true,
+  eventReminders: true,
+  eventUpdates: true,
   agentResponseStyle: "formal",
   defaultJurisdiction: "argentina",
   autoIncludeContext: true,
