@@ -43,7 +43,7 @@ export default function EventDetailPage() {
 
   // Verificar si el usuario actual es organizador
   const currentUserParticipation = participants?.find(
-    (p) => p.userId === user?._id
+    (p) => p.userId === user?._id,
   );
   const isOrganizer = currentUserParticipation?.role === "organizador";
 
@@ -137,7 +137,10 @@ export default function EventDetailPage() {
     }
   };
 
-  const handleRemoveParticipant = async (userId: Id<"users">, userName: string) => {
+  const handleRemoveParticipant = async (
+    userId: Id<"users">,
+    userName: string,
+  ) => {
     if (!confirm(`¿Remover a ${userName} del evento?`)) return;
 
     try {
@@ -155,13 +158,9 @@ export default function EventDetailPage() {
     <div className="container mx-auto py-8 px-4 pt-24 max-w-4xl">
       {/* Header */}
       <div className="mb-6">
-        <Button
-          variant="ghost"
-          onClick={() => navigate("/eventos")}
-          className="mb-4"
-        >
+        <Button variant="ghost" onClick={() => navigate("/")} className="mb-4">
           <ArrowLeft size={16} className="mr-2" />
-          Volver a eventos
+          Volver
         </Button>
 
         <div className="flex justify-between items-start">
@@ -328,17 +327,20 @@ export default function EventDetailPage() {
                               onClick={() =>
                                 handleRemoveParticipant(
                                   participant.userId,
-                                  participant.user?.name || "Usuario"
+                                  participant.user?.name || "Usuario",
                                 )
                               }
                             >
-                              <UserMinus size={14} className="text-destructive" />
+                              <UserMinus
+                                size={14}
+                                className="text-destructive"
+                              />
                             </Button>
                           )}
                       </div>
                     </div>
                   ))}
-                  
+
                   {isOrganizer && (
                     <>
                       <Separator className="my-3" />

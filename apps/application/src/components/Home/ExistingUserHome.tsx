@@ -3,8 +3,9 @@ import { api } from "../../../convex/_generated/api";
 import NewCaseCard from "./NewCaseCard";
 import EventDateCard from "./EventDateCard";
 import { Button } from "../ui/button";
-import { CircleArrowRight, Calendar } from "lucide-react";
+import { Calendar } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import AllEventsDialog from "./AllEventsDialog";
 
 const ExistingUserHome = () => {
   const navigate = useNavigate();
@@ -62,14 +63,7 @@ const ExistingUserHome = () => {
 
         {events.length > 0 && (
           <div className="flex w-full justify-end items-center mb-10">
-            <Button
-              variant={"secondary"}
-              size={"lg"}
-              className="text-black"
-              onClick={() => navigate("/eventos")}
-            >
-              Ver todos <CircleArrowRight className="inline text-primary" />
-            </Button>
+            <AllEventsDialog />
           </div>
         )}
       </div>
