@@ -74,6 +74,7 @@ import type * as firebaseAdmin from "../firebaseAdmin.js";
 import type * as functions_agentRules from "../functions/agentRules.js";
 import type * as functions_cases from "../functions/cases.js";
 import type * as functions_clients from "../functions/clients.js";
+import type * as functions_crons from "../functions/crons.js";
 import type * as functions_documentProcessing from "../functions/documentProcessing.js";
 import type * as functions_documents from "../functions/documents.js";
 import type * as functions_escritosTransforms_applyTextBasedOperations from "../functions/escritosTransforms/applyTextBasedOperations.js";
@@ -84,6 +85,7 @@ import type * as functions_escritosTransforms_index from "../functions/escritosT
 import type * as functions_escritosTransforms_insertHtmlContent from "../functions/escritosTransforms/insertHtmlContent.js";
 import type * as functions_escritosTransforms_rewriteSectionByAnchors from "../functions/escritosTransforms/rewriteSectionByAnchors.js";
 import type * as functions_escritosTransforms_types from "../functions/escritosTransforms/types.js";
+import type * as functions_eventNotifications from "../functions/eventNotifications.js";
 import type * as functions_events from "../functions/events.js";
 import type * as functions_folders from "../functions/folders.js";
 import type * as functions_html from "../functions/html.js";
@@ -102,6 +104,7 @@ import type * as functions_testReadEscritoHelpers from "../functions/testReadEsc
 import type * as functions_todos from "../functions/todos.js";
 import type * as functions_users from "../functions/users.js";
 import type * as http from "../http.js";
+import type * as migrations_addEventPreferences from "../migrations/addEventPreferences.js";
 import type * as prosemirror from "../prosemirror.js";
 import type * as rag_qdrantUtils_caseDocuments from "../rag/qdrantUtils/caseDocuments.js";
 import type * as rag_qdrantUtils_client from "../rag/qdrantUtils/client.js";
@@ -198,6 +201,7 @@ declare const fullApi: ApiFromModules<{
   "functions/agentRules": typeof functions_agentRules;
   "functions/cases": typeof functions_cases;
   "functions/clients": typeof functions_clients;
+  "functions/crons": typeof functions_crons;
   "functions/documentProcessing": typeof functions_documentProcessing;
   "functions/documents": typeof functions_documents;
   "functions/escritosTransforms/applyTextBasedOperations": typeof functions_escritosTransforms_applyTextBasedOperations;
@@ -208,6 +212,7 @@ declare const fullApi: ApiFromModules<{
   "functions/escritosTransforms/insertHtmlContent": typeof functions_escritosTransforms_insertHtmlContent;
   "functions/escritosTransforms/rewriteSectionByAnchors": typeof functions_escritosTransforms_rewriteSectionByAnchors;
   "functions/escritosTransforms/types": typeof functions_escritosTransforms_types;
+  "functions/eventNotifications": typeof functions_eventNotifications;
   "functions/events": typeof functions_events;
   "functions/folders": typeof functions_folders;
   "functions/html": typeof functions_html;
@@ -226,6 +231,7 @@ declare const fullApi: ApiFromModules<{
   "functions/todos": typeof functions_todos;
   "functions/users": typeof functions_users;
   http: typeof http;
+  "migrations/addEventPreferences": typeof migrations_addEventPreferences;
   prosemirror: typeof prosemirror;
   "rag/qdrantUtils/caseDocuments": typeof rag_qdrantUtils_caseDocuments;
   "rag/qdrantUtils/client": typeof rag_qdrantUtils_client;

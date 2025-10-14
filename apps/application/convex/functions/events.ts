@@ -1,5 +1,6 @@
 import { v } from "convex/values";
 import { mutation, query } from "../_generated/server";
+import { internal } from "../_generated/api";
 import { getCurrentUserFromAuth } from "../auth_utils";
 import { requireNewCaseAccess, checkNewCaseAccess } from "../auth_utils";
 
@@ -354,7 +355,22 @@ export const updateEventStatus = mutation({
       throw new Error("Solo el organizador puede cambiar el estado del evento");
     }
 
+    const oldStatus = event.status;
     await ctx.db.patch(args.eventId, { status: args.status });
+
+    // Enviar notificación de actualización si el estado cambió
+    if (oldStatus !== args.status) {
+      await ctx.scheduler.runAfter(
+        0,
+        internal.functions.eventNotifications.sendEventUpdateNotification,
+        {
+          eventId: args.eventId,
+          updateType: "status",
+          oldValue: oldStatus,
+          newValue: args.status,
+        },
+      );
+    }
 
     return args.eventId;
   },
@@ -448,6 +464,17 @@ export const addParticipant = mutation({
       addedBy: currentUser._id,
       isActive: true,
     });
+
+    // Enviar notificación de invitación
+    await ctx.scheduler.runAfter(
+      0,
+      internal.functions.eventNotifications.sendEventInviteNotification,
+      {
+        eventId: args.eventId,
+        participantId: args.userId,
+        organizerId: currentUser._id,
+      },
+    );
 
     return participantId;
   },
