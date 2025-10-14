@@ -48,8 +48,19 @@ export const createTeam = mutation({
     description: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    // Any authenticated user can create teams
     const currentUser = await getCurrentUserFromAuth(ctx);
+
+    // Check if user has premium subscription (individual or team)
+    const userPlan = await ctx.runQuery(internal.billing.features.getUserPlan, {
+      userId: currentUser._id,
+    });
+
+    if (userPlan === "free") {
+      throw new Error(
+        "Necesitas una suscripción Premium para crear equipos. " +
+        "Elige Premium Individual ($30.000/mes) o Premium Equipo ($200.000/mes)."
+      );
+    }
 
     const teamId = await ctx.db.insert("teams", {
       name: args.name,
@@ -67,6 +78,13 @@ export const createTeam = mutation({
       joinedAt: Date.now(),
       addedBy: currentUser._id,
       isActive: true,
+    });
+
+    // Set up Stripe customer for the team
+    await ctx.scheduler.runAfter(0, internal.billing.subscriptions.setupTeamCustomer, {
+      teamId: teamId,
+      teamName: args.name,
+      creatorEmail: currentUser.email,
     });
 
     console.log("Created team with id:", teamId);
@@ -380,6 +398,18 @@ export const addUserToTeam = mutation({
 
     if (existing) {
       throw new Error("User is already a member of this team");
+    }
+
+    // Check team member limits based on subscription
+    const memberCheck = await ctx.runQuery(internal.billing.features.canAddTeamMember, {
+      teamId: args.teamId,
+    });
+
+    if (!memberCheck.allowed) {
+      throw new Error(
+        memberCheck.reason || 
+        `Límite de miembros alcanzado (${memberCheck.currentCount}/${memberCheck.maxAllowed})`
+      );
     }
 
     const membershipId = await ctx.db.insert("teamMemberships", {
@@ -1026,6 +1056,19 @@ export const sendTeamInvite = mutation({
       );
     }
 
+    // Check team member limits before sending invitation
+    const memberCheck = await ctx.runQuery(internal.billing.features.canAddTeamMember, {
+      teamId: args.teamId,
+    });
+
+    if (!memberCheck.allowed) {
+      throw new Error(
+        memberCheck.reason || 
+        `Límite de miembros alcanzado (${memberCheck.currentCount}/${memberCheck.maxAllowed}). ` +
+        `No se pueden enviar más invitaciones.`
+      );
+    }
+
     // Check if user already exists and is in the team
     const existingUser = await ctx.db
       .query("users")
@@ -1227,6 +1270,18 @@ export const acceptTeamInvite = mutation({
 
     if (existingMembership) {
       throw new Error("Ya eres miembro de este equipo");
+    }
+
+    // Check team member limits based on subscription
+    const memberCheck = await ctx.runQuery(internal.billing.features.canAddTeamMember, {
+      teamId: invite.teamId,
+    });
+
+    if (!memberCheck.allowed) {
+      throw new Error(
+        memberCheck.reason || 
+        `Límite de miembros alcanzado (${memberCheck.currentCount}/${memberCheck.maxAllowed})`
+      );
     }
 
     // Add user to team
@@ -1673,6 +1728,19 @@ export const createUserAndJoinTeam = mutation({
 
     if (existingUser) {
       throw new Error("Ya existe una cuenta con este email");
+    }
+
+    // Check team member limits BEFORE creating user
+    const memberCheck = await ctx.runQuery(internal.billing.features.canAddTeamMember, {
+      teamId: invite.teamId,
+    });
+
+    if (!memberCheck.allowed) {
+      throw new Error(
+        memberCheck.reason || 
+        `Límite de miembros alcanzado (${memberCheck.currentCount}/${memberCheck.maxAllowed}). ` +
+        `No se puede aceptar esta invitación.`
+      );
     }
 
     // Create the user account

@@ -47,9 +47,21 @@ export const createCase = mutation({
     priority: v.union(v.literal("low"), v.literal("medium"), v.literal("high")),
     category: v.optional(v.string()),
     estimatedHours: v.optional(v.number()),
+    teamId: v.optional(v.id("teams")), // Optional team context
   },
   handler: async (ctx, args) => {
     const currentUser = await getCurrentUserFromAuth(ctx);
+
+    // Check billing feature access
+    const access = await ctx.runQuery(internal.billing.features.hasFeatureAccess, {
+      userId: currentUser._id,
+      feature: "create_case",
+      teamId: args.teamId,
+    });
+
+    if (!access.allowed) {
+      throw new Error(access.reason || "No tienes acceso a esta funcionalidad");
+    }
 
     // Auto-assign to current user if no lawyer specified
     const assignedLawyer = args.assignedLawyer || currentUser._id;
@@ -85,6 +97,18 @@ export const createCase = mutation({
         grantedBy: currentUser._id,
         grantedAt: Date.now(),
         isActive: true,
+      });
+    }
+
+    // Increment usage counter for free users
+    const plan = await ctx.runQuery(internal.billing.features.getUserPlan, {
+      userId: currentUser._id,
+    });
+
+    if (plan === "free") {
+      await ctx.runMutation(internal.billing.features.incrementUsage, {
+        entityId: currentUser._id,
+        counter: "casesCount",
       });
     }
 

@@ -313,6 +313,9 @@ importers:
       '@radix-ui/react-use-controllable-state':
         specifier: ^1.2.2
         version: 1.2.2(@types/react@19.2.2)(react@19.2.0)
+      '@raideno/convex-stripe':
+        specifier: ^0.1.13
+        version: 0.1.13(convex@1.27.4(@clerk/clerk-react@5.51.0(react-dom@19.2.0(react@19.2.0))(react@19.2.0))(react@19.2.0))(stripe@19.1.0(@types/node@22.18.8))
       '@tiptap/core':
         specifier: ^3.4.4
         version: 3.6.5(@tiptap/pm@3.6.5)
@@ -424,6 +427,9 @@ importers:
       streamdown@latest:
         specifier: link:vercel/streamdown@latest
         version: link:vercel/streamdown@latest
+      stripe:
+        specifier: ^19.1.0
+        version: 19.1.0(@types/node@22.18.8)
       svg-pan-zoom:
         specifier: ^3.6.2
         version: 3.6.2
@@ -2240,6 +2246,12 @@ packages:
 
   '@radix-ui/rect@1.1.1':
     resolution: {integrity: sha512-HPwpGIzkl28mWyZqG52jiqDJ12waP11Pa1lGoiyUkIEuMLBP0oeK/C89esbXrxsky5we7dfd8U58nm0SgAWpVw==}
+
+  '@raideno/convex-stripe@0.1.13':
+    resolution: {integrity: sha512-yHVWH97r1Y9wBvyprjIRU4J7gR1qGQ1hRJ2LQq8PQet8y6SRh9A3V+KOG4sBtHkE+BO3ZyAmO3Qh03dXs6dvow==}
+    peerDependencies:
+      convex: ^1.27.1
+      stripe: ^18.5.0
 
   '@remirror/core-constants@3.0.0':
     resolution: {integrity: sha512-42aWfPrimMfDKDi4YegyS7x+/0tlzaqwPQCULLanv3DMIlu96KTJR0fM5isWX2UViOqlGnX6YFgqWepcX+XMNg==}
@@ -6375,6 +6387,15 @@ packages:
     resolution: {integrity: sha512-6fPc+R4ihwqP6N/aIv2f1gMH8lOVtWQHoqC4yK6oSDVVocumAsfCqjkXnqiYMhmMwS/mEHLp7Vehlt3ql6lEig==}
     engines: {node: '>=8'}
 
+  stripe@19.1.0:
+    resolution: {integrity: sha512-FjgIiE98dMMTNssfdjMvFdD4eZyEzdWAOwPYqzhPRNZeg9ggFWlPXmX1iJKD5pPIwZBaPlC3SayQQkwsPo6/YQ==}
+    engines: {node: '>=16'}
+    peerDependencies:
+      '@types/node': '>=16'
+    peerDependenciesMeta:
+      '@types/node':
+        optional: true
+
   strnum@1.1.2:
     resolution: {integrity: sha512-vrN+B7DBIoTTZjnPNewwhx6cBA/H+IS7rfW68n7XxC1y7uoiGQBxaKzqucGUgavX15dJgiGztLJ8vxuEzwqBdA==}
 
@@ -8682,6 +8703,11 @@ snapshots:
       '@types/react-dom': 19.2.1(@types/react@19.2.2)
 
   '@radix-ui/rect@1.1.1': {}
+
+  '@raideno/convex-stripe@0.1.13(convex@1.27.4(@clerk/clerk-react@5.51.0(react-dom@19.2.0(react@19.2.0))(react@19.2.0))(react@19.2.0))(stripe@19.1.0(@types/node@22.18.8))':
+    dependencies:
+      convex: 1.27.4(@clerk/clerk-react@5.51.0(react-dom@19.2.0(react@19.2.0))(react@19.2.0))(react@19.2.0)
+      stripe: 19.1.0(@types/node@22.18.8)
 
   '@remirror/core-constants@3.0.0': {}
 
@@ -13470,6 +13496,12 @@ snapshots:
   strip-bom@3.0.0: {}
 
   strip-json-comments@3.1.1: {}
+
+  stripe@19.1.0(@types/node@22.18.8):
+    dependencies:
+      qs: 6.13.0
+    optionalDependencies:
+      '@types/node': 22.18.8
 
   strnum@1.1.2: {}
 
