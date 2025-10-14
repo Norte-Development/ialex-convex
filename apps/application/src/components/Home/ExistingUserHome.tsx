@@ -10,11 +10,14 @@ const ExistingUserHome = () => {
   const navigate = useNavigate();
   const casesResult = useQuery(api.functions.cases.getCases, {});
   const upcomingEvents = useQuery(api.functions.events.getUpcomingEvents, {
-    days: 7,
+    days: 30,
   });
 
   const cases = casesResult || [];
   const events = upcomingEvents || [];
+
+  console.log("cases", cases);
+  console.log("events", events);
 
   return (
     <>
@@ -38,9 +41,9 @@ const ExistingUserHome = () => {
         </p>
         <div className="mt-10 w-full grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-10">
           {events.length > 0 ? (
-            events.slice(0, 3).map((event) => (
-              <EventDateCard key={event._id} event={event} />
-            ))
+            events
+              .slice(0, 3)
+              .map((event) => <EventDateCard key={event._id} event={event} />)
           ) : (
             <div className="col-span-full flex flex-col items-center justify-center py-8 text-gray-500">
               <Calendar size={48} className="mb-4 text-gray-300" />

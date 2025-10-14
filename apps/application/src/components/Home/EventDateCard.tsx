@@ -63,14 +63,14 @@ export default function EventDateCard({ event }: { event: Event }) {
           {eventDate}
         </span>
       </div>
-      <div className="w-[65%] h-full flex flex-col justify-center items-start pl-3 gap-1">
-        <div className="flex items-center gap-1">
+      <div className="w-[65%] h-full flex flex-col justify-center items-start pl-3 pr-3 gap-1">
+        <div className="flex items-center gap-1 w-full">
           {getEventIcon()}
-          <span className="font-[700] text-sm truncate max-w-[140px]">
+          <span className="font-[700] text-sm truncate flex-1 min-w-0">
             {event.title}
           </span>
         </div>
-        <span className="text-xs text-gray-500">
+        <span className="text-xs text-gray-500 truncate w-full">
           {formatTime(event.startDate)} - {formatTime(event.endDate)}
         </span>
       </div>
