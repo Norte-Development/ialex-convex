@@ -623,6 +623,31 @@ export const getEventParticipants = query({
     // Verificar acceso al evento
     if (event.caseId) {
       await requireNewCaseAccess(ctx, currentUser._id, event.caseId, "basic");
+    } else if (event.teamId) {
+      const teamId = event.teamId; // Type narrowing
+      const membership = await ctx.db
+        .query("teamMemberships")
+        .withIndex("by_team_and_user", (q) =>
+          q.eq("teamId", teamId).eq("userId", currentUser._id),
+        )
+        .filter((q) => q.eq(q.field("isActive"), true))
+        .first();
+
+      if (!membership) {
+        throw new Error("No tienes acceso a este evento");
+      }
+    } else {
+      // Evento personal: verificar que sea participante
+      const participation = await ctx.db
+        .query("eventParticipants")
+        .withIndex("by_event_and_user", (q) =>
+          q.eq("eventId", args.eventId).eq("userId", currentUser._id),
+        )
+        .first();
+
+      if (!participation) {
+        throw new Error("No tienes acceso a este evento");
+      }
     }
 
     // Obtener participantes
