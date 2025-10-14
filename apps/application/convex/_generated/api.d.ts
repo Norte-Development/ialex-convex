@@ -70,7 +70,6 @@ import type * as auth_utils from "../auth_utils.js";
 import type * as context_context from "../context/context.js";
 import type * as context_contextService from "../context/contextService.js";
 import type * as context_parseReferences from "../context/parseReferences.js";
-import type * as crons from "../crons.js";
 import type * as firebaseAdmin from "../firebaseAdmin.js";
 import type * as functions_agentRules from "../functions/agentRules.js";
 import type * as functions_cases from "../functions/cases.js";
@@ -197,7 +196,6 @@ declare const fullApi: ApiFromModules<{
   "context/context": typeof context_context;
   "context/contextService": typeof context_contextService;
   "context/parseReferences": typeof context_parseReferences;
-  crons: typeof crons;
   firebaseAdmin: typeof firebaseAdmin;
   "functions/agentRules": typeof functions_agentRules;
   "functions/cases": typeof functions_cases;

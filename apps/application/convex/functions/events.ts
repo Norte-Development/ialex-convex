@@ -123,6 +123,13 @@ export const createEvent = mutation({
       }
     }
 
+    // Programar recordatorios usando scheduler
+    await ctx.scheduler.runAfter(
+      0,
+      internal.functions.eventNotifications.scheduleEventReminders,
+      { eventId }
+    );
+
     return eventId;
   },
 });
@@ -356,6 +363,15 @@ export const updateEvent = mutation({
     // Actualizar evento
     const { eventId, ...updates } = args;
     await ctx.db.patch(eventId, updates);
+
+    // Si se modificaron fechas o recordatorios, reprogramar
+    if (args.startDate || args.reminderMinutes) {
+      await ctx.scheduler.runAfter(
+        0,
+        internal.functions.eventNotifications.scheduleEventReminders,
+        { eventId }
+      );
+    }
 
     return eventId;
   },

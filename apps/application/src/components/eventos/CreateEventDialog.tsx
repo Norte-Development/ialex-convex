@@ -30,6 +30,7 @@ interface CreateEventDialogProps {
   teamId?: string;
   showCaseSelector?: boolean; // Nueva prop para mostrar selector de casos
   showTeamSelector?: boolean; // Nueva prop para mostrar selector de equipos
+  showReminderSelector?: boolean; // Nueva prop para permitir selección de recordatorios
 }
 
 export default function CreateEventDialog({
@@ -37,6 +38,7 @@ export default function CreateEventDialog({
   teamId: propTeamId,
   showCaseSelector = false,
   showTeamSelector = false,
+  showReminderSelector = false,
 }: CreateEventDialogProps) {
   const [open, setOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -61,6 +63,13 @@ export default function CreateEventDialog({
   const [isVirtual, setIsVirtual] = useState(false);
   const [meetingUrl, setMeetingUrl] = useState("");
   const [notes, setNotes] = useState("");
+
+  // Recordatorios
+
+  const [reminder15min, setReminder15min] = useState(true);
+  const [reminder1hour, setReminder1hour] = useState(true);
+  const [reminder1day, setReminder1day] = useState(true);
+  const [reminder1week, setReminder1week] = useState(false);
 
   // Queries para selectores
   const cases = useQuery(
@@ -99,6 +108,18 @@ export default function CreateEventDialog({
         return;
       }
 
+      // Construir array de recordatorios según selección
+      const reminderMinutes: number[] = [];
+      if (showReminderSelector) {
+        if (reminder15min) reminderMinutes.push(15);
+        if (reminder1hour) reminderMinutes.push(60);
+        if (reminder1day) reminderMinutes.push(1440);
+        if (reminder1week) reminderMinutes.push(10080);
+      } else {
+        // Valores por defecto si no se muestra el selector
+        reminderMinutes.push(15, 60, 1440);
+      }
+
       await createEvent({
         title,
         description: description || undefined,
@@ -111,7 +132,8 @@ export default function CreateEventDialog({
         location: location || undefined,
         isVirtual,
         meetingUrl: meetingUrl || undefined,
-        reminderMinutes: [15, 60, 1440], // 15min, 1h, 1 día antes
+        reminderMinutes:
+          reminderMinutes.length > 0 ? reminderMinutes : undefined,
         notes: notes || undefined,
       });
 
@@ -131,6 +153,10 @@ export default function CreateEventDialog({
       setIsVirtual(false);
       setMeetingUrl("");
       setNotes("");
+      setReminder15min(true);
+      setReminder1hour(true);
+      setReminder1day(true);
+      setReminder1week(false);
       setOpen(false);
     } catch (error) {
       console.error("Error creating event:", error);
@@ -403,6 +429,84 @@ export default function CreateEventDialog({
               rows={2}
             />
           </div>
+
+          {/* Recordatorios (solo si showReminderSelector = true) */}
+          {showReminderSelector && (
+            <div className="space-y-3 p-4 border rounded-lg bg-gray-50">
+              <Label className="text-base font-semibold">
+                ⏰ Recordatorios
+              </Label>
+              <p className="text-sm text-muted-foreground">
+                Selecciona cuándo quieres recibir recordatorios antes del evento
+              </p>
+
+              <div className="space-y-2">
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="reminder15min"
+                    checked={reminder15min}
+                    onCheckedChange={(checked) =>
+                      setReminder15min(checked as boolean)
+                    }
+                  />
+                  <Label
+                    htmlFor="reminder15min"
+                    className="cursor-pointer font-normal"
+                  >
+                    15 minutos antes
+                  </Label>
+                </div>
+
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="reminder1hour"
+                    checked={reminder1hour}
+                    onCheckedChange={(checked) =>
+                      setReminder1hour(checked as boolean)
+                    }
+                  />
+                  <Label
+                    htmlFor="reminder1hour"
+                    className="cursor-pointer font-normal"
+                  >
+                    1 hora antes
+                  </Label>
+                </div>
+
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="reminder1day"
+                    checked={reminder1day}
+                    onCheckedChange={(checked) =>
+                      setReminder1day(checked as boolean)
+                    }
+                  />
+                  <Label
+                    htmlFor="reminder1day"
+                    className="cursor-pointer font-normal"
+                  >
+                    1 día antes
+                  </Label>
+                </div>
+
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="reminder1week"
+                    checked={reminder1week}
+                    onCheckedChange={(checked) =>
+                      setReminder1week(checked as boolean)
+                    }
+                  />
+                  <Label
+                    htmlFor="reminder1week"
+                    className="cursor-pointer font-normal"
+                  >
+                    1 semana antes
+                  </Label>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Botones */}
           <div className="flex justify-end gap-2 pt-4">

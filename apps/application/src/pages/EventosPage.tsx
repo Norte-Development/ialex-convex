@@ -108,7 +108,7 @@ export default function EventosPage() {
   );
 
   return (
-    <div className=" mx-auto flex flex-col justify-center items-center min-h-full w-full  px-4 ">
+    <div className=" mx-auto flex flex-col justify-center items-center min-h-full w-full pt-20  px-4 ">
       <div className="flex justify-between w-full items-center mb-8">
         <div>
           <h1 className="text-3xl font-bold mb-2">Calendario de Eventos</h1>
@@ -116,7 +116,11 @@ export default function EventosPage() {
             Gestiona tus audiencias, plazos y reuniones
           </p>
         </div>
-        <CreateEventDialog showCaseSelector showTeamSelector />
+        <CreateEventDialog
+          showReminderSelector
+          showCaseSelector
+          showTeamSelector
+        />
       </div>
 
       <Tabs defaultValue="programados" className="w-full">
