@@ -8,6 +8,7 @@ import {
   requireNewCaseAccess,
 } from "../auth_utils";
 import { internal } from "../_generated/api";
+import { _getUserPlan, _canAddTeamMember } from "../billing/features";
 
 const newAccessLevelType = v.union(
   v.literal("none"),
@@ -51,9 +52,7 @@ export const createTeam = mutation({
     const currentUser = await getCurrentUserFromAuth(ctx);
 
     // Check if user has premium subscription (individual or team)
-    const userPlan = await ctx.runQuery(internal.billing.features.getUserPlan, {
-      userId: currentUser._id,
-    });
+    const userPlan = await _getUserPlan(ctx, currentUser._id);
 
     if (userPlan === "free") {
       throw new Error(
@@ -401,9 +400,7 @@ export const addUserToTeam = mutation({
     }
 
     // Check team member limits based on subscription
-    const memberCheck = await ctx.runQuery(internal.billing.features.canAddTeamMember, {
-      teamId: args.teamId,
-    });
+    const memberCheck = await _canAddTeamMember(ctx, args.teamId);
 
     if (!memberCheck.allowed) {
       throw new Error(
@@ -1057,9 +1054,7 @@ export const sendTeamInvite = mutation({
     }
 
     // Check team member limits before sending invitation
-    const memberCheck = await ctx.runQuery(internal.billing.features.canAddTeamMember, {
-      teamId: args.teamId,
-    });
+    const memberCheck = await _canAddTeamMember(ctx, args.teamId);
 
     if (!memberCheck.allowed) {
       throw new Error(
@@ -1273,9 +1268,7 @@ export const acceptTeamInvite = mutation({
     }
 
     // Check team member limits based on subscription
-    const memberCheck = await ctx.runQuery(internal.billing.features.canAddTeamMember, {
-      teamId: invite.teamId,
-    });
+    const memberCheck = await _canAddTeamMember(ctx, invite.teamId);
 
     if (!memberCheck.allowed) {
       throw new Error(
@@ -1731,9 +1724,7 @@ export const createUserAndJoinTeam = mutation({
     }
 
     // Check team member limits BEFORE creating user
-    const memberCheck = await ctx.runQuery(internal.billing.features.canAddTeamMember, {
-      teamId: invite.teamId,
-    });
+    const memberCheck = await _canAddTeamMember(ctx, invite.teamId);
 
     if (!memberCheck.allowed) {
       throw new Error(

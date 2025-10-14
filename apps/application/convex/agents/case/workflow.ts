@@ -8,7 +8,11 @@ import { getCurrentUserFromAuth } from "../../auth_utils";
 import { authorizeThreadAccess } from "../threads";
 import { ContextService } from "../../context/contextService";
 import { prompt } from "./prompt";
+import { Id } from "../../_generated/dataModel";
 import { buildServerSchema } from "../../../../../packages/shared/src/tiptap/schema";
+import { _getUserPlan, _getOrCreateUsageLimits, _getModelForUser } from "../../billing/features";
+import { PLAN_LIMITS } from "../../billing/planLimits";
+import { openai } from "@ai-sdk/openai";
 
 const workflow = new WorkflowManager(components.workflow);
 
@@ -192,6 +196,12 @@ export const streamWithContextAction = internalAction({
   },
   returns: v.null(),
   handler: async (ctx, { threadId, promptMessageId, contextBundle }) => {
+    // Determine which model to use based on user's billing plan
+    const modelToUse = await ctx.runMutation(
+      internal.billing.features.getModelForUserMutation,
+      { userId: contextBundle.user.id }
+    );
+
     const contextString = ContextService.formatContextForAgent(contextBundle);
 
     const schema = buildServerSchema();
@@ -233,12 +243,15 @@ export const streamWithContextAction = internalAction({
         {
           system: systemMessage,
           promptMessageId,
-          providerOptions: {
-            openai: {
-              reasoningEffort: "minimal",
-              reasoningSummary: "auto",
+          model: openai.responses(modelToUse),
+          ...(modelToUse === "gpt-5" && {
+            providerOptions: {
+              openai: {
+                reasoningEffort: "low",
+                reasoningSummary: "auto",
+              },
             },
-          },
+          }),
           experimental_repairToolCall: async (...args: any[]) => {
             console.log("Tool call repair triggered:", args);
             return null;
@@ -360,6 +373,27 @@ export const initiateWorkflowStreaming = mutation({
   handler: async (ctx, args): Promise<{workflowId: string, threadId: string, messageId: string}> => {
     const user = await getCurrentUserFromAuth(ctx);
 
+    // Check AI message limits before processing
+    const userPlan = await _getUserPlan(ctx, user._id);
+    const usage = await _getOrCreateUsageLimits(ctx, user._id, "user");
+    const limits = PLAN_LIMITS[userPlan];
+
+    // Check AI message limits + purchased credits
+    const credits = await ctx.db
+      .query("aiCredits")
+      .withIndex("by_user", (q) => q.eq("userId", user._id))
+      .first();
+
+    const availableMessages = limits.aiMessagesPerMonth - usage.aiMessagesThisMonth;
+    const availableCredits = credits?.remaining || 0;
+    const totalAvailable = availableMessages + availableCredits;
+
+    if (totalAvailable <= 0) {
+      throw new Error(
+        "Has alcanzado el límite de mensajes de IA. Compra créditos o actualiza a Premium para mensajes ilimitados."
+      );
+    }
+
     let threadId = args.threadId;
     if (!threadId) {
       threadId = await ctx.runMutation(api.agents.threads.createNewThread, {
@@ -394,6 +428,22 @@ export const initiateWorkflowStreaming = mutation({
         currentEscritoId: args.currentEscritoId,
       },
     );
+
+    // Get team context from case if caseId is provided
+    let teamContext: Id<"teams"> | undefined;
+    if (args.caseId) {
+      const result = await ctx.runQuery(internal.functions.cases.getCaseTeamContext, {
+        caseId: args.caseId,
+      });
+      teamContext = result ?? undefined;
+    }
+
+    // Decrement AI message credits after successfully initiating workflow
+    await ctx.scheduler.runAfter(0, internal.billing.features.decrementCredits, {
+      userId: user._id,
+      teamId: teamContext,
+      amount: 1,
+    });
 
     return { workflowId, threadId, messageId };
   },

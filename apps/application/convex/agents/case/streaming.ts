@@ -12,6 +12,10 @@ import { agent } from "./agent";
 import { ContextService } from "../../context/contextService";
 import {prompt} from "./prompt";
 import { buildServerSchema } from "../../../../../packages/shared/src/tiptap/schema";
+import { _getUserPlan, _getOrCreateUsageLimits, _getModelForUser } from "../../billing/features";
+import { Id } from "../../_generated/dataModel";
+import { PLAN_LIMITS } from "../../billing/planLimits";
+import { openai } from "@ai-sdk/openai";
 
 /**
  * Initiates asynchronous streaming for a message in a thread.
@@ -39,6 +43,27 @@ export const initiateAsyncStreaming = mutation({
     },
     handler: async (ctx, args) => {
       await authorizeThreadAccess(ctx, args.threadId);
+
+      // Check AI message limits before processing
+      const userPlan = await _getUserPlan(ctx, args.userId);
+      const usage = await _getOrCreateUsageLimits(ctx, args.userId, "user");
+      const limits = PLAN_LIMITS[userPlan];
+
+      // Check AI message limits + purchased credits
+      const credits = await ctx.db
+        .query("aiCredits")
+        .withIndex("by_user", (q) => q.eq("userId", args.userId))
+        .first();
+
+      const availableMessages = limits.aiMessagesPerMonth - usage.aiMessagesThisMonth;
+      const availableCredits = credits?.remaining || 0;
+      const totalAvailable = availableMessages + availableCredits;
+
+      if (totalAvailable <= 0) {
+        throw new Error(
+          "Has alcanzado el límite de mensajes de IA. Compra créditos o actualiza a Premium para mensajes ilimitados."
+        );
+      }
 
       // Gather rich context using ContextService
       const viewContext = {
@@ -70,6 +95,22 @@ export const initiateAsyncStreaming = mutation({
         threadId: args.threadId,
         promptMessageId: messageId,
         contextBundle,
+      });
+
+      // Get team context from case if caseId is provided
+      let teamContext: Id<"teams"> | undefined;
+      if (args.caseId) {
+        const result = await ctx.runQuery(internal.functions.cases.getCaseTeamContext, {
+          caseId: args.caseId,
+        });
+        teamContext = result ?? undefined;
+      }
+
+      // Decrement AI message credits after successfully initiating streaming
+      await ctx.scheduler.runAfter(0, internal.billing.features.decrementCredits, {
+        userId: args.userId,
+        teamId: teamContext,
+        amount: 1,
       });
     },
   });
@@ -170,6 +211,12 @@ export const streamAsync = internalAction({
     handler: async (ctx, { promptMessageId, threadId, contextBundle }) => {
       const { thread } = await agent.continueThread(ctx, { threadId });
 
+      // Determine which model to use based on user's billing plan
+      const modelToUse = await ctx.runMutation(
+        internal.billing.features.getModelForUserMutation,
+        { userId: contextBundle.user.id }
+      );
+
       // Format the rich context into a system message
       const contextString = ContextService.formatContextForAgent(contextBundle);
 
@@ -225,13 +272,15 @@ export const streamAsync = internalAction({
           {
             system: systemMessage,
             promptMessageId,
-
-            providerOptions: {
-              openai: {
-                reasoningEffort: 'low',
-                reasoningSummary: "auto"
+            model: openai.responses(modelToUse),
+            ...(modelToUse === "gpt-5" && {
+              providerOptions: {
+                openai: {
+                  reasoningEffort: 'low',
+                  reasoningSummary: "auto",
+                },
               },
-            },
+            }),
            
             experimental_repairToolCall: async (...args: any[]) => {
               console.log("Tool call repair triggered:", args);

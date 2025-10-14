@@ -3,6 +3,8 @@ import { api, internal } from "../_generated/api";
 import { v } from "convex/values";
 import { paginationOptsValidator } from "convex/server";
 import { getCurrentUserFromAuth } from "../auth_utils";
+import { _checkLimit, _getBillingEntity } from "../billing/features";
+import { PLAN_LIMITS } from "../billing/planLimits";
 
 // ========================================
 // LIBRARY DOCUMENT MANAGEMENT
@@ -36,6 +38,39 @@ export const generateUploadUrl = action({
     }> => {
       const user = await ctx.auth.getUserIdentity();
       if (!user) throw new Error("User not authenticated");
+
+      // Get current user from database
+      const currentUser = await ctx.runQuery(api.functions.users.getCurrentUser, {});
+
+      if (!currentUser) {
+        throw new Error("User not found");
+      }
+
+      // Check storage limits before generating upload URL
+      const userPlan = await ctx.runQuery(api.billing.features.getUserPlan, {
+        userId: currentUser._id,
+      });
+
+      const usage = await ctx.runQuery(api.billing.features.getUsageLimits, {
+        entityId: currentUser._id,
+      });
+
+      // If no usage record exists yet, it will be created in createLibraryDocument
+      // For now, assume 0 usage to allow first upload
+      const storageUsedBytes = usage?.storageUsedBytes || 0;
+
+      const limits = PLAN_LIMITS[userPlan] as typeof PLAN_LIMITS[keyof typeof PLAN_LIMITS];
+
+      // Check storage limit (convert GB to bytes)
+      const storageLimitBytes = limits.storageGB * 1024 * 1024 * 1024;
+      const newStorageTotal = storageUsedBytes + args.fileSize;
+
+      if (newStorageTotal > storageLimitBytes) {
+        const availableGB = (storageLimitBytes - storageUsedBytes) / (1024 * 1024 * 1024);
+        throw new Error(
+          `No tienes suficiente espacio de almacenamiento. Disponible: ${availableGB.toFixed(2)}GB. Actualiza a Premium para más almacenamiento.`
+        );
+      }
 
       const bucket = process.env.GCS_BUCKET as string;
       const ttl = Number(process.env.GCS_UPLOAD_URL_TTL_SECONDS || 900);
@@ -97,6 +132,21 @@ export const createLibraryDocument = mutation({
     handler: async (ctx, args) => {
         const currentUser = await getCurrentUserFromAuth(ctx);
 
+    // Check library documents limit with team context
+    await _checkLimit(ctx, {
+      userId: currentUser._id,
+      teamId: args.teamId,
+      limitType: "libraryDocuments",
+    });
+
+    // Check storage limit
+    await _checkLimit(ctx, {
+      userId: currentUser._id,
+      teamId: args.teamId,
+      limitType: "storageGB",
+      additionalBytes: args.fileSize,
+    });
+
     // Validate team membership if uploading to team library
     if (args.teamId) {
             const team = await ctx.db.get(args.teamId);
@@ -149,6 +199,26 @@ export const createLibraryDocument = mutation({
       fileSize: args.fileSize,
       tags: args.tags,
       processingStatus: "pending",
+    });
+
+    // Increment with correct entity
+    const billing = await _getBillingEntity(ctx, {
+      userId: currentUser._id,
+      teamId: args.teamId,
+    });
+
+    await ctx.scheduler.runAfter(0, internal.billing.features.incrementUsage, {
+      entityId: billing.entityId,
+      entityType: billing.entityType,
+      counter: "libraryDocumentsCount",
+      amount: 1,
+    });
+
+    await ctx.scheduler.runAfter(0, internal.billing.features.incrementUsage, {
+      entityId: billing.entityId,
+      entityType: billing.entityType,
+      counter: "storageUsedBytes",
+      amount: args.fileSize,
     });
 
     // Schedule document processing
@@ -468,6 +538,27 @@ export const deleteLibraryDocument = mutation({
         throw new Error("Only team admins can delete team library documents");
       }
     }
+
+    // Get correct billing entity based on whether this is a team or personal document
+    const billing = await _getBillingEntity(ctx, {
+      userId: currentUser._id,
+      teamId: document.teamId,
+    });
+
+    // Decrement usage counters for library document count and storage
+    await ctx.scheduler.runAfter(0, internal.billing.features.incrementUsage, {
+      entityId: billing.entityId,
+      entityType: billing.entityType,
+      counter: "libraryDocumentsCount",
+      amount: -1, // Negative to decrement
+    });
+
+    await ctx.scheduler.runAfter(0, internal.billing.features.incrementUsage, {
+      entityId: billing.entityId,
+      entityType: billing.entityType,
+      counter: "storageUsedBytes",
+      amount: -document.fileSize, // Negative to decrement
+    });
 
     // Delete the document record
     await ctx.db.delete(args.documentId);
