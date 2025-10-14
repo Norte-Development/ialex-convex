@@ -9,7 +9,9 @@ export const sendNotificationIfEnabled = internalMutation({
       v.literal("caseUpdate"),
       v.literal("documentProcessing"),
       v.literal("teamInvitation"),
-      v.literal("agentResponse")
+      v.literal("agentResponse"),
+      v.literal("eventReminder"),
+      v.literal("eventUpdate")
     ),
     subject: v.string(),
     htmlBody: v.string(),
@@ -36,6 +38,8 @@ export const sendNotificationIfEnabled = internalMutation({
       documentProcessing: prefs.documentProcessing,
       teamInvitation: prefs.teamInvitations,
       agentResponse: prefs.agentResponses,
+      eventReminder: prefs.eventReminders,
+      eventUpdate: prefs.eventUpdates,
     };
 
     if (typeMap[args.notificationType] === false) {
