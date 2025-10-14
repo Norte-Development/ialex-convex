@@ -3,6 +3,7 @@ import { mutation, query } from "../_generated/server";
 import { internal } from "../_generated/api";
 import { getCurrentUserFromAuth } from "../auth_utils";
 import { requireNewCaseAccess, checkNewCaseAccess } from "../auth_utils";
+import { Id } from "../_generated/dataModel";
 
 // ========================================
 // CREATE EVENTS
@@ -86,6 +87,41 @@ export const createEvent = mutation({
       addedBy: currentUser._id,
       isActive: true,
     });
+
+    // Si el evento está vinculado a un caso, agregar automáticamente a todos los usuarios del caso
+    if (args.caseId) {
+      // Obtener todos los usuarios con acceso al caso
+      const caseAccess = await ctx.db
+        .query("caseAccess")
+        .withIndex("by_case", (q) => q.eq("caseId", args.caseId as Id<"cases">))
+        .filter((q) => q.eq(q.field("isActive"), true))
+        .collect();
+
+      // Agregar cada usuario como participante (excepto el creador que ya es organizador)
+      for (const access of caseAccess) {
+        if (access.userId !== currentUser._id) {
+          await ctx.db.insert("eventParticipants", {
+            eventId,
+            userId: access.userId as Id<"users">,
+            role: "participante",
+            attendanceStatus: "pendiente",
+            addedBy: currentUser._id,
+            isActive: true,
+          });
+
+          // Enviar notificación de invitación
+          await ctx.scheduler.runAfter(
+            0,
+            internal.functions.eventNotifications.sendEventInviteNotification,
+            {
+              eventId,
+              participantId: access.userId as Id<"users">,
+              organizerId: currentUser._id,
+            },
+          );
+        }
+      }
+    }
 
     return eventId;
   },
