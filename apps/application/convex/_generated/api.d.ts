@@ -67,7 +67,6 @@ import type * as agents_tools_shared_sanitizeContent from "../agents/tools/share
 import type * as agents_tools_shared_utils from "../agents/tools/shared/utils.js";
 import type * as agents_tools_shared_validation from "../agents/tools/shared/validation.js";
 import type * as auth_utils from "../auth_utils.js";
-import type * as billing_debug from "../billing/debug.js";
 import type * as billing_features from "../billing/features.js";
 import type * as billing_migrations from "../billing/migrations.js";
 import type * as billing_planLimits from "../billing/planLimits.js";
@@ -197,7 +196,6 @@ declare const fullApi: ApiFromModules<{
   "agents/tools/shared/utils": typeof agents_tools_shared_utils;
   "agents/tools/shared/validation": typeof agents_tools_shared_validation;
   auth_utils: typeof auth_utils;
-  "billing/debug": typeof billing_debug;
   "billing/features": typeof billing_features;
   "billing/migrations": typeof billing_migrations;
   "billing/planLimits": typeof billing_planLimits;
