@@ -4,28 +4,32 @@ import {
   FolderOpen,
   Folder,
   FolderArchive,
-  FolderSymlink,
   ArrowLeft,
   ArrowRight,
   FileType2,
   Trash,
   BookCheck,
   ListChecks,
-  Plus,
   Archive,
   RotateCcw,
+  ChevronDown,
+  CirclePlus,
 } from "lucide-react";
 import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { useLayout } from "@/context/LayoutContext";
 import { useLocation, useParams, useNavigate } from "react-router-dom";
 import { Link } from "react-router-dom";
-import { AIAgentThreadSelector } from "./CaseThreadSelector";
 import { CaseDocuments } from "./CaseDocuments";
-import { useThread } from "@/context/ThreadContext";
 import { useCase } from "@/context/CaseContext";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "../../../convex/_generated/api";
@@ -44,7 +48,6 @@ import { Id } from "../../../convex/_generated/dataModel";
 import { usePermissionAwareNavigation } from "@/hooks/usePermissionAwareNavigation";
 import { usePermissions } from "@/context/CasePermissionsContext";
 import { useHighlight } from "@/context/HighlightContext";
-import { Suspense } from "react";
 
 export default function CaseSidebar() {
   const {
@@ -54,15 +57,12 @@ export default function CaseSidebar() {
     toggleEscritos,
     isDocumentosOpen,
     toggleDocumentos,
-    isHistorialOpen,
-    toggleHistorial,
     setIsInCaseContext,
   } = useLayout();
 
   const location = useLocation();
   const navigate = useNavigate();
   const { id } = useParams();
-  const { setThreadId } = useThread();
   const { currentCase } = useCase();
   const { setHighlightedFolder } = useHighlight();
   const { navigationItems } = usePermissionAwareNavigation(
@@ -85,6 +85,28 @@ export default function CaseSidebar() {
   const { can } = usePermissions();
 
   const basePath = `/caso/${id}`;
+
+  // Determinar la sección actual basada en la ruta
+  const getCurrentSection = () => {
+    const path = location.pathname;
+    if (path.includes("/base-de-datos"))
+      return { name: "Base de Datos", icon: FileSearch2 };
+    if (path.includes("/configuracion/reglas"))
+      return { name: "Reglas del Agente", icon: ListChecks };
+    if (path.includes("/modelos")) return { name: "Modelos", icon: BookCheck };
+
+    // Buscar en navigationItems
+    for (const item of navigationItems) {
+      const itemPath = item.path.split("/").pop() || "";
+      if (path.includes(itemPath)) {
+        return { name: item.path.split("/").pop() || "", icon: item.icon };
+      }
+    }
+
+    return { name: "Navegación", icon: FileSearch2 };
+  };
+
+  const currentSection = getCurrentSection();
 
   // Fetch actual escritos for the current case
   const escritos = useQuery(
@@ -201,67 +223,75 @@ export default function CaseSidebar() {
           <ArrowLeft size={15} />
         </button>
 
-        {/* Menú superior - Fixed */}
-        <div className="flex gap-4 justify-center items-center py-4 border-b border-gray-200 flex-shrink-0">
-          <Link
-            to={`${basePath}/base-de-datos`}
-            onClick={handleNavigationFromCase}
-          >
-            <FileSearch2
-              className="cursor-pointer"
-              size={20}
-              color={
-                location.pathname.includes("/base-de-datos") ? "blue" : "black"
-              }
-            />
-          </Link>
-
-          {navigationItems.map((item) => (
-            <Link
-              key={item.path}
-              to={item.path}
-              onClick={handleNavigationFromCase}
-            >
-              <item.icon
-                className="cursor-pointer"
-                size={20}
-                color={
-                  location.pathname.includes(item.path.split("/").pop() || "")
-                    ? "blue"
-                    : "black"
-                }
+        {/* Dropdown de navegación - Fixed */}
+        <div className="pl-1 py-2 border-b border-gray-200 flex-shrink-0">
+          <DropdownMenu>
+            <DropdownMenuTrigger className="w-full cursor-pointer justify-start flex items-center gap-2  px-3 py-2 rounded-lg  transition-colors group">
+              <div className="flex items-center justify-center gap-1">
+                <currentSection.icon size={18} className="text-black" />
+                <span className="text-sm font-medium text-gray-900">
+                  {currentSection.name}
+                </span>
+              </div>
+              <ChevronDown
+                size={16}
+                className="text-gray-500 group-hover:text-gray-700"
               />
-            </Link>
-          ))}
+            </DropdownMenuTrigger>
+            <DropdownMenuContent className="w-56" align="start">
+              <DropdownMenuItem asChild>
+                <Link
+                  to={`${basePath}/base-de-datos`}
+                  onClick={handleNavigationFromCase}
+                  className="flex items-center gap-2 cursor-pointer"
+                >
+                  <FileSearch2 size={16} />
+                  <span>Base de Datos</span>
+                </Link>
+              </DropdownMenuItem>
 
-          {can.viewCase && (
-            <Link
-              to={`${basePath}/configuracion/reglas`}
-              onClick={handleNavigationFromCase}
-            >
-              <ListChecks
-                className="cursor-pointer"
-                size={20}
-                color={
-                  location.pathname.includes("/configuracion/reglas")
-                    ? "blue"
-                    : "black"
-                }
-              />
-            </Link>
-          )}
+              {navigationItems.map((item) => (
+                <DropdownMenuItem key={item.path} asChild>
+                  <Link
+                    to={item.path}
+                    onClick={handleNavigationFromCase}
+                    className="flex items-center gap-2 cursor-pointer"
+                  >
+                    <item.icon size={16} />
+                    <span className="capitalize">
+                      {item.path.split("/").pop()}
+                    </span>
+                  </Link>
+                </DropdownMenuItem>
+              ))}
 
-          {can.viewCase && (
-            <Link to={`${basePath}/modelos`} onClick={handleNavigationFromCase}>
-              <BookCheck
-                className="cursor-pointer"
-                size={20}
-                color={
-                  location.pathname.includes("/modelos") ? "blue" : "black"
-                }
-              />
-            </Link>
-          )}
+              {can.viewCase && (
+                <DropdownMenuItem asChild>
+                  <Link
+                    to={`${basePath}/configuracion/reglas`}
+                    onClick={handleNavigationFromCase}
+                    className="flex items-center gap-2 cursor-pointer"
+                  >
+                    <ListChecks size={16} />
+                    <span>Reglas del Agente</span>
+                  </Link>
+                </DropdownMenuItem>
+              )}
+
+              {can.viewCase && (
+                <DropdownMenuItem asChild>
+                  <Link
+                    to={`${basePath}/modelos`}
+                    onClick={handleNavigationFromCase}
+                    className="flex items-center gap-2 cursor-pointer"
+                  >
+                    <BookCheck size={16} />
+                    <span>Modelos</span>
+                  </Link>
+                </DropdownMenuItem>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
 
         {/* Contenido scrolleable */}
@@ -281,17 +311,18 @@ export default function CaseSidebar() {
                 className="w-full"
               >
                 <CollapsibleTrigger className="cursor-pointer flex justify-between items-center gap-1 w-full">
-                  <span className="flex items-center gap-1">
+                  <span className="flex items-center gap-4">
+                    <div className="w-1.5 h-5 rounded-r-2xl bg-[#4e8be3]" />
                     {isEscritosOpen ? (
-                      <FolderOpen className="cursor-pointer" size={20} />
+                      <FolderOpen size={18} className="text-[#4e8be3]" />
                     ) : (
-                      <Folder className="cursor-pointer" size={20} />
+                      <Folder size={18} className="text-[#4e8be3]" />
                     )}
                     Escritos
                   </span>
                   {can.escritos.write && (
-                    <Plus
-                      className="cursor-pointer transition-colors rounded-full p-1 hover:bg-blue-100 hover:text-blue-600"
+                    <CirclePlus
+                      className="cursor-pointer transition-colors rounded-full p-0.5  text-tertiary  hover:bg-tertiary hover:text-white"
                       size={20}
                       onClick={(e) => {
                         e.stopPropagation();
@@ -373,13 +404,18 @@ export default function CaseSidebar() {
                 className="w-full"
               >
                 <CollapsibleTrigger className="cursor-pointer flex justify-between items-center gap-1 w-full">
-                  <span className="flex items-center gap-1">
-                    <FolderArchive className="cursor-pointer" size={20} />
+                  <span className="flex items-center gap-5">
+                    <div className="w-1.5 h-5 rounded-r-2xl bg-[#4e8be3]" />
+                    <FolderArchive
+                      className="cursor-pointer"
+                      size={18}
+                      color="#4e8be3"
+                    />
                     Documentos
                   </span>
                   {can.docs.write && (
-                    <Plus
-                      className="cursor-pointer transition-colors rounded-full p-1 hover:bg-blue-100 hover:text-blue-600"
+                    <CirclePlus
+                      className="cursor-pointer transition-colors rounded-full p-0.5 text-tertiary hover:bg-tertiary hover:text-white"
                       size={20}
                       onClick={(e) => {
                         e.stopPropagation();
@@ -411,42 +447,6 @@ export default function CaseSidebar() {
                 </CollapsibleContent>
               </Collapsible>
             )}
-
-            {/* Historial de chat */}
-            <Collapsible
-              open={isHistorialOpen}
-              onOpenChange={toggleHistorial}
-              className="w-full"
-            >
-              <CollapsibleTrigger className="cursor-pointer flex justify-between items-center gap-1 w-full">
-                <span className="flex items-center gap-1">
-                  <FolderSymlink className="cursor-pointer" size={20} />
-                  Historial de chat
-                </span>
-                <Plus
-                  className="cursor-pointer transition-colors rounded-full p-1 hover:bg-blue-100 hover:text-blue-600"
-                  size={20}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setThreadId(undefined);
-                  }}
-                />
-              </CollapsibleTrigger>
-              <CollapsibleContent
-                className="flex flex-col gap-2 pl-2 text-[12px] pt-1"
-                onClick={(e) => e.stopPropagation()}
-              >
-                <Suspense
-                  fallback={
-                    <div className="flex items-center justify-center py-4">
-                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary"></div>
-                    </div>
-                  }
-                >
-                  <AIAgentThreadSelector />
-                </Suspense>
-              </CollapsibleContent>
-            </Collapsible>
           </div>
         </div>
 
