@@ -10,6 +10,7 @@ import {
   ArrowRight,
   Folder,
   FileType2,
+  Settings,
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useQuery } from "convex/react";
@@ -124,10 +125,10 @@ export default function CaseDetailPage() {
           </div>
         </div>
 
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-6">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
           <div
             onClick={() => setIsDocumentsDialogOpen(true)}
-            className="space-y-2 p-6 rounded-lg border border-tertiary hover:border-tertiary/80 transition-colors cursor-pointer group"
+            className="space-y-2 p-6 rounded-lg border border-tertiary hover:border-tertiary/80 transition-colors cursor-pointer group min-h-[140px]"
           >
             <div className="flex items-center justify-between">
               <FolderOpen className="h-5 w-5 text-tertiary group-hover:text-tertiary/80 transition-colors" />
@@ -137,13 +138,14 @@ export default function CaseDetailPage() {
               <div className="text-3xl font-light text-gray-900">
                 {documents?.length || 0}
               </div>
-              <div className="text-sm text-gray-500">Documentos</div>
+              <div className="text-sm font-medium text-gray-900">Documentos</div>
+              <div className="text-xs text-gray-500">Archivos del caso</div>
             </div>
           </div>
 
           <div
             onClick={() => setIsEscritosDialogOpen(true)}
-            className="space-y-2 p-6 rounded-lg border border-tertiary hover:border-tertiary/80 transition-colors cursor-pointer group"
+            className="space-y-2 p-6 rounded-lg border border-tertiary hover:border-tertiary/80 transition-colors cursor-pointer group min-h-[140px]"
           >
             <div className="flex items-center justify-between">
               <FileText className="h-5 w-5 text-tertiary group-hover:text-tertiary/80 transition-colors" />
@@ -153,7 +155,8 @@ export default function CaseDetailPage() {
               <div className="text-3xl font-light text-gray-900">
                 {escritos?.length || 0}
               </div>
-              <div className="text-sm text-gray-500">Escritos</div>
+              <div className="text-sm font-medium text-gray-900">Escritos</div>
+              <div className="text-xs text-gray-500">Documentos legales</div>
             </div>
           </div>
 
@@ -161,7 +164,7 @@ export default function CaseDetailPage() {
             to={`/caso/${currentCase._id}/clientes`}
             className="group cursor-pointer"
           >
-            <div className="space-y-2 p-6 rounded-lg border border-tertiary hover:border-tertiary/80 transition-colors">
+            <div className="space-y-2 p-6 rounded-lg border border-tertiary hover:border-tertiary/80 transition-colors min-h-[140px]">
               <div className="flex items-center justify-between">
                 <Users className="h-5 w-5 text-tertiary group-hover:text-tertiary/80 transition-colors" />
                 <ArrowRight className="h-4 w-4 text-tertiary group-hover:text-tertiary/80 transition-colors" />
@@ -170,7 +173,27 @@ export default function CaseDetailPage() {
                 <div className="text-3xl font-light text-gray-900">
                   {clients?.length || 0}
                 </div>
-                <div className="text-sm text-gray-500">Clientes</div>
+                <div className="text-sm font-medium text-gray-900">Clientes</div>
+                <div className="text-xs text-gray-500">Partes involucradas</div>
+              </div>
+            </div>
+          </Link>
+          <Link
+            to={`/caso/${currentCase._id}/configuracion/reglas`}
+            className="group cursor-pointer"
+          >
+            <div className="space-y-2 p-6 rounded-lg border border-tertiary hover:border-tertiary/80 transition-colors min-h-[140px] flex flex-col justify-between">
+              <div className="flex items-center justify-between">
+                <Settings className="h-5 w-5 text-tertiary group-hover:text-tertiary/80 transition-colors" />
+                <ArrowRight className="h-4 w-4 text-tertiary group-hover:text-tertiary/80 transition-colors" />
+              </div>
+              <div>
+                <div className="text-sm font-medium text-gray-900">
+                  Reglas del Agente
+                </div>
+                <div className="text-xs text-gray-500">
+                  Configura el comportamiento de iAlex
+                </div>
               </div>
             </div>
           </Link>
