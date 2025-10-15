@@ -164,7 +164,7 @@ export default function CaseTable({ cases }: CaseTableProps) {
             <TableRow
               key={case_._id}
               onClick={() => handleRowClick(case_._id)}
-              className="cursor-pointer hover:bg-gray-50 transition-colors"
+              className="cursor-pointer hover:bg-gray-200 transition-colors"
             >
               <TableCell onClick={(e) => e.stopPropagation()}>
                 <Checkbox className="h-5 w-5" />
