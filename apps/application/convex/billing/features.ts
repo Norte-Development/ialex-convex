@@ -137,41 +137,81 @@ export async function _incrementUsage(
 }
 
 /**
- * Internal helper to determine which AI model a user should use
+ * Internal helper to determine which AI model a user should use based ONLY on their personal plan
  * EXPORTED for use in other files
  * 
- * Returns 'o1' (GPT-5) if:
- * - User has premium_individual or premium_team subscription
- * - User is a member of a team with premium_team subscription
+ * Used for non-case contexts (e.g., home page assistant)
+ * Only checks the user's personal subscription, NOT team memberships
  * 
- * Otherwise returns 'gpt-4o'
+ * Returns:
+ * - 'gpt-5' if user has premium_individual or premium_team subscription
+ * - 'gpt-4o' otherwise (free users always get GPT-4o in non-case contexts)
  */
-export async function _getModelForUser(
+export async function _getModelForUserPersonal(
   ctx: QueryCtx | MutationCtx,
   userId: Id<"users">
 ): Promise<'gpt-5' | 'gpt-4o'> {
-  // 1. Check user's own plan
   const userPlan = await _getUserPlan(ctx, userId);
   if (userPlan === "premium_individual" || userPlan === "premium_team") {
-    return "gpt-5"; // GPT-5
+    return "gpt-5";
+  }
+  return "gpt-4o";
+}
+
+/**
+ * Internal helper to determine which AI model a user should use IN A SPECIFIC CASE CONTEXT
+ * EXPORTED for use in other files
+ * 
+ * Context-aware model selection:
+ * - Premium users (individual/team) → GPT-5 everywhere
+ * - Free users in personal cases → GPT-4o
+ * - Free users in premium team cases → GPT-5 (only in that team's cases)
+ * 
+ * This prevents free users from getting premium benefits globally if they're in one premium team
+ */
+export async function _getModelForUserInCase(
+  ctx: QueryCtx | MutationCtx,
+  userId: Id<"users">,
+  caseId: Id<"cases">
+): Promise<'gpt-5' | 'gpt-4o'> {
+  // 1. Check user's own plan first (premium users always get GPT-5)
+  const userPlan = await _getUserPlan(ctx, userId);
+  if (userPlan === "premium_individual" || userPlan === "premium_team") {
+    return "gpt-5";
   }
 
-  // 2. User is free - check if they're a member of any premium_team
-  const teamMemberships = await ctx.db
+  // 2. User is free - check if this specific case has premium team access
+  const teamAccess = await ctx.db
+    .query("caseAccess")
+    .withIndex("by_case", (q) => q.eq("caseId", caseId))
+    .filter((q) => q.neq(q.field("teamId"), undefined))
+    .filter((q) => q.eq(q.field("isActive"), true))
+    .first();
+
+  if (!teamAccess?.teamId) {
+    // Personal case - use free tier
+    return "gpt-4o";
+  }
+
+  // 3. Verify user is actually a member of this team
+  const membership = await ctx.db
     .query("teamMemberships")
     .withIndex("by_user", (q) => q.eq("userId", userId))
+    .filter((q) => q.eq(q.field("teamId"), teamAccess.teamId))
     .filter((q) => q.eq(q.field("isActive"), true))
-    .collect();
+    .first();
 
-  // 3. For each team, check if it has premium_team subscription
-  for (const membership of teamMemberships) {
-    const teamPlan = await _getTeamPlan(ctx, membership.teamId);
-    if (teamPlan === "premium_team") {
-      return "gpt-5"; // GPT-5
-    }
+  if (!membership) {
+    // User not in this team - shouldn't happen with proper access control, but safety check
+    return "gpt-4o";
   }
 
-  // 4. No access to GPT-5
+  // 4. Check if this team has premium_team plan
+  const teamPlan = await _getTeamPlan(ctx, teamAccess.teamId);
+  if (teamPlan === "premium_team") {
+    return "gpt-5"; // ✅ GPT-5 only in this team's cases
+  }
+
   return "gpt-4o";
 }
 
@@ -417,6 +457,75 @@ export async function _canCreateTeam(
 }
 
 /**
+ * Check if a user can access library features in a given workspace context
+ * EXPORTED for use in other files
+ * 
+ * Library access rules:
+ * - Personal library: Only if user has premium plan
+ * - Team library: If user is in a team with premium_team plan (even if user is free)
+ */
+export async function _canAccessLibrary(
+  ctx: QueryCtx | MutationCtx,
+  args: {
+    userId: Id<"users">;
+    teamId?: Id<"teams">;
+  }
+): Promise<{
+  allowed: boolean;
+  reason?: string;
+  isTeamLibrary: boolean;
+}> {
+  // Check if this is a team library request
+  if (args.teamId) {
+    // Verify user is a member of this team
+    const membership = await ctx.db
+      .query("teamMemberships")
+      .withIndex("by_user", (q) => q.eq("userId", args.userId))
+      .filter((q) => q.eq(q.field("teamId"), args.teamId))
+      .filter((q) => q.eq(q.field("isActive"), true))
+      .first();
+    
+    if (!membership) {
+      return {
+        allowed: false,
+        reason: "No eres miembro de este equipo",
+        isTeamLibrary: true,
+      };
+    }
+
+    // Check if team has premium plan
+    const teamPlan = await _getTeamPlan(ctx, args.teamId);
+    if (teamPlan === "premium_team") {
+      return {
+        allowed: true,
+        isTeamLibrary: true,
+      };
+    }
+
+    return {
+      allowed: false,
+      reason: "El equipo necesita plan Premium para acceder a la biblioteca",
+      isTeamLibrary: true,
+    };
+  }
+
+  // Personal library - check user's own plan
+  const userPlan = await _getUserPlan(ctx, args.userId);
+  if (userPlan === "premium_individual" || userPlan === "premium_team") {
+    return {
+      allowed: true,
+      isTeamLibrary: false,
+    };
+  }
+
+  return {
+    allowed: false,
+    reason: "Necesitas plan Premium para acceder a la biblioteca personal",
+    isTeamLibrary: false,
+  };
+}
+
+/**
  * Get the current plan for a user by checking their Stripe subscription
  */
 export const getUserPlan = query({
@@ -454,13 +563,17 @@ export const getTeamPlan = internalQuery({
 
 /**
  * Check if a user has access to a specific feature
- * Supports both personal and team contexts
+ * Context-aware: checks based on case workspace (personal vs team)
+ * 
+ * @param userId - The user to check access for
+ * @param feature - The feature to check (e.g., "gpt5_access", "team_library", "create_case")
+ * @param caseId - Optional case context to determine workspace (personal vs team)
  */
 export const hasFeatureAccess = query({
   args: {
     userId: v.id("users"),
     feature: v.string(),
-    teamId: v.optional(v.id("teams")),
+    caseId: v.optional(v.id("cases")),
   },
   returns: v.object({
     allowed: v.boolean(),
@@ -468,7 +581,33 @@ export const hasFeatureAccess = query({
     canUpgrade: v.optional(v.boolean()),
   }),
   handler: async (ctx, args): Promise<{ allowed: boolean; reason?: string; canUpgrade?: boolean }> => {
-    const billing = await _getBillingEntity(ctx, { userId: args.userId, teamId: args.teamId });
+    // Determine workspace context from case
+    let teamId: Id<"teams"> | undefined = undefined;
+    if (args.caseId) {
+      const caseId = args.caseId; // TypeScript narrowing
+      const teamAccess = await ctx.db
+        .query("caseAccess")
+        .withIndex("by_case", (q) => q.eq("caseId", caseId))
+        .filter((q) => q.neq(q.field("teamId"), undefined))
+        .filter((q) => q.eq(q.field("isActive"), true))
+        .first();
+      
+      if (teamAccess?.teamId) {
+        // Verify user is a member
+        const membership = await ctx.db
+          .query("teamMemberships")
+          .withIndex("by_user", (q) => q.eq("userId", args.userId))
+          .filter((q) => q.eq(q.field("teamId"), teamAccess.teamId))
+          .filter((q) => q.eq(q.field("isActive"), true))
+          .first();
+        
+        if (membership) {
+          teamId = teamAccess.teamId;
+        }
+      }
+    }
+
+    const billing = await _getBillingEntity(ctx, { userId: args.userId, teamId: teamId });
     const limits = PLAN_LIMITS[billing.plan];
 
     // Special handling for create_team feature - check ownership limits
@@ -565,14 +704,31 @@ export const hasFeatureAccess = query({
 });
 
 /**
- * Get the appropriate AI model for a user based on their billing plan
- * Internal mutation wrapper for _getModelForUser
+ * Get the appropriate AI model for a user based on their personal plan only
+ * Used for non-case contexts (e.g., home page assistant)
+ * Internal mutation wrapper for _getModelForUserPersonal
  */
-export const getModelForUserMutation = internalMutation({
+export const getModelForUserPersonal = internalMutation({
   args: { userId: v.id("users") },
   returns: v.union(v.literal("gpt-5"), v.literal("gpt-4o")),
   handler: async (ctx, args): Promise<'gpt-5' | 'gpt-4o'> => {
-    return await _getModelForUser(ctx, args.userId);
+    return await _getModelForUserPersonal(ctx, args.userId);
+  },
+});
+
+/**
+ * Get the appropriate AI model for a user in a specific case context
+ * Used for case-specific AI interactions
+ * Internal mutation wrapper for _getModelForUserInCase
+ */
+export const getModelForUserInCase = internalMutation({
+  args: { 
+    userId: v.id("users"),
+    caseId: v.id("cases"),
+  },
+  returns: v.union(v.literal("gpt-5"), v.literal("gpt-4o")),
+  handler: async (ctx, args): Promise<'gpt-5' | 'gpt-4o'> => {
+    return await _getModelForUserInCase(ctx, args.userId, args.caseId);
   },
 });
 
@@ -679,6 +835,24 @@ export const resetMonthlyCounters = internalMutation({
     }
 
     return null;
+  },
+});
+
+/**
+ * Check if a user can access library in a given workspace context
+ */
+export const canAccessLibrary = query({
+  args: {
+    userId: v.id("users"),
+    teamId: v.optional(v.id("teams")),
+  },
+  returns: v.object({
+    allowed: v.boolean(),
+    reason: v.optional(v.string()),
+    isTeamLibrary: v.boolean(),
+  }),
+  handler: async (ctx, args) => {
+    return await _canAccessLibrary(ctx, args);
   },
 });
 

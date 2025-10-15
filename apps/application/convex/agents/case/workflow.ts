@@ -10,7 +10,7 @@ import { ContextService } from "../../context/contextService";
 import { prompt } from "./prompt";
 import { Id } from "../../_generated/dataModel";
 import { buildServerSchema } from "../../../../../packages/shared/src/tiptap/schema";
-import { _getUserPlan, _getOrCreateUsageLimits, _getModelForUser } from "../../billing/features";
+import { _getUserPlan, _getOrCreateUsageLimits, _getModelForUserInCase } from "../../billing/features";
 import { PLAN_LIMITS } from "../../billing/planLimits";
 import { openai } from "@ai-sdk/openai";
 
@@ -196,10 +196,17 @@ export const streamWithContextAction = internalAction({
   },
   returns: v.null(),
   handler: async (ctx, { threadId, promptMessageId, contextBundle }) => {
-    // Determine which model to use based on user's billing plan
+    // Determine which model to use based on user's billing plan and case context
+    if (!contextBundle.case?.id) {
+      throw new Error("Case context is required for agent workflow");
+    }
+    
     const modelToUse = await ctx.runMutation(
-      internal.billing.features.getModelForUserMutation,
-      { userId: contextBundle.user.id }
+      internal.billing.features.getModelForUserInCase,
+      { 
+        userId: contextBundle.user.id,
+        caseId: contextBundle.case.id,
+      }
     );
 
     const contextString = ContextService.formatContextForAgent(contextBundle);

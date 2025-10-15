@@ -7,7 +7,7 @@ import { internalAction, mutation } from "../../_generated/server";
 import { getCurrentUserFromAuth } from "../../auth_utils";
 import { authorizeThreadAccess } from "../threads";
 import { prompt } from "./prompt";
-import { _getUserPlan, _getOrCreateUsageLimits, _getModelForUser } from "../../billing/features";
+import { _getUserPlan, _getOrCreateUsageLimits, _getModelForUserPersonal } from "../../billing/features";
 import { PLAN_LIMITS } from "../../billing/planLimits";
 import { openai } from "@ai-sdk/openai";
 
@@ -50,9 +50,10 @@ export const streamWithContextAction = internalAction({
   returns: v.null(),
   handler: async (ctx, { threadId, promptMessageId, userId }) => {
 
-    // Determine which model to use based on user's billing plan
+    // Determine which model to use based on user's personal billing plan
+    // (Home agent doesn't have case context, so only check user's own plan)
     const modelToUse = await ctx.runMutation(
-      internal.billing.features.getModelForUserMutation,
+      internal.billing.features.getModelForUserPersonal,
       { userId }
     );
 

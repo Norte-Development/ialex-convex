@@ -12,7 +12,7 @@ import { agent } from "./agent";
 import { ContextService } from "../../context/contextService";
 import {prompt} from "./prompt";
 import { buildServerSchema } from "../../../../../packages/shared/src/tiptap/schema";
-import { _getUserPlan, _getOrCreateUsageLimits, _getModelForUser } from "../../billing/features";
+import { _getUserPlan, _getOrCreateUsageLimits, _getModelForUserInCase, _getBillingEntity } from "../../billing/features";
 import { Id } from "../../_generated/dataModel";
 import { PLAN_LIMITS } from "../../billing/planLimits";
 import { openai } from "@ai-sdk/openai";
@@ -44,25 +44,60 @@ export const initiateAsyncStreaming = mutation({
     handler: async (ctx, args) => {
       await authorizeThreadAccess(ctx, args.threadId);
 
-      // Check AI message limits before processing
-      const userPlan = await _getUserPlan(ctx, args.userId);
-      const usage = await _getOrCreateUsageLimits(ctx, args.userId, "user");
-      const limits = PLAN_LIMITS[userPlan];
+      // Determine billing entity based on workspace context (personal vs team case)
+      let teamId: Id<"teams"> | undefined = undefined;
+      if (args.caseId) {
+        const caseId = args.caseId; // TypeScript narrowing
+        // Check if this case has team access
+        const teamAccess = await ctx.db
+          .query("caseAccess")
+          .withIndex("by_case", (q) => q.eq("caseId", caseId))
+          .filter((q) => q.neq(q.field("teamId"), undefined))
+          .filter((q) => q.eq(q.field("isActive"), true))
+          .first();
+        
+        if (teamAccess?.teamId) {
+          // Verify user is actually a member of this team
+          const membership = await ctx.db
+            .query("teamMemberships")
+            .withIndex("by_user", (q) => q.eq("userId", args.userId))
+            .filter((q) => q.eq(q.field("teamId"), teamAccess.teamId))
+            .filter((q) => q.eq(q.field("isActive"), true))
+            .first();
+          
+          if (membership) {
+            teamId = teamAccess.teamId;
+          }
+        }
+      }
 
-      // Check AI message limits + purchased credits
-      const credits = await ctx.db
-        .query("aiCredits")
-        .withIndex("by_user", (q) => q.eq("userId", args.userId))
-        .first();
+      // Get billing entity and check AI message limits
+      const billing = await _getBillingEntity(ctx, {
+        userId: args.userId,
+        teamId: teamId,
+      });
+      
+      const usage = await _getOrCreateUsageLimits(ctx, billing.entityId, billing.entityType);
+      const limits = PLAN_LIMITS[billing.plan];
+
+      // For personal workspace, also check purchased credits
+      let availableCredits = 0;
+      if (billing.entityType === "user") {
+        const credits = await ctx.db
+          .query("aiCredits")
+          .withIndex("by_user", (q) => q.eq("userId", args.userId))
+          .first();
+        availableCredits = credits?.remaining || 0;
+      }
 
       const availableMessages = limits.aiMessagesPerMonth - usage.aiMessagesThisMonth;
-      const availableCredits = credits?.remaining || 0;
       const totalAvailable = availableMessages + availableCredits;
 
       if (totalAvailable <= 0) {
-        throw new Error(
-          "Has alcanzado el límite de mensajes de IA. Compra créditos o actualiza a Premium para mensajes ilimitados."
-        );
+        const errorMsg = billing.entityType === "team"
+          ? "El equipo ha alcanzado el límite de mensajes de IA este mes."
+          : "Has alcanzado el límite de mensajes de IA. Compra créditos o actualiza a Premium para mensajes ilimitados.";
+        throw new Error(errorMsg);
       }
 
       // Gather rich context using ContextService
@@ -97,19 +132,10 @@ export const initiateAsyncStreaming = mutation({
         contextBundle,
       });
 
-      // Get team context from case if caseId is provided
-      let teamContext: Id<"teams"> | undefined;
-      if (args.caseId) {
-        const result = await ctx.runQuery(internal.functions.cases.getCaseTeamContext, {
-          caseId: args.caseId,
-        });
-        teamContext = result ?? undefined;
-      }
-
-      // Decrement AI message credits after successfully initiating streaming
+      // Decrement AI message credits from the correct workspace (team or personal)
       await ctx.scheduler.runAfter(0, internal.billing.features.decrementCredits, {
         userId: args.userId,
-        teamId: teamContext,
+        teamId: teamId, // Use teamId determined from billing entity
         amount: 1,
       });
     },
@@ -211,10 +237,17 @@ export const streamAsync = internalAction({
     handler: async (ctx, { promptMessageId, threadId, contextBundle }) => {
       const { thread } = await agent.continueThread(ctx, { threadId });
 
-      // Determine which model to use based on user's billing plan
+      // Determine which model to use based on user's billing plan and case context
+      if (!contextBundle.case?.id) {
+        throw new Error("Case context is required for agent streaming");
+      }
+      
       const modelToUse = await ctx.runMutation(
-        internal.billing.features.getModelForUserMutation,
-        { userId: contextBundle.user.id }
+        internal.billing.features.getModelForUserInCase,
+        { 
+          userId: contextBundle.user.id,
+          caseId: contextBundle.case.id,
+        }
       );
 
       // Format the rich context into a system message
