@@ -195,96 +195,95 @@ export default function CaseSidebar() {
         }`}
       >
         <button
-          className="absolute top-16 right-2 cursor-pointer"
+          className="absolute top-16 right-2 cursor-pointer z-10"
           onClick={toggleCaseSidebar}
         >
           <ArrowLeft size={15} />
         </button>
 
-      <div className={`flex gap-4 justify-center items-center h-[10%] `}>
-        {/* Base de datos - always show for now as it's not permission-dependent */}
-        <Link
-          to={`${basePath}/base-de-datos`}
-          onClick={handleNavigationFromCase}
-        >
-          <FileSearch2
-            className="cursor-pointer"
-            size={20}
-            color={location.pathname.includes("/base-de-datos") ? "blue" : "black"}
-          />
-        </Link>
-
-        {/* Permission-aware navigation items */}
-        {navigationItems.map((item) => (
+        {/* Menú superior - Fixed */}
+        <div className="flex gap-4 justify-center items-center py-4 border-b border-gray-200 flex-shrink-0">
           <Link
-            key={item.path}
-            to={item.path}
+            to={`${basePath}/base-de-datos`}
             onClick={handleNavigationFromCase}
           >
-            <item.icon
+            <FileSearch2
               className="cursor-pointer"
               size={20}
-              color={
-                location.pathname.includes(item.path.split("/").pop() || "")
-                  ? "blue"
-                  : "black"
-              }
+              color={location.pathname.includes("/base-de-datos") ? "blue" : "black"}
             />
           </Link>
-        ))}
 
-        {/* Case Agent Rules */}
-        {can.viewCase && (
-          <Link to={`${basePath}/configuracion/reglas`} onClick={handleNavigationFromCase}>
-            <ListChecks
-              className="cursor-pointer"
-              size={20}
-              color={location.pathname.includes("/configuracion/reglas") ? "blue" : "black"}
-            />
-          </Link>
-        )}
-
-        {/* Modelos - accessible if user can view case */}
-        {can.viewCase && (
-          <Link to={`${basePath}/modelos`} onClick={handleNavigationFromCase}>
-            <BookCheck
-              className="cursor-pointer"
-              size={20}
-              color={location.pathname.includes("/modelos") ? "blue" : "black"}
-            />
-          </Link>
-        )}
-      </div>
-
-      <div className="h-[60%] w-full flex flex-col justify-start items-center pl-5 ">
-        <div className="w-full flex flex-col gap-2 h-[70%] ">
-          {can.escritos.read && (
-            <Collapsible
-              open={isEscritosOpen}
-              onOpenChange={toggleEscritos}
-              className="w-full "
+          {navigationItems.map((item) => (
+            <Link
+              key={item.path}
+              to={item.path}
+              onClick={handleNavigationFromCase}
             >
-              <CollapsibleTrigger className="cursor-pointer flex justify-between items-center gap-1 w-full">
-                <span className="flex items-center gap-1">
-                  {isEscritosOpen ? (
-                    <FolderOpen className="cursor-pointer" size={20} />
-                  ) : (
-                    <Folder className="cursor-pointer" size={20} />
+              <item.icon
+                className="cursor-pointer"
+                size={20}
+                color={
+                  location.pathname.includes(item.path.split("/").pop() || "")
+                    ? "blue"
+                    : "black"
+                }
+              />
+            </Link>
+          ))}
+
+          {can.viewCase && (
+            <Link to={`${basePath}/configuracion/reglas`} onClick={handleNavigationFromCase}>
+              <ListChecks
+                className="cursor-pointer"
+                size={20}
+                color={location.pathname.includes("/configuracion/reglas") ? "blue" : "black"}
+              />
+            </Link>
+          )}
+
+          {can.viewCase && (
+            <Link to={`${basePath}/modelos`} onClick={handleNavigationFromCase}>
+              <BookCheck
+                className="cursor-pointer"
+                size={20}
+                color={location.pathname.includes("/modelos") ? "blue" : "black"}
+              />
+            </Link>
+          )}
+        </div>
+
+        {/* Contenido scrolleable */}
+        <div className="flex-1 overflow-y-auto px-5 py-4">
+          <div className="flex flex-col gap-4">
+            {/* Escritos */}
+            {can.escritos.read && (
+              <Collapsible
+                open={isEscritosOpen}
+                onOpenChange={toggleEscritos}
+                className="w-full"
+              >
+                <CollapsibleTrigger className="cursor-pointer flex justify-between items-center gap-1 w-full">
+                  <span className="flex items-center gap-1">
+                    {isEscritosOpen ? (
+                      <FolderOpen className="cursor-pointer" size={20} />
+                    ) : (
+                      <Folder className="cursor-pointer" size={20} />
+                    )}
+                    Escritos
+                  </span>
+                  {can.escritos.write && (
+                    <Plus
+                      className="cursor-pointer transition-colors rounded-full p-1 hover:bg-blue-100 hover:text-blue-600"
+                      size={20}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setIsCreateEscritoOpen(true);
+                      }}
+                    />
                   )}
-                  Escritos
-                </span>
-                {can.escritos.write && (
-                  <Plus
-                    className="cursor-pointer transition-colors rounded-full p-1 hover:bg-blue-100 hover:text-blue-600"
-                    size={20}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setIsCreateEscritoOpen(true);
-                    }}
-                  />
-                )}
-              </CollapsibleTrigger>
-              <CollapsibleContent className="flex flex-col gap-1 pl-2 text-[12px] pt-1 overflow-y-auto max-h-32">
+                </CollapsibleTrigger>
+                <CollapsibleContent className="flex flex-col gap-1 pl-2 text-[12px] pt-1">
                 {escritos && escritos.length > 0 ? (
                   escritos.map((escrito) => (
                     <div
@@ -349,168 +348,173 @@ export default function CaseSidebar() {
             </Collapsible>
           )}
 
-          {can.docs.read && (
+            {/* Documentos */}
+            {can.docs.read && (
+              <Collapsible
+                open={isDocumentosOpen}
+                onOpenChange={toggleDocumentos}
+                className="w-full"
+              >
+                <CollapsibleTrigger className="cursor-pointer flex justify-between items-center gap-1 w-full">
+                  <span className="flex items-center gap-1">
+                    <FolderArchive className="cursor-pointer" size={20} />
+                    Documentos
+                  </span>
+                  {can.docs.write && (
+                    <Plus
+                      className="cursor-pointer transition-colors rounded-full p-1 hover:bg-blue-100 hover:text-blue-600"
+                      size={20}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setIsCreatingRootFolder(true);
+                      }}
+                    />
+                  )}
+                </CollapsibleTrigger>
+                <CollapsibleContent className="flex flex-col gap-1 pl-2 text-[12px] pt-1">
+                  {isCreatingRootFolder && (
+                    <div className="flex items-center gap-2 p-1 pr-3">
+                      <Input
+                        ref={rootInputRef}
+                        placeholder="Nombre de la carpeta"
+                        value={newRootFolderName}
+                        onChange={(e) => setNewRootFolderName(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") submitCreateRootFolder();
+                          else if (e.key === "Escape") {
+                            setIsCreatingRootFolder(false);
+                            setNewRootFolderName("");
+                          }
+                        }}
+                        className="h-4 text-xs placeholder:text-xs border-2 border-blue-400 animate-highlight"
+                      />
+                    </div>
+                  )}
+                  <CaseDocuments basePath={basePath} />
+                </CollapsibleContent>
+              </Collapsible>
+            )}
+
+            {/* Historial de chat */}
             <Collapsible
-              open={isDocumentosOpen}
-              onOpenChange={toggleDocumentos}
+              open={isHistorialOpen}
+              onOpenChange={toggleHistorial}
               className="w-full"
             >
               <CollapsibleTrigger className="cursor-pointer flex justify-between items-center gap-1 w-full">
                 <span className="flex items-center gap-1">
-                  <FolderArchive className="cursor-pointer" size={20} />
-                  Documentos
+                  <FolderSymlink className="cursor-pointer" size={20} />
+                  Historial de chat
                 </span>
-                {can.docs.write && (
-                  <Plus
-                    className="cursor-pointer transition-colors rounded-full p-1 hover:bg-blue-100 hover:text-blue-600"
-                    size={20}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setIsCreatingRootFolder(true);
-                    }}
-                  />
-                )}
+                <Plus
+                  className="cursor-pointer transition-colors rounded-full p-1 hover:bg-blue-100 hover:text-blue-600"
+                  size={20}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setThreadId(undefined);
+                  }}
+                />
               </CollapsibleTrigger>
-              <CollapsibleContent className="flex flex-col gap-1 pl-2 text-[12px] pt-1 overflow-y-auto max-h-[200px]">
-                {isCreatingRootFolder && (
-                  <div className="flex items-center gap-2 p-1 pr-3 ">
-                    <Input
-                      ref={rootInputRef}
-                      placeholder="Nombre de la carpeta"
-                      value={newRootFolderName}
-                      onChange={(e) => setNewRootFolderName(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter") submitCreateRootFolder();
-                        else if (e.key === "Escape") {
-                          setIsCreatingRootFolder(false);
-                          setNewRootFolderName("");
-                        }
-                      }}
-                      className="h-4 text-xs placeholder:text-xs border-2 border-blue-400 animate-highlight "
-                    />
-                  </div>
-                )}
-                <CaseDocuments basePath={basePath} />
+              <CollapsibleContent
+                className="flex flex-col gap-2 pl-2 text-[12px] pt-1"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <Suspense
+                  fallback={
+                    <div className="flex items-center justify-center py-4">
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary"></div>
+                    </div>
+                  }
+                >
+                  <AIAgentThreadSelector />
+                </Suspense>
               </CollapsibleContent>
             </Collapsible>
-          )}
+          </div>
         </div>
 
-        <div className="w-full flex flex-col gap-2 h-[30%] ">
-          <Collapsible
-            open={isHistorialOpen}
-            onOpenChange={toggleHistorial}
-            className="w-full"
-          >
-            <CollapsibleTrigger className="cursor-pointer flex justify-between items-center gap-1 w-full">
-              <span className="flex items-center gap-1">
-                <FolderSymlink className="cursor-pointer" size={20} />
-                Historial de chat
-              </span>
-              <Plus
-                className="cursor-pointer transition-colors rounded-full p-1 hover:bg-blue-100 hover:text-blue-600"
-                size={25}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setThreadId(undefined);
-                }}
-              />
-            </CollapsibleTrigger>
-            <CollapsibleContent
-              className="flex flex-col gap-2 pl-2 pr-2 text-[12px] pt-1 overflow-y-auto max-h-40"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <Suspense
-                fallback={
-                  <div className="flex items-center justify-center py-4">
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary"></div>
-                  </div>
+        {/* Sección inferior fija - Archivados y Eliminados */}
+        <div className="border-t border-gray-200 px-5 py-4 flex-shrink-0">
+          <div className="flex flex-col gap-4">
+            {/* Archivados */}
+            <Collapsible
+              open={isArchivadosOpen}
+              onOpenChange={(open) => {
+                setIsArchivadosOpen(open);
+                try {
+                  localStorage.setItem("archivados-open", JSON.stringify(open));
+                } catch {
+                  // Ignore localStorage errors
                 }
-              >
-                <AIAgentThreadSelector />
-              </Suspense>
-            </CollapsibleContent>
-          </Collapsible>
-        </div>
-      </div>
-
-      <div className="w-full flex flex-col justify-center h-[30%] gap-2 pl-5">
-        <Collapsible
-          open={isArchivadosOpen}
-          onOpenChange={(open) => {
-            setIsArchivadosOpen(open);
-            try {
-              localStorage.setItem("archivados-open", JSON.stringify(open));
-            } catch {
-              // Ignore localStorage errors
-            }
-          }}
-          className="w-full"
-        >
-          <CollapsibleTrigger className="cursor-pointer flex gap-4 items-center">
-            <FolderX className="cursor-pointer" size={20} />
-            <p>Archivados</p>
-          </CollapsibleTrigger>
-          <CollapsibleContent className="flex flex-col gap-1 pl-6 text-[12px] pt-1 overflow-y-auto max-h-32">
-            {archivedEscritos && archivedEscritos.length > 0 ? (
-              archivedEscritos.map((escrito) => (
-                <div
-                  key={escrito._id}
-                  className="flex flex-col gap-1 p-2 rounded hover:bg-gray-50"
-                >
-                  <div className="flex items-center justify-between">
-                    <Link
-                      to={`${basePath}/escritos/${escrito._id}`}
-                      className="flex items-center gap-1 text-foreground hover:text-blue-600 flex-1"
-                      onClick={handleNavigationFromCase}
+              }}
+              className="w-full"
+            >
+              <CollapsibleTrigger className="cursor-pointer flex gap-4 items-center">
+                <FolderX className="cursor-pointer" size={20} />
+                <p>Archivados</p>
+              </CollapsibleTrigger>
+              <CollapsibleContent className="flex flex-col gap-1 pl-6 text-[12px] pt-1">
+                {archivedEscritos && archivedEscritos.length > 0 ? (
+                  archivedEscritos.map((escrito) => (
+                    <div
+                      key={escrito._id}
+                      className="flex flex-col gap-1 p-2 rounded hover:bg-gray-50"
                     >
-                      <FileType2 className="cursor-pointer" size={16} />
-                      <span className="truncate">{escrito.title}</span>
-                    </Link>
-                    <TooltipProvider>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-6 w-6 p-0 hover:bg-gray-200"
-                            onClick={() =>
-                              handleArchiveEscrito(escrito._id, false)
-                            }
-                          >
-                            <RotateCcw size={12} className="text-gray-500" />
-                          </Button>
-                        </TooltipTrigger>
-                        <TooltipContent>
-                          <p>Restaurar escrito</p>
-                        </TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
+                      <div className="flex items-center justify-between">
+                        <Link
+                          to={`${basePath}/escritos/${escrito._id}`}
+                          className="flex items-center gap-1 text-foreground hover:text-blue-600 flex-1"
+                          onClick={handleNavigationFromCase}
+                        >
+                          <FileType2 className="cursor-pointer" size={16} />
+                          <span className="truncate">{escrito.title}</span>
+                        </Link>
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-6 w-6 p-0 hover:bg-gray-200"
+                                onClick={() =>
+                                  handleArchiveEscrito(escrito._id, false)
+                                }
+                              >
+                                <RotateCcw size={12} className="text-gray-500" />
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p>Restaurar escrito</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      </div>
+                      <div className="flex items-center justify-between text-xs text-muted-foreground">
+                        <Badge
+                          variant="secondary"
+                          className={`text-xs ${getStatusColor(escrito.status)}`}
+                        >
+                          {getStatusText(escrito.status)}
+                        </Badge>
+                        <span>{formatDate(escrito.lastEditedAt)}</span>
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <div className="text-muted-foreground text-xs p-2">
+                    No hay escritos archivados
                   </div>
-                  <div className="flex items-center justify-between text-xs text-muted-foreground">
-                    <Badge
-                      variant="secondary"
-                      className={`text-xs ${getStatusColor(escrito.status)}`}
-                    >
-                      {getStatusText(escrito.status)}
-                    </Badge>
-                    <span>{formatDate(escrito.lastEditedAt)}</span>
-                  </div>
-                </div>
-              ))
-            ) : (
-              <div className="text-muted-foreground text-xs p-2">
-                No hay escritos archivados
-              </div>
-            )}
-          </CollapsibleContent>
-        </Collapsible>
+                )}
+              </CollapsibleContent>
+            </Collapsible>
 
-        <div className="flex gap-4 items-center text-red-400 cursor-pointer">
-          <Trash className="cursor-pointer" size={20} />
-          <p>Eliminados</p>
+            {/* Eliminados */}
+            <div className="flex gap-4 items-center text-red-400 cursor-pointer">
+              <Trash className="cursor-pointer" size={20} />
+              <p>Eliminados</p>
+            </div>
+          </div>
         </div>
-      </div>
 
         {/* Create Escrito Dialog */}
         <CreateEscritoDialog
