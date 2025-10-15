@@ -1,5 +1,5 @@
 import { v } from "convex/values";
-import { action, internalQuery, internalAction } from "../_generated/server";
+import { action, internalQuery, internalMutation, internalAction } from "../_generated/server";
 import { stripe } from "../stripe";
 import { internal } from "../_generated/api";
 import { Id } from "../_generated/dataModel";
@@ -220,6 +220,83 @@ export const getUserByClerkId = internalQuery({
 });
 
 /**
+ * Internal query to get user with firm name for team creation
+ */
+export const getUserWithFirmName = internalQuery({
+  args: { userId: v.id("users") },
+  returns: v.union(
+    v.object({
+      _id: v.id("users"),
+      clerkId: v.string(),
+      name: v.string(),
+      email: v.string(),
+      firmName: v.union(v.string(), v.null()),
+    }),
+    v.null()
+  ),
+  handler: async (ctx, args) => {
+    const user = await ctx.db.get(args.userId);
+    if (!user) {
+      return null;
+    }
+    return {
+      _id: user._id,
+      clerkId: user.clerkId,
+      name: user.name,
+      email: user.email,
+      firmName: user.firmName || null,
+    };
+  },
+});
+
+/**
+ * Internal mutation to create a team for a user upgrading from free
+ * This bypasses the premium check since we're in the upgrade flow
+ */
+export const createTeamForUpgrade = internalMutation({
+  args: {
+    userId: v.id("users"),
+    teamName: v.string(),
+  },
+  returns: v.id("teams"),
+  handler: async (ctx, args): Promise<Id<"teams">> => {
+    const user = await ctx.db.get(args.userId);
+    if (!user) {
+      throw new Error("Usuario no encontrado");
+    }
+
+    // Create the team
+    const teamId = await ctx.db.insert("teams", {
+      name: args.teamName,
+      description: "Equipo creado automáticamente al actualizar a Premium Equipo",
+      teamLead: args.userId,
+      isActive: true,
+      createdBy: args.userId,
+    });
+
+    // Add creator as admin member
+    await ctx.db.insert("teamMemberships", {
+      teamId: teamId,
+      userId: args.userId,
+      role: "admin",
+      joinedAt: Date.now(),
+      addedBy: args.userId,
+      isActive: true,
+    });
+
+    // Set up Stripe customer for the team
+    await ctx.scheduler.runAfter(0, internal.billing.subscriptions.setupTeamCustomer, {
+      teamId: teamId,
+      teamName: args.teamName,
+      creatorEmail: user.email,
+    });
+
+    console.log(`Created team ${teamId} for user ${args.userId} during upgrade`);
+    return teamId;
+  },
+});
+
+/**
  * Migration function to backfill Stripe customers for all existing users
  * This should only be run once by an admin
  */
@@ -315,6 +392,7 @@ export const createCheckoutSession = action({
     const response = await stripe.subscribe((ctx as any), {
         entityId: args.entityId,
         priceId: args.priceId,
+        createStripeCustomerIfMissing: true,
         success: {
             url: `http://localhost:5173/billing/success?session_id={CHECKOUT_SESSION_ID}`,
         },
@@ -433,6 +511,7 @@ export const subscribeTeam = action({
     const response = await stripe.subscribe((ctx as any), {
       entityId: args.teamId,
       priceId: args.priceId,
+      createStripeCustomerIfMissing: true,
       success: {
         url: `http://localhost:5173/teams/${args.teamId}/billing/success`,
       },
@@ -525,5 +604,66 @@ export const setupTeamCustomer = internalAction({
 
     console.log(`Created Stripe customer ${response.customerId} for team ${args.teamId}`);
     return response.customerId;
+  },
+});
+
+/**
+ * Upgrade a free user directly to Premium Team plan
+ * Automatically upgrades to Premium Individual first, creates a team, then upgrades the team
+ */
+export const upgradeToTeamFromFree = action({
+  args: {
+    userId: v.id("users"),
+    teamPriceId: v.string(),
+  },
+  returns: v.object({
+    url: v.string(),
+  }),
+  handler: async (ctx, args): Promise<{ url: string }> => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("No autenticado");
+
+    // Get user details including firm name
+    const user = await ctx.runQuery(internal.billing.subscriptions.getUserWithFirmName, {
+      userId: args.userId,
+    });
+
+    if (!user) {
+      throw new Error("Usuario no encontrado");
+    }
+
+    // Verify the authenticated user matches
+    if (user.clerkId !== identity.subject) {
+      throw new Error("No autorizado");
+    }
+
+    // Use firm name for team, or fallback to user name
+    const teamName = user.firmName || `Estudio ${user.name}`;
+
+    // Create the team (mutation will handle upgrading user to premium first)
+    const teamId: Id<"teams"> = await ctx.runMutation(internal.billing.subscriptions.createTeamForUpgrade, {
+      userId: args.userId,
+      teamName: teamName,
+    });
+
+    // Now create checkout session for the team subscription
+    const response = await stripe.subscribe((ctx as any), {
+      entityId: teamId,
+      priceId: args.teamPriceId,
+      createStripeCustomerIfMissing: true,
+      success: {
+        url: `http://localhost:5173/teams/${teamId}?upgrade=success`,
+      },
+      cancel: {
+        url: `http://localhost:5173/preferences?section=billing`,
+      },
+      metadata: {
+        teamId: teamId,
+        userId: args.userId,
+        type: "team_subscription",
+      },
+    });
+
+    return { url: response.url! };
   },
 });

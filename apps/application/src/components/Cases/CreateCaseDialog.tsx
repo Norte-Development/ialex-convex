@@ -25,10 +25,13 @@ import {
 import { Checkbox } from "../ui/checkbox";
 import { Plus, Users, X } from "lucide-react";
 import { Badge } from "../ui/badge";
+import { useBillingLimit, UpgradeModal, LimitWarningBanner } from "@/components/Billing";
+import { toast } from "sonner";
 
 export default function CreateCaseDialog() {
   const [open, setOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const [selectedClients, setSelectedClients] = useState<
     {
       id: Id<"clients">;
@@ -43,6 +46,17 @@ export default function CreateCaseDialog() {
   const clientsResult = useQuery(api.functions.clients.getClients, {});
 
   const clients = clientsResult?.page || [];
+
+  // Check case limit
+  const { allowed, isWarning, percentage, reason, currentCount, limit } = 
+    useBillingLimit("cases", {});
+
+  // Get user plan for upgrade modal
+  const currentUser = useQuery(api.functions.users.getCurrentUser, {});
+  const userPlan = useQuery(
+    api.billing.features.getUserPlan,
+    currentUser?._id ? { userId: currentUser._id } : "skip"
+  );
 
   const filteredClients = clients.filter(
     (client) =>
@@ -94,6 +108,15 @@ export default function CreateCaseDialog() {
 
     if (!formData.title.trim()) {
       alert("El título es requerido");
+      return;
+    }
+
+    // Check billing limit before creating case
+    if (!allowed) {
+      toast.error("Límite alcanzado", {
+        description: reason,
+      });
+      setShowUpgradeModal(true);
       return;
     }
 
@@ -176,12 +199,30 @@ export default function CreateCaseDialog() {
 
       <DialogContent className="sm:max-w-[700px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Crear Nuevo Caso</DialogTitle>
-          <DialogDescription>
-            Complete la información para crear un nuevo caso legal y vincule los
-            clientes correspondientes.
-          </DialogDescription>
+          <div className="flex items-center justify-between">
+            <div>
+              <DialogTitle>Crear Nuevo Caso</DialogTitle>
+              <DialogDescription>
+                Complete la información para crear un nuevo caso legal y vincule los
+                clientes correspondientes.
+              </DialogDescription>
+            </div>
+            <span className="text-sm text-gray-500 whitespace-nowrap ml-4">
+              Casos: {currentCount}/{limit === Infinity ? "∞" : limit}
+            </span>
+          </div>
         </DialogHeader>
+
+        {/* Warning banner if approaching limit */}
+        {isWarning && (
+          <LimitWarningBanner
+            limitType="cases"
+            percentage={percentage}
+            currentCount={currentCount}
+            limit={limit}
+            onUpgrade={() => setShowUpgradeModal(true)}
+          />
+        )}
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid grid-cols-1 gap-4">
@@ -399,6 +440,15 @@ export default function CreateCaseDialog() {
             </Button>
           </DialogFooter>
         </form>
+
+        {/* Upgrade Modal */}
+        <UpgradeModal
+          open={showUpgradeModal}
+          onOpenChange={setShowUpgradeModal}
+          reason={reason}
+          currentPlan={userPlan || "free"}
+          recommendedPlan="premium_individual"
+        />
       </DialogContent>
     </Dialog>
   );

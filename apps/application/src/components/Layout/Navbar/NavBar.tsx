@@ -26,7 +26,7 @@ export default function NavBar() {
 
   const menuOptions = [
     { label: "Inicio", path: "/" },
-    { label: "Equipos", path: "/equipos" },
+    { label: "Equipos", path: "/equipo" },
     { label: "Clientes", path: "/clientes" },
     { label: "Casos", path: "/casos" },
     { label: "Modelos", path: "/modelos" },

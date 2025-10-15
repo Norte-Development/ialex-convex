@@ -25,6 +25,7 @@ import InviteUserDialog from "@/components/Teams/InviteUserDialog";
 import PendingInvitesTable from "@/components/Teams/PendingInvitesTable";
 import TeamCasesList from "@/components/Cases/TeamCasesList";
 import { TeamInvite } from "../../types/teams";
+import { useBillingData, UsageMeter } from "@/components/Billing";
 
 export default function TeamManagePage() {
   const { id } = useParams<{ id: string }>();
@@ -37,6 +38,14 @@ export default function TeamManagePage() {
   const removeUserFromTeam = useMutation(
     api.functions.teams.removeUserFromTeam,
   );
+
+  // Get team member limits and usage data
+  const memberCheck = useQuery(
+    api.billing.features.canAddTeamMember,
+    id ? { teamId: id as any } : "skip"
+  );
+
+  const { usage, limits } = useBillingData({ teamId: id as any });
 
   const deleteTeam = useMutation(api.functions.teams.deleteTeam);
 
@@ -173,6 +182,50 @@ export default function TeamManagePage() {
               <p className="text-lg">{team.isActive ? "Activo" : "Inactivo"}</p>
             </div>
           </div>
+        </CardContent>
+      </Card>
+
+      {/* Team Usage Section */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Uso del Equipo</CardTitle>
+          <CardDescription>Límites y uso actual del equipo</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {/* Team members */}
+          <div className="flex items-center justify-between">
+            <span className="text-sm font-medium">Miembros</span>
+            <span className="text-sm text-gray-600">
+              {memberCheck?.currentCount || 0} / {memberCheck?.maxAllowed || 0}
+            </span>
+          </div>
+          
+          {/* Team cases */}
+          {usage && limits && (
+            <UsageMeter
+              used={usage.casesCount}
+              limit={limits.cases}
+              label="Casos del Equipo"
+            />
+          )}
+          
+          {/* Team library */}
+          {usage && limits && (
+            <UsageMeter
+              used={usage.libraryDocumentsCount}
+              limit={limits.libraryDocuments}
+              label="Biblioteca del Equipo"
+            />
+          )}
+
+          {/* Team storage */}
+          {usage && limits && (
+            <UsageMeter
+              used={usage.storageUsedBytes / (1024 * 1024 * 1024)}
+              limit={limits.storageGB}
+              label="Almacenamiento (GB)"
+            />
+          )}
         </CardContent>
       </Card>
 

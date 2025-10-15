@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useMutation } from "convex/react";
+import { useMutation, useQuery } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import {
   Dialog,
@@ -15,11 +15,30 @@ import { Input } from "../ui/input";
 import { Label } from "../ui/label";
 import { Textarea } from "../ui/textarea";
 import { Users } from "lucide-react";
+import { FeatureLock, UpgradeModal } from "@/components/Billing";
+import { toast } from "sonner";
 
 export default function CreateTeamDialog() {
   const [open, setOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const createTeam = useMutation(api.functions.teams.createTeam);
+
+  // Check team creation feature access
+  const user = useQuery(api.functions.users.getCurrentUser, {});
+  const canCreateTeam = useQuery(
+    api.billing.features.hasFeatureAccess,
+    user?._id ? {
+      userId: user._id,
+      feature: "create_team",
+    } : "skip"
+  );
+
+  // Get user plan for upgrade modal
+  const userPlan = useQuery(
+    api.billing.features.getUserPlan,
+    user?._id ? { userId: user._id } : "skip"
+  );
 
   const [formData, setFormData] = useState({
     name: "",
@@ -38,6 +57,15 @@ export default function CreateTeamDialog() {
 
     if (!formData.name.trim()) {
       alert("El nombre del equipo es obligatorio");
+      return;
+    }
+
+    // Check billing limit before creating team
+    if (!canCreateTeam?.allowed) {
+      toast.error("Funcionalidad no disponible", {
+        description: canCreateTeam?.reason || "No tienes acceso a crear equipos",
+      });
+      setShowUpgradeModal(true);
       return;
     }
 
@@ -66,10 +94,15 @@ export default function CreateTeamDialog() {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button className=" text-white cursor-pointer">
-          <Users className="w-4 h-4 mr-2" />
-          Crear Equipo
-        </Button>
+        <FeatureLock
+          feature="create_team"
+          onUpgrade={() => setShowUpgradeModal(true)}
+        >
+          <Button className=" text-white cursor-pointer">
+            <Users className="w-4 h-4 mr-2" />
+            Crear Equipo
+          </Button>
+        </FeatureLock>
       </DialogTrigger>
       <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
@@ -121,6 +154,15 @@ export default function CreateTeamDialog() {
             </Button>
           </DialogFooter>
         </form>
+
+        {/* Upgrade Modal */}
+        <UpgradeModal
+          open={showUpgradeModal}
+          onOpenChange={setShowUpgradeModal}
+          reason={canCreateTeam?.reason || "Funcionalidad no disponible"}
+          currentPlan={userPlan || "free"}
+          recommendedPlan="premium_individual"
+        />
       </DialogContent>
     </Dialog>
   );

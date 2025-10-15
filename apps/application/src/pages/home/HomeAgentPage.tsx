@@ -9,12 +9,16 @@
 
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useQuery } from "convex/react";
+import { api } from "../../../convex/_generated/api";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
+import { Badge } from "@/components/ui/badge";
 import { CircleArrowUp } from "lucide-react";
 import { useHomeThreads } from "@/components/HomeAgent/hooks/useHomeThreads";
 import { HomeAgentLayout } from "@/components/HomeAgent/HomeAgentLayout";
+import { PlanBadge } from "@/components/Billing";
 
 export default function HomeAgentPage() {
   const navigate = useNavigate();
@@ -22,6 +26,18 @@ export default function HomeAgentPage() {
   const [isCreating, setIsCreating] = useState(false);
 
   const { sendMessage } = useHomeThreads();
+
+  // Get user's plan to determine AI model
+  const user = useQuery(api.functions.users.getCurrentUser, {});
+  const planData = useQuery(
+    api.billing.features.getUserPlan,
+    user?._id ? { userId: user._id } : "skip"
+  );
+
+  const plan = planData?.plan;
+  const aiModel = plan === "premium_individual" || plan === "premium_team" 
+    ? "GPT-5" 
+    : "GPT-4o";
 
   const handleSendMessage = async () => {
     if (!inputValue.trim() || isCreating) return;
@@ -99,9 +115,15 @@ export default function HomeAgentPage() {
         <div className="w-full max-w-4xl space-y-8">
           {/* Welcome Section */}
           <div className="text-center space-y-4">
-            <h1 className="text-4xl font-bold tracking-tight">
-              <span className="text-primary">iAlex</span>
-            </h1>
+            <div className="flex items-center justify-center gap-2">
+              <h1 className="text-4xl font-bold tracking-tight">
+                <span className="text-primary">iAlex</span>
+              </h1>
+              {plan && <PlanBadge plan={plan} size="sm" />}
+              <Badge variant="outline">
+                {aiModel === "GPT-5" ? "✨ GPT-5" : "GPT-4o"}
+              </Badge>
+            </div>
 
             <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
               ¿En qué puedo ayudarte?

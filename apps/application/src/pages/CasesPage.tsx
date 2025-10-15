@@ -6,6 +6,7 @@ import { useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { Case } from "types/cases";
 import CaseTable from "@/components/Cases/CaseTable";
+import { useBillingData, UsageMeter } from "@/components/Billing";
 
 function CasesContent() {
   const { currentCase } = useCase();
@@ -13,13 +14,27 @@ function CasesContent() {
     | Case[]
     | undefined;
 
+  const { usage, limits } = useBillingData({});
+
   return (
     <div
       className={`flex flex-col gap-4 w-full h-full px-5 ${currentCase ? "pt-5" : "pt-20"}`}
     >
       <div className="w-full flex justify-between items-center">
         <h1 className="text-2xl font-bold">Casos</h1>
-        <CreateCaseDialog />
+        <div className="flex items-center gap-4">
+          {usage && limits && (
+            <div className="w-64">
+              <UsageMeter
+                used={usage.casesCount}
+                limit={limits.cases}
+                label="Casos"
+                showPercentage={false}
+              />
+            </div>
+          )}
+          <CreateCaseDialog />
+        </div>
       </div>
       <div className="w-full flex justify-start">
         <CaseTable cases={cases} />

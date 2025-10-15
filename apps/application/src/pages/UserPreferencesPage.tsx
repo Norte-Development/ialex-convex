@@ -9,6 +9,7 @@ import { GeneralSection } from "@/components/appearance-section";
 import { NotificationsSection } from "@/components/notifications-section";
 import { AgentSection } from "@/components/agent-section";
 import { PrivacySection } from "@/components/privacy-section";
+import { BillingSection } from "@/components/Billing";
 import { Loader2 } from "lucide-react";
 
 // Default preferences
@@ -119,6 +120,10 @@ export default function UserPreferencesPage() {
               preferences={preferences}
               onUpdate={updatePreference}
             />
+          )}
+
+          {activeSection === "billing" && (
+            <BillingSection />
           )}
 
           {activeSection === "privacy" && (
