@@ -8,7 +8,7 @@ import {
   requireNewCaseAccess,
 } from "../auth_utils";
 import { internal } from "../_generated/api";
-import { _getUserPlan, _canAddTeamMember } from "../billing/features";
+import { _getUserPlan, _canAddTeamMember, _canCreateTeam } from "../billing/features";
 
 const newAccessLevelType = v.union(
   v.literal("none"),
@@ -51,13 +51,12 @@ export const createTeam = mutation({
   handler: async (ctx, args) => {
     const currentUser = await getCurrentUserFromAuth(ctx);
 
-    // Check if user has premium subscription (individual or team)
-    const userPlan = await _getUserPlan(ctx, currentUser._id);
+    // Check if user can create a team (validates plan and ownership limit)
+    const canCreate = await _canCreateTeam(ctx, currentUser._id);
 
-    if (userPlan === "free") {
+    if (!canCreate.allowed) {
       throw new Error(
-        "Necesitas una suscripción Premium para crear equipos. " +
-        "Elige Premium Individual ($30.000/mes) o Premium Equipo ($200.000/mes)."
+        canCreate.reason || "No puedes crear un equipo en este momento."
       );
     }
 
@@ -77,13 +76,6 @@ export const createTeam = mutation({
       joinedAt: Date.now(),
       addedBy: currentUser._id,
       isActive: true,
-    });
-
-    // Set up Stripe customer for the team
-    await ctx.scheduler.runAfter(0, internal.billing.subscriptions.setupTeamCustomer, {
-      teamId: teamId,
-      teamName: args.name,
-      creatorEmail: currentUser.email,
     });
 
     console.log("Created team with id:", teamId);

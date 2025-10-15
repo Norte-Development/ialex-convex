@@ -1,4 +1,3 @@
-import { useState } from "react";
 import {
   Dialog,
   DialogContent,
@@ -9,15 +8,10 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { PlanComparison } from "./PlanComparison";
-import { TeamUpgradeDialog } from "./TeamUpgradeDialog";
 import { PlanType } from "./types";
 import { AlertCircle } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useUpgrade } from "./useUpgrade";
-import { useQuery } from "convex/react";
-import { api } from "../../../convex/_generated/api";
-import { toast } from "sonner";
-import { Id } from "../../../convex/_generated/dataModel";
 
 interface UpgradeModalProps {
   open: boolean;
@@ -25,8 +19,7 @@ interface UpgradeModalProps {
   reason?: string;
   currentPlan: PlanType;
   recommendedPlan?: PlanType;
-  teamId?: Id<"teams">; // For team upgrades
-  onUpgrade?: () => void; // Deprecated: use built-in upgrade functionality
+  onUpgrade?: () => void; // Optional custom upgrade handler
 }
 
 /**
@@ -58,13 +51,9 @@ export function UpgradeModal({
   reason,
   currentPlan,
   recommendedPlan = "premium_individual",
-  teamId,
   onUpgrade,
 }: UpgradeModalProps) {
-  const { upgradeToPlan, upgradeToTeamAutoCreate, isUpgrading } = useUpgrade({ teamId });
-  const [showTeamUpgradeDialog, setShowTeamUpgradeDialog] = useState(false);
-  
-  const user = useQuery((api as any).functions.users.getCurrentUser, {});
+  const { upgradeToPlan, isUpgrading } = useUpgrade();
 
   const getRecommendedPlanName = (): string => {
     const names: Record<PlanType, string> = {
@@ -137,22 +126,7 @@ export function UpgradeModal({
                 return;
               }
               
-              // Handle team plan upgrade for free users
-              if (plan === "premium_team" && currentPlan === "free") {
-                setShowTeamUpgradeDialog(true);
-                return;
-              }
-              
-              // Check if upgrading to team plan without a team
-              if (plan === "premium_team" && !teamId) {
-                toast.info("Primero crea un equipo", {
-                  description: "Ve a la sección de Equipos para crear uno y luego podrás actualizarlo a Premium Equipo",
-                });
-                onOpenChange(false);
-                return;
-              }
-              
-              upgradeToPlan(plan, teamId);
+              upgradeToPlan(plan);
               // Don't close modal - redirect will happen
             }}
             isUpgrading={isUpgrading}
@@ -168,20 +142,6 @@ export function UpgradeModal({
           </Button>
         </DialogFooter>
       </DialogContent>
-
-      {/* Team Upgrade Dialog (nested) */}
-      <TeamUpgradeDialog
-        open={showTeamUpgradeDialog}
-        onOpenChange={setShowTeamUpgradeDialog}
-        onUpgradeTeamAutoCreate={async () => {
-          await upgradeToTeamAutoCreate();
-          setShowTeamUpgradeDialog(false);
-          onOpenChange(false);
-        }}
-        isUpgrading={isUpgrading}
-        firmName={user?.firmName}
-        userName={user?.name}
-      />
     </Dialog>
   );
 }

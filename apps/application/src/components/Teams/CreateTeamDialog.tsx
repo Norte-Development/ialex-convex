@@ -24,14 +24,11 @@ export default function CreateTeamDialog() {
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const createTeam = useMutation(api.functions.teams.createTeam);
 
-  // Check team creation feature access
+  // Check team creation access (validates plan and ownership limit)
   const user = useQuery(api.functions.users.getCurrentUser, {});
-  const canCreateTeam = useQuery(
-    api.billing.features.hasFeatureAccess,
-    user?._id ? {
-      userId: user._id,
-      feature: "create_team",
-    } : "skip"
+  const canCreateTeamCheck = useQuery(
+    api.billing.features.canCreateTeam,
+    user?._id ? { userId: user._id } : "skip"
   );
 
   // Get user plan for upgrade modal
@@ -61,9 +58,9 @@ export default function CreateTeamDialog() {
     }
 
     // Check billing limit before creating team
-    if (!canCreateTeam?.allowed) {
-      toast.error("Funcionalidad no disponible", {
-        description: canCreateTeam?.reason || "No tienes acceso a crear equipos",
+    if (!canCreateTeamCheck?.allowed) {
+      toast.error("No puedes crear un equipo", {
+        description: canCreateTeamCheck?.reason || "No tienes acceso a crear equipos",
       });
       setShowUpgradeModal(true);
       return;
@@ -159,7 +156,7 @@ export default function CreateTeamDialog() {
         <UpgradeModal
           open={showUpgradeModal}
           onOpenChange={setShowUpgradeModal}
-          reason={canCreateTeam?.reason || "Funcionalidad no disponible"}
+          reason={canCreateTeamCheck?.reason || "Funcionalidad no disponible"}
           currentPlan={userPlan || "free"}
           recommendedPlan="premium_individual"
         />

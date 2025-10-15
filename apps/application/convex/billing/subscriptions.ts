@@ -249,52 +249,6 @@ export const getUserWithFirmName = internalQuery({
   },
 });
 
-/**
- * Internal mutation to create a team for a user upgrading from free
- * This bypasses the premium check since we're in the upgrade flow
- */
-export const createTeamForUpgrade = internalMutation({
-  args: {
-    userId: v.id("users"),
-    teamName: v.string(),
-  },
-  returns: v.id("teams"),
-  handler: async (ctx, args): Promise<Id<"teams">> => {
-    const user = await ctx.db.get(args.userId);
-    if (!user) {
-      throw new Error("Usuario no encontrado");
-    }
-
-    // Create the team
-    const teamId = await ctx.db.insert("teams", {
-      name: args.teamName,
-      description: "Equipo creado automáticamente al actualizar a Premium Equipo",
-      teamLead: args.userId,
-      isActive: true,
-      createdBy: args.userId,
-    });
-
-    // Add creator as admin member
-    await ctx.db.insert("teamMemberships", {
-      teamId: teamId,
-      userId: args.userId,
-      role: "admin",
-      joinedAt: Date.now(),
-      addedBy: args.userId,
-      isActive: true,
-    });
-
-    // Set up Stripe customer for the team
-    await ctx.scheduler.runAfter(0, internal.billing.subscriptions.setupTeamCustomer, {
-      teamId: teamId,
-      teamName: args.teamName,
-      creatorEmail: user.email,
-    });
-
-    console.log(`Created team ${teamId} for user ${args.userId} during upgrade`);
-    return teamId;
-  },
-});
 
 /**
  * Migration function to backfill Stripe customers for all existing users
@@ -472,61 +426,6 @@ export const purchaseAICredits = action({
   }
 });
 
-/**
- * Create checkout session for team subscription
- */
-export const subscribeTeam = action({
-  args: {
-    teamId: v.id("teams"),
-    priceId: v.string(),
-  },
-  returns: v.object({
-    url: v.string(),
-  }),
-  handler: async (ctx, args): Promise<{ url: string }> => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) throw new Error("No autenticado");
-
-    // Verify user is team creator
-    const team = await ctx.runQuery(internal.billing.subscriptions.getTeamForBilling, {
-      teamId: args.teamId,
-    });
-
-    if (!team) {
-      throw new Error("Equipo no encontrado");
-    }
-
-    const currentUser = await ctx.runQuery(internal.billing.subscriptions.getUserByClerkId, {
-      clerkId: identity.subject,
-    });
-
-    if (!currentUser) {
-      throw new Error("Usuario no encontrado");
-    }
-
-    if (team.createdBy !== currentUser._id) {
-      throw new Error("Solo el creador del equipo puede suscribirlo");
-    }
-
-    const response = await stripe.subscribe((ctx as any), {
-      entityId: args.teamId,
-      priceId: args.priceId,
-      createStripeCustomerIfMissing: true,
-      success: {
-        url: `http://localhost:5173/teams/${args.teamId}/billing/success`,
-      },
-      cancel: {
-        url: `http://localhost:5173/teams/${args.teamId}/settings`,
-      },
-      metadata: {
-        teamId: args.teamId,
-        type: "team_subscription",
-      },
-    });
-
-    return { url: response.url! };
-  },
-});
 
 /**
  * Internal query to get team data for billing
@@ -554,62 +453,10 @@ export const getTeamForBilling = internalQuery({
   },
 });
 
-/**
- * Check if a team already has a Stripe customer set up
- */
-export const hasTeamStripeCustomer = internalQuery({
-  args: { teamId: v.id("teams") },
-  returns: v.boolean(),
-  handler: async (ctx, args) => {
-    const customer = await ctx.db
-      .query("stripeCustomers")
-      .filter((q) => q.eq(q.field("entityId"), args.teamId))
-      .first();
-    
-    return customer !== null;
-  },
-});
 
 /**
- * Internal action to set up Stripe customer for a team
- * Called automatically when a team is created
- */
-export const setupTeamCustomer = internalAction({
-  args: {
-    teamId: v.id("teams"),
-    teamName: v.string(),
-    creatorEmail: v.string(),
-  },
-  returns: v.union(v.string(), v.null()),
-  handler: async (ctx, args): Promise<string | null> => {
-    // Check if team already has a Stripe customer
-    const hasCustomer = await ctx.runQuery(internal.billing.subscriptions.hasTeamStripeCustomer, {
-      teamId: args.teamId,
-    });
-
-    if (hasCustomer) {
-      console.log(`Team ${args.teamId} already has a Stripe customer, skipping setup`);
-      return null;
-    }
-
-    // Create new Stripe customer for the team
-    const response: { customerId: string } = await ctx.runAction(internal.stripe.setup, {
-      entityId: args.teamId,
-      email: args.creatorEmail,
-      metadata: {
-        teamName: args.teamName,
-        type: "team",
-      }
-    });
-
-    console.log(`Created Stripe customer ${response.customerId} for team ${args.teamId}`);
-    return response.customerId;
-  },
-});
-
-/**
- * Upgrade a free user directly to Premium Team plan
- * Automatically upgrades to Premium Individual first, creates a team, then upgrades the team
+ * Upgrade a user directly to Premium Team plan
+ * SIMPLIFIED: Just upgrades the user, they can create their team after
  */
 export const upgradeToTeamFromFree = action({
   args: {
@@ -623,8 +470,8 @@ export const upgradeToTeamFromFree = action({
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) throw new Error("No autenticado");
 
-    // Get user details including firm name
-    const user = await ctx.runQuery(internal.billing.subscriptions.getUserWithFirmName, {
+    // Get user details
+    const user = await ctx.runQuery(internal.billing.subscriptions.getUserForSetup, {
       userId: args.userId,
     });
 
@@ -637,30 +484,20 @@ export const upgradeToTeamFromFree = action({
       throw new Error("No autorizado");
     }
 
-    // Use firm name for team, or fallback to user name
-    const teamName = user.firmName || `Estudio ${user.name}`;
-
-    // Create the team (mutation will handle upgrading user to premium first)
-    const teamId: Id<"teams"> = await ctx.runMutation(internal.billing.subscriptions.createTeamForUpgrade, {
-      userId: args.userId,
-      teamName: teamName,
-    });
-
-    // Now create checkout session for the team subscription
+    // Create checkout session for user subscription to premium_team
     const response = await stripe.subscribe((ctx as any), {
-      entityId: teamId,
+      entityId: args.userId,
       priceId: args.teamPriceId,
       createStripeCustomerIfMissing: true,
       success: {
-        url: `http://localhost:5173/teams/${teamId}?upgrade=success`,
+        url: `http://localhost:5173/billing/success?plan=premium_team`,
       },
       cancel: {
         url: `http://localhost:5173/preferences?section=billing`,
       },
       metadata: {
-        teamId: teamId,
         userId: args.userId,
-        type: "team_subscription",
+        type: "user_subscription",
       },
     });
 

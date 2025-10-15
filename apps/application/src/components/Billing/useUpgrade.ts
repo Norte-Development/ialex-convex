@@ -4,10 +4,8 @@ import { api } from "../../../convex/_generated/api";
 import { toast } from "sonner";
 import { STRIPE_PRICE_IDS } from "@/lib/billing/pricingConfig";
 import { PlanType } from "./types";
-import { Id } from "../../../convex/_generated/dataModel";
 
 interface UseUpgradeOptions {
-  teamId?: Id<"teams">;
   onSuccess?: () => void;
   onError?: (error: Error) => void;
 }
@@ -35,26 +33,21 @@ interface UseUpgradeOptions {
  * ```
  */
 export function useUpgrade(options: UseUpgradeOptions = {}) {
-  const { teamId, onSuccess, onError } = options;
+  const { onSuccess, onError } = options;
   const [isUpgrading, setIsUpgrading] = useState(false);
 
   const user = useQuery(api.functions.users.getCurrentUser, {});
   
   // Note: Type assertion needed until Convex types are regenerated
   const createCheckoutSession = useAction(
-    (api as any).billing.subscriptions.createCheckoutSession
-  );
-  const subscribeTeam = useAction(
-    (api as any).billing.subscriptions.subscribeTeam
-  );
-  const upgradeToTeamFromFree = useAction(
-    (api as any).billing.subscriptions.upgradeToTeamFromFree
+    api.billing.subscriptions.createCheckoutSession
   );
 
   /**
-   * Upgrade current user to Premium Individual plan
+   * Upgrade current user to a specific plan
+   * SIMPLIFIED: All upgrades are user-level (no separate team subscriptions)
    */
-  const upgradeToIndividual = async () => {
+  const upgradeToPlan = async (targetPlan: PlanType) => {
     if (!user?._id) {
       const error = new Error("Usuario no autenticado");
       toast.error("Debes iniciar sesión para actualizar tu plan");
@@ -62,15 +55,25 @@ export function useUpgrade(options: UseUpgradeOptions = {}) {
       return;
     }
 
+    if (targetPlan === "free") {
+      toast.info("Ya estás en el plan gratuito");
+      return;
+    }
+
     setIsUpgrading(true);
     try {
+      const priceId = targetPlan === "premium_individual" 
+        ? STRIPE_PRICE_IDS.premium_individual 
+        : STRIPE_PRICE_IDS.premium_team;
+
       const result = await createCheckoutSession({
         entityId: user._id,
-        priceId: STRIPE_PRICE_IDS.premium_individual,
+        priceId: priceId,
       });
 
       if (result.url) {
-        toast.success("Redirigiendo a checkout...");
+        const planName = targetPlan === "premium_individual" ? "Premium Individual" : "Premium Team";
+        toast.success(`Redirigiendo a checkout de ${planName}...`);
         onSuccess?.();
         // Redirect to Stripe checkout
         window.location.href = result.url;
@@ -90,114 +93,24 @@ export function useUpgrade(options: UseUpgradeOptions = {}) {
   };
 
   /**
-   * Upgrade team to Premium Team plan
-   * Requires a teamId to be provided
+   * Upgrade to Premium Individual (convenience wrapper)
    */
-  const upgradeToTeam = async (targetTeamId?: Id<"teams">) => {
-    const finalTeamId = targetTeamId || teamId;
-    
-    if (!finalTeamId) {
-      const error = new Error("ID de equipo no proporcionado");
-      toast.error("Debes especificar un equipo para actualizar");
-      onError?.(error);
-      return;
-    }
-
-    if (!user?._id) {
-      const error = new Error("Usuario no autenticado");
-      toast.error("Debes iniciar sesión para actualizar tu equipo");
-      onError?.(error);
-      return;
-    }
-
-    setIsUpgrading(true);
-    try {
-      const result = await subscribeTeam({
-        teamId: finalTeamId,
-        priceId: STRIPE_PRICE_IDS.premium_team,
-      });
-
-      if (result.url) {
-        toast.success("Redirigiendo a checkout del equipo...");
-        onSuccess?.();
-        // Redirect to Stripe checkout
-        window.location.href = result.url;
-      } else {
-        throw new Error("No se recibió URL de checkout");
-      }
-    } catch (error) {
-      console.error("Error creating team checkout session:", error);
-      const err = error instanceof Error ? error : new Error("Error desconocido");
-      toast.error("No se pudo crear la sesión de pago del equipo", {
-        description: err.message,
-      });
-      onError?.(err);
-    } finally {
-      setIsUpgrading(false);
-    }
+  const upgradeToIndividual = async () => {
+    await upgradeToPlan("premium_individual");
   };
 
   /**
-   * Upgrade free user directly to Premium Team
-   * Automatically creates a team using their firm name
+   * Upgrade to Premium Team (convenience wrapper)
+   * Note: User can create their team AFTER upgrading
    */
-  const upgradeToTeamAutoCreate = async () => {
-    if (!user?._id) {
-      const error = new Error("Usuario no autenticado");
-      toast.error("Debes iniciar sesión para actualizar");
-      onError?.(error);
-      return;
-    }
-
-    setIsUpgrading(true);
-    try {
-      const result = await upgradeToTeamFromFree({
-        userId: user._id,
-        teamPriceId: STRIPE_PRICE_IDS.premium_team,
-      });
-
-      if (result.url) {
-        toast.success("Creando tu equipo y redirigiendo...");
-        onSuccess?.();
-        // Redirect to Stripe checkout
-        window.location.href = result.url;
-      } else {
-        throw new Error("No se recibió URL de checkout");
-      }
-    } catch (error) {
-      console.error("Error creating team upgrade:", error);
-      const err = error instanceof Error ? error : new Error("Error desconocido");
-      toast.error("No se pudo crear el equipo", {
-        description: err.message,
-      });
-      onError?.(err);
-    } finally {
-      setIsUpgrading(false);
-    }
-  };
-
-  /**
-   * Generic upgrade function based on target plan
-   * Automatically chooses between individual or team upgrade
-   */
-  const upgradeToPlan = async (targetPlan: PlanType, targetTeamId?: Id<"teams">) => {
-    if (targetPlan === "free") {
-      toast.info("Ya estás en el plan gratuito");
-      return;
-    }
-
-    if (targetPlan === "premium_individual") {
-      await upgradeToIndividual();
-    } else if (targetPlan === "premium_team") {
-      await upgradeToTeam(targetTeamId);
-    }
+  const upgradeToTeam = async () => {
+    await upgradeToPlan("premium_team");
   };
 
   return {
+    upgradeToPlan,
     upgradeToIndividual,
     upgradeToTeam,
-    upgradeToTeamAutoCreate,
-    upgradeToPlan,
     isUpgrading,
   };
 }

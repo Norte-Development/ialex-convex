@@ -62,51 +62,14 @@ export async function _getUserPlan(ctx: QueryCtx | MutationCtx, userId: Id<"user
 /**
  * Internal helper to get team plan - used by both queries and mutations
  * EXPORTED for use in other files
+ * 
+ * SIMPLIFIED: Team plan is ALWAYS the owner's plan (no separate team subscriptions)
  */
 export async function _getTeamPlan(ctx: QueryCtx | MutationCtx, teamId: Id<"teams">): Promise<PlanType> {
-  // Get team to find creator
   const team = await ctx.db.get(teamId);
   if (!team) return "free";
-
-  // First, check if the TEAM itself has a subscription
-  const teamCustomer = await ctx.db
-    .query("stripeCustomers")
-    .withIndex("byEntityId", (q) => q.eq("entityId", teamId))
-    .first();
-
-  if (teamCustomer) {
-    // Team has its own Stripe customer, check for active subscription
-    const teamSubscriptions = await ctx.db
-      .query("stripeSubscriptions")
-      .withIndex("byCustomerId", (q) => q.eq("customerId", teamCustomer.customerId))
-      .collect();
-
-    const activeTeamSub = teamSubscriptions.find((sub) => sub.stripe?.status === "active");
-    
-    if (activeTeamSub) {
-      // Team has active subscription - get product metadata
-      const priceId = activeTeamSub.stripe?.items?.data?.[0]?.price?.id;
-      if (priceId) {
-        const price = await ctx.db
-          .query("stripePrices")
-          .withIndex("byPriceId", (q) => q.eq("priceId", priceId))
-          .first();
-        
-        if (price) {
-          const product = await ctx.db
-            .query("stripeProducts")
-            .filter((q) => q.eq(q.field("productId"), price.stripe.productId))
-            .first();
-          
-          if (product?.stripe?.metadata?.plan === "premium_team") {
-            return "premium_team";
-          }
-        }
-      }
-    }
-  }
-
-  // No team subscription found, fall back to owner's plan
+  
+  // Team plan is always the owner's plan
   return await _getUserPlan(ctx, team.createdBy);
 }
 
@@ -400,6 +363,56 @@ export async function _canAddTeamMember(
 }
 
 /**
+ * Internal helper to check if a user can create a team
+ * EXPORTED for use in other files
+ * 
+ * Rules:
+ * - User plan must not be "free"
+ * - User can own maximum 1 team (enforced for NEW creations only, grandfathers existing)
+ */
+export async function _canCreateTeam(
+  ctx: QueryCtx | MutationCtx,
+  userId: Id<"users">
+): Promise<{
+  allowed: boolean;
+  reason?: string;
+  ownedCount: number;
+}> {
+  // Check user's plan
+  const userPlan = await _getUserPlan(ctx, userId);
+  
+  if (userPlan === "free") {
+    return {
+      allowed: false,
+      reason: "Solo usuarios Premium pueden crear equipos. Actualiza tu plan.",
+      ownedCount: 0,
+    };
+  }
+
+  // Count owned teams (active teams where user is creator)
+  const ownedTeams = await ctx.db
+    .query("teams")
+    .withIndex("by_created_by", (q) => q.eq("createdBy", userId))
+    .filter((q) => q.eq(q.field("isActive"), true))
+    .collect();
+
+  const ownedCount = ownedTeams.length;
+
+  if (ownedCount >= 1) {
+    return {
+      allowed: false,
+      reason: "Ya tienes un equipo. Solo puedes crear un equipo por cuenta.",
+      ownedCount,
+    };
+  }
+
+  return {
+    allowed: true,
+    ownedCount,
+  };
+}
+
+/**
  * Get the current plan for a user by checking their Stripe subscription
  */
 export const getUserPlan = query({
@@ -417,10 +430,11 @@ export const getUserPlan = query({
 /**
  * Get the plan for a team
  * 
- * HYBRID MODEL:
- * 1. First checks if team itself has a premium_team subscription
- * 2. Falls back to team owner's subscription (premium_individual)
- * 3. This allows individual teams to be upgraded independently
+ * SIMPLIFIED MODEL:
+ * Team plan is ALWAYS the owner's plan (no separate team subscriptions)
+ * - If owner has free → team is frozen (read-only)
+ * - If owner has premium_individual → team has 3 member limit
+ * - If owner has premium_team → team has 6 member limit + GPT-5 for all
  */
 export const getTeamPlan = internalQuery({
   args: { teamId: v.id("teams") },
@@ -674,6 +688,128 @@ export const canAddTeamMember = query({
   }),
   handler: async (ctx, args) => {
     return await _canAddTeamMember(ctx, args.teamId);
+  },
+});
+
+/**
+ * Check if a user can create a team
+ * Validates plan level and ownership limits
+ */
+export const canCreateTeam = query({
+  args: { 
+    userId: v.id("users"),
+  },
+  returns: v.object({
+    allowed: v.boolean(),
+    reason: v.optional(v.string()),
+    ownedCount: v.number(),
+  }),
+  handler: async (ctx, args) => {
+    return await _canCreateTeam(ctx, args.userId);
+  },
+});
+
+/**
+ * Check if a user can downgrade to a specific plan
+ * Validates that downgrade won't violate team member limits
+ * 
+ * Rules:
+ * - Downgrade to premium_individual: team must have ≤3 members
+ * - Downgrade to free: team will be frozen (can't add members, create cases)
+ */
+export const canDowngradeToPlan = query({
+  args: {
+    userId: v.id("users"),
+    newPlan: v.union(
+      v.literal("free"),
+      v.literal("premium_individual"),
+      v.literal("premium_team")
+    ),
+  },
+  returns: v.object({
+    allowed: v.boolean(),
+    reason: v.optional(v.string()),
+    teamMemberCount: v.optional(v.number()),
+    willFreezeTeam: v.boolean(),
+  }),
+  handler: async (ctx, args) => {
+    // Get current plan
+    const currentPlan = await _getUserPlan(ctx, args.userId);
+    
+    // Check if user owns a team
+    const ownedTeam = await ctx.db
+      .query("teams")
+      .withIndex("by_created_by", (q) => q.eq("createdBy", args.userId))
+      .filter((q) => q.eq(q.field("isActive"), true))
+      .first();
+
+    // If no team, downgrade is always allowed
+    if (!ownedTeam) {
+      return {
+        allowed: true,
+        willFreezeTeam: false,
+      };
+    }
+
+    // Count team members
+    const teamMembers = await ctx.db
+      .query("teamMemberships")
+      .withIndex("by_team", (q) => q.eq("teamId", ownedTeam._id))
+      .filter((q) => q.eq(q.field("isActive"), true))
+      .collect();
+
+    const memberCount = teamMembers.length;
+
+    // Check downgrade to free
+    if (args.newPlan === "free") {
+      // Always allow but warn about freezing
+      return {
+        allowed: true,
+        reason: "Tu equipo será congelado (solo lectura) hasta que actualices tu plan.",
+        teamMemberCount: memberCount,
+        willFreezeTeam: true,
+      };
+    }
+
+    // Check downgrade to premium_individual
+    if (args.newPlan === "premium_individual" && currentPlan === "premium_team") {
+      if (memberCount > 3) {
+        return {
+          allowed: false,
+          reason: `Tu equipo tiene ${memberCount} miembros. Premium Individual solo permite 3. Elimina ${memberCount - 3} miembros primero.`,
+          teamMemberCount: memberCount,
+          willFreezeTeam: false,
+        };
+      }
+      
+      return {
+        allowed: true,
+        reason: "Los miembros de tu equipo perderán acceso a GPT-5.",
+        teamMemberCount: memberCount,
+        willFreezeTeam: false,
+      };
+    }
+
+    // Upgrade or same plan - always allowed
+    return {
+      allowed: true,
+      willFreezeTeam: false,
+    };
+  },
+});
+
+/**
+ * Check if a team is frozen (owner has free plan)
+ * Frozen teams are read-only
+ */
+export const isTeamFrozen = query({
+  args: {
+    teamId: v.id("teams"),
+  },
+  returns: v.boolean(),
+  handler: async (ctx, args) => {
+    const teamPlan = await _getTeamPlan(ctx, args.teamId);
+    return teamPlan === "free";
   },
 });
 
