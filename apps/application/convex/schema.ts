@@ -120,6 +120,7 @@ export default defineSchema({
   cases: defineTable({
     title: v.string(),
     description: v.optional(v.string()),
+    expedientNumber: v.optional(v.string()), // Número de expediente judicial
     status: v.union(
       v.literal("pendiente"),
       v.literal("en progreso"),

@@ -33,10 +33,12 @@ export default function NewCaseCard({ caseItem }: { caseItem: any }) {
           {caseItem.title}
         </p>
         <div className="flex flex-col gap-1 2xl:gap-3">
-          <div className="flex items-center gap-1 2xl:gap-2">
-            <FileArchive size={14} className="2xl:w-6 2xl:h-6" />
-            <span className="truncate">0000000000</span>
-          </div>
+          {caseItem.expedientNumber && (
+            <div className="flex items-center gap-1 2xl:gap-2">
+              <FileArchive size={14} className="2xl:w-6 2xl:h-6" />
+              <span className="truncate">{caseItem.expedientNumber}</span>
+            </div>
+          )}
           <div className="flex items-center gap-4 2xl:gap-6">
             <div className="flex items-center gap-1 2xl:gap-2">
               <UserCheck size={14} className="2xl:w-6 2xl:h-6" />
