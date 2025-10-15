@@ -11,6 +11,7 @@ import { Badge } from "../ui/badge";
 import { useQuery } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import { Checkbox } from "../ui/checkbox";
+import { useNavigate } from "react-router-dom";
 
 interface CaseTableProps {
   cases: Case[] | undefined;
@@ -134,7 +135,11 @@ function getStatusText(status: Case["status"]) {
 }
 
 export default function CaseTable({ cases }: CaseTableProps) {
-  console.log("Cases in CaseTable:", cases);
+  const navigate = useNavigate();
+
+  const handleRowClick = (caseId: string) => {
+    navigate(`/caso/${caseId}`);
+  };
 
   return (
     <Table>
@@ -150,26 +155,30 @@ export default function CaseTable({ cases }: CaseTableProps) {
       <TableBody>
         {!cases || cases.length === 0 ? (
           <TableRow>
-            <TableCell colSpan={4} className="text-center py-8 text-gray-500">
+            <TableCell colSpan={5} className="text-center py-8 text-gray-500">
               No hay casos disponibles
             </TableCell>
           </TableRow>
         ) : (
           cases.map((case_) => (
-            <TableRow key={case_._id}>
-              <TableCell>
+            <TableRow
+              key={case_._id}
+              onClick={() => handleRowClick(case_._id)}
+              className="cursor-pointer hover:bg-gray-50 transition-colors"
+            >
+              <TableCell onClick={(e) => e.stopPropagation()}>
                 <Checkbox className="h-5 w-5" />
               </TableCell>
               <TableCell className="text-center">
-                <span className="font-medium ">{case_.title}</span>
+                <span className="font-medium">{case_.title}</span>
               </TableCell>
               <TableCell className="text-center">
                 <Badge variant={"basic"}>{getStatusText(case_.status)}</Badge>
               </TableCell>
-              <TableCell className="text-center   ">
+              <TableCell className="text-center">
                 <CaseTeams caseId={case_._id} />
               </TableCell>
-              <TableCell className="text-center    ">
+              <TableCell className="text-center">
                 <CaseUsers caseId={case_._id} />
               </TableCell>
             </TableRow>
