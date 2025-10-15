@@ -62,7 +62,10 @@ export default function CreateTeamDialog() {
       toast.error("No puedes crear un equipo", {
         description: canCreateTeamCheck?.reason || "No tienes acceso a crear equipos",
       });
-      setShowUpgradeModal(true);
+      // Only show upgrade modal if upgrading would actually help
+      if (canCreateTeamCheck?.canUpgrade) {
+        setShowUpgradeModal(true);
+      }
       return;
     }
 
@@ -152,14 +155,16 @@ export default function CreateTeamDialog() {
           </DialogFooter>
         </form>
 
-        {/* Upgrade Modal */}
-        <UpgradeModal
-          open={showUpgradeModal}
-          onOpenChange={setShowUpgradeModal}
-          reason={canCreateTeamCheck?.reason || "Funcionalidad no disponible"}
-          currentPlan={userPlan || "free"}
-          recommendedPlan="premium_individual"
-        />
+        {/* Upgrade Modal - only render if upgrade would help */}
+        {canCreateTeamCheck?.canUpgrade && (
+          <UpgradeModal
+            open={showUpgradeModal}
+            onOpenChange={setShowUpgradeModal}
+            reason={canCreateTeamCheck?.reason || "Funcionalidad no disponible"}
+            currentPlan={userPlan || "free"}
+            recommendedPlan="premium_individual"
+          />
+        )}
       </DialogContent>
     </Dialog>
   );

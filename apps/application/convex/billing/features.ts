@@ -377,6 +377,7 @@ export async function _canCreateTeam(
   allowed: boolean;
   reason?: string;
   ownedCount: number;
+  canUpgrade: boolean;
 }> {
   // Check user's plan
   const userPlan = await _getUserPlan(ctx, userId);
@@ -386,6 +387,7 @@ export async function _canCreateTeam(
       allowed: false,
       reason: "Solo usuarios Premium pueden crear equipos. Actualiza tu plan.",
       ownedCount: 0,
+      canUpgrade: true, // Upgrading to premium would allow team creation
     };
   }
 
@@ -403,12 +405,14 @@ export async function _canCreateTeam(
       allowed: false,
       reason: "Ya tienes un equipo. Solo puedes crear un equipo por cuenta.",
       ownedCount,
+      canUpgrade: false, // Upgrading won't help - no plan allows 2+ teams
     };
   }
 
   return {
     allowed: true,
     ownedCount,
+    canUpgrade: false, // Already allowed, no upgrade needed
   };
 }
 
@@ -461,24 +465,29 @@ export const hasFeatureAccess = query({
   returns: v.object({
     allowed: v.boolean(),
     reason: v.optional(v.string()),
+    canUpgrade: v.optional(v.boolean()),
   }),
-  handler: async (ctx, args): Promise<{ allowed: boolean; reason?: string }> => {
+  handler: async (ctx, args): Promise<{ allowed: boolean; reason?: string; canUpgrade?: boolean }> => {
     const billing = await _getBillingEntity(ctx, { userId: args.userId, teamId: args.teamId });
     const limits = PLAN_LIMITS[billing.plan];
 
-    // Premium users have full access
+    // Special handling for create_team feature - check ownership limits
+    if (args.feature === "create_team") {
+      const canCreate = await _canCreateTeam(ctx, args.userId);
+      return {
+        allowed: canCreate.allowed,
+        reason: canCreate.reason,
+        canUpgrade: canCreate.canUpgrade,
+      };
+    }
+
+    // Premium users have full access to other features
     if (billing.plan === "premium_individual" || billing.plan === "premium_team") {
       return { allowed: true };
     }
 
     // Free users: check feature flags
     switch (args.feature) {
-      case "create_team":
-        if (!limits.features.createTeam) {
-          return { allowed: false, reason: "Solo usuarios Premium pueden crear equipos." };
-        }
-        break;
-
       case "gpt5_access":
         if (!limits.features.gpt5) {
           return { allowed: false, reason: "GPT-5 solo disponible en plan Premium." };
@@ -703,6 +712,7 @@ export const canCreateTeam = query({
     allowed: v.boolean(),
     reason: v.optional(v.string()),
     ownedCount: v.number(),
+    canUpgrade: v.boolean(),
   }),
   handler: async (ctx, args) => {
     return await _canCreateTeam(ctx, args.userId);

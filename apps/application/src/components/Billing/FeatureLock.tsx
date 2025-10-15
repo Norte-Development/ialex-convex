@@ -79,7 +79,7 @@ export function FeatureLock({
         <p className="text-yellow-800">
           {featureAccess.reason || "Esta función requiere un plan Premium."}
         </p>
-        {onUpgrade && (
+        {onUpgrade && featureAccess.canUpgrade !== false && (
           <Button
             size="sm"
             onClick={onUpgrade}
