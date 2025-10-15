@@ -183,14 +183,14 @@ export default function CaseSidebar() {
         <button
           onClick={toggleCaseSidebar}
           className="fixed top-1/2 left-0 z-40 bg-white border border-border rounded-r-lg shadow-lg hover:shadow-xl transition-all duration-200 p-2 hover:bg-gray-50"
-          style={{ transform: 'translateY(-50%)' }}
+          style={{ transform: "translateY(-50%)" }}
         >
           <ArrowRight size={16} className="text-gray-600" />
         </button>
       )}
 
       <aside
-        className={`fixed top-0 left-0 z-30 w-64 h-screen pt-14 bg-white border-r border-border flex flex-col text-sm transform transition-transform duration-300 ease-in-out ${
+        className={`fixed top-0 left-0 z-30 w-64 h-screen pt-14 bg-[#eef1f8] border-r border-border flex flex-col text-sm transform transition-transform duration-300 ease-in-out  ${
           isCaseSidebarOpen ? "translate-x-0" : "-translate-x-full"
         }`}
       >
@@ -210,7 +210,9 @@ export default function CaseSidebar() {
             <FileSearch2
               className="cursor-pointer"
               size={20}
-              color={location.pathname.includes("/base-de-datos") ? "blue" : "black"}
+              color={
+                location.pathname.includes("/base-de-datos") ? "blue" : "black"
+              }
             />
           </Link>
 
@@ -233,11 +235,18 @@ export default function CaseSidebar() {
           ))}
 
           {can.viewCase && (
-            <Link to={`${basePath}/configuracion/reglas`} onClick={handleNavigationFromCase}>
+            <Link
+              to={`${basePath}/configuracion/reglas`}
+              onClick={handleNavigationFromCase}
+            >
               <ListChecks
                 className="cursor-pointer"
                 size={20}
-                color={location.pathname.includes("/configuracion/reglas") ? "blue" : "black"}
+                color={
+                  location.pathname.includes("/configuracion/reglas")
+                    ? "blue"
+                    : "black"
+                }
               />
             </Link>
           )}
@@ -247,14 +256,22 @@ export default function CaseSidebar() {
               <BookCheck
                 className="cursor-pointer"
                 size={20}
-                color={location.pathname.includes("/modelos") ? "blue" : "black"}
+                color={
+                  location.pathname.includes("/modelos") ? "blue" : "black"
+                }
               />
             </Link>
           )}
         </div>
 
         {/* Contenido scrolleable */}
-        <div className="flex-1 overflow-y-auto px-5 py-4">
+        <div
+          className="flex-1 overflow-y-auto px-5 py-4 custom-scrollbar"
+          style={{
+            scrollbarWidth: "thin",
+            scrollbarColor: "white transparent",
+          }}
+        >
           <div className="flex flex-col gap-4">
             {/* Escritos */}
             {can.escritos.read && (
@@ -284,69 +301,69 @@ export default function CaseSidebar() {
                   )}
                 </CollapsibleTrigger>
                 <CollapsibleContent className="flex flex-col gap-1 pl-2 text-[12px] pt-1">
-                {escritos && escritos.length > 0 ? (
-                  escritos.map((escrito) => (
-                    <div
-                      key={escrito._id}
-                      className={`flex flex-col gap-1 p-2 rounded hover:bg-gray-50 ${
-                        location.pathname.includes(`/escritos/${escrito._id}`)
-                          ? "bg-blue-50 border-l-2 border-blue-500"
-                          : ""
-                      }`}
-                    >
-                      <div className="flex items-center justify-between">
-                        <Link
-                          to={`${basePath}/escritos/${escrito._id}`}
-                          className="flex items-center gap-1 text-foreground hover:text-blue-600 flex-1"
-                          onClick={handleNavigationFromCase}
-                        >
-                          <FileType2 className="cursor-pointer" size={16} />
-                          <span className="truncate">{escrito.title}</span>
-                        </Link>
-                        {can.escritos.delete && (
-                          <TooltipProvider>
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  className="h-6 w-6 p-0 hover:bg-gray-200"
-                                  onClick={() =>
-                                    handleArchiveEscrito(escrito._id, true)
-                                  }
-                                >
-                                  <Archive
-                                    size={12}
-                                    className="text-gray-500"
-                                  />
-                                </Button>
-                              </TooltipTrigger>
-                              <TooltipContent>
-                                <p>Archivar escrito</p>
-                              </TooltipContent>
-                            </Tooltip>
-                          </TooltipProvider>
-                        )}
+                  {escritos && escritos.length > 0 ? (
+                    escritos.map((escrito) => (
+                      <div
+                        key={escrito._id}
+                        className={`flex flex-col gap-1 p-2 rounded hover:bg-gray-50 ${
+                          location.pathname.includes(`/escritos/${escrito._id}`)
+                            ? "bg-blue-50 border-l-2 border-blue-500"
+                            : ""
+                        }`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <Link
+                            to={`${basePath}/escritos/${escrito._id}`}
+                            className="flex items-center gap-1 text-foreground hover:text-blue-600 flex-1"
+                            onClick={handleNavigationFromCase}
+                          >
+                            <FileType2 className="cursor-pointer" size={16} />
+                            <span className="truncate">{escrito.title}</span>
+                          </Link>
+                          {can.escritos.delete && (
+                            <TooltipProvider>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-6 w-6 p-0 hover:bg-gray-200"
+                                    onClick={() =>
+                                      handleArchiveEscrito(escrito._id, true)
+                                    }
+                                  >
+                                    <Archive
+                                      size={12}
+                                      className="text-gray-500"
+                                    />
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  <p>Archivar escrito</p>
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
+                          )}
+                        </div>
+                        <div className="flex items-center justify-between text-xs text-muted-foreground">
+                          <Badge
+                            variant="secondary"
+                            className={`text-xs ${getStatusColor(escrito.status)}`}
+                          >
+                            {getStatusText(escrito.status)}
+                          </Badge>
+                          <span>{formatDate(escrito.lastEditedAt)}</span>
+                        </div>
                       </div>
-                      <div className="flex items-center justify-between text-xs text-muted-foreground">
-                        <Badge
-                          variant="secondary"
-                          className={`text-xs ${getStatusColor(escrito.status)}`}
-                        >
-                          {getStatusText(escrito.status)}
-                        </Badge>
-                        <span>{formatDate(escrito.lastEditedAt)}</span>
-                      </div>
+                    ))
+                  ) : (
+                    <div className="text-muted-foreground text-xs p-2">
+                      No hay escritos
                     </div>
-                  ))
-                ) : (
-                  <div className="text-muted-foreground text-xs p-2">
-                    No hay escritos
-                  </div>
-                )}
-              </CollapsibleContent>
-            </Collapsible>
-          )}
+                  )}
+                </CollapsibleContent>
+              </Collapsible>
+            )}
 
             {/* Documentos */}
             {can.docs.read && (
@@ -480,7 +497,10 @@ export default function CaseSidebar() {
                                   handleArchiveEscrito(escrito._id, false)
                                 }
                               >
-                                <RotateCcw size={12} className="text-gray-500" />
+                                <RotateCcw
+                                  size={12}
+                                  className="text-gray-500"
+                                />
                               </Button>
                             </TooltipTrigger>
                             <TooltipContent>

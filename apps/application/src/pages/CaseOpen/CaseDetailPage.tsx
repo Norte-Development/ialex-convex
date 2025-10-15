@@ -89,7 +89,7 @@ export default function CaseDetailPage() {
 
   return (
     <CaseLayout>
-      <div className="max-w-7xl px-5 mx-auto space-y-12 pb-16">
+      <div className="max-w-7xl px-5 mx-auto bg-white space-y-12 pb-16">
         <div className="space-y-4">
           <div className="flex items-start justify-between">
             <div className="space-y-3 flex-1">
@@ -138,7 +138,9 @@ export default function CaseDetailPage() {
               <div className="text-3xl font-light text-gray-900">
                 {documents?.length || 0}
               </div>
-              <div className="text-sm font-medium text-gray-900">Documentos</div>
+              <div className="text-sm font-medium text-gray-900">
+                Documentos
+              </div>
               <div className="text-xs text-gray-500">Archivos del caso</div>
             </div>
           </div>
@@ -173,7 +175,9 @@ export default function CaseDetailPage() {
                 <div className="text-3xl font-light text-gray-900">
                   {clients?.length || 0}
                 </div>
-                <div className="text-sm font-medium text-gray-900">Clientes</div>
+                <div className="text-sm font-medium text-gray-900">
+                  Clientes
+                </div>
                 <div className="text-xs text-gray-500">Partes involucradas</div>
               </div>
             </div>
