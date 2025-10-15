@@ -541,7 +541,7 @@ export const getUserPlan = query({
 });
 
 /**
- * Get the plan for a team
+ * Get the plan for a team (internal use)
  * 
  * SIMPLIFIED MODEL:
  * Team plan is ALWAYS the owner's plan (no separate team subscriptions)
@@ -549,7 +549,24 @@ export const getUserPlan = query({
  * - If owner has premium_individual → team has 3 member limit
  * - If owner has premium_team → team has 6 member limit + GPT-5 for all
  */
-export const getTeamPlan = internalQuery({
+export const getTeamPlanInternal = internalQuery({
+  args: { teamId: v.id("teams") },
+  returns: v.union(
+    v.literal("free"),
+    v.literal("premium_individual"),
+    v.literal("premium_team")
+  ),
+  handler: async (ctx, args): Promise<PlanType> => {
+    return await _getTeamPlan(ctx, args.teamId);
+  },
+});
+
+/**
+ * Get the plan for a team (public query for UI)
+ * 
+ * Returns the team's plan based on the owner's subscription
+ */
+export const getTeamPlan = query({
   args: { teamId: v.id("teams") },
   returns: v.union(
     v.literal("free"),

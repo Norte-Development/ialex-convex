@@ -49,11 +49,19 @@ export const useBillingData = (context?: UseBillingDataOptions): BillingData => 
   // Determine entity ID for billing (team or user)
   const entityId = context?.teamId || user?._id;
   
-  // Get user's plan
-  const plan = useQuery(
+  // Get plan based on context (team plan or user plan)
+  const userPlan = useQuery(
     api.billing.features.getUserPlan,
-    user?._id ? { userId: user._id } : "skip"
+    user?._id && !context?.teamId ? { userId: user._id } : "skip"
   );
+  
+  const teamPlan = useQuery(
+    api.billing.features.getTeamPlan,
+    context?.teamId ? { teamId: context.teamId } : "skip"
+  );
+  
+  // Use team plan if viewing team context, otherwise user plan
+  const plan = context?.teamId ? teamPlan : userPlan;
   
   // Get usage limits for the entity
   const usage = useQuery(
