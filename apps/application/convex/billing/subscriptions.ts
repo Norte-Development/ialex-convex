@@ -343,15 +343,17 @@ export const createCheckoutSession = action({
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) throw new Error("No autenticado");
 
+    const baseUrl = process.env.VITE_APP_URL || "http://localhost:5173";
+
     const response = await stripe.subscribe((ctx as any), {
         entityId: args.entityId,
         priceId: args.priceId,
         createStripeCustomerIfMissing: true,
         success: {
-            url: `http://localhost:5173/billing/success?session_id={CHECKOUT_SESSION_ID}`,
+            url: `${baseUrl}/billing/success?plan=premium_individual`,
         },
         cancel: {
-            url: `http://localhost:5173/pricing`,
+            url: `${baseUrl}/preferencias?section=billing`,
         },
         metadata: {
             userId: args.entityId,
@@ -376,10 +378,12 @@ export const portal = action({
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) throw new Error("No autenticado");
 
+    const baseUrl = process.env.VITE_APP_URL || "http://localhost:5173";
+
     const response = await stripe.portal((ctx as any), {
       entityId: args.entityId,
       return: {
-        url: `http://localhost:5173/settings/billing`,
+        url: `${baseUrl}/preferencias?section=billing`,
       },
     });
 
@@ -402,6 +406,8 @@ export const purchaseAICredits = action({
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) throw new Error("No autenticado");
 
+    const baseUrl = process.env.VITE_APP_URL || "http://localhost:5173";
+
     const response = await stripe.pay((ctx as any), {
         entityId: args.entityId,
         referenceId: args.entityId, // Add this required field
@@ -412,10 +418,10 @@ export const purchaseAICredits = action({
           },
         ],
         success: {
-          url: `http://localhost:5173/billing/credits/success`,
+          url: `${baseUrl}/billing/success?plan=ai_credits`,
         },
         cancel: {
-          url: `http://localhost:5173/billing/credits`,
+          url: `${baseUrl}/billing/credits`,
         },
         metadata: {
           userId: args.entityId,
@@ -484,16 +490,18 @@ export const upgradeToTeamFromFree = action({
       throw new Error("No autorizado");
     }
 
+    const baseUrl = process.env.VITE_APP_URL || "http://localhost:5173";
+
     // Create checkout session for user subscription to premium_team
     const response = await stripe.subscribe((ctx as any), {
       entityId: args.userId,
       priceId: args.teamPriceId,
       createStripeCustomerIfMissing: true,
       success: {
-        url: `http://localhost:5173/billing/success?plan=premium_team`,
+        url: `${baseUrl}/billing/success?plan=premium_team`,
       },
       cancel: {
-        url: `http://localhost:5173/preferences?section=billing`,
+        url: `${baseUrl}/preferencias?section=billing`,
       },
       metadata: {
         userId: args.userId,
