@@ -659,8 +659,6 @@ usageLimits: defineTable({
   })
   
   .index("by_user", ["userId"]),
-  
-  });
 
   // ========================================
   // EVENTS & CALENDAR SYSTEM
@@ -730,6 +728,7 @@ usageLimits: defineTable({
       searchField: "title",
       filterFields: ["isArchived", "status"],
     }),
+  
 
   // Event Participants - Users invited to events
   eventParticipants: defineTable({
