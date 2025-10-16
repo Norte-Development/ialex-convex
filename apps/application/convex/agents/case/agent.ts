@@ -1,6 +1,7 @@
 import { components } from "../../_generated/api";
 import { Agent, stepCountIs } from "@convex-dev/agent";
 import { openai } from "@ai-sdk/openai";
+import { anthropic } from "@ai-sdk/anthropic";
 
 import {
   searchCaseDocumentsTool,
@@ -40,7 +41,7 @@ import {
  */
 export const agent = new Agent(components.agent, {
   name: "iAlex - Agente Legal de tu caso",
-  languageModel: openai.responses('gpt-5'),
+  languageModel: anthropic("claude-haiku-4-5"),
   stopWhen: stepCountIs(25),
   callSettings: {
     maxRetries: 3,

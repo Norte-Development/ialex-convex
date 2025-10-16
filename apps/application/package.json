@@ -15,6 +15,7 @@
     "seed:legislation": "tsx scripts/seed-legislation-data.ts"
   },
   "dependencies": {
+    "@ai-sdk/anthropic": "^2.0.31",
     "@ai-sdk/openai": "^2.0.32",
     "@ai-sdk/react": "^2.0.20",
     "@convex-dev/agent": "^0.2.10",
