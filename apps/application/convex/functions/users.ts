@@ -504,6 +504,8 @@ export const updateUserPreferences = mutation({
       documentProcessing: v.optional(v.boolean()),
       teamInvitations: v.optional(v.boolean()),
       agentResponses: v.optional(v.boolean()),
+      eventReminders: v.optional(v.boolean()),
+      eventUpdates: v.optional(v.boolean()),
       
       // Agent Preferences
       agentResponseStyle: v.optional(v.string()),

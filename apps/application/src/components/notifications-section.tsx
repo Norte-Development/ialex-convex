@@ -102,6 +102,38 @@ export function NotificationsSection({ preferences, onUpdate }: NotificationsSec
               onCheckedChange={(value) => onUpdate("agentResponses", value)}
             />
           </div>
+
+          <div className="flex items-start justify-between gap-4">
+            <div className="space-y-0.5 flex-1">
+              <Label htmlFor="eventReminders" className="text-sm font-medium">
+                Recordatorios de Eventos
+              </Label>
+              <p className="text-sm text-muted-foreground text-pretty">
+                Recordatorios automáticos antes de eventos del calendario
+              </p>
+            </div>
+            <Switch 
+              id="eventReminders" 
+              checked={preferences.eventReminders}
+              onCheckedChange={(value) => onUpdate("eventReminders", value)}
+            />
+          </div>
+
+          <div className="flex items-start justify-between gap-4">
+            <div className="space-y-0.5 flex-1">
+              <Label htmlFor="eventUpdates" className="text-sm font-medium">
+                Actualizaciones de Eventos
+              </Label>
+              <p className="text-sm text-muted-foreground text-pretty">
+                Invitaciones a eventos y cambios de estado
+              </p>
+            </div>
+            <Switch 
+              id="eventUpdates" 
+              checked={preferences.eventUpdates}
+              onCheckedChange={(value) => onUpdate("eventUpdates", value)}
+            />
+          </div>
         </CardContent>
       </Card>
     </section>

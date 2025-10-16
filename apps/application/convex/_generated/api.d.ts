@@ -89,6 +89,8 @@ import type * as functions_escritosTransforms_index from "../functions/escritosT
 import type * as functions_escritosTransforms_insertHtmlContent from "../functions/escritosTransforms/insertHtmlContent.js";
 import type * as functions_escritosTransforms_rewriteSectionByAnchors from "../functions/escritosTransforms/rewriteSectionByAnchors.js";
 import type * as functions_escritosTransforms_types from "../functions/escritosTransforms/types.js";
+import type * as functions_eventNotifications from "../functions/eventNotifications.js";
+import type * as functions_events from "../functions/events.js";
 import type * as functions_folders from "../functions/folders.js";
 import type * as functions_html from "../functions/html.js";
 import type * as functions_index from "../functions/index.js";
@@ -106,6 +108,7 @@ import type * as functions_testReadEscritoHelpers from "../functions/testReadEsc
 import type * as functions_todos from "../functions/todos.js";
 import type * as functions_users from "../functions/users.js";
 import type * as http from "../http.js";
+import type * as migrations_addEventPreferences from "../migrations/addEventPreferences.js";
 import type * as prosemirror from "../prosemirror.js";
 import type * as rag_qdrantUtils_caseDocuments from "../rag/qdrantUtils/caseDocuments.js";
 import type * as rag_qdrantUtils_client from "../rag/qdrantUtils/client.js";
@@ -218,6 +221,8 @@ declare const fullApi: ApiFromModules<{
   "functions/escritosTransforms/insertHtmlContent": typeof functions_escritosTransforms_insertHtmlContent;
   "functions/escritosTransforms/rewriteSectionByAnchors": typeof functions_escritosTransforms_rewriteSectionByAnchors;
   "functions/escritosTransforms/types": typeof functions_escritosTransforms_types;
+  "functions/eventNotifications": typeof functions_eventNotifications;
+  "functions/events": typeof functions_events;
   "functions/folders": typeof functions_folders;
   "functions/html": typeof functions_html;
   "functions/index": typeof functions_index;
@@ -235,6 +240,7 @@ declare const fullApi: ApiFromModules<{
   "functions/todos": typeof functions_todos;
   "functions/users": typeof functions_users;
   http: typeof http;
+  "migrations/addEventPreferences": typeof migrations_addEventPreferences;
   prosemirror: typeof prosemirror;
   "rag/qdrantUtils/caseDocuments": typeof rag_qdrantUtils_caseDocuments;
   "rag/qdrantUtils/client": typeof rag_qdrantUtils_client;

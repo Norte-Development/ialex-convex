@@ -53,6 +53,10 @@ const HomeAgentChatPage = lazy(
   () => import("./pages/home/HomeAgentThreadPage"),
 );
 
+// Eventos pages
+const EventosPage = lazy(() => import("./pages/EventosPage"));
+const EventDetailPage = lazy(() => import("./pages/EventDetailPage"));
+
 // Lazy load TestRunner for development
 const TestRunner = lazy(() =>
   import("./components/HomeAgent/__tests__/TestRunner").then((module) => ({
@@ -216,6 +220,22 @@ const AppWithThread = () => {
                     element={
                       <ProtectedRoute>
                         <TeamManagePage />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/eventos"
+                    element={
+                      <ProtectedRoute>
+                        <EventosPage />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/eventos/:id"
+                    element={
+                      <ProtectedRoute>
+                        <EventDetailPage />
                       </ProtectedRoute>
                     }
                   />
