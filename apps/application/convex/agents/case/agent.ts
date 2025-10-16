@@ -47,10 +47,11 @@ const openrouter = createOpenRouter({
 export const agent = new Agent(components.agent, {
   name: "iAlex - Agente Legal de tu caso",
   languageModel: openrouter('anthropic/claude-haiku-4.5', {
-    reasoning: {
-      enabled: true,
-      effort: "low",
-    }
+    // reasoning: {
+    //   enabled: true,
+    //   effort: "low",
+    //   // exclude: true
+    // }
   }),
   stopWhen: stepCountIs(25),
   callSettings: {
@@ -62,6 +63,7 @@ export const agent = new Agent(components.agent, {
   contextOptions: {
     recentMessages: 20, // Reduced from 50 to prevent context bloat
     excludeToolMessages: true, // Exclude verbose tool messages to keep context lean
+
   },
 
   tools: {
