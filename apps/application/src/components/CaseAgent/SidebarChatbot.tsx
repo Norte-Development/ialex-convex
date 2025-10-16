@@ -63,6 +63,13 @@ export default function SidebarChatbot({
     }
   }, [isResizing, onWidthChange, onResizeEnd])
 
+  const handleNewConversation = useCallback(() => {
+    // Clear the current thread to start fresh
+    setThreadId(undefined)
+    // Clear the hash to reflect no active thread
+    window.location.hash = ""
+  }, [setThreadId])
+
   return (
     <>
       {/* Sidebar */}
@@ -84,6 +91,7 @@ export default function SidebarChatbot({
           caseId={caseId || undefined}
           currentThreadId={threadId || undefined}
           onThreadSelect={setThreadId}
+          onNewConversation={handleNewConversation}
         />
 
         {/* Chat Content */}

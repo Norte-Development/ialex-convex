@@ -52,7 +52,7 @@ http.route({
     } catch {
       return new Response("invalid json", { status: 400 });
     }
-
+    console.log("payload", payload);
     const documentId = payload.documentId;
     const status = payload.status;
     const totalChunks = payload.totalChunks as number | undefined;

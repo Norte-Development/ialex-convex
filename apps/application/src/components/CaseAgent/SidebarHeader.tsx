@@ -1,4 +1,4 @@
-import { MessageCircle, X, History } from "lucide-react"
+import { MessageCircle, X, History, Plus } from "lucide-react"
 import { useState } from "react"
 import { ChatHistoryDialog } from "./ChatHistoryDialog"
 
@@ -7,6 +7,7 @@ interface SidebarHeaderProps {
   caseId?: string
   currentThreadId?: string
   onThreadSelect?: (threadId: string) => void
+  onNewConversation?: () => void
 }
 
 export function SidebarHeader({
@@ -14,6 +15,7 @@ export function SidebarHeader({
   caseId,
   currentThreadId,
   onThreadSelect,
+  onNewConversation,
 }: SidebarHeaderProps) {
   const [historyOpen, setHistoryOpen] = useState(false)
 
@@ -25,6 +27,13 @@ export function SidebarHeader({
           <h2 className="font-semibold text-gray-800">Alex - Tu agente legal</h2>
         </div>
         <div className="flex items-center gap-1">
+          <button
+            onClick={onNewConversation}
+            className="p-1 hover:bg-gray-200 rounded-full transition-colors"
+            title="Nueva conversación"
+          >
+            <Plus className="w-5 h-5 text-gray-600" />
+          </button>
           <button
             onClick={() => setHistoryOpen(true)}
             className="p-1 hover:bg-gray-200 rounded-full transition-colors"
