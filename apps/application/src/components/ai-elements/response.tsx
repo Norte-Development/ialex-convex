@@ -1,7 +1,7 @@
 'use client';
 
 import { cn } from '@/lib/utils';
-import { type ComponentProps, memo } from 'react';
+import { type ComponentProps, memo, useMemo } from 'react';
 import { Streamdown } from 'streamdown';
 import remarkCitation from '@/lib/remark-citation';
 import type { MermaidConfig } from 'mermaid';
@@ -21,7 +21,11 @@ const mermaidConfig: MermaidConfig = {
 
 export const Response = memo(
   ({ className, onCitationClick, ...props }: ResponseProps) => {
-    const components = createMarkdownComponents(onCitationClick);
+    // Memoize components to prevent recreation on every render
+    const components = useMemo(
+      () => createMarkdownComponents(onCitationClick),
+      [onCitationClick]
+    );
     
     return (
       <Streamdown
@@ -38,7 +42,8 @@ export const Response = memo(
   },
   (prevProps, nextProps) => 
     prevProps.children === nextProps.children &&
-    prevProps.onCitationClick === nextProps.onCitationClick
+    prevProps.onCitationClick === nextProps.onCitationClick &&
+    prevProps.className === nextProps.className
 );
 
 Response.displayName = 'Response';

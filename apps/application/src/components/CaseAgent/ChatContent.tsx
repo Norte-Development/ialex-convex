@@ -104,17 +104,30 @@ export function ChatContent() {
     return scrollHeight - scrollTop - clientHeight < threshold
   }, [])
 
-  const handleContentResize = useCallback(() => {
-    if (!messagesContainerRef.current || isScrollingProgrammaticallyRef.current) return
+  // Debounce content resize callback to reduce layout recalculations
+  const resizeTimeoutRef = useRef<NodeJS.Timeout>(null);
+  const debouncedHandleContentResize = useCallback(() => {
+    if (resizeTimeoutRef.current) clearTimeout(resizeTimeoutRef.current);
+    
+    resizeTimeoutRef.current = setTimeout(() => {
+      if (!messagesContainerRef.current || isScrollingProgrammaticallyRef.current) return;
 
-    const { scrollTop, scrollHeight, clientHeight } = messagesContainerRef.current
-    const threshold = 100
-    const nearBottom = scrollHeight - scrollTop - clientHeight < threshold
+      const { scrollTop, scrollHeight, clientHeight } = messagesContainerRef.current;
+      const threshold = 100;
+      const nearBottom = scrollHeight - scrollTop - clientHeight < threshold;
 
-    if (scrollState.shouldAutoScroll && nearBottom) {
-      messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight
-    }
-  }, [scrollState.shouldAutoScroll])
+      if (scrollState.shouldAutoScroll && nearBottom) {
+        messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
+      }
+    }, 25); // Debounce to ~40fps instead of immediate
+  }, [scrollState.shouldAutoScroll]);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (resizeTimeoutRef.current) clearTimeout(resizeTimeoutRef.current);
+    };
+  }, []);
 
   useLayoutEffect(() => {
     if (messagesContainerRef.current && messages.results?.length && scrollState.isInitialLoad) {
@@ -259,11 +272,11 @@ export function ChatContent() {
 
       if (now - lastCallTime >= throttleMs) {
         lastCallTime = now
-        handleContentResize()
+        debouncedHandleContentResize()
       } else {
         rafId = requestAnimationFrame(() => {
           lastCallTime = Date.now()
-          handleContentResize()
+          debouncedHandleContentResize()
         })
       }
     })
@@ -280,7 +293,7 @@ export function ChatContent() {
         clearTimeout(scrollTimeoutRef.current)
       }
     }
-  }, [handleContentResize])
+  }, [debouncedHandleContentResize])
 
   const initiateWorkflow = useMutation(api.agents.case.workflow.initiateWorkflowStreaming).withOptimisticUpdate(
     optimisticallySendMessage(api.agents.case.streaming.listMessages),
@@ -432,11 +445,16 @@ export function ChatContent() {
     }
   }, [awaitingResponse, isStreaming, messages.results])
 
+  // Optimize memoization: use stable callback and only update when message structure changes
   const memoizedMessages = useMemo(() => {
     return toUIMessages(messages.results ?? []).map((m: any) => (
-      <SidebarMessage key={m.key} message={m} onContentChange={handleContentResize} />
+      <SidebarMessage 
+        key={m._id || m.id} 
+        message={m} 
+        onContentChange={debouncedHandleContentResize} 
+      />
     ))
-  }, [messages.results, handleContentResize])
+  }, [messages.results, debouncedHandleContentResize])
 
   const combinedReferences = useMemo(
     () => [
