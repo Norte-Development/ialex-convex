@@ -14,7 +14,7 @@ function CasesContent() {
 
   return (
     <div
-      className={`flex flex-col gap-4 w-full h-full px-5 ${currentCase ? "pt-5" : "pt-20"}`}
+      className={`flex flex-col gap-4 w-full  min-h-screen px-5 ${currentCase ? "pt-5" : "pt-20"}`}
     >
       <div className="w-full flex justify-between items-center">
         <h1 className="text-2xl font-bold">Casos</h1>

@@ -23,7 +23,7 @@ import {
   SelectValue,
 } from "../ui/select";
 import { Checkbox } from "../ui/checkbox";
-import { Plus, Users, X, Calendar, Clock } from "lucide-react";
+import { Plus, Users, X, Calendar } from "lucide-react";
 import { Badge } from "../ui/badge";
 import { Separator } from "../ui/separator";
 import { toast } from "sonner";
@@ -57,6 +57,7 @@ export default function CreateCaseDialog() {
   const [formData, setFormData] = useState({
     title: "",
     description: "",
+    expedientNumber: "",
     priority: "medium" as "low" | "medium" | "high",
     category: "",
     estimatedHours: "",
@@ -116,13 +117,9 @@ export default function CreateCaseDialog() {
     setShowDeadlineForm(true);
   };
 
-  const updateDeadline = (
-    id: string,
-    field: string,
-    value: string
-  ) => {
+  const updateDeadline = (id: string, field: string, value: string) => {
     setDeadlines((prev) =>
-      prev.map((d) => (d.id === id ? { ...d, [field]: value } : d))
+      prev.map((d) => (d.id === id ? { ...d, [field]: value } : d)),
     );
   };
 
@@ -144,6 +141,7 @@ export default function CreateCaseDialog() {
       const caseData = {
         title: formData.title,
         description: formData.description || undefined,
+        expedientNumber: formData.expedientNumber || undefined,
         priority: formData.priority,
         category: formData.category || undefined,
         estimatedHours: formData.estimatedHours
@@ -170,11 +168,13 @@ export default function CreateCaseDialog() {
       // Crear eventos para las fechas límite
       if (deadlines.length > 0) {
         const validDeadlines = deadlines.filter((d) => d.date && d.title);
-        
+
         if (validDeadlines.length > 0) {
           await Promise.all(
             validDeadlines.map((deadline) => {
-              const startDateTime = new Date(`${deadline.date}T${deadline.time}`);
+              const startDateTime = new Date(
+                `${deadline.date}T${deadline.time}`,
+              );
               const endDateTime = new Date(startDateTime);
               endDateTime.setHours(endDateTime.getHours() + 1); // 1 hora de duración por defecto
 
@@ -189,7 +189,7 @@ export default function CreateCaseDialog() {
                 isVirtual: false,
                 reminderMinutes: [1440, 60, 15], // 1 día, 1 hora, 15 min antes
               });
-            })
+            }),
           );
           toast.success(`Caso creado con ${validDeadlines.length} evento(s)`);
         } else {
@@ -203,6 +203,7 @@ export default function CreateCaseDialog() {
       setFormData({
         title: "",
         description: "",
+        expedientNumber: "",
         priority: "medium",
         category: "",
         estimatedHours: "",
@@ -283,6 +284,19 @@ export default function CreateCaseDialog() {
                   handleInputChange("description", e.target.value)
                 }
                 rows={3}
+              />
+            </div>
+
+            {/* Número de Expediente */}
+            <div className="space-y-2">
+              <Label htmlFor="expedientNumber">Número de Expediente</Label>
+              <Input
+                id="expedientNumber"
+                placeholder="Ej: EXP-2024-12345 o 12345/2024"
+                value={formData.expedientNumber}
+                onChange={(e) =>
+                  handleInputChange("expedientNumber", e.target.value)
+                }
               />
             </div>
 
@@ -469,7 +483,8 @@ export default function CreateCaseDialog() {
                   <Calendar className="h-4 w-4" />
                   <Label>Fechas Límite (Opcional)</Label>
                   <span className="text-sm text-muted-foreground">
-                    ({deadlines.length} fecha{deadlines.length !== 1 ? "s" : ""})
+                    ({deadlines.length} fecha{deadlines.length !== 1 ? "s" : ""}
+                    )
                   </span>
                 </div>
                 <Button
@@ -484,7 +499,8 @@ export default function CreateCaseDialog() {
               </div>
 
               <p className="text-xs text-muted-foreground">
-                Las fechas límite se crearán automáticamente como eventos vinculados al caso
+                Las fechas límite se crearán automáticamente como eventos
+                vinculados al caso
               </p>
 
               {/* Lista de fechas límite */}
@@ -530,8 +546,12 @@ export default function CreateCaseDialog() {
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="audiencia">🏛️ Audiencia</SelectItem>
-                            <SelectItem value="plazo">⏰ Plazo Legal</SelectItem>
+                            <SelectItem value="audiencia">
+                              🏛️ Audiencia
+                            </SelectItem>
+                            <SelectItem value="plazo">
+                              ⏰ Plazo Legal
+                            </SelectItem>
                             <SelectItem value="presentacion">
                               📄 Presentación
                             </SelectItem>
@@ -545,7 +565,11 @@ export default function CreateCaseDialog() {
                             type="date"
                             value={deadline.date}
                             onChange={(e) =>
-                              updateDeadline(deadline.id, "date", e.target.value)
+                              updateDeadline(
+                                deadline.id,
+                                "date",
+                                e.target.value,
+                              )
                             }
                             className="text-sm"
                           />
@@ -553,7 +577,11 @@ export default function CreateCaseDialog() {
                             type="time"
                             value={deadline.time}
                             onChange={(e) =>
-                              updateDeadline(deadline.id, "time", e.target.value)
+                              updateDeadline(
+                                deadline.id,
+                                "time",
+                                e.target.value,
+                              )
                             }
                             className="text-sm"
                           />

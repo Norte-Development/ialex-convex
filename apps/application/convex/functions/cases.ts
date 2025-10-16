@@ -17,6 +17,7 @@ import { internal } from "../_generated/api";
  * @param {Object} args - The function arguments
  * @param {string} args.title - The case title or name
  * @param {string} [args.description] - Detailed description of the case
+ * @param {string} [args.expedientNumber] - Judicial case number (número de expediente)
  * @param {string} [args.assignedLawyer] - User ID of the assigned lawyer (defaults to current user)
  * @param {"low" | "medium" | "high"} args.priority - The priority level of the case
  * @param {string} [args.category] - The legal category or type of case
@@ -33,6 +34,7 @@ import { internal } from "../_generated/api";
  * const caseId = await createCase({
  *   title: "Contract Dispute - ABC Corp",
  *   description: "Commercial contract dispute regarding payment terms",
+ *   expedientNumber: "EXP-2024-12345",
  *   priority: "high",
  *   category: "Contract Law",
  *   estimatedHours: 40
@@ -43,6 +45,7 @@ export const createCase = mutation({
   args: {
     title: v.string(),
     description: v.optional(v.string()),
+    expedientNumber: v.optional(v.string()),
     assignedLawyer: v.optional(v.id("users")),
     priority: v.union(v.literal("low"), v.literal("medium"), v.literal("high")),
     category: v.optional(v.string()),
@@ -57,6 +60,7 @@ export const createCase = mutation({
     const caseId = await ctx.db.insert("cases", {
       title: args.title,
       description: args.description,
+      expedientNumber: args.expedientNumber,
       assignedLawyer: assignedLawyer,
       createdBy: currentUser._id,
       status: "pendiente",
