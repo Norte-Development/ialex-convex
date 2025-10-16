@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { useMutation } from "convex/react";
+import { useMutation, useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { Id } from "../../convex/_generated/dataModel";
 import {
@@ -19,6 +19,7 @@ import { toast } from "sonner";
 import { useCase } from "@/context/CaseContext";
 import { usePermissions } from "@/context/CasePermissionsContext";
 import { PermissionToasts } from "@/lib/permissionToasts";
+import { useBillingLimit, UpgradeModal, LimitWarningBanner } from "@/components/Billing";
 
 interface CreateEscritoDialogProps {
   open?: boolean;
@@ -32,10 +33,30 @@ export function CreateEscritoDialog({
   onEscritoCreated,
 }: CreateEscritoDialogProps) {
   const [isLoading, setIsLoading] = useState(false);
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const { currentCase } = useCase();
   const { can } = usePermissions();
 
   const createEscrito = useMutation(api.functions.documents.createEscrito);
+
+  // Get current escritos for the case
+  const escritos = useQuery(
+    api.functions.documents.getEscritos,
+    currentCase?._id ? { caseId: currentCase._id as Id<"cases"> } : "skip"
+  );
+  const currentEscritoCount = escritos?.length || 0;
+
+  // Check escrito limit
+  const { allowed, isWarning, percentage, reason, currentCount, limit } = useBillingLimit("escritosPerCase", {
+    currentCount: currentEscritoCount,
+  });
+
+  // Get user plan for upgrade modal
+  const currentUser = useQuery(api.functions.users.getCurrentUser, {});
+  const userPlan = useQuery(
+    api.billing.features.getUserPlan,
+    currentUser?._id ? { userId: currentUser._id } : "skip"
+  );
 
   const [formData, setFormData] = useState({
     title: "",
@@ -76,6 +97,15 @@ export function CreateEscritoDialog({
 
     if (!currentCase) {
       toast.error("No hay un caso seleccionado");
+      return;
+    }
+
+    // Check billing limit before creating escrito
+    if (!allowed) {
+      toast.error("Límite alcanzado", {
+        description: reason,
+      });
+      setShowUpgradeModal(true);
       return;
     }
 
@@ -121,15 +151,31 @@ export function CreateEscritoDialog({
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <FileText className="w-5 h-5" />
-            Crear Nuevo Escrito
-          </DialogTitle>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <FileText className="w-5 h-5" />
+              <DialogTitle>Crear Nuevo Escrito</DialogTitle>
+            </div>
+            <span className="text-sm text-gray-500 whitespace-nowrap ml-4">
+              {currentCount}/{limit === Infinity ? "∞" : limit}
+            </span>
+          </div>
           <DialogDescription>
             Crea un nuevo escrito legal para el caso actual. Los campos marcados
             con * son obligatorios.
           </DialogDescription>
         </DialogHeader>
+
+        {/* Warning banner if approaching limit */}
+        {isWarning && (
+          <LimitWarningBanner
+            limitType="escritosPerCase"
+            percentage={percentage}
+            currentCount={currentCount}
+            limit={limit}
+            onUpgrade={() => setShowUpgradeModal(true)}
+          />
+        )}
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
@@ -193,6 +239,15 @@ export function CreateEscritoDialog({
             </Button>
           </DialogFooter>
         </form>
+
+        {/* Upgrade Modal */}
+        <UpgradeModal
+          open={showUpgradeModal}
+          onOpenChange={setShowUpgradeModal}
+          reason={reason}
+          currentPlan={userPlan || "free"}
+          recommendedPlan="premium_individual"
+        />
       </DialogContent>
     </Dialog>
   );

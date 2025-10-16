@@ -9,7 +9,9 @@ import { GeneralSection } from "@/components/appearance-section";
 import { NotificationsSection } from "@/components/notifications-section";
 import { AgentSection } from "@/components/agent-section";
 import { PrivacySection } from "@/components/privacy-section";
+import { BillingSection } from "@/components/Billing";
 import { Loader2 } from "lucide-react";
+import { useSearchParams } from "react-router-dom";
 
 // Default preferences
 const DEFAULT_PREFERENCES = {
@@ -33,11 +35,12 @@ const DEFAULT_PREFERENCES = {
 export default function UserPreferencesPage() {
   const currentUser = useQuery(api.functions.users.getCurrentUser, {});
   const updatePreferences = useMutation(api.functions.users.updateUserPreferences);
-
+  const [searchParams, setSearchParams] = useSearchParams();
+  const section = searchParams.get("section");
   // State for all preferences and UI
   const [isSaving, setIsSaving] = useState(false);
   const [preferences, setPreferences] = useState(DEFAULT_PREFERENCES);
-  const [activeSection, setActiveSection] = useState("general");
+  const [activeSection, setActiveSection] = useState(section || "general");
 
   // Load preferences from user data
   useEffect(() => {
@@ -52,6 +55,12 @@ export default function UserPreferencesPage() {
   // Update a single preference
   const updatePreference = (key: string, value: any) => {
     setPreferences((prev) => ({ ...prev, [key]: value }));
+  };
+
+  // Add a new handler for section changes that updates both state and URL
+  const handleSectionChange = (section: string) => {
+    setActiveSection(section);
+    setSearchParams({ section });
   };
 
   // Save preferences
@@ -96,7 +105,7 @@ export default function UserPreferencesPage() {
         <aside className="lg:sticky lg:top-24 lg:self-start">
           <PreferencesNav 
             activeSection={activeSection} 
-            onSectionChange={setActiveSection}
+            onSectionChange={handleSectionChange} 
           />
         </aside>
 
@@ -121,6 +130,10 @@ export default function UserPreferencesPage() {
               preferences={preferences}
               onUpdate={updatePreference}
             />
+          )}
+
+          {activeSection === "billing" && (
+            <BillingSection />
           )}
 
           {activeSection === "privacy" && (

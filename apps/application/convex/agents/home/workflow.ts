@@ -7,6 +7,9 @@ import { internalAction, mutation } from "../../_generated/server";
 import { getCurrentUserFromAuth } from "../../auth_utils";
 import { authorizeThreadAccess } from "../threads";
 import { prompt } from "./prompt";
+import { _getUserPlan, _getOrCreateUsageLimits, _getModelForUserPersonal } from "../../billing/features";
+import { PLAN_LIMITS } from "../../billing/planLimits";
+import { openai } from "@ai-sdk/openai";
 
 const workflow = new WorkflowManager(components.workflow);
 
@@ -29,6 +32,7 @@ export const legalAgentWorkflow = workflow.define({
       {
         threadId: args.threadId,
         promptMessageId: userMessage.messageId,
+        userId: args.userId,
       },
       { retry: false },
     );
@@ -41,10 +45,17 @@ export const streamWithContextAction = internalAction({
   args: {
     threadId: v.string(),
     promptMessageId: v.string(),
+    userId: v.id("users"),
   },
   returns: v.null(),
-  handler: async (ctx, { threadId, promptMessageId }) => {
+  handler: async (ctx, { threadId, promptMessageId, userId }) => {
 
+    // Determine which model to use based on user's personal billing plan
+    // (Home agent doesn't have case context, so only check user's own plan)
+    const modelToUse = await ctx.runMutation(
+      internal.billing.features.getModelForUserPersonal,
+      { userId }
+    );
 
     const systemMessage = `Sos el asistente legal IALEX. Aquí está el contexto actual:
       Instrucciones:
@@ -58,12 +69,15 @@ export const streamWithContextAction = internalAction({
         {
           system: systemMessage,
           promptMessageId,
-          providerOptions: {
-            openai: {
-              reasoningEffort: "low",
-              reasoningSummary: "auto",
+          model: openai.responses(modelToUse),
+          ...(modelToUse === "gpt-5" && {
+            providerOptions: {
+              openai: {
+                reasoningEffort: "low",
+                reasoningSummary: "auto",
+              },
             },
-          },
+          }),
           experimental_repairToolCall: async (...args: any[]) => {
             console.log("Tool call repair triggered:", args);
             return null;
@@ -177,6 +191,27 @@ export const initiateWorkflowStreaming = mutation({
   handler: async (ctx, args): Promise<{workflowId: string, threadId: string}> => {
     const user = await getCurrentUserFromAuth(ctx);
 
+    // Check AI message limits before processing
+    const userPlan = await _getUserPlan(ctx, user._id);
+    const usage = await _getOrCreateUsageLimits(ctx, user._id, "user");
+    const limits = PLAN_LIMITS[userPlan];
+
+    // Check AI message limits + purchased credits
+    const credits = await ctx.db
+      .query("aiCredits")
+      .withIndex("by_user", (q) => q.eq("userId", user._id))
+      .first();
+
+    const availableMessages = limits.aiMessagesPerMonth - usage.aiMessagesThisMonth;
+    const availableCredits = credits?.remaining || 0;
+    const totalAvailable = availableMessages + availableCredits;
+
+    if (totalAvailable <= 0) {
+      throw new Error(
+        "Has alcanzado el límite de mensajes de IA. Compra créditos o actualiza a Premium para mensajes ilimitados."
+      );
+    }
+
     let threadId = args.threadId;
     if (!threadId) {
       // Use first 50 chars of message as thread title
@@ -200,6 +235,14 @@ export const initiateWorkflowStreaming = mutation({
         prompt: args.prompt,
       },
     );
+
+    // Decrement AI message credits after successfully initiating workflow
+    // Home workflow has no case context, so teamId is undefined (uses user's personal limits)
+    await ctx.scheduler.runAfter(0, internal.billing.features.decrementCredits, {
+      userId: user._id,
+      teamId: undefined,
+      amount: 1,
+    });
 
     return { workflowId, threadId };
   },
