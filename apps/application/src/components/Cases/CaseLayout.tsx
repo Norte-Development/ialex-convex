@@ -349,7 +349,7 @@ function InnerCaseLayout({ children }: CaseDetailLayoutProps) {
 
       {/* Main content - scrollable */}
       <main
-        className={`bg-[#f7f7f7] pt-14 h-[calc(100vh-56px)] overflow-y-auto ${
+        className={`pt-14 h-[calc(100vh-56px)] overflow-y-auto ${
           isResizing
             ? "transition-none"
             : "transition-all duration-300 ease-in-out"
