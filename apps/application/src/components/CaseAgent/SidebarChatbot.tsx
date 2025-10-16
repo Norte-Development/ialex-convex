@@ -5,6 +5,8 @@ import { ResizeHandle } from "./ResizeHandle"
 import { SidebarHeader } from "./SidebarHeader"
 import { ChatContent } from "./ChatContent"
 import type { SidebarChatbotProps } from "./types"
+import { useCase } from "@/context/CaseContext"
+import { useThread } from "@/context/ThreadContext"
 
 export default function SidebarChatbot({
   isOpen,
@@ -16,6 +18,8 @@ export default function SidebarChatbot({
 }: SidebarChatbotProps) {
   const [isResizing, setIsResizing] = useState(false)
   const sidebarRef = useRef<HTMLDivElement>(null)
+  const { caseId } = useCase()
+  const { threadId, setThreadId } = useThread()
 
   // Resize functionality
   const handleMouseDown = useCallback(
@@ -75,7 +79,12 @@ export default function SidebarChatbot({
         <ResizeHandle onMouseDown={handleMouseDown} />
 
         {/* Header */}
-        <SidebarHeader onToggle={onToggle} />
+        <SidebarHeader
+          onToggle={onToggle}
+          caseId={caseId || undefined}
+          currentThreadId={threadId || undefined}
+          onThreadSelect={setThreadId}
+        />
 
         {/* Chat Content */}
         <div className="flex-1 flex flex-col min-h-0">
