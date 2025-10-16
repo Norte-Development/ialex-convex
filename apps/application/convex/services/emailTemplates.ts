@@ -222,3 +222,224 @@ export function agentTaskCompleteTemplate(taskDescription: string, userName: str
   `.trim();
 }
 
+export function eventReminderTemplate(
+  eventTitle: string,
+  eventType: string,
+  startDate: string,
+  startTime: string,
+  location: string | undefined,
+  meetingUrl: string | undefined,
+  userName: string,
+  minutesUntil: number
+): string {
+  const eventTypeLabels: Record<string, string> = {
+    audiencia: "🏛️ Audiencia",
+    plazo: "⏰ Plazo Legal",
+    reunion_cliente: "👥 Reunión con Cliente",
+    presentacion: "📄 Presentación",
+    reunion_equipo: "👨‍💼 Reunión de Equipo",
+    personal: "🙋 Evento Personal",
+    otro: "📌 Otro Evento",
+  };
+
+  const timeLabel = minutesUntil >= 1440 
+    ? `en ${Math.floor(minutesUntil / 1440)} día(s)`
+    : minutesUntil >= 60
+    ? `en ${Math.floor(minutesUntil / 60)} hora(s)`
+    : `en ${minutesUntil} minuto(s)`;
+
+  const locationInfo = location 
+    ? `<p><strong>📍 Ubicación:</strong> ${location}</p>`
+    : "";
+
+  const meetingInfo = meetingUrl
+    ? `<p><strong>🔗 Enlace:</strong> <a href="${meetingUrl}" style="color: #2196F3;">${meetingUrl}</a></p>`
+    : "";
+
+  return `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; }
+    .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+    .header { background: #FF9800; color: white; padding: 20px; text-align: center; }
+    .content { background: #f9f9f9; padding: 30px; margin: 20px 0; }
+    .event-box { background: white; padding: 20px; border-left: 4px solid #FF9800; margin: 20px 0; }
+    .time-badge { display: inline-block; padding: 8px 16px; background: #FF5722; color: white; border-radius: 4px; font-weight: bold; margin: 10px 0; }
+    .footer { text-align: center; color: #666; font-size: 12px; padding: 20px; }
+    .button { display: inline-block; padding: 12px 24px; background: #FF9800; color: white; text-decoration: none; border-radius: 4px; margin-top: 20px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>⏰ Recordatorio de Evento</h1>
+    </div>
+    <div class="content">
+      <p>Hola ${userName},</p>
+      <p>Este es un recordatorio de tu próximo evento:</p>
+      <div class="event-box">
+        <h2 style="margin-top: 0;">${eventTitle}</h2>
+        <p><strong>Tipo:</strong> ${eventTypeLabels[eventType] || eventType}</p>
+        <p><strong>📅 Fecha:</strong> ${startDate}</p>
+        <p><strong>🕐 Hora:</strong> ${startTime}</p>
+        ${locationInfo}
+        ${meetingInfo}
+        <div class="time-badge">Comienza ${timeLabel}</div>
+      </div>
+      <p style="text-align: center;">
+        <a href="${process.env.CONVEX_SITE_URL}/eventos" class="button">Ver Detalles del Evento</a>
+      </p>
+    </div>
+    <div class="footer">
+      <p>iAlex - Tu asistente legal inteligente</p>
+      <p>Este es un mensaje automático, por favor no responder a este correo.</p>
+    </div>
+  </div>
+</body>
+</html>
+  `.trim();
+}
+
+export function eventInviteTemplate(
+  eventTitle: string,
+  eventType: string,
+  startDate: string,
+  startTime: string,
+  location: string | undefined,
+  meetingUrl: string | undefined,
+  organizerName: string,
+  userName: string
+): string {
+  const eventTypeLabels: Record<string, string> = {
+    audiencia: "🏛️ Audiencia",
+    plazo: "⏰ Plazo Legal",
+    reunion_cliente: "👥 Reunión con Cliente",
+    presentacion: "📄 Presentación",
+    reunion_equipo: "👨‍💼 Reunión de Equipo",
+    personal: "🙋 Evento Personal",
+    otro: "📌 Otro Evento",
+  };
+
+  const locationInfo = location 
+    ? `<p><strong>📍 Ubicación:</strong> ${location}</p>`
+    : "";
+
+  const meetingInfo = meetingUrl
+    ? `<p><strong>🔗 Enlace:</strong> <a href="${meetingUrl}" style="color: #2196F3;">${meetingUrl}</a></p>`
+    : "";
+
+  return `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; }
+    .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+    .header { background: #2196F3; color: white; padding: 20px; text-align: center; }
+    .content { background: #f9f9f9; padding: 30px; margin: 20px 0; }
+    .event-box { background: white; padding: 20px; border-left: 4px solid #2196F3; margin: 20px 0; }
+    .footer { text-align: center; color: #666; font-size: 12px; padding: 20px; }
+    .button { display: inline-block; padding: 12px 24px; background: #2196F3; color: white; text-decoration: none; border-radius: 4px; margin-top: 20px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>📅 Invitación a Evento</h1>
+    </div>
+    <div class="content">
+      <p>Hola ${userName},</p>
+      <p><strong>${organizerName}</strong> te ha invitado al siguiente evento:</p>
+      <div class="event-box">
+        <h2 style="margin-top: 0;">${eventTitle}</h2>
+        <p><strong>Tipo:</strong> ${eventTypeLabels[eventType] || eventType}</p>
+        <p><strong>📅 Fecha:</strong> ${startDate}</p>
+        <p><strong>🕐 Hora:</strong> ${startTime}</p>
+        ${locationInfo}
+        ${meetingInfo}
+      </div>
+      <p style="text-align: center;">
+        <a href="${process.env.CONVEX_SITE_URL}/eventos" class="button">Ver Evento</a>
+      </p>
+    </div>
+    <div class="footer">
+      <p>iAlex - Tu asistente legal inteligente</p>
+      <p>Este es un mensaje automático, por favor no responder a este correo.</p>
+    </div>
+  </div>
+</body>
+</html>
+  `.trim();
+}
+
+export function eventUpdateTemplate(
+  eventTitle: string,
+  updateType: "status" | "details",
+  oldValue: string,
+  newValue: string,
+  userName: string
+): string {
+  const updateLabels: Record<string, string> = {
+    status: "Estado",
+    details: "Detalles",
+  };
+
+  const statusLabels: Record<string, string> = {
+    programado: "Programado",
+    completado: "Completado",
+    cancelado: "Cancelado",
+    reprogramado: "Reprogramado",
+  };
+
+  const displayOld = updateType === "status" ? statusLabels[oldValue] || oldValue : oldValue;
+  const displayNew = updateType === "status" ? statusLabels[newValue] || newValue : newValue;
+
+  return `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; }
+    .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+    .header { background: #1a1a1a; color: white; padding: 20px; text-align: center; }
+    .content { background: #f9f9f9; padding: 30px; margin: 20px 0; }
+    .update-box { background: white; padding: 20px; border-left: 4px solid #9C27B0; margin: 20px 0; }
+    .change { background: #f5f5f5; padding: 10px; border-radius: 4px; margin: 10px 0; }
+    .footer { text-align: center; color: #666; font-size: 12px; padding: 20px; }
+    .button { display: inline-block; padding: 12px 24px; background: #9C27B0; color: white; text-decoration: none; border-radius: 4px; margin-top: 20px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>🔔 Actualización de Evento</h1>
+    </div>
+    <div class="content">
+      <p>Hola ${userName},</p>
+      <p>El evento <strong>"${eventTitle}"</strong> ha sido actualizado.</p>
+      <div class="update-box">
+        <p><strong>Cambio realizado:</strong> ${updateLabels[updateType]}</p>
+        <div class="change">
+          <p><strong>Antes:</strong> ${displayOld}</p>
+          <p><strong>Ahora:</strong> ${displayNew}</p>
+        </div>
+      </div>
+      <p style="text-align: center;">
+        <a href="${process.env.CONVEX_SITE_URL}/eventos" class="button">Ver Evento</a>
+      </p>
+    </div>
+    <div class="footer">
+      <p>iAlex - Tu asistente legal inteligente</p>
+      <p>Este es un mensaje automático, por favor no responder a este correo.</p>
+    </div>
+  </div>
+</body>
+</html>
+  `.trim();
+}
+

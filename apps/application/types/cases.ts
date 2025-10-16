@@ -21,4 +21,5 @@ export interface Case {
   actualHours?: number;
   isArchived: boolean;
   tags?: string[];
+  expedientNumber?: string;
 }
