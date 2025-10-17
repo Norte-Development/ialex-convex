@@ -51,7 +51,7 @@ export default function NavBar() {
 
   return (
     <nav
-      className={`flex flex-row-reverse fixed px-5 justify-between items-center h-14 w-full bg-background text-foreground border-b border-border top-0 left-0 z-50 mb-5`}
+      className={`flex flex-row-reverse fixed px-5 justify-between items-center h-14 w-full bg-transparent text-foreground  top-0 left-0 z-50 mb-5`}
     >
       <div className={` flex  items-center gap-5`}>
         <div className="flex items-center justify-center gap-2">
@@ -74,7 +74,7 @@ export default function NavBar() {
           </button>
         )}
       </div>
-      <div className={`flex justify-center items-center relative w-[30%]`}>
+      {/* <div className={`flex justify-center items-center relative w-[30%]`}>
         <Input
           placeholder="Buscar"
           className="w-full rounded-full placeholder:text-[14px] h-fit pr-20"
@@ -106,7 +106,7 @@ export default function NavBar() {
           onResultClick={handleResultClick}
           onClose={() => setIsOpen(false)}
         />
-      </div>
+      </div> */}
       <div className={`flex gap-4 justify-center items-center `}>
         {isInCaseContext ? (
           <div className="text-xl font-bold text-black flex items-center gap-2">

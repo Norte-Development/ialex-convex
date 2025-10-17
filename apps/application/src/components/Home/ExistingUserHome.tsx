@@ -3,12 +3,11 @@ import { api } from "../../../convex/_generated/api";
 import EventDateCard from "./EventDateCard";
 import { Button } from "../ui/button";
 import { Calendar } from "lucide-react";
-import { useNavigate } from "react-router-dom";
 import AllEventsDialog from "./AllEventsDialog";
 import CaseCards from "./CaseCards";
+import { useState } from "react";
 
 const ExistingUserHome = () => {
-  const navigate = useNavigate();
   const casesResult = useQuery(api.functions.cases.getCases, {});
   const upcomingEvents = useQuery(api.functions.events.getUpcomingEvents, {
     days: 30,
@@ -17,8 +16,7 @@ const ExistingUserHome = () => {
   const cases = casesResult || [];
   const events = upcomingEvents || [];
 
-  console.log("cases", cases);
-  console.log("events", events);
+  const [open, setOpen] = useState(false);
 
   return (
     <>
@@ -49,10 +47,9 @@ const ExistingUserHome = () => {
             </p>
             <Button
               variant="ghost"
-              onClick={() => navigate("/eventos")}
-              className="flex items-center gap-2"
+              onClick={() => setOpen(true)}
+              className="flex items-center gap-2 underline"
             >
-              <Calendar size={18} />
               Ir a calendario
             </Button>
           </div>
@@ -72,6 +69,8 @@ const ExistingUserHome = () => {
           </div>
         </div>
       </div>
+
+      <AllEventsDialog open={open} onOpenChange={() => setOpen(!open)} />
     </>
   );
 };
