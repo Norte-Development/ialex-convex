@@ -1,14 +1,33 @@
 import "dotenv/config";
-import fs from "fs/promises";
-import path from "path";
 import { TempFileManager } from "../src/utils/tempFileManager";
 import { JobStateManager } from "../src/services/stateManager";
 import { MemoryMonitor } from "../src/utils/memoryMonitor";
 import { StreamingChunkingService } from "../src/services/streaming/streamingChunkingService";
 import { StreamingJobState } from "../src/types/jobState";
-import { logger } from "../src/middleware/logging";
 
 const TEST_JOB_ID = `test-streaming-${Date.now()}`;
+
+async function isRedisAvailable(): Promise<boolean> {
+  const IORedis = (await import('ioredis')).default;
+  const testRedis = new IORedis(process.env.REDIS_URL || "redis://localhost:6379", {
+    maxRetriesPerRequest: 1,
+    retryStrategy: () => null,
+    lazyConnect: true,
+    enableOfflineQueue: false
+  });
+  
+  try {
+    await testRedis.connect();
+    await testRedis.ping();
+    await testRedis.quit();
+    return true;
+  } catch (error) {
+    try {
+      await testRedis.quit();
+    } catch {}
+    return false;
+  }
+}
 
 async function testTempFileManager() {
   console.log("\n=== Testing Temp File Manager ===");
@@ -51,24 +70,16 @@ async function testTempFileManager() {
 
 async function testJobStateManager() {
   console.log("\n=== Testing Job State Manager ===");
+  
+  // Check if Redis is available
+  if (!(await isRedisAvailable())) {
+    console.log("⚠ Redis not available, skipping state manager tests (this is OK for CI)");
+    return true; // Skip but don't fail
+  }
+  
   const stateManager = new JobStateManager(TEST_JOB_ID);
   
   try {
-    // Check if Redis is available
-    const IORedis = (await import('ioredis')).default;
-    const testRedis = new IORedis(process.env.REDIS_URL || "redis://localhost:6379", {
-      maxRetriesPerRequest: 1,
-      retryStrategy: () => null
-    });
-    
-    try {
-      await testRedis.ping();
-      await testRedis.quit();
-    } catch (error) {
-      console.log("⚠ Redis not available, skipping test");
-      return true; // Skip test if Redis not available
-    }
-    
     // Initialize state
     const state = await stateManager.initialize("test-doc-id", 1);
     console.log("✓ State initialized");
@@ -230,23 +241,9 @@ async function testIntegration() {
   console.log("\n=== Testing Integration ===");
   
   // Check if Redis is available
-  try {
-    const IORedis = (await import('ioredis')).default;
-    const testRedis = new IORedis(process.env.REDIS_URL || "redis://localhost:6379", {
-      maxRetriesPerRequest: 1,
-      retryStrategy: () => null
-    });
-    
-    try {
-      await testRedis.ping();
-      await testRedis.quit();
-    } catch (error) {
-      console.log("⚠ Redis not available, skipping test");
-      return true; // Skip test if Redis not available
-    }
-  } catch (error) {
-    console.log("⚠ Redis not available, skipping test");
-    return true;
+  if (!(await isRedisAvailable())) {
+    console.log("⚠ Redis not available, skipping integration tests (this is OK for CI)");
+    return true; // Skip but don't fail
   }
   
   const manager = new TempFileManager(TEST_JOB_ID + "-integration");
