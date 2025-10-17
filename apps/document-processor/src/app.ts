@@ -12,6 +12,8 @@ import { getTimeoutConfig } from "./utils/timeoutUtils";
 import { getSupportedFormats } from "./services/mediaProcessingService";
 import { FILE_SIZE_LIMITS, SUPPORTED_MIME_TYPES, MIME_TYPE_PATTERNS, getFileSizeLimit } from "./utils/fileValidation";
 import { getErrorStats } from "./utils/errorTaxonomy";
+import { processStreamingDocumentJobWithResume } from "./jobs/streamingProcessDocumentJob";
+import { startCleanupScheduler } from "./jobs/cleanupOldJobStates";
 // @ts-ignore
 import multer from "multer";
 import * as path from "path";
@@ -428,17 +430,67 @@ app.get("/status/:id", async (req: Request, res: Response) => {
   }
 });
 
+// Resume stats endpoint
+app.get("/resume-stats", async (_req: Request, res: Response) => {
+  try {
+    const IORedis = (await import('ioredis')).default;
+    const redis = new IORedis(process.env.REDIS_URL || "redis://localhost:6379");
+    const keys = await redis.keys('job:state:*');
+    const states = await Promise.all(
+      keys.map(async key => {
+        const data = await redis.get(key);
+        return data ? JSON.parse(data) : null;
+      })
+    );
+
+    const validStates = states.filter(s => s !== null);
+
+    const stats = {
+      total: validStates.length,
+      byPhase: validStates.reduce((acc: Record<string, number>, s) => {
+        acc[s.currentPhase] = (acc[s.currentPhase] || 0) + 1;
+        return acc;
+      }, {} as Record<string, number>),
+      resumable: validStates.filter(s => s.canResume).length,
+      resumed: validStates.filter(s => s.resumedFrom).length,
+      failed: validStates.filter(s => s.errorCount > 0).length,
+      avgProgress: validStates.reduce((sum, s) => {
+        const total = s.progress.chunksGenerated || 1;
+        const done = s.progress.chunksUpserted || 0;
+        return sum + (done / total);
+      }, 0) / (validStates.length || 1)
+    };
+
+    await redis.quit();
+    res.json(stats);
+  } catch (error) {
+    logger.error('Failed to get resume stats', { error: String(error) });
+    res.status(500).json({ error: 'Failed to get stats' });
+  }
+});
+
 // HMAC helper for callbacks
 function signBody(body: string, secret: string) {
   return crypto.createHmac("sha256", secret).update(body).digest("hex");
 }
 
 // Worker registration
-try {
-  processDocumentJob(queue);
-  logger.info("Document processing worker registered successfully");
-} catch (error) {
-  logger.error("Failed to register document processing worker", { error: String(error) });
+const useStreaming = process.env.USE_STREAMING_PROCESSOR === 'true';
+
+if (useStreaming) {
+  try {
+    processStreamingDocumentJobWithResume(queue);
+    logger.info("Streaming document processor registered successfully");
+  } catch (error) {
+    logger.error("Failed to register streaming document processor", { error: String(error) });
+  }
+} else {
+  try {
+    processDocumentJob(queue);
+    logger.info("Document processing worker registered successfully");
+  } catch (error) {
+    logger.error("Failed to register document processing worker", { error: String(error) });
+  }
 }
 
 try {
@@ -446,6 +498,12 @@ try {
   logger.info("Library document processing worker registered successfully");
 } catch (error) {
   logger.error("Failed to register library document processing worker", { error: String(error) });
+}
+
+// Start cleanup scheduler if streaming is enabled
+if (useStreaming && process.env.ENABLE_JOB_RESUME === 'true') {
+  startCleanupScheduler();
+  logger.info("Streaming cleanup scheduler started");
 }
 
 // Custom error handler for multer errors (must be after all routes)
