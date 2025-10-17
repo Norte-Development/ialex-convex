@@ -40,7 +40,7 @@ export function ChatInput({
   isStreaming,
   onAbortStream,
   placeholder = "¿En qué trabajamos hoy?",
-  minHeight = 50,
+  minHeight = 40,
   maxHeight = 100,
   disabled = false,
   onReferencesChange,
@@ -61,18 +61,21 @@ export function ChatInput({
   /**
    * Handles input changes and manages autocomplete visibility
    */
-  const handleInputChange = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    const newValue = e.target.value;
-    const newCursorPos = e.target.selectionStart;
-    
-    setPrompt(newValue);
-    setCursorPosition(newCursorPos);
-    
-    // Show autocomplete if we're typing an @ reference
-    const textBeforeCursor = newValue.slice(0, newCursorPos);
-    const hasAtSymbol = /@[a-zA-Z]*:?[a-zA-Z]*$/.test(textBeforeCursor);
-    setShowAutocomplete(hasAtSymbol);
-  }, []);
+  const handleInputChange = useCallback(
+    (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+      const newValue = e.target.value;
+      const newCursorPos = e.target.selectionStart;
+
+      setPrompt(newValue);
+      setCursorPosition(newCursorPos);
+
+      // Show autocomplete if we're typing an @ reference
+      const textBeforeCursor = newValue.slice(0, newCursorPos);
+      const hasAtSymbol = /@[a-zA-Z]*:?[a-zA-Z]*$/.test(textBeforeCursor);
+      setShowAutocomplete(hasAtSymbol);
+    },
+    [],
+  );
 
   /**
    * Handles cursor position changes
@@ -86,57 +89,66 @@ export function ChatInput({
   /**
    * Handles reference selection from autocomplete
    */
-  const handleSelectReference = useCallback((reference: any, startPos: number, endPos: number) => {
-    const isTypeSelection = reference.name.endsWith(':');
-    
-    if (!isTypeSelection) {
-      // Entity selection - add to context bar and remove from input
-      setActiveReferences(prev => [...prev, {
-        type: reference.type,
-        id: reference.id,
-        name: reference.name
-      }]);
-      
-      // Remove the entire @reference from input
-      const atPos = prompt.lastIndexOf('@', endPos);
-      const newText = prompt.slice(0, atPos) + prompt.slice(endPos);
-      const newCursorPos = atPos;
-      
-      setPrompt(newText);
-      setCursorPosition(newCursorPos);
-      setShowAutocomplete(false);
-      
-      // Focus back to textarea
-      setTimeout(() => {
-        if (textareaRef.current) {
-          textareaRef.current.focus();
-          textareaRef.current.setSelectionRange(newCursorPos, newCursorPos);
-          setCursorPosition(newCursorPos);
-        }
-      }, 0);
-    } else {
-      // Type selection - update input and keep autocomplete open
-      const newText = prompt.slice(0, startPos) + reference.name + prompt.slice(endPos);
-      const newCursorPos = startPos + reference.name.length;
-      
-      setPrompt(newText);
-      setCursorPosition(newCursorPos);
-      
-      // For type selection, check if we should show entity suggestions
-      const textBeforeCursor = newText.slice(0, newCursorPos);
-      const hasCompleteType = /@(client|document|escrito|case):$/.test(textBeforeCursor);
-      setShowAutocomplete(hasCompleteType);
-      
-      // Focus back to textarea and set cursor position
-      setTimeout(() => {
-        if (textareaRef.current) {
-          textareaRef.current.focus();
-          textareaRef.current.setSelectionRange(newCursorPos, newCursorPos);
-          setCursorPosition(newCursorPos);
-        }
-      }, 0);
-    }
-  }, [prompt]);
+  const handleSelectReference = useCallback(
+    (reference: any, startPos: number, endPos: number) => {
+      const isTypeSelection = reference.name.endsWith(":");
+
+      if (!isTypeSelection) {
+        // Entity selection - add to context bar and remove from input
+        setActiveReferences((prev) => [
+          ...prev,
+          {
+            type: reference.type,
+            id: reference.id,
+            name: reference.name,
+          },
+        ]);
+
+        // Remove the entire @reference from input
+        const atPos = prompt.lastIndexOf("@", endPos);
+        const newText = prompt.slice(0, atPos) + prompt.slice(endPos);
+        const newCursorPos = atPos;
+
+        setPrompt(newText);
+        setCursorPosition(newCursorPos);
+        setShowAutocomplete(false);
+
+        // Focus back to textarea
+        setTimeout(() => {
+          if (textareaRef.current) {
+            textareaRef.current.focus();
+            textareaRef.current.setSelectionRange(newCursorPos, newCursorPos);
+            setCursorPosition(newCursorPos);
+          }
+        }, 0);
+      } else {
+        // Type selection - update input and keep autocomplete open
+        const newText =
+          prompt.slice(0, startPos) + reference.name + prompt.slice(endPos);
+        const newCursorPos = startPos + reference.name.length;
+
+        setPrompt(newText);
+        setCursorPosition(newCursorPos);
+
+        // For type selection, check if we should show entity suggestions
+        const textBeforeCursor = newText.slice(0, newCursorPos);
+        const hasCompleteType = /@(client|document|escrito|case):$/.test(
+          textBeforeCursor,
+        );
+        setShowAutocomplete(hasCompleteType);
+
+        // Focus back to textarea and set cursor position
+        setTimeout(() => {
+          if (textareaRef.current) {
+            textareaRef.current.focus();
+            textareaRef.current.setSelectionRange(newCursorPos, newCursorPos);
+            setCursorPosition(newCursorPos);
+          }
+        }, 0);
+      }
+    },
+    [prompt],
+  );
 
   /**
    * Handles form submission
@@ -148,18 +160,22 @@ export function ChatInput({
    */
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     // Don't submit if autocomplete is showing
     if (showAutocomplete) return;
-    
+
     if (prompt.trim() === "" || disabled) return;
 
     const trimmedPrompt = prompt.trim();
-    
+
     // Build message with references
-    const referencesText = activeReferences.map(ref => `@${ref.type}:${ref.name}`).join(' ');
-    const fullMessage = referencesText ? `${referencesText} ${trimmedPrompt}` : trimmedPrompt;
-    
+    const referencesText = activeReferences
+      .map((ref) => `@${ref.type}:${ref.name}`)
+      .join(" ");
+    const fullMessage = referencesText
+      ? `${referencesText} ${trimmedPrompt}`
+      : trimmedPrompt;
+
     setPrompt(""); // Clear input immediately for better UX
     setActiveReferences([]); // Clear references
     setShowAutocomplete(false);
@@ -188,13 +204,16 @@ export function ChatInput({
   };
 
   return (
-    <div className="border-t border-gray-200 p-4 bg-gray-50">
+    <div className=" p-4 bg-transparent">
       {/* 
         PromptInput: Main container component from ai-sdk
         Provides form structure and styling
       */}
       <div className="relative">
-        <PromptInput onSubmit={handleSubmit}>
+        <PromptInput
+          onSubmit={handleSubmit}
+          className="flex justify-between items-center px-2"
+        >
           {/* 
             PromptInputTextarea: Auto-resizing textarea with enhanced features
             - Supports Enter to submit, Shift+Enter for new line
@@ -216,24 +235,23 @@ export function ChatInput({
               maxHeight: `${maxHeight}px`,
               height: `${minHeight}px`,
             }}
-            className="resize-none !min-h-0"
+            className="resize-none !min-h-0 bg-transparent placeholder:text-xs overflow-y-hidden"
           />
 
           {/* 
             PromptInputToolbar: Container for action buttons and controls
             Provides consistent spacing and alignment
           */}
-          <PromptInputToolbar className=" flex justify-end">
-            <PromptInputSubmit
-              status={status}
-              disabled={!isStreaming && (!prompt.trim() || isInputDisabled)}
-              aria-label={isStreaming ? "Detener" : "Enviar mensaje"}
-              variant={"ghost"}
-              size={"sm"}
-              type={isStreaming ? "button" : "submit"}
-              onClick={handleButtonClick}
-            />
-          </PromptInputToolbar>
+          <PromptInputSubmit
+            status={status}
+            disabled={!isStreaming && (!prompt.trim() || isInputDisabled)}
+            aria-label={isStreaming ? "Detener" : "Enviar mensaje"}
+            variant={"ghost"}
+            size={"sm"}
+            type={isStreaming ? "button" : "submit"}
+            onClick={handleButtonClick}
+            className="bg-transparent disabled:bg-transparent text-black"
+          />
         </PromptInput>
 
         {/* Reference Autocomplete */}

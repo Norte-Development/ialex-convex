@@ -51,7 +51,7 @@ export default function NavBar() {
 
   return (
     <nav
-      className={`flex flex-row-reverse fixed px-5 justify-between items-center h-14 w-full bg-transparent text-foreground  top-0 left-0 z-50 mb-5`}
+      className={`flex flex-row-reverse bg-[#D9D9D9] fixed px-5 justify-between items-center py-1 h-[41px] w-full  text-foreground  top-0 left-0 z-50 mb-5`}
     >
       <div className={` flex  items-center gap-5`}>
         <div className="flex items-center justify-center gap-2">
@@ -65,19 +65,11 @@ export default function NavBar() {
             showName={false}
           />
         </div>
-        {isInCaseContext && (
-          <button
-            onClick={toggleChatbot}
-            className="  text-[#3946D7] cursor-pointer p-2 rounded-full transition-all duration-200 hover:scale-105"
-          >
-            <MessageCircle className="w-5 h-5" />
-          </button>
-        )}
       </div>
-      {/* <div className={`flex justify-center items-center relative w-[30%]`}>
+      <div className={`flex justify-center items-center relative w-[30%]`}>
         <Input
           placeholder="Buscar"
-          className="w-full rounded-full placeholder:text-[14px] h-fit pr-20"
+          className="w-full rounded-full bg-white placeholder:text-[14px] h-fit pr-20"
           value={searchQuery}
           onChange={(e) => handleSearch(e.target.value)}
           onFocus={() => {
@@ -106,7 +98,7 @@ export default function NavBar() {
           onResultClick={handleResultClick}
           onClose={() => setIsOpen(false)}
         />
-      </div> */}
+      </div>
       <div className={`flex gap-4 justify-center items-center `}>
         {isInCaseContext ? (
           <div className="text-xl font-bold text-black flex items-center gap-2">
