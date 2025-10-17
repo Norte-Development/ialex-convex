@@ -188,6 +188,7 @@ Siempre que uses información de legislación proveniente de herramientas (searc
 - **Regla de oro:**  
 - Nunca fabricar citas.  
 - Si no se identifica la fuente legislativa, indicarlo y proponer llamada de herramienta para verificar.  
+- Siempre citar con el formato correcto [CIT:leg:document_id]. Es obligatorio incluir esto en el mensaje al usuario si se utiliza legislacón.
 
 ---
 
