@@ -53,23 +53,30 @@ export default function HomePage() {
     <section className="flex flex-col min-h-screen w-full overflow-y-hidden bg-white justify-center items-center relative pt-20">
       <div className="w-3/4 flex flex-col gap-8 items-center justify-center">
         <div className="flex flex-col gap-8 w-full justify-center items-center">
-          <h1 className="font-poppins font-bold lg:text-4xl text-xl">
-            ¡Buenos días, {user?.name}!
+          <h1 className="font-poppins font-[500] text-[#130261] justify-center items-center lg:text-[54px] text-xl flex flex-col ">
+            ¡Buenos días, {user?.name}!<span>¿En qué trabajamos hoy?</span>
           </h1>
-          <div className="relative w-full">
+          <p className="text-[#666666] text-[20px] mt-10">
+            Comience el día con ayuda de su asistente IA
+          </p>
+          <div className="relative w-full max-w-4xl h-fit mx-auto">
             <Textarea
               value={inputValue}
               onChange={(e) => setInputValue(e.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder=" ¿En qué trabajamos hoy?"
-              className="min-h-[100px] max-h-[250px] overflow-y-auto bg-[#f7f7f7] pl-10"
+              placeholder="Ej: prompt que muestre la mejor funcionalidad"
+              className=" !h-[30px] max-h-[250px] pt-5 overflow-y-auto bg-[#f7f7f7] active:border-[#9ECBFB] border-[#9ECBFB] placeholder:text-[#5B738B] rounded-[17px] resize-none"
+              style={{
+                boxShadow:
+                  "0px 4.27px 34.18px -4.27px rgba(99, 140, 243, 0.32)",
+              }}
               disabled={isCreating}
             />
             <Button
               onClick={handleSendMessage}
               disabled={!inputValue.trim() || isCreating}
               size="icon"
-              className="absolute right-3 bottom-3 bg-transparent disabled:bg-transparent hover:bg-transparent text-black"
+              className="absolute right-5 top-1/2 -translate-y-1/2 bg-transparent disabled:bg-transparent hover:bg-transparent text-black"
             >
               {isCreating ? <Loader size={20} /> : <CircleArrowUp size={20} />}
             </Button>
