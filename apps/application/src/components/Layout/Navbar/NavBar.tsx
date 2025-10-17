@@ -1,4 +1,17 @@
-import { Bell, Search, MessageCircle, X } from "lucide-react";
+import {
+  UserCheck,
+  Bell,
+  Search,
+  MessageCircle,
+  X,
+  Home,
+  Users,
+  Database,
+  Settings,
+  Landmark,
+  FilePen,
+  FolderOpen,
+} from "lucide-react";
 import { useLocation } from "react-router-dom";
 import Breadcrumbs from "./BreadCrumbs";
 import { UserButton } from "@clerk/clerk-react";
@@ -25,14 +38,15 @@ export default function NavBar() {
   const isInCaseContext = location.pathname.includes("/caso/");
 
   const menuOptions = [
-    { label: "Inicio", path: "/" },
-    { label: "Equipos", path: "/equipo" },
-    { label: "Clientes", path: "/clientes" },
-    { label: "Casos", path: "/casos" },
-    { label: "Modelos", path: "/modelos" },
-    { label: "Biblioteca", path: "/biblioteca" },
-    { label: "Legales", path: "/base-de-datos" },
-    { label: "Preferencias", path: "/preferencias" },
+    { label: "Inicio", path: "/", icon: Home },
+    { label: "Equipos", path: "/equipo", icon: Users },
+    { label: "Clientes", path: "/clientes", icon: UserCheck },
+    { label: "Casos", path: "/casos", icon: Landmark },
+    { label: "Modelos", path: "/modelos", icon: FilePen },
+    { label: "Biblioteca", path: "/biblioteca", icon: FolderOpen },
+    { label: "Legales", path: "/base-de-datos", icon: Database },
+    { label: "Asistente IA", path: "/ai", icon: MessageCircle },
+    { label: "Preferencias", path: "/preferencias", icon: Settings },
   ];
 
   return (
