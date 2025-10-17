@@ -75,7 +75,7 @@ export const agent = new Agent(components.agent, {
     readEscrito: readEscritoTool,
     searchLegislation: legislationFindTool,
     readLegislation: legislationReadTool,
-    planAndTrack: planAndTrackTool,
+    // planAndTrack: planAndTrackTool,
     markTaskComplete: markTaskCompleteTool,
     insertContent: insertContentTool,
     // manageEscrito: manageEscritoTool,
