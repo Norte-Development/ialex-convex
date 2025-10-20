@@ -5,16 +5,16 @@ import { z } from "zod";
 import { documentQueue, libraryDocumentQueue, queue } from "./services/queueService";
 import { initQdrant, initLibraryQdrant } from "./services/qdrantService";
 import { logger } from "./middleware/logging";
-import { processDocumentJob } from "./jobs/processDocumentJob";
-import { processLibraryDocumentJob } from "./jobs/processLibraryDocumentJob";
 import { getDeepgramStats } from "./services/deepgramService";
 import { getTimeoutConfig } from "./utils/timeoutUtils";
 import { getSupportedFormats } from "./services/mediaProcessingService";
 import { FILE_SIZE_LIMITS, SUPPORTED_MIME_TYPES, MIME_TYPE_PATTERNS, getFileSizeLimit } from "./utils/fileValidation";
 import { getErrorStats } from "./utils/errorTaxonomy";
-import { processStreamingDocumentJobWithResume } from "./jobs/streamingProcessDocumentJob";
-import { processStreamingLibraryDocumentJobWithResume } from "./jobs/streamingProcessLibraryDocumentJob";
-import { startCleanupScheduler } from "./jobs/cleanupOldJobStates";
+import { 
+  processCaseDocumentDirectly, 
+  processLibraryDocumentDirectly,
+  sendProcessingCallback 
+} from "./services/directProcessing";
 // @ts-ignore
 import multer from "multer";
 import * as path from "path";
@@ -380,50 +380,184 @@ const libraryIngestSchema = z.object({
 });
 
 app.post("/process-document", async (req: Request, res: Response) => {
+  const startTime = Date.now();
+  let jobId: string | undefined;
+  
   try {
     const parsed = ingestSchema.safeParse(req.body);
     if (!parsed.success) {
       return res.status(400).json({ error: parsed.error.flatten() });
     }
+    
+    // Create job for idempotency tracking (use documentId as jobId)
     const job = await documentQueue.add("process-document", parsed.data, {
-      attempts: 5,
-      backoff: { type: "exponential", delay: 2000 },
-      removeOnComplete: 1000,
-      removeOnFail: 1000,
+      jobId: `doc-${parsed.data.documentId}`, // Idempotent job ID
+      attempts: 1, // No retries - Convex will handle retries
+      removeOnComplete: { age: 3600 }, // Keep for 1 hour
+      removeOnFail: { age: 86400 }, // Keep failures for 24 hours
     });
-    logger.info("queued document", { 
-      jobId: job.id, 
+    
+    jobId = job.id!;
+    
+    logger.info("Processing document directly (HTTP mode)", { 
+      jobId, 
       documentId: parsed.data.documentId,
-      queue: "document-processing"
+      mode: "direct-http"
     });
-    res.json({ jobId: job.id });
+    
+    // Process immediately (synchronously)
+    const result = await processCaseDocumentDirectly(parsed.data, jobId, 1);
+    
+    // Send success callback
+    await sendProcessingCallback(
+      parsed.data.callbackUrl,
+      {
+        status: "completed",
+        documentId: parsed.data.documentId,
+        totalChunks: result.totalChunks,
+        method: result.method || 'streaming',
+        durationMs: result.durationMs,
+        resumed: result.resumed
+      },
+      parsed.data.hmacSecret
+    );
+    
+    logger.info("Document processed successfully", {
+      jobId,
+      documentId: parsed.data.documentId,
+      totalChunks: result.totalChunks,
+      durationMs: Date.now() - startTime
+    });
+    
+    res.json({ 
+      success: true,
+      jobId,
+      totalChunks: result.totalChunks,
+      durationMs: result.durationMs
+    });
+    
   } catch (error) {
-    logger.error("Failed to queue document", { error: String(error) });
-    res.status(500).json({ error: "Failed to queue document processing" });
+    logger.error("Document processing failed", { 
+      jobId,
+      error: String(error),
+      stack: error instanceof Error ? error.stack : undefined
+    });
+    
+    // Send failure callback if we have the data
+    if (jobId && req.body.callbackUrl && req.body.documentId) {
+      try {
+        await sendProcessingCallback(
+          req.body.callbackUrl,
+          {
+            status: "failed",
+            documentId: req.body.documentId,
+            error: error instanceof Error ? error.message : String(error),
+            durationMs: Date.now() - startTime,
+          },
+          req.body.hmacSecret
+        );
+      } catch (callbackError) {
+        logger.error("Failed to send failure callback", {
+          error: String(callbackError)
+        });
+      }
+    }
+    
+    res.status(500).json({ 
+      error: "Document processing failed",
+      message: error instanceof Error ? error.message : String(error)
+    });
   }
 });
 
 app.post("/process-library-document", async (req: Request, res: Response) => {
+  const startTime = Date.now();
+  let jobId: string | undefined;
+  
   try {
     const parsed = libraryIngestSchema.safeParse(req.body);
     if (!parsed.success) {
       return res.status(400).json({ error: parsed.error.flatten() });
     }
+    
+    // Create job for idempotency tracking (use libraryDocumentId as jobId)
     const job = await libraryDocumentQueue.add("process-library-document", parsed.data, {
-      attempts: 5,
-      backoff: { type: "exponential", delay: 2000 },
-      removeOnComplete: 1000,
-      removeOnFail: 1000,
+      jobId: `lib-${parsed.data.libraryDocumentId}`, // Idempotent job ID
+      attempts: 1, // No retries - Convex will handle retries
+      removeOnComplete: { age: 3600 }, // Keep for 1 hour
+      removeOnFail: { age: 86400 }, // Keep failures for 24 hours
     });
-    logger.info("queued library document", { 
-      jobId: job.id, 
+    
+    jobId = job.id!;
+    
+    logger.info("Processing library document directly (HTTP mode)", { 
+      jobId, 
       libraryDocumentId: parsed.data.libraryDocumentId,
-      queue: "library-document-processing"
+      mode: "direct-http"
     });
-    res.json({ jobId: job.id });
+    
+    // Process immediately (synchronously)
+    const result = await processLibraryDocumentDirectly(parsed.data, jobId, 1);
+    
+    // Send success callback
+    await sendProcessingCallback(
+      parsed.data.callbackUrl,
+      {
+        status: "completed",
+        libraryDocumentId: parsed.data.libraryDocumentId,
+        totalChunks: result.totalChunks,
+        method: result.method || 'streaming',
+        durationMs: result.durationMs,
+        resumed: result.resumed
+      },
+      parsed.data.hmacSecret
+    );
+    
+    logger.info("Library document processed successfully", {
+      jobId,
+      libraryDocumentId: parsed.data.libraryDocumentId,
+      totalChunks: result.totalChunks,
+      durationMs: Date.now() - startTime
+    });
+    
+    res.json({ 
+      success: true,
+      jobId,
+      totalChunks: result.totalChunks,
+      durationMs: result.durationMs
+    });
+    
   } catch (error) {
-    logger.error("Failed to queue library document", { error: String(error) });
-    res.status(500).json({ error: "Failed to queue library document processing" });
+    logger.error("Library document processing failed", { 
+      jobId,
+      error: String(error),
+      stack: error instanceof Error ? error.stack : undefined
+    });
+    
+    // Send failure callback if we have the data
+    if (jobId && req.body.callbackUrl && req.body.libraryDocumentId) {
+      try {
+        await sendProcessingCallback(
+          req.body.callbackUrl,
+          {
+            status: "failed",
+            libraryDocumentId: req.body.libraryDocumentId,
+            error: error instanceof Error ? error.message : String(error),
+            durationMs: Date.now() - startTime,
+          },
+          req.body.hmacSecret
+        );
+      } catch (callbackError) {
+        logger.error("Failed to send failure callback", {
+          error: String(callbackError)
+        });
+      }
+    }
+    
+    res.status(500).json({ 
+      error: "Library document processing failed",
+      message: error instanceof Error ? error.message : String(error)
+    });
   }
 });
 
@@ -485,58 +619,26 @@ function signBody(body: string, secret: string) {
   return crypto.createHmac("sha256", secret).update(body).digest("hex");
 }
 
-// Worker registration
-const useStreaming = process.env.USE_STREAMING_PROCESSOR === 'true';
+// ================================================================
+// HTTP-BASED PROCESSING MODE (Cloud Run Compatible)
+// ================================================================
+// Workers have been removed in favor of synchronous HTTP processing.
+// Documents are processed immediately upon request instead of via
+// background workers. This is Cloud Run-friendly and prevents issues
+// with long-running workers being killed by the serverless platform.
+// 
+// Key changes:
+// - No BullMQ workers (no persistent connections)
+// - Jobs are tracked in Redis for idempotency only
+// - Processing happens synchronously in HTTP handlers
+// - Callbacks sent immediately after processing
+// ================================================================
 
 logger.info("=================================================");
-logger.info(`PROCESSOR MODE: ${useStreaming ? 'STREAMING (with resume support)' : 'STANDARD (in-memory)'}`);
-logger.info(`Environment variable USE_STREAMING_PROCESSOR: ${process.env.USE_STREAMING_PROCESSOR}`);
-logger.info("Using separate queues: document-processing & library-document-processing");
+logger.info("PROCESSOR MODE: DIRECT HTTP (Cloud Run Compatible)");
+logger.info("Processing model: Synchronous request-driven");
+logger.info("Features: Streaming pipeline, chunked processing, idempotent jobs");
 logger.info("=================================================");
-
-if (useStreaming) {
-  try {
-    processStreamingDocumentJobWithResume(documentQueue);
-    logger.info("✅ Streaming document processor registered successfully");
-    logger.info("   Queue: document-processing");
-    logger.info("   Features: Resume support, streaming pipeline, chunked processing");
-  } catch (error) {
-    logger.error("❌ Failed to register streaming document processor", { error: String(error) });
-  }
-  
-  try {
-    processStreamingLibraryDocumentJobWithResume(libraryDocumentQueue);
-    logger.info("✅ Streaming library document processor registered successfully");
-    logger.info("   Queue: library-document-processing");
-    logger.info("   Features: Resume support, streaming pipeline, chunked processing");
-  } catch (error) {
-    logger.error("❌ Failed to register streaming library document processor", { error: String(error) });
-  }
-} else {
-  try {
-    processDocumentJob(documentQueue);
-    logger.info("✅ Standard document processor registered successfully");
-    logger.info("   Queue: document-processing");
-    logger.info("   Features: In-memory processing, no resume support");
-  } catch (error) {
-    logger.error("❌ Failed to register document processing worker", { error: String(error) });
-  }
-  
-  try {
-    processLibraryDocumentJob(libraryDocumentQueue);
-    logger.info("✅ Standard library document processor registered successfully");
-    logger.info("   Queue: library-document-processing");
-    logger.info("   Features: In-memory processing, no resume support");
-  } catch (error) {
-    logger.error("❌ Failed to register library document processing worker", { error: String(error) });
-  }
-}
-
-// Start cleanup scheduler if streaming is enabled
-if (useStreaming && process.env.ENABLE_JOB_RESUME === 'true') {
-  startCleanupScheduler();
-  logger.info("✅ Streaming cleanup scheduler started");
-}
 
 // Custom error handler for multer errors (must be after all routes)
 app.use((err: any, req: Request, res: Response, next: any) => {

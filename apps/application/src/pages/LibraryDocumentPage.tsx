@@ -31,6 +31,7 @@ export default function LibraryDocumentPage() {
   // Mutations
   const retryProcessing = useMutation(api.functions.libraryDocumentProcessing.retryLibraryDocumentProcessing);
 
+  const [retrying, setRetrying] = useState(false);
   // Fetch the specific document
   const document = useQuery(
     api.functions.libraryDocument.getLibraryDocument,
@@ -190,13 +191,16 @@ export default function LibraryDocumentPage() {
                   onRetry={async () => {
                     try {
                       await retryProcessing({ libraryDocumentId: document._id });
+                      setRetrying(true);
                       toast.success("Reintentando indexación del documento");
                     } catch (error) {
                       const errorMessage = error instanceof Error ? error.message : "Error desconocido";
                       toast.error("Error al reintentar: " + errorMessage);
+                    } finally {
+                      setRetrying(false);
                     }
                   }}
-                  retrying={retryProcessing.isLoading}
+                  retrying={retrying}
                 />
                 {document.retryCount !== undefined && document.retryCount > 0 && (
                   <p className="text-xs text-muted-foreground">
