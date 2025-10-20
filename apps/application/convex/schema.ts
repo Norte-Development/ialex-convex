@@ -220,6 +220,12 @@ export default defineSchema({
     processingCompletedAt: v.optional(v.number()),
     processingError: v.optional(v.string()),
     totalChunks: v.optional(v.number()), // Number of chunks created
+    // Extracted text fields (for transcriptions, OCR, etc.)
+    extractedText: v.optional(v.string()), // Full transcript or OCR text
+    extractedTextLength: v.optional(v.number()), // Character count for validation
+    transcriptionConfidence: v.optional(v.number()), // Deepgram confidence score
+    transcriptionDuration: v.optional(v.number()), // Audio/video duration in seconds
+    transcriptionModel: v.optional(v.string()), // e.g., "nova-3"
   })
     .index("by_case", ["caseId"])
     .index("by_folder", ["folderId"])

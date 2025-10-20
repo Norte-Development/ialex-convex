@@ -1,6 +1,7 @@
 import { httpAction } from "./_generated/server";
 import { httpRouter } from "convex/server";
 import { internal } from "./_generated/api";
+import { Id } from "./_generated/dataModel";
 
 const http = httpRouter();
 
@@ -120,6 +121,62 @@ http.route({
       status: 200,
       headers: { "Content-Type": "application/json" },
     });
+  }),
+});
+
+http.route({
+  path: "/api/document-processor/extracted-text",
+  method: "POST",
+  handler: httpAction(async (ctx, req) => {
+    const signature = req.headers.get("X-Convex-Signature") || "";
+    const bodyText = await req.text();
+    
+    // Verify HMAC if secret is configured
+    const hmacSecret = process.env.HMAC_SECRET;
+    if (hmacSecret && signature) {
+      const isValid = await verifyHmac(bodyText, signature, hmacSecret);
+      if (!isValid) {
+        return new Response("invalid signature", { status: 401 });
+      }
+    }
+
+    let payload: {
+      documentId: string;
+      extractedText: string;
+      extractedTextLength: number;
+      transcriptionConfidence?: number;
+      transcriptionDuration?: number;
+      transcriptionModel?: string;
+    };
+
+    try {
+      payload = JSON.parse(bodyText);
+    } catch {
+      return new Response("invalid json", { status: 400 });
+    }
+
+    if (!payload.documentId || !payload.extractedText) {
+      return new Response("missing required fields", { status: 400 });
+    }
+
+    try {
+      await ctx.runMutation(internal.functions.documentProcessing.updateExtractedText, {
+        documentId: payload.documentId as Id<"documents">,
+        extractedText: payload.extractedText,
+        extractedTextLength: payload.extractedTextLength,
+        transcriptionConfidence: payload.transcriptionConfidence,
+        transcriptionDuration: payload.transcriptionDuration,
+        transcriptionModel: payload.transcriptionModel,
+      });
+
+      return new Response(JSON.stringify({ success: true }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
+    } catch (error) {
+      console.error("Failed to update extracted text:", error);
+      return new Response("internal server error", { status: 500 });
+    }
   }),
 });
 

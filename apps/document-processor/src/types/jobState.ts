@@ -40,7 +40,13 @@ export interface StreamingJobState {
     pagesExtracted: number;
     pagesTotal: number | null;
     lastExtractedPage: number;
+    lastOcrChunk?: number; // For Mistral OCR chunking resume support
     extractedTextFilePath?: string;
+    
+    // Transcription (for audio/video files)
+    transcriptionWordCount?: number;
+    transcriptionConfidence?: number;
+    transcriptionDuration?: number;
     
     // Chunking
     chunksGenerated: number;

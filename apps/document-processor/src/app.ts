@@ -2,7 +2,7 @@ import "dotenv/config";
 import express, { Request, Response } from "express";
 import crypto from "crypto";
 import { z } from "zod";
-import { queue } from "./services/queueService";
+import { documentQueue, libraryDocumentQueue, queue } from "./services/queueService";
 import { initQdrant, initLibraryQdrant } from "./services/qdrantService";
 import { logger } from "./middleware/logging";
 import { processDocumentJob } from "./jobs/processDocumentJob";
@@ -226,7 +226,7 @@ app.post("/test-process-document", handleUpload, async (req: Request, res: Respo
       fileBuffer: req.file.buffer
     };
 
-    const job = await queue.add("process-document", jobData, {
+    const job = await documentQueue.add("process-document", jobData, {
       attempts: 5,
       backoff: { type: "exponential", delay: 2000 },
       removeOnComplete: 1000,
@@ -237,7 +237,8 @@ app.post("/test-process-document", handleUpload, async (req: Request, res: Respo
       jobId: job.id,
       documentId: jobData.documentId,
       fileSize: req.file.size,
-      mimeType: req.file.mimetype
+      mimeType: req.file.mimetype,
+      queue: "document-processing"
     });
     res.json({ jobId: job.id });
 
@@ -311,7 +312,7 @@ app.post("/test-process-library-document", handleUpload, async (req: Request, re
       fileBuffer: req.file.buffer
     };
 
-    const job = await queue.add("process-library-document", jobData, {
+    const job = await libraryDocumentQueue.add("process-library-document", jobData, {
       attempts: 5,
       backoff: { type: "exponential", delay: 2000 },
       removeOnComplete: 1000,
@@ -322,7 +323,8 @@ app.post("/test-process-library-document", handleUpload, async (req: Request, re
       jobId: job.id,
       libraryDocumentId: jobData.libraryDocumentId,
       fileSize: req.file.size,
-      mimeType: req.file.mimetype
+      mimeType: req.file.mimetype,
+      queue: "library-document-processing"
     });
     res.json({ jobId: job.id });
 
@@ -382,13 +384,17 @@ app.post("/process-document", async (req: Request, res: Response) => {
     if (!parsed.success) {
       return res.status(400).json({ error: parsed.error.flatten() });
     }
-    const job = await queue.add("process-document", parsed.data, {
+    const job = await documentQueue.add("process-document", parsed.data, {
       attempts: 5,
       backoff: { type: "exponential", delay: 2000 },
       removeOnComplete: 1000,
       removeOnFail: 1000,
     });
-    logger.info("queued document", { jobId: job.id, documentId: parsed.data.documentId });
+    logger.info("queued document", { 
+      jobId: job.id, 
+      documentId: parsed.data.documentId,
+      queue: "document-processing"
+    });
     res.json({ jobId: job.id });
   } catch (error) {
     logger.error("Failed to queue document", { error: String(error) });
@@ -402,13 +408,17 @@ app.post("/process-library-document", async (req: Request, res: Response) => {
     if (!parsed.success) {
       return res.status(400).json({ error: parsed.error.flatten() });
     }
-    const job = await queue.add("process-library-document", parsed.data, {
+    const job = await libraryDocumentQueue.add("process-library-document", parsed.data, {
       attempts: 5,
       backoff: { type: "exponential", delay: 2000 },
       removeOnComplete: 1000,
       removeOnFail: 1000,
     });
-    logger.info("queued library document", { jobId: job.id, libraryDocumentId: parsed.data.libraryDocumentId });
+    logger.info("queued library document", { 
+      jobId: job.id, 
+      libraryDocumentId: parsed.data.libraryDocumentId,
+      queue: "library-document-processing"
+    });
     res.json({ jobId: job.id });
   } catch (error) {
     logger.error("Failed to queue library document", { error: String(error) });
@@ -477,27 +487,38 @@ function signBody(body: string, secret: string) {
 // Worker registration
 const useStreaming = process.env.USE_STREAMING_PROCESSOR === 'true';
 
+logger.info("=================================================");
+logger.info(`PROCESSOR MODE: ${useStreaming ? 'STREAMING (with resume support)' : 'STANDARD (in-memory)'}`);
+logger.info(`Environment variable USE_STREAMING_PROCESSOR: ${process.env.USE_STREAMING_PROCESSOR}`);
+logger.info("Using separate queues: document-processing & library-document-processing");
+logger.info("=================================================");
+
 if (useStreaming) {
   try {
-    processStreamingDocumentJobWithResume(queue);
-    logger.info("Streaming document processor registered successfully");
+    processStreamingDocumentJobWithResume(documentQueue);
+    logger.info("✅ Streaming document processor registered successfully");
+    logger.info("   Queue: document-processing");
+    logger.info("   Features: Resume support, streaming pipeline, chunked processing");
   } catch (error) {
-    logger.error("Failed to register streaming document processor", { error: String(error) });
+    logger.error("❌ Failed to register streaming document processor", { error: String(error) });
   }
 } else {
   try {
-    processDocumentJob(queue);
-    logger.info("Document processing worker registered successfully");
+    processDocumentJob(documentQueue);
+    logger.info("✅ Standard document processor registered successfully");
+    logger.info("   Queue: document-processing");
+    logger.info("   Features: In-memory processing, no resume support");
   } catch (error) {
-    logger.error("Failed to register document processing worker", { error: String(error) });
+    logger.error("❌ Failed to register document processing worker", { error: String(error) });
   }
 }
 
 try {
-  processLibraryDocumentJob(queue);
-  logger.info("Library document processing worker registered successfully");
+  processLibraryDocumentJob(libraryDocumentQueue);
+  logger.info("✅ Library document processor registered successfully");
+  logger.info("   Queue: library-document-processing");
 } catch (error) {
-  logger.error("Failed to register library document processing worker", { error: String(error) });
+  logger.error("❌ Failed to register library document processing worker", { error: String(error) });
 }
 
 // Start cleanup scheduler if streaming is enabled

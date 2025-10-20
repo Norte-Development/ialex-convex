@@ -39,8 +39,8 @@ export class StreamingEmbeddingService {
     options: EmbeddingStreamOptions = {}
   ): Promise<{ totalEmbedded: number; totalUpserted: number; skipped: number }> {
     const { 
-      embedBatchSize = 64,
-      upsertBatchSize = 20,
+      embedBatchSize = 128,
+      upsertBatchSize = 128,
       onProgress 
     } = options;
 

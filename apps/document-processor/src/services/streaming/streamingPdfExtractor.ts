@@ -28,7 +28,9 @@ export class StreamingPdfExtractor {
     const { pageWindow, onPageBatch } = options;
 
     try {
-      const data = await fs.readFile(pdfPath);
+      const buffer = await fs.readFile(pdfPath);
+      // Convert Buffer to Uint8Array (pdfjs requires Uint8Array, not Buffer)
+      const data = new Uint8Array(buffer);
       const pdf = await pdfjs.getDocument({ data }).promise;
       const totalPages = pdf.numPages;
 

@@ -130,6 +130,7 @@ export const processLibraryDocument = internalAction({
 
       // Prepare request body for document processor
       const body = {
+        jobType: "library-document", // Explicit discriminator for routing
         signedUrl: url,
         contentType: document.mimeType,
         createdBy: String(document.createdBy),

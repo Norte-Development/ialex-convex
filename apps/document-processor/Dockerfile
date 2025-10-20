@@ -52,5 +52,10 @@ RUN pnpm install --prod --frozen-lockfile
 # Copy built files from builder
 COPY --from=builder /app/apps/document-processor/dist ./dist
 
-EXPOSE 4001
+# Cloud Run will set PORT environment variable
+# Default to 4001 for local development
+ENV PORT=4001
+EXPOSE ${PORT}
+
+# Start the application
 CMD ["node", "dist/app.js"]

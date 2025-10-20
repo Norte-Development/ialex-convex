@@ -194,6 +194,7 @@ export const processDocument = internalAction({
 
       const callbackUrl = `${process.env.CONVEX_SITE_URL || ""}/webhooks/document-processed`;
       const body = {
+        jobType: "case-document", // Explicit discriminator for routing
         signedUrl: url,
         contentType: document.mimeType,
         // kept for legacy worker field name; worker maps to createdBy
@@ -318,6 +319,56 @@ export const updateDocumentProcessingStatus = internalMutation({
           htmlBody: documentProcessedTemplate(docTitle, userName, args.status === "completed" ? "success" : "failure"),
         });
       }
+  },
+});
+
+/**
+ * Internal mutation to update extracted text (transcription/OCR).
+ */
+export const updateExtractedText = internalMutation({
+  args: {
+    documentId: v.id("documents"),
+    extractedText: v.string(),
+    extractedTextLength: v.number(),
+    transcriptionConfidence: v.optional(v.number()),
+    transcriptionDuration: v.optional(v.number()),
+    transcriptionModel: v.optional(v.string()),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const updates: {
+      extractedText: string;
+      extractedTextLength: number;
+      transcriptionConfidence?: number;
+      transcriptionDuration?: number;
+      transcriptionModel?: string;
+    } = {
+      extractedText: args.extractedText,
+      extractedTextLength: args.extractedTextLength,
+    };
+
+    if (args.transcriptionConfidence !== undefined) {
+      updates.transcriptionConfidence = args.transcriptionConfidence;
+    }
+
+    if (args.transcriptionDuration !== undefined) {
+      updates.transcriptionDuration = args.transcriptionDuration;
+    }
+
+    if (args.transcriptionModel !== undefined) {
+      updates.transcriptionModel = args.transcriptionModel;
+    }
+
+    await ctx.db.patch(args.documentId, updates);
+
+    console.log(`Updated extracted text for document ${args.documentId}`, {
+      textLength: args.extractedTextLength,
+      confidence: args.transcriptionConfidence,
+      duration: args.transcriptionDuration,
+      model: args.transcriptionModel,
+    });
+
+    return null;
   },
 });
 
