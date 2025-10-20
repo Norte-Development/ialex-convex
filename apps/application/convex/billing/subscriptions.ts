@@ -1,9 +1,16 @@
+"use node";
+
 import { v } from "convex/values";
 import { action, internalQuery, internalMutation, internalAction } from "../_generated/server";
 import { stripe } from "../stripe";
 import { internal } from "../_generated/api";
 import { Id } from "../_generated/dataModel";
+import Stripe from "stripe";
 
+// Initialize Stripe SDK
+const stripeSDK = new Stripe(process.env.STRIPE_SECRET_KEY!, {
+  apiVersion: "2024-12-18.acacia" as any,
+});
 
 export const setupCustomer = action({
   args: { 
@@ -86,6 +93,35 @@ export const hasStripeCustomer = internalQuery({
       .first();
     
     return customer !== null;
+  },
+});
+
+/**
+ * Internal query to get Stripe customer for an entity
+ */
+export const getStripeCustomer = internalQuery({
+  args: { entityId: v.string() },
+  returns: v.union(
+    v.object({
+      _id: v.id("stripeCustomers"),
+      customerId: v.string(),
+    }),
+    v.null()
+  ),
+  handler: async (ctx, args) => {
+    const customer = await ctx.db
+      .query("stripeCustomers")
+      .filter((q) => q.eq(q.field("entityId"), args.entityId))
+      .first();
+    
+    if (!customer) {
+      return null;
+    }
+    
+    return {
+      _id: customer._id,
+      customerId: customer.customerId,
+    };
   },
 });
 
@@ -337,35 +373,73 @@ export const createCheckoutSession = action({
   args: {
     entityId: v.id("users"),
     priceId: v.string(),
+    allowPromotionCodes: v.optional(v.boolean()), // Add optional parameter
   },
-
+  returns: v.object({
+    url: v.string(),
+  }),
   handler: async (ctx, args): Promise<{ url: string }> => {
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) throw new Error("No autenticado");
 
     const baseUrl = process.env.VITE_APP_URL || "http://localhost:5173";
 
-    const response = await stripe.subscribe((ctx as any), {
+    // Get or create Stripe customer
+    let customer = await ctx.runQuery(internal.billing.subscriptions.getStripeCustomer, {
+      entityId: args.entityId,
+    });
+
+    // If customer doesn't exist, create one
+    if (!customer) {
+      const user = await ctx.runQuery(internal.billing.subscriptions.getUserForSetup, {
+        userId: args.entityId,
+      });
+
+      if (!user) {
+        throw new Error("Usuario no encontrado");
+      }
+
+      const customerId = await ctx.runAction(internal.billing.subscriptions.setupCustomerInternal, {
+        userId: args.entityId,
+        email: user.email,
+        clerkId: user.clerkId,
+        name: user.name,
+      });
+
+      if (!customerId) {
+        throw new Error("No se pudo crear el cliente de Stripe");
+      }
+
+      // Fetch the newly created customer
+      customer = await ctx.runQuery(internal.billing.subscriptions.getStripeCustomer, {
         entityId: args.entityId,
-        priceId: args.priceId,
-        createStripeCustomerIfMissing: true,
-        success: {
-            url: `${baseUrl}/billing/success?plan=premium_individual`,
-        },
-        cancel: {
-            url: `${baseUrl}/preferencias?section=billing`,
-        },
-        metadata: {
-            userId: args.entityId,
-        },
-    })
+      });
 
-    return { url: response.url! };
+      if (!customer) {
+        throw new Error("No se encontró el cliente de Stripe después de crearlo");
+      }
+    }
+
+    // Create checkout session directly with Stripe SDK
+    const session = await stripeSDK.checkout.sessions.create({
+      customer: customer.customerId,
+      mode: "subscription",
+      line_items: [
+        {
+          price: args.priceId,
+          quantity: 1,
+        },
+      ],
+      allow_promotion_codes: args.allowPromotionCodes ?? true, // Enable coupon input
+      success_url: `${baseUrl}/billing/success?plan=premium_individual&session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${baseUrl}/preferencias?section=billing`,
+      metadata: {
+        userId: args.entityId,
+      },
+    });
+
+    return { url: session.url! };
   },
-
-  returns: v.object({
-    url: v.string(),
-  }),
 });
 
 
@@ -400,36 +474,73 @@ export const purchaseAICredits = action({
   args: {
     entityId: v.id("users"),
     priceId: v.string(),
+    allowPromotionCodes: v.optional(v.boolean()),
   },
-
+  returns: v.object({
+    url: v.string(),
+  }),
   handler: async (ctx, args): Promise<{ url: string }> => {
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) throw new Error("No autenticado");
 
     const baseUrl = process.env.VITE_APP_URL || "http://localhost:5173";
 
-    const response = await stripe.pay((ctx as any), {
-        entityId: args.entityId,
-        referenceId: args.entityId, // Add this required field
-        line_items: [
-          {
-            price: args.priceId,
-            quantity: 1,
-          },
-        ],
-        success: {
-          url: `${baseUrl}/billing/success?plan=ai_credits`,
-        },
-        cancel: {
-          url: `${baseUrl}/billing/credits`,
-        },
-        metadata: {
-          userId: args.entityId,
-        },
+    // Get or create Stripe customer
+    let customer = await ctx.runQuery(internal.billing.subscriptions.getStripeCustomer, {
+      entityId: args.entityId,
+    });
+
+    // If customer doesn't exist, create one
+    if (!customer) {
+      const user = await ctx.runQuery(internal.billing.subscriptions.getUserForSetup, {
+        userId: args.entityId,
       });
 
-    return { url: response.url! };
-  }
+      if (!user) {
+        throw new Error("Usuario no encontrado");
+      }
+
+      const customerId = await ctx.runAction(internal.billing.subscriptions.setupCustomerInternal, {
+        userId: args.entityId,
+        email: user.email,
+        clerkId: user.clerkId,
+        name: user.name,
+      });
+
+      if (!customerId) {
+        throw new Error("No se pudo crear el cliente de Stripe");
+      }
+
+      // Fetch the newly created customer
+      customer = await ctx.runQuery(internal.billing.subscriptions.getStripeCustomer, {
+        entityId: args.entityId,
+      });
+
+      if (!customer) {
+        throw new Error("No se encontró el cliente de Stripe después de crearlo");
+      }
+    }
+
+    // Create checkout session directly with Stripe SDK
+    const session = await stripeSDK.checkout.sessions.create({
+      customer: customer.customerId,
+      mode: "payment",
+      line_items: [
+        {
+          price: args.priceId,
+          quantity: 1,
+        },
+      ],
+      allow_promotion_codes: args.allowPromotionCodes ?? true,
+      success_url: `${baseUrl}/billing/success?plan=ai_credits&session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${baseUrl}/billing/credits`,
+      metadata: {
+        userId: args.entityId,
+      },
+    });
+
+    return { url: session.url! };
+  },
 });
 
 
@@ -468,6 +579,7 @@ export const upgradeToTeamFromFree = action({
   args: {
     userId: v.id("users"),
     teamPriceId: v.string(),
+    allowPromotionCodes: v.optional(v.boolean()),
   },
   returns: v.object({
     url: v.string(),
@@ -492,23 +604,53 @@ export const upgradeToTeamFromFree = action({
 
     const baseUrl = process.env.VITE_APP_URL || "http://localhost:5173";
 
-    // Create checkout session for user subscription to premium_team
-    const response = await stripe.subscribe((ctx as any), {
+    // Get or create Stripe customer
+    let customer = await ctx.runQuery(internal.billing.subscriptions.getStripeCustomer, {
       entityId: args.userId,
-      priceId: args.teamPriceId,
-      createStripeCustomerIfMissing: true,
-      success: {
-        url: `${baseUrl}/billing/success?plan=premium_team`,
-      },
-      cancel: {
-        url: `${baseUrl}/preferencias?section=billing`,
-      },
+    });
+
+    // If customer doesn't exist, create one
+    if (!customer) {
+      const customerId = await ctx.runAction(internal.billing.subscriptions.setupCustomerInternal, {
+        userId: args.userId,
+        email: user.email,
+        clerkId: user.clerkId,
+        name: user.name,
+      });
+
+      if (!customerId) {
+        throw new Error("No se pudo crear el cliente de Stripe");
+      }
+
+      // Fetch the newly created customer
+      customer = await ctx.runQuery(internal.billing.subscriptions.getStripeCustomer, {
+        entityId: args.userId,
+      });
+
+      if (!customer) {
+        throw new Error("No se encontró el cliente de Stripe después de crearlo");
+      }
+    }
+
+    // Create checkout session directly with Stripe SDK
+    const session = await stripeSDK.checkout.sessions.create({
+      customer: customer.customerId,
+      mode: "subscription",
+      line_items: [
+        {
+          price: args.teamPriceId,
+          quantity: 1,
+        },
+      ],
+      allow_promotion_codes: args.allowPromotionCodes ?? true,
+      success_url: `${baseUrl}/billing/success?plan=premium_team&session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${baseUrl}/preferencias?section=billing`,
       metadata: {
         userId: args.userId,
         type: "user_subscription",
       },
     });
 
-    return { url: response.url! };
+    return { url: session.url! };
   },
 });

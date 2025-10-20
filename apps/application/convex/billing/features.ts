@@ -1096,28 +1096,41 @@ export const isTeamFrozen = query({
  */
 export const getUsageLimits = query({
   args: { entityId: v.string() },
-  returns: v.union(
-    v.object({
-      entityId: v.string(),
-      entityType: v.union(v.literal("user"), v.literal("team")),
-      casesCount: v.number(),
-      documentsCount: v.number(),
-      aiMessagesThisMonth: v.number(),
-      escritosCount: v.number(),
-      libraryDocumentsCount: v.number(),
-      storageUsedBytes: v.number(),
-      lastResetDate: v.number(),
-      currentMonthStart: v.number(),
-    }),
-    v.null()
-  ),
+  returns: v.object({
+    entityId: v.string(),
+    entityType: v.union(v.literal("user"), v.literal("team")),
+    casesCount: v.number(),
+    documentsCount: v.number(),
+    aiMessagesThisMonth: v.number(),
+    escritosCount: v.number(),
+    libraryDocumentsCount: v.number(),
+    storageUsedBytes: v.number(),
+    lastResetDate: v.number(),
+    currentMonthStart: v.number(),
+  }),
   handler: async (ctx, args) => {
     const limits = await ctx.db
       .query("usageLimits")
       .withIndex("by_entity", (q) => q.eq("entityId", args.entityId))
       .first();
 
-    if (!limits) return null;
+    // If no limits record exists, return default zero values
+    // This handles existing users who don't have limits initialized yet
+    // The actual record will be created when they perform an action
+    if (!limits) {
+      return {
+        entityId: args.entityId,
+        entityType: "user" as const, // Default to user, will be determined properly when record is created
+        casesCount: 0,
+        documentsCount: 0,
+        aiMessagesThisMonth: 0,
+        escritosCount: 0,
+        libraryDocumentsCount: 0,
+        storageUsedBytes: 0,
+        lastResetDate: Date.now(),
+        currentMonthStart: Date.now(),
+      };
+    }
 
     return {
       entityId: limits.entityId,

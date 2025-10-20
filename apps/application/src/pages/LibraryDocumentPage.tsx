@@ -190,7 +190,7 @@ export default function LibraryDocumentPage() {
                   recoverable={document.processingErrorRecoverable}
                   onRetry={async () => {
                     try {
-                      await retryProcessing({ libraryDocumentId: document._id });
+                      await retryProcessing({ libraryDocumentId: document._id as Id<"libraryDocuments"> });
                       setRetrying(true);
                       toast.success("Reintentando indexación del documento");
                     } catch (error) {
@@ -323,7 +323,7 @@ export default function LibraryDocumentPage() {
                 <div>
                   <p className="text-sm font-medium mb-2">Etiquetas</p>
                   <div className="flex flex-wrap gap-2">
-                    {document.tags.map((tag) => (
+                    {document.tags.map((tag: string) => (
                       <Badge key={tag} variant="secondary">
                         {tag}
                       </Badge>
