@@ -42,7 +42,7 @@ import { es } from "date-fns/locale";
 import { Tool } from "@/components/ai-elements/tool";
 import type { ToolUIPart } from "ai";
 import { toast } from "sonner";
-import { LegislationModal } from "@/components/CaseAgent/legislation-modal";
+import { CitationModal } from "@/components/CaseAgent/citation-modal";
 
 export interface HomeAgentChatProps {
   /** ID del thread de conversación */
@@ -70,7 +70,8 @@ export function HomeAgentChat({
 
   // Estado para el modal de citas
   const [citationModalOpen, setCitationModalOpen] = useState(false);
-  const [selectedNormativeId, setSelectedNormativeId] = useState("");
+  const [selectedCitationId, setSelectedCitationId] = useState("");
+  const [selectedCitationType, setSelectedCitationType] = useState("");
 
   // Hook de Convex con streaming habilitado
   const messagesResult = useThreadMessages(
@@ -250,7 +251,8 @@ export function HomeAgentChat({
                                     type,
                                   });
                                   setCitationModalOpen(true);
-                                  setSelectedNormativeId(id);
+                                  setSelectedCitationId(id);
+                                  setSelectedCitationType(type);
                                 }}
                               >
                                 {displayText || "..."}
@@ -303,7 +305,8 @@ export function HomeAgentChat({
                         onCitationClick={(id, type) => {
                           console.log("Citation clicked:", { id, type });
                           setCitationModalOpen(true);
-                          setSelectedNormativeId(id);
+                          setSelectedCitationId(id);
+                          setSelectedCitationType(type);
                         }}
                       >
                         {messageText || "..."}
@@ -394,11 +397,12 @@ export function HomeAgentChat({
         </PromptInput>
       </div>
 
-      {/* Modal de citas legislativas */}
-      <LegislationModal
+      {/* Modal de citas unificado */}
+      <CitationModal
         open={citationModalOpen}
         setOpen={setCitationModalOpen}
-        normativeId={selectedNormativeId}
+        citationId={selectedCitationId}
+        citationType={selectedCitationType}
       />
     </div>
   );
