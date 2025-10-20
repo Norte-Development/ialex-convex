@@ -13,6 +13,7 @@ import { getSupportedFormats } from "./services/mediaProcessingService";
 import { FILE_SIZE_LIMITS, SUPPORTED_MIME_TYPES, MIME_TYPE_PATTERNS, getFileSizeLimit } from "./utils/fileValidation";
 import { getErrorStats } from "./utils/errorTaxonomy";
 import { processStreamingDocumentJobWithResume } from "./jobs/streamingProcessDocumentJob";
+import { processStreamingLibraryDocumentJobWithResume } from "./jobs/streamingProcessLibraryDocumentJob";
 import { startCleanupScheduler } from "./jobs/cleanupOldJobStates";
 // @ts-ignore
 import multer from "multer";
@@ -502,6 +503,15 @@ if (useStreaming) {
   } catch (error) {
     logger.error("❌ Failed to register streaming document processor", { error: String(error) });
   }
+  
+  try {
+    processStreamingLibraryDocumentJobWithResume(libraryDocumentQueue);
+    logger.info("✅ Streaming library document processor registered successfully");
+    logger.info("   Queue: library-document-processing");
+    logger.info("   Features: Resume support, streaming pipeline, chunked processing");
+  } catch (error) {
+    logger.error("❌ Failed to register streaming library document processor", { error: String(error) });
+  }
 } else {
   try {
     processDocumentJob(documentQueue);
@@ -511,20 +521,21 @@ if (useStreaming) {
   } catch (error) {
     logger.error("❌ Failed to register document processing worker", { error: String(error) });
   }
-}
-
-try {
-  processLibraryDocumentJob(libraryDocumentQueue);
-  logger.info("✅ Library document processor registered successfully");
-  logger.info("   Queue: library-document-processing");
-} catch (error) {
-  logger.error("❌ Failed to register library document processing worker", { error: String(error) });
+  
+  try {
+    processLibraryDocumentJob(libraryDocumentQueue);
+    logger.info("✅ Standard library document processor registered successfully");
+    logger.info("   Queue: library-document-processing");
+    logger.info("   Features: In-memory processing, no resume support");
+  } catch (error) {
+    logger.error("❌ Failed to register library document processing worker", { error: String(error) });
+  }
 }
 
 // Start cleanup scheduler if streaming is enabled
 if (useStreaming && process.env.ENABLE_JOB_RESUME === 'true') {
   startCleanupScheduler();
-  logger.info("Streaming cleanup scheduler started");
+  logger.info("✅ Streaming cleanup scheduler started");
 }
 
 // Custom error handler for multer errors (must be after all routes)

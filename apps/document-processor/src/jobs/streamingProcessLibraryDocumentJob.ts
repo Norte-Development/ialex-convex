@@ -2,38 +2,39 @@ import "dotenv/config";
 import { Worker, Queue } from "bullmq";
 import { logger } from "../middleware/logging";
 import { UnifiedStreamingPipeline } from "../services/streaming/unifiedStreamingPipeline";
-import { StreamingEmbeddingService } from "../services/streaming/streamingEmbeddingService";
 import { TempFileManager } from "../utils/tempFileManager";
-import { CaseJobPayload } from "../types/streamingJobPayload";
+import { LibraryJobPayload } from "../types/streamingJobPayload";
+import { upsertLibraryChunks } from "../services/qdrantService";
+import { embedChunks } from "../services/embeddingService";
 
-export function processStreamingDocumentJobWithResume(queue: Queue) {
-  new Worker<CaseJobPayload>(
+export function processStreamingLibraryDocumentJobWithResume(queue: Queue) {
+  new Worker<LibraryJobPayload>(
     queue.name,
     async (job) => {
-      logger.info('🔍 STREAMING WORKER received job', {
+      logger.info('🔍 STREAMING LIBRARY WORKER received job', {
         jobId: job.id,
         jobName: job.name,
-        jobType: job.data?.jobType || 'case-document',
-        documentId: job.data?.documentId || 'unknown'
+        jobType: job.data?.jobType || 'library-document',
+        libraryDocumentId: job.data?.libraryDocumentId || 'unknown'
       });
 
-      // ONLY process case document jobs
-      if (job.data?.jobType && job.data.jobType !== "case-document") {
-        logger.warn('⏭️  STREAMING WORKER skipping - wrong jobType', { 
+      // ONLY process library document jobs
+      if (job.data?.jobType && job.data.jobType !== "library-document") {
+        logger.warn('⏭️  STREAMING LIBRARY WORKER skipping - wrong jobType', { 
           jobId: job.id,
           jobName: job.name,
           jobType: job.data.jobType,
-          expectedJobType: 'case-document'
+          expectedJobType: 'library-document'
         });
         return;
       }
 
       // Also check job name for backward compatibility
-      if (job.name !== "process-document") {
-        logger.warn('⏭️  STREAMING WORKER skipping - wrong job name', { 
+      if (job.name !== "process-library-document") {
+        logger.warn('⏭️  STREAMING LIBRARY WORKER skipping - wrong job name', { 
           jobId: job.id,
           jobName: job.name,
-          expectedName: 'process-document'
+          expectedName: 'process-library-document'
         });
         return;
       }
@@ -41,10 +42,10 @@ export function processStreamingDocumentJobWithResume(queue: Queue) {
       const start = Date.now();
       const payload = job.data;
 
-      logger.info('🚀 STREAMING PROCESSOR - Processing document', {
+      logger.info('🚀 STREAMING LIBRARY PROCESSOR - Processing document', {
         jobId: job.id,
         jobName: job.name,
-        documentId: payload.documentId,
+        libraryDocumentId: payload.libraryDocumentId,
         processorType: 'STREAMING',
         features: 'resume-support, streaming-pipeline, chunked-processing'
       });
@@ -54,101 +55,59 @@ export function processStreamingDocumentJobWithResume(queue: Queue) {
       try {
         await pipeline.initialize();
 
-        const tempFileManager = new TempFileManager(job.id!);
-        const embeddingService = new StreamingEmbeddingService(tempFileManager);
-
-        // Create embed and upsert function for case documents
+        // Create embed and upsert function for library documents
         const embedAndUpsertFn = async (
           chunks: Array<{ index: number; text: string }>,
           state: any,
           progressCallback: (embedded: number, upserted: number) => Promise<void>
         ) => {
-          const createdBy = payload.createdBy ?? payload.tenantId;
-          return await embeddingService.embedAndUpsertStreamWithResume(
-            chunks,
-            createdBy,
-            payload.caseId,
-            payload.documentId,
-                state,
-                {
-              onProgress: progressCallback
+          // Embed chunks - extract just the text for embedding
+          const chunkTexts = chunks.map(c => c.text);
+          const embeddings = await embedChunks(chunkTexts);
+
+          // Upsert to Qdrant with library-specific metadata
+          await upsertLibraryChunks(
+            payload.createdBy,
+            payload.libraryDocumentId,
+            payload.userId,
+            payload.teamId,
+            payload.folderId,
+            embeddings,
+            {
+              documentType: payload.documentType,
             }
           );
-        };
 
-        // Extract text callback for transcription
-        const extractedTextCallback = async (extractedText: string, metadata: Record<string, unknown>) => {
-              logger.info('Storing full transcript to database', {
-                documentId: payload.documentId,
-            transcriptLength: extractedText.length,
-            confidence: metadata.confidence
-              });
+          await progressCallback(embeddings.length, embeddings.length);
 
-              try {
-                const crypto = await import("crypto");
-                const callbackBody = JSON.stringify({
-                  documentId: payload.documentId,
-              extractedText,
-              extractedTextLength: extractedText.length,
-              transcriptionConfidence: metadata.confidence,
-              transcriptionDuration: metadata.duration,
-              transcriptionModel: metadata.model,
-                });
-
-                const hmac = payload.hmacSecret
-                  ? crypto.createHmac("sha256", payload.hmacSecret).update(callbackBody).digest("hex")
-                  : undefined;
-
-                const baseUrl = payload.callbackUrl.replace(/\/webhooks\/.*$/, '');
-                const extractedTextUrl = `${baseUrl}/api/document-processor/extracted-text`;
-
-                logger.info('Sending extracted text callback', {
-                  url: extractedTextUrl,
-                  hasHmac: !!hmac
-                });
-
-                const response = await fetch(extractedTextUrl, {
-                  method: 'POST',
-                  headers: {
-                    'Content-Type': 'application/json',
-                    ...(hmac ? { 'X-Convex-Signature': hmac } : {})
-                  },
-                  body: callbackBody
-                });
-
-                if (!response.ok) {
-                  throw new Error(`HTTP ${response.status}: ${await response.text()}`);
-                }
-
-                logger.info('Successfully stored transcript to database');
-              } catch (callbackError) {
-                logger.warn('Failed to send extracted text callback', {
-                  error: String(callbackError)
-                });
-          }
+          return {
+            totalEmbedded: embeddings.length,
+            totalUpserted: embeddings.length,
+            skipped: 0
+          };
         };
 
         // Run the pipeline
         const result = await pipeline.process(
           payload,
           {
-            documentIdentifier: payload.documentId,
+            documentIdentifier: payload.libraryDocumentId,
             metadata: {
-              caseId: payload.caseId,
-              tenantId: payload.tenantId
+              userId: payload.userId,
+              teamId: payload.teamId,
+              folderId: payload.folderId
             },
             onProgress: (update) => {
               job.updateProgress(update);
-            },
-            extractedTextCallback
+            }
           },
           embedAndUpsertFn,
           job.attemptsMade + 1
         );
 
-        logger.info('Job completed successfully', {
+        logger.info('Library job completed successfully', {
           jobId: job.id,
-          documentId: payload.documentId,
+          libraryDocumentId: payload.libraryDocumentId,
           totalChunks: result.totalChunks,
           durationMs: result.durationMs,
           resumed: result.resumed
@@ -157,14 +116,14 @@ export function processStreamingDocumentJobWithResume(queue: Queue) {
         // Send success callback
         logger.info('Preparing success callback', {
           jobId: job.id,
-          documentId: payload.documentId,
+          libraryDocumentId: payload.libraryDocumentId,
           callbackUrl: payload.callbackUrl,
           hasHmacSecret: !!payload.hmacSecret
         });
 
         const callbackBody = JSON.stringify({
           status: "completed",
-          documentId: payload.documentId,
+          libraryDocumentId: payload.libraryDocumentId,
           totalChunks: result.totalChunks,
           method: result.method || 'streaming',
           durationMs: result.durationMs,
@@ -253,18 +212,18 @@ export function processStreamingDocumentJobWithResume(queue: Queue) {
         };
 
       } catch (error) {
-        logger.error('Job failed', {
+        logger.error('Library job failed', {
           jobId: job.id,
-          documentId: payload.documentId,
+          libraryDocumentId: payload.libraryDocumentId,
           error: String(error)
         });
 
         const totalAttempts = typeof job.opts.attempts === "number" ? job.opts.attempts : 1;
         const isFinalAttempt = job.attemptsMade + 1 >= totalAttempts;
         
-        logger.info('Job attempt failed', {
+        logger.info('Library job attempt failed', {
           jobId: job.id,
-          documentId: payload.documentId,
+          libraryDocumentId: payload.libraryDocumentId,
           attemptNumber: job.attemptsMade + 1,
           totalAttempts,
           isFinalAttempt,
@@ -274,7 +233,7 @@ export function processStreamingDocumentJobWithResume(queue: Queue) {
         if (isFinalAttempt) {
           logger.info('Preparing failure callback (final attempt)', {
             jobId: job.id,
-            documentId: payload.documentId,
+            libraryDocumentId: payload.libraryDocumentId,
             attemptsMade: job.attemptsMade + 1,
             totalAttempts,
             callbackUrl: payload.callbackUrl,
@@ -283,7 +242,7 @@ export function processStreamingDocumentJobWithResume(queue: Queue) {
 
           const failureBody = JSON.stringify({
             status: "failed",
-            documentId: payload.documentId,
+            libraryDocumentId: payload.libraryDocumentId,
             error: error instanceof Error ? error.message : String(error),
             durationMs: Date.now() - start,
           });
@@ -360,7 +319,7 @@ export function processStreamingDocumentJobWithResume(queue: Queue) {
         } else {
           logger.info('Not sending callback - not final attempt', {
             jobId: job.id,
-            documentId: payload.documentId,
+            libraryDocumentId: payload.libraryDocumentId,
             attemptsMade: job.attemptsMade + 1,
             totalAttempts
           });
@@ -384,7 +343,8 @@ export function processStreamingDocumentJobWithResume(queue: Queue) {
     { 
       connection: queue.opts.connection,
       concurrency: Number(process.env.WORKER_CONCURRENCY || 2),
-      name: "process-document"
+      name: "process-library-document"
     }
   );
 }
+
