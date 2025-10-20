@@ -222,6 +222,33 @@ export default defineSchema({
     processingCompletedAt: v.optional(v.number()),
     processingError: v.optional(v.string()),
     totalChunks: v.optional(v.number()), // Number of chunks created
+    // Retry tracking
+    retryCount: v.optional(v.number()),
+    lastRetryAt: v.optional(v.number()),
+    // Progress tracking
+    processingPhase: v.optional(
+      v.union(
+        v.literal("downloading"),
+        v.literal("extracting"),
+        v.literal("chunking"),
+        v.literal("embedding"),
+        v.literal("upserting"),
+      ),
+    ),
+    processingProgress: v.optional(v.number()), // 0-100
+    // Error categorization
+    processingErrorType: v.optional(v.string()),
+    processingErrorRecoverable: v.optional(v.boolean()),
+    // Processing metadata
+    processingMethod: v.optional(v.string()), // "mistral-ocr", "pdfjs", "transcription"
+    wasResumed: v.optional(v.boolean()),
+    processingDurationMs: v.optional(v.number()),
+    // Extracted text fields (for transcriptions, OCR, etc.)
+    extractedText: v.optional(v.string()), // Full transcript or OCR text
+    extractedTextLength: v.optional(v.number()), // Character count for validation
+    transcriptionConfidence: v.optional(v.number()), // Deepgram confidence score
+    transcriptionDuration: v.optional(v.number()), // Audio/video duration in seconds
+    transcriptionModel: v.optional(v.string()), // e.g., "nova-3"
   })
     .index("by_case", ["caseId"])
     .index("by_folder", ["folderId"])
@@ -543,6 +570,27 @@ export default defineSchema({
     processingCompletedAt: v.optional(v.number()),
     processingError: v.optional(v.string()),
     totalChunks: v.optional(v.number()), // Number of chunks created
+    // Retry tracking
+    retryCount: v.optional(v.number()),
+    lastRetryAt: v.optional(v.number()),
+    // Progress tracking
+    processingPhase: v.optional(
+      v.union(
+        v.literal("downloading"),
+        v.literal("extracting"),
+        v.literal("chunking"),
+        v.literal("embedding"),
+        v.literal("upserting"),
+      ),
+    ),
+    processingProgress: v.optional(v.number()), // 0-100
+    // Error categorization
+    processingErrorType: v.optional(v.string()),
+    processingErrorRecoverable: v.optional(v.boolean()),
+    // Processing metadata
+    processingMethod: v.optional(v.string()), // "mistral-ocr", "pdfjs", "transcription"
+    wasResumed: v.optional(v.boolean()),
+    processingDurationMs: v.optional(v.number()),
   })
     .index("by_user", ["userId"])
     .index("by_team", ["teamId"])

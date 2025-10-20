@@ -24,6 +24,7 @@ import {
 
   searchDoctrineTool,
   readDoctrineTool,
+  listCaseDocumentsTool,
 } from "../tools";
 
 /**
@@ -54,6 +55,7 @@ export const agent = new Agent(components.agent, {
 
   tools: {
     searchCaseDocumentos: searchCaseDocumentsTool,
+    listCaseDocuments: listCaseDocumentsTool,
     queryDocumento: queryDocumentTool,
     editEscrito: editEscritoTool,
     getEscritoStats: getEscritoStatsTool,

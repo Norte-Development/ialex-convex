@@ -256,22 +256,45 @@ export async function extractWithMistralOCRFromBuffer(buffer: Buffer, opts: Opti
   if (!apiKey) throw new Error("Missing Mistral OCR config");
 
   try {
-    logger.info("Starting Mistral OCR extraction from buffer", { bufferSize: buffer.length });
+    const bufferSizeMB = buffer.length / (1024 * 1024);
+    logger.info("Starting Mistral OCR extraction from buffer", { 
+      bufferSize: buffer.length,
+      bufferSizeMB: bufferSizeMB.toFixed(2)
+    });
 
     // Check if document needs splitting
     const pageCount = await getPdfPageCount(buffer);
     
-    if (pageCount <= 500) {
-      logger.info("Document is small enough, processing directly", { pageCount });
+    // Mistral OCR limits: 1000 pages AND 50 MB
+    if (pageCount <= 1000 && bufferSizeMB <= 50) {
+      logger.info("Document fits in one Mistral OCR request", { 
+        pageCount, 
+        bufferSizeMB: bufferSizeMB.toFixed(2) 
+      });
       // Convert buffer to base64 and process directly
       const base64Pdf = await encodePdf(buffer);
       return await extractWithMistralOCRFromBase64(base64Pdf, opts);
     }
 
-    logger.info("Document is large, splitting into chunks", { pageCount });
+    logger.info("Document needs splitting for Mistral OCR", { 
+      pageCount, 
+      bufferSizeMB: bufferSizeMB.toFixed(2) 
+    });
+    
+    // Calculate optimal chunk size (consider both page count and file size)
+    const pagesPerMB = pageCount / bufferSizeMB;
+    const maxPagesForSize = Math.floor(48 * pagesPerMB); // 48 MB to be safe, leaving room for base64 encoding
+    const chunkSize = Math.min(1000, maxPagesForSize); // Whichever is smaller
+    
+    logger.info("Calculated optimal chunk size", { 
+      chunkSize,
+      pagesPerMB: pagesPerMB.toFixed(2),
+      maxPagesForSize,
+      estimatedChunks: Math.ceil(pageCount / chunkSize) 
+    });
     
     // Split the document into chunks
-    const chunks = await splitPdfForMistralOCR(buffer, 500);
+    const chunks = await splitPdfForMistralOCR(buffer, chunkSize);
     const chunkResults: string[] = [];
 
     // Process each chunk

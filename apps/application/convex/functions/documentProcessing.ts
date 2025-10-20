@@ -132,6 +132,56 @@ export const getDocumentsByProcessingStatus = query({
 });
 
 // ========================================
+// MANUAL RETRY
+// ========================================
+
+/**
+ * Allows users to manually retry failed document processing.
+ */
+export const retryDocumentProcessing = mutation({
+  args: { documentId: v.id("documents") },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    // Verify user access
+    const currentUser = await getCurrentUserFromAuth(ctx);
+    const document = await ctx.db.get(args.documentId);
+    
+    if (!document) {
+      throw new Error("Document not found");
+    }
+    
+    // Check case access
+    await requireNewCaseAccess(ctx, currentUser._id, document.caseId, "advanced");
+    
+    // Only allow retry for failed documents
+    if (document.processingStatus !== "failed") {
+      throw new Error("Document is not in failed state");
+    }
+    
+    // Reset processing status
+    await ctx.db.patch(args.documentId, {
+      processingStatus: "pending",
+      processingError: undefined,
+      processingErrorType: undefined,
+      processingErrorRecoverable: undefined,
+      processingPhase: undefined,
+      processingProgress: undefined,
+      retryCount: (document.retryCount || 0) + 1,
+      lastRetryAt: Date.now(),
+    });
+    
+    // Re-trigger processing
+    await ctx.scheduler.runAfter(
+      0,
+      internal.functions.documentProcessing.processDocument,
+      { documentId: args.documentId }
+    );
+    
+    return null;
+  },
+});
+
+// ========================================
 // ASYNCHRONOUS DOCUMENT PROCESSING
 // ========================================
 
@@ -187,13 +237,14 @@ export const processDocument = internalAction({
         {
           bucket: document.gcsBucket as string,
           object: document.gcsObject as string,
-          expiresSeconds: 300, // 5 minutes
+          expiresSeconds: 3600, // 1 hour - allows for queue delays and retries
           method: "GET",
         },
       );
 
       const callbackUrl = `${process.env.CONVEX_SITE_URL || ""}/webhooks/document-processed`;
       const body = {
+        jobType: "case-document", // Explicit discriminator for routing
         signedUrl: url,
         contentType: document.mimeType,
         // kept for legacy worker field name; worker maps to createdBy
@@ -259,6 +310,38 @@ export const getDocumentForProcessing = internalQuery({
 });
 
 /**
+ * Internal mutation to update processing progress (phase and percentage).
+ */
+export const updateProcessingProgress = internalMutation({
+  args: {
+    documentId: v.id("documents"),
+    phase: v.optional(
+      v.union(
+        v.literal("downloading"),
+        v.literal("extracting"),
+        v.literal("chunking"),
+        v.literal("embedding"),
+        v.literal("upserting"),
+      )
+    ),
+    progress: v.optional(v.number()), // 0-100
+  },
+  handler: async (ctx, args) => {
+    const updates: any = {};
+    
+    if (args.phase !== undefined) {
+      updates.processingPhase = args.phase;
+    }
+    
+    if (args.progress !== undefined) {
+      updates.processingProgress = Math.min(100, Math.max(0, args.progress));
+    }
+    
+    await ctx.db.patch(args.documentId, updates);
+  },
+});
+
+/**
  * Internal mutation to update document processing status.
  */
 export const updateDocumentProcessingStatus = internalMutation({
@@ -274,6 +357,11 @@ export const updateDocumentProcessingStatus = internalMutation({
     processingCompletedAt: v.optional(v.number()),
     processingError: v.optional(v.string()),
     totalChunks: v.optional(v.number()),
+    processingMethod: v.optional(v.string()),
+    wasResumed: v.optional(v.boolean()),
+    processingDurationMs: v.optional(v.number()),
+    processingErrorType: v.optional(v.string()),
+    processingErrorRecoverable: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
     const updates: any = {
@@ -294,6 +382,26 @@ export const updateDocumentProcessingStatus = internalMutation({
 
     if (args.totalChunks !== undefined) {
       updates.totalChunks = args.totalChunks;
+    }
+    
+    if (args.processingMethod !== undefined) {
+      updates.processingMethod = args.processingMethod;
+    }
+    
+    if (args.wasResumed !== undefined) {
+      updates.wasResumed = args.wasResumed;
+    }
+    
+    if (args.processingDurationMs !== undefined) {
+      updates.processingDurationMs = args.processingDurationMs;
+    }
+    
+    if (args.processingErrorType !== undefined) {
+      updates.processingErrorType = args.processingErrorType;
+    }
+    
+    if (args.processingErrorRecoverable !== undefined) {
+      updates.processingErrorRecoverable = args.processingErrorRecoverable;
     }
 
     await ctx.db.patch(args.documentId, updates);
@@ -318,6 +426,56 @@ export const updateDocumentProcessingStatus = internalMutation({
           htmlBody: documentProcessedTemplate(docTitle, userName, args.status === "completed" ? "success" : "failure"),
         });
       }
+  },
+});
+
+/**
+ * Internal mutation to update extracted text (transcription/OCR).
+ */
+export const updateExtractedText = internalMutation({
+  args: {
+    documentId: v.id("documents"),
+    extractedText: v.string(),
+    extractedTextLength: v.number(),
+    transcriptionConfidence: v.optional(v.number()),
+    transcriptionDuration: v.optional(v.number()),
+    transcriptionModel: v.optional(v.string()),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const updates: {
+      extractedText: string;
+      extractedTextLength: number;
+      transcriptionConfidence?: number;
+      transcriptionDuration?: number;
+      transcriptionModel?: string;
+    } = {
+      extractedText: args.extractedText,
+      extractedTextLength: args.extractedTextLength,
+    };
+
+    if (args.transcriptionConfidence !== undefined) {
+      updates.transcriptionConfidence = args.transcriptionConfidence;
+    }
+
+    if (args.transcriptionDuration !== undefined) {
+      updates.transcriptionDuration = args.transcriptionDuration;
+    }
+
+    if (args.transcriptionModel !== undefined) {
+      updates.transcriptionModel = args.transcriptionModel;
+    }
+
+    await ctx.db.patch(args.documentId, updates);
+
+    console.log(`Updated extracted text for document ${args.documentId}`, {
+      textLength: args.extractedTextLength,
+      confidence: args.transcriptionConfidence,
+      duration: args.transcriptionDuration,
+      model: args.transcriptionModel,
+    });
+
+    return null;
   },
 });
 
