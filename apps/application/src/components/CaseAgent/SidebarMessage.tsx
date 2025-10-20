@@ -13,10 +13,10 @@ import { Tool } from "../ai-elements/tool";
 import { MessageText } from "../ai-elements/message-text";
 import type { SidebarMessageProps } from "./types/message-types";
 import { LegislationModal } from "./legislation-modal";
-import { useState, useEffect, useRef, useCallback, useMemo, memo } from "react";
+import { useState, useEffect, memo } from "react";
 import { ToolUIPart } from "ai";
 
-export function SidebarMessage({
+function SidebarMessageInner({
   message,
   userAvatar,
   assistantAvatar,
@@ -71,6 +71,13 @@ export function SidebarMessage({
       onContentChange();
     }
   }, [message.parts, onContentChange]);
+
+  // Callback for when images load to trigger layout updates
+  const onImageLoad = () => {
+    if (onContentChange) {
+      setTimeout(onContentChange, 100); // Small delay to allow DOM update
+    }
+  };
 
   // Helper to calculate cumulative text length up to a given text part
   const getCumulativeTextLength = (upToIndex: number) => {
@@ -265,30 +272,25 @@ export function SidebarMessage({
             const mediaType = (part as any).mediaType;
             const filename = (part as any).filename;
 
-  if (mediaType?.startsWith("image/")) {
-    return (
-      <div key={`file-${index}`} className="mt-2">
-        <img
-          src={fileUrl}
-          alt={filename || "Attached image"}
-          className="max-w-full h-auto rounded"
-          onLoad={onImageLoad}
-        />
-      </div>
-    );
-  }
+            if (mediaType?.startsWith("image/")) {
+              return (
+                <div key={`file-${index}`} className="mt-2">
+                  <img
+                    src={fileUrl}
+                    alt={filename || "Attached image"}
+                    className="max-w-full h-auto rounded"
+                    onLoad={onImageLoad}
+                  />
+                </div>
+              );
+            }
 
-  return (
-    <div key={`file-${index}`} className="text-xs bg-gray-50 border border-gray-200 rounded p-2">
-      <strong>File:</strong> {filename || "Unknown file"}
-    </div>
-  );
-});
-
-interface ToolPartRendererProps {
-  part: any;
-  index: number;
-}
+            return (
+              <div key={`file-${index}`} className="text-xs bg-gray-50 border border-gray-200 rounded p-2">
+                <strong>File:</strong> {filename || "Unknown file"}
+              </div>
+            );
+          }
 
           if (part.type.startsWith("tool-")) {
             const aiSDKState = (part as any).state;
