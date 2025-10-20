@@ -42,6 +42,7 @@ import { es } from "date-fns/locale";
 import { Tool } from "@/components/ai-elements/tool";
 import type { ToolUIPart } from "ai";
 import { toast } from "sonner";
+import { CitationModal } from "@/components/CaseAgent/citation-modal";
 
 export interface HomeAgentChatProps {
   /** ID del thread de conversación */
@@ -66,6 +67,11 @@ export function HomeAgentChat({
   const [inputValue, setInputValue] = useState("");
   const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null);
   const [sendError, setSendError] = useState<string | null>(null);
+
+  // Estado para el modal de citas
+  const [citationModalOpen, setCitationModalOpen] = useState(false);
+  const [selectedCitationId, setSelectedCitationId] = useState("");
+  const [selectedCitationType, setSelectedCitationType] = useState("");
 
   // Hook de Convex con streaming habilitado
   const messagesResult = useThreadMessages(
@@ -133,7 +139,8 @@ export function HomeAgentChat({
       }
     } catch (error) {
       console.error("Error sending message:", error);
-      const errorMessage = error instanceof Error ? error.message : "Error al enviar el mensaje";
+      const errorMessage =
+        error instanceof Error ? error.message : "Error al enviar el mensaje";
       setSendError(errorMessage);
       toast.error("Error al enviar mensaje", {
         description: errorMessage,
@@ -167,7 +174,10 @@ export function HomeAgentChat({
       await sendMessage(messageText);
     } catch (error) {
       console.error("Error regenerating message:", error);
-      const errorMessage = error instanceof Error ? error.message : "Error al regenerar la respuesta";
+      const errorMessage =
+        error instanceof Error
+          ? error.message
+          : "Error al regenerar la respuesta";
       setSendError(errorMessage);
       toast.error("Error al regenerar respuesta", {
         description: errorMessage,
@@ -232,7 +242,19 @@ export function HomeAgentChat({
                             );
                           } else {
                             return (
-                              <Response key={partIndex} className="text-sm">
+                              <Response
+                                key={partIndex}
+                                className="text-sm"
+                                onCitationClick={(id, type) => {
+                                  console.log("Citation clicked:", {
+                                    id,
+                                    type,
+                                  });
+                                  setCitationModalOpen(true);
+                                  setSelectedCitationId(id);
+                                  setSelectedCitationType(type);
+                                }}
+                              >
                                 {displayText || "..."}
                               </Response>
                             );
@@ -265,6 +287,7 @@ export function HomeAgentChat({
                               type={part.type.replace("tool-", "")}
                               state={toolState}
                               output={part.output as ToolUIPart["output"]}
+                              // input={part.input}
                             />
                           );
                         }
@@ -277,7 +300,15 @@ export function HomeAgentChat({
                         {messageText || "..."}
                       </div>
                     ) : (
-                      <Response className="text-sm">
+                      <Response
+                        className="text-sm"
+                        onCitationClick={(id, type) => {
+                          console.log("Citation clicked:", { id, type });
+                          setCitationModalOpen(true);
+                          setSelectedCitationId(id);
+                          setSelectedCitationType(type);
+                        }}
+                      >
                         {messageText || "..."}
                       </Response>
                     )}
@@ -365,6 +396,14 @@ export function HomeAgentChat({
           </PromptInputToolbar>
         </PromptInput>
       </div>
+
+      {/* Modal de citas unificado */}
+      <CitationModal
+        open={citationModalOpen}
+        setOpen={setCitationModalOpen}
+        citationId={selectedCitationId}
+        citationType={selectedCitationType}
+      />
     </div>
   );
 }
