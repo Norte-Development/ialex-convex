@@ -44,14 +44,14 @@ steps:
       - '--allow-unauthenticated'
       - '--set-env-vars=WORKER_CONCURRENCY=1,MAX_PDF_SIZE_MB=200,MAX_VIDEO_SIZE_MB=500,NODE_ENV=production,USE_STREAMING_PROCESSOR=true'
       # Add these secrets after you create them in Secret Manager
-      # - '--set-secrets=REDIS_URL=redis-url:latest'
-      # - '--set-secrets=DEEPGRAM_API_KEY=deepgram-key:latest'
-      # - '--set-secrets=MISTRAL_API_KEY=mistral-key:latest'
-      # - '--set-secrets=OPENAI_API_KEY=openai-key:latest'
-      # - '--set-secrets=QDRANT_URL=qdrant-url:latest'
-      # - '--set-secrets=QDRANT_API_KEY=qdrant-key:latest'
-      # - '--set-secrets=HMAC_SECRET=hmac-secret:latest'
-      # - '--set-secrets=CONVEX_SITE_URL=convex-site-url:latest'
+      - '--set-secrets=REDIS_URL=redis-url:latest'
+      - '--set-secrets=DEEPGRAM_API_KEY=deepgram-key:latest'
+      - '--set-secrets=MISTRAL_API_KEY=mistral-key:latest'
+      - '--set-secrets=OPENAI_API_KEY=openai-key:latest'
+      - '--set-secrets=QDRANT_URL=qdrant-url:latest'
+      - '--set-secrets=QDRANT_API_KEY=qdrant-key:latest'
+      - '--set-secrets=HMAC_SECRET=hmac-secret:latest'
+      - '--set-secrets=CONVEX_SITE_URL=convex-site-url:latest'
     id: 'deploy-cloud-run'
 
 images:
