@@ -13,10 +13,10 @@ import { Tool } from "../ai-elements/tool";
 import { MessageText } from "../ai-elements/message-text";
 import type { SidebarMessageProps } from "./types/message-types";
 import { CitationModal } from "./citation-modal";
-import { useState, useEffect } from "react";
+import { useState, useEffect, memo } from "react";
 import { ToolUIPart } from "ai";
 
-export function SidebarMessage({
+function SidebarMessageInner({
   message,
   userAvatar,
   assistantAvatar,
@@ -43,6 +43,9 @@ export function SidebarMessage({
   const allToolsCompleted =
     toolCalls.length > 0 &&
     toolCalls.every((part) => (part as any).state === "output-available");
+  
+  // Check if there are active tools (not completed yet)
+  const hasActiveTools = toolCalls.length > 0 && !allToolsCompleted;
 
   // Only stream while assistant is actively streaming and tools (if any) are not all completed
   const shouldStream =
@@ -69,6 +72,13 @@ export function SidebarMessage({
       onContentChange();
     }
   }, [message.parts, onContentChange]);
+
+  // Callback for when images load to trigger layout updates
+  const onImageLoad = () => {
+    if (onContentChange) {
+      setTimeout(onContentChange, 100); // Small delay to allow DOM update
+    }
+  };
 
   // Helper to calculate cumulative text length up to a given text part
   const getCumulativeTextLength = (upToIndex: number) => {
@@ -114,13 +124,10 @@ export function SidebarMessage({
             "!bg-red-100 !text-red-800 border-l-2 border-red-400",
         )}
       >
-        {/* Show thinking indicator if message has no parts yet or is empty */}
+        {/* Show thinking indicator if message has no parts yet, is empty, or only has tools without text */}
         {!isUser &&
-          shouldStream &&
-          (!message.parts ||
-            message.parts.length === 0 ||
-            !messageText ||
-            messageText.trim() === "") && (
+          (message.status === "streaming" || hasActiveTools) &&
+          (!messageText || messageText.trim() === "") && (
             <div className="flex items-center gap-2">
               <div className="flex gap-1">
                 <div
@@ -136,7 +143,9 @@ export function SidebarMessage({
                   style={{ animationDelay: "300ms" }}
                 />
               </div>
-              <span className="text-xs text-gray-500 italic">Pensando...</span>
+              <span className="text-xs text-gray-500 italic">
+                {hasActiveTools ? "Procesando herramientas..." : "Pensando..."}
+              </span>
             </div>
           )}
 
@@ -159,10 +168,8 @@ export function SidebarMessage({
               );
             }
 
-            // For assistant messages:
-            // Only apply streaming to the LAST text part, and only show this part's portion
-            const isLastTextPart = index === lastTextPartIndex;
-            let displayText = partText;
+  const isLastTextPart = index === lastTextPartIndex;
+  let displayText = partText;
 
             if (shouldStream && isLastTextPart) {
               // Calculate where this part's text starts in the combined text
@@ -173,32 +180,9 @@ export function SidebarMessage({
               displayText = visibleText.slice(startPos, endPos);
             }
 
-            if (
-              !isUser &&
-              shouldStream &&
-              (!displayText || displayText.trim() === "")
-            ) {
-              return (
-                <div key={index} className="flex items-center gap-2">
-                  <div className="flex gap-1">
-                    <div
-                      className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"
-                      style={{ animationDelay: "0ms" }}
-                    />
-                    <div
-                      className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"
-                      style={{ animationDelay: "150ms" }}
-                    />
-                    <div
-                      className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"
-                      style={{ animationDelay: "300ms" }}
-                    />
-                  </div>
-                  <span className="text-xs text-gray-500 italic">
-                    Pensando...
-                  </span>
-                </div>
-              );
+            // Skip rendering empty text parts - the main thinking indicator handles this
+            if (!displayText || displayText.trim() === "") {
+              return null;
             }
 
             return (
@@ -292,27 +276,19 @@ export function SidebarMessage({
 
             if (mediaType?.startsWith("image/")) {
               return (
-                <div key={index} className="mt-2">
+                <div key={`file-${index}`} className="mt-2">
                   <img
                     src={fileUrl}
                     alt={filename || "Attached image"}
                     className="max-w-full h-auto rounded"
-                    onLoad={() => {
-                      // Trigger content change when image loads (height changes)
-                      if (onContentChange) {
-                        setTimeout(onContentChange, 100);
-                      }
-                    }}
+                    onLoad={onImageLoad}
                   />
                 </div>
               );
             }
 
             return (
-              <div
-                key={index}
-                className="text-xs bg-gray-50 border border-gray-200 rounded p-2"
-              >
+              <div key={`file-${index}`} className="text-xs bg-gray-50 border border-gray-200 rounded p-2">
                 <strong>File:</strong> {filename || "Unknown file"}
               </div>
             );
@@ -343,19 +319,20 @@ export function SidebarMessage({
                 type={part.type.replace("tool-", "")}
                 state={toolState}
                 output={(part as any)?.output as ToolUIPart["output"]}
+                input={(part as any)?.input}
               ></Tool>
             );
           }
 
-          return null;
-        })}
+        return null;
+      })}
 
-        {/* Status and Actions */}
-        {!isUser && message.status === "failed" && (
-          <div className="flex items-center gap-1 mt-2 text-red-600">
-            <span className="text-xs">❌ Error al procesar el mensaje</span>
-          </div>
-        )}
+      {/* Status and Actions */}
+      {!isUser && message.status === "failed" && (
+        <div className="flex items-center gap-1 mt-2 text-red-600">
+          <span className="text-xs">❌ Error al procesar el mensaje</span>
+        </div>
+      )}
 
         {!isUser && !isStreaming && (
           <Actions className="mt-2 transition-opacity">
@@ -384,3 +361,22 @@ export function SidebarMessage({
     </Message>
   );
 }
+
+export const SidebarMessage = memo(SidebarMessageInner, (prevProps, nextProps) => {
+  // Custom comparison: only re-render if the message content or structure changes
+  // Don't re-render just because parent re-rendered
+  const prevMsg = prevProps.message as any;
+  const nextMsg = nextProps.message as any;
+  
+  return (
+    (prevMsg.id || prevMsg._id) === (nextMsg.id || nextMsg._id) &&
+    prevMsg.status === nextMsg.status &&
+    prevMsg.parts?.length === nextMsg.parts?.length &&
+    prevMsg.parts?.every((p: any, i: number) => 
+      p.type === nextMsg.parts?.[i]?.type &&
+      (p.type === "text" ? (p as any).text === (nextMsg.parts?.[i] as any)?.text : true)
+    )
+  );
+});
+
+SidebarMessage.displayName = 'SidebarMessage';

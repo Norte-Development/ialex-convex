@@ -2,7 +2,7 @@ import "dotenv/config";
 import { logger } from "../middleware/logging";
 import { Mistral } from "@mistralai/mistralai";
 import { timeoutWrappers } from "../utils/timeoutUtils";
-import { splitPdfForMistralOCR, getPdfPageCount } from "./documentSplittingService";
+import { splitPdfForMistralOCR, splitPdfBySizeAndPages, getPdfPageCount } from "./documentSplittingService";
 
 type Options = { pageWindow: number };
 
@@ -13,6 +13,11 @@ const mistral = new Mistral({
 });
 
 // No PDF.js worker configuration needed here; PDF operations happen in splitting service
+
+// Mistral OCR size and page constraints
+const MAX_CHUNK_SIZE_BYTES = 20 * 1024 * 1024; // 20MB raw PDF size
+const MAX_BASE64_SIZE_ESTIMATE = MAX_CHUNK_SIZE_BYTES * 1.33; // ~26MB after encoding
+const MAX_PAGES_PER_CHUNK = 1000; // Mistral's hard page limit
 
 async function encodePdf(file: Buffer) {
   try {
@@ -250,34 +255,63 @@ export async function extractWithMistralOCR(documentUrl: string, opts: Options):
 /**
  * Extract text from PDF using Mistral OCR with chunking support for large documents
  * This version works with file buffers and can split large documents
+ * Respects BOTH size (20MB) and page (1000 pages) constraints
  */
 export async function extractWithMistralOCRFromBuffer(buffer: Buffer, opts: Options): Promise<string> {
   const apiKey = process.env.MISTRAL_API_KEY;
   if (!apiKey) throw new Error("Missing Mistral OCR config");
 
   try {
-    logger.info("Starting Mistral OCR extraction from buffer", { bufferSize: buffer.length });
+    const bufferSizeMB = buffer.length / (1024 * 1024);
+    logger.info("Starting Mistral OCR extraction from buffer", { 
+      bufferSize: buffer.length,
+      bufferSizeMB: bufferSizeMB.toFixed(2)
+    });
 
-    // Check if document needs splitting
+    // Check if document needs splitting based on BOTH constraints
     const pageCount = await getPdfPageCount(buffer);
     
-    if (pageCount <= 500) {
-      logger.info("Document is small enough, processing directly", { pageCount });
+    // Mistral OCR limits: 1000 pages AND 50 MB
+    if (pageCount <= 1000 && bufferSizeMB <= 50) {
+      logger.info("Document fits in one Mistral OCR request", { 
+        pageCount, 
+        bufferSizeMB: bufferSizeMB.toFixed(2) 
+      });
       // Convert buffer to base64 and process directly
       const base64Pdf = await encodePdf(buffer);
       return await extractWithMistralOCRFromBase64(base64Pdf, opts);
     }
 
-    logger.info("Document is large, splitting into chunks", { pageCount });
+    logger.info("Document needs splitting for Mistral OCR", { 
+      pageCount, 
+      bufferSizeMB: bufferSizeMB.toFixed(2) 
+    });
+    
+    // Calculate optimal chunk size (consider both page count and file size)
+    const pagesPerMB = pageCount / bufferSizeMB;
+    const maxPagesForSize = Math.floor(48 * pagesPerMB); // 48 MB to be safe, leaving room for base64 encoding
+    const chunkSize = Math.min(1000, maxPagesForSize); // Whichever is smaller
+    
+    logger.info("Calculated optimal chunk size", { 
+      chunkSize,
+      pagesPerMB: pagesPerMB.toFixed(2),
+      maxPagesForSize,
+      estimatedChunks: Math.ceil(pageCount / chunkSize) 
+    });
     
     // Split the document into chunks
-    const chunks = await splitPdfForMistralOCR(buffer, 500);
+    const chunks = await splitPdfForMistralOCR(buffer, chunkSize);
     const chunkResults: string[] = [];
 
     // Process each chunk
     for (let i = 0; i < chunks.length; i++) {
       try {
-        logger.info("Processing chunk", { chunkIndex: i + 1, totalChunks: chunks.length });
+        const chunkSizeMB = (chunks[i].length / (1024 * 1024)).toFixed(2);
+        logger.info("Processing chunk", { 
+          chunkIndex: i + 1, 
+          totalChunks: chunks.length,
+          chunkSizeMB 
+        });
         const chunkText = await processPdfChunk(chunks[i], i, chunks.length);
         chunkResults.push(chunkText);
       } catch (error) {
@@ -296,6 +330,7 @@ export async function extractWithMistralOCRFromBuffer(buffer: Buffer, opts: Opti
 
     logger.info("Mistral OCR chunked extraction completed", {
       originalPages: pageCount,
+      originalSizeMB: bufferSizeMB,
       chunksProcessed: chunks.length,
       totalTextLength: finalText.length
     });

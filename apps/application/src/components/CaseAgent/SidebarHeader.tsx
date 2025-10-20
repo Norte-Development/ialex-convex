@@ -15,6 +15,7 @@ export function SidebarHeader({
   caseId,
   currentThreadId,
   onThreadSelect,
+  onNewConversation,
 }: SidebarHeaderProps) {
   const [historyOpen, setHistoryOpen] = useState(false);
 

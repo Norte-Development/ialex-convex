@@ -14,6 +14,7 @@ export type ToolProps = ComponentProps<"div"> & {
   type: string;
   state: ToolUIPart["state"];
   output?: ToolUIPart["output"];
+  input?: unknown;
 };
 
 const getActionLabel = (toolName: string): ReactNode => {
@@ -59,7 +60,7 @@ const getStatusDisplay = (status: ToolUIPart["state"]) => {
   return config[status];
 };
 
-export const Tool = ({ className, type, state, ...props }: ToolProps) => {
+export const Tool = ({ className, type, state, input, ...props }: ToolProps) => {
   const actionLabel = getActionLabel(type);
   const statusDisplay = getStatusDisplay(state);
 
@@ -71,6 +72,10 @@ export const Tool = ({ className, type, state, ...props }: ToolProps) => {
   if (isCreateEscrito) {
     return <CreateEscritoPreview output={props.output} />;
   }
+
+  // Show parameters when tool is processing (input-available state)
+  const showParams = state === "input-available" && input
+  const paramCount = showParams ? Object.keys(input).length : 0
 
   return (
     <div

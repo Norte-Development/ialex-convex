@@ -52,7 +52,8 @@ connection.on('end', () => {
   logger.warn('Redis connection ended');
 });
 
-export const queue = new Queue("document-processing", { 
+// Queue for case documents (uses streaming processor)
+export const documentQueue = new Queue("document-processing", { 
   connection,
   defaultJobOptions: {
     attempts: 5,
@@ -64,5 +65,22 @@ export const queue = new Queue("document-processing", {
     removeOnFail: 1000,
   }
 });
+
+// Queue for library documents (uses standard processor)
+export const libraryDocumentQueue = new Queue("library-document-processing", { 
+  connection,
+  defaultJobOptions: {
+    attempts: 5,
+    backoff: {
+      type: 'exponential',
+      delay: 2000,
+    },
+    removeOnComplete: 1000,
+    removeOnFail: 1000,
+  }
+});
+
+// Export legacy 'queue' for backward compatibility
+export const queue = documentQueue;
 
 

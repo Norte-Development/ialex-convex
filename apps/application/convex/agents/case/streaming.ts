@@ -391,7 +391,7 @@ export const listMessages = query({
       const streams = await agent.syncStreams(ctx, {
         threadId,
         streamArgs,
-        includeStatuses: ["aborted", "streaming"],
+        includeStatuses: ["streaming"], // Only include active streaming, remove "aborted"
       });
   
       // Here you could filter out metadata that you don't want from any optional
