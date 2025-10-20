@@ -21,6 +21,8 @@ import { useDocxToHtml } from "@/hooks/useDocxToHtml";
 import { generateJSON } from "@tiptap/html";
 import { extensions } from "@/components/Editor/extensions";
 import { toast } from "sonner";
+import { ProcessingProgress } from "@/components/Documents/ProcessingProgress";
+import { ProcessingError } from "@/components/Documents/ProcessingError";
 
 export default function CaseDocumentPage() {
   const { documentId } = useParams();
@@ -34,6 +36,7 @@ export default function CaseDocumentPage() {
 
   // Mutations
   const createEscrito = useMutation(api.functions.documents.createEscrito);
+  const retryProcessing = useMutation(api.functions.documentProcessing.retryDocumentProcessing);
 
   // Estado para mostrar resultado de conversión
   const [conversionResult, setConversionResult] = useState<string | null>(null);
@@ -388,32 +391,74 @@ export default function CaseDocumentPage() {
             </div>
           </div>
 
-          {/* Processing Status Description */}
-          {document.processingStatus && (
+          {/* Processing Status Display */}
+          {document.processingStatus === "processing" && (
             <div className="mb-3">
-              {(() => {
-                const statusConfig = getProcessingStatusConfig(
-                  document.processingStatus,
-                );
-                return (
-                  <p
-                    className={`text-sm ${statusConfig.color.replace("bg-", "text-").replace(" text-", "")}`}
-                  >
-                    {statusConfig.description}
-                    {document.processingError && (
-                      <span className="block mt-1 text-red-600">
-                        Error: {document.processingError}
-                      </span>
-                    )}
-                    {document.totalChunks &&
-                      document.processingStatus === "completed" && (
-                        <span className="block mt-1 text-gray-600">
-                          Fragmentos procesados: {document.totalChunks}
-                        </span>
-                      )}
-                  </p>
-                );
-              })()}
+              <ProcessingProgress 
+                phase={document.processingPhase}
+                progress={document.processingProgress}
+              />
+            </div>
+          )}
+          
+          {document.processingStatus === "failed" && (
+            <div className="mb-3">
+              <ProcessingError
+                error={document.processingError || "Error desconocido"}
+                errorType={document.processingErrorType}
+                recoverable={document.processingErrorRecoverable}
+                onRetry={async () => {
+                  try {
+                    await retryProcessing({ documentId: document._id });
+                    toast.success("Reintentando indexación del documento");
+                  } catch (error) {
+                    const errorMessage = error instanceof Error ? error.message : "Error desconocido";
+                    toast.error("Error al reintentar: " + errorMessage);
+                  }
+                }}
+                retrying={retryProcessing.isLoading}
+              />
+              {document.retryCount !== undefined && document.retryCount > 0 && (
+                <p className="text-xs text-muted-foreground mt-2">
+                  Intentos: {document.retryCount}
+                </p>
+              )}
+            </div>
+          )}
+
+          {document.processingStatus === "completed" && (
+            <div className="mb-3 space-y-2 text-sm">
+              {document.processingMethod && (
+                <div className="flex items-center gap-2">
+                  <span className="text-muted-foreground">Método:</span>
+                  <Badge variant="outline">
+                    {document.processingMethod === "mistral-ocr" && "OCR Avanzado"}
+                    {document.processingMethod === "pdfjs" && "Extracción PDF"}
+                    {document.processingMethod === "transcription" && "Transcripción"}
+                  </Badge>
+                </div>
+              )}
+              
+              {document.wasResumed && (
+                <div className="flex items-center gap-2">
+                  <span className="text-muted-foreground">Estado:</span>
+                  <Badge variant="secondary">Recuperado automáticamente</Badge>
+                </div>
+              )}
+              
+              {document.processingDurationMs && (
+                <div className="flex items-center gap-2">
+                  <span className="text-muted-foreground">Tiempo:</span>
+                  <span>{Math.round(document.processingDurationMs / 1000)}s</span>
+                </div>
+              )}
+              
+              {document.totalChunks && (
+                <div className="flex items-center gap-2">
+                  <span className="text-muted-foreground">Fragmentos:</span>
+                  <span>{document.totalChunks}</span>
+                </div>
+              )}
             </div>
           )}
 

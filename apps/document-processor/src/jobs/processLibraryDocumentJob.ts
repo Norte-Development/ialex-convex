@@ -1,6 +1,5 @@
 import "dotenv/config";
 import { Worker, Queue } from "bullmq";
-import IORedis from "ioredis";
 import fetch from "node-fetch";
 import { logger } from "../middleware/logging";
 import { chunkText } from "../utils/chunking";
@@ -11,6 +10,7 @@ import { validateFile, validateFileBuffer } from "../utils/fileValidation";
 import { timeoutWrappers } from "../utils/timeoutUtils";
 
 type LibraryJobPayload = {
+  jobType?: string; // "case-document" or "library-document" discriminator
   signedUrl: string;
   contentType?: string;
   createdBy: string;
@@ -30,36 +30,47 @@ type LibraryJobPayload = {
   fileBuffer?: Buffer | Uint8Array; // For test uploads
 };
 
-const connection = new IORedis(process.env.REDIS_URL || "redis://localhost:6379", {
-  maxRetriesPerRequest: null,
-  enableOfflineQueue: true,
-  lazyConnect: true,
-  connectTimeout: 60000,
-  commandTimeout: 900000, // 15 minutes for long document processing operations
-  keepAlive: 30000,
-  // Better reconnection handling for external Redis
-  reconnectOnError: (err) => {
-    const targetError = 'READONLY';
-    if (err.message.includes(targetError)) {
-      return true;
-    }
-    // Reconnect on timeout errors and connection issues
-    if (err.message.includes('timeout') || 
-        err.message.includes('ECONNRESET') || 
-        err.message.includes('ECONNREFUSED') ||
-        err.message.includes('ETIMEDOUT')) {
-      return true;
-    }
-    return false;
-  },
-});
-
 export function processLibraryDocumentJob(queue: Queue) {
   new Worker<LibraryJobPayload>(
     queue.name,
     async (job) => {
+      logger.info('🔍 LIBRARY WORKER received job', {
+        jobId: job.id,
+        jobName: job.name,
+        jobType: job.data?.jobType || 'unknown',
+        libraryDocumentId: job.data?.libraryDocumentId || 'unknown'
+      });
+
+      // ONLY process library document jobs
+      if (job.data?.jobType && job.data.jobType !== "library-document") {
+        logger.warn('⏭️  LIBRARY WORKER skipping - wrong jobType', { 
+          jobId: job.id,
+          jobName: job.name,
+          jobType: job.data.jobType,
+          expectedJobType: 'library-document'
+        });
+        return;
+      }
+
+      // Also check job name for backward compatibility
+      if (job.name !== "process-library-document") {
+        logger.warn('⏭️  LIBRARY WORKER skipping - wrong job name', { 
+          jobId: job.id,
+          jobName: job.name,
+          expectedName: 'process-library-document'
+        });
+        return;
+      }
+
       const start = Date.now();
       const payload = job.data;
+
+      logger.info('📚 LIBRARY PROCESSOR - Processing document', {
+        jobId: job.id,
+        jobName: job.name,
+        libraryDocumentId: payload.libraryDocumentId,
+        processorType: 'LIBRARY'
+      });
 
       try {
         let validation: any = { isValid: true, mimeType: payload.contentType };
@@ -223,7 +234,16 @@ export function processLibraryDocumentJob(queue: Queue) {
             )
           : undefined;
 
-        await timeoutWrappers.fileDownload(
+        logger.info("Sending success callback", {
+          libraryDocumentId: payload.libraryDocumentId,
+          callbackUrl: payload.callbackUrl,
+          totalChunks,
+          status: "completed",
+          method,
+          hasHmac: !!hmac
+        });
+
+        const response = await timeoutWrappers.fileDownload(
           () => fetch(payload.callbackUrl, {
             method: "POST",
             headers: { "Content-Type": "application/json", ...(hmac ? { "X-Signature": hmac } : {}) },
@@ -231,6 +251,31 @@ export function processLibraryDocumentJob(queue: Queue) {
           }),
           'success callback'
         );
+
+        logger.info("Callback response received", {
+          libraryDocumentId: payload.libraryDocumentId,
+          status: response.status,
+          statusText: response.statusText,
+          ok: response.ok
+        });
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          logger.error("Callback request failed", {
+            libraryDocumentId: payload.libraryDocumentId,
+            status: response.status,
+            statusText: response.statusText,
+            error: errorText,
+            callbackUrl: payload.callbackUrl
+          });
+          throw new Error(`Callback failed with status ${response.status}: ${errorText}`);
+        }
+
+        const responseData = await response.json();
+        logger.info("Callback successful", {
+          libraryDocumentId: payload.libraryDocumentId,
+          responseData
+        });
 
         console.log("done");
 
@@ -256,20 +301,52 @@ export function processLibraryDocumentJob(queue: Queue) {
             : undefined;
 
           try {
-            await fetch(payload.callbackUrl, {
+            logger.info("Sending failure callback", {
+              libraryDocumentId: payload.libraryDocumentId,
+              callbackUrl: payload.callbackUrl,
+              error: errorMessage,
+              hasHmac: !!hmac
+            });
+
+            const response = await fetch(payload.callbackUrl, {
               method: "POST",
               headers: { "Content-Type": "application/json", ...(hmac ? { "X-Signature": hmac } : {}) },
               body: failureBody,
             });
-          } catch {
+
+            logger.info("Failure callback response", {
+              libraryDocumentId: payload.libraryDocumentId,
+              status: response.status,
+              statusText: response.statusText,
+              ok: response.ok
+            });
+
+            if (!response.ok) {
+              const errorText = await response.text();
+              logger.warn("Failure callback failed to send", {
+                libraryDocumentId: payload.libraryDocumentId,
+                status: response.status,
+                error: errorText
+              });
+            }
+          } catch (callbackError) {
             // Swallow callback errors here; job will still be marked failed below
+            logger.warn("Failed to send failure callback", {
+              libraryDocumentId: payload.libraryDocumentId,
+              error: callbackError instanceof Error ? callbackError.message : String(callbackError)
+            });
           }
         }
 
         throw error;
       }
     },
-    { connection, concurrency: Number(process.env.WORKER_CONCURRENCY || 2) }
+    { 
+      connection: queue.opts.connection,
+      concurrency: Number(process.env.WORKER_CONCURRENCY || 2),
+      // ONLY process jobs named "process-library-document"
+      name: "process-library-document"
+    }
   );
 }
 

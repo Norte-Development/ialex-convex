@@ -72,6 +72,10 @@ export const Tool = ({ className, type, state, ...props }: ToolProps) => {
     return <CreateEscritoPreview output={props.output} />;
   }
 
+  // Show parameters when tool is processing (input-available state)
+  const showParams = state === "input-available" && input
+  const paramCount = showParams ? Object.keys(input).length : 0
+
   return (
     <div
       className={cn(

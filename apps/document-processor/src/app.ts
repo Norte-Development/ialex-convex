@@ -2,16 +2,19 @@ import "dotenv/config";
 import express, { Request, Response } from "express";
 import crypto from "crypto";
 import { z } from "zod";
-import { queue } from "./services/queueService";
+import { documentQueue, libraryDocumentQueue, queue } from "./services/queueService";
 import { initQdrant, initLibraryQdrant } from "./services/qdrantService";
 import { logger } from "./middleware/logging";
-import { processDocumentJob } from "./jobs/processDocumentJob";
-import { processLibraryDocumentJob } from "./jobs/processLibraryDocumentJob";
 import { getDeepgramStats } from "./services/deepgramService";
 import { getTimeoutConfig } from "./utils/timeoutUtils";
 import { getSupportedFormats } from "./services/mediaProcessingService";
 import { FILE_SIZE_LIMITS, SUPPORTED_MIME_TYPES, MIME_TYPE_PATTERNS, getFileSizeLimit } from "./utils/fileValidation";
 import { getErrorStats } from "./utils/errorTaxonomy";
+import { 
+  processCaseDocumentDirectly, 
+  processLibraryDocumentDirectly,
+  sendProcessingCallback 
+} from "./services/directProcessing";
 // @ts-ignore
 import multer from "multer";
 import * as path from "path";
@@ -224,7 +227,7 @@ app.post("/test-process-document", handleUpload, async (req: Request, res: Respo
       fileBuffer: req.file.buffer
     };
 
-    const job = await queue.add("process-document", jobData, {
+    const job = await documentQueue.add("process-document", jobData, {
       attempts: 5,
       backoff: { type: "exponential", delay: 2000 },
       removeOnComplete: 1000,
@@ -235,7 +238,8 @@ app.post("/test-process-document", handleUpload, async (req: Request, res: Respo
       jobId: job.id,
       documentId: jobData.documentId,
       fileSize: req.file.size,
-      mimeType: req.file.mimetype
+      mimeType: req.file.mimetype,
+      queue: "document-processing"
     });
     res.json({ jobId: job.id });
 
@@ -309,7 +313,7 @@ app.post("/test-process-library-document", handleUpload, async (req: Request, re
       fileBuffer: req.file.buffer
     };
 
-    const job = await queue.add("process-library-document", jobData, {
+    const job = await libraryDocumentQueue.add("process-library-document", jobData, {
       attempts: 5,
       backoff: { type: "exponential", delay: 2000 },
       removeOnComplete: 1000,
@@ -320,7 +324,8 @@ app.post("/test-process-library-document", handleUpload, async (req: Request, re
       jobId: job.id,
       libraryDocumentId: jobData.libraryDocumentId,
       fileSize: req.file.size,
-      mimeType: req.file.mimetype
+      mimeType: req.file.mimetype,
+      queue: "library-document-processing"
     });
     res.json({ jobId: job.id });
 
@@ -375,42 +380,184 @@ const libraryIngestSchema = z.object({
 });
 
 app.post("/process-document", async (req: Request, res: Response) => {
+  const startTime = Date.now();
+  let jobId: string | undefined;
+  
   try {
     const parsed = ingestSchema.safeParse(req.body);
     if (!parsed.success) {
       return res.status(400).json({ error: parsed.error.flatten() });
     }
-    const job = await queue.add("process-document", parsed.data, {
-      attempts: 5,
-      backoff: { type: "exponential", delay: 2000 },
-      removeOnComplete: 1000,
-      removeOnFail: 1000,
+    
+    // Create job for idempotency tracking (use documentId as jobId)
+    const job = await documentQueue.add("process-document", parsed.data, {
+      jobId: `doc-${parsed.data.documentId}`, // Idempotent job ID
+      attempts: 1, // No retries - Convex will handle retries
+      removeOnComplete: { age: 3600 }, // Keep for 1 hour
+      removeOnFail: { age: 86400 }, // Keep failures for 24 hours
     });
-    logger.info("queued document", { jobId: job.id, documentId: parsed.data.documentId });
-    res.json({ jobId: job.id });
+    
+    jobId = job.id!;
+    
+    logger.info("Processing document directly (HTTP mode)", { 
+      jobId, 
+      documentId: parsed.data.documentId,
+      mode: "direct-http"
+    });
+    
+    // Process immediately (synchronously)
+    const result = await processCaseDocumentDirectly(parsed.data, jobId, 1);
+    
+    // Send success callback
+    await sendProcessingCallback(
+      parsed.data.callbackUrl,
+      {
+        status: "completed",
+        documentId: parsed.data.documentId,
+        totalChunks: result.totalChunks,
+        method: result.method || 'streaming',
+        durationMs: result.durationMs,
+        resumed: result.resumed
+      },
+      parsed.data.hmacSecret
+    );
+    
+    logger.info("Document processed successfully", {
+      jobId,
+      documentId: parsed.data.documentId,
+      totalChunks: result.totalChunks,
+      durationMs: Date.now() - startTime
+    });
+    
+    res.json({ 
+      success: true,
+      jobId,
+      totalChunks: result.totalChunks,
+      durationMs: result.durationMs
+    });
+    
   } catch (error) {
-    logger.error("Failed to queue document", { error: String(error) });
-    res.status(500).json({ error: "Failed to queue document processing" });
+    logger.error("Document processing failed", { 
+      jobId,
+      error: String(error),
+      stack: error instanceof Error ? error.stack : undefined
+    });
+    
+    // Send failure callback if we have the data
+    if (jobId && req.body.callbackUrl && req.body.documentId) {
+      try {
+        await sendProcessingCallback(
+          req.body.callbackUrl,
+          {
+            status: "failed",
+            documentId: req.body.documentId,
+            error: error instanceof Error ? error.message : String(error),
+            durationMs: Date.now() - startTime,
+          },
+          req.body.hmacSecret
+        );
+      } catch (callbackError) {
+        logger.error("Failed to send failure callback", {
+          error: String(callbackError)
+        });
+      }
+    }
+    
+    res.status(500).json({ 
+      error: "Document processing failed",
+      message: error instanceof Error ? error.message : String(error)
+    });
   }
 });
 
 app.post("/process-library-document", async (req: Request, res: Response) => {
+  const startTime = Date.now();
+  let jobId: string | undefined;
+  
   try {
     const parsed = libraryIngestSchema.safeParse(req.body);
     if (!parsed.success) {
       return res.status(400).json({ error: parsed.error.flatten() });
     }
-    const job = await queue.add("process-library-document", parsed.data, {
-      attempts: 5,
-      backoff: { type: "exponential", delay: 2000 },
-      removeOnComplete: 1000,
-      removeOnFail: 1000,
+    
+    // Create job for idempotency tracking (use libraryDocumentId as jobId)
+    const job = await libraryDocumentQueue.add("process-library-document", parsed.data, {
+      jobId: `lib-${parsed.data.libraryDocumentId}`, // Idempotent job ID
+      attempts: 1, // No retries - Convex will handle retries
+      removeOnComplete: { age: 3600 }, // Keep for 1 hour
+      removeOnFail: { age: 86400 }, // Keep failures for 24 hours
     });
-    logger.info("queued library document", { jobId: job.id, libraryDocumentId: parsed.data.libraryDocumentId });
-    res.json({ jobId: job.id });
+    
+    jobId = job.id!;
+    
+    logger.info("Processing library document directly (HTTP mode)", { 
+      jobId, 
+      libraryDocumentId: parsed.data.libraryDocumentId,
+      mode: "direct-http"
+    });
+    
+    // Process immediately (synchronously)
+    const result = await processLibraryDocumentDirectly(parsed.data, jobId, 1);
+    
+    // Send success callback
+    await sendProcessingCallback(
+      parsed.data.callbackUrl,
+      {
+        status: "completed",
+        libraryDocumentId: parsed.data.libraryDocumentId,
+        totalChunks: result.totalChunks,
+        method: result.method || 'streaming',
+        durationMs: result.durationMs,
+        resumed: result.resumed
+      },
+      parsed.data.hmacSecret
+    );
+    
+    logger.info("Library document processed successfully", {
+      jobId,
+      libraryDocumentId: parsed.data.libraryDocumentId,
+      totalChunks: result.totalChunks,
+      durationMs: Date.now() - startTime
+    });
+    
+    res.json({ 
+      success: true,
+      jobId,
+      totalChunks: result.totalChunks,
+      durationMs: result.durationMs
+    });
+    
   } catch (error) {
-    logger.error("Failed to queue library document", { error: String(error) });
-    res.status(500).json({ error: "Failed to queue library document processing" });
+    logger.error("Library document processing failed", { 
+      jobId,
+      error: String(error),
+      stack: error instanceof Error ? error.stack : undefined
+    });
+    
+    // Send failure callback if we have the data
+    if (jobId && req.body.callbackUrl && req.body.libraryDocumentId) {
+      try {
+        await sendProcessingCallback(
+          req.body.callbackUrl,
+          {
+            status: "failed",
+            libraryDocumentId: req.body.libraryDocumentId,
+            error: error instanceof Error ? error.message : String(error),
+            durationMs: Date.now() - startTime,
+          },
+          req.body.hmacSecret
+        );
+      } catch (callbackError) {
+        logger.error("Failed to send failure callback", {
+          error: String(callbackError)
+        });
+      }
+    }
+    
+    res.status(500).json({ 
+      error: "Library document processing failed",
+      message: error instanceof Error ? error.message : String(error)
+    });
   }
 });
 
@@ -428,25 +575,70 @@ app.get("/status/:id", async (req: Request, res: Response) => {
   }
 });
 
+// Resume stats endpoint
+app.get("/resume-stats", async (_req: Request, res: Response) => {
+  try {
+    const IORedis = (await import('ioredis')).default;
+    const redis = new IORedis(process.env.REDIS_URL || "redis://localhost:6379");
+    const keys = await redis.keys('job:state:*');
+    const states = await Promise.all(
+      keys.map(async key => {
+        const data = await redis.get(key);
+        return data ? JSON.parse(data) : null;
+      })
+    );
+
+    const validStates = states.filter(s => s !== null);
+
+    const stats = {
+      total: validStates.length,
+      byPhase: validStates.reduce((acc: Record<string, number>, s) => {
+        acc[s.currentPhase] = (acc[s.currentPhase] || 0) + 1;
+        return acc;
+      }, {} as Record<string, number>),
+      resumable: validStates.filter(s => s.canResume).length,
+      resumed: validStates.filter(s => s.resumedFrom).length,
+      failed: validStates.filter(s => s.errorCount > 0).length,
+      avgProgress: validStates.reduce((sum, s) => {
+        const total = s.progress.chunksGenerated || 1;
+        const done = s.progress.chunksUpserted || 0;
+        return sum + (done / total);
+      }, 0) / (validStates.length || 1)
+    };
+
+    await redis.quit();
+    res.json(stats);
+  } catch (error) {
+    logger.error('Failed to get resume stats', { error: String(error) });
+    res.status(500).json({ error: 'Failed to get stats' });
+  }
+});
+
 // HMAC helper for callbacks
 function signBody(body: string, secret: string) {
   return crypto.createHmac("sha256", secret).update(body).digest("hex");
 }
 
-// Worker registration
-try {
-  processDocumentJob(queue);
-  logger.info("Document processing worker registered successfully");
-} catch (error) {
-  logger.error("Failed to register document processing worker", { error: String(error) });
-}
+// ================================================================
+// HTTP-BASED PROCESSING MODE (Cloud Run Compatible)
+// ================================================================
+// Workers have been removed in favor of synchronous HTTP processing.
+// Documents are processed immediately upon request instead of via
+// background workers. This is Cloud Run-friendly and prevents issues
+// with long-running workers being killed by the serverless platform.
+// 
+// Key changes:
+// - No BullMQ workers (no persistent connections)
+// - Jobs are tracked in Redis for idempotency only
+// - Processing happens synchronously in HTTP handlers
+// - Callbacks sent immediately after processing
+// ================================================================
 
-try {
-  processLibraryDocumentJob(queue);
-  logger.info("Library document processing worker registered successfully");
-} catch (error) {
-  logger.error("Failed to register library document processing worker", { error: String(error) });
-}
+logger.info("=================================================");
+logger.info("PROCESSOR MODE: DIRECT HTTP (Cloud Run Compatible)");
+logger.info("Processing model: Synchronous request-driven");
+logger.info("Features: Streaming pipeline, chunked processing, idempotent jobs");
+logger.info("=================================================");
 
 // Custom error handler for multer errors (must be after all routes)
 app.use((err: any, req: Request, res: Response, next: any) => {
@@ -505,20 +697,31 @@ app.use((err: any, req: Request, res: Response, next: any) => {
 });
 
 const port = process.env.PORT || 4001;
-app.listen(port, async () => {
-  try {
-    await initQdrant();
-    logger.info("Qdrant initialized");
-  } catch (e) {
-    logger.error("Qdrant init failed", { error: String(e) });
-  }
-  try {
-    await initLibraryQdrant();
-    logger.info("Library Qdrant collection initialized");
-  } catch (e) {
-    logger.error("Library Qdrant init failed", { error: String(e) });
-  }
-  logger.info(`document-processor listening on ${port}`);
+const host = '0.0.0.0'; // Required for Cloud Run
+
+// Start HTTP server immediately (don't wait for async initialization)
+app.listen(port, host, () => {
+  logger.info(`✅ HTTP server listening on ${host}:${port}`);
+  logger.info('Server is ready to accept requests');
+  
+  // Initialize external services asynchronously (don't block server startup)
+  Promise.all([
+    initQdrant().then(() => {
+      logger.info("✅ Qdrant initialized");
+    }).catch((e) => {
+      logger.error("⚠️ Qdrant init failed (continuing anyway)", { error: String(e) });
+    }),
+    
+    initLibraryQdrant().then(() => {
+      logger.info("✅ Library Qdrant collection initialized");
+    }).catch((e) => {
+      logger.error("⚠️ Library Qdrant init failed (continuing anyway)", { error: String(e) });
+    })
+  ]).then(() => {
+    logger.info('🎉 All services initialized successfully');
+  }).catch((e) => {
+    logger.error('⚠️ Some services failed to initialize', { error: String(e) });
+  });
 });
 
 
