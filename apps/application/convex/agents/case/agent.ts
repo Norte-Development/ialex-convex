@@ -27,7 +27,6 @@ import {
 
   searchDoctrineTool,
   readDoctrineTool,
-  listCaseDocumentsTool,
 } from "../tools";
 
 const openrouter = createOpenRouter({
