@@ -2,10 +2,74 @@ import {
   internalAction,
   internalQuery,
   internalMutation,
+  mutation,
 } from "../_generated/server";
 import { v } from "convex/values";
 import { internal } from "../_generated/api";
 import { Id } from "../_generated/dataModel";
+import { getCurrentUserFromAuth } from "../auth_utils";
+
+// ========================================
+// MANUAL RETRY
+// ========================================
+
+/**
+ * Allows users to manually retry failed library document processing.
+ */
+export const retryLibraryDocumentProcessing = mutation({
+  args: { libraryDocumentId: v.id("libraryDocuments") },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    // Verify user is authenticated
+    const currentUser = await getCurrentUserFromAuth(ctx);
+    const document = await ctx.db.get(args.libraryDocumentId);
+    
+    if (!document) {
+      throw new Error("Library document not found");
+    }
+    
+    // Check if user has access (owner, team member, or creator)
+    const hasAccess =
+      document.userId === currentUser._id ||
+      document.createdBy === currentUser._id ||
+      (document.teamId && await ctx.db
+        .query("teamMemberships")
+        .withIndex("by_team_and_user", (q) =>
+          q.eq("teamId", document.teamId!).eq("userId", currentUser._id)
+        )
+        .first());
+    
+    if (!hasAccess) {
+      throw new Error("Access denied");
+    }
+    
+    // Only allow retry for failed documents
+    if (document.processingStatus !== "failed") {
+      throw new Error("Document is not in failed state");
+    }
+    
+    // Reset processing status
+    await ctx.db.patch(args.libraryDocumentId, {
+      processingStatus: "pending",
+      processingError: undefined,
+      processingErrorType: undefined,
+      processingErrorRecoverable: undefined,
+      processingPhase: undefined,
+      processingProgress: undefined,
+      retryCount: (document.retryCount || 0) + 1,
+      lastRetryAt: Date.now(),
+    });
+    
+    // Re-trigger processing
+    await ctx.scheduler.runAfter(
+      0,
+      internal.functions.libraryDocumentProcessing.processLibraryDocument,
+      { libraryDocumentId: args.libraryDocumentId }
+    );
+    
+    return null;
+  },
+});
 
 // ========================================
 // LIBRARY DOCUMENT PROCESSING
@@ -29,6 +93,38 @@ export const getLibraryDocumentForProcessing = internalQuery({
 });
 
 /**
+ * Internal mutation to update processing progress for library documents.
+ */
+export const updateLibraryProcessingProgress = internalMutation({
+  args: {
+    libraryDocumentId: v.id("libraryDocuments"),
+    phase: v.optional(
+      v.union(
+        v.literal("downloading"),
+        v.literal("extracting"),
+        v.literal("chunking"),
+        v.literal("embedding"),
+        v.literal("upserting"),
+      )
+    ),
+    progress: v.optional(v.number()), // 0-100
+  },
+  handler: async (ctx, args) => {
+    const updates: any = {};
+    
+    if (args.phase !== undefined) {
+      updates.processingPhase = args.phase;
+    }
+    
+    if (args.progress !== undefined) {
+      updates.processingProgress = Math.min(100, Math.max(0, args.progress));
+    }
+    
+    await ctx.db.patch(args.libraryDocumentId, updates);
+  },
+});
+
+/**
  * Internal mutation to update library document processing status.
  * Called by the webhook handler after processing completes or fails.
  */
@@ -45,6 +141,11 @@ export const updateLibraryDocumentProcessingStatus = internalMutation({
     processingCompletedAt: v.optional(v.number()),
     processingError: v.optional(v.string()),
     totalChunks: v.optional(v.number()),
+    processingMethod: v.optional(v.string()),
+    wasResumed: v.optional(v.boolean()),
+    processingDurationMs: v.optional(v.number()),
+    processingErrorType: v.optional(v.string()),
+    processingErrorRecoverable: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
     const { libraryDocumentId, status, ...updateFields } = args;
@@ -64,6 +165,21 @@ export const updateLibraryDocumentProcessingStatus = internalMutation({
     }
     if (updateFields.totalChunks !== undefined) {
       updateData.totalChunks = updateFields.totalChunks;
+    }
+    if (updateFields.processingMethod !== undefined) {
+      updateData.processingMethod = updateFields.processingMethod;
+    }
+    if (updateFields.wasResumed !== undefined) {
+      updateData.wasResumed = updateFields.wasResumed;
+    }
+    if (updateFields.processingDurationMs !== undefined) {
+      updateData.processingDurationMs = updateFields.processingDurationMs;
+    }
+    if (updateFields.processingErrorType !== undefined) {
+      updateData.processingErrorType = updateFields.processingErrorType;
+    }
+    if (updateFields.processingErrorRecoverable !== undefined) {
+      updateData.processingErrorRecoverable = updateFields.processingErrorRecoverable;
     }
 
     await ctx.db.patch(libraryDocumentId, updateData);

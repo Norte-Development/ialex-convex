@@ -42,7 +42,7 @@ steps:
       - '--min-instances=0'
       - '--max-instances=20'
       - '--allow-unauthenticated'
-      - '--set-env-vars=WORKER_CONCURRENCY=1,MAX_PDF_SIZE_MB=200,MAX_VIDEO_SIZE_MB=500,NODE_ENV=production,USE_STREAMING_PROCESSOR=true'
+      - '--set-env-vars=WORKER_CONCURRENCY=1,MAX_PDF_SIZE_MB=200,MAX_VIDEO_SIZE_MB=500,NODE_ENV=production,USE_STREAMING_PROCESSOR=true,LOCK_DURATION_MS=900000'
       - '--set-secrets=REDIS_URL=redis-url:latest'
       - '--set-secrets=DEEPGRAM_API_KEY=deepgram-api-key:latest'
       - '--set-secrets=MISTRAL_API_KEY=mistral-key:latest'

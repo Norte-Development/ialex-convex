@@ -343,6 +343,7 @@ export function processStreamingLibraryDocumentJobWithResume(queue: Queue) {
     { 
       connection: queue.opts.connection,
       concurrency: Number(process.env.WORKER_CONCURRENCY || 2),
+      lockDuration: Number(process.env.LOCK_DURATION_MS || 900000),
       name: "process-library-document"
     }
   );

@@ -132,6 +132,56 @@ export const getDocumentsByProcessingStatus = query({
 });
 
 // ========================================
+// MANUAL RETRY
+// ========================================
+
+/**
+ * Allows users to manually retry failed document processing.
+ */
+export const retryDocumentProcessing = mutation({
+  args: { documentId: v.id("documents") },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    // Verify user access
+    const currentUser = await getCurrentUserFromAuth(ctx);
+    const document = await ctx.db.get(args.documentId);
+    
+    if (!document) {
+      throw new Error("Document not found");
+    }
+    
+    // Check case access
+    await requireNewCaseAccess(ctx, currentUser._id, document.caseId, "advanced");
+    
+    // Only allow retry for failed documents
+    if (document.processingStatus !== "failed") {
+      throw new Error("Document is not in failed state");
+    }
+    
+    // Reset processing status
+    await ctx.db.patch(args.documentId, {
+      processingStatus: "pending",
+      processingError: undefined,
+      processingErrorType: undefined,
+      processingErrorRecoverable: undefined,
+      processingPhase: undefined,
+      processingProgress: undefined,
+      retryCount: (document.retryCount || 0) + 1,
+      lastRetryAt: Date.now(),
+    });
+    
+    // Re-trigger processing
+    await ctx.scheduler.runAfter(
+      0,
+      internal.functions.documentProcessing.processDocument,
+      { documentId: args.documentId }
+    );
+    
+    return null;
+  },
+});
+
+// ========================================
 // ASYNCHRONOUS DOCUMENT PROCESSING
 // ========================================
 
@@ -260,6 +310,38 @@ export const getDocumentForProcessing = internalQuery({
 });
 
 /**
+ * Internal mutation to update processing progress (phase and percentage).
+ */
+export const updateProcessingProgress = internalMutation({
+  args: {
+    documentId: v.id("documents"),
+    phase: v.optional(
+      v.union(
+        v.literal("downloading"),
+        v.literal("extracting"),
+        v.literal("chunking"),
+        v.literal("embedding"),
+        v.literal("upserting"),
+      )
+    ),
+    progress: v.optional(v.number()), // 0-100
+  },
+  handler: async (ctx, args) => {
+    const updates: any = {};
+    
+    if (args.phase !== undefined) {
+      updates.processingPhase = args.phase;
+    }
+    
+    if (args.progress !== undefined) {
+      updates.processingProgress = Math.min(100, Math.max(0, args.progress));
+    }
+    
+    await ctx.db.patch(args.documentId, updates);
+  },
+});
+
+/**
  * Internal mutation to update document processing status.
  */
 export const updateDocumentProcessingStatus = internalMutation({
@@ -275,6 +357,11 @@ export const updateDocumentProcessingStatus = internalMutation({
     processingCompletedAt: v.optional(v.number()),
     processingError: v.optional(v.string()),
     totalChunks: v.optional(v.number()),
+    processingMethod: v.optional(v.string()),
+    wasResumed: v.optional(v.boolean()),
+    processingDurationMs: v.optional(v.number()),
+    processingErrorType: v.optional(v.string()),
+    processingErrorRecoverable: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
     const updates: any = {
@@ -295,6 +382,26 @@ export const updateDocumentProcessingStatus = internalMutation({
 
     if (args.totalChunks !== undefined) {
       updates.totalChunks = args.totalChunks;
+    }
+    
+    if (args.processingMethod !== undefined) {
+      updates.processingMethod = args.processingMethod;
+    }
+    
+    if (args.wasResumed !== undefined) {
+      updates.wasResumed = args.wasResumed;
+    }
+    
+    if (args.processingDurationMs !== undefined) {
+      updates.processingDurationMs = args.processingDurationMs;
+    }
+    
+    if (args.processingErrorType !== undefined) {
+      updates.processingErrorType = args.processingErrorType;
+    }
+    
+    if (args.processingErrorRecoverable !== undefined) {
+      updates.processingErrorRecoverable = args.processingErrorRecoverable;
     }
 
     await ctx.db.patch(args.documentId, updates);
