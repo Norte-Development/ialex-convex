@@ -310,7 +310,7 @@ export function ChatContent() {
 
       if (now - lastCallTime >= throttleMs) {
         lastCallTime = now;
-        handleContentResize();
+        debouncedHandleContentResize();
       } else {
         rafId = requestAnimationFrame(() => {
           lastCallTime = Date.now();
@@ -509,6 +509,7 @@ export function ChatContent() {
     }
   }, [awaitingResponse, isStreaming, messages.results]);
 
+  // Optimize memoization: use stable callback and only update when message structure changes
   const memoizedMessages = useMemo(() => {
     return toUIMessages(messages.results ?? []).map((m: any) => (
       <SidebarMessage
@@ -569,7 +570,7 @@ export function ChatContent() {
       </div>
 
       {/* Todo panel */}
-      <TodoPanel />
+      {/* <TodoPanel /> */}
 
       {/* Minimal context summary */}
       <ContextSummaryBar

@@ -1,9 +1,12 @@
 import { components } from "../../_generated/api";
 import { Agent, stepCountIs } from "@convex-dev/agent";
 import { openai } from "@ai-sdk/openai";
+import { anthropic } from "@ai-sdk/anthropic";
+import { createOpenRouter } from '@openrouter/ai-sdk-provider';
 
 import {
   searchCaseDocumentsTool,
+  listCaseDocumentsTool,
   queryDocumentTool,
   editEscritoTool,
   getEscritoStatsTool,
@@ -27,6 +30,10 @@ import {
   listCaseDocumentsTool,
 } from "../tools";
 
+const openrouter = createOpenRouter({
+  apiKey: process.env.OPENROUTER_API_KEY,
+});
+
 /**
  * Main agent instance for the legal assistant system.
  * 
@@ -40,7 +47,13 @@ import {
  */
 export const agent = new Agent(components.agent, {
   name: "iAlex - Agente Legal de tu caso",
-  languageModel: openai.responses('gpt-5'),
+  languageModel: openrouter('anthropic/claude-haiku-4.5', {
+    // reasoning: {
+    //   enabled: true,
+    //   effort: "low",
+    //   // exclude: true
+    // }
+  }),
   stopWhen: stepCountIs(25),
   callSettings: {
     maxRetries: 3,
@@ -51,6 +64,7 @@ export const agent = new Agent(components.agent, {
   contextOptions: {
     recentMessages: 20, // Reduced from 50 to prevent context bloat
     excludeToolMessages: true, // Exclude verbose tool messages to keep context lean
+
   },
 
   tools: {
@@ -62,7 +76,7 @@ export const agent = new Agent(components.agent, {
     readEscrito: readEscritoTool,
     searchLegislation: legislationFindTool,
     readLegislation: legislationReadTool,
-    planAndTrack: planAndTrackTool,
+    // planAndTrack: planAndTrackTool,
     markTaskComplete: markTaskCompleteTool,
     insertContent: insertContentTool,
     // manageEscrito: manageEscritoTool,
@@ -71,8 +85,8 @@ export const agent = new Agent(components.agent, {
     searchLibraryDocuments: searchLibraryDocumentsTool,
     listLibraryDocuments: listLibraryDocumentsTool,
     readLibraryDocument: readLibraryDocumentTool,
-    searchDoctrine: searchDoctrineTool,
-    readDoctrine: readDoctrineTool,
+    // searchDoctrine: searchDoctrineTool,
+    // readDoctrine: readDoctrineTool,
   }
 });
 

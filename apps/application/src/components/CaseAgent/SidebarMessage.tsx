@@ -13,7 +13,7 @@ import { Tool } from "../ai-elements/tool";
 import { MessageText } from "../ai-elements/message-text";
 import type { SidebarMessageProps } from "./types/message-types";
 import { LegislationModal } from "./legislation-modal";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo, memo } from "react";
 import { ToolUIPart } from "ai";
 
 export function SidebarMessage({
@@ -160,10 +160,8 @@ export function SidebarMessage({
               );
             }
 
-            // For assistant messages:
-            // Only apply streaming to the LAST text part, and only show this part's portion
-            const isLastTextPart = index === lastTextPartIndex;
-            let displayText = partText;
+  const isLastTextPart = index === lastTextPartIndex;
+  let displayText = partText;
 
             if (shouldStream && isLastTextPart) {
               // Calculate where this part's text starts in the combined text
@@ -267,33 +265,30 @@ export function SidebarMessage({
             const mediaType = (part as any).mediaType;
             const filename = (part as any).filename;
 
-            if (mediaType?.startsWith("image/")) {
-              return (
-                <div key={index} className="mt-2">
-                  <img
-                    src={fileUrl}
-                    alt={filename || "Attached image"}
-                    className="max-w-full h-auto rounded"
-                    onLoad={() => {
-                      // Trigger content change when image loads (height changes)
-                      if (onContentChange) {
-                        setTimeout(onContentChange, 100);
-                      }
-                    }}
-                  />
-                </div>
-              );
-            }
+  if (mediaType?.startsWith("image/")) {
+    return (
+      <div key={`file-${index}`} className="mt-2">
+        <img
+          src={fileUrl}
+          alt={filename || "Attached image"}
+          className="max-w-full h-auto rounded"
+          onLoad={onImageLoad}
+        />
+      </div>
+    );
+  }
 
-            return (
-              <div
-                key={index}
-                className="text-xs bg-gray-50 border border-gray-200 rounded p-2"
-              >
-                <strong>File:</strong> {filename || "Unknown file"}
-              </div>
-            );
-          }
+  return (
+    <div key={`file-${index}`} className="text-xs bg-gray-50 border border-gray-200 rounded p-2">
+      <strong>File:</strong> {filename || "Unknown file"}
+    </div>
+  );
+});
+
+interface ToolPartRendererProps {
+  part: any;
+  index: number;
+}
 
           if (part.type.startsWith("tool-")) {
             const aiSDKState = (part as any).state;
@@ -325,15 +320,15 @@ export function SidebarMessage({
             );
           }
 
-          return null;
-        })}
+        return null;
+      })}
 
-        {/* Status and Actions */}
-        {!isUser && message.status === "failed" && (
-          <div className="flex items-center gap-1 mt-2 text-red-600">
-            <span className="text-xs">❌ Error al procesar el mensaje</span>
-          </div>
-        )}
+      {/* Status and Actions */}
+      {!isUser && message.status === "failed" && (
+        <div className="flex items-center gap-1 mt-2 text-red-600">
+          <span className="text-xs">❌ Error al procesar el mensaje</span>
+        </div>
+      )}
 
         {!isUser && !isStreaming && (
           <Actions className="mt-2 transition-opacity">
@@ -361,3 +356,22 @@ export function SidebarMessage({
     </Message>
   );
 }
+
+export const SidebarMessage = memo(SidebarMessageInner, (prevProps, nextProps) => {
+  // Custom comparison: only re-render if the message content or structure changes
+  // Don't re-render just because parent re-rendered
+  const prevMsg = prevProps.message as any;
+  const nextMsg = nextProps.message as any;
+  
+  return (
+    (prevMsg.id || prevMsg._id) === (nextMsg.id || nextMsg._id) &&
+    prevMsg.status === nextMsg.status &&
+    prevMsg.parts?.length === nextMsg.parts?.length &&
+    prevMsg.parts?.every((p: any, i: number) => 
+      p.type === nextMsg.parts?.[i]?.type &&
+      (p.type === "text" ? (p as any).text === (nextMsg.parts?.[i] as any)?.text : true)
+    )
+  );
+});
+
+SidebarMessage.displayName = 'SidebarMessage';
