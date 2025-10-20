@@ -1,5 +1,5 @@
 import { useParams, useNavigate } from "react-router-dom";
-import { useAction, useQuery } from "convex/react";
+import { useAction, useQuery, useMutation } from "convex/react";
 import { useEffect, useState } from "react";
 import { api } from "../../convex/_generated/api";
 import { Id } from "../../convex/_generated/dataModel";
@@ -20,10 +20,16 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import DocumentViewer from "@/components/Documents/DocumentViewer";
+import { ProcessingProgress } from "@/components/Documents/ProcessingProgress";
+import { ProcessingError } from "@/components/Documents/ProcessingError";
+import { toast } from "sonner";
 
 export default function LibraryDocumentPage() {
   const { documentId } = useParams();
   const navigate = useNavigate();
+
+  // Mutations
+  const retryProcessing = useMutation(api.functions.libraryDocumentProcessing.retryLibraryDocumentProcessing);
 
   // Fetch the specific document
   const document = useQuery(
@@ -164,20 +170,97 @@ export default function LibraryDocumentPage() {
         <CardContent className="pt-6">
           <div className="grid gap-6">
             {/* Processing Status */}
-            {document.processingStatus && (
+            {document.processingStatus === "processing" && (
+              <div className="flex items-start gap-3">
+                <div className="flex-1">
+                  <ProcessingProgress 
+                    phase={document.processingPhase}
+                    progress={document.processingProgress}
+                  />
+                </div>
+              </div>
+            )}
+
+            {document.processingStatus === "failed" && (
+              <div className="flex flex-col gap-2">
+                <ProcessingError
+                  error={document.processingError || "Error desconocido"}
+                  errorType={document.processingErrorType}
+                  recoverable={document.processingErrorRecoverable}
+                  onRetry={async () => {
+                    try {
+                      await retryProcessing({ libraryDocumentId: document._id });
+                      toast.success("Reintentando indexación del documento");
+                    } catch (error) {
+                      const errorMessage = error instanceof Error ? error.message : "Error desconocido";
+                      toast.error("Error al reintentar: " + errorMessage);
+                    }
+                  }}
+                  retrying={retryProcessing.isLoading}
+                />
+                {document.retryCount !== undefined && document.retryCount > 0 && (
+                  <p className="text-xs text-muted-foreground">
+                    Intentos: {document.retryCount}
+                  </p>
+                )}
+              </div>
+            )}
+
+            {document.processingStatus === "completed" && (
+              <div className="space-y-2 text-sm">
+                <div className="flex items-center gap-2 mb-1">
+                  <Badge
+                    variant="outline"
+                    className={`${statusConfig.color} flex items-center gap-1.5`}
+                  >
+                    <StatusIcon size={14} />
+                    {statusConfig.text}
+                  </Badge>
+                </div>
+
+                {document.processingMethod && (
+                  <div className="flex items-center gap-2">
+                    <span className="text-muted-foreground">Método:</span>
+                    <Badge variant="outline">
+                      {document.processingMethod === "mistral-ocr" && "OCR Avanzado"}
+                      {document.processingMethod === "pdfjs" && "Extracción PDF"}
+                      {document.processingMethod === "transcription" && "Transcripción"}
+                    </Badge>
+                  </div>
+                )}
+                
+                {document.wasResumed && (
+                  <div className="flex items-center gap-2">
+                    <span className="text-muted-foreground">Estado:</span>
+                    <Badge variant="secondary">Recuperado automáticamente</Badge>
+                  </div>
+                )}
+                
+                {document.processingDurationMs && (
+                  <div className="flex items-center gap-2">
+                    <span className="text-muted-foreground">Tiempo:</span>
+                    <span>{Math.round(document.processingDurationMs / 1000)}s</span>
+                  </div>
+                )}
+                
+                {document.totalChunks && (
+                  <div className="flex items-center gap-2">
+                    <span className="text-muted-foreground">Fragmentos:</span>
+                    <span>{document.totalChunks}</span>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {document.processingStatus === "pending" && (
               <div className="flex items-start gap-3">
                 <div className="flex-1">
                   <div className="flex items-center gap-2 mb-1">
                     <Badge
                       variant="outline"
-                      className={`${statusConfig.color} flex items-center gap-1.5 ${
-                        statusConfig.animate ? "animate-pulse" : ""
-                      }`}
+                      className={`${statusConfig.color} flex items-center gap-1.5`}
                     >
-                      <StatusIcon
-                        size={14}
-                        className={statusConfig.animate ? "animate-spin" : ""}
-                      />
+                      <StatusIcon size={14} />
                       {statusConfig.text}
                     </Badge>
                   </div>

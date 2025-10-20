@@ -236,7 +236,7 @@ export const processLibraryDocument = internalAction({
         {
           bucket: document.gcsBucket as string,
           object: document.gcsObject as string,
-          expiresSeconds: 300, // 5 minutes
+          expiresSeconds: 3600, // 1 hour - allows for queue delays and retries
           method: "GET",
         },
       );
