@@ -1,5 +1,5 @@
 import { useState, useCallback } from "react";
-import { useMutation, useAction } from "convex/react";
+import { useMutation, useAction, useQuery } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import {
   Dialog,
@@ -20,6 +20,7 @@ import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { X, Upload as UploadIcon, FileText, CheckCircle, AlertCircle } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { useBillingLimit, UpgradeModal, LimitWarningBanner } from "@/components/Billing";
 
 interface UploadDocumentDialogProps {
   open: boolean;
@@ -49,12 +50,27 @@ export function UploadDocumentDialog({
   const [newTag, setNewTag] = useState("");
   const [isUploading, setIsUploading] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
 
   const generateUploadUrl = useAction(
     api.functions.libraryDocument.generateUploadUrl
   );
   const createDocument = useMutation(
     api.functions.libraryDocument.createLibraryDocument
+  );
+
+  // Check library document limit
+  const teamId = activeScope.type === "team" ? activeScope.teamId : undefined;
+  const { allowed, isWarning, percentage, reason, currentCount, limit } = useBillingLimit(
+    "libraryDocuments",
+    { teamId }
+  );
+
+  // Get user plan for upgrade modal
+  const currentUser = useQuery(api.functions.users.getCurrentUser, {});
+  const userPlan = useQuery(
+    api.billing.features.getUserPlan,
+    currentUser?._id ? { userId: currentUser._id } : "skip"
   );
 
   const handleFilesAdded = useCallback((newFiles: FileList | File[]) => {
@@ -224,6 +240,15 @@ export function UploadDocumentDialog({
       return;
     }
 
+    // Check billing limit before uploading
+    if (!allowed) {
+      toast.error("Límite alcanzado", {
+        description: reason,
+      });
+      setShowUpgradeModal(true);
+      return;
+    }
+
     setIsUploading(true);
 
     try {
@@ -273,12 +298,30 @@ export function UploadDocumentDialog({
     <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent className="sm:max-w-[700px] max-h-[90vh]">
         <DialogHeader>
-          <DialogTitle>Subir Documentos</DialogTitle>
-          <DialogDescription>
-            Sube uno o más documentos a tu biblioteca. Los documentos serán
-            indexados automáticamente.
-          </DialogDescription>
+          <div className="flex items-center justify-between">
+            <div>
+              <DialogTitle>Subir Documentos</DialogTitle>
+              <DialogDescription>
+                Sube uno o más documentos a tu biblioteca. Los documentos serán
+                indexados automáticamente.
+              </DialogDescription>
+            </div>
+            <span className="text-sm text-gray-500 whitespace-nowrap ml-4">
+              {currentCount}/{limit === Infinity ? "∞" : limit}
+            </span>
+          </div>
         </DialogHeader>
+
+        {/* Warning banner if approaching limit */}
+        {isWarning && (
+          <LimitWarningBanner
+            limitType="libraryDocuments"
+            percentage={percentage}
+            currentCount={currentCount}
+            limit={limit}
+            onUpgrade={() => setShowUpgradeModal(true)}
+          />
+        )}
 
         <div className="grid gap-4 py-4">
           {/* Drag and Drop Zone */}
@@ -559,6 +602,15 @@ export function UploadDocumentDialog({
             </div>
           </div>
         </DialogFooter>
+
+        {/* Upgrade Modal */}
+        <UpgradeModal
+          open={showUpgradeModal}
+          onOpenChange={setShowUpgradeModal}
+          reason={reason}
+          currentPlan={userPlan || "free"}
+          recommendedPlan="premium_individual"
+        />
       </DialogContent>
     </Dialog>
   );
