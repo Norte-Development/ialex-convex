@@ -8,13 +8,14 @@ RUN npm install -g pnpm@9.1.0
 # Copy monorepo root manifests
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 
-# Copy package.json files for all workspace packages
+# Copy package.json files ONLY for needed packages
 COPY packages/shared/package.json ./packages/shared/
 COPY packages/database/package.json ./packages/database/
 COPY apps/document-processor/package.json ./apps/document-processor/
 
-# Install all dependencies including devDeps
-RUN pnpm install --frozen-lockfile
+# Install dependencies ONLY for document-processor and its deps (shared, database)
+# This skips application and other unneeded packages
+RUN pnpm install --frozen-lockfile --filter document-processor...
 
 # Copy source code for shared packages
 COPY packages/shared/src ./packages/shared/src/
@@ -36,25 +37,37 @@ RUN pnpm --filter document-processor build
 FROM node:22-slim AS runner
 WORKDIR /app
 
-# Install pnpm (optional if you want to install prod deps via pnpm)
+# Install pnpm
 RUN npm install -g pnpm@9.1.0
 
-# Copy root + service manifests (+ workspace file for lockfile resolution)
+# Copy workspace files needed for pnpm deploy
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY packages/shared/package.json ./packages/shared/
 COPY packages/database/package.json ./packages/database/
 COPY apps/document-processor/package.json ./apps/document-processor/
 
-# Install production dependencies for the service
-WORKDIR /app/apps/document-processor
-RUN pnpm install --prod --frozen-lockfile
+# Copy built artifacts from builder (shared & database dist files)
+COPY --from=builder /app/packages/shared/dist ./packages/shared/dist
+COPY --from=builder /app/packages/shared/package.json ./packages/shared/
+COPY --from=builder /app/packages/database/dist ./packages/database/dist
+COPY --from=builder /app/packages/database/package.json ./packages/database/
 
-# Copy built files from builder
-COPY --from=builder /app/apps/document-processor/dist ./dist
+# Install ONLY production dependencies for document-processor
+# Using pnpm deploy creates a production-ready deployment
+WORKDIR /app
+RUN pnpm install --frozen-lockfile --prod --filter document-processor...
+
+# Copy built document-processor
+COPY --from=builder /app/apps/document-processor/dist ./apps/document-processor/dist
+COPY --from=builder /app/apps/document-processor/package.json ./apps/document-processor/
+
+# Set working directory to the service
+WORKDIR /app/apps/document-processor
 
 # Cloud Run will set PORT environment variable
 # Default to 4001 for local development
 ENV PORT=4001
+ENV NODE_ENV=production
 EXPOSE ${PORT}
 
 # Start the application
