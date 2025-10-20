@@ -263,15 +263,6 @@ const AppWithThread = () => {
                       </ProtectedRoute>
                     }
                   />
-                  {/* Development testing route */}
-                  <Route
-                    path="/test-homeagent"
-                    element={
-                      <ProtectedRoute>
-                        <TestRunner />
-                      </ProtectedRoute>
-                    }
-                  />
                   <Route
                     path="/biblioteca"
                     element={
