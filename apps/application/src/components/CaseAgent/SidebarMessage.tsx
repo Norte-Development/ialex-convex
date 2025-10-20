@@ -13,7 +13,7 @@ import { Tool } from "../ai-elements/tool";
 import { MessageText } from "../ai-elements/message-text";
 import type { SidebarMessageProps } from "./types/message-types";
 import { CitationModal } from "./citation-modal";
-import { useState, useEffect } from "react";
+import { useState, useEffect, memo } from "react";
 import { ToolUIPart } from "ai";
 
 function SidebarMessageInner({

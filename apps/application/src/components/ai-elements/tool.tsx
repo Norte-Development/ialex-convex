@@ -14,6 +14,7 @@ export type ToolProps = ComponentProps<"div"> & {
   type: string;
   state: ToolUIPart["state"];
   output?: ToolUIPart["output"];
+  input?: unknown;
 };
 
 const getActionLabel = (toolName: string): ReactNode => {
@@ -59,7 +60,7 @@ const getStatusDisplay = (status: ToolUIPart["state"]) => {
   return config[status];
 };
 
-export const Tool = ({ className, type, state, ...props }: ToolProps) => {
+export const Tool = ({ className, type, state, input, ...props }: ToolProps) => {
   const actionLabel = getActionLabel(type);
   const statusDisplay = getStatusDisplay(state);
 
