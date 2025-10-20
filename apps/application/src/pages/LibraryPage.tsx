@@ -13,6 +13,7 @@ import {
   CreateFolderDialog,
   UploadDocumentDialog,
 } from "@/components/Library/index";
+import { useBillingData, UsageMeter } from "@/components/Billing";
 
 export type LibraryScope =
   | { type: "personal" }
@@ -53,6 +54,10 @@ export default function LibraryPage() {
     setCurrentFolderId(undefined); // Reset to root when changing tabs
   };
 
+  // Get usage data based on active scope
+  const teamId = activeScope.type === "team" ? activeScope.teamId : undefined;
+  const { usage, limits } = useBillingData({ teamId: teamId as any });
+
   return (
     <section className="w-full h-full min-h-screen bg-white flex py-8 px-8 flex-col gap-6 mt-12">
       {/* Page Header */}
@@ -80,6 +85,28 @@ export default function LibraryPage() {
           </Button>
         </div>
       </div>
+
+      {/* Usage Indicators */}
+      {usage && limits && (
+        <div className="flex items-center gap-4">
+          <div className="w-64">
+            <UsageMeter
+              used={usage.libraryDocumentsCount}
+              limit={limits.libraryDocuments}
+              label="Documentos"
+              showPercentage={false}
+            />
+          </div>
+          <div className="w-64">
+            <UsageMeter
+              used={(usage.storageUsedBytes / (1024 * 1024 * 1024))}
+              limit={limits.storageGB}
+              label="Almacenamiento (GB)"
+              showPercentage={false}
+            />
+          </div>
+        </div>
+      )}
 
       {/* Tabs Section */}
       <div>

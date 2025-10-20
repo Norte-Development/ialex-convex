@@ -1,15 +1,35 @@
 import { v } from "convex/values";
-import { query, mutation } from "../_generated/server";
+import { query, mutation, internalQuery, QueryCtx, MutationCtx } from "../_generated/server";
 import {
   getCurrentUserFromAuth,
   requireNewCaseAccess,
   checkNewCaseAccess,
 } from "../auth_utils";
 import { internal } from "../_generated/api";
+import { _checkLimit, _getBillingEntity } from "../billing/features";
+import { Id } from "../_generated/dataModel";
 
 // ========================================
 // CASE MANAGEMENT
 // ========================================
+
+/**
+ * Determines team context for a case based on team access
+ */
+async function getCaseTeamContextHelper(
+  ctx: QueryCtx | MutationCtx,
+  caseId: Id<"cases">
+): Promise<Id<"teams"> | undefined> {
+  // Check if any team has access to this case
+  const teamAccess = await ctx.db
+    .query("caseAccess")
+    .withIndex("by_case", (q) => q.eq("caseId", caseId))
+    .filter((q) => q.neq(q.field("teamId"), undefined))
+    .filter((q) => q.eq(q.field("isActive"), true))
+    .first();
+  
+  return teamAccess?.teamId;
+}
 
 /**
  * Creates a new legal case in the system.
@@ -50,9 +70,17 @@ export const createCase = mutation({
     priority: v.union(v.literal("low"), v.literal("medium"), v.literal("high")),
     category: v.optional(v.string()),
     estimatedHours: v.optional(v.number()),
+    teamId: v.optional(v.id("teams")), // Optional team context
   },
   handler: async (ctx, args) => {
     const currentUser = await getCurrentUserFromAuth(ctx);
+
+    // Check billing limits with team context
+    await _checkLimit(ctx, {
+      userId: currentUser._id,
+      teamId: args.teamId,
+      limitType: "cases",
+    });
 
     // Auto-assign to current user if no lawyer specified
     const assignedLawyer = args.assignedLawyer || currentUser._id;
@@ -85,6 +113,31 @@ export const createCase = mutation({
       await ctx.db.insert("caseAccess", {
         caseId,
         userId: assignedLawyer,
+        accessLevel: "advanced",
+        grantedBy: currentUser._id,
+        grantedAt: Date.now(),
+        isActive: true,
+      });
+    }
+
+    // Increment usage counter for correct entity
+    const billing = await _getBillingEntity(ctx, {
+      userId: currentUser._id,
+      teamId: args.teamId,
+    });
+    
+    await ctx.scheduler.runAfter(0, internal.billing.features.incrementUsage, {
+      entityId: billing.entityId,
+      entityType: billing.entityType,
+      counter: "casesCount",
+      amount: 1,
+    });
+
+    // If team context, grant team access to case
+    if (args.teamId) {
+      await ctx.db.insert("caseAccess", {
+        caseId,
+        teamId: args.teamId,
         accessLevel: "advanced",
         grantedBy: currentUser._id,
         grantedAt: Date.now(),
@@ -521,5 +574,18 @@ export const checkUserCaseAccess = query({
 
     // NEW: Use the centralized checkNewCaseAccess helper
     return await checkNewCaseAccess(ctx, userId, args.caseId);
+  },
+});
+
+/**
+ * Internal query to get team context for a case
+ * Used by other functions to determine billing entity
+ */
+export const getCaseTeamContext = internalQuery({
+  args: { caseId: v.id("cases") },
+  returns: v.union(v.id("teams"), v.null()),
+  handler: async (ctx, args) => {
+    const teamId = await getCaseTeamContextHelper(ctx, args.caseId);
+    return teamId ?? null;
   },
 });
