@@ -40,7 +40,7 @@ export class StreamingEmbeddingService {
   ): Promise<{ totalEmbedded: number; totalUpserted: number; skipped: number }> {
     const { 
       embedBatchSize = 128,
-      upsertBatchSize = 128,
+      upsertBatchSize = 500, // Qdrant can handle larger batches efficiently
       onProgress 
     } = options;
 

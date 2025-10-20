@@ -59,6 +59,9 @@ export async function processCaseDocumentDirectly(
       );
     };
 
+    // Track current phase to avoid sending duplicate progress updates
+    let lastPhase: string | undefined;
+
     // Extract text callback for transcription
     const extractedTextCallback = async (extractedText: string, metadata: Record<string, unknown>) => {
       logger.info('Storing full transcript to database', {
@@ -119,8 +122,47 @@ export async function processCaseDocumentDirectly(
           caseId: payload.caseId,
           tenantId: payload.tenantId
         },
-        onProgress: (update) => {
+        onProgress: async (update) => {
           logger.debug('Processing progress', update);
+          
+          // Only send update when phase changes (not on every progress tick)
+          if (update.phase && update.phase !== lastPhase) {
+            lastPhase = update.phase;
+            
+            try {
+              const baseUrl = payload.callbackUrl.replace(/\/webhooks\/.*$/, '');
+              const progressUrl = `${baseUrl}/webhooks/document-progress`;
+              
+              const progressBody = JSON.stringify({
+                documentId: payload.documentId,
+                phase: update.phase,
+                progress: update.percent,
+              });
+              
+              const hmac = payload.hmacSecret
+                ? crypto.createHmac("sha256", payload.hmacSecret).update(progressBody).digest("hex")
+                : undefined;
+              
+              await fetch(progressUrl, {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  ...(hmac ? { 'X-Signature': hmac } : {})
+                },
+                body: progressBody
+              });
+              
+              logger.info('Phase transition update sent', {
+                phase: update.phase,
+                progress: update.percent
+              });
+            } catch (error) {
+              logger.warn('Failed to send progress update', {
+                phase: update.phase,
+                error: String(error)
+              });
+            }
+          }
         },
         extractedTextCallback
       },
@@ -187,6 +229,9 @@ export async function processLibraryDocumentDirectly(
   try {
     await pipeline.initialize();
 
+    // Track current phase to avoid sending duplicate progress updates
+    let lastPhase: string | undefined;
+
     // Create embed and upsert function for library documents
     const embedAndUpsertFn = async (
       chunks: Array<{ index: number; text: string }>,
@@ -229,8 +274,47 @@ export async function processLibraryDocumentDirectly(
           teamId: payload.teamId,
           folderId: payload.folderId
         },
-        onProgress: (update) => {
+        onProgress: async (update) => {
           logger.debug('Processing progress', update);
+          
+          // Only send update when phase changes (not on every progress tick)
+          if (update.phase && update.phase !== lastPhase) {
+            lastPhase = update.phase;
+            
+            try {
+              const baseUrl = payload.callbackUrl.replace(/\/webhooks\/.*$/, '');
+              const progressUrl = `${baseUrl}/webhooks/library-document-progress`;
+              
+              const progressBody = JSON.stringify({
+                libraryDocumentId: payload.libraryDocumentId,
+                phase: update.phase,
+                progress: update.percent,
+              });
+              
+              const hmac = payload.hmacSecret
+                ? crypto.createHmac("sha256", payload.hmacSecret).update(progressBody).digest("hex")
+                : undefined;
+              
+              await fetch(progressUrl, {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  ...(hmac ? { 'X-Signature': hmac } : {})
+                },
+                body: progressBody
+              });
+              
+              logger.info('Phase transition update sent', {
+                phase: update.phase,
+                progress: update.percent
+              });
+            } catch (error) {
+              logger.warn('Failed to send progress update', {
+                phase: update.phase,
+                error: String(error)
+              });
+            }
+          }
         }
       },
       embedAndUpsertFn,

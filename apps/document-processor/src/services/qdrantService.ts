@@ -105,8 +105,8 @@ export async function upsertChunks(
 ) {
   console.log("upserting chunks", embedded.length);
   // Default batch size; can be tuned via env variable.
-  const defaultBatchSize = Number(process.env.QDRANT_UPSERT_BATCH_SIZE || 128);
-  let batchSize = Number.isFinite(defaultBatchSize) && defaultBatchSize > 0 ? defaultBatchSize : 128;
+  const defaultBatchSize = Number(process.env.QDRANT_UPSERT_BATCH_SIZE || 500);
+  let batchSize = Number.isFinite(defaultBatchSize) && defaultBatchSize > 0 ? defaultBatchSize : 500;
 
   let index = 0;
   let retryDelayMs = 250;
@@ -214,8 +214,8 @@ export async function upsertLibraryChunks(
 ) {
   console.log("upserting library chunks", embedded.length);
   // Default batch size; can be tuned via env variable.
-  const defaultBatchSize = Number(process.env.QDRANT_UPSERT_BATCH_SIZE || 128);
-  let batchSize = Number.isFinite(defaultBatchSize) && defaultBatchSize > 0 ? defaultBatchSize : 128;
+  const defaultBatchSize = Number(process.env.QDRANT_UPSERT_BATCH_SIZE || 500);
+  let batchSize = Number.isFinite(defaultBatchSize) && defaultBatchSize > 0 ? defaultBatchSize : 500;
 
   let index = 0;
   let retryDelayMs = 250;
