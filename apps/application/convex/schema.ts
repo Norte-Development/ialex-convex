@@ -1,5 +1,6 @@
 import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
+import {stripeTables} from "@raideno/convex-stripe/server"
 
 // Define granular permission types matching frontend constants
 const granularPermissionType = v.union(
@@ -35,6 +36,7 @@ const granularPermissionType = v.union(
 );
 
 export default defineSchema({
+  ...stripeTables,
   // Users table - for authentication and user management
   users: defineTable({
     // Clerk integration
@@ -220,6 +222,33 @@ export default defineSchema({
     processingCompletedAt: v.optional(v.number()),
     processingError: v.optional(v.string()),
     totalChunks: v.optional(v.number()), // Number of chunks created
+    // Retry tracking
+    retryCount: v.optional(v.number()),
+    lastRetryAt: v.optional(v.number()),
+    // Progress tracking
+    processingPhase: v.optional(
+      v.union(
+        v.literal("downloading"),
+        v.literal("extracting"),
+        v.literal("chunking"),
+        v.literal("embedding"),
+        v.literal("upserting"),
+      ),
+    ),
+    processingProgress: v.optional(v.number()), // 0-100
+    // Error categorization
+    processingErrorType: v.optional(v.string()),
+    processingErrorRecoverable: v.optional(v.boolean()),
+    // Processing metadata
+    processingMethod: v.optional(v.string()), // "mistral-ocr", "pdfjs", "transcription"
+    wasResumed: v.optional(v.boolean()),
+    processingDurationMs: v.optional(v.number()),
+    // Extracted text fields (for transcriptions, OCR, etc.)
+    extractedText: v.optional(v.string()), // Full transcript or OCR text
+    extractedTextLength: v.optional(v.number()), // Character count for validation
+    transcriptionConfidence: v.optional(v.number()), // Deepgram confidence score
+    transcriptionDuration: v.optional(v.number()), // Audio/video duration in seconds
+    transcriptionModel: v.optional(v.string()), // e.g., "nova-3"
   })
     .index("by_case", ["caseId"])
     .index("by_folder", ["folderId"])
@@ -541,6 +570,27 @@ export default defineSchema({
     processingCompletedAt: v.optional(v.number()),
     processingError: v.optional(v.string()),
     totalChunks: v.optional(v.number()), // Number of chunks created
+    // Retry tracking
+    retryCount: v.optional(v.number()),
+    lastRetryAt: v.optional(v.number()),
+    // Progress tracking
+    processingPhase: v.optional(
+      v.union(
+        v.literal("downloading"),
+        v.literal("extracting"),
+        v.literal("chunking"),
+        v.literal("embedding"),
+        v.literal("upserting"),
+      ),
+    ),
+    processingProgress: v.optional(v.number()), // 0-100
+    // Error categorization
+    processingErrorType: v.optional(v.string()),
+    processingErrorRecoverable: v.optional(v.boolean()),
+    // Processing metadata
+    processingMethod: v.optional(v.string()), // "mistral-ocr", "pdfjs", "transcription"
+    wasResumed: v.optional(v.boolean()),
+    processingDurationMs: v.optional(v.number()),
   })
     .index("by_user", ["userId"])
     .index("by_team", ["teamId"])
@@ -570,6 +620,93 @@ export default defineSchema({
     .index("by_case_and_active", ["caseId", "isActive"])
     .index("by_scope", ["scope"])
     .index("by_created_by", ["createdBy"]),
+  
+
+usageLimits: defineTable({
+
+  entityId: v.string(), // userId o teamId
+  
+  entityType: v.union(v.literal("user"), v.literal("team")),
+  
+  // Contadores
+  
+  casesCount: v.number(),
+  
+  documentsCount: v.number(),
+  
+  aiMessagesThisMonth: v.number(),
+  
+  escritosCount: v.number(),
+  
+  libraryDocumentsCount: v.number(),
+  
+  storageUsedBytes: v.number(),
+  
+  // Control de reset mensual
+  
+  lastResetDate: v.number(),
+  
+  currentMonthStart: v.number(),
+  
+  })
+  
+  .index("by_entity", ["entityId"])
+  
+  .index("by_entity_type", ["entityType"]),
+  
+  
+  
+  aiCreditPurchases: defineTable({
+  
+  userId: v.id("users"),
+  
+  stripeInvoiceId: v.string(),
+  
+  creditsAmount: v.number(),
+  
+  priceUSD: v.number(),
+  
+  status: v.union(
+  
+  v.literal("pending"),
+  
+  v.literal("completed"),
+  
+  v.literal("failed")
+  
+  ),
+  
+  purchasedAt: v.number(),
+  
+  expiresAt: v.number(), // 90 días
+  
+  })
+  
+  .index("by_user", ["userId"])
+  
+  .index("by_stripe_invoice", ["stripeInvoiceId"])
+  
+  .index("by_status", ["status"]),
+  
+  
+  
+  aiCredits: defineTable({
+  
+  userId: v.id("users"),
+  
+  purchased: v.number(),
+  
+  used: v.number(),
+  
+  remaining: v.number(),
+  
+  expiresAt: v.optional(v.number()),
+  
+  lastUpdated: v.number(),
+  
+  })
+  
+  .index("by_user", ["userId"]),
 
   // ========================================
   // EVENTS & CALENDAR SYSTEM
@@ -639,6 +776,7 @@ export default defineSchema({
       searchField: "title",
       filterFields: ["isArchived", "status"],
     }),
+  
 
   // Event Participants - Users invited to events
   eventParticipants: defineTable({

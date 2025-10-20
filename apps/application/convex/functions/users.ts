@@ -2,6 +2,7 @@ import { v } from "convex/values";
 import { query, mutation, action } from "../_generated/server";
 import { getCurrentUserFromAuth } from "../auth_utils";
 import { requireNewCaseAccess } from "../auth_utils";
+import { internal } from "../_generated/api";
 
 // ========================================
 // CLERK USER SYNC FUNCTIONS
@@ -93,6 +94,29 @@ export const getOrCreateUser = mutation({
         sessionTimeout: 60,
         activityLogVisible: true,
       },
+    });
+
+
+    // Set up Stripe customer for the new user
+    await ctx.scheduler.runAfter(0, internal.billing.subscriptions.setupCustomerInternal, {
+      userId: userId,
+      email: args.email,
+      clerkId: args.clerkId,
+      name: args.name,
+    });
+
+    await ctx.db.insert("usageLimits", {
+
+      entityId: userId,
+      entityType: "user",
+      casesCount: 0,
+      documentsCount: 0,
+      aiMessagesThisMonth: 0,
+      escritosCount: 0,
+      libraryDocumentsCount: 0,
+      storageUsedBytes: 0,
+      lastResetDate: Date.now(),
+      currentMonthStart: Date.now(),
     });
 
     console.log("Created new user with id:", userId);

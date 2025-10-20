@@ -45,6 +45,7 @@ const ComponentsShowcasePage = lazy(
 const LibraryPage = lazy(() => import("./pages/LibraryPage"));
 const LibraryDocumentPage = lazy(() => import("./pages/LibraryDocumentPage"));
 const UserPreferencesPage = lazy(() => import("./pages/UserPreferencesPage"));
+const BillingSuccessPage = lazy(() => import("./pages/BillingSuccessPage"));
 
 // AI Agent pages
 const HomeAgentPage = lazy(() => import("./pages/home/HomeAgentPage"));
@@ -263,15 +264,6 @@ const AppWithThread = () => {
                       </ProtectedRoute>
                     }
                   />
-                  {/* Development testing route */}
-                  <Route
-                    path="/test-homeagent"
-                    element={
-                      <ProtectedRoute>
-                        <TestRunner />
-                      </ProtectedRoute>
-                    }
-                  />
                   <Route
                     path="/biblioteca"
                     element={
@@ -293,6 +285,14 @@ const AppWithThread = () => {
                     element={
                       <ProtectedRoute>
                         <UserPreferencesPage />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/billing/success"
+                    element={
+                      <ProtectedRoute>
+                        <BillingSuccessPage />
                       </ProtectedRoute>
                     }
                   />

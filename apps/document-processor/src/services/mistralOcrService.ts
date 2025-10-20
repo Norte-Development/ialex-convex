@@ -262,55 +262,45 @@ export async function extractWithMistralOCRFromBuffer(buffer: Buffer, opts: Opti
   if (!apiKey) throw new Error("Missing Mistral OCR config");
 
   try {
-    const bufferSizeMB = (buffer.length / (1024 * 1024)).toFixed(2);
+    const bufferSizeMB = buffer.length / (1024 * 1024);
     logger.info("Starting Mistral OCR extraction from buffer", { 
       bufferSize: buffer.length,
-      bufferSizeMB 
+      bufferSizeMB: bufferSizeMB.toFixed(2)
     });
 
     // Check if document needs splitting based on BOTH constraints
     const pageCount = await getPdfPageCount(buffer);
-    const estimatedBase64Size = buffer.length * 1.33;
     
-    logger.info("Checking if document needs splitting", {
-      pageCount,
-      bufferSizeMB,
-      estimatedBase64SizeMB: (estimatedBase64Size / (1024 * 1024)).toFixed(2),
-      maxPages: MAX_PAGES_PER_CHUNK,
-      maxSizeMB: (MAX_CHUNK_SIZE_BYTES / (1024 * 1024)).toFixed(0)
-    });
-    
-    // Process directly only if BOTH constraints are satisfied
-    const canProcessDirectly = pageCount <= MAX_PAGES_PER_CHUNK && buffer.length <= MAX_CHUNK_SIZE_BYTES;
-    
-    if (canProcessDirectly) {
-      logger.info("Document is small enough, processing directly", { 
-        pageCount,
-        bufferSizeMB,
-        estimatedBase64SizeMB: (estimatedBase64Size / (1024 * 1024)).toFixed(2)
+    // Mistral OCR limits: 1000 pages AND 50 MB
+    if (pageCount <= 1000 && bufferSizeMB <= 50) {
+      logger.info("Document fits in one Mistral OCR request", { 
+        pageCount, 
+        bufferSizeMB: bufferSizeMB.toFixed(2) 
       });
       // Convert buffer to base64 and process directly
       const base64Pdf = await encodePdf(buffer);
       return await extractWithMistralOCRFromBase64(base64Pdf, opts);
     }
 
-    // Document needs splitting - determine reason
-    const reasons: string[] = [];
-    if (pageCount > MAX_PAGES_PER_CHUNK) {
-      reasons.push(`page count (${pageCount} > ${MAX_PAGES_PER_CHUNK})`);
-    }
-    if (buffer.length > MAX_CHUNK_SIZE_BYTES) {
-      reasons.push(`size (${bufferSizeMB}MB > ${(MAX_CHUNK_SIZE_BYTES / (1024 * 1024)).toFixed(0)}MB)`);
-    }
-    
-    logger.info("Document is large, splitting into chunks", { 
-      pageCount,
-      bufferSizeMB,
-      reasons: reasons.join(', ')
+    logger.info("Document needs splitting for Mistral OCR", { 
+      pageCount, 
+      bufferSizeMB: bufferSizeMB.toFixed(2) 
     });
     
-    // Split the document using size and page-aware splitting
-    const chunks = await splitPdfBySizeAndPages(buffer, MAX_CHUNK_SIZE_BYTES, MAX_PAGES_PER_CHUNK);
+    // Calculate optimal chunk size (consider both page count and file size)
+    const pagesPerMB = pageCount / bufferSizeMB;
+    const maxPagesForSize = Math.floor(48 * pagesPerMB); // 48 MB to be safe, leaving room for base64 encoding
+    const chunkSize = Math.min(1000, maxPagesForSize); // Whichever is smaller
+    
+    logger.info("Calculated optimal chunk size", { 
+      chunkSize,
+      pagesPerMB: pagesPerMB.toFixed(2),
+      maxPagesForSize,
+      estimatedChunks: Math.ceil(pageCount / chunkSize) 
+    });
+    
+    // Split the document into chunks
+    const chunks = await splitPdfForMistralOCR(buffer, chunkSize);
     const chunkResults: string[] = [];
 
     // Process each chunk

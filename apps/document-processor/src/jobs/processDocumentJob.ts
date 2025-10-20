@@ -1,9 +1,6 @@
 import "dotenv/config";
 import { Worker, Queue } from "bullmq";
-import IORedis from "ioredis";
 import fetch from "node-fetch";
-import { pipeline } from "stream/promises";
-import { Readable } from "stream";
 import { logger } from "../middleware/logging";
 import { chunkText } from "../utils/chunking";
 import { embedChunks } from "../services/embeddingService";
@@ -31,36 +28,21 @@ type JobPayload = {
   fileBuffer?: Buffer | Uint8Array; // For test uploads
 };
 
-const connection = new IORedis(process.env.REDIS_URL || "redis://localhost:6379", {
-  maxRetriesPerRequest: null,
-  enableOfflineQueue: true,
-  lazyConnect: true,
-  connectTimeout: 60000,
-  commandTimeout: 900000, // 15 minutes for long document processing operations
-  keepAlive: 30000,
-  // Better reconnection handling for external Redis
-  reconnectOnError: (err) => {
-    const targetError = 'READONLY';
-    if (err.message.includes(targetError)) {
-      return true;
-    }
-    // Reconnect on timeout errors and connection issues
-    if (err.message.includes('timeout') || 
-        err.message.includes('ECONNRESET') || 
-        err.message.includes('ECONNREFUSED') ||
-        err.message.includes('ETIMEDOUT')) {
-      return true;
-    }
-    return false;
-  },
-});
-
 export function processDocumentJob(queue: Queue) {
   new Worker<JobPayload>(
     queue.name,
     async (job) => {
+
       const start = Date.now();
       const payload = job.data;
+
+      logger.info('📦 STANDARD PROCESSOR - Processing document', {
+        jobId: job.id,
+        jobName: job.name,
+        documentId: payload.documentId,
+        processorType: 'STANDARD',
+        features: 'in-memory-processing, no-resume-support'
+      });
 
       try {
         let validation: any = { isValid: true, mimeType: payload.contentType };
@@ -324,7 +306,12 @@ export function processDocumentJob(queue: Queue) {
         throw error;
       }
     },
-    { connection, concurrency: Number(process.env.WORKER_CONCURRENCY || 2) }
+    { 
+      connection: queue.opts.connection,
+      concurrency: Number(process.env.WORKER_CONCURRENCY || 2),
+      // ONLY process jobs named "process-document"
+      name: "process-document"
+    }
   );
 }
 

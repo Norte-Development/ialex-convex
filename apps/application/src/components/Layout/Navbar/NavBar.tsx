@@ -1,4 +1,17 @@
-import { Bell, Search, MessageCircle, X } from "lucide-react";
+import {
+  UserCheck,
+  Bell,
+  Search,
+  MessageCircle,
+  X,
+  Home,
+  Users,
+  Database,
+  Settings,
+  Landmark,
+  FilePen,
+  FolderOpen,
+} from "lucide-react";
 import { useLocation } from "react-router-dom";
 import Breadcrumbs from "./BreadCrumbs";
 import { UserButton } from "@clerk/clerk-react";
@@ -25,19 +38,20 @@ export default function NavBar() {
   const isInCaseContext = location.pathname.includes("/caso/");
 
   const menuOptions = [
-    { label: "Inicio", path: "/" },
-    { label: "Equipos", path: "/equipo" },
-    { label: "Clientes", path: "/clientes" },
-    { label: "Casos", path: "/casos" },
-    { label: "Modelos", path: "/modelos" },
-    { label: "Biblioteca", path: "/biblioteca" },
-    { label: "Legales", path: "/base-de-datos" },
-    { label: "Preferencias", path: "/preferencias" },
+    { label: "Inicio", path: "/", icon: Home },
+    { label: "Equipos", path: "/equipo", icon: Users },
+    { label: "Clientes", path: "/clientes", icon: UserCheck },
+    { label: "Casos", path: "/casos", icon: Landmark },
+    { label: "Modelos", path: "/modelos", icon: FilePen },
+    { label: "Biblioteca", path: "/biblioteca", icon: FolderOpen },
+    { label: "Legales", path: "/base-de-datos", icon: Database },
+    { label: "Asistente IA", path: "/ai", icon: MessageCircle },
+    { label: "Preferencias", path: "/preferencias", icon: Settings },
   ];
 
   return (
     <nav
-      className={`flex flex-row-reverse fixed px-5 justify-between items-center h-14 w-full bg-background text-foreground border-b border-border top-0 left-0 z-50 mb-5`}
+      className={`flex flex-row-reverse bg-[#D9D9D9] fixed px-5 justify-between items-center py-1 h-[41px] w-full  text-foreground  top-0 left-0 z-50 mb-5`}
     >
       <div className={` flex  items-center gap-5`}>
         <div className="flex items-center justify-center gap-2">
@@ -51,19 +65,11 @@ export default function NavBar() {
             showName={false}
           />
         </div>
-        {isInCaseContext && (
-          <button
-            onClick={toggleChatbot}
-            className="  text-[#3946D7] cursor-pointer p-2 rounded-full transition-all duration-200 hover:scale-105"
-          >
-            <MessageCircle className="w-5 h-5" />
-          </button>
-        )}
       </div>
       <div className={`flex justify-center items-center relative w-[30%]`}>
         <Input
           placeholder="Buscar"
-          className="w-full rounded-full placeholder:text-[14px] h-fit pr-20"
+          className="w-full rounded-full bg-white placeholder:text-[14px] h-fit pr-20"
           value={searchQuery}
           onChange={(e) => handleSearch(e.target.value)}
           onFocus={() => {

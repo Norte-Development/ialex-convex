@@ -3,6 +3,8 @@ import { query, mutation, action, internalQuery } from "../_generated/server";
 import { getCurrentUserFromAuth, requireNewCaseAccess } from "../auth_utils";
 import { prosemirrorSync } from "../prosemirror";
 import { internal, api } from "../_generated/api";
+import { _checkLimit, _getBillingEntity } from "../billing/features";
+import { PLAN_LIMITS } from "../billing/planLimits";
 
 
 /**
@@ -39,6 +41,39 @@ export const generateUploadUrl = action({
     const user = await ctx.auth.getUserIdentity();
     if (!user) {
       throw new Error("User not authenticated");
+    }
+
+    // Get current user from database
+    const currentUser = await ctx.runQuery(api.functions.users.getCurrentUser, {});
+
+    if (!currentUser) {
+      throw new Error("User not found");
+    }
+
+    // Check storage limits before generating upload URL
+    const userPlan = await ctx.runQuery(api.billing.features.getUserPlan, {
+      userId: currentUser._id,
+    });
+
+    const usage = await ctx.runQuery(api.billing.features.getUsageLimits, {
+      entityId: currentUser._id,
+    });
+
+    // If no usage record exists yet, it will be created in createDocument
+    // For now, assume 0 usage to allow first upload
+    const storageUsedBytes = usage?.storageUsedBytes || 0;
+
+    const limits = PLAN_LIMITS[userPlan] as typeof PLAN_LIMITS[keyof typeof PLAN_LIMITS];
+
+    // Check storage limit (convert GB to bytes)
+    const storageLimitBytes = limits.storageGB * 1024 * 1024 * 1024;
+    const newStorageTotal = storageUsedBytes + args.fileSize;
+
+    if (newStorageTotal > storageLimitBytes) {
+      const availableGB = (storageLimitBytes - storageUsedBytes) / (1024 * 1024 * 1024);
+      throw new Error(
+        `No tienes suficiente espacio de almacenamiento. Disponible: ${availableGB.toFixed(2)}GB. Actualiza a Premium para más almacenamiento.`
+      );
     }
 
     const bucket = process.env.GCS_BUCKET as string;
@@ -161,6 +196,32 @@ export const createDocument = mutation({
     const currentUser = await getCurrentUserFromAuth(ctx);
     await requireNewCaseAccess(ctx, currentUser._id, args.caseId, "advanced");
 
+    // Get team context from case
+    const teamContext = await ctx.runQuery(internal.functions.cases.getCaseTeamContext, {
+      caseId: args.caseId
+    });
+
+    // Check document limit
+    const existingDocuments = await ctx.db
+      .query("documents")
+      .withIndex("by_case", (q) => q.eq("caseId", args.caseId))
+      .collect();
+
+    await _checkLimit(ctx, {
+      userId: currentUser._id,
+      teamId: teamContext ?? undefined,
+      limitType: "documentsPerCase",
+      currentCount: existingDocuments.length,
+    });
+
+    // Check storage limit
+    await _checkLimit(ctx, {
+      userId: currentUser._id,
+      teamId: teamContext ?? undefined,
+      limitType: "storageGB",
+      additionalBytes: args.fileSize,
+    });
+
     // If a folderId is provided, validate it exists and belongs to the same case
     if (args.folderId) {
       const folder = await ctx.db.get(args.folderId);
@@ -205,6 +266,26 @@ export const createDocument = mutation({
       tags: args.tags,
       // Set initial processing status
       processingStatus: "pending",
+    });
+
+    // Increment usage with correct entity
+    const billing = await _getBillingEntity(ctx, {
+      userId: currentUser._id,
+      teamId: teamContext ?? undefined,
+    });
+
+    await ctx.scheduler.runAfter(0, internal.billing.features.incrementUsage, {
+      entityId: billing.entityId,
+      entityType: billing.entityType,
+      counter: "documentsCount",
+      amount: 1,
+    });
+
+    await ctx.scheduler.runAfter(0, internal.billing.features.incrementUsage, {
+      entityId: billing.entityId,
+      entityType: billing.entityType,
+      counter: "storageUsedBytes",
+      amount: args.fileSize,
     });
 
     // Schedule the RAG processing to run asynchronously
@@ -443,6 +524,31 @@ export const deleteDocument = mutation({
       // Ignore Qdrant deletion failure; continue deleting storage and DB record
     }
 
+    // Get team context from case to decrement usage from correct entity
+    const teamContext = await ctx.runQuery(internal.functions.cases.getCaseTeamContext, {
+      caseId: document.caseId
+    });
+
+    const billing = await _getBillingEntity(ctx, {
+      userId: currentUser._id,
+      teamId: teamContext ?? undefined,
+    });
+
+    // Decrement usage counters for document count and storage
+    await ctx.scheduler.runAfter(0, internal.billing.features.incrementUsage, {
+      entityId: billing.entityId,
+      entityType: billing.entityType,
+      counter: "documentsCount",
+      amount: -1, // Negative to decrement
+    });
+
+    await ctx.scheduler.runAfter(0, internal.billing.features.incrementUsage, {
+      entityId: billing.entityId,
+      entityType: billing.entityType,
+      counter: "storageUsedBytes",
+      amount: -document.fileSize, // Negative to decrement
+    });
+
     // Delete the document record
     await ctx.db.delete(args.documentId);
 
@@ -518,6 +624,25 @@ export const createEscrito = mutation({
       };
     }
 
+    // Get team context
+    const teamContext = await ctx.runQuery(internal.functions.cases.getCaseTeamContext, {
+      caseId: args.caseId
+    });
+
+    // Check escritos limit
+    const existingEscritos = await ctx.db
+      .query("escritos")
+      .withIndex("by_case", (q) => q.eq("caseId", args.caseId))
+      .filter((q) => q.eq(q.field("isArchived"), false))
+      .collect();
+
+    await _checkLimit(ctx, {
+      userId: currentUser._id,
+      teamId: teamContext ?? undefined,
+      limitType: "escritosPerCase",
+      currentCount: existingEscritos.length,
+    });
+
     // Just store the escrito record with the provided prosemirrorId
     // The ProseMirror document will be created client-side when the editor loads
     const escritoId = await ctx.db.insert("escritos", {
@@ -532,6 +657,19 @@ export const createEscrito = mutation({
       createdBy: currentUser._id,
       lastModifiedBy: currentUser._id,
       isArchived: false,
+    });
+
+    // Increment with correct entity
+    const billing = await _getBillingEntity(ctx, {
+      userId: currentUser._id,
+      teamId: teamContext ?? undefined,
+    });
+
+    await ctx.scheduler.runAfter(0, internal.billing.features.incrementUsage, {
+      entityId: billing.entityId,
+      entityType: billing.entityType,
+      counter: "escritosCount",
+      amount: 1,
     });
 
     console.log("Created escrito with id:", escritoId);
@@ -757,7 +895,29 @@ export const archiveEscrito = mutation({
     const currentUser = await getCurrentUserFromAuth(ctx);
     await requireNewCaseAccess(ctx, currentUser._id, escrito.caseId, "admin");
 
+    // Update the archived status
     await ctx.db.patch(args.escritoId, { isArchived: args.isArchived });
+
+    // Get team context from case to update usage counter from correct entity
+    const teamContext = await ctx.runQuery(internal.functions.cases.getCaseTeamContext, {
+      caseId: escrito.caseId
+    });
+
+    const billing = await _getBillingEntity(ctx, {
+      userId: currentUser._id,
+      teamId: teamContext ?? undefined,
+    });
+
+    // Update usage counter based on archiving action
+    // Archiving: decrement counter (removing from active count)
+    // Unarchiving: increment counter (adding back to active count)
+    const counterChange = args.isArchived ? -1 : 1;
+    await ctx.scheduler.runAfter(0, internal.billing.features.incrementUsage, {
+      entityId: billing.entityId,
+      entityType: billing.entityType,
+      counter: "escritosCount",
+      amount: counterChange,
+    });
 
     return { success: true };
   },

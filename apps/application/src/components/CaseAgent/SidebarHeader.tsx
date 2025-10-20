@@ -1,13 +1,13 @@
-import { MessageCircle, X, History, Plus } from "lucide-react"
-import { useState } from "react"
-import { ChatHistoryDialog } from "./ChatHistoryDialog"
+import { CirclePlus, MessageCircleReply } from "lucide-react";
+import { useState } from "react";
+import { ChatHistoryDialog } from "./ChatHistoryDialog";
+import { Button } from "../ui/button";
 
 interface SidebarHeaderProps {
-  onToggle: () => void
-  caseId?: string
-  currentThreadId?: string
-  onThreadSelect?: (threadId: string) => void
-  onNewConversation?: () => void
+  onToggle: () => void;
+  caseId?: string;
+  currentThreadId?: string;
+  onThreadSelect?: (threadId: string) => void;
 }
 
 export function SidebarHeader({
@@ -17,35 +17,25 @@ export function SidebarHeader({
   onThreadSelect,
   onNewConversation,
 }: SidebarHeaderProps) {
-  const [historyOpen, setHistoryOpen] = useState(false)
+  const [historyOpen, setHistoryOpen] = useState(false);
 
   return (
     <>
-      <div className="flex items-center justify-between p-4 border-b border-gray-200 bg-gray-50">
-        <div className="flex items-center gap-2">
-          <MessageCircle className="w-5 h-5 text-blue-600" />
-          <h2 className="font-semibold text-gray-800">Alex - Tu agente legal</h2>
-        </div>
+      <div className="flex items-center justify-between p-4 relative">
+        <Button
+          variant="ghost"
+          className="flex items-center justify-center text-xs p-1 gap-1 bg-[#3946D7] text-white"
+        >
+          <CirclePlus size={16} />
+          Nuevo chat
+        </Button>
         <div className="flex items-center gap-1">
           <button
-            onClick={onNewConversation}
-            className="p-1 hover:bg-gray-200 rounded-full transition-colors"
-            title="Nueva conversación"
-          >
-            <Plus className="w-5 h-5 text-gray-600" />
-          </button>
-          <button
             onClick={() => setHistoryOpen(true)}
-            className="p-1 hover:bg-gray-200 rounded-full transition-colors"
+            className="p-1 cursor-pointer"
             title="Historial de conversaciones"
           >
-            <History className="w-5 h-5 text-gray-600" />
-          </button>
-          <button
-            onClick={onToggle}
-            className="p-1 hover:bg-gray-200 rounded-full transition-colors"
-          >
-            <X className="w-5 h-5 text-gray-600" />
+            <MessageCircleReply className="w-5 h-5 text-[#3946D7]" />
           </button>
         </div>
       </div>
@@ -58,5 +48,5 @@ export function SidebarHeader({
         onThreadSelect={onThreadSelect || (() => {})}
       />
     </>
-  )
-} 
+  );
+}

@@ -22,6 +22,8 @@ import {
 } from "@/components/ui/select";
 import { UserPlus } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { UpgradeModal, LimitWarningBanner } from "@/components/Billing";
+import { toast } from "sonner";
 
 interface InviteUserDialogProps {
   teamId: string;
@@ -34,6 +36,7 @@ export default function InviteUserDialog({
 }: InviteUserDialogProps) {
   const [open, setOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const [email, setEmail] = useState("");
   const [role, setRole] = useState<"secretario" | "abogado" | "admin">(
     "secretario",
@@ -47,6 +50,19 @@ export default function InviteUserDialog({
     email: email,
   });
 
+  // Check team member limit
+  const memberCheck = useQuery(
+    api.billing.features.canAddTeamMember,
+    { teamId: teamId as any }
+  );
+
+  // Get user plan for upgrade modal
+  const currentUser = useQuery(api.functions.users.getCurrentUser, {});
+  const userPlan = useQuery(
+    api.billing.features.getUserPlan,
+    currentUser?._id ? { userId: currentUser._id } : "skip"
+  );
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
@@ -54,6 +70,15 @@ export default function InviteUserDialog({
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {
       setError("Por favor ingresa un email válido");
+      return;
+    }
+
+    // Check billing limit before inviting
+    if (!memberCheck?.allowed) {
+      toast.error("Límite alcanzado", {
+        description: memberCheck?.reason || "No puedes agregar más miembros",
+      });
+      setShowUpgradeModal(true);
       return;
     }
 
@@ -104,11 +129,30 @@ export default function InviteUserDialog({
       <DialogContent className="sm:max-w-[425px]">
         <form onSubmit={handleSubmit}>
           <DialogHeader>
-            <DialogTitle>Invitar Usuario al Equipo</DialogTitle>
-            <DialogDescription>
-              Envía una invitación por email para que se una al equipo.
-            </DialogDescription>
+            <div className="flex items-center justify-between">
+              <div>
+                <DialogTitle>Invitar Usuario al Equipo</DialogTitle>
+                <DialogDescription>
+                  Envía una invitación por email para que se una al equipo.
+                </DialogDescription>
+              </div>
+              <span className="text-sm text-gray-500 whitespace-nowrap ml-4">
+                {memberCheck?.currentCount || 0}/{memberCheck?.maxAllowed || 0}
+              </span>
+            </div>
           </DialogHeader>
+
+          {/* Warning banner if approaching limit */}
+          {memberCheck && memberCheck.currentCount && memberCheck.maxAllowed && 
+           (memberCheck.currentCount / memberCheck.maxAllowed) >= 0.8 && memberCheck.allowed && (
+            <div className="px-6 -mt-2">
+              <div className="bg-yellow-50 border border-yellow-200 rounded-md p-3">
+                <p className="text-sm text-yellow-800">
+                  ⚠️ Estás cerca del límite de miembros ({memberCheck.currentCount}/{memberCheck.maxAllowed})
+                </p>
+              </div>
+            </div>
+          )}
 
           <div className="grid gap-4 py-4">
             {error && (
@@ -191,6 +235,15 @@ export default function InviteUserDialog({
             )}
           </DialogFooter>
         </form>
+
+        {/* Upgrade Modal */}
+        <UpgradeModal
+          open={showUpgradeModal}
+          onOpenChange={setShowUpgradeModal}
+          reason={memberCheck?.reason || "Límite de miembros alcanzado"}
+          currentPlan={userPlan || "free"}
+          recommendedPlan="premium_team"
+        />
       </DialogContent>
     </Dialog>
   );

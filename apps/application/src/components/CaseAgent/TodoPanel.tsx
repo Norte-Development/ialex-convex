@@ -3,7 +3,7 @@ import { useQuery, useMutation } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import { useThread } from "@/context/ThreadContext";
 import { cn } from "@/lib/utils";
-import { ChevronDown, ChevronRight } from "lucide-react";
+import { ChevronDown, ChevronRight, Brain } from "lucide-react";
 
 type TodoPanelProps = {
   className?: string;
@@ -29,31 +29,38 @@ export function TodoPanel({ className }: TodoPanelProps) {
   if (!threadId) return null;
 
   return (
-    <div className={cn("border-t bg-gray-50 p-2", className)}>
-      <div 
-        className="flex items-center justify-between mb-2 cursor-pointer hover:bg-gray-100 rounded px-1 py-1 -mx-1 -my-1"
+    <div className={cn("border-t bg-transparent px-2", className)}>
+      <div
+        className="flex items-center justify-between gap-2  cursor-pointer bg-[#F4F7FC] py-4 px-5 rounded-lg"
         onClick={() => setIsCollapsed(!isCollapsed)}
       >
-        <div className="flex items-center gap-1">
-          {isCollapsed ? (
-            <ChevronRight className="h-3 w-3 text-gray-500" />
-          ) : (
-            <ChevronDown className="h-3 w-3 text-gray-500" />
-          )}
-          <span className="text-xs font-semibold text-gray-600">
+        <div className="flex items-center gap-2 min-w-0 flex-1">
+          <Brain className="text-gray-500 shrink-0" size={16} />
+          <span className="text-xs font-semibold text-gray-600 truncate">
             {lists && lists.length > 0 ? lists[0].title : "Plan actual"}
           </span>
         </div>
-        {lists && lists.length > 0 && (
-          <span className="text-[10px] text-gray-500">
-            {lists[0].progressPercent ?? 0}% completo
-          </span>
-        )}
+
+        <div className="flex items-center gap-2 shrink-0">
+          {lists && lists.length > 0 && (
+            <span className="text-[10px] text-gray-500 whitespace-nowrap">
+              {lists[0].progressPercent ?? 0}% completo
+            </span>
+          )}
+          {isCollapsed ? (
+            <ChevronRight className="text-gray-500" size={16} />
+          ) : (
+            <ChevronDown className="text-gray-500" size={16} />
+          )}
+        </div>
       </div>
       {!isCollapsed && (
-        <div className="space-y-1">
+        <div className="space-y-1 bg-[#F4F7FC] px-3">
           {(items ?? []).map((it: any) => (
-            <label key={it._id} className="flex items-center gap-2 text-[12px]">
+            <label
+              key={it._id}
+              className="flex  items-center gap-2 text-[12px]"
+            >
               <input
                 type="checkbox"
                 className="accent-blue-600"
@@ -65,7 +72,14 @@ export function TodoPanel({ className }: TodoPanelProps) {
                   });
                 }}
               />
-              <span className={cn("truncate", it.status === "completed" && "line-through text-gray-400")}>{it.title}</span>
+              <span
+                className={cn(
+                  "truncate",
+                  it.status === "completed" && "line-through text-gray-400",
+                )}
+              >
+                {it.title}
+              </span>
             </label>
           ))}
           {items && items.length === 0 && (
@@ -76,4 +90,3 @@ export function TodoPanel({ className }: TodoPanelProps) {
     </div>
   );
 }
-

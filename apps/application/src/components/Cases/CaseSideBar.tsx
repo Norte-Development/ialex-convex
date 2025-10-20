@@ -14,6 +14,8 @@ import {
   RotateCcw,
   ChevronDown,
   CirclePlus,
+  FilePen,
+  FileDown,
 } from "lucide-react";
 import {
   Collapsible,
@@ -81,6 +83,11 @@ export default function CaseSidebar() {
   const [newRootFolderName, setNewRootFolderName] = useState("");
   const rootInputRef = useRef<HTMLInputElement | null>(null);
 
+  const documents = useQuery(
+    api.functions.documents.getDocuments,
+    currentCase ? { caseId: currentCase._id } : "skip",
+  );
+
   // Permisos usando el nuevo sistema
   const { can } = usePermissions();
 
@@ -113,6 +120,10 @@ export default function CaseSidebar() {
     api.functions.documents.getEscritos,
     currentCase ? { caseId: currentCase._id } : "skip",
   );
+
+  const totalEscritos = escritos?.length || 0;
+
+  const totalDocumentos = documents?.length || 0;
 
   // Fetch archived escritos for the current case
   const archivedEscritos = useQuery(
@@ -212,7 +223,7 @@ export default function CaseSidebar() {
       )}
 
       <aside
-        className={`fixed top-0 left-0 z-30 w-64 h-screen pt-14 bg-[#eef1f8] border-r border-border flex flex-col text-sm transform transition-transform duration-300 ease-in-out  ${
+        className={`fixed top-0 left-0 z-30 w-64 h-screen pt-14 bg-white border-r border-border flex flex-col text-sm transform transition-transform duration-300 ease-in-out  ${
           isCaseSidebarOpen ? "translate-x-0" : "-translate-x-full"
         }`}
       >
@@ -312,23 +323,26 @@ export default function CaseSidebar() {
               >
                 <CollapsibleTrigger className="cursor-pointer flex justify-between items-center gap-1 w-full">
                   <span className="flex items-center gap-4">
-                    <div className="w-1.5 h-5 rounded-r-2xl bg-[#4e8be3]" />
+                    <div className="w-1.5 h-5 rounded-r-2xl bg-[#3946D7]" />
                     {isEscritosOpen ? (
-                      <FolderOpen size={18} className="text-[#4e8be3]" />
+                      <FilePen size={18} className="text-[#3946D7]" />
                     ) : (
-                      <Folder size={18} className="text-[#4e8be3]" />
+                      <FilePen size={18} className="text-[#3946D7]" />
                     )}
                     Escritos
                   </span>
                   {can.escritos.write && (
-                    <CirclePlus
-                      className="cursor-pointer transition-colors rounded-full p-0.5  text-tertiary  hover:bg-tertiary hover:text-white"
-                      size={20}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setIsCreateEscritoOpen(true);
-                      }}
-                    />
+                    <div className="flex items-center justify-center gap-2">
+                      <p className="text-xs text-gray-500">({totalEscritos})</p>
+                      <CirclePlus
+                        className="cursor-pointer transition-colors rounded-full p-0.5  text-tertiary  hover:bg-tertiary hover:text-white"
+                        size={20}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setIsCreateEscritoOpen(true);
+                        }}
+                      />
+                    </div>
                   )}
                 </CollapsibleTrigger>
                 <CollapsibleContent className="flex flex-col gap-1 pl-2 text-[12px] pt-1">
@@ -404,24 +418,29 @@ export default function CaseSidebar() {
                 className="w-full"
               >
                 <CollapsibleTrigger className="cursor-pointer flex justify-between items-center gap-1 w-full">
-                  <span className="flex items-center gap-5">
-                    <div className="w-1.5 h-5 rounded-r-2xl bg-[#4e8be3]" />
-                    <FolderArchive
+                  <span className="flex items-center gap-4">
+                    <div className="w-1.5 h-5 rounded-r-2xl bg-[#3946D7]" />
+                    <FileDown
                       className="cursor-pointer"
                       size={18}
-                      color="#4e8be3"
+                      color="#3946D7"
                     />
                     Documentos
                   </span>
                   {can.docs.write && (
-                    <CirclePlus
-                      className="cursor-pointer transition-colors rounded-full p-0.5 text-tertiary hover:bg-tertiary hover:text-white"
-                      size={20}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setIsCreatingRootFolder(true);
-                      }}
-                    />
+                    <div className="flex items-center justify-center gap-2">
+                      <p className="text-xs text-gray-500">
+                        ({totalDocumentos})
+                      </p>
+                      <CirclePlus
+                        className="cursor-pointer transition-colors rounded-full p-0.5 text-tertiary hover:bg-tertiary hover:text-white"
+                        size={20}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setIsCreatingRootFolder(true);
+                        }}
+                      />
+                    </div>
                   )}
                 </CollapsibleTrigger>
                 <CollapsibleContent className="flex flex-col gap-1 pl-2 text-[12px] pt-1">
