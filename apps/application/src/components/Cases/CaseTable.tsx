@@ -336,13 +336,12 @@ export default function CaseTable({ cases }: CaseTableProps) {
             <TableCell className="text-center">Estado</TableCell>
             <TableCell className="text-center">Equipos</TableCell>
             <TableCell className="text-center">Miembros</TableCell>
-            <TableCell className="text-center w-12">Acciones</TableCell>
           </TableRow>
         </TableHeader>
         <TableBody>
           {!cases || cases.length === 0 ? (
             <TableRow>
-              <TableCell colSpan={6} className="text-center py-8 text-gray-500">
+              <TableCell colSpan={5} className="text-center py-8 text-gray-500">
                 No hay casos disponibles
               </TableCell>
             </TableRow>
@@ -351,7 +350,7 @@ export default function CaseTable({ cases }: CaseTableProps) {
               <TableRow
                 key={case_._id}
                 onClick={() => handleRowClick(case_._id)}
-                className={`cursor-pointer hover:bg-gray-50 transition-colors ${
+                className={`group relative cursor-pointer hover:bg-gray-50 transition-colors ${
                   selectedCases.has(case_._id) ? "bg-blue-50" : ""
                 }`}
               >
@@ -376,12 +375,20 @@ export default function CaseTable({ cases }: CaseTableProps) {
                 <TableCell className="text-center">
                   <CaseUsers caseId={case_._id} />
                 </TableCell>
-                <TableCell onClick={(e) => e.stopPropagation()}>
-                  {/* Solo mostrar menú si tiene permisos de edición o eliminación */}
-                  {(case_.accessLevel === "advanced" || case_.accessLevel === "admin") && (
+                
+                {/* Menú de acciones posicionado absolute a la derecha */}
+                {(case_.accessLevel === "advanced" || case_.accessLevel === "admin") && (
+                  <div 
+                    className="absolute right-2 top-1/2 -translate-y-1/2 z-10"
+                    onClick={(e) => e.stopPropagation()}
+                  >
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          className="h-8 w-8 p-0 opacity-0 group-hover:opacity-100 hover:!opacity-100 transition-opacity bg-white shadow-sm"
+                        >
                           <MoreVertical className="h-4 w-4" />
                         </Button>
                       </DropdownMenuTrigger>
@@ -411,8 +418,8 @@ export default function CaseTable({ cases }: CaseTableProps) {
                         )}
                       </DropdownMenuContent>
                     </DropdownMenu>
-                  )}
-                </TableCell>
+                  </div>
+                )}
               </TableRow>
             ))
           )}
