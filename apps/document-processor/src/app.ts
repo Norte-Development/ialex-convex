@@ -584,20 +584,31 @@ app.use((err: any, req: Request, res: Response, next: any) => {
 });
 
 const port = process.env.PORT || 4001;
-app.listen(port, async () => {
-  try {
-    await initQdrant();
-    logger.info("Qdrant initialized");
-  } catch (e) {
-    logger.error("Qdrant init failed", { error: String(e) });
-  }
-  try {
-    await initLibraryQdrant();
-    logger.info("Library Qdrant collection initialized");
-  } catch (e) {
-    logger.error("Library Qdrant init failed", { error: String(e) });
-  }
-  logger.info(`document-processor listening on ${port}`);
+const host = '0.0.0.0'; // Required for Cloud Run
+
+// Start HTTP server immediately (don't wait for async initialization)
+app.listen(port, host, () => {
+  logger.info(`✅ HTTP server listening on ${host}:${port}`);
+  logger.info('Server is ready to accept requests');
+  
+  // Initialize external services asynchronously (don't block server startup)
+  Promise.all([
+    initQdrant().then(() => {
+      logger.info("✅ Qdrant initialized");
+    }).catch((e) => {
+      logger.error("⚠️ Qdrant init failed (continuing anyway)", { error: String(e) });
+    }),
+    
+    initLibraryQdrant().then(() => {
+      logger.info("✅ Library Qdrant collection initialized");
+    }).catch((e) => {
+      logger.error("⚠️ Library Qdrant init failed (continuing anyway)", { error: String(e) });
+    })
+  ]).then(() => {
+    logger.info('🎉 All services initialized successfully');
+  }).catch((e) => {
+    logger.error('⚠️ Some services failed to initialize', { error: String(e) });
+  });
 });
 
 
