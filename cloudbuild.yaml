@@ -52,6 +52,7 @@ steps:
       - '--set-secrets=HMAC_SECRET=hmac-secret:latest'
     id: 'deploy-cloud-run'
 
+
 images:
   - 'gcr.io/$PROJECT_ID/document-processor:$COMMIT_SHA'
   - 'gcr.io/$PROJECT_ID/document-processor:latest'

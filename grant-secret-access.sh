@@ -3,7 +3,7 @@ export PROJECT_ID=568491393559
 export SERVICE_ACCOUNT="${PROJECT_ID}-compute@developer.gserviceaccount.com"
 
 SECRETS=(
-  "deepgram-key"
+  "deepgram-api-key"
   "mistral-key"
   "openai-key"
   "redis-url"
