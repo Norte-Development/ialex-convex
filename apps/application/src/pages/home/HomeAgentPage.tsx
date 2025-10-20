@@ -51,48 +51,6 @@ export default function HomeAgentPage() {
     }
   };
 
-  const handleQuickPrompt = async (prompt: string) => {
-    if (isCreating) return;
-
-    setIsCreating(true);
-    try {
-      // Send message (will create thread automatically with prompt as title)
-      const result = await sendMessage(prompt);
-
-      if (result.threadId) {
-        // Navigate to the new thread
-        navigate(`/ai/${result.threadId}`);
-      }
-    } catch (error) {
-      console.error("Error creating thread:", error);
-    } finally {
-      setIsCreating(false);
-    }
-  };
-
-  const quickPrompts = [
-    {
-      icon: "📋",
-      title: "Contratos de alquiler",
-      prompt: "Necesito información sobre contratos de alquiler en Argentina",
-    },
-    {
-      icon: "⚖️",
-      title: "Derecho laboral",
-      prompt: "Explicame los derechos laborales básicos en Argentina",
-    },
-    {
-      icon: "🏛️",
-      title: "Derecho constitucional",
-      prompt: "¿Qué es el derecho constitucional argentino?",
-    },
-    {
-      icon: "📄",
-      title: "Redactar documento",
-      prompt: "Ayudame a redactar un documento legal",
-    },
-  ];
-
   return (
     <HomeAgentLayout>
       <div className="flex items-center justify-center h-full p-6 bg-transparent pt-15">
@@ -157,45 +115,6 @@ export default function HomeAgentPage() {
             >
               {isCreating ? <Loader size={20} /> : <CircleArrowUp size={20} />}
             </Button>
-          </div>
-
-          {/* Quick Prompts Section */}
-          <div className="space-y-4 mt-8">
-            <p className="text-[#666666] text-sm">
-              O puede comenzar con alguna de estas sugerencias
-            </p>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              <button
-                onClick={() => handleQuickPrompt(quickPrompts[0].prompt)}
-                disabled={isCreating}
-                className="flex items-center gap-2 px-6 py-3 bg-white rounded-xl border border-gray-200 hover:border-[#9ECBFB] hover:shadow-md transition-all disabled:opacity-50"
-              >
-                <span className="text-xl">{quickPrompts[0].icon}</span>
-                <span className="text-sm font-medium text-[#130261]">
-                  Buscar una ley
-                </span>
-              </button>
-              <button
-                onClick={() => handleQuickPrompt(quickPrompts[3].prompt)}
-                disabled={isCreating}
-                className="flex items-center gap-2 px-6 py-3 bg-white rounded-xl border border-gray-200 hover:border-[#9ECBFB] hover:shadow-md transition-all disabled:opacity-50"
-              >
-                <span className="text-xl">{quickPrompts[3].icon}</span>
-                <span className="text-sm font-medium text-[#130261]">
-                  Redactar un escrito
-                </span>
-              </button>
-              <button
-                onClick={() => handleQuickPrompt(quickPrompts[1].prompt)}
-                disabled={isCreating}
-                className="flex items-center gap-2 px-6 py-3 bg-white rounded-xl border border-gray-200 hover:border-[#9ECBFB] hover:shadow-md transition-all disabled:opacity-50"
-              >
-                <span className="text-xl">{quickPrompts[1].icon}</span>
-                <span className="text-sm font-medium text-[#130261]">
-                  Consultar un caso
-                </span>
-              </button>
-            </div>
           </div>
         </div>
       </div>
