@@ -326,7 +326,6 @@ function FolderItem({
 
   const [isEditing, setIsEditing] = useState(false);
   const [name, setName] = useState(folder.name);
-  const [menuOpen, setMenuOpen] = useState(false);
   const [isCreatingChild, setIsCreatingChild] = useState(false);
   const [newChildName, setNewChildName] = useState("");
   const newChildRef = useRef<HTMLInputElement | null>(null);
@@ -343,29 +342,6 @@ function FolderItem({
       setFolderOpen(folder._id as Id<"folders">, true);
     }
   }, [pathIds, folder._id, setFolderOpen]);
-
-  useEffect(() => {
-    if (!menuOpen) return;
-    const onDocClick = (e: MouseEvent) => {
-      const target = e.target as HTMLElement | null;
-      if (!target) return;
-      if (
-        target.closest("[data-folder-menu]") ||
-        target.closest("[data-folder-menu-trigger]")
-      )
-        return;
-      setMenuOpen(false);
-    };
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setMenuOpen(false);
-    };
-    document.addEventListener("mousedown", onDocClick, true);
-    document.addEventListener("keydown", onKey);
-    return () => {
-      document.removeEventListener("mousedown", onDocClick, true);
-      document.removeEventListener("keydown", onKey);
-    };
-  }, [menuOpen]);
 
   useEffect(() => {
     if (isCreatingChild) {
@@ -404,7 +380,6 @@ function FolderItem({
   const handleArchive = async () => {
     try {
       await archiveFolder({ folderId: folder._id as Id<"folders"> } as any);
-      setMenuOpen(false);
     } catch (err) {
       console.error("Error archiving folder:", err);
       toast.error(
@@ -493,19 +468,18 @@ function FolderItem({
               </span>
             )}
             {can.docs.write && (
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-6 w-6 p-0 hover:bg-gray-200"
-                data-folder-menu-trigger
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setMenuOpen((m) => !m);
+              <FolderActionsMenu
+                onCreateFolder={() => {
+                  setIsCreatingChild(true);
                 }}
-                aria-label="Acciones de carpeta"
-              >
-                <MoreHorizontal size={14} className="text-gray-600" />
-              </Button>
+                onCreateDocument={() => {
+                  fileInputRef.current?.open();
+                }}
+                onRename={() => {
+                  setIsEditing(true);
+                }}
+                onArchive={handleArchive}
+              />
             )}
           </div>
         </div>
@@ -584,19 +558,18 @@ function FolderItem({
                     </span>
                   )}
                   {can.docs.write && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-6 w-6 p-0 hover:bg-gray-200"
-                      data-folder-menu-trigger
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setMenuOpen((m) => !m);
+                    <FolderActionsMenu
+                      onCreateFolder={() => {
+                        setIsCreatingChild(true);
                       }}
-                      aria-label="Acciones de carpeta"
-                    >
-                      <MoreHorizontal size={14} className="text-gray-600" />
-                    </Button>
+                      onCreateDocument={() => {
+                        fileInputRef.current?.open();
+                      }}
+                      onRename={() => {
+                        setIsEditing(true);
+                      }}
+                      onArchive={handleArchive}
+                    />
                   )}
                 </div>
               </div>
@@ -604,23 +577,6 @@ function FolderItem({
             </div>
           )}
         </Droppable>
-      )}
-      {menuOpen && (
-        <FolderActionsMenu
-          onCreateFolder={() => {
-            setMenuOpen(false);
-            setIsCreatingChild(true);
-          }}
-          onCreateDocument={() => {
-            setMenuOpen(false);
-            fileInputRef.current?.open();
-          }}
-          onRename={() => {
-            setMenuOpen(false);
-            setIsEditing(true);
-          }}
-          onArchive={handleArchive}
-        />
       )}
       <NewDocumentInput
         ref={fileInputRef}

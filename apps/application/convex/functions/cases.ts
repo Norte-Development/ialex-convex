@@ -158,6 +158,7 @@ export const updateCase = mutation({
     caseId: v.id("cases"),
     title: v.optional(v.string()),
     description: v.optional(v.string()),
+    expedientNumber: v.optional(v.string()),
     status: v.optional(
       v.union(
         v.literal("pendiente"),
@@ -184,6 +185,7 @@ export const updateCase = mutation({
     const updates: any = {};
     if (args.title !== undefined) updates.title = args.title;
     if (args.description !== undefined) updates.description = args.description;
+    if (args.expedientNumber !== undefined) updates.expedientNumber = args.expedientNumber;
     if (args.status !== undefined) updates.status = args.status;
     if (args.priority !== undefined) updates.priority = args.priority;
     if (args.category !== undefined) updates.category = args.category;
@@ -209,6 +211,52 @@ export const updateCase = mutation({
     }
 
     console.log("Updated case:", args.caseId);
+    return null;
+  },
+});
+
+/**
+ * Deletes a case and all its related data.
+ * Requires admin access level.
+ */
+export const deleteCase = mutation({
+  args: {
+    caseId: v.id("cases"),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const currentUser = await getCurrentUserFromAuth(ctx);
+    await requireNewCaseAccess(ctx, currentUser._id, args.caseId, "admin");
+
+    const existingCase = await ctx.db.get(args.caseId);
+    if (!existingCase) {
+      throw new Error("Caso no encontrado");
+    }
+
+    // Delete all related case access records
+    const caseAccessRecords = await ctx.db
+      .query("caseAccess")
+      .withIndex("by_case", (q) => q.eq("caseId", args.caseId))
+      .collect();
+    
+    for (const record of caseAccessRecords) {
+      await ctx.db.delete(record._id);
+    }
+
+    // Delete all related client-case relationships
+    const clientCaseRecords = await ctx.db
+      .query("clientCases")
+      .withIndex("by_case", (q) => q.eq("caseId", args.caseId))
+      .collect();
+    
+    for (const record of clientCaseRecords) {
+      await ctx.db.delete(record._id);
+    }
+
+    // Delete the case itself
+    await ctx.db.delete(args.caseId);
+
+    console.log("Deleted case:", args.caseId);
     return null;
   },
 });
