@@ -21,6 +21,8 @@ export function CitationBadge({ id, citationType, onClick }: CitationBadgeProps)
         return 'Ley';
       case 'doc':
         return 'Doc';
+      case 'case-doc':
+        return 'Caso';
       case 'fallo':
         return 'Fallo';
       default:
@@ -34,6 +36,8 @@ export function CitationBadge({ id, citationType, onClick }: CitationBadgeProps)
         return 'bg-blue-100 text-blue-800 hover:bg-blue-200';
       case 'doc':
         return 'bg-green-100 text-green-800 hover:bg-green-200';
+      case 'case-doc':
+        return 'bg-cyan-100 text-cyan-800 hover:bg-cyan-200';
       case 'fallo':
         return 'bg-purple-100 text-purple-800 hover:bg-purple-200';
       default:

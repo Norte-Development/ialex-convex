@@ -8,7 +8,7 @@ import {
   toUIMessages,
   useThreadMessages,
 } from "@convex-dev/agent/react";
-import { MessageCircle, ArrowLeft } from "lucide-react";
+import { MessageCircle } from "lucide-react";
 import { useThread } from "@/context/ThreadContext";
 import { useCase } from "@/context/CaseContext";
 import { SidebarMessage } from "./SidebarMessage";

@@ -12,7 +12,7 @@ import { Copy, ThumbsUp, ThumbsDown } from "lucide-react";
 import { Tool } from "../ai-elements/tool";
 import { MessageText } from "../ai-elements/message-text";
 import type { SidebarMessageProps } from "./types/message-types";
-import { LegislationModal } from "./legislation-modal";
+import { CitationModal } from "./citation-modal";
 import { useState, useEffect, memo } from "react";
 import { ToolUIPart } from "ai";
 
@@ -25,7 +25,8 @@ function SidebarMessageInner({
   onContentChange,
 }: SidebarMessageProps) {
   const [open, setOpen] = useState(false);
-  const [normativeId, setNormativeId] = useState("");
+  const [citationId, setCitationId] = useState("");
+  const [citationType, setCitationType] = useState("");
   const isUser = message.role === "user";
 
   const messageText =
@@ -197,7 +198,8 @@ function SidebarMessageInner({
                       ? (id, type) => {
                           console.log("Citation clicked:", { id, type });
                           setOpen(true);
-                          setNormativeId(id);
+                          setCitationId(id);
+                          setCitationType(type);
                         }
                       : undefined
                   }
@@ -350,10 +352,11 @@ function SidebarMessageInner({
           </Actions>
         )}
       </MessageContent>
-      <LegislationModal
+      <CitationModal
         open={open}
         setOpen={setOpen}
-        normativeId={normativeId}
+        citationId={citationId}
+        citationType={citationType}
       />
     </Message>
   );
