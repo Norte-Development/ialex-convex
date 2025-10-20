@@ -1,5 +1,3 @@
-"use node";
-
 import { v } from "convex/values";
 import { action, internalQuery, internalMutation, internalAction } from "../_generated/server";
 import { stripe } from "../stripe";
@@ -8,9 +6,7 @@ import { Id } from "../_generated/dataModel";
 import Stripe from "stripe";
 
 // Initialize Stripe SDK
-const stripeSDK = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: "2024-12-18.acacia" as any,
-});
+const stripeSDK = new Stripe(process.env.STRIPE_SECRET_KEY!);
 
 export const setupCustomer = action({
   args: { 
