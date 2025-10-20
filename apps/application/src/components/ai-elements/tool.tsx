@@ -1,20 +1,25 @@
-"use client"
-import { cn } from "@/lib/utils"
-import type { ToolUIPart } from "ai"
-import { CheckCircleIcon, CircleIcon, ClockIcon, XCircleIcon } from "lucide-react"
-import type { ComponentProps, ReactNode } from "react"
-import { CreateEscritoPreview } from "./CreateEscritoPreview"
+"use client";
+import { cn } from "@/lib/utils";
+import type { ToolUIPart } from "ai";
+import {
+  CheckCircleIcon,
+  CircleIcon,
+  ClockIcon,
+  XCircleIcon,
+} from "lucide-react";
+import type { ComponentProps, ReactNode } from "react";
+import { CreateEscritoPreview } from "./CreateEscritoPreview";
 
 export type ToolProps = ComponentProps<"div"> & {
-  type: string
-  state: ToolUIPart["state"]
-  output?: ToolUIPart["output"]
-}
+  type: string;
+  state: ToolUIPart["state"];
+  output?: ToolUIPart["output"];
+};
 
 const getActionLabel = (toolName: string): ReactNode => {
-  if (!toolName) return "Procesando"
+  if (!toolName) return "Procesando";
 
-  const action = toolName.split(/(?=[A-Z])/)[0].toLowerCase()
+  const action = toolName.split(/(?=[A-Z])/)[0].toLowerCase();
 
   const actionLabels: Record<string, ReactNode> = {
     search: "Investigando",
@@ -24,10 +29,10 @@ const getActionLabel = (toolName: string): ReactNode => {
     edit: "Editando",
     get: "Obteniendo",
     manage: "Preparando",
-  }
+  };
 
-  return actionLabels[action] || action
-}
+  return actionLabels[action] || action;
+};
 
 const getStatusDisplay = (status: ToolUIPart["state"]) => {
   const config = {
@@ -36,7 +41,9 @@ const getStatusDisplay = (status: ToolUIPart["state"]) => {
       textColor: "text-muted-foreground",
     },
     "input-available": {
-      icon: <ClockIcon className="size-3 animate-pulse text-muted-foreground" />,
+      icon: (
+        <ClockIcon className="size-3 animate-pulse text-muted-foreground" />
+      ),
       textColor: "text-muted-foreground",
     },
     "output-available": {
@@ -47,40 +54,35 @@ const getStatusDisplay = (status: ToolUIPart["state"]) => {
       icon: <XCircleIcon className="size-3 text-red-600" />,
       textColor: "text-red-600",
     },
-  } as const
+  } as const;
 
-  return config[status]
-}
+  return config[status];
+};
 
 export const Tool = ({ className, type, state, ...props }: ToolProps) => {
-  const actionLabel = getActionLabel(type)
-  const statusDisplay = getStatusDisplay(state)
-
-  
+  const actionLabel = getActionLabel(type);
+  const statusDisplay = getStatusDisplay(state);
 
   // Check if this is a createEscrito action
-  const output = props.output as Record<string, unknown> | undefined
-  const isCreateEscrito = 
-    state === "output-available" && 
-    output?.action === "createEscrito"
+  const output = props.output as Record<string, unknown> | undefined;
+  const isCreateEscrito =
+    state === "output-available" && output?.action === "createEscrito";
 
   if (isCreateEscrito) {
-    return <CreateEscritoPreview output={props.output} />
+    return <CreateEscritoPreview output={props.output} />;
   }
 
   return (
-    <div 
+    <div
       className={cn(
         "flex items-center gap-2 ml-4 pl-2 py-1.5 text-[11px] border-l-2 border-gray-200 bg-gray-50/50 rounded-r-md",
-        statusDisplay.textColor, 
-        className
-      )} 
+        statusDisplay.textColor,
+        className,
+      )}
       {...props}
     >
       {statusDisplay.icon}
-      <span className="font-medium">
-        {actionLabel}
-      </span>
+      <span className="font-medium">{actionLabel}</span>
     </div>
-  )
-}
+  );
+};

@@ -31,13 +31,14 @@ export default function HomeAgentPage() {
   const user = useQuery(api.functions.users.getCurrentUser, {});
   const planData = useQuery(
     api.billing.features.getUserPlan,
-    user?._id ? { userId: user._id } : "skip"
+    user?._id ? { userId: user._id } : "skip",
   );
 
   const plan = planData?.plan;
-  const aiModel = plan === "premium_individual" || plan === "premium_team" 
-    ? "GPT-5" 
-    : "GPT-4o";
+  const aiModel =
+    plan === "premium_individual" || plan === "premium_team"
+      ? "GPT-5"
+      : "GPT-4o";
 
   const handleSendMessage = async () => {
     if (!inputValue.trim() || isCreating) return;
