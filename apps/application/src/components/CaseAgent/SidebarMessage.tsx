@@ -42,6 +42,9 @@ export function SidebarMessage({
   const allToolsCompleted =
     toolCalls.length > 0 &&
     toolCalls.every((part) => (part as any).state === "output-available");
+  
+  // Check if there are active tools (not completed yet)
+  const hasActiveTools = toolCalls.length > 0 && !allToolsCompleted;
 
   // Only stream while assistant is actively streaming and tools (if any) are not all completed
   const shouldStream =
@@ -113,13 +116,10 @@ export function SidebarMessage({
             "!bg-red-100 !text-red-800 border-l-2 border-red-400",
         )}
       >
-        {/* Show thinking indicator if message has no parts yet or is empty */}
+        {/* Show thinking indicator if message has no parts yet, is empty, or only has tools without text */}
         {!isUser &&
-          shouldStream &&
-          (!message.parts ||
-            message.parts.length === 0 ||
-            !messageText ||
-            messageText.trim() === "") && (
+          (message.status === "streaming" || hasActiveTools) &&
+          (!messageText || messageText.trim() === "") && (
             <div className="flex items-center gap-2">
               <div className="flex gap-1">
                 <div
@@ -135,7 +135,9 @@ export function SidebarMessage({
                   style={{ animationDelay: "300ms" }}
                 />
               </div>
-              <span className="text-xs text-gray-500 italic">Pensando...</span>
+              <span className="text-xs text-gray-500 italic">
+                {hasActiveTools ? "Procesando herramientas..." : "Pensando..."}
+              </span>
             </div>
           )}
 
@@ -172,32 +174,9 @@ export function SidebarMessage({
               displayText = visibleText.slice(startPos, endPos);
             }
 
-            if (
-              !isUser &&
-              shouldStream &&
-              (!displayText || displayText.trim() === "")
-            ) {
-              return (
-                <div key={index} className="flex items-center gap-2">
-                  <div className="flex gap-1">
-                    <div
-                      className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"
-                      style={{ animationDelay: "0ms" }}
-                    />
-                    <div
-                      className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"
-                      style={{ animationDelay: "150ms" }}
-                    />
-                    <div
-                      className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"
-                      style={{ animationDelay: "300ms" }}
-                    />
-                  </div>
-                  <span className="text-xs text-gray-500 italic">
-                    Pensando...
-                  </span>
-                </div>
-              );
+            // Skip rendering empty text parts - the main thinking indicator handles this
+            if (!displayText || displayText.trim() === "") {
+              return null;
             }
 
             return (
@@ -341,6 +320,7 @@ export function SidebarMessage({
                 type={part.type.replace("tool-", "")}
                 state={toolState}
                 output={(part as any)?.output as ToolUIPart["output"]}
+                input={(part as any)?.input}
               ></Tool>
             );
           }
