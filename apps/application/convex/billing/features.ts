@@ -4,6 +4,25 @@ import { Id } from "../_generated/dataModel";
 import { PLAN_LIMITS, PlanType } from "./planLimits";
 
 /**
+ * Helper to detect if we're in development mode
+ * Returns true if we should bypass plan limits
+ */
+function isDevMode(): boolean {
+  // Option 1: Use an explicit environment variable (recommended)
+  if (process.env.DISABLE_PLAN_LIMITS === "true") {
+    return true;
+  }
+  
+  // Option 2: Check if CONVEX_SITE_URL contains "dev" 
+  const siteUrl = process.env.CONVEX_SITE_URL || "";
+  if (siteUrl.includes(".cloud-dev.") || siteUrl.includes("localhost")) {
+    return true;
+  }
+  
+  return false;
+}
+
+/**
  * Internal helper to get user plan - used by both queries and mutations
  * EXPORTED for use in other files
  */
@@ -265,6 +284,11 @@ export async function _checkLimit(
     additionalBytes?: number; // For storage checks
   }
 ): Promise<void> {
+  // Skip limit checks in dev mode
+  if (isDevMode()) {
+    return;
+  }
+
   const billing = await _getBillingEntity(ctx, { userId: args.userId, teamId: args.teamId });
   const limits = PLAN_LIMITS[billing.plan];
   
@@ -358,6 +382,21 @@ export async function _canAddTeamMember(
   currentCount: number;
   maxAllowed: number;
 }> {
+  // Allow unlimited members in dev mode
+  if (isDevMode()) {
+    const currentMembers = await ctx.db
+      .query("teamMemberships")
+      .withIndex("by_team", (q) => q.eq("teamId", teamId))
+      .filter((q) => q.eq(q.field("isActive"), true))
+      .collect();
+    
+    return {
+      allowed: true,
+      currentCount: currentMembers.length,
+      maxAllowed: Infinity,
+    };
+  }
+
   // Get team's plan
   const plan = await ctx.db.get(teamId);
   if (!plan) {
@@ -419,6 +458,21 @@ export async function _canCreateTeam(
   ownedCount: number;
   canUpgrade: boolean;
 }> {
+  // Allow unlimited teams in dev mode
+  if (isDevMode()) {
+    const ownedTeams = await ctx.db
+      .query("teams")
+      .withIndex("by_created_by", (q) => q.eq("createdBy", userId))
+      .filter((q) => q.eq(q.field("isActive"), true))
+      .collect();
+    
+    return {
+      allowed: true,
+      ownedCount: ownedTeams.length,
+      canUpgrade: false,
+    };
+  }
+
   // Check user's plan
   const userPlan = await _getUserPlan(ctx, userId);
   
@@ -526,6 +580,18 @@ export async function _canAccessLibrary(
 }
 
 /**
+ * Check if dev mode is currently enabled
+ * Used by frontend to show unlimited limits in UI
+ */
+export const isDevModeEnabled = query({
+  args: {},
+  returns: v.boolean(),
+  handler: async (_ctx, _args): Promise<boolean> => {
+    return isDevMode();
+  },
+});
+
+/**
  * Get the current plan for a user by checking their Stripe subscription
  */
 export const getUserPlan = query({
@@ -598,6 +664,11 @@ export const hasFeatureAccess = query({
     canUpgrade: v.optional(v.boolean()),
   }),
   handler: async (ctx, args): Promise<{ allowed: boolean; reason?: string; canUpgrade?: boolean }> => {
+    // Allow all features in dev mode
+    if (isDevMode()) {
+      return { allowed: true };
+    }
+
     // Determine workspace context from case
     let teamId: Id<"teams"> | undefined = undefined;
     if (args.caseId) {
@@ -785,6 +856,11 @@ export const decrementCredits = internalMutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
+    // Skip credit decrementing in dev mode
+    if (isDevMode()) {
+      return null;
+    }
+
     const amount = args.amount || 1;
     
     // Get billing entity

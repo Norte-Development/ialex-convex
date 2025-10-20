@@ -35,6 +35,26 @@ These variables are **required** for the billing system to function.
   - Development: `http://localhost:5173`
   - Production: `https://ialex.example.com`
 
+## 🧪 Development Mode
+
+### `DISABLE_PLAN_LIMITS`
+- **Description**: Disables all billing plan limits in development mode
+- **Values**: `"true"` or unset
+- **Usage**: When set to `"true"`, bypasses all plan limits for:
+  - Case creation limits
+  - Document upload limits
+  - Escrito creation limits
+  - Team creation limits
+  - Team member limits
+  - AI message limits
+  - Storage limits
+  - Library access checks
+- **Important**: 
+  - Only set this in your **dev deployment**, never in production
+  - Automatically enabled if CONVEX_SITE_URL contains `.cloud-dev.` or `localhost`
+  - Does not affect production deployments
+- **Example**: `DISABLE_PLAN_LIMITS=true`
+
 ## 📝 How to Set Environment Variables
 
 ### For Local Development
@@ -43,6 +63,7 @@ These variables are **required** for the billing system to function.
    - Go to your project in [Convex Dashboard](https://dashboard.convex.dev)
    - Navigate to Settings → Environment Variables
    - Add each variable
+   - **For dev deployment**: Add `DISABLE_PLAN_LIMITS=true`
 
 2. **For Frontend (Vite)**:
    - Create a `.env` file in `apps/application/`
@@ -109,6 +130,9 @@ Check that variables are set correctly:
 - `STRIPE_SECRET_KEY`
 - `STRIPE_WEBHOOK_SECRET`
 - `VITE_APP_URL`
+
+### Optional (Development)
+- `DISABLE_PLAN_LIMITS` - Disables plan limits in dev mode (development only)
 
 ### Optional (Other Features)
 These are for other parts of the application, not billing:

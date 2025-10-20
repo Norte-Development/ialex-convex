@@ -46,6 +46,9 @@ export const useBillingData = (context?: UseBillingDataOptions): BillingData => 
   // Get current user
   const user = useQuery(api.functions.users.getCurrentUser, {});
   
+  // Check if dev mode is enabled
+  const isDevMode = useQuery(api.billing.features.isDevModeEnabled, {});
+  
   // Determine entity ID for billing (team or user)
   const entityId = context?.teamId || user?._id;
   
@@ -70,10 +73,29 @@ export const useBillingData = (context?: UseBillingDataOptions): BillingData => 
   );
 
   // Determine loading state
-  const isLoading = !user || plan === undefined || usage === undefined;
+  const isLoading = !user || plan === undefined || usage === undefined || isDevMode === undefined;
 
-  // Get plan limits from static config
-  const limits = plan ? PLAN_LIMITS[plan] : undefined;
+  // Get plan limits from static config, or unlimited if dev mode
+  let limits: PlanLimits | undefined = plan ? PLAN_LIMITS[plan] : undefined;
+  
+  // Override with unlimited values in dev mode
+  if (isDevMode && limits) {
+    limits = {
+      cases: Infinity,
+      documentsPerCase: Infinity,
+      aiMessagesPerMonth: Infinity,
+      escritosPerCase: Infinity,
+      libraryDocuments: Infinity,
+      storageGB: Infinity,
+      teamsAllowed: Infinity,
+      teamMembers: Infinity,
+      features: {
+        createTeam: true,
+        gpt5: true,
+        teamLibrary: true,
+      },
+    } as PlanLimits;
+  }
 
   // Determine entity type
   const entityType: "user" | "team" = context?.teamId ? "team" : "user";
