@@ -54,15 +54,23 @@ export default function NavBar() {
       className={`flex flex-row-reverse bg-[#D9D9D9] fixed px-5 justify-between items-center py-1 h-[41px] w-full  text-foreground  top-0 left-0 z-50 mb-5`}
     >
       <div className={` flex  items-center gap-5`}>
-        <div className="flex items-center justify-center gap-2">
-          <Bell className="cursor-pointer" size={20} />
-          <UserButton
-            appearance={{
-              elements: {
-                avatarBox: "w-8 h-8",
-              },
-            }}
-            showName={false}
+        <div className="flex items-center justify-center gap-4">
+          <div className="flex items-center gap-1">
+            <Bell className="cursor-pointer" size={20} />
+            <UserButton
+              appearance={{
+                elements: {
+                  avatarBox: "w-8 h-8",
+                },
+              }}
+              showName={false}
+            />
+          </div>
+          <MessageCircle
+            className="cursor-pointer"
+            size={22}
+            onClick={toggleChatbot}
+            color="#3946D7"
           />
         </div>
       </div>
