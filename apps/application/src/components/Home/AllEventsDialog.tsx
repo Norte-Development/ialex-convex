@@ -7,17 +7,19 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
-import { CircleArrowRight, Calendar, Clock, MapPin } from "lucide-react";
+import { Calendar, Clock, MapPin } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Link } from "react-router-dom";
 
-export default function AllEventsDialog() {
-  const [open, setOpen] = useState(false);
-
+export default function AllEventsDialog({
+  open,
+  onOpenChange,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}) {
   const upcomingEvents = useQuery(
     api.functions.events.getUpcomingEvents,
     open ? { days: 90 } : "skip", // Solo cargar cuando el modal esté abierto
@@ -80,7 +82,7 @@ export default function AllEventsDialog() {
   const EventItem = ({ event }: { event: any }) => (
     <Link
       to={`/eventos/${event._id}`}
-      onClick={() => setOpen(false)}
+      onClick={() => onOpenChange(false)}
       className="block"
     >
       <div className="p-4 border rounded-lg hover:bg-muted/50 transition-colors cursor-pointer">
@@ -119,12 +121,7 @@ export default function AllEventsDialog() {
   );
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button variant="secondary" size="lg" className="text-black">
-          Ver todos <CircleArrowRight className="inline text-primary ml-2" />
-        </Button>
-      </DialogTrigger>
+    <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-3xl max-h-[85vh] overflow-hidden flex flex-col">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">

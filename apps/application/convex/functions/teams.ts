@@ -8,6 +8,7 @@ import {
   requireNewCaseAccess,
 } from "../auth_utils";
 import { internal } from "../_generated/api";
+import { _getUserPlan, _canAddTeamMember, _canCreateTeam } from "../billing/features";
 
 const newAccessLevelType = v.union(
   v.literal("none"),
@@ -48,8 +49,16 @@ export const createTeam = mutation({
     description: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    // Any authenticated user can create teams
     const currentUser = await getCurrentUserFromAuth(ctx);
+
+    // Check if user can create a team (validates plan and ownership limit)
+    const canCreate = await _canCreateTeam(ctx, currentUser._id);
+
+    if (!canCreate.allowed) {
+      throw new Error(
+        canCreate.reason || "No puedes crear un equipo en este momento."
+      );
+    }
 
     const teamId = await ctx.db.insert("teams", {
       name: args.name,
@@ -380,6 +389,16 @@ export const addUserToTeam = mutation({
 
     if (existing) {
       throw new Error("User is already a member of this team");
+    }
+
+    // Check team member limits based on subscription
+    const memberCheck = await _canAddTeamMember(ctx, args.teamId);
+
+    if (!memberCheck.allowed) {
+      throw new Error(
+        memberCheck.reason || 
+        `Límite de miembros alcanzado (${memberCheck.currentCount}/${memberCheck.maxAllowed})`
+      );
     }
 
     const membershipId = await ctx.db.insert("teamMemberships", {
@@ -1026,6 +1045,17 @@ export const sendTeamInvite = mutation({
       );
     }
 
+    // Check team member limits before sending invitation
+    const memberCheck = await _canAddTeamMember(ctx, args.teamId);
+
+    if (!memberCheck.allowed) {
+      throw new Error(
+        memberCheck.reason || 
+        `Límite de miembros alcanzado (${memberCheck.currentCount}/${memberCheck.maxAllowed}). ` +
+        `No se pueden enviar más invitaciones.`
+      );
+    }
+
     // Check if user already exists and is in the team
     const existingUser = await ctx.db
       .query("users")
@@ -1227,6 +1257,16 @@ export const acceptTeamInvite = mutation({
 
     if (existingMembership) {
       throw new Error("Ya eres miembro de este equipo");
+    }
+
+    // Check team member limits based on subscription
+    const memberCheck = await _canAddTeamMember(ctx, invite.teamId);
+
+    if (!memberCheck.allowed) {
+      throw new Error(
+        memberCheck.reason || 
+        `Límite de miembros alcanzado (${memberCheck.currentCount}/${memberCheck.maxAllowed})`
+      );
     }
 
     // Add user to team
@@ -1673,6 +1713,17 @@ export const createUserAndJoinTeam = mutation({
 
     if (existingUser) {
       throw new Error("Ya existe una cuenta con este email");
+    }
+
+    // Check team member limits BEFORE creating user
+    const memberCheck = await _canAddTeamMember(ctx, invite.teamId);
+
+    if (!memberCheck.allowed) {
+      throw new Error(
+        memberCheck.reason || 
+        `Límite de miembros alcanzado (${memberCheck.currentCount}/${memberCheck.maxAllowed}). ` +
+        `No se puede aceptar esta invitación.`
+      );
     }
 
     // Create the user account

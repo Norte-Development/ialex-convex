@@ -2,8 +2,12 @@ import { httpAction } from "./_generated/server";
 import { httpRouter } from "convex/server";
 import { internal } from "./_generated/api";
 import { Id } from "./_generated/dataModel";
+import { stripe } from "./stripe";
+
 
 const http = httpRouter();
+
+stripe.addHttpRoutes(http);
 
 // HMAC verification using Web Crypto API (available in HTTP actions)
 async function verifyHmac(message: string, signature: string, secret: string): Promise<boolean> {

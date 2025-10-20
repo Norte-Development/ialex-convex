@@ -1,11 +1,27 @@
-import { Plus, Pencil, Archive } from "lucide-react";
+import {
+  Pencil,
+  Archive,
+  MoreVertical,
+  FolderPlus,
+  FileText,
+} from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "../ui/dropdown-menu";
+import { ReactNode } from "react";
 
 type FolderActionsMenuProps = {
   onCreateFolder: () => void;
   onCreateDocument: () => void;
   onRename: () => void;
   onArchive: () => void;
-  className?: string;
+  trigger?: ReactNode;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 };
 
 export function FolderActionsMenu({
@@ -13,44 +29,68 @@ export function FolderActionsMenu({
   onCreateDocument,
   onRename,
   onArchive,
-  className,
+  trigger,
+  open,
+  onOpenChange,
 }: FolderActionsMenuProps) {
   return (
-    <div
-      className={
-        "absolute right-2 top-7 z-10 w-36 rounded-md border bg-white shadow-md text-xs " +
-        (className ?? "")
-      }
-      data-folder-menu
-      onClick={(e) => e.stopPropagation()}
-    >
-      {/* Creation options */}
-      <button
-        className="w-full flex items-center gap-2 px-3 py-2 hover:bg-gray-100 text-left"
-        onClick={onCreateFolder}
-      >
-        <Plus size={12} /> Nueva carpeta
-      </button>
-      <button
-        className="w-full flex items-center gap-2 px-3 py-2 hover:bg-gray-100 text-left"
-        onClick={onCreateDocument}
-      >
-        <Plus size={12} /> Nuevo documento
-      </button>
-      <div className="my-1 border-t" />
-      <button
-        className="w-full flex items-center gap-2 px-3 py-2 hover:bg-gray-100 text-left"
-        onClick={onRename}
-      >
-        <Pencil size={12} /> Renombrar
-      </button>
-      <button
-        className="w-full flex items-center gap-2 px-3 py-2 hover:bg-gray-100 text-left text-red-600"
-        onClick={onArchive}
-      >
-        <Archive size={12} /> Archivar
-      </button>
-    </div>
+    <DropdownMenu open={open} onOpenChange={onOpenChange}>
+      <DropdownMenuTrigger asChild>
+        {trigger || (
+          <button
+            className="p-1 cursor-pointer hover:bg-gray-200 rounded transition-colors"
+            onClick={(e) => e.stopPropagation()}
+            data-folder-menu-trigger
+            aria-label="Acciones de carpeta"
+          >
+            <MoreVertical size={14} className="text-gray-600" />
+          </button>
+        )}
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-48">
+        <DropdownMenuItem
+          onClick={(e) => {
+            e.stopPropagation();
+            onCreateFolder();
+          }}
+          className="cursor-pointer"
+        >
+          <FolderPlus className="mr-2 h-4 w-4" />
+          <span>Nueva carpeta</span>
+        </DropdownMenuItem>
+        <DropdownMenuItem
+          onClick={(e) => {
+            e.stopPropagation();
+            onCreateDocument();
+          }}
+          className="cursor-pointer"
+        >
+          <FileText className="mr-2 h-4 w-4" />
+          <span>Nuevo documento</span>
+        </DropdownMenuItem>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem
+          onClick={(e) => {
+            e.stopPropagation();
+            onRename();
+          }}
+          className="cursor-pointer"
+        >
+          <Pencil className="mr-2 h-4 w-4" />
+          <span>Renombrar</span>
+        </DropdownMenuItem>
+        <DropdownMenuItem
+          onClick={(e) => {
+            e.stopPropagation();
+            onArchive();
+          }}
+          className="cursor-pointer text-red-600 focus:text-red-600"
+        >
+          <Archive className="mr-2 h-4 w-4" />
+          <span>Archivar</span>
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }
 

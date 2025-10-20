@@ -1,13 +1,15 @@
 import { useSmoothText } from "@convex-dev/agent/react";
 import { cn } from "@/lib/utils";
 import { Message, MessageContent, MessageAvatar } from "../ai-elements/message";
-import { Reasoning, ReasoningContent, ReasoningTrigger } from "../ai-elements/reasoning";
+import {
+  Reasoning,
+  ReasoningContent,
+  ReasoningTrigger,
+} from "../ai-elements/reasoning";
 import { Sources, SourcesTrigger, SourcesContent } from "../ai-elements/source";
 import { Actions, Action } from "../ai-elements/actions";
 import { Copy, ThumbsUp, ThumbsDown } from "lucide-react";
-import {
-  Tool,
-} from "../ai-elements/tool";
+import { Tool } from "../ai-elements/tool";
 import { MessageText } from "../ai-elements/message-text";
 import type { SidebarMessageProps } from "./types/message-types";
 import { LegislationModal } from "./legislation-modal";
@@ -22,7 +24,6 @@ export function SidebarMessage({
   assistantName = "iAlex",
   onContentChange,
 }: SidebarMessageProps) {
-
   const [open, setOpen] = useState(false);
   const [normativeId, setNormativeId] = useState("");
   const isUser = message.role === "user";
@@ -36,10 +37,14 @@ export function SidebarMessage({
   const messageAge = Date.now() - (message._creationTime || 0);
   // Detect tool calls and whether they've all completed output
   const toolCalls =
-    message.parts?.filter((part) => (part as any).type?.startsWith("tool-")) || [];
+    message.parts?.filter((part) => (part as any).type?.startsWith("tool-")) ||
+    [];
   const allToolsCompleted =
     toolCalls.length > 0 &&
     toolCalls.every((part) => (part as any).state === "output-available");
+  
+  // Check if there are active tools (not completed yet)
+  const hasActiveTools = toolCalls.length > 0 && !allToolsCompleted;
 
   // Only stream while assistant is actively streaming and tools (if any) are not all completed
   const shouldStream =
@@ -92,7 +97,7 @@ export function SidebarMessage({
     <Message
       from={message.role}
       className={cn(
-        "!justify-start",
+        "!justify-start ",
         isUser ? "!flex-row-reverse" : "!flex-row",
       )}
     >
@@ -105,42 +110,52 @@ export function SidebarMessage({
       <MessageContent
         className={cn(
           "group relative !rounded-lg !px-3 !py-2 !text-[12px] shadow-sm space-y-2 max-w-[85%]",
-          isUser && "!bg-blue-600 !text-white",
-          !isUser && "!bg-gray-100 !text-gray-800",
+          isUser && "!bg-[#F3F4F6] !text-black",
+          !isUser && "!bg-[#F3F4F6] !text-black",
           message.status === "failed" &&
             "!bg-red-100 !text-red-800 border-l-2 border-red-400",
         )}
       >
-        {/* Show thinking indicator if message has no parts yet or is empty */}
-        {!isUser && shouldStream && (!message.parts || message.parts.length === 0 || !messageText || messageText.trim() === "") && (
-          <div className="flex items-center gap-2">
-            <div className="flex gap-1">
-              <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: "0ms" }} />
-              <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: "150ms" }} />
-              <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: "300ms" }} />
+        {/* Show thinking indicator if message has no parts yet, is empty, or only has tools without text */}
+        {!isUser &&
+          (message.status === "streaming" || hasActiveTools) &&
+          (!messageText || messageText.trim() === "") && (
+            <div className="flex items-center gap-2">
+              <div className="flex gap-1">
+                <div
+                  className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"
+                  style={{ animationDelay: "0ms" }}
+                />
+                <div
+                  className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"
+                  style={{ animationDelay: "150ms" }}
+                />
+                <div
+                  className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"
+                  style={{ animationDelay: "300ms" }}
+                />
+              </div>
+              <span className="text-xs text-gray-500 italic">
+                {hasActiveTools ? "Procesando herramientas..." : "Pensando..."}
+              </span>
             </div>
-            <span className="text-xs text-gray-500 italic">
-              Pensando...
-            </span>
-          </div>
-        )}
-        
+          )}
+
         {/* Message parts in chronological order */}
         {message.parts?.map((part, index) => {
           if (part.type === "text") {
             const partText = (part as any).text;
-            
+
             // For user messages, just show the text as-is
             if (isUser) {
               return (
                 <div
                   key={index}
-                  className={cn("prose prose-sm max-w-none whitespace-pre-wrap")}
+                  className={cn(
+                    "prose prose-sm max-w-none whitespace-pre-wrap",
+                  )}
                 >
-                  <MessageText
-                    text={partText}
-                    renderMarkdown={true}
-                  />
+                  <MessageText text={partText} renderMarkdown={true} />
                 </div>
               );
             }
@@ -154,28 +169,14 @@ export function SidebarMessage({
               // Calculate where this part's text starts in the combined text
               const startPos = getCumulativeTextLength(index);
               const endPos = startPos + partText.length;
-              
+
               // Extract only this part's text from the visible (streamed) text
               displayText = visibleText.slice(startPos, endPos);
             }
 
-            if (
-              !isUser &&
-              shouldStream &&
-              (!displayText || displayText.trim() === "")
-            ) {
-              return (
-                <div key={index} className="flex items-center gap-2">
-                  <div className="flex gap-1">
-                    <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: "0ms" }} />
-                    <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: "150ms" }} />
-                    <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: "300ms" }} />
-                  </div>
-                  <span className="text-xs text-gray-500 italic">
-                    Pensando...
-                  </span>
-                </div>
-              );
+            // Skip rendering empty text parts - the main thinking indicator handles this
+            if (!displayText || displayText.trim() === "") {
+              return null;
             }
 
             return (
@@ -186,11 +187,15 @@ export function SidebarMessage({
                 <MessageText
                   text={displayText}
                   renderMarkdown={true}
-                  onCitationClick={!isUser ? (id, type) => {
-                    console.log('Citation clicked:', { id, type });
-                    setOpen(true);
-                    setNormativeId(id);
-                  } : undefined}
+                  onCitationClick={
+                    !isUser
+                      ? (id, type) => {
+                          console.log("Citation clicked:", { id, type });
+                          setOpen(true);
+                          setNormativeId(id);
+                        }
+                      : undefined
+                  }
                 />
               </div>
             );
@@ -203,14 +208,14 @@ export function SidebarMessage({
             // 2. This is the last part (reasoning is still being generated) OR
             // 3. The reasoning text is empty or very short (just started)
             const isLastPart = index === (message.parts?.length || 0) - 1;
-            
-            const reasoningIsStreaming = message.status === "streaming" && 
-              (isLastPart);
-            
+
+            const reasoningIsStreaming =
+              message.status === "streaming" && isLastPart;
+
             return (
-              <Reasoning 
-                key={`${message.id}-${index}`} 
-                defaultOpen={false} 
+              <Reasoning
+                key={`${message.id}-${index}`}
+                defaultOpen={false}
                 isStreaming={reasoningIsStreaming}
                 onToggle={() => {
                   // Trigger content change when reasoning is expanded/collapsed
@@ -220,14 +225,16 @@ export function SidebarMessage({
                 }}
               >
                 <ReasoningTrigger className="!text-[10px]" />
-                <ReasoningContent className="group relative !px-3 !py-2 !text-[10px] space-y-2 max-w-[85%]">{part.text}</ReasoningContent>
+                <ReasoningContent className="group relative !px-3 !py-2 !text-[10px] space-y-2 max-w-[85%]">
+                  {part.text}
+                </ReasoningContent>
               </Reasoning>
             );
           }
 
           if (part.type === "source-url") {
             return (
-              <Sources 
+              <Sources
                 key={index}
                 onToggle={() => {
                   // Trigger content change when sources are expanded/collapsed
@@ -296,19 +303,25 @@ export function SidebarMessage({
             const isError =
               aiSDKState === "output-available" &&
               (outputType?.startsWith("error-") ?? false);
-            
+
             // Map our states to Tool component states
-            const toolState = isError 
-              ? "output-error" 
-              : aiSDKState === "output-available" 
-                ? "output-available" 
+            const toolState = isError
+              ? "output-error"
+              : aiSDKState === "output-available"
+                ? "output-available"
                 : aiSDKState === "input-available"
                   ? "input-available"
                   : "input-streaming";
-            
+
             return (
-              <Tool key={index} className="mb-4" type={part.type.replace("tool-", "")} state={toolState} output={(part as any)?.output as ToolUIPart["output"]}>
-              </Tool>
+              <Tool
+                key={index}
+                className="mb-4"
+                type={part.type.replace("tool-", "")}
+                state={toolState}
+                output={(part as any)?.output as ToolUIPart["output"]}
+                input={(part as any)?.input}
+              ></Tool>
             );
           }
 
@@ -340,7 +353,11 @@ export function SidebarMessage({
           </Actions>
         )}
       </MessageContent>
-      <LegislationModal open={open} setOpen={setOpen} normativeId={normativeId} />
+      <LegislationModal
+        open={open}
+        setOpen={setOpen}
+        normativeId={normativeId}
+      />
     </Message>
   );
 }
