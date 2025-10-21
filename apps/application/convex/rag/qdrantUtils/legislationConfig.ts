@@ -1,0 +1,1 @@
+export const LEGISLATION_COLLECTION_NAME = "ialex_legislation_ar";

@@ -6,6 +6,7 @@ import { embed } from "ai";
 import { openai } from "@ai-sdk/openai";
 import { client } from "./client";
 import { LegislationSearchResult } from "./types";
+import { LEGISLATION_COLLECTION_NAME } from "./legislationConfig";
 
 const generateSparseEmbeddings = async (queries: string[]) => {
   const sparseEmbeddings = await fetch("https://api.ialex.com.ar/search/embed", {
@@ -35,15 +36,24 @@ export const searchNormatives = internalAction({
     filters: v.optional(v.object({
       jurisdiccion: v.optional(v.string()),
       tipo_norma: v.optional(v.string()),
+      tipo_general: v.optional(v.string()),
       estado: v.optional(v.string()),
+      subestado: v.optional(v.string()),
       tipo_contenido: v.optional(v.string()),
       country_code: v.optional(v.string()),
       document_id: v.optional(v.string()),
+      fuente: v.optional(v.string()),
       number: v.optional(v.union(v.string(), v.number() as any)),
+      // Timestamp filters (backward compatibility)
       publication_ts_from: v.optional(v.number()),
       publication_ts_to: v.optional(v.number()),
       sanction_ts_from: v.optional(v.number()),
       sanction_ts_to: v.optional(v.number()),
+      // Date string filters (will be converted to timestamps)
+      publication_date_from: v.optional(v.string()),
+      publication_date_to: v.optional(v.string()),
+      sanction_date_from: v.optional(v.string()),
+      sanction_date_to: v.optional(v.string()),
     })),
     limit: v.optional(v.number()),
     contextWindow: v.optional(v.number()),
@@ -144,10 +154,10 @@ export const searchNormatives = internalAction({
       try {
         console.log('Checking Qdrant collection existence...');
         const collections = await client.getCollections();
-        const hasCollection = collections.collections?.some(c => c.name === 'ialex_legislation_py');
+        const hasCollection = collections.collections?.some(c => c.name === LEGISLATION_COLLECTION_NAME);
         if (!hasCollection) {
-          console.error('Collection "ialex_legislation_py" not found in:', collections.collections?.map(c => c.name));
-          throw new Error('Collection "ialex_legislation_py" does not exist');
+          console.error(`Collection "${LEGISLATION_COLLECTION_NAME}" not found in:`, collections.collections?.map(c => c.name));
+          throw new Error(`Collection "${LEGISLATION_COLLECTION_NAME}" does not exist`);
         }
         console.log('Collection check passed');
       } catch (collectionError) {
@@ -159,39 +169,87 @@ export const searchNormatives = internalAction({
       }
 
 
-      // Build Qdrant filter
+      // Build Qdrant filter (MongoDB-compatible)
       const must: Array<any> = [];
+      const should: Array<any> = [];
+      
       if (filters) {
         console.log('Building filters from:', filters);
+        
+        // Direct field filters
         if (filters.jurisdiccion) must.push({ key: 'jurisdiccion', match: { value: filters.jurisdiccion } });
-        if (filters.tipo_norma) must.push({ key: 'tipo_norma', match: { value: filters.tipo_norma } });
+        if (filters.tipo_general) must.push({ key: 'tipo_general', match: { value: filters.tipo_general } });
         if (filters.estado) must.push({ key: 'estado', match: { value: filters.estado } });
+        if (filters.subestado) must.push({ key: 'subestado', match: { value: filters.subestado } });
         if (filters.tipo_contenido) must.push({ key: 'tipo_contenido', match: { value: filters.tipo_contenido } });
         if (filters.country_code) must.push({ key: 'country_code', match: { value: filters.country_code } });
         if (filters.document_id) must.push({ key: 'document_id', match: { value: filters.document_id } });
-        if (filters.number) must.push({ key: 'number', match: { value: String(filters.number) } });
-        if (filters.publication_ts_from || filters.publication_ts_to) {
-          const range: any = {};
-          if (filters.publication_ts_from) range.gte = filters.publication_ts_from;
-          if (filters.publication_ts_to) range.lte = filters.publication_ts_to;
-          must.push({ key: 'publication_ts', range });
+        if (filters.fuente) must.push({ key: 'fuente', match: { value: filters.fuente } });
+        
+        // Map tipo_norma to tipo_general for backward compatibility
+        if (filters.tipo_norma) {
+          must.push({ key: 'tipo_general', match: { value: filters.tipo_norma } });
         }
-        if (filters.sanction_ts_from || filters.sanction_ts_to) {
+        
+        // OR logic for number (search both number and numero fields)
+        if (filters.number) {
+          const numberStr = String(filters.number);
+          should.push(
+            { key: 'number', match: { value: numberStr } },
+            { key: 'numero', match: { value: numberStr } }
+          );
+        }
+        
+        // Date range filters - convert date strings to timestamps
+        // Sanction date range
+        const sanctionTsFrom = filters.sanction_date_from 
+          ? Math.floor(new Date(filters.sanction_date_from).getTime() / 1000)
+          : filters.sanction_ts_from;
+        const sanctionTsTo = filters.sanction_date_to
+          ? Math.floor(new Date(filters.sanction_date_to).getTime() / 1000)
+          : filters.sanction_ts_to;
+        
+        if (sanctionTsFrom || sanctionTsTo) {
           const range: any = {};
-          if (filters.sanction_ts_from) range.gte = filters.sanction_ts_from;
-          if (filters.sanction_ts_to) range.lte = filters.sanction_ts_to;
+          if (sanctionTsFrom) range.gte = sanctionTsFrom;
+          if (sanctionTsTo) range.lte = sanctionTsTo;
           must.push({ key: 'sanction_ts', range });
         }
-        console.log('Built filter conditions:', must);
+        
+        // Publication date range
+        const publicationTsFrom = filters.publication_date_from
+          ? Math.floor(new Date(filters.publication_date_from).getTime() / 1000)
+          : filters.publication_ts_from;
+        const publicationTsTo = filters.publication_date_to
+          ? Math.floor(new Date(filters.publication_date_to).getTime() / 1000)
+          : filters.publication_ts_to;
+        
+        if (publicationTsFrom || publicationTsTo) {
+          const range: any = {};
+          if (publicationTsFrom) range.gte = publicationTsFrom;
+          if (publicationTsTo) range.lte = publicationTsTo;
+          must.push({ key: 'publication_ts', range });
+        }
+        
+        console.log('Built filter conditions:', { must: must.length, should: should.length });
       }
 
       let points: Array<any> = [];
+
+      // Build final filter object
+      const qdrantFilter: any = {};
+      if (must.length > 0) qdrantFilter.must = must;
+      if (should.length > 0) {
+        qdrantFilter.should = should;
+        qdrantFilter.min_should_match = 1;
+      }
+      const hasFilters = must.length > 0 || should.length > 0;
 
       if (useVectors && sparseEmbeddingData && denseEmbeddings) {
         // Use hybrid search with vectors
         try {
           console.log('Executing hybrid vector search...');
-          const searchResults = await client.query('ialex_legislation_py', {
+          const searchResults = await client.query(LEGISLATION_COLLECTION_NAME, {
             prefetch: [
               {
                 query: sparseEmbeddingData,
@@ -207,7 +265,7 @@ export const searchNormatives = internalAction({
             query: {
               fusion: 'rrf'
             },
-            filter: must.length > 0 ? { must } : undefined,
+            filter: hasFilters ? qdrantFilter : undefined,
             with_payload: true,
           });
           points = searchResults.points || [];
@@ -216,21 +274,22 @@ export const searchNormatives = internalAction({
           console.error('Hybrid search failed:', {
             error: searchError instanceof Error ? searchError.message : String(searchError),
             stack: searchError instanceof Error ? searchError.stack : undefined,
-            hasFilters: must.length > 0,
-            filterCount: must.length
+            hasFilters,
+            mustCount: must.length,
+            shouldCount: should.length
           });
           throw new Error(`Hybrid search failed: ${searchError instanceof Error ? searchError.message : String(searchError)}`);
         }
       } else {
         // Filter-only search using scroll (no vectors needed)
-        if (must.length === 0) {
+        if (!hasFilters) {
           console.warn('No query and no filters provided - returning empty results');
           points = [];
         } else {
           try {
             console.log('Executing filter-only scroll search...');
-            const scrollResults = await client.scroll('ialex_legislation_py', {
-              filter: { must },
+            const scrollResults = await client.scroll(LEGISLATION_COLLECTION_NAME, {
+              filter: qdrantFilter,
               with_payload: true,
               with_vector: false,
               limit: Math.min(limit * 3, 100), // Get a bit more to account for clustering
@@ -244,7 +303,7 @@ export const searchNormatives = internalAction({
             console.error('Scroll search failed:', {
               error: scrollError instanceof Error ? scrollError.message : String(scrollError),
               stack: scrollError instanceof Error ? scrollError.stack : undefined,
-              filters: must
+              filter: qdrantFilter
             });
             throw new Error(`Scroll search failed: ${scrollError instanceof Error ? scrollError.message : String(scrollError)}`);
           }
@@ -333,7 +392,7 @@ export const searchNormatives = internalAction({
             const endIndex = idx + contextWindow;
             try {
               console.log('Expanding context for doc:', docId, 'index range:', startIndex, '-', endIndex);
-              const range = await client.scroll('ialex_legislation_py', {
+              const range = await client.scroll(LEGISLATION_COLLECTION_NAME, {
                 filter: {
                   must: [
                     { key: 'document_id', match: { value: docId } },
@@ -443,7 +502,7 @@ export const searchDocumentChunks = action({
     });
 
     // Search within specific document
-    const results = await client.search('ialex_legislation_py', {
+    const results = await client.search(LEGISLATION_COLLECTION_NAME, {
       vector: vector.embedding,
       limit,
       filter: {
@@ -465,7 +524,7 @@ export const searchDocumentChunks = action({
         const startIndex = Math.max(0, idx - contextWindow);
         const endIndex = idx + contextWindow;
 
-        const range = await client.scroll('ialex_legislation_py', {
+        const range = await client.scroll(LEGISLATION_COLLECTION_NAME, {
           filter: {
             must: [
               { key: 'document_id', match: { value: document_id } },
@@ -526,7 +585,7 @@ export const getDocumentChunksByRange = action({
         throw new Error(`Cannot connect to Qdrant: ${errorMessage}`);
       }
 
-      const results = await client.scroll('ialex_legislation_py', {
+      const results = await client.scroll(LEGISLATION_COLLECTION_NAME, {
         filter: {
           must: [
             { key: 'document_id', match: { value: document_id } },
@@ -584,7 +643,7 @@ export const getDocumentChunkCount = action({
     const { document_id } = args;
     await client.getCollections();
 
-    const results = await client.scroll('ialex_legislation_py', {
+    const results = await client.scroll(LEGISLATION_COLLECTION_NAME, {
       filter: {
         must: [
           { key: 'document_id', match: { value: document_id } },

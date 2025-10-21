@@ -8,6 +8,7 @@ interface SidebarHeaderProps {
   caseId?: string;
   currentThreadId?: string;
   onThreadSelect?: (threadId: string) => void;
+  onNewConversation?: () => void;
 }
 
 export function SidebarHeader({
@@ -24,7 +25,8 @@ export function SidebarHeader({
       <div className="flex items-center justify-between p-4 relative">
         <Button
           variant="ghost"
-          className="flex items-center justify-center text-xs p-1 gap-1 bg-[#3946D7] text-white"
+          onClick={onNewConversation}
+          className="flex items-center justify-center text-xs p-1 gap-1 bg-[#3946D7] text-white hover:bg-[#2d35a8]"
         >
           <CirclePlus size={16} />
           Nuevo chat

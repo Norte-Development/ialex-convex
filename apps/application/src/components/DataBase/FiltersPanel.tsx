@@ -28,11 +28,11 @@ const subestadoOptions: Subestado[] = [
 ]
 
 const tipoGeneralOptions: TipoGeneral[] = [
-  "ley", "decreto", "resolucion", "ordenanza", "reglamento"
+  "Ley", "Decreto", "Resolucion", "Ordenanza", "Reglamento"
 ]
 
 const tipoDetalleOptions: TipoDetalle[] = [
-  "ley", "decreto", "resolucion", "ordenanza", "reglamento"
+  "Ley", "Decreto", "Resolucion", "Ordenanza", "Reglamento"
 ]
 
 const tipoContenidoOptions: TipoContenido[] = [

@@ -60,9 +60,11 @@ export const DataTableContainer = memo(function DataTableContainer({
       sortOrder,
     ],
     queryFn: () => {
-      const queryFilters = {
-        jurisdiccion: jurisdiction,
-        ...filters,
+      const queryFilters = { ...filters }
+      
+      // Only add jurisdiction filter if not "all"
+      if (jurisdiction !== "all") {
+        queryFilters.jurisdiccion = jurisdiction
       }
 
       // Add search query to filters if present

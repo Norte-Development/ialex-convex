@@ -66,24 +66,13 @@ export default function SidebarChatbot({
 
   const handleNewConversation = useCallback(() => {
     // Clear the current thread to start fresh
-    setThreadId(undefined)
+    setThreadId(undefined);
     // Clear the hash to reflect no active thread
-    window.location.hash = ""
-  }, [setThreadId])
+    window.location.hash = "";
+  }, [setThreadId]);
 
   return (
     <>
-      {/* Floating open button - positioned at the right center */}
-      {!isOpen && (
-        <button
-          onClick={onToggle}
-          className="fixed right-0 top-1/2 z-40 bg-gray-300 text-black rounded-lg shadow-lg hover:shadow-xl transition-all duration-200 p-1  cursor-pointer "
-          style={{ transform: "translateY(-50%)" }}
-        >
-          <ChevronLeft size={15} />
-        </button>
-      )}
-
       {/* Sidebar */}
       <div
         ref={sidebarRef}
@@ -96,16 +85,6 @@ export default function SidebarChatbot({
         )}
         style={{ width: `${width}px` }}
       >
-        {/* Close button - positioned at the left edge of the sidebar */}
-        {isOpen && (
-          <button
-            onClick={onToggle}
-            className="absolute -left-8 top-1/2 bg-gray-300 text-black rounded-lg shadow-lg hover:shadow-xl transition-all duration-200 p-1 z-50 cursor-pointer"
-            style={{ transform: "translateY(-50%)" }}
-          >
-            <ChevronRight size={15} />
-          </button>
-        )}
         {/* Resize Handle */}
         <ResizeHandle onMouseDown={handleMouseDown} />
 
