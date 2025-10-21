@@ -10,9 +10,27 @@ import {
 import DataBaseTable from "@/components/DataBase/DataBaseTable";
 import { useState } from "react";
 import CaseLayout from "@/components/Cases/CaseLayout";
+import { useAction } from "convex/react";
+import { api } from "../../../convex/_generated/api";
+import { useQuery } from "@tanstack/react-query";
 
 export default function CaseDataBasePage() {
   const [category, setCategory] = useState("ley");
+  
+  const getNormativesFacets = useAction(api.functions.legislation.getNormativesFacets);
+
+  // Fetch jurisdictions once at page level with long cache time
+  const { data: jurisdictionsData } = useQuery({
+    queryKey: ["all-jurisdictions"],
+    queryFn: () => getNormativesFacets({ filters: {} }),
+    staleTime: 60 * 60 * 1000, // Cache for 1 hour
+    gcTime: 24 * 60 * 60 * 1000, // Keep in cache for 24 hours
+  });
+
+  // Extract jurisdictions from facets data
+  const availableJurisdictions = jurisdictionsData?.jurisdicciones 
+    ? ["all", ...Object.keys(jurisdictionsData.jurisdicciones)]
+    : ["all"];
 
   return (
     <CaseLayout>
@@ -37,7 +55,7 @@ export default function CaseDataBasePage() {
             </SelectContent>
           </Select>
         </div>
-        <DataBaseTable category={category} />
+        <DataBaseTable jurisdictions={availableJurisdictions} />
       </section>
     </CaseLayout>
   );

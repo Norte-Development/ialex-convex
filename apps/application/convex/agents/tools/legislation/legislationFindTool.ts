@@ -3,6 +3,11 @@ import { api, internal } from "../../../_generated/api";
 import { z } from "zod";
 import { createErrorResponse, validateStringParam } from "../shared/utils";
 
+// Cache for tipo_general values
+let tipoGeneralValuesCache: string[] | null = null;
+let tipoGeneralCacheTime = 0;
+const TIPO_GENERAL_CACHE_DURATION = 24 * 60 * 60 * 1000; // 24 hours
+
 /**
  * Unified legislation finder tool.
  * Operations:
@@ -12,8 +17,39 @@ import { createErrorResponse, validateStringParam } from "../shared/utils";
  * - metadata: Single document metadata (no large content fields)
  */
 export const legislationFindTool = createTool({
-  description:
-    "Find legislation: hybrid search with filters, browse by filters, fetch facets, or get metadata. IMPORTANT: You can search by number alone without a query - just provide filters.number with the numeric part (e.g., 7302 for law 7302/2024). Query is optional when filtering by number.",
+  description: async (ctx: ToolCtx) => {
+    // Fetch tipo_general values with caching
+    const now = Date.now();
+    if (!tipoGeneralValuesCache || (now - tipoGeneralCacheTime) > TIPO_GENERAL_CACHE_DURATION) {
+      try {
+        tipoGeneralValuesCache = await ctx.runAction(api.functions.legislation.getTipoGeneralValues, {});
+        tipoGeneralCacheTime = now;
+      } catch (error) {
+        console.error('Failed to fetch tipo_general values for tool description:', error);
+        tipoGeneralValuesCache = tipoGeneralValuesCache || []; // Use stale cache or empty array
+      }
+    }
+    
+    const tipoGeneralList = tipoGeneralValuesCache && tipoGeneralValuesCache.length > 0
+      ? `Available tipo_general values: ${tipoGeneralValuesCache.join(', ')}`
+      : '';
+    
+    return `Find legislation: hybrid search with filters, browse by filters, fetch facets, or get metadata. 
+
+IMPORTANT: You can search by number alone without a query - just provide filters.number with the numeric part (e.g., 7302 for law 7302/2024). Query is optional when filtering by number.
+
+FILTERS:
+- tipo_general: Type of legislation. ${tipoGeneralList}
+- jurisdiccion: Jurisdiction (nacional, departamental, municipal, etc.)
+- estado: Status (vigente, derogada, caduca, anulada, suspendida, abrogada, sin_registro_oficial)
+- subestado: Sub-status
+- tipo_contenido: Content type (leg, jur, adm)
+- country_code: Country code (py, ar, etc.)
+- fuente: Source
+- number: Law number (use only numeric part)
+- sanction_date_from/to: Sanction date range (ISO date strings)
+- publication_date_from/to: Publication date range (ISO date strings)`;
+  },
   args: z
     .object({
       operation: z
@@ -25,6 +61,7 @@ export const legislationFindTool = createTool({
         .object({
           type: z.string().optional(),
           jurisdiccion: z.string().optional(),
+          tipo_general: z.string().optional(),
           estado: z
             .enum([
               "vigente",
@@ -36,6 +73,10 @@ export const legislationFindTool = createTool({
               "sin_registro_oficial",
             ])
             .optional(),
+          subestado: z.string().optional(),
+          tipo_contenido: z.enum(["leg", "jur", "adm"]).optional(),
+          country_code: z.string().optional(),
+          fuente: z.string().optional(),
           sanction_date_from: z.string().optional(),
           sanction_date_to: z.string().optional(),
           publication_date_from: z.string().optional(),
@@ -69,15 +110,31 @@ export const legislationFindTool = createTool({
         const filters = args.filters || {};
         const qdrantFilters: any = {};
         
+        // Direct field filters
         if (filters.jurisdiccion) qdrantFilters.jurisdiccion = filters.jurisdiccion;
-        if (filters.type) qdrantFilters.tipo_norma = filters.type;
+        if (filters.tipo_general) qdrantFilters.tipo_general = filters.tipo_general;
         if (filters.estado) qdrantFilters.estado = filters.estado;
+        if (filters.subestado) qdrantFilters.subestado = filters.subestado;
+        if (filters.tipo_contenido) qdrantFilters.tipo_contenido = filters.tipo_contenido;
+        if (filters.country_code) qdrantFilters.country_code = filters.country_code;
+        if (filters.fuente) qdrantFilters.fuente = filters.fuente;
+        
+        // Type filter (maps to tipo_norma which will be mapped to tipo_general in Qdrant)
+        if (filters.type) qdrantFilters.tipo_norma = filters.type;
+        
+        // Number filter (will use OR logic in Qdrant for number and numero fields)
         if (filters.number) {
           // Extract numeric part if it's a string like "7302/2024"
           const numberStr = String(filters.number);
           const match = numberStr.match(/^\d+/);
           qdrantFilters.number = match ? match[0] : numberStr;
         }
+        
+        // Date filters (pass as date strings - Qdrant will convert to timestamps)
+        if (filters.sanction_date_from) qdrantFilters.sanction_date_from = filters.sanction_date_from;
+        if (filters.sanction_date_to) qdrantFilters.sanction_date_to = filters.sanction_date_to;
+        if (filters.publication_date_from) qdrantFilters.publication_date_from = filters.publication_date_from;
+        if (filters.publication_date_to) qdrantFilters.publication_date_to = filters.publication_date_to;
 
         // Query is optional when filtering by number
         let query = "";
@@ -269,6 +326,7 @@ ${Array.isArray(facetData) ? facetData.map(item => `- **${item.value}**: ${item.
 - **ID del Documento**: ${documentId}
 - **Tiene Contenido**: ${hasContent ? 'Sí' : 'No'}
 - **Número de Relaciones**: ${relationsCount}
+- **Relaciones**: ${normative.relaciones?.map((r) => r.document_id).join(', ')}. Estas normas estan relacionadas a este documento. Puede usar los ids para leer directamente el contenido.
 
 ## Metadatos
 ${Object.keys(rest).length === 0 ? 'No hay metadatos adicionales disponibles.' : Object.entries(rest).map(([key, value]) => `- **${key}**: ${typeof value === 'object' ? JSON.stringify(value) : value}`).join('\n')}
