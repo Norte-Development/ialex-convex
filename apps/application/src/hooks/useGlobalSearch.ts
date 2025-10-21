@@ -76,10 +76,15 @@ export function useGlobalSearch() {
   }, [searchQuery]);
 
   // Query search results
-  const results = useQuery(
+  const searchResults = useQuery(
     api.functions.search.globalSearch,
-    debouncedQuery.trim().length > 0 ? { query: debouncedQuery, limit: 5 } : "skip"
+    debouncedQuery.trim().length > 0
+      ? { query: debouncedQuery, limit: 5 }
+      : "skip",
   );
+
+  // Cast the results to the correct type
+  const results = searchResults as GroupedSearchResults | undefined;
 
   const isLoading = results === undefined && debouncedQuery.trim().length > 0;
 
@@ -105,7 +110,7 @@ export function useGlobalSearch() {
     (
       type: SearchResultType,
       id: string,
-      metadata?: { caseId?: string; teamId?: string; userId?: string }
+      metadata?: { caseId?: string; teamId?: string; userId?: string },
     ) => {
       clearSearch();
 
@@ -136,7 +141,7 @@ export function useGlobalSearch() {
           break;
       }
     },
-    [navigate, clearSearch]
+    [navigate, clearSearch],
   );
 
   // Check if there are any results

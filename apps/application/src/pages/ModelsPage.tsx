@@ -126,7 +126,7 @@ export default function ModelsPage() {
         </TabsContent>
         <TabsContent value="Mis Modelos" className="min-w-[90%]">
           <TemplateTable
-            templates={modelos.filter((t) => !t.isPublic)}
+            templates={modelos.filter((t: any) => !t.isPublic)}
             isLoading={isLoadingTemplates}
             onPreview={handlePreviewTemplate}
             onCreateFromTemplate={handleCreateFromTemplate}
