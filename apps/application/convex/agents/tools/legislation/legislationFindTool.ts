@@ -8,6 +8,11 @@ let tipoGeneralValuesCache: string[] | null = null;
 let tipoGeneralCacheTime = 0;
 const TIPO_GENERAL_CACHE_DURATION = 24 * 60 * 60 * 1000; // 24 hours
 
+// Cache for jurisdiccion values
+let jurisdiccionValuesCache: string[] | null = null;
+let jurisdiccionCacheTime = 0;
+const JURISDICCION_CACHE_DURATION = 24 * 60 * 60 * 1000; // 24 hours
+
 /**
  * Unified legislation finder tool.
  * Operations:
@@ -18,8 +23,9 @@ const TIPO_GENERAL_CACHE_DURATION = 24 * 60 * 60 * 1000; // 24 hours
  */
 export const legislationFindTool = createTool({
   description: async (ctx: ToolCtx) => {
-    // Fetch tipo_general values with caching
     const now = Date.now();
+    
+    // Fetch tipo_general values with caching
     if (!tipoGeneralValuesCache || (now - tipoGeneralCacheTime) > TIPO_GENERAL_CACHE_DURATION) {
       try {
         tipoGeneralValuesCache = await ctx.runAction(api.functions.legislation.getTipoGeneralValues, {});
@@ -30,8 +36,23 @@ export const legislationFindTool = createTool({
       }
     }
     
+    // Fetch jurisdiccion values with caching
+    if (!jurisdiccionValuesCache || (now - jurisdiccionCacheTime) > JURISDICCION_CACHE_DURATION) {
+      try {
+        jurisdiccionValuesCache = await ctx.runAction(api.functions.legislation.getJurisdiccionValues, {});
+        jurisdiccionCacheTime = now;
+      } catch (error) {
+        console.error('Failed to fetch jurisdiccion values for tool description:', error);
+        jurisdiccionValuesCache = jurisdiccionValuesCache || []; // Use stale cache or empty array
+      }
+    }
+    
     const tipoGeneralList = tipoGeneralValuesCache && tipoGeneralValuesCache.length > 0
       ? `Available tipo_general values: ${tipoGeneralValuesCache.join(', ')}`
+      : '';
+    
+    const jurisdiccionList = jurisdiccionValuesCache && jurisdiccionValuesCache.length > 0
+      ? `Available jurisdiccion values: ${jurisdiccionValuesCache.join(', ')}`
       : '';
     
     return `Find legislation: hybrid search with filters, browse by filters, fetch facets, or get metadata. 
@@ -40,7 +61,7 @@ IMPORTANT: You can search by number alone without a query - just provide filters
 
 FILTERS:
 - tipo_general: Type of legislation. ${tipoGeneralList}
-- jurisdiccion: Jurisdiction (nacional, departamental, municipal, etc.)
+- jurisdiccion: Jurisdiction. ${jurisdiccionList}
 - estado: Status (vigente, derogada, caduca, anulada, suspendida, abrogada, sin_registro_oficial)
 - subestado: Sub-status
 - tipo_contenido: Content type (leg, jur, adm)

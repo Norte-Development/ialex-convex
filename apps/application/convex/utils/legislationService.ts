@@ -71,6 +71,58 @@ export const getTipoGeneralValues = async (): Promise<string[]> => {
   }
 };
 
+// Cache for jurisdiccion enum values
+interface JurisdiccionCache {
+  values: string[];
+  timestamp: number;
+}
+
+let jurisdiccionCache: JurisdiccionCache | null = null;
+
+// Get distinct jurisdiccion values with caching
+export const getJurisdiccionValues = async (): Promise<string[]> => {
+  const now = Date.now();
+  
+  // Return cached values if still valid
+  if (jurisdiccionCache && (now - jurisdiccionCache.timestamp) < CACHE_DURATION_MS) {
+    console.log('Returning cached jurisdiccion values');
+    return jurisdiccionCache.values;
+  }
+  
+  try {
+    console.log('Fetching distinct jurisdiccion values from MongoDB...');
+    const mongoClient = getMongoClient();
+    const db = mongoClient.db(process.env.MONGODB_DATABASE_NAME);
+    const collection = db.collection(LEGISLATION_COLLECTION_NAME);
+    
+    const distinctValues = await collection.distinct('jurisdiccion', {
+      jurisdiccion: { $exists: true, $ne: null }
+    });
+    
+    // Filter out null/undefined and sort
+    const validValues = distinctValues
+      .filter((val): val is string => typeof val === 'string' && val.length > 0)
+      .sort();
+    
+    // Update cache
+    jurisdiccionCache = {
+      values: validValues,
+      timestamp: now
+    };
+    
+    console.log(`Cached ${validValues.length} jurisdiccion values:`, validValues);
+    return validValues;
+  } catch (error) {
+    console.error('Error fetching jurisdiccion values:', error);
+    // Return cached values if available, even if expired
+    if (jurisdiccionCache) {
+      console.warn('Using expired cache due to error');
+      return jurisdiccionCache.values;
+    }
+    throw new Error('Failed to fetch jurisdiccion values');
+  }
+};
+
 // // Utility function to convert documentId to ObjectId if it's a valid ObjectId string
 // const convertToObjectId = (id: string): ObjectId | string => {
 //   // Check if the id is a valid ObjectId (24 hex characters)
