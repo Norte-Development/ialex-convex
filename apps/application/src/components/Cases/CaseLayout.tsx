@@ -38,6 +38,7 @@ export default function CaseLayout({ children }: CaseDetailLayoutProps) {
 }
 
 function InnerCaseLayout({ children }: CaseDetailLayoutProps) {
+  // All hooks must be called before any conditional returns
   const { isCaseSidebarOpen } = useLayout();
   const { currentCase } = useCase();
   const { hasAccess, isLoading, can } = usePermissions();
@@ -361,23 +362,45 @@ function InnerCaseLayout({ children }: CaseDetailLayoutProps) {
         <CaseSidebar />
       </div>
 
-      {/* Main container - pushed by sidebar */}
+      {/* Main container - pushed by sidebars */}
       <div
-        className={`flex-1 flex flex-col h-screen ${
+        className={`flex-1 flex flex-col h-screen overflow-hidden ${
           isResizing
             ? "transition-none"
             : "transition-all duration-300 ease-in-out"
         }`}
         style={{
           marginLeft: isCaseSidebarOpen ? "256px" : "0px",
-          marginRight: isChatbotOpen ? `${chatbotWidth}px` : "0px",
         }}
       >
         {/* Navbar at top */}
         <NavBar />
 
-        {/* Main content - scrollable */}
-        <main className="flex-1 overflow-y-auto bg-white">{children}</main>
+        {/* Content area with chatbot */}
+        <div className="flex-1 flex overflow-hidden">
+          <main
+            className={`flex-1 overflow-y-auto bg-white ${
+              isResizing
+                ? "transition-none"
+                : "transition-all duration-300 ease-in-out"
+            }`}
+            style={{
+              marginRight: isChatbotOpen ? `${chatbotWidth}px` : "0px",
+            }}
+          >
+            {children}
+          </main>
+
+          {/* Right Sidebar Chatbot */}
+          <SidebarChatbot
+            isOpen={isChatbotOpen}
+            onToggle={toggleChatbot}
+            width={chatbotWidth}
+            onWidthChange={handleWidthChange}
+            onResizeStart={handleResizeStart}
+            onResizeEnd={handleResizeEnd}
+          />
+        </div>
       </div>
 
       {/* Upload Feedback Overlay */}
@@ -446,16 +469,6 @@ function InnerCaseLayout({ children }: CaseDetailLayoutProps) {
           ))}
         </div>
       )}
-
-      {/* Right Sidebar Chatbot */}
-      <SidebarChatbot
-        isOpen={isChatbotOpen}
-        onToggle={toggleChatbot}
-        width={chatbotWidth}
-        onWidthChange={handleWidthChange}
-        onResizeStart={handleResizeStart}
-        onResizeEnd={handleResizeEnd}
-      />
 
       {/* Global drag overlay to capture drops over iframes/viewers */}
       {can.docs.write && (isGlobalDragActive || isDragActive) && (

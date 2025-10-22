@@ -25,11 +25,16 @@ import {
 import { Checkbox } from "../ui/checkbox";
 import { Plus, Users, X, Calendar } from "lucide-react";
 import { Badge } from "../ui/badge";
-import { useBillingLimit, UpgradeModal, LimitWarningBanner } from "@/components/Billing";
+import {
+  useBillingLimit,
+  UpgradeModal,
+  LimitWarningBanner,
+} from "@/components/Billing";
 import { Separator } from "../ui/separator";
 import { toast } from "sonner";
 
 export default function CreateCaseDialog() {
+  // All useState hooks first
   const [open, setOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
@@ -41,32 +46,6 @@ export default function CreateCaseDialog() {
     }[]
   >([]);
   const [searchQuery, setSearchQuery] = useState("");
-
-  const createCase = useMutation(api.functions.cases.createCase);
-  const addClientToCase = useMutation(api.functions.cases.addClientToCase);
-  const createEvent = useMutation(api.functions.events.createEvent);
-  const clientsResult = useQuery(api.functions.clients.getClients, {});
-
-  const clients = clientsResult?.page || [];
-
-  // Check case limit
-  const { allowed, isWarning, percentage, reason, currentCount, limit } = 
-    useBillingLimit("cases", {});
-
-  // Get user plan for upgrade modal
-  const currentUser = useQuery(api.functions.users.getCurrentUser, {});
-  const userPlan = useQuery(
-    api.billing.features.getUserPlan,
-    currentUser?._id ? { userId: currentUser._id } : "skip"
-  );
-
-  const filteredClients = clients.filter(
-    (client) =>
-      client.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      client.dni?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      client.cuit?.toLowerCase().includes(searchQuery.toLowerCase()),
-  );
-
   const [formData, setFormData] = useState({
     title: "",
     description: "",
@@ -75,8 +54,6 @@ export default function CreateCaseDialog() {
     category: "",
     estimatedHours: "",
   });
-
-  // Estado para fechas límite
   const [deadlines, setDeadlines] = useState<
     Array<{
       id: string;
@@ -87,6 +64,37 @@ export default function CreateCaseDialog() {
     }>
   >([]);
   const [showDeadlineForm, setShowDeadlineForm] = useState(false);
+
+  // Then all mutations
+  const createCase = useMutation(api.functions.cases.createCase);
+  const addClientToCase = useMutation(api.functions.cases.addClientToCase);
+  const createEvent = useMutation(api.functions.events.createEvent);
+
+  // Then all queries
+  const clientsResult = useQuery(api.functions.clients.getClients, {});
+
+  // Get current user first - useBillingLimit also needs this
+  const currentUser = useQuery(api.functions.users.getCurrentUser, {});
+
+  // Get user plan
+  const userPlan = useQuery(
+    api.billing.features.getUserPlan,
+    currentUser?._id ? { userId: currentUser._id } : "skip",
+  );
+
+  // Then custom hooks (useBillingLimit uses useQuery internally)
+  // Note: useBillingLimit will return safe defaults if currentUser is not loaded yet
+  const { allowed, isWarning, percentage, reason, currentCount, limit } =
+    useBillingLimit("cases", {});
+
+  // Derived values
+  const clients = clientsResult?.page || [];
+  const filteredClients = clients.filter(
+    (client) =>
+      client.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      client.dni?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      client.cuit?.toLowerCase().includes(searchQuery.toLowerCase()),
+  );
 
   const handleInputChange = (field: string, value: string) => {
     setFormData((prev) => ({
@@ -278,8 +286,8 @@ export default function CreateCaseDialog() {
             <div>
               <DialogTitle>Crear Nuevo Caso</DialogTitle>
               <DialogDescription>
-                Complete la información para crear un nuevo caso legal y vincule los
-                clientes correspondientes.
+                Complete la información para crear un nuevo caso legal y vincule
+                los clientes correspondientes.
               </DialogDescription>
             </div>
             <span className="text-sm text-gray-500 whitespace-nowrap ml-4">

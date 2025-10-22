@@ -15,6 +15,7 @@ import { EscritoProvider } from "./context/EscritoContext";
 import { PageProvider } from "./context/PageContext";
 import { CasePermissionsProvider } from "./context/CasePermissionsContext";
 import { ChatbotProvider } from "./context/ChatbotContext";
+import { LayoutProvider } from "./context/LayoutContext";
 
 // Lazy load pages to reduce initial bundle size
 const HomePage = lazy(() => import("./pages/home/HomePage"));
@@ -68,31 +69,33 @@ const TestRunner = lazy(() =>
 // Este wrapper NO usa Layout porque CaseLayout maneja su propio layout con sidebar
 const CaseRoutesWrapper: React.FC = () => {
   return (
-    <CaseProvider>
-      <CasePermissionsWrapper>
-        <EscritoProvider>
-          <HighlightProvider>
-            <Routes>
-              <Route index element={<CaseDetailPage />} />
-              <Route path="escritos" element={<EscritosPage />} />
-              <Route path="escritos/:escritoId" element={<EscritosPage />} />
-              <Route path="clientes" element={<CaseClientsPage />} />
-              <Route path="equipos" element={<CaseTeamsPage />} />
-              <Route path="modelos" element={<CaseModelPage />} />
-              <Route path="base-de-datos" element={<CaseDataBasePage />} />
-              <Route
-                path="documentos/:documentId"
-                element={<CaseDocumentPage />}
-              />
-              <Route
-                path="configuracion/reglas"
-                element={<CaseSettingsRulesPage />}
-              />
-            </Routes>
-          </HighlightProvider>
-        </EscritoProvider>
-      </CasePermissionsWrapper>
-    </CaseProvider>
+    <LayoutProvider>
+      <CaseProvider>
+        <CasePermissionsWrapper>
+          <EscritoProvider>
+            <HighlightProvider>
+              <Routes>
+                <Route index element={<CaseDetailPage />} />
+                <Route path="escritos" element={<EscritosPage />} />
+                <Route path="escritos/:escritoId" element={<EscritosPage />} />
+                <Route path="clientes" element={<CaseClientsPage />} />
+                <Route path="equipos" element={<CaseTeamsPage />} />
+                <Route path="modelos" element={<CaseModelPage />} />
+                <Route path="base-de-datos" element={<CaseDataBasePage />} />
+                <Route
+                  path="documentos/:documentId"
+                  element={<CaseDocumentPage />}
+                />
+                <Route
+                  path="configuracion/reglas"
+                  element={<CaseSettingsRulesPage />}
+                />
+              </Routes>
+            </HighlightProvider>
+          </EscritoProvider>
+        </CasePermissionsWrapper>
+      </CaseProvider>
+    </LayoutProvider>
   );
 };
 

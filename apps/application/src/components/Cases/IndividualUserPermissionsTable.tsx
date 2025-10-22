@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox"; // Descomentar cuando quieras usar checkboxes
 import {
   Dialog,
   DialogContent,
@@ -132,7 +133,6 @@ export function IndividualUserPermissionsTable({
             <TableHeader>
               <TableRow>
                 <TableHead>Usuario</TableHead>
-                <TableHead>Nivel de Acceso</TableHead>
                 <TableHead>Permisos</TableHead>
                 <TableHead>Otorgado</TableHead>
                 <TableHead className="w-10"></TableHead>
@@ -181,114 +181,106 @@ export function IndividualUserPermissionsTable({
 
   return (
     <>
-      <div className="border rounded-lg">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Usuario</TableHead>
-              <TableHead>Nivel de Acceso</TableHead>
-              <TableHead>Permisos</TableHead>
-              <TableHead>Otorgado</TableHead>
-              <TableHead className="w-10"></TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {usersWithAccess.map((userAccess) => {
-              if (!userAccess.userId) return null;
+      <Table>
+        <TableHeader className="bg-[#F5F5F5]">
+          <TableRow>
+            <TableHead className="w-[50px] text-left">
+              <Checkbox />
+            </TableHead>
+            <TableHead className="text-left">Nombre</TableHead>
+            <TableHead className="text-left">Permisos</TableHead>
+            <TableHead className="text-left">Otorgado</TableHead>
+            {isAdmin && (
+              <TableHead className="w-[100px] text-left">Acciones</TableHead>
+            )}
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {usersWithAccess.map((userAccess) => {
+            if (!userAccess.userId) return null;
 
-              const accessLevelDisplay = getAccessLevelDisplay(
-                userAccess.accessLevel,
-              );
+            const accessLevelDisplay = getAccessLevelDisplay(
+              userAccess.accessLevel,
+            );
 
-              return (
-                <TableRow
-                  key={userAccess.userId}
-                  className={
-                    userAccess.user._id === user?._id
-                      ? "bg-blue-50/50 border-l-2 border-l-blue-500"
-                      : ""
-                  }
-                >
-                  <TableCell>
-                    <div className="flex items-center space-x-3">
-                      <div className="relative">
-                        <User className="h-4 w-4 text-gray-400" />
+            return (
+              <TableRow
+                key={userAccess.userId}
+                className={
+                  userAccess.user._id === user?._id
+                    ? "bg-blue-50/50 border-l-2 border-l-blue-500"
+                    : ""
+                }
+              >
+                <TableCell>
+                  <Checkbox />
+                </TableCell>
+                <TableCell>
+                  <div className="flex items-center gap-3">
+                    <div>
+                      <div className="font-medium flex items-center gap-2">
+                        {userAccess.user.name || "Sin nombre"}
                         {userAccess.user._id === user?._id && (
-                          <div className="absolute -top-1 -right-1 h-2 w-2 bg-blue-500 rounded-full"></div>
+                          <span className="text-xs bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded-full font-medium">
+                            Vos
+                          </span>
                         )}
                       </div>
-                      <div>
-                        <div className="font-medium flex items-center gap-2">
-                          {userAccess.user.name || "Sin nombre"}
-                          {userAccess.user._id === user?._id && (
-                            <span className="text-xs bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded-full font-medium">
-                              Vos
-                            </span>
-                          )}
-                        </div>
-                        <div className="text-sm text-gray-500 flex items-center">
-                          <Mail className="h-3 w-3 mr-1" />
-                          {userAccess.user.email}
-                        </div>
+                      <div className="text-sm text-gray-500 flex items-center">
+                        <Mail className="h-3 w-3 mr-1" />
+                        {userAccess.user.email}
                       </div>
                     </div>
+                  </div>
+                </TableCell>
+
+                <TableCell>
+                  <span className="text-sm text-gray-600">
+                    {getAccessLevelDescription(userAccess.accessLevel)}
+                  </span>
+                </TableCell>
+                <TableCell>
+                  <span className="text-sm text-gray-500">
+                    {formatDate(userAccess.grantedAt)}
+                  </span>
+                </TableCell>
+                {isAdmin && (
+                  <TableCell className="text-right">
+                    <div className="flex items-center justify-end gap-1">
+                      <EditUserPermissionsDialog
+                        caseId={caseId}
+                        userId={userAccess.userId}
+                        userName={userAccess.user.name || "Sin nombre"}
+                        userEmail={userAccess.user.email}
+                        currentAccessLevel={userAccess.accessLevel}
+                        trigger={
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-8 w-8 p-0"
+                            title="Editar Permisos"
+                          >
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                        }
+                      />
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setUserToDelete(userAccess)}
+                        className="h-8 w-8 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
+                        title="Revocar Acceso"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
                   </TableCell>
-                  <TableCell>
-                    <Badge
-                      variant="secondary"
-                      className={accessLevelDisplay.color}
-                    >
-                      {accessLevelDisplay.level}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>
-                    <span className="text-sm text-gray-600">
-                      {getAccessLevelDescription(userAccess.accessLevel)}
-                    </span>
-                  </TableCell>
-                  <TableCell>
-                    <span className="text-sm text-gray-500">
-                      {formatDate(userAccess.grantedAt)}
-                    </span>
-                  </TableCell>
-                  {isAdmin && (
-                    <TableCell>
-                      <div className="flex items-center space-x-1">
-                        <EditUserPermissionsDialog
-                          caseId={caseId}
-                          userId={userAccess.userId}
-                          userName={userAccess.user.name || "Sin nombre"}
-                          userEmail={userAccess.user.email}
-                          currentAccessLevel={userAccess.accessLevel}
-                          trigger={
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="h-8 w-8 p-0"
-                              title="Editar Permisos"
-                            >
-                              <Edit className="h-4 w-4" />
-                            </Button>
-                          }
-                        />
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => setUserToDelete(userAccess)}
-                          className="h-8 w-8 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
-                          title="Revocar Acceso"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </TableCell>
-                  )}
-                </TableRow>
-              );
-            })}
-          </TableBody>
-        </Table>
-      </div>
+                )}
+              </TableRow>
+            );
+          })}
+        </TableBody>
+      </Table>
 
       {/* Delete Confirmation Dialog */}
       <Dialog open={!!userToDelete} onOpenChange={() => setUserToDelete(null)}>

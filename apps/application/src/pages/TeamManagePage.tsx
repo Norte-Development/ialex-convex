@@ -27,8 +27,11 @@ export default function TeamManagePage() {
   const members = team?.members;
   const pendingInvites = team?.pendingInvites;
 
-  // Get current user
-  const currentUser = useQuery(api.functions.users.getCurrentUser, {});
+  // Get current user - only if we have team data
+  const currentUser = useQuery(
+    api.functions.users.getCurrentUser,
+    team ? {} : "skip",
+  );
 
   // Check if current user is admin of this team
   const isTeamAdmin = useMemo(() => {

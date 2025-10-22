@@ -12,11 +12,11 @@ interface UseBillingLimitOptions {
 
 /**
  * Hook for checking billing limits with warning threshold
- * 
+ *
  * @param limitType - The type of limit to check
  * @param context - Optional context with teamId, currentCount, or additionalBytes
  * @returns BillingLimitResult with allowed status, warning flag, and percentage
- * 
+ *
  * @example
  * ```tsx
  * const { allowed, isWarning, percentage, reason } = useBillingLimit("cases", { teamId });
@@ -29,14 +29,31 @@ interface UseBillingLimitOptions {
  */
 export const useBillingLimit = (
   limitType: LimitType,
-  context?: UseBillingLimitOptions
+  context?: UseBillingLimitOptions,
 ): BillingLimitResult => {
+  // ALL HOOKS MUST BE CALLED FIRST - before any conditional returns
+
   // Get current user (required for billing entity determination)
   const currentUser = useQuery(api.functions.users.getCurrentUser, {});
-  
+
   // Check if dev mode is enabled
   const isDevMode = useQuery(api.billing.features.isDevModeEnabled, {});
-  
+
+  // Get usage limits for the billing entity (user or team)
+  const entityId = context?.teamId || currentUser?._id;
+  const usage = useQuery(
+    api.billing.features.getUsageLimits,
+    entityId ? { entityId: entityId as string } : "skip",
+  );
+
+  // Get plan type to determine limits
+  const userPlan = useQuery(
+    api.billing.features.getUserPlan,
+    currentUser?._id ? { userId: currentUser._id } : "skip",
+  );
+
+  // NOW we can do conditional logic AFTER all hooks are called
+
   // If dev mode is enabled, return unlimited access
   if (isDevMode) {
     return {
@@ -47,19 +64,6 @@ export const useBillingLimit = (
       limit: Infinity,
     };
   }
-  
-  // Get usage limits for the billing entity (user or team)
-  const entityId = context?.teamId || currentUser?._id;
-  const usage = useQuery(
-    api.billing.features.getUsageLimits,
-    entityId ? { entityId: entityId as string } : "skip"
-  );
-
-  // Get plan type to determine limits
-  const userPlan = useQuery(
-    api.billing.features.getUserPlan,
-    currentUser?._id ? { userId: currentUser._id } : "skip"
-  );
 
   // Handle loading states
   if (!currentUser || !entityId || !userPlan || !usage) {
@@ -80,22 +84,22 @@ export const useBillingLimit = (
       currentCount = usage.casesCount;
       limit = planLimits.cases;
       break;
-    
+
     case "documentsPerCase":
       currentCount = context?.currentCount ?? usage.documentsCount;
       limit = planLimits.documentsPerCase;
       break;
-    
+
     case "escritosPerCase":
       currentCount = context?.currentCount ?? usage.escritosCount;
       limit = planLimits.escritosPerCase;
       break;
-    
+
     case "libraryDocuments":
       currentCount = usage.libraryDocumentsCount;
       limit = planLimits.libraryDocuments;
       break;
-    
+
     case "storage":
       const storageLimitBytes = planLimits.storageGB * 1024 * 1024 * 1024;
       currentCount = usage.storageUsedBytes + (context?.additionalBytes || 0);
@@ -136,7 +140,8 @@ export const useBillingLimit = (
         reason = `Límite de ${limit} documentos de biblioteca alcanzado.`;
         break;
       case "storage":
-        const availableGB = (limit - usage.storageUsedBytes) / (1024 * 1024 * 1024);
+        const availableGB =
+          (limit - usage.storageUsedBytes) / (1024 * 1024 * 1024);
         reason = `Espacio insuficiente. Disponible: ${availableGB.toFixed(2)}GB.`;
         break;
     }
@@ -151,4 +156,3 @@ export const useBillingLimit = (
     limit,
   };
 };
-

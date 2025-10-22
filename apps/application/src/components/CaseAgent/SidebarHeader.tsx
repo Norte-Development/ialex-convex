@@ -8,6 +8,7 @@ interface SidebarHeaderProps {
   caseId?: string;
   currentThreadId?: string;
   onThreadSelect?: (threadId: string) => void;
+  onNewConversation?: () => void;
 }
 
 export function SidebarHeader({
@@ -24,6 +25,7 @@ export function SidebarHeader({
       <div className="flex items-center justify-between p-4 relative">
         <Button
           variant="ghost"
+          onClick={onNewConversation}
           className="flex items-center justify-center text-xs p-1 gap-1 bg-[#3946D7] text-white"
         >
           <CirclePlus size={16} />
