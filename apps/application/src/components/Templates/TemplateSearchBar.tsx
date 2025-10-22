@@ -1,5 +1,6 @@
 import { Input } from "@/components/ui/input";
-import { Plus } from "lucide-react";
+import { CirclePlus, Search } from "lucide-react";
+import { Button } from "../ui/button";
 
 interface TemplateSearchBarProps {
   searchValue: string;
@@ -13,19 +14,23 @@ export function TemplateSearchBar({
   onAddTemplate,
 }: TemplateSearchBarProps) {
   return (
-    <div className="flex gap-2 w-[40%] pl-2">
-      <Input
-        placeholder="buscar palabra clave"
-        className="bg-gray-200 p-1"
-        value={searchValue}
-        onChange={(e) => onSearchChange(e.target.value)}
-      />
-      <button 
-        className="border-2 border-green-400 py-0 px-1 cursor-pointer"
+    <div className="flex gap-2 w-full pl-2 justify-between ">
+      <div className="flex relative w-[35%] h-[25px] ">
+        <Input
+          placeholder="Buscar por palabra clave"
+          className="bg-white border border-gray-300 p-2 h-full w-full placeholder:text-sm "
+          value={searchValue}
+          onChange={(e) => onSearchChange(e.target.value)}
+        />
+        <Search size={16} className="absolute right-2 top-1 text-gray-400" />
+      </div>
+      <Button
+        className=" rounded-lg py-0 px-1 flex cursor-pointer"
         onClick={onAddTemplate}
       >
-        <Plus size={20} className="text-green-400" />
-      </button>
+        Añadir
+        <CirclePlus size={15} className="text-white" />
+      </Button>
     </div>
   );
 }

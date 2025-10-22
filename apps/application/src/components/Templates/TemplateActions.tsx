@@ -1,11 +1,20 @@
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
-import { Eye, FilePlus } from "lucide-react";
+import { Eye, FilePlus, ChevronDown } from "lucide-react";
 import type { Id } from "../../../convex/_generated/dataModel";
 
 interface TemplateActionsProps {
   templateId: Id<"modelos">;
   onPreview: (templateId: Id<"modelos">) => void;
-  onCreateFromTemplate: (template: { _id: Id<"modelos">; name: string }) => void;
+  onCreateFromTemplate: (template: {
+    _id: Id<"modelos">;
+    name: string;
+  }) => void;
   templateName: string;
   canCreate: boolean;
 }
@@ -22,23 +31,26 @@ export function TemplateActions({
   };
 
   return (
-    <div className="flex justify-end gap-2">
-      <Button
-        variant="outline"
-        size="sm"
-        onClick={() => onPreview(templateId)}
-      >
-        <Eye size={14} />
-        Previsualizar
-      </Button>
-      <Button
-        size="sm"
-        onClick={handleCreate}
-        disabled={!canCreate}
-      >
-        <FilePlus size={14} />
-        Crear escrito
-      </Button>
-    </div>
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button
+          variant="outline"
+          size="sm"
+          className="text-[#1868DB] border-[#1868DB] bg-[#E9F2FE]"
+        >
+          Crear <ChevronDown className="h-4 w-4" />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end">
+        <DropdownMenuItem onClick={() => onPreview(templateId)}>
+          <Eye className="mr-2 h-4 w-4" />
+          Previsualizar
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={handleCreate} disabled={!canCreate}>
+          <FilePlus className="mr-2 h-4 w-4" />
+          Crear escrito
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }

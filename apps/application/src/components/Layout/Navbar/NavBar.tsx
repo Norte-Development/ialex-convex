@@ -17,13 +17,11 @@ import Breadcrumbs from "./BreadCrumbs";
 import { UserButton } from "@clerk/clerk-react";
 import { Input } from "@/components/ui/input";
 import CollapsibleMenuButton from "./CollapsibleMenuButton";
-import { useChatbot } from "@/context/ChatbotContext";
 import { useGlobalSearch } from "@/hooks/useGlobalSearch";
 import SearchDropdown from "@/components/Search/SearchDropdown";
 
 export default function NavBar() {
   const location = useLocation();
-  const { toggleChatbot } = useChatbot();
   const {
     searchQuery,
     results,
@@ -51,7 +49,7 @@ export default function NavBar() {
 
   return (
     <nav
-      className={`flex flex-row-reverse bg-[#D9D9D9] fixed px-5 justify-between items-center py-1 h-[41px] w-full  text-foreground  top-0 left-0 z-50 mb-5`}
+      className={`flex flex-row-reverse bg-white fixed px-5 justify-between items-center py-1 h-[41px] w-full  text-foreground  top-0 left-0 z-50 mb-5`}
     >
       <div className={` flex  items-center gap-5`}>
         <div className="flex items-center justify-center gap-4">
