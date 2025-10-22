@@ -305,7 +305,7 @@ export default function ComponentsShowcasePage() {
         </section>
 
         {/* Sección de Tarjetas de Eventos */}
-        <section className="bg-white p-8 rounded-lg shadow-sm">
+        {/* <section className="bg-white p-8 rounded-lg shadow-sm">
           <h2 className="text-2xl font-semibold mb-6 text-gray-800">
             Tarjetas de Eventos
           </h2>
@@ -328,7 +328,7 @@ export default function ComponentsShowcasePage() {
               </div>
             </div>
           </div>
-        </section>
+        </section> */}
 
         {/* Sección de Tablas */}
         <section className="bg-white p-8 rounded-lg shadow-sm">

@@ -19,6 +19,7 @@ import { Input } from "@/components/ui/input";
 import CollapsibleMenuButton from "./CollapsibleMenuButton";
 import { useGlobalSearch } from "@/hooks/useGlobalSearch";
 import SearchDropdown from "@/components/Search/SearchDropdown";
+import { useChatbot } from "@/context/ChatbotContext";
 
 export default function NavBar() {
   const location = useLocation();
@@ -34,6 +35,7 @@ export default function NavBar() {
   } = useGlobalSearch();
 
   const isInCaseContext = location.pathname.includes("/caso/");
+  const { toggleChatbot } = useChatbot();
 
   const menuOptions = [
     { label: "Inicio", path: "/", icon: Home },
