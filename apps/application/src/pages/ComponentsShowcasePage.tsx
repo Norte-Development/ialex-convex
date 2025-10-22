@@ -12,8 +12,6 @@ import {
 import WindowModal from "@/components/ui/WindowModal";
 import NavBar from "@/components/Layout/Navbar/NavBar";
 import ModelsTable from "@/components/Models/ModelsTable";
-import EventCard from "@/components/Home/NewCaseCard";
-import EventDateCard from "@/components/Home/EventDateCard";
 import { Badge } from "@/components/ui/badge";
 
 export default function ComponentsShowcasePage() {
@@ -83,22 +81,6 @@ export default function ComponentsShowcasePage() {
     },
   ];
 
-  const mockEvents = [
-    {
-      _id: "event1",
-      name: "Audiencia Preliminar",
-      date: new Date("2025-10-15"),
-      start: "09:00",
-      end: "11:00",
-    },
-    {
-      _id: "event2",
-      name: "Reunión con Cliente",
-      date: new Date("2025-10-20"),
-      start: "14:00",
-      end: "16:00",
-    },
-  ];
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -160,7 +142,7 @@ export default function ComponentsShowcasePage() {
                 <div className="flex items-center space-x-2">
                   <Checkbox
                     id="check2"
-                    indeterminate={true}
+                    indeterminate={isIndeterminate}
                     onCheckedChange={(checked) =>
                       setIsIndeterminate(checked === "indeterminate")
                     }

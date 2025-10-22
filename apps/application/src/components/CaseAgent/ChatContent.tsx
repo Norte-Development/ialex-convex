@@ -27,7 +27,6 @@ import {
   useMemo,
   useTransition,
 } from "react";
-import { TodoPanel } from "./TodoPanel";
 import type { Reference, ReferenceWithOriginal } from "./types/reference-types";
 import { Button } from "@/components/ui/button";
 

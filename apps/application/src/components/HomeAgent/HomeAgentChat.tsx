@@ -21,7 +21,6 @@ import { useHomeThreads } from "./hooks/useHomeThreads";
 import {
   Message,
   MessageContent,
-  MessageAvatar,
 } from "@/components/ai-elements/message";
 import {
   Conversation,
