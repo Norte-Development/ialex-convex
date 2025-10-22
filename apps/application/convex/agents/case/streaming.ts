@@ -1,6 +1,6 @@
 import { paginationOptsValidator } from "convex/server";
-import { vStreamArgs } from "@convex-dev/agent";
-import { internal } from "../../_generated/api";
+import { abortStream, listUIMessages, syncStreams, vStreamArgs } from "@convex-dev/agent";
+import { components, internal } from "../../_generated/api";
 import {
   internalAction,
   mutation,
@@ -16,6 +16,7 @@ import { _getUserPlan, _getOrCreateUsageLimits, _getModelForUserInCase, _getBill
 import { Id } from "../../_generated/dataModel";
 import { PLAN_LIMITS } from "../../billing/planLimits";
 import { openai } from "@ai-sdk/openai";
+import component from "@convex-dev/workflow/convex.config";
 
 /**
  * Initiates asynchronous streaming for a message in a thread.
@@ -382,18 +383,16 @@ export const listMessages = query({
       
       // Here you could filter out / modify the stream of deltas / filter out
       // deltas.
-  
-      const paginated = await agent.listMessages(ctx, {
-        threadId,
-        paginationOpts,
-      });
 
-      const streams = await agent.syncStreams(ctx, {
+      const streams = await syncStreams(ctx, components.agent, {
         threadId,
         streamArgs,
-        includeStatuses: ["streaming"], // Only include active streaming, remove "aborted"
       });
-  
+
+      const paginated = await listUIMessages(ctx, components.agent, args);
+      
+
+      
       // Here you could filter out metadata that you don't want from any optional
       // fields on the messages.
       // You can also join data onto the messages. They need only extend the
@@ -410,3 +409,25 @@ export const listMessages = query({
       };
     },
   });
+
+
+  /**
+ * Abort a stream by its order
+ */
+export const abortStreamByOrder = mutation({
+  args: { threadId: v.string(), order: v.number() },
+  handler: async (ctx, { threadId, order }) => {
+    await authorizeThreadAccess(ctx, threadId);
+    if (
+      await abortStream(ctx, components.agent, {
+        threadId,
+        order,
+        reason: "Aborting explicitly",
+      })
+    ) {
+      console.log("Aborted stream", threadId, order);
+    } else {
+      console.log("No stream found", threadId, order);
+    }
+  },
+});

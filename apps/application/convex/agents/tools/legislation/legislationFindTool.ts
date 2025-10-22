@@ -61,12 +61,8 @@ IMPORTANT: You can search by number alone without a query - just provide filters
 
 FILTERS:
 - tipo_general: Type of legislation. ${tipoGeneralList}
-- jurisdiccion: Jurisdiction. ${jurisdiccionList}
+- jurisdiccion: Jurisdiction. ${jurisdiccionList}. Solo estas jurisdicciones son validas. Si hay dudas dejar en blanco. No se debe usar el pais como jurisdiccion. Las jurisdicciones son provincias o "nacional".
 - estado: Status (vigente, derogada, caduca, anulada, suspendida, abrogada, sin_registro_oficial)
-- subestado: Sub-status
-- tipo_contenido: Content type (leg, jur, adm)
-- country_code: Country code (py, ar, etc.)
-- fuente: Source
 - number: Law number (use only numeric part)
 - sanction_date_from/to: Sanction date range (ISO date strings)
 - publication_date_from/to: Publication date range (ISO date strings)`;
@@ -94,10 +90,6 @@ FILTERS:
               "sin_registro_oficial",
             ])
             .optional(),
-          subestado: z.string().optional(),
-          tipo_contenido: z.enum(["leg", "jur", "adm"]).optional(),
-          country_code: z.string().optional(),
-          fuente: z.string().optional(),
           sanction_date_from: z.string().optional(),
           sanction_date_to: z.string().optional(),
           publication_date_from: z.string().optional(),
@@ -135,10 +127,6 @@ FILTERS:
         if (filters.jurisdiccion) qdrantFilters.jurisdiccion = filters.jurisdiccion;
         if (filters.tipo_general) qdrantFilters.tipo_general = filters.tipo_general;
         if (filters.estado) qdrantFilters.estado = filters.estado;
-        if (filters.subestado) qdrantFilters.subestado = filters.subestado;
-        if (filters.tipo_contenido) qdrantFilters.tipo_contenido = filters.tipo_contenido;
-        if (filters.country_code) qdrantFilters.country_code = filters.country_code;
-        if (filters.fuente) qdrantFilters.fuente = filters.fuente;
         
         // Type filter (maps to tipo_norma which will be mapped to tipo_general in Qdrant)
         if (filters.type) qdrantFilters.tipo_norma = filters.type;
@@ -192,7 +180,6 @@ FILTERS:
           tipoDetalle: r.tipo_detalle ?? null,
           jurisdiccion: r.jurisdiccion ?? null,
           estado: r.estado ?? null,
-          subestado: r.subestado ?? null,
           publicationDate: r.publication_ts ? new Date(r.publication_ts * 1000).toISOString() : null,
           sanctionDate: r.sanction_ts ? new Date(r.sanction_ts * 1000).toISOString() : null,
           snippet: (r.text || "").slice(0, 500),
@@ -224,7 +211,6 @@ ${results.length === 0 ? 'No se encontraron resultados para la consulta.' : resu
 - **Tipo Detalle**: ${r.tipoDetalle || 'N/A'}
 - **Jurisdicción**: ${r.jurisdiccion || 'N/A'}
 - **Estado**: ${r.estado || 'N/A'}
-- **Subestado**: ${r.subestado || 'N/A'}
 - **Fecha de Publicación**: ${r.publicationDate ? new Date(r.publicationDate).toLocaleDateString() : 'N/A'}
 - **Fecha de Sanción**: ${r.sanctionDate ? new Date(r.sanctionDate).toLocaleDateString() : 'N/A'}
 - **Relaciones**: ${r.relationsCount}
@@ -264,10 +250,8 @@ ${r.url ? `- **URL**: ${r.url}` : ''}
           dates: item.dates,
           materia: item.materia,
           tags: item.tags,
-          subestado: item.subestado,
           resumen: item.resumen,
-          url: item.url,
-          country_code: item.country_code,
+          url: item.url,  
         }));
 
         return `# 📋 Navegación de Legislación

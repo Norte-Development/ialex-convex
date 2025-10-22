@@ -79,7 +79,7 @@ export default function HomeAgentPage() {
               disabled={isCreating}
             />
 
-            <div className="absolute bottom-4 left-6 flex items-center gap-3">
+            {/* <div className="absolute bottom-4 left-6 flex items-center gap-3">
               <button
                 onClick={() =>
                   console.log(
@@ -105,7 +105,7 @@ export default function HomeAgentPage() {
               >
                 Opción 2
               </button>
-            </div>
+            </div> */}
 
             <Button
               onClick={handleSendMessage}
