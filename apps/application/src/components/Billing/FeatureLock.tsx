@@ -41,11 +41,6 @@ export function FeatureLock({
   // Check if dev mode is enabled
   const isDevMode = useQuery(api.billing.features.isDevModeEnabled, {});
   
-  // If dev mode is enabled, always allow access
-  if (isDevMode) {
-    return <>{children}</>;
-  }
-  
   // Check feature access
   const featureAccess = useQuery(
     api.billing.features.hasFeatureAccess,
@@ -56,6 +51,11 @@ export function FeatureLock({
         }
       : "skip"
   );
+  
+  // If dev mode is enabled, always allow access
+  if (isDevMode) {
+    return <>{children}</>;
+  }
 
   // Loading state
   if (!currentUser || featureAccess === undefined) {
