@@ -259,10 +259,6 @@ export const streamWithContextAction = internalAction({
               },
             },
           }),
-          experimental_repairToolCall: async (...args: any[]) => {
-            console.log("Tool call repair triggered:", args);
-            return null;
-          },
           onAbort: () => {
             console.log(`[Stream Abort Callback] Thread ${threadId}: Stream abort callback triggered`);
           },

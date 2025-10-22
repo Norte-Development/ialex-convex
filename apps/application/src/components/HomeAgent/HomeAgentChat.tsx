@@ -13,15 +13,14 @@
  * ```
  */
 
-import { useState, memo } from "react";
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { useThreadMessages, toUIMessages } from "@convex-dev/agent/react";
+import { useUIMessages } from "@convex-dev/agent/react";
 import { api } from "../../../convex/_generated/api";
 import { useHomeThreads } from "./hooks/useHomeThreads";
 import {
   Message,
   MessageContent,
-  MessageAvatar,
 } from "@/components/ai-elements/message";
 import {
   Conversation,
@@ -48,6 +47,7 @@ import { Tool } from "@/components/ai-elements/tool";
 import type { ToolUIPart } from "ai";
 import { toast } from "sonner";
 import { CitationModal } from "@/components/CaseAgent/citation-modal";
+import { Button } from "@/components/ui/button";
 
 export interface HomeAgentChatProps {
   /** ID del thread de conversación */
@@ -69,9 +69,9 @@ interface HomeAgentMessageProps {
 }
 
 /**
- * Componente individual de mensaje memoizado para optimizar performance
+ * Componente individual de mensaje
  */
-const HomeAgentMessageInner = ({
+const HomeAgentMessage = ({
   msg,
   copiedMessageId,
   onCopyMessage,
@@ -98,9 +98,9 @@ const HomeAgentMessageInner = ({
   return (
     <Message key={messageId} from={msg.role}>
       <MessageContent>
-        {/* Show thinking indicator if message has no parts yet, is empty, or only has tools without text */}
+        {/* Show thinking indicator if message is streaming but has no text yet */}
         {!isUser &&
-          (msg.status === "streaming" || hasActiveTools) &&
+          msg.status === "streaming" &&
           (!messageText || messageText.trim() === "") && (
             <div className="flex items-center gap-2">
               <div className="flex gap-1">
@@ -156,8 +156,8 @@ const HomeAgentMessageInner = ({
 
             // Renderizar reasoning
             if (part.type === "reasoning") {
-              const isLastPart = partIndex === (msg.parts?.length || 0) - 1;
-              const reasoningIsStreaming = msg.status === "streaming" && isLastPart;
+              // Simple streaming detection - trust the backend status
+              const reasoningIsStreaming = msg.status === "streaming";
 
               return (
                 <Reasoning
@@ -264,25 +264,6 @@ const HomeAgentMessageInner = ({
   );
 };
 
-// Memoizar el componente con comparación personalizada
-export const HomeAgentMessage = memo(HomeAgentMessageInner, (prevProps, nextProps) => {
-  const prevMsg = prevProps.msg;
-  const nextMsg = nextProps.msg;
-  
-  return (
-    (prevMsg.id || prevMsg._id) === (nextMsg.id || nextMsg._id) &&
-    prevMsg.status === nextMsg.status &&
-    prevMsg.parts?.length === nextMsg.parts?.length &&
-    prevMsg.parts?.every((p: any, i: number) => 
-      p.type === nextMsg.parts?.[i]?.type &&
-      (p.type === "text" ? p.text === nextMsg.parts?.[i]?.text : true)
-    ) &&
-    prevProps.copiedMessageId === nextProps.copiedMessageId
-  );
-});
-
-HomeAgentMessage.displayName = 'HomeAgentMessage';
-
 /**
  * Componente de chat con streaming para HomeAgent
  */
@@ -301,55 +282,27 @@ export function HomeAgentChat({
   const [selectedCitationId, setSelectedCitationId] = useState("");
   const [selectedCitationType, setSelectedCitationType] = useState("");
 
-  // Hook de Convex con streaming habilitado
-  const messagesResult = useThreadMessages(
+  // Hook de Convex con streaming habilitado - uses optimized useUIMessages
+  const {
+    results: messages,
+    status,
+    loadMore,
+  } = useUIMessages(
     api.agents.home.streaming.listMessages,
     threadId ? { threadId } : "skip",
-    {
-      initialNumItems,
-      stream: true, // ← Habilita streaming en tiempo real
-    },
+    { initialNumItems, stream: true },
   );
-
-  console.log("messagesResult", messagesResult);
 
   // Hook para enviar mensajes
   const { sendMessage, messagesLoading } = useHomeThreads({ threadId });
 
-  // Convertir mensajes al formato UI
-  const messages = toUIMessages(messagesResult.results || []);
-  const isLoading =
-    threadId &&
-    !messagesResult.results &&
-    messagesResult.status !== "Exhausted";
+  const isLoading = threadId && !messages && status !== "Exhausted";
 
-  // Detectar si hay streaming activo en los mensajes
-  const hasStreamingMessage = messages.some((msg: any) => {
-    // Si el mensaje es del usuario, no está en streaming
-    if (msg.role === "user") return false;
-
-    // Verificar si algún part está en streaming
-    if (msg.parts && msg.parts.length > 0) {
-      return msg.parts.some((part: any) => {
-        // Text parts en streaming
-        if (part.type === "text" && part.state === "streaming") return true;
-
-        // Tool calls en streaming (input-streaming o sin output todavía)
-        if (part.type?.startsWith("tool-")) {
-          return (
-            part.state === "input-streaming" || part.state === "input-available"
-          );
-        }
-
-        return false;
-      });
-    }
-
-    return false;
-  });
+  // Simple streaming detection - just check if any message has streaming status
+  const isStreaming = messages?.some((m: any) => m.status === "streaming") ?? false;
 
   // Input debe estar deshabilitado si está cargando O si hay streaming
-  const isInputDisabled = messagesLoading || hasStreamingMessage;
+  const isInputDisabled = messagesLoading || isStreaming;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -380,7 +333,7 @@ export function HomeAgentChat({
   };
 
   // Determinar el estado del chat para el botón de submit
-  const chatStatus = isInputDisabled ? "streaming" : "awaiting-message";
+  const chatStatus = isStreaming ? "streaming" : "awaiting-message";
 
   // Función para copiar mensaje al clipboard
   const handleCopyMessage = async (messageId: string, text: string) => {
@@ -428,21 +381,34 @@ export function HomeAgentChat({
               <div className="text-muted-foreground">No hay mensajes</div>
             </div>
           ) : (
-            messages.map((msg: any) => (
-              <HomeAgentMessage
-                key={msg._id || msg.id}
-                msg={msg}
-                copiedMessageId={copiedMessageId}
-                onCopyMessage={handleCopyMessage}
-                onCitationClick={(id, type) => {
-                  console.log("Citation clicked:", { id, type });
-                  setCitationModalOpen(true);
-                  setSelectedCitationId(id);
-                  setSelectedCitationType(type);
-                }}
-                onRetry={handleRegenerateMessage}
-              />
-            ))
+            <>
+              {status === "CanLoadMore" && (
+                <div className="flex justify-center py-2">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => loadMore(20)}
+                    className="text-xs text-muted-foreground hover:text-foreground"
+                  >
+                    ↑ Más mensajes
+                  </Button>
+                </div>
+              )}
+              {messages.map((msg: any) => (
+                <HomeAgentMessage
+                  key={msg._id || msg.id}
+                  msg={msg}
+                  copiedMessageId={copiedMessageId}
+                  onCopyMessage={handleCopyMessage}
+                  onCitationClick={(id, type) => {
+                    setCitationModalOpen(true);
+                    setSelectedCitationId(id);
+                    setSelectedCitationType(type);
+                  }}
+                  onRetry={handleRegenerateMessage}
+                />
+              ))}
+            </>
           )}
         </ConversationContent>
         <ConversationScrollButton />

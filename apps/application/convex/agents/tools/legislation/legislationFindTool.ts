@@ -61,11 +61,10 @@ IMPORTANT: You can search by number alone without a query - just provide filters
 
 FILTERS:
 - tipo_general: Type of legislation. ${tipoGeneralList}
-- jurisdiccion: Jurisdiction. ${jurisdiccionList}
+- jurisdiccion: Jurisdiction. ${jurisdiccionList}. Solo estas jurisdicciones son validas. Si hay dudas dejar en blanco.
 - estado: Status (vigente, derogada, caduca, anulada, suspendida, abrogada, sin_registro_oficial)
 - subestado: Sub-status
 - tipo_contenido: Content type (leg, jur, adm)
-- country_code: Country code (py, ar, etc.)
 - fuente: Source
 - number: Law number (use only numeric part)
 - sanction_date_from/to: Sanction date range (ISO date strings)
@@ -96,7 +95,6 @@ FILTERS:
             .optional(),
           subestado: z.string().optional(),
           tipo_contenido: z.enum(["leg", "jur", "adm"]).optional(),
-          country_code: z.string().optional(),
           fuente: z.string().optional(),
           sanction_date_from: z.string().optional(),
           sanction_date_to: z.string().optional(),
@@ -137,7 +135,6 @@ FILTERS:
         if (filters.estado) qdrantFilters.estado = filters.estado;
         if (filters.subestado) qdrantFilters.subestado = filters.subestado;
         if (filters.tipo_contenido) qdrantFilters.tipo_contenido = filters.tipo_contenido;
-        if (filters.country_code) qdrantFilters.country_code = filters.country_code;
         if (filters.fuente) qdrantFilters.fuente = filters.fuente;
         
         // Type filter (maps to tipo_norma which will be mapped to tipo_general in Qdrant)
@@ -266,8 +263,7 @@ ${r.url ? `- **URL**: ${r.url}` : ''}
           tags: item.tags,
           subestado: item.subestado,
           resumen: item.resumen,
-          url: item.url,
-          country_code: item.country_code,
+          url: item.url,  
         }));
 
         return `# 📋 Navegación de Legislación
