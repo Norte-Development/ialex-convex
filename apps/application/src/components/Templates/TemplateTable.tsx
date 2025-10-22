@@ -25,7 +25,10 @@ interface TemplateTableProps {
   templates: Template[];
   isLoading: boolean;
   onPreview: (templateId: Id<"modelos">) => void;
-  onCreateFromTemplate: (template: { _id: Id<"modelos">; name: string }) => void;
+  onCreateFromTemplate: (template: {
+    _id: Id<"modelos">;
+    name: string;
+  }) => void;
   canCreate: boolean;
 }
 
@@ -57,29 +60,30 @@ export function TemplateTable({
 
   return (
     <Table>
-      <TableHeader className="bg-gray-200 border-b border-gray-300">
+      <TableHeader className="bg-[#F5F5F5] ">
         <TableRow>
-          <TableHead>Título</TableHead>
-          <TableHead>Categoría</TableHead>
-          <TableHead>Descripción</TableHead>
-          <TableHead>Etiquetas</TableHead>
-          <TableHead>Estado</TableHead>
-          <TableHead className="w-[220px] text-right">Acciones</TableHead>
+          <TableHead className="text-left">Título</TableHead>
+          <TableHead className="text-left">Etiquetas</TableHead>
+          <TableHead className="text-left">Categoría</TableHead>
+
+          <TableHead className="text-left">Estado</TableHead>
+          <TableHead className="text-left">Descripción</TableHead>
+          <TableHead className="w-[100px] text-left">Acciones</TableHead>
         </TableRow>
       </TableHeader>
       <TableBody>
         {templates.map((template) => (
           <TableRow key={template._id}>
             <TableCell>{template.name}</TableCell>
-            <TableCell>{template.category}</TableCell>
-            <TableCell className="max-w-[320px] truncate">
-              {template.description ?? "Sin descripción"}
-            </TableCell>
             <TableCell>
               {template.tags?.length ? (
                 <div className="flex flex-wrap gap-2">
                   {template.tags.map((tag) => (
-                    <Badge key={tag} variant="secondary" className="flex items-center gap-1">
+                    <Badge
+                      key={tag}
+                      variant="secondary"
+                      className="flex items-center gap-1 "
+                    >
                       <Tag size={12} />
                       {tag}
                     </Badge>
@@ -91,17 +95,28 @@ export function TemplateTable({
                 </span>
               )}
             </TableCell>
+            <TableCell>{template.category}</TableCell>
             <TableCell>
               {template.isPublic ? (
-                <Badge variant="outline" className="flex items-center gap-1">
+                <Badge
+                  variant="outline"
+                  className="flex items-center gap-1 text-[#1868DB] bg-[#E9F2FE] border-[#1868DB]"
+                >
                   <FilePlus size={12} /> Público
                 </Badge>
               ) : (
-                <Badge variant="outline" className="flex items-center gap-1">
+                <Badge
+                  variant="outline"
+                  className="flex items-center gap-1 text-[#1868DB] bg-[#E9F2FE] border-[#1868DB]"
+                >
                   <Lock size={12} /> Privado
                 </Badge>
               )}
             </TableCell>
+            <TableCell className="max-w-[320px] truncate">
+              {template.description ?? "Sin descripción"}
+            </TableCell>
+
             <TableCell className="text-right">
               <TemplateActions
                 templateId={template._id}
