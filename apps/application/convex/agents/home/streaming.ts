@@ -1,15 +1,16 @@
 import { paginationOptsValidator } from "convex/server";
-import { vStreamArgs } from "@convex-dev/agent";
-import { query } from "../../_generated/server";
+import { listUIMessages, syncStreams, vStreamArgs, abortStream } from "@convex-dev/agent";
+import { components } from "../../_generated/api";
+import { query, mutation } from "../../_generated/server";
 import { v } from "convex/values";
 import { authorizeThreadAccess } from "../threads";
-import { agent } from "./agent";
 
 /**
  * Lists messages in a thread with streaming support.
  * 
  * This query returns both paginated messages and active streams for a thread.
  * It supports real-time streaming updates for the home agent.
+ * Uses the optimized listUIMessages and syncStreams helpers for better performance.
  * 
  * @param threadId - The ID of the thread to list messages from
  * @param paginationOpts - Pagination options for the message list
@@ -24,53 +25,84 @@ export const listMessages = query({
     streamArgs: vStreamArgs,
   },
   handler: async (ctx, args) => {
-    const { threadId, paginationOpts, streamArgs } = args;
-    
-    console.log(`[HOME STREAMING] listMessages called for thread: ${threadId}`);
-    console.log(`[HOME STREAMING] paginationOpts:`, paginationOpts);
-    console.log(`[HOME STREAMING] streamArgs:`, streamArgs);
-    
+    const { threadId, streamArgs } = args;
     await authorizeThreadAccess(ctx, threadId);
-    console.log(`[HOME STREAMING] Authorization passed`);
     
-    const paginated = await agent.listMessages(ctx, {
-      threadId,
-      paginationOpts,
-    });
-    
-    const messagesCount = paginated?.page?.length || 0;
-    console.log(`[HOME STREAMING] Messages fetched: ${messagesCount} messages`);
-    console.log(`[HOME STREAMING] isDone:`, paginated?.isDone);
-    console.log(`[HOME STREAMING] Paginated structure:`, JSON.stringify(paginated, null, 2));
-
-    const streams = await agent.syncStreams(ctx, {
+    const streams = await syncStreams(ctx, components.agent, {
       threadId,
       streamArgs,
-      includeStatuses: ["aborted", "streaming"],
     });
-    
-    const streamsArray = Array.isArray(streams) ? streams : [];
-    console.log(`[HOME STREAMING] Streams synced: ${streamsArray.length} active streams`);
-    
-    if (streamsArray.length > 0) {
-      streamsArray.forEach((stream: any, idx: number) => {
-        console.log(`[HOME STREAMING] Stream ${idx}:`, {
-          messageId: stream.messageId,
-          status: stream.status,
-          hasDeltas: !!stream.deltas,
-          deltasCount: stream.deltas?.length || 0,
-        });
-      });
-    }
 
-    const result = {
+    const paginated = await listUIMessages(ctx, components.agent, args);
+
+    return {
       ...paginated,
       streams,
     };
-    
-    const resultMessagesCount = result?.page?.length || 0;
-    console.log(`[HOME STREAMING] Returning result with ${resultMessagesCount} messages and ${streamsArray.length} streams`);
+  },
+});
 
-    return result;
+/**
+ * Aborts a stream by its order number within a thread.
+ * 
+ * This mutation allows users to cancel ongoing AI streaming responses
+ * by specifying the stream's order in the thread.
+ * 
+ * @param threadId - The ID of the thread containing the stream
+ * @param order - The order number of the stream to abort
+ * @throws {Error} When user doesn't have access to the thread
+ */
+export const abortStreamByOrder = mutation({
+  args: { threadId: v.string(), order: v.number() },
+  returns: v.object({
+    success: v.boolean(),
+    message: v.string(),
+  }),
+  handler: async (ctx, { threadId, order }) => {
+    try {
+      // Verify user has access to this thread
+      await authorizeThreadAccess(ctx, threadId);
+      
+      console.log(`[Home Agent Abort Request] Thread ${threadId}, Order ${order}: Attempting to abort stream`);
+      
+      // Attempt to abort the stream
+      const aborted = await abortStream(ctx, components.agent, {
+        threadId,
+        order,
+        reason: "User requested abort",
+      });
+      
+      if (aborted) {
+        console.log(`[Home Agent Abort Success] Thread ${threadId}, Order ${order}: Stream successfully aborted`);
+        return {
+          success: true,
+          message: "Stream aborted successfully",
+        };
+      } else {
+        console.log(`[Home Agent Abort Not Found] Thread ${threadId}, Order ${order}: No active stream found to abort`);
+        return {
+          success: false,
+          message: "No active stream found to abort",
+        };
+      }
+    } catch (error) {
+      const err = error as Error;
+      console.error(`[Home Agent Abort Error] Thread ${threadId}, Order ${order}:`, {
+        name: err?.name,
+        message: err?.message,
+        stack: err?.stack,
+      });
+      
+      // Re-throw authorization errors
+      if (err?.message?.includes("access") || err?.message?.includes("permission")) {
+        throw error;
+      }
+      
+      // For other errors, return failure status
+      return {
+        success: false,
+        message: `Failed to abort stream: ${err?.message || 'Unknown error'}`,
+      };
+    }
   },
 });

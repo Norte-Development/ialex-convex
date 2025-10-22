@@ -13,10 +13,10 @@ import { Tool } from "../ai-elements/tool";
 import { MessageText } from "../ai-elements/message-text";
 import type { SidebarMessageProps } from "./types/message-types";
 import { CitationModal } from "./citation-modal";
-import { useState, useEffect, memo } from "react";
+import { useState, useEffect } from "react";
 import { ToolUIPart } from "ai";
 
-function SidebarMessageInner({
+export function SidebarMessage({
   message,
   userAvatar,
   assistantAvatar,
@@ -35,8 +35,7 @@ function SidebarMessageInner({
       .map((part: any) => part.text)
       .join("") || "";
 
-  const messageAge = Date.now() - (message._creationTime || 0);
-  // Detect tool calls and whether they've all completed output
+  // Detect tool calls
   const toolCalls =
     message.parts?.filter((part) => (part as any).type?.startsWith("tool-")) ||
     [];
@@ -47,12 +46,9 @@ function SidebarMessageInner({
   // Check if there are active tools (not completed yet)
   const hasActiveTools = toolCalls.length > 0 && !allToolsCompleted;
 
-  // Only stream while assistant is actively streaming and tools (if any) are not all completed
+  // Simple streaming logic - just trust the backend status like HomeAgentPage
   const shouldStream =
-    message.role === "assistant" &&
-    (message.status === "streaming" ||
-      (message.status === "success" && messageAge < 5000)) &&
-    !allToolsCompleted;
+    message.role === "assistant" && message.status === "streaming";
 
   const [visibleText, { isStreaming }] = useSmoothText(messageText, {
     charsPerSec: 80,
@@ -124,9 +120,9 @@ function SidebarMessageInner({
             "!bg-red-100 !text-red-800 border-l-2 border-red-400",
         )}
       >
-        {/* Show thinking indicator if message has no parts yet, is empty, or only has tools without text */}
+        {/* Show thinking indicator if message is streaming but has no text yet */}
         {!isUser &&
-          (message.status === "streaming" || hasActiveTools) &&
+          message.status === "streaming" &&
           (!messageText || messageText.trim() === "") && (
             <div className="flex items-center gap-2">
               <div className="flex gap-1">
@@ -209,15 +205,8 @@ function SidebarMessageInner({
           }
 
           if (part.type === "reasoning") {
-            // More intelligent reasoning streaming detection
-            // Reasoning is considered streaming only if:
-            // 1. The message is still streaming AND
-            // 2. This is the last part (reasoning is still being generated) OR
-            // 3. The reasoning text is empty or very short (just started)
-            const isLastPart = index === (message.parts?.length || 0) - 1;
-
-            const reasoningIsStreaming =
-              message.status === "streaming" && isLastPart;
+            // Simple streaming detection - trust the backend status
+            const reasoningIsStreaming = message.status === "streaming";
 
             return (
               <Reasoning
@@ -361,22 +350,3 @@ function SidebarMessageInner({
     </Message>
   );
 }
-
-export const SidebarMessage = memo(SidebarMessageInner, (prevProps, nextProps) => {
-  // Custom comparison: only re-render if the message content or structure changes
-  // Don't re-render just because parent re-rendered
-  const prevMsg = prevProps.message as any;
-  const nextMsg = nextProps.message as any;
-  
-  return (
-    (prevMsg.id || prevMsg._id) === (nextMsg.id || nextMsg._id) &&
-    prevMsg.status === nextMsg.status &&
-    prevMsg.parts?.length === nextMsg.parts?.length &&
-    prevMsg.parts?.every((p: any, i: number) => 
-      p.type === nextMsg.parts?.[i]?.type &&
-      (p.type === "text" ? (p as any).text === (nextMsg.parts?.[i] as any)?.text : true)
-    )
-  );
-});
-
-SidebarMessage.displayName = 'SidebarMessage';

@@ -79,6 +79,13 @@ interface JurisdiccionCache {
 
 let jurisdiccionCache: JurisdiccionCache | null = null;
 
+// Cache clearing function
+export const clearLegislationCache = () => {
+  tipoGeneralCache = null;
+  jurisdiccionCache = null;
+  console.log('Legislation cache cleared');
+};
+
 // Get distinct jurisdiccion values with caching
 export const getJurisdiccionValues = async (): Promise<string[]> => {
   const now = Date.now();
