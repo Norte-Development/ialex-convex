@@ -124,15 +124,18 @@ export default function DocumentsList({
         </div>
         <div className="flex gap-2">
           {can.docs.write && onCreateFolder && (
-            <Button onClick={onCreateFolder} variant="outline" size="sm">
-              <FolderPlus className="mr-2 h-4 w-4" />
+            <Button
+              onClick={onCreateFolder}
+              variant="outline"
+              size="sm"
+              className="bg-white border-tertiary text-tertiary border-1"
+            >
               Nueva Carpeta
             </Button>
           )}
           {can.docs.write && onCreateDocument && (
             <Button onClick={onCreateDocument} size="sm">
-              <FilePlus className="mr-2 h-4 w-4" />
-              Nuevo Documento
+              Subir Documento
             </Button>
           )}
         </div>
