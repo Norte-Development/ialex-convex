@@ -13,7 +13,6 @@ import { cn } from "@/lib/utils";
 import type { ChatStatus } from "ai";
 import {
   Loader2Icon,
-  SendIcon,
   SquareIcon,
   XIcon,
   CircleArrowUpIcon,
