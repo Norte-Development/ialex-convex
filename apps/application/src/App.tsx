@@ -65,6 +65,7 @@ const TestRunner = lazy(() =>
 );
 
 // Wrapper to provide CasePermissionsProvider with caseId from CaseContext
+// Este wrapper NO usa Layout porque CaseLayout maneja su propio layout con sidebar
 const CaseRoutesWrapper: React.FC = () => {
   return (
     <CaseProvider>
@@ -174,13 +175,15 @@ const AppWithThread = () => {
                       </ProtectedRoute>
                     }
                   />
-                  {/* Rutas de casos envueltas con CaseProvider */}
+                  {/* Rutas de casos - sin Layout porque CaseLayout maneja su propio layout */}
                   <Route
                     path="/caso/:id/*"
                     element={
-                      <ProtectedRoute>
-                        <CaseRoutesWrapper />
-                      </ProtectedRoute>
+                      <Protect fallback={<SignInPage />}>
+                        <OnboardingWrapper>
+                          <CaseRoutesWrapper />
+                        </OnboardingWrapper>
+                      </Protect>
                     }
                   />
                   <Route
