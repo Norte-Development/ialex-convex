@@ -242,9 +242,6 @@ export const Tool = ({ className, type, state, input, ...props }: ToolProps) => 
     return <CreateEscritoPreview output={props.output} />;
   }
 
-  // Show streaming inputs for supported tools
-  const showStreamingInputs = 
-    state === "input-streaming"
 
   return (
     <div

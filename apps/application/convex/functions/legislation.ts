@@ -8,6 +8,7 @@ import {
   getNormativesFacets as getNormativesFacetsService,
   getTipoGeneralValues as getTipoGeneralValuesService,
   getJurisdiccionValues as getJurisdiccionValuesService,
+  clearLegislationCache as clearLegislationCacheService,
   PaginatedResult 
 } from "../utils/legislationService";
 import { Estado, NormativeDoc, ListNormativesParams } from "../../types/legislation";
@@ -170,5 +171,14 @@ export const getJurisdiccionValues = action({
   returns: v.array(v.string()),
   handler: async (ctx, args) => {
     return await getJurisdiccionValuesService();
+  }
+});
+
+export const clearLegislationCache = action({
+  args: {},
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    clearLegislationCacheService();
+    return null;
   }
 });
