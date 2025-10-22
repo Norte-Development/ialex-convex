@@ -36,6 +36,7 @@ import {
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
+import { toast } from "sonner";
 
 type DocumentItem = {
   _id: Id<"documents">;
@@ -230,9 +231,10 @@ function FolderRow({
     if (!confirmed) return;
     try {
       await archiveFolder({ folderId: folder._id });
+      toast.success("Carpeta archivada exitosamente");
     } catch (err) {
       console.error("Error archiving folder", err);
-      alert("No se pudo archivar la carpeta.");
+      toast.error("No se pudo archivar la carpeta");
     }
   };
 
@@ -314,9 +316,10 @@ function DocumentRow({
     if (!confirmed) return;
     try {
       await deleteDocument({ documentId: document._id });
+      toast.success("Documento eliminado exitosamente");
     } catch (err) {
       console.error("Error deleting document", err);
-      alert("No se pudo eliminar el documento.");
+      toast.error("No se pudo eliminar el documento");
     }
   };
 
