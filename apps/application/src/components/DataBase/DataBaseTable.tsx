@@ -2,7 +2,7 @@
 
 import type React from "react"
 import { useCallback, useEffect, useState } from "react"
-import { useAction, useQuery as useConvexQuery } from "convex/react"
+import { useAction } from "convex/react"
 import { api } from "../../../convex/_generated/api"
 import { useQuery } from "@tanstack/react-query"
 import { Button } from "../ui/button"
@@ -14,7 +14,9 @@ import { StaticControls } from "./StaticControls"
 import { DataTableContainer } from "./DataTableContainer"
 import { NormativeDetails } from "./NormativeDetails"
 
-
+interface DataBaseTableProps {
+  jurisdictions?: string[]
+}
 
 interface TableState {
   searchQuery: string
@@ -44,11 +46,11 @@ const initialState: TableState = {
   sortOrder: "desc",
   selectedNormativeId: null,
   isDetailsOpen: false,
-  jurisdiction: "nac",
+  jurisdiction: "all",
   totalResults: 0,
 }
 
-export default function DataBaseTable() {
+export default function DataBaseTable({ jurisdictions = ["all"] }: DataBaseTableProps) {
   const [state, setState] = useState<TableState>(initialState)
   const actions = {
     getNormativesFacets: useAction(api.functions.legislation.getNormativesFacets),
@@ -62,18 +64,20 @@ export default function DataBaseTable() {
     return () => clearTimeout(timer)
   }, [state.searchQuery])
 
-  // Available jurisdictions - hardcoded for now since we focus on Paraguay
-  const jurisdictions = ["nac", "departamental", "municipal"]
-
+  // Fetch facets for filter options (types, estados, years)
+  // This updates based on current filters to show relevant counts
   const { data: facets } = useQuery({
     queryKey: ["normatives-facets", state.jurisdiction, state.filters],
-    queryFn: () =>
-      actions.getNormativesFacets({
-        filters: {
-          jurisdiccion: state.jurisdiction,
-          ...state.filters,
-        },
-      }),
+    queryFn: () => {
+      const facetFilters = { ...state.filters }
+      // Only add jurisdiction filter if not "all"
+      if (state.jurisdiction !== "all") {
+        facetFilters.jurisdiccion = state.jurisdiction
+      }
+      return actions.getNormativesFacets({
+        filters: facetFilters,
+      })
+    },
     staleTime: 5 * 60 * 1000,
   })
 
@@ -143,7 +147,9 @@ export default function DataBaseTable() {
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Base de Datos Legislativa</h1>
           <p className="text-sm text-gray-600 mt-1">
-            {state.jurisdiction === "nac" ? "Nacional" : state.jurisdiction.charAt(0).toUpperCase() + state.jurisdiction.slice(1)} • {state.totalResults}{" "}
+            {state.jurisdiction === "all" ? "Todas las Jurisdicciones" : 
+             state.jurisdiction === "nac" ? "Nacional" : 
+             state.jurisdiction.charAt(0).toUpperCase() + state.jurisdiction.slice(1)} • {state.totalResults}{" "}
             {state.totalResults === 1 ? "resultado" : "resultados"}
           </p>
         </div>

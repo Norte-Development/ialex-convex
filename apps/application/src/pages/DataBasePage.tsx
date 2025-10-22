@@ -2,9 +2,28 @@ import { useState } from "react";
 import DataBaseTable from "@/components/DataBase/DataBaseTable";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useAction } from "convex/react";
+import { api } from "../../convex/_generated/api";
+import { useQuery } from "@tanstack/react-query";
 
 export default function DataBasePage() {
   const [activeView, setActiveView] = useState<"simple" | "advanced">("simple");
+  
+  const getNormativesFacets = useAction(api.functions.legislation.getNormativesFacets);
+
+  // Fetch jurisdictions once at page level with long cache time
+  // No filters applied to get all available jurisdictions
+  const { data: jurisdictionsData } = useQuery({
+    queryKey: ["all-jurisdictions"],
+    queryFn: () => getNormativesFacets({ filters: {} }),
+    staleTime: 60 * 60 * 1000, // Cache for 1 hour
+    gcTime: 24 * 60 * 60 * 1000, // Keep in cache for 24 hours
+  });
+
+  // Extract jurisdictions from facets data
+  const availableJurisdictions = jurisdictionsData?.jurisdicciones 
+    ? ["all", ...Object.keys(jurisdictionsData.jurisdicciones)]
+    : ["all"];
 
   return (
     <section
@@ -33,7 +52,7 @@ export default function DataBasePage() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-            <DataBaseTable />
+            <DataBaseTable jurisdictions={availableJurisdictions} />
         </CardContent>
       </Card>
     </section>

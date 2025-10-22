@@ -26,7 +26,7 @@ export function SidebarHeader({
         <Button
           variant="ghost"
           onClick={onNewConversation}
-          className="flex items-center justify-center text-xs p-1 gap-1 bg-[#3946D7] text-white"
+          className="flex items-center justify-center text-xs p-1 gap-1 bg-[#3946D7] text-white hover:bg-[#2d35a8]"
         >
           <CirclePlus size={16} />
           Nuevo chat

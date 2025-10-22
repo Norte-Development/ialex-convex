@@ -9,11 +9,12 @@ export type Subestado =
   | "ley_caduca" | "refundida_ley_caduca"
   | "sin_registro";
 
-export type TipoGeneral = 
-  | "ley" | "decreto" | "resolucion" | "ordenanza" | "reglamento";
+// TipoGeneral is dynamically loaded from MongoDB and cached
+// Use string type for flexibility, actual values are fetched via getTipoGeneralValues()
+export type TipoGeneral = string;
 
 export type TipoDetalle = 
-  | "ley" | "decreto" | "resolucion" | "ordenanza" | "reglamento";
+  | "Ley" | "Decreto" | "Resolucion" | "Ordenanza" | "Reglamento";
 
 export type TipoContenido = 
   | "leg" | "jur" | "adm";
@@ -106,8 +107,8 @@ export interface Relacion {
   collection: string;
 }
 
-// New Paraguay-specific legislation interface matching the payload structure
-export interface ParaguayLegislationDoc {
+// Legislation interface matching the payload structure
+export interface LegislationDoc {
   content_hash: string;
   date_ts: number;
   fuente: string;
