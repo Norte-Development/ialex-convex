@@ -49,7 +49,7 @@ export default function NavBar() {
 
   return (
     <nav
-      className={`flex flex-row-reverse ${isInCaseContext ? "bg-[#D9D9D9]" : "bg-white"} fixed px-5 justify-between items-center py-1 h-[41px] w-full  text-foreground  top-0 left-0 z-50 mb-5`}
+      className={`flex flex-row-reverse bg-white fixed px-5 justify-between items-center py-1 h-[41px] w-full  text-foreground  top-0 left-0 z-50 mb-5`}
     >
       <div className={` flex  items-center gap-5`}>
         <div className="flex items-center justify-center gap-2">
