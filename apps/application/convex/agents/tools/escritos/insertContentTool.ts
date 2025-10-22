@@ -11,8 +11,13 @@ export const insertContentTool = createTool({
     html: z.any().describe("HTML string to insert"),
     placement: z.any().describe("Placement descriptor: {type:'documentStart'|'documentEnd'} | {type:'range', textStart, textEnd} | {type:'position', position}")
   }).required({escritoId: true, html: true, placement: true}),
-  handler: async (ctx: ToolCtx, args: any) => {
+  handler: async function* (ctx: ToolCtx, args: any) {
     const { caseId, userId } = getUserAndCaseIds(ctx.userId as string);
+
+    yield {
+      status: "Insertando contenido en el escrito",
+      content: ""
+    }
 
     await ctx.runQuery(internal.auth_utils.internalCheckNewCaseAccess, {
       userId: userId as Id<"users">,

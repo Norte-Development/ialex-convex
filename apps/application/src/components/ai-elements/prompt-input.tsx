@@ -13,7 +13,6 @@ import { cn } from "@/lib/utils";
 import type { ChatStatus } from "ai";
 import {
   Loader2Icon,
-  SendIcon,
   SquareIcon,
   XIcon,
   CircleArrowUpIcon,
@@ -155,6 +154,8 @@ export const PromptInputSubmit = ({
   size = "icon",
   status,
   children,
+  onClick,
+  type,
   ...props
 }: PromptInputSubmitProps) => {
   let Icon = <CircleArrowUpIcon className="size-4" />;
@@ -167,12 +168,20 @@ export const PromptInputSubmit = ({
     Icon = <XIcon className="size-4" />;
   }
 
+  // Handle button click for abort functionality
+  const handleClick = (e: React.MouseEvent<HTMLButtonElement>) => {
+    if (onClick) {
+      onClick(e);
+    }
+  };
+
   return (
     <Button
       className={cn("gap-1.5 rounded-lg", className)}
       size={size}
-      type="submit"
+      type={type || "submit"}
       variant={variant}
+      onClick={handleClick}
       {...props}
     >
       {children ?? Icon}

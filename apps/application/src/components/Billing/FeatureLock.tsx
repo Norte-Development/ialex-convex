@@ -36,7 +36,6 @@ export function FeatureLock({
   feature,
   children,
   fallback,
-  teamId,
   onUpgrade,
 }: FeatureLockProps) {
   // Get current user
@@ -49,7 +48,6 @@ export function FeatureLock({
       ? {
           userId: currentUser._id,
           feature,
-          teamId,
         }
       : "skip"
   );
