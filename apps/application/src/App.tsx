@@ -58,11 +58,8 @@ const HomeAgentChatPage = lazy(
 const EventosPage = lazy(() => import("./pages/EventosPage"));
 const EventDetailPage = lazy(() => import("./pages/EventDetailPage"));
 
-// Lazy load TestRunner for development
-const TestRunner = lazy(() =>
-  import("./components/HomeAgent/__tests__/TestRunner").then((module) => ({
-    default: module.TestRunner,
-  })),
+const CaseDocumentsPage = lazy(
+  () => import("./pages/CaseOpen/CaseDocumentsList"),
 );
 
 // Wrapper to provide CasePermissionsProvider with caseId from CaseContext
@@ -78,6 +75,8 @@ const CaseRoutesWrapper: React.FC = () => {
                 <Route index element={<CaseDetailPage />} />
                 <Route path="escritos" element={<EscritosPage />} />
                 <Route path="escritos/:escritoId" element={<EscritosPage />} />
+                <Route path="documentos" element={<CaseDocumentsPage />} />
+
                 <Route path="clientes" element={<CaseClientsPage />} />
                 <Route path="equipos" element={<CaseTeamsPage />} />
                 <Route path="modelos" element={<CaseModelPage />} />
