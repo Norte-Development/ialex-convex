@@ -11,6 +11,7 @@ interface TableControlsProps {
   pageSize: number
   onSortChange: (sortBy: SortBy | "relevancia", sortOrder: SortOrder) => void
   onPageSizeChange: (pageSize: number) => void
+  jurisdictionCounts?: Record<string, number>
 }
 
 export function TableControls({
@@ -23,19 +24,34 @@ export function TableControls({
   pageSize,
   onSortChange,
   onPageSizeChange,
+  jurisdictionCounts,
 }: TableControlsProps) {
+  const getJurisdictionLabel = (jur: string) => {
+    if (jur === "all") return "Todas"
+    if (jur === "nac") return "Nacional"
+    if (jur === "nacional") return "Nacional"
+    return jur.charAt(0).toUpperCase() + jur.slice(1)
+  }
+
+  const getJurisdictionLabelWithCount = (jur: string) => {
+    const label = getJurisdictionLabel(jur)
+    if (jur === "all" || !jurisdictionCounts) return label
+    const count = jurisdictionCounts[jur]
+    return count !== undefined ? `${label} (${count.toLocaleString()})` : label
+  }
+
   return (
     <div className="flex flex-wrap gap-4 items-center">
       <div className="flex items-center gap-2">
         <span className="text-sm font-medium text-gray-700">Jurisdicción:</span>
         <Select value={jurisdiction} onValueChange={onJurisdictionChange}>
-          <SelectTrigger className="w-[160px] bg-white">
+          <SelectTrigger className="w-[200px] bg-white">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            {jurisdictions.map((jurisdiction) => (
-              <SelectItem key={jurisdiction} value={jurisdiction}>
-                {jurisdiction === "nacional" ? "Nacional" : jurisdiction.charAt(0).toUpperCase() + jurisdiction.slice(1)}
+            {jurisdictions.map((jur) => (
+              <SelectItem key={jur} value={jur}>
+                {getJurisdictionLabelWithCount(jur)}
               </SelectItem>
             ))}
           </SelectContent>

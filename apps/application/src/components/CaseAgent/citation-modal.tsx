@@ -4,10 +4,11 @@ import { useAction, useQuery } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Download, FileText, Loader2 } from "lucide-react";
+import { Download, FileText, Loader2, Eye, EyeOff } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import type { Id } from "convex/_generated/dataModel";
+import DocumentViewer from "@/components/Documents/DocumentViewer";
 
 interface CitationModalProps {
   open: boolean;
@@ -31,6 +32,8 @@ export function CitationModal({
   citationType,
 }: CitationModalProps) {
   const [isDownloading, setIsDownloading] = useState(false);
+  const [showPreview, setShowPreview] = useState(false);
+  const [documentUrl, setDocumentUrl] = useState<string | null>(null);
 
   // Actions y queries
   const getNormativeAction = useAction(
@@ -59,24 +62,50 @@ export function CitationModal({
       : "skip",
   );
 
+  const getDocumentUrlForPreview = async () => {
+    if (!citationId || documentUrl) return documentUrl;
+
+    try {
+      let url: string | null = null;
+      
+      if (citationType === "doc") {
+        url = await getLibraryDocumentUrl({
+          documentId: citationId as Id<"libraryDocuments">,
+        });
+      } else if (citationType === "case-doc") {
+        url = await getCaseDocumentUrl({
+          documentId: citationId as Id<"documents">,
+        });
+      }
+
+      if (url) {
+        setDocumentUrl(url);
+        return url;
+      }
+      return null;
+    } catch (error: any) {
+      toast.error(error.message || "No se pudo obtener la URL del documento");
+      return null;
+    }
+  };
+
+  const handleTogglePreview = async () => {
+    if (!showPreview) {
+      const url = await getDocumentUrlForPreview();
+      if (url) {
+        setShowPreview(true);
+      }
+    } else {
+      setShowPreview(false);
+    }
+  };
+
   const handleDownloadDocument = async () => {
     if (!citationId) return;
 
     setIsDownloading(true);
     try {
-      let url: string | null = null;
-      
-      if (citationType === "doc") {
-        // Documento de biblioteca
-        url = await getLibraryDocumentUrl({
-          documentId: citationId as Id<"libraryDocuments">,
-        });
-      } else if (citationType === "case-doc") {
-        // Documento de caso
-        url = await getCaseDocumentUrl({
-          documentId: citationId as Id<"documents">,
-        });
-      }
+      const url = await getDocumentUrlForPreview();
 
       if (url) {
         window.open(url, "_blank");
@@ -188,15 +217,47 @@ export function CitationModal({
               </dl>
             </div>
 
-            {/* Botón de descarga */}
-            <Button
-              onClick={handleDownloadDocument}
-              disabled={isDownloading}
-              className="w-full"
-            >
-              <Download className="h-4 w-4 mr-2" />
-              {isDownloading ? "Descargando..." : "Descargar documento"}
-            </Button>
+            {/* Botones de acción */}
+            <div className="flex gap-2">
+              <Button
+                onClick={handleTogglePreview}
+                variant="outline"
+                className="flex-1"
+              >
+                {showPreview ? (
+                  <>
+                    <EyeOff className="h-4 w-4 mr-2" />
+                    Ocultar vista previa
+                  </>
+                ) : (
+                  <>
+                    <Eye className="h-4 w-4 mr-2" />
+                    Ver documento
+                  </>
+                )}
+              </Button>
+              <Button
+                onClick={handleDownloadDocument}
+                disabled={isDownloading}
+                className="flex-1"
+              >
+                <Download className="h-4 w-4 mr-2" />
+                {isDownloading ? "Descargando..." : "Descargar"}
+              </Button>
+            </div>
+
+            {/* Vista previa del documento */}
+            {showPreview && documentUrl && (
+              <div className="mt-4">
+                <DocumentViewer
+                  url={documentUrl}
+                  mimeType={libraryDocument.mimeType}
+                  title={libraryDocument.title}
+                  fileSize={libraryDocument.fileSize}
+                  heightClassName="h-[500px]"
+                />
+              </div>
+            )}
           </div>
         );
 
@@ -252,15 +313,47 @@ export function CitationModal({
               </dl>
             </div>
 
-            {/* Botón de descarga */}
-            <Button
-              onClick={handleDownloadDocument}
-              disabled={isDownloading}
-              className="w-full"
-            >
-              <Download className="h-4 w-4 mr-2" />
-              {isDownloading ? "Descargando..." : "Descargar documento"}
-            </Button>
+            {/* Botones de acción */}
+            <div className="flex gap-2">
+              <Button
+                onClick={handleTogglePreview}
+                variant="outline"
+                className="flex-1"
+              >
+                {showPreview ? (
+                  <>
+                    <EyeOff className="h-4 w-4 mr-2" />
+                    Ocultar vista previa
+                  </>
+                ) : (
+                  <>
+                    <Eye className="h-4 w-4 mr-2" />
+                    Ver documento
+                  </>
+                )}
+              </Button>
+              <Button
+                onClick={handleDownloadDocument}
+                disabled={isDownloading}
+                className="flex-1"
+              >
+                <Download className="h-4 w-4 mr-2" />
+                {isDownloading ? "Descargando..." : "Descargar"}
+              </Button>
+            </div>
+
+            {/* Vista previa del documento */}
+            {showPreview && documentUrl && (
+              <div className="mt-4">
+                <DocumentViewer
+                  url={documentUrl}
+                  mimeType={caseDocument.mimeType}
+                  title={caseDocument.title}
+                  fileSize={caseDocument.fileSize}
+                  heightClassName="h-[500px]"
+                />
+              </div>
+            )}
           </div>
         );
 

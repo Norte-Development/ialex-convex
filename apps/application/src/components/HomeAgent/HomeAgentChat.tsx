@@ -13,7 +13,7 @@
  * ```
  */
 
-import { useState } from "react";
+import { useState, memo } from "react";
 import { useNavigate } from "react-router-dom";
 import { useThreadMessages, toUIMessages } from "@convex-dev/agent/react";
 import { api } from "../../../convex/_generated/api";
@@ -36,6 +36,11 @@ import {
 } from "@/components/ai-elements/prompt-input";
 import { Response } from "@/components/ai-elements/response";
 import { Actions, Action } from "@/components/ai-elements/actions";
+import {
+  Reasoning,
+  ReasoningContent,
+  ReasoningTrigger,
+} from "@/components/ai-elements/reasoning";
 import { Copy, RotateCw, Check, AlertCircle } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { es } from "date-fns/locale";
@@ -54,6 +59,229 @@ export interface HomeAgentChatProps {
   /** Clase CSS personalizada para el contenedor */
   className?: string;
 }
+
+interface HomeAgentMessageProps {
+  msg: any;
+  copiedMessageId: string | null;
+  onCopyMessage: (messageId: string, text: string) => void;
+  onCitationClick: (id: string, type: string) => void;
+  onRetry?: (userMessage: string) => void;
+}
+
+/**
+ * Componente individual de mensaje memoizado para optimizar performance
+ */
+const HomeAgentMessageInner = ({
+  msg,
+  copiedMessageId,
+  onCopyMessage,
+  onCitationClick,
+  onRetry,
+}: HomeAgentMessageProps) => {
+  const messageText =
+    msg.text ||
+    msg.parts
+      ?.filter((p: any) => p.type === "text")
+      .map((p: any) => p.text)
+      .join("") ||
+    "";
+
+  const isUser = msg.role === "user";
+  const messageId = msg._id || msg.id;
+  const isCopied = copiedMessageId === messageId;
+
+  // Check for active tools
+  const toolCalls = msg.parts?.filter((p: any) => p.type?.startsWith("tool-")) || [];
+  const allToolsCompleted = toolCalls.length > 0 && toolCalls.every((p: any) => p.state === "output-available");
+  const hasActiveTools = toolCalls.length > 0 && !allToolsCompleted;
+
+  return (
+    <Message key={messageId} from={msg.role}>
+      <MessageContent>
+        {/* Show thinking indicator if message has no parts yet, is empty, or only has tools without text */}
+        {!isUser &&
+          (msg.status === "streaming" || hasActiveTools) &&
+          (!messageText || messageText.trim() === "") && (
+            <div className="flex items-center gap-2">
+              <div className="flex gap-1">
+                <div
+                  className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"
+                  style={{ animationDelay: "0ms" }}
+                />
+                <div
+                  className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"
+                  style={{ animationDelay: "150ms" }}
+                />
+                <div
+                  className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"
+                  style={{ animationDelay: "300ms" }}
+                />
+              </div>
+              <span className="text-xs text-gray-500 italic">
+                {hasActiveTools ? "Procesando herramientas..." : "Pensando..."}
+              </span>
+            </div>
+          )}
+
+        {/* Renderizar parts en orden cronológico */}
+        {msg.parts && msg.parts.length > 0 ? (
+          msg.parts.map((part: any, partIndex: number) => {
+            // Renderizar texto
+            if (part.type === "text") {
+              const displayText = part.text;
+
+              if (isUser) {
+                return (
+                  <div
+                    key={partIndex}
+                    className="whitespace-pre-wrap text-sm"
+                  >
+                    {displayText || "..."}
+                  </div>
+                );
+              } else {
+                return (
+                  <Response
+                    key={partIndex}
+                    className="text-sm"
+                    onCitationClick={(id, type) => {
+                      onCitationClick(id, type);
+                    }}
+                  >
+                    {displayText || "..."}
+                  </Response>
+                );
+              }
+            }
+
+            // Renderizar reasoning
+            if (part.type === "reasoning") {
+              const isLastPart = partIndex === (msg.parts?.length || 0) - 1;
+              const reasoningIsStreaming = msg.status === "streaming" && isLastPart;
+
+              return (
+                <Reasoning
+                  key={`${messageId}-${partIndex}`}
+                  defaultOpen={false}
+                  isStreaming={reasoningIsStreaming}
+                >
+                  <ReasoningTrigger className="!text-[10px]" />
+                  <ReasoningContent className="group relative !px-3 !py-2 !text-[10px] space-y-2 max-w-[85%]">
+                    {part.text}
+                  </ReasoningContent>
+                </Reasoning>
+              );
+            }
+
+            // Renderizar tool calls
+            if (part.type?.startsWith("tool-")) {
+              const aiSDKState = part.state;
+              const outputType = part.output?.type as string | undefined;
+              const isError =
+                aiSDKState === "output-available" &&
+                (outputType?.startsWith("error-") ?? false);
+
+              const toolState = isError
+                ? "output-error"
+                : aiSDKState === "output-available"
+                  ? "output-available"
+                  : aiSDKState === "input-available"
+                    ? "input-available"
+                    : "input-streaming";
+
+              return (
+                <Tool
+                  key={partIndex}
+                  className="mb-2"
+                  type={part.type.replace("tool-", "")}
+                  state={toolState}
+                  output={part.output as ToolUIPart["output"]}
+                  input={part.input}
+                />
+              );
+            }
+
+            return null;
+          })
+        ) : isUser ? (
+          <div className="whitespace-pre-wrap text-sm">
+            {messageText || "..."}
+          </div>
+        ) : (
+          <Response
+            className="text-sm"
+            onCitationClick={(id, type) => {
+              onCitationClick(id, type);
+            }}
+          >
+            {messageText || "..."}
+          </Response>
+        )}
+        <div className="flex items-center justify-between mt-2">
+          <div className="text-[10px] opacity-70">
+            {msg._creationTime
+              ? formatDistanceToNow(msg._creationTime, {
+                  addSuffix: true,
+                  locale: es,
+                })
+              : "ahora"}
+          </div>
+
+          {/* Actions - Solo para mensajes de la IA */}
+          {!isUser && (
+            <Actions>
+              <Action
+                tooltip={isCopied ? "¡Copiado!" : "Copiar"}
+                onClick={() => onCopyMessage(messageId, messageText)}
+              >
+                {isCopied ? (
+                  <Check className="size-4" />
+                ) : (
+                  <Copy className="size-4" />
+                )}
+              </Action>
+
+              {onRetry && (
+                <Action
+                  tooltip="Reintentar"
+                  onClick={() => onRetry(messageText)}
+                >
+                  <RotateCw className="size-4" />
+                </Action>
+              )}
+            </Actions>
+          )}
+        </div>
+
+        {msg.status === "failed" && (
+          <div className="flex items-center gap-2 mt-2 text-red-600 text-sm">
+            <AlertCircle className="size-4" />
+            <span>Error al procesar el mensaje</span>
+          </div>
+        )}
+      </MessageContent>
+    </Message>
+  );
+};
+
+// Memoizar el componente con comparación personalizada
+export const HomeAgentMessage = memo(HomeAgentMessageInner, (prevProps, nextProps) => {
+  const prevMsg = prevProps.msg;
+  const nextMsg = nextProps.msg;
+  
+  return (
+    (prevMsg.id || prevMsg._id) === (nextMsg.id || nextMsg._id) &&
+    prevMsg.status === nextMsg.status &&
+    prevMsg.parts?.length === nextMsg.parts?.length &&
+    prevMsg.parts?.every((p: any, i: number) => 
+      p.type === nextMsg.parts?.[i]?.type &&
+      (p.type === "text" ? p.text === nextMsg.parts?.[i]?.text : true)
+    ) &&
+    prevProps.copiedMessageId === nextProps.copiedMessageId
+  );
+});
+
+HomeAgentMessage.displayName = 'HomeAgentMessage';
 
 /**
  * Componente de chat con streaming para HomeAgent
@@ -200,173 +428,21 @@ export function HomeAgentChat({
               <div className="text-muted-foreground">No hay mensajes</div>
             </div>
           ) : (
-            messages.map((msg: any, index: number) => {
-              const messageText =
-                msg.text ||
-                msg.parts
-                  ?.filter((p: any) => p.type === "text")
-                  .map((p: any) => p.text)
-                  .join("") ||
-                "";
-
-              const isUser = msg.role === "user";
-              const messageId = msg._id || msg.id;
-              const isCopied = copiedMessageId === messageId;
-
-              // Encontrar el último mensaje del usuario antes de este mensaje de IA
-              const lastUserMessage =
-                !isUser && index > 0
-                  ? messages[index - 1]?.role === "user"
-                    ? messages[index - 1]
-                    : null
-                  : null;
-
-              return (
-                <Message key={messageId} from={msg.role}>
-                  <MessageContent>
-                    {/* Renderizar parts en orden cronológico */}
-                    {msg.parts && msg.parts.length > 0 ? (
-                      msg.parts.map((part: any, partIndex: number) => {
-                        // Renderizar texto
-                        if (part.type === "text") {
-                          const displayText = part.text;
-
-                          if (isUser) {
-                            return (
-                              <div
-                                key={partIndex}
-                                className="whitespace-pre-wrap text-sm"
-                              >
-                                {displayText || "..."}
-                              </div>
-                            );
-                          } else {
-                            return (
-                              <Response
-                                key={partIndex}
-                                className="text-sm"
-                                onCitationClick={(id, type) => {
-                                  console.log("Citation clicked:", {
-                                    id,
-                                    type,
-                                  });
-                                  setCitationModalOpen(true);
-                                  setSelectedCitationId(id);
-                                  setSelectedCitationType(type);
-                                }}
-                              >
-                                {displayText || "..."}
-                              </Response>
-                            );
-                          }
-                        }
-
-                        // Renderizar tool calls
-                        if (part.type?.startsWith("tool-")) {
-                          const aiSDKState = part.state;
-                          const outputType = part.output?.type as
-                            | string
-                            | undefined;
-                          const isError =
-                            aiSDKState === "output-available" &&
-                            (outputType?.startsWith("error-") ?? false);
-
-                          // Mapear estados a estados del componente Tool
-                          const toolState = isError
-                            ? "output-error"
-                            : aiSDKState === "output-available"
-                              ? "output-available"
-                              : aiSDKState === "input-available"
-                                ? "input-available"
-                                : "input-streaming";
-
-                          return (
-                            <Tool
-                              key={partIndex}
-                              className="mb-2"
-                              type={part.type.replace("tool-", "")}
-                              state={toolState}
-                              output={part.output as ToolUIPart["output"]}
-                              // input={part.input}
-                            />
-                          );
-                        }
-
-                        return null;
-                      })
-                    ) : // Fallback si no hay parts
-                    isUser ? (
-                      <div className="whitespace-pre-wrap text-sm">
-                        {messageText || "..."}
-                      </div>
-                    ) : (
-                      <Response
-                        className="text-sm"
-                        onCitationClick={(id, type) => {
-                          console.log("Citation clicked:", { id, type });
-                          setCitationModalOpen(true);
-                          setSelectedCitationId(id);
-                          setSelectedCitationType(type);
-                        }}
-                      >
-                        {messageText || "..."}
-                      </Response>
-                    )}
-                    <div className="flex items-center justify-between mt-2">
-                      <div className="text-[10px] opacity-70">
-                        {msg._creationTime
-                          ? formatDistanceToNow(msg._creationTime, {
-                              addSuffix: true,
-                              locale: es,
-                            })
-                          : "ahora"}
-                      </div>
-
-                      {/* Actions - Solo para mensajes de la IA */}
-                      {!isUser && (
-                        <Actions>
-                          <Action
-                            tooltip={isCopied ? "¡Copiado!" : "Copiar"}
-                            onClick={() =>
-                              handleCopyMessage(messageId, messageText)
-                            }
-                          >
-                            {isCopied ? (
-                              <Check className="size-4" />
-                            ) : (
-                              <Copy className="size-4" />
-                            )}
-                          </Action>
-
-                          {lastUserMessage && (
-                            <Action
-                              tooltip="Regenerar respuesta"
-                              onClick={() => {
-                                const userText =
-                                  lastUserMessage.text ||
-                                  lastUserMessage.parts
-                                    ?.filter((p: any) => p.type === "text")
-                                    .map((p: any) => p.text)
-                                    .join("") ||
-                                  "";
-                                handleRegenerateMessage(userText);
-                              }}
-                              disabled={isInputDisabled}
-                            >
-                              <RotateCw className="size-4" />
-                            </Action>
-                          )}
-                        </Actions>
-                      )}
-                    </div>
-                  </MessageContent>
-                  <MessageAvatar
-                    src={isUser ? "" : "/ialex-logo.png"}
-                    name={isUser ? "Tú" : "iAlex"}
-                  />
-                </Message>
-              );
-            })
+            messages.map((msg: any) => (
+              <HomeAgentMessage
+                key={msg._id || msg.id}
+                msg={msg}
+                copiedMessageId={copiedMessageId}
+                onCopyMessage={handleCopyMessage}
+                onCitationClick={(id, type) => {
+                  console.log("Citation clicked:", { id, type });
+                  setCitationModalOpen(true);
+                  setSelectedCitationId(id);
+                  setSelectedCitationType(type);
+                }}
+                onRetry={handleRegenerateMessage}
+              />
+            ))
           )}
         </ConversationContent>
         <ConversationScrollButton />

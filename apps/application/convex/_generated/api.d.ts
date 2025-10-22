@@ -114,6 +114,7 @@ import type * as rag_qdrantUtils_caseDocuments from "../rag/qdrantUtils/caseDocu
 import type * as rag_qdrantUtils_client from "../rag/qdrantUtils/client.js";
 import type * as rag_qdrantUtils_index from "../rag/qdrantUtils/index.js";
 import type * as rag_qdrantUtils_legislation from "../rag/qdrantUtils/legislation.js";
+import type * as rag_qdrantUtils_legislationConfig from "../rag/qdrantUtils/legislationConfig.js";
 import type * as rag_qdrantUtils_libraryDocuments from "../rag/qdrantUtils/libraryDocuments.js";
 import type * as rag_qdrantUtils_types from "../rag/qdrantUtils/types.js";
 import type * as rag_rag from "../rag/rag.js";
@@ -246,6 +247,7 @@ declare const fullApi: ApiFromModules<{
   "rag/qdrantUtils/client": typeof rag_qdrantUtils_client;
   "rag/qdrantUtils/index": typeof rag_qdrantUtils_index;
   "rag/qdrantUtils/legislation": typeof rag_qdrantUtils_legislation;
+  "rag/qdrantUtils/legislationConfig": typeof rag_qdrantUtils_legislationConfig;
   "rag/qdrantUtils/libraryDocuments": typeof rag_qdrantUtils_libraryDocuments;
   "rag/qdrantUtils/types": typeof rag_qdrantUtils_types;
   "rag/rag": typeof rag_rag;

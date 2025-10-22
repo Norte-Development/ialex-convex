@@ -86,6 +86,7 @@ export const StaticControls = memo(function StaticControls({
           pageSize={pageSize}
           onSortChange={onSortChange}
           onPageSizeChange={onPageSizeChange}
+          jurisdictionCounts={facets?.jurisdicciones}
         />
 
         <FiltersPanel

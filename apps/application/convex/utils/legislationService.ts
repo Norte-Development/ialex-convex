@@ -2,6 +2,7 @@
 
 import { MongoClient, Filter, Sort, Document, ObjectId } from 'mongodb';
 import { NormativeDoc, NormativeFilters, ListNormativesParams, SortBy, SortOrder } from '../../types/legislation';
+import { LEGISLATION_COLLECTION_NAME } from '../rag/qdrantUtils/legislationConfig';
 
 // External service clients - lazy initialization
 let mongoClient: MongoClient | null = null;
@@ -15,6 +16,111 @@ const getMongoClient = (): MongoClient => {
     mongoClient = new MongoClient(process.env.MONGODB_URI);
   }
   return mongoClient;
+};
+
+// Cache for tipo_general enum values
+interface TipoGeneralCache {
+  values: string[];
+  timestamp: number;
+}
+
+let tipoGeneralCache: TipoGeneralCache | null = null;
+const CACHE_DURATION_MS = 24 * 60 * 60 * 1000; // 24 hours
+
+// Get distinct tipo_general values with caching
+export const getTipoGeneralValues = async (): Promise<string[]> => {
+  const now = Date.now();
+  
+  // Return cached values if still valid
+  if (tipoGeneralCache && (now - tipoGeneralCache.timestamp) < CACHE_DURATION_MS) {
+    console.log('Returning cached tipo_general values');
+    return tipoGeneralCache.values;
+  }
+  
+  try {
+    console.log('Fetching distinct tipo_general values from MongoDB...');
+    const mongoClient = getMongoClient();
+    const db = mongoClient.db(process.env.MONGODB_DATABASE_NAME);
+    const collection = db.collection(LEGISLATION_COLLECTION_NAME);
+    
+    const distinctValues = await collection.distinct('tipo_general', {
+      tipo_general: { $exists: true, $ne: null }
+    });
+    
+    // Filter out null/undefined and sort
+    const validValues = distinctValues
+      .filter((val): val is string => typeof val === 'string' && val.length > 0)
+      .sort();
+    
+    // Update cache
+    tipoGeneralCache = {
+      values: validValues,
+      timestamp: now
+    };
+    
+    console.log(`Cached ${validValues.length} tipo_general values:`, validValues);
+    return validValues;
+  } catch (error) {
+    console.error('Error fetching tipo_general values:', error);
+    // Return cached values if available, even if expired
+    if (tipoGeneralCache) {
+      console.warn('Using expired cache due to error');
+      return tipoGeneralCache.values;
+    }
+    throw new Error('Failed to fetch tipo_general values');
+  }
+};
+
+// Cache for jurisdiccion enum values
+interface JurisdiccionCache {
+  values: string[];
+  timestamp: number;
+}
+
+let jurisdiccionCache: JurisdiccionCache | null = null;
+
+// Get distinct jurisdiccion values with caching
+export const getJurisdiccionValues = async (): Promise<string[]> => {
+  const now = Date.now();
+  
+  // Return cached values if still valid
+  if (jurisdiccionCache && (now - jurisdiccionCache.timestamp) < CACHE_DURATION_MS) {
+    console.log('Returning cached jurisdiccion values');
+    return jurisdiccionCache.values;
+  }
+  
+  try {
+    console.log('Fetching distinct jurisdiccion values from MongoDB...');
+    const mongoClient = getMongoClient();
+    const db = mongoClient.db(process.env.MONGODB_DATABASE_NAME);
+    const collection = db.collection(LEGISLATION_COLLECTION_NAME);
+    
+    const distinctValues = await collection.distinct('jurisdiccion', {
+      jurisdiccion: { $exists: true, $ne: null }
+    });
+    
+    // Filter out null/undefined and sort
+    const validValues = distinctValues
+      .filter((val): val is string => typeof val === 'string' && val.length > 0)
+      .sort();
+    
+    // Update cache
+    jurisdiccionCache = {
+      values: validValues,
+      timestamp: now
+    };
+    
+    console.log(`Cached ${validValues.length} jurisdiccion values:`, validValues);
+    return validValues;
+  } catch (error) {
+    console.error('Error fetching jurisdiccion values:', error);
+    // Return cached values if available, even if expired
+    if (jurisdiccionCache) {
+      console.warn('Using expired cache due to error');
+      return jurisdiccionCache.values;
+    }
+    throw new Error('Failed to fetch jurisdiccion values');
+  }
 };
 
 // // Utility function to convert documentId to ObjectId if it's a valid ObjectId string
@@ -35,20 +141,22 @@ const getMongoClient = (): MongoClient => {
 // Build MongoDB filter from filters object
 const buildMongoFilter = (filters: NormativeFilters): Filter<Document> => {
   const mongoFilter: Filter<Document> = {};
-  const orConditions: any[] = [];
+  const andConditions: any[] = [];
 
   // Jurisdiccion filter
   if (filters.jurisdiccion) {
     mongoFilter.jurisdiccion = filters.jurisdiccion;
   }
 
-  // Tipo norma filter - check both old and new field names
+  // Tipo norma filter - check both old and new field names (OR within type variations)
   if (filters.type) {
-    orConditions.push(
-      { tipo_general: filters.type },
-      { tipo_norma: filters.type },
-      { type: filters.type }
-    );
+    andConditions.push({
+      $or: [
+        { tipo_general: filters.type },
+        { tipo_norma: filters.type },
+        { type: filters.type }
+      ]
+    });
   }
 
   // New field filters
@@ -70,47 +178,55 @@ const buildMongoFilter = (filters: NormativeFilters): Filter<Document> => {
     mongoFilter.estado = filters.estado;
   }
 
-  // Date range filters
+  // Date range filters - using timestamp fields (sanction_ts)
   if (filters.sanction_date_from || filters.sanction_date_to) {
-    mongoFilter.sanction_date = {};
+    mongoFilter.sanction_ts = {};
     if (filters.sanction_date_from) {
-      mongoFilter.sanction_date.$gte = new Date(filters.sanction_date_from);
+      // Convert date string to Unix timestamp in seconds
+      mongoFilter.sanction_ts.$gte = Math.floor(new Date(filters.sanction_date_from).getTime() / 1000);
     }
     if (filters.sanction_date_to) {
-      mongoFilter.sanction_date.$lte = new Date(filters.sanction_date_to);
+      // Convert date string to Unix timestamp in seconds
+      mongoFilter.sanction_ts.$lte = Math.floor(new Date(filters.sanction_date_to).getTime() / 1000);
     }
   }
 
-  // Publication date range
+  // Publication date range - using timestamp fields (publication_ts)
   if (filters.publication_date_from || filters.publication_date_to) {
-    mongoFilter.publication_date = {};
+    mongoFilter.publication_ts = {};
     if (filters.publication_date_from) {
-      mongoFilter.publication_date.$gte = new Date(filters.publication_date_from);
+      // Convert date string to Unix timestamp in seconds
+      mongoFilter.publication_ts.$gte = Math.floor(new Date(filters.publication_date_from).getTime() / 1000);
     }
     if (filters.publication_date_to) {
-      mongoFilter.publication_date.$lte = new Date(filters.publication_date_to);
+      // Convert date string to Unix timestamp in seconds
+      mongoFilter.publication_ts.$lte = Math.floor(new Date(filters.publication_date_to).getTime() / 1000);
     }
   }
 
-  // Number filter - check both old and new field names
+  // Number filter - check both old and new field names (OR within number variations)
   if (filters.number) {
-    orConditions.push(
-      { number: filters.number },
-      { numero: filters.number }
-    );
+    andConditions.push({
+      $or: [
+        { number: filters.number },
+        { numero: filters.number }
+      ]
+    });
   }
 
-  // Text search in title and content
+  // Text search in title and content (OR between title and content)
   if (filters.search) {
-    orConditions.push(
-      { title: { $regex: filters.search, $options: 'i' } },
-      { content: { $regex: filters.search, $options: 'i' } }
-    );
+    andConditions.push({
+      $or: [
+        { title: { $regex: filters.search, $options: 'i' } },
+        { content: { $regex: filters.search, $options: 'i' } }
+      ]
+    });
   }
 
-  // Add $or conditions if any exist
-  if (orConditions.length > 0) {
-    mongoFilter.$or = orConditions;
+  // Add $and conditions if any exist
+  if (andConditions.length > 0) {
+    mongoFilter.$and = andConditions;
   }
 
   return mongoFilter;
@@ -122,13 +238,15 @@ const buildMongoSort = (sortBy?: SortBy, sortOrder: SortOrder = 'desc'): Sort =>
   
   switch (sortBy) {
     case 'sanction_date':
-      return { sanction_date: order };
+      // Use sanction_ts timestamp field with _id as secondary sort for stability
+      return { sanction_ts: order, _id: -1 };
     case 'updated_at':
-      return { updated_at: order };
+      return { updated_at: order, _id: -1 };
     case 'created_at':
-      return { indexed_at: order }; // using indexed_at as created_at equivalent
+      return { indexed_at: order, _id: -1 }; // using indexed_at as created_at equivalent
     default:
-      return { sanction_date: order }; // default sort by sanction date
+      // Default sort by sanction_ts timestamp with _id as secondary sort
+      return { sanction_ts: order, _id: -1 };
   }
 };
 
@@ -146,9 +264,8 @@ export interface PaginatedResult<T> {
 
 export const getNormatives = async (params: ListNormativesParams = {}): Promise<PaginatedResult<NormativeDoc>> => {
   const mongoClient = getMongoClient();
-  const db = mongoClient.db('ialex_legislation');
-  const collection = db.collection('ialex_legislation_py');
-
+  const db = mongoClient.db(process.env.MONGODB_DATABASE_NAME);
+  const collection = db.collection(LEGISLATION_COLLECTION_NAME);
   const {
     filters = {},
     limit = 20,
@@ -192,27 +309,38 @@ export const getNormatives = async (params: ListNormativesParams = {}): Promise<
       .toArray();
 
     // Map normatives to ensure consistent data structure
-    const mappedNormatives: NormativeDoc[] = normatives.map((normative) => ({
-      _id: normative._id.toString(),
-      document_id: normative.document_id,
-      type: normative.tipo_general || normative.tipo_norma || normative.type,
-      title: normative.title,
-      jurisdiccion: normative.jurisdiccion,
-      estado: normative.estado,
-      country_code: normative.country_code,
-      numero: normative.number || normative.numero,
-      fuente: normative.fuente,
-      dates: {
-        publication_date: normative.publication_date,
-        sanction_date: normative.sanction_date,
-        indexed_at: normative.indexed_at
-      },
-      materia: normative.materia,
-      tags: normative.tags,
-      subestado: normative.subestado,
-      resumen: normative.resumen,
-      url: normative.url
-    }));
+    const mappedNormatives: NormativeDoc[] = normatives.map((normative) => {
+      // Convert timestamps to ISO date strings
+      const publicationDate = normative.publication_ts 
+        ? new Date(normative.publication_ts * 1000).toISOString()
+        : normative.publication_date;
+      
+      const sanctionDate = normative.sanction_ts
+        ? new Date(normative.sanction_ts * 1000).toISOString()
+        : normative.sanction_date;
+
+      return {
+        _id: normative._id.toString(),
+        document_id: normative.document_id,
+        type: normative.tipo_general || normative.tipo_norma || normative.type,
+        title: normative.title,
+        jurisdiccion: normative.jurisdiccion,
+        estado: normative.estado,
+        country_code: normative.country_code,
+        numero: normative.number || normative.numero,
+        fuente: normative.fuente,
+        dates: {
+          publication_date: publicationDate,
+          sanction_date: sanctionDate,
+          indexed_at: normative.indexed_at
+        },
+        materia: normative.materia,
+        tags: normative.tags,
+        subestado: normative.subestado,
+        resumen: normative.resumen,
+        url: normative.url
+      };
+    });
 
     // Calculate pagination info
     const page = Math.floor(validatedOffset / validatedLimit) + 1;
@@ -238,8 +366,8 @@ export const getNormatives = async (params: ListNormativesParams = {}): Promise<
 // Get a single normative by document_id (limited fields, no content)
 export const getNormativeById = async (documentId: string): Promise<NormativeDoc | null> => {
   const mongoClient = getMongoClient();
-  const db = mongoClient.db('ialex_legislation');
-  const collection = db.collection('ialex_legislation_py');
+  const db = mongoClient.db(process.env.MONGODB_DATABASE_NAME);
+  const collection = db.collection(LEGISLATION_COLLECTION_NAME);
 
   try {
 
@@ -268,6 +396,15 @@ export const getNormativeById = async (documentId: string): Promise<NormativeDoc
       return null;
     }
 
+    // Convert timestamps to ISO date strings
+    const publicationDate = normative.publication_ts 
+      ? new Date(normative.publication_ts * 1000).toISOString()
+      : normative.publication_date;
+    
+    const sanctionDate = normative.sanction_ts
+      ? new Date(normative.sanction_ts * 1000).toISOString()
+      : normative.sanction_date;
+
     return {
       _id: normative._id.toString(),
       document_id: normative.document_id,
@@ -279,8 +416,8 @@ export const getNormativeById = async (documentId: string): Promise<NormativeDoc
       numero: normative.number || normative.numero,
       fuente: normative.fuente,
       dates: {
-        publication_date: normative.publication_date,
-        sanction_date: normative.sanction_date,
+        publication_date: publicationDate,
+        sanction_date: sanctionDate,
         indexed_at: normative.indexed_at
       },
       materia: normative.materia,
@@ -299,8 +436,8 @@ export const getNormativeById = async (documentId: string): Promise<NormativeDoc
 // Get facets for filter options
 export const getNormativesFacets = async (filters: NormativeFilters = {}) => {
   const mongoClient = getMongoClient();
-  const db = mongoClient.db('ialex_legislation');
-  const collection = db.collection('ialex_legislation_py');
+  const db = mongoClient.db(process.env.MONGODB_DATABASE_NAME);
+  const collection = db.collection(LEGISLATION_COLLECTION_NAME);
 
   const baseFilter = buildMongoFilter(filters);
 
@@ -323,23 +460,20 @@ export const getNormativesFacets = async (filters: NormativeFilters = {}) => {
           ],
           years: [
             {
+              $match: {
+                sanction_ts: { $exists: true, $ne: null }
+              }
+            },
+            {
               $addFields: {
-                parsedSanctionDate: {
-                  $dateFromString: {
-                    dateString: '$sanction_date',
-                    onError: null
-                  }
+                sanctionDate: {
+                  $toDate: { $multiply: ['$sanction_ts', 1000] }
                 }
               }
             },
             {
-              $match: {
-                parsedSanctionDate: { $ne: null }
-              }
-            },
-            {
               $group: {
-                _id: { $year: '$parsedSanctionDate' },
+                _id: { $year: '$sanctionDate' },
                 count: { $sum: 1 }
               }
             },
