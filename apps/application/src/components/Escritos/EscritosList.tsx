@@ -1,12 +1,31 @@
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { FileText, Calendar, Building, Hash, ArrowRight } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { Link2, Download, Pencil, MoreVertical, ChevronUp } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import EscritosLoadingState from "./EscritosLoadingState";
 import EscritosEmptyState from "./EscritosEmptyState";
 import { usePermissions } from "@/context/CasePermissionsContext";
+import { ACCESS_LEVELS } from "@/permissions/types";
 import type { Id } from "../../../convex/_generated/dataModel";
+import { api } from "../../../convex/_generated/api";
+import { useQuery, useMutation } from "convex/react";
+import { format } from "date-fns";
+import { formatDistanceToNow } from "date-fns";
+import { es } from "date-fns/locale";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  DropdownMenuSeparator,
+} from "@/components/ui/dropdown-menu";
 
 export default function EscritosList({
   all_escritos,
@@ -16,7 +35,7 @@ export default function EscritosList({
   caseId?: Id<"cases">;
   templateId?: Id<"modelos">;
 }) {
-  const { can } = usePermissions();
+  const { can, hasAccessLevel } = usePermissions();
   const navigate = useNavigate();
 
   if (all_escritos === undefined) return <EscritosLoadingState />;
@@ -31,62 +50,167 @@ export default function EscritosList({
       </div>
     );
 
+  const formatDate = (ts?: number) =>
+    ts ? format(new Date(ts), "dd/MM/yyyy") : "-";
+
+  const formatAgo = (ts?: number) =>
+    ts
+      ? formatDistanceToNow(new Date(ts), { addSuffix: true, locale: es })
+      : "-";
+
   return (
     <div className="space-y-6 p-6">
-      <div className="text-center space-y-2">
-        <h1 className="text-3xl font-bold text-gray-900">Escritos del Caso</h1>
-        <p className="text-gray-600 text-lg">
-          Selecciona un escrito para editar o revisar
-        </p>
+      <div className="space-y-1">
+        <h1 className="text-2xl font-semibold text-gray-900">Escritos</h1>
+        <p className="text-gray-600">Lista de escritos del caso</p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {all_escritos?.map((escrito) => (
-          <Card
-            key={escrito._id}
-            className="hover:shadow-lg transition-all cursor-pointer group"
-            onClick={() =>
-              navigate(`/caso/${caseId}/escritos/${escrito._id}`)
-            }
-          >
-            <CardHeader className="pb-3">
-              <div className="flex items-start justify-between">
-                <div>
-                  <CardTitle className="text-lg group-hover:text-blue-600">
-                    {escrito.title}
-                  </CardTitle>
-                  <Badge variant="outline" className="mt-2 text-xs">
-                    {escrito.status === "borrador" ? "Borrador" : "Terminado"}
-                  </Badge>
-                </div>
-                <ArrowRight className="h-5 w-5 text-gray-400 group-hover:text-blue-600" />
+      {/** Mostrar acciones solo para ADMIN */}
+      {/** Determina si se renderiza la columna de acciones */}
+      {/** Admin = ADVANCED+? No, estrictamente ADMIN según guía */}
+
+      <Table className="min-w-[720px]">
+        <TableHeader>
+          <TableRow>
+            <TableHead className="w-8">
+              <Checkbox aria-label="Seleccionar todos" />
+            </TableHead>
+            <TableHead>Nombre</TableHead>
+            <TableHead>Subido por</TableHead>
+            <TableHead className="min-w-[140px]">
+              <div className="inline-flex items-center gap-1">
+                Creado el
+                <ChevronUp className="h-3 w-3 text-gray-400" />
               </div>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              {escrito.presentationDate && (
-                <div className="flex items-center text-sm text-gray-600 gap-2">
-                  <Calendar className="h-4 w-4" /> {escrito.presentationDate}
-                </div>
-              )}
-              {escrito.courtName && (
-                <div className="flex items-center text-sm text-gray-600 gap-2">
-                  <Building className="h-4 w-4" /> {escrito.courtName}
-                </div>
-              )}
-              {escrito.expedientNumber && (
-                <div className="flex items-center text-sm text-gray-600 gap-2">
-                  <Hash className="h-4 w-4" /> Exp. {escrito.expedientNumber}
-                </div>
-              )}
-
-              <Button className="w-full mt-2" disabled={!can.escritos.read}>
-                <FileText className="h-4 w-4 mr-2" />
-                Abrir escrito
-              </Button>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+            </TableHead>
+            <TableHead>Estado</TableHead>
+            <TableHead>Modificado</TableHead>
+            {hasAccessLevel(ACCESS_LEVELS.ADMIN) && (
+              <TableHead className="text-right w-24">Acciones</TableHead>
+            )}
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {all_escritos?.map((escrito) => (
+            <EscritoRow
+              key={escrito._id}
+              escrito={escrito}
+              onOpen={() => navigate(`/caso/${caseId}/escritos/${escrito._id}`)}
+              formatDate={formatDate}
+              formatAgo={formatAgo}
+              showActions={hasAccessLevel(ACCESS_LEVELS.ADMIN)}
+            />
+          ))}
+        </TableBody>
+      </Table>
     </div>
+  );
+}
+
+function EscritoRow({
+  escrito,
+  onOpen,
+  formatDate,
+  formatAgo,
+  showActions,
+}: {
+  escrito: any;
+  onOpen: () => void;
+  formatDate: (ts?: number) => string;
+  formatAgo: (ts?: number) => string;
+  showActions: boolean;
+}) {
+  // Fetch uploader name
+  const user = useQuery(api.functions.users.getUserById, {
+    userId: escrito.createdBy,
+  });
+
+  // Mutations (admin-only actions are protected server-side too)
+  const archiveEscrito = useMutation(api.functions.documents.archiveEscrito);
+
+  const handleArchive = async () => {
+    const confirmed = window.confirm(
+      "¿Archivar este escrito? Podrás restaurarlo desde la vista de archivados.",
+    );
+    if (!confirmed) return;
+    try {
+      await archiveEscrito({ escritoId: escrito._id, isArchived: true });
+    } catch (err) {
+      console.error("Error archiving escrito", err);
+      alert("No se pudo archivar el escrito.");
+    }
+  };
+
+  const statusLabel = escrito.status === "borrador" ? "Borrador" : "Publicado";
+  const statusColor =
+    escrito.status === "borrador" ? "bg-gray-300" : "bg-amber-400";
+
+  return (
+    <TableRow className="cursor-pointer" onClick={onOpen}>
+      <TableCell onClick={(e) => e.stopPropagation()}>
+        <Checkbox aria-label="Seleccionar" />
+      </TableCell>
+      <TableCell>
+        <div className="flex items-center gap-2">
+          <Link2 className="h-4 w-4 text-primary" />
+          <div className="flex flex-col">
+            <span className="font-medium text-gray-900">{escrito.title}</span>
+            {/* Optional tag badge placeholder */}
+            {/* <Badge className="mt-1 w-fit" variant="secondary">Tag</Badge> */}
+          </div>
+        </div>
+      </TableCell>
+      <TableCell>{user?.name ?? "-"}</TableCell>
+      <TableCell>{formatDate(escrito._creationTime)}</TableCell>
+      <TableCell>
+        <div className="flex items-center gap-2">
+          <span
+            className={`inline-block h-2 w-2 rounded-full ${statusColor}`}
+          />
+          <span>{statusLabel}</span>
+        </div>
+      </TableCell>
+      <TableCell>{formatAgo(escrito.lastEditedAt)}</TableCell>
+      {showActions && (
+        <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
+          <div className="flex items-center justify-end gap-2 text-gray-500">
+            <button
+              type="button"
+              className="p-1 hover:text-gray-900"
+              aria-label="Descargar"
+            >
+              <Download className="h-4 w-4" />
+            </button>
+            <button
+              type="button"
+              className="p-1 hover:text-gray-900"
+              aria-label="Editar"
+              onClick={onOpen}
+            >
+              <Pencil className="h-4 w-4" />
+            </button>
+
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button
+                  type="button"
+                  className="p-1 hover:text-gray-900"
+                  aria-label="Más acciones"
+                >
+                  <MoreVertical className="h-4 w-4" />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={handleArchive}>
+                  Archivar escrito
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={onOpen}>Editar</DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+        </TableCell>
+      )}
+    </TableRow>
   );
 }
