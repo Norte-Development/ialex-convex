@@ -10,20 +10,12 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import {
-  ArrowLeft,
-  Users,
-  UserMinus,
-  Trash2,
-  Calendar,
-  Mail,
-  User,
-  Shield,
-} from "lucide-react";
-import { useState } from "react";
+import { ArrowLeft, Users, Trash2, Calendar } from "lucide-react";
+import { useState, useMemo } from "react";
 import InviteUserDialog from "@/components/Teams/InviteUserDialog";
 import PendingInvitesTable from "@/components/Teams/PendingInvitesTable";
 import TeamCasesList from "@/components/Cases/TeamCasesList";
+import { TeamMembersTable } from "@/components/Teams/TeamMembersTable";
 import { TeamInvite } from "../../types/teams";
 import { useBillingData, UsageMeter } from "@/components/Billing";
 
@@ -35,6 +27,18 @@ export default function TeamManagePage() {
   const members = team?.members;
   const pendingInvites = team?.pendingInvites;
 
+  // Get current user
+  const currentUser = useQuery(api.functions.users.getCurrentUser, {});
+
+  // Check if current user is admin of this team
+  const isTeamAdmin = useMemo(() => {
+    if (!currentUser || !members) return false;
+    const currentMember = members.find(
+      (member) => member?._id === currentUser._id,
+    );
+    return currentMember?.teamRole === "admin";
+  }, [currentUser, members]);
+
   const removeUserFromTeam = useMutation(
     api.functions.teams.removeUserFromTeam,
   );
@@ -42,7 +46,7 @@ export default function TeamManagePage() {
   // Get team member limits and usage data
   const memberCheck = useQuery(
     api.billing.features.canAddTeamMember,
-    id ? { teamId: id as any } : "skip"
+    id ? { teamId: id as any } : "skip",
   );
 
   const { usage, limits } = useBillingData({ teamId: id as any });
@@ -107,16 +111,16 @@ export default function TeamManagePage() {
       </div>
     );
   }
-
+  console.log("Miembros del equipo", members);
   return (
     <div
-      className={`flex flex-col gap-6 w-full min-h-screen px-10 bg-[#f7f7f7] pb-10 pt-5 `}
+      className={`flex flex-col gap-6 w-full min-h-screen px-10 bg-[#f7f7f7] pb-10 pt-15 `}
     >
       {/* Header */}
       <div className="flex items-center justify-between ">
         <div className="flex flex-col  gap-5">
           <Button
-            variant="outline"
+            variant="ghost"
             size="sm"
             onClick={() => navigate("/equipo")}
             className="flex items-center gap-2 cursor-pointer w-fit"
@@ -145,15 +149,18 @@ export default function TeamManagePage() {
           >
             {team.isActive ? "Activo" : "Inactivo"}
           </Badge>
-          <Button
-            variant="destructive"
-            size="sm"
-            onClick={handleDeleteTeam}
-            className="flex items-center gap-2 cursor-pointer"
-          >
-            <Trash2 className="w-4 h-4" />
-            Eliminar Equipo
-          </Button>
+
+          {isTeamAdmin && (
+            <Button
+              variant="destructive"
+              size="sm"
+              onClick={handleDeleteTeam}
+              className="flex items-center gap-2 cursor-pointer"
+            >
+              <Trash2 className="w-4 h-4" />
+              Eliminar Equipo
+            </Button>
+          )}
         </div>
       </div>
 
@@ -199,7 +206,7 @@ export default function TeamManagePage() {
               {memberCheck?.currentCount || 0} / {memberCheck?.maxAllowed || 0}
             </span>
           </div>
-          
+
           {/* Team cases */}
           {usage && limits && (
             <UsageMeter
@@ -208,7 +215,7 @@ export default function TeamManagePage() {
               label="Casos del Equipo"
             />
           )}
-          
+
           {/* Team library */}
           {usage && limits && (
             <UsageMeter
@@ -232,17 +239,8 @@ export default function TeamManagePage() {
       {/* Members Section */}
       <Card>
         <CardHeader>
-          <div className="flex items-center justify-between">
-            <div>
-              <CardTitle className="flex items-center gap-2">
-                <Users className="w-5 h-5" />
-                Miembros del Equipo
-              </CardTitle>
-              <CardDescription>
-                Gestiona los miembros de este equipo
-              </CardDescription>
-            </div>
-            <InviteUserDialog teamId={id!} />
+          <div className="flex items-end justify-start w-full">
+            {isTeamAdmin && <InviteUserDialog teamId={id as any} />}
           </div>
         </CardHeader>
         <CardContent>
@@ -265,64 +263,13 @@ export default function TeamManagePage() {
               </p>
             </div>
           )}
-          {members === undefined ? (
-            <div className="flex items-center justify-center p-8">
-              <div className="text-gray-500">Cargando miembros...</div>
-            </div>
-          ) : members.length === 0 ? (
-            <div className="flex flex-col items-center justify-center p-8">
-              <Users className="w-12 h-12 text-gray-400 mb-4" />
-              <h3 className="text-lg font-medium text-gray-900 mb-2">
-                No hay miembros
-              </h3>
-              <p className="text-gray-500 text-center">
-                Agrega el primer miembro a este equipo.
-              </p>
-            </div>
-          ) : (
-            <div className="grid gap-4">
-              {members.map((member) => (
-                <div
-                  key={member?._id}
-                  className="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50"
-                >
-                  <div className="flex items-center gap-4">
-                    <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
-                      <User className="w-5 h-5 text-blue-600" />
-                    </div>
-                    <div>
-                      <h4 className="font-medium">{member?.name}</h4>
-                      <div className="flex items-center gap-2 text-sm text-gray-500">
-                        <Mail className="w-3 h-3" />
-                        {member?.email}
-                      </div>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <div className="flex items-center gap-2">
-                      <Shield className="w-4 h-4 text-gray-500" />
-                      <Badge variant="outline" className="capitalize">
-                        {member?.teamRole}
-                      </Badge>
-                    </div>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleRemoveMember(member?._id as string)}
-                      disabled={removingMember === member?._id}
-                      className="text-red-600 hover:text-red-700 hover:bg-red-50 cursor-pointer"
-                    >
-                      {removingMember === member?._id ? (
-                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-red-600"></div>
-                      ) : (
-                        <UserMinus className="w-4 h-4" />
-                      )}
-                    </Button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
+          <TeamMembersTable
+            members={members}
+            isLoading={members === undefined}
+            onRemoveMember={handleRemoveMember}
+            removingMember={removingMember}
+            isAdmin={isTeamAdmin}
+          />
         </CardContent>
       </Card>
 
