@@ -13,10 +13,11 @@
  * ```
  */
 
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { useUIMessages } from "@convex-dev/agent/react";
 import { api } from "../../../convex/_generated/api";
+import { useMutation } from "convex/react";
 import { useHomeThreads } from "./hooks/useHomeThreads";
 import {
   Message,
@@ -296,6 +297,11 @@ export function HomeAgentChat({
   // Hook para enviar mensajes
   const { sendMessage, messagesLoading } = useHomeThreads({ threadId });
 
+  // Hook para abortar streams
+  const abortStreamByOrder = useMutation(
+    api.agents.home.streaming.abortStreamByOrder,
+  );
+
   const isLoading = threadId && !messages && status !== "Exhausted";
 
   // Simple streaming detection - just check if any message has streaming status
@@ -306,6 +312,12 @@ export function HomeAgentChat({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Don't submit if we're streaming (abort should be handled by button click)
+    if (isStreaming) {
+      return;
+    }
+    
     if (!inputValue.trim() || isInputDisabled) return;
 
     const message = inputValue.trim();
@@ -365,6 +377,22 @@ export function HomeAgentChat({
         duration: 5000,
       });
     }
+  };
+
+  // Función para abortar stream
+  const handleAbortStream = useCallback(() => {
+    if (!threadId) return;
+    const order = messages?.find((m) => m.status === "streaming")?.order ?? 0;
+    void abortStreamByOrder({ threadId, order });
+  }, [threadId, messages, abortStreamByOrder]);
+
+  // Handle button click - either submit or abort based on streaming state
+  const handleButtonClick = (e: React.MouseEvent) => {
+    if (isStreaming) {
+      e.preventDefault();
+      handleAbortStream();
+    }
+    // For non-streaming state, let the form handle submission naturally
   };
 
   return (
@@ -432,8 +460,11 @@ export function HomeAgentChat({
           <PromptInputToolbar>
             <div className="flex-1" />
             <PromptInputSubmit
-              disabled={!inputValue.trim() || isInputDisabled}
+              disabled={isStreaming ? false : (!inputValue.trim() || messagesLoading)}
               status={chatStatus as any}
+              onClick={handleButtonClick}
+              type={isStreaming ? "button" : "submit"}
+              aria-label={isStreaming ? "Detener" : "Enviar mensaje"}
             />
           </PromptInputToolbar>
         </PromptInput>
