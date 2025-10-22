@@ -310,7 +310,7 @@ export function ChatContent() {
 
       if (now - lastCallTime >= throttleMs) {
         lastCallTime = now;
-        debouncedHandleContentResize();
+        handleContentResize();
       } else {
         rafId = requestAnimationFrame(() => {
           lastCallTime = Date.now();

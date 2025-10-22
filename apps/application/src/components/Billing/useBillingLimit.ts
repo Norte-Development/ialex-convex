@@ -34,6 +34,20 @@ export const useBillingLimit = (
   // Get current user (required for billing entity determination)
   const currentUser = useQuery(api.functions.users.getCurrentUser, {});
   
+  // Check if dev mode is enabled
+  const isDevMode = useQuery(api.billing.features.isDevModeEnabled, {});
+  
+  // If dev mode is enabled, return unlimited access
+  if (isDevMode) {
+    return {
+      allowed: true,
+      isWarning: false,
+      percentage: 0,
+      currentCount: 0,
+      limit: Infinity,
+    };
+  }
+  
   // Get usage limits for the billing entity (user or team)
   const entityId = context?.teamId || currentUser?._id;
   const usage = useQuery(

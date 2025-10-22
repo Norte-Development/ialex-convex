@@ -1,7 +1,6 @@
 import { ReactNode } from "react";
 import { useQuery } from "convex/react";
 import { api } from "../../../convex/_generated/api";
-import { Id } from "../../../convex/_generated/dataModel";
 import { FeatureName } from "./types";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -11,7 +10,6 @@ interface FeatureLockProps {
   feature: FeatureName;
   children: ReactNode;
   fallback?: ReactNode;
-  teamId?: Id<"teams">;
   onUpgrade?: () => void;
 }
 
@@ -22,7 +20,6 @@ interface FeatureLockProps {
  * @param feature - The feature to check access for
  * @param children - Content to show when feature is accessible
  * @param fallback - Custom fallback content (optional)
- * @param teamId - Team context for checking team-level features
  * @param onUpgrade - Callback when upgrade is requested
  * 
  * @example
@@ -36,11 +33,18 @@ export function FeatureLock({
   feature,
   children,
   fallback,
-  teamId,
   onUpgrade,
 }: FeatureLockProps) {
   // Get current user
   const currentUser = useQuery(api.functions.users.getCurrentUser, {});
+  
+  // Check if dev mode is enabled
+  const isDevMode = useQuery(api.billing.features.isDevModeEnabled, {});
+  
+  // If dev mode is enabled, always allow access
+  if (isDevMode) {
+    return <>{children}</>;
+  }
   
   // Check feature access
   const featureAccess = useQuery(
@@ -49,7 +53,6 @@ export function FeatureLock({
       ? {
           userId: currentUser._id,
           feature,
-          teamId,
         }
       : "skip"
   );
