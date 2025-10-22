@@ -38,6 +38,14 @@ export function ChatContent({ threadId }: { threadId: string | undefined }) {
 
   // Simple scroll management
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
+  const resizeObserverRef = useRef<ResizeObserver | null>(null);
+  const scrollTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Handle content resize
+  const handleContentResize = useCallback(() => {
+    scrollToBottom();
+  }, []);
 
   // Handle removing references from context bar
   const handleRemoveReference = useCallback(
@@ -78,6 +86,12 @@ export function ChatContent({ threadId }: { threadId: string | undefined }) {
   }, [messages]);
 
   // Clear references when thread changes to prevent trailing state
+  useEffect(() => {
+    setLastReferences([]);
+    setCurrentReferences([]);
+  }, [threadId]);
+
+  // Setup resize observer for auto-scroll
   useEffect(() => {
     if (!messagesContainerRef.current) return;
 
@@ -120,9 +134,6 @@ export function ChatContent({ threadId }: { threadId: string | undefined }) {
       }
     };
   }, [handleContentResize]);
-    setLastReferences([]);
-    setCurrentReferences([]);
-  }, [threadId]);
 
   const initiateWorkflow = useMutation(
     api.agents.case.workflow.initiateWorkflowStreaming,
@@ -238,7 +249,7 @@ export function ChatContent({ threadId }: { threadId: string | undefined }) {
   return (
     <>
       {/* Messages area */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-3">
+      <div ref={messagesContainerRef} className="flex-1 overflow-y-auto p-4 space-y-3">
         {messages?.length > 0 ? (
           <>
             {status === "CanLoadMore" && (
