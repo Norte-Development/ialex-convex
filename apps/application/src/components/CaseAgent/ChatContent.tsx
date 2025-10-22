@@ -23,8 +23,8 @@ import {
 import type { Reference, ReferenceWithOriginal } from "./types/reference-types";
 import { Button } from "@/components/ui/button";
 
-export function ChatContent() {
-  const { threadId, createThreadWithTitle, setThreadId } = useThread();
+export function ChatContent({ threadId }: { threadId: string | undefined }) {
+  const { createThreadWithTitle, setThreadId } = useThread();
   const { caseId } = useCase();
   const { escritoId, cursorPosition } = useEscrito();
   const { user } = useAuth();
