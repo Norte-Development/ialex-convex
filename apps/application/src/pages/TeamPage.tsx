@@ -1,27 +1,28 @@
 import CreateTeamDialog from "@/components/Teams/CreateTeamDialog";
-import { Input } from "@/components/ui/input";
 import TeamCard from "@/components/Teams/TeamCard";
 import { useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
-import UserTableInCases from "@/components/users/UsersTableInCases";
-import { Badge } from "@/components/ui/badge";
+import { Users } from "lucide-react";
 
 export default function TeamPage() {
   const teams = useQuery(api.functions.teams.getTeams, {});
-  const cases = useQuery(api.functions.cases.getCases, {});
 
-  if (!teams || !cases) return <div>Cargando...</div>;
+  if (!teams) return <div>Cargando...</div>;
 
   return (
     <section
-      className={`flex flex-col mt-18 gap-4 py-5 w-full  min-h-screen px-10 bg-white `}
+      className={`flex flex-col mt-18 gap-4 py-5 w-[75%]  min-h-screen px-10 bg-white `}
     >
       <section className="w-full flex justify-between items-center">
-        <Input
-          type="text"
-          placeholder="Buscar equipos"
-          className="w-1/2 border border-[#C2C2C2] rounded-full"
-        />
+        <div className="space-y-1 flex flex-col ">
+          <div className="flex items-center gap-2">
+            <Users size={25} className="text-primary" />
+            <h1 className="text-2xl font-bold">Equipos</h1>
+          </div>
+          <p className="text-sm text-gray-600">
+            Gestiona todos los equipos de trabajo.
+          </p>
+        </div>
         <CreateTeamDialog />
       </section>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 mb-10">
@@ -29,17 +30,6 @@ export default function TeamPage() {
           <TeamCard key={team._id} team={team} />
         ))}
       </div>
-      {cases.map((caseItem) => (
-        <>
-          <h2 key={caseItem._id} className=" font-semibold mb-1">
-            Caso:
-            <Badge variant="outline" className="ml-2">
-              {caseItem.title}
-            </Badge>
-          </h2>
-          <UserTableInCases key={caseItem._id} caseId={caseItem._id} />
-        </>
-      ))}
     </section>
   );
 }

@@ -14,7 +14,6 @@ import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import { Label } from "../ui/label";
 import { Textarea } from "../ui/textarea";
-import { Users } from "lucide-react";
 import { FeatureLock, UpgradeModal } from "@/components/Billing";
 import { toast } from "sonner";
 
@@ -28,13 +27,13 @@ export default function CreateTeamDialog() {
   const user = useQuery(api.functions.users.getCurrentUser, {});
   const canCreateTeamCheck = useQuery(
     api.billing.features.canCreateTeam,
-    user?._id ? { userId: user._id } : "skip"
+    user?._id ? { userId: user._id } : "skip",
   );
 
   // Get user plan for upgrade modal
   const userPlan = useQuery(
     api.billing.features.getUserPlan,
-    user?._id ? { userId: user._id } : "skip"
+    user?._id ? { userId: user._id } : "skip",
   );
 
   const [formData, setFormData] = useState({
@@ -60,7 +59,8 @@ export default function CreateTeamDialog() {
     // Check billing limit before creating team
     if (!canCreateTeamCheck?.allowed) {
       toast.error("No puedes crear un equipo", {
-        description: canCreateTeamCheck?.reason || "No tienes acceso a crear equipos",
+        description:
+          canCreateTeamCheck?.reason || "No tienes acceso a crear equipos",
       });
       // Only show upgrade modal if upgrading would actually help
       if (canCreateTeamCheck?.canUpgrade) {
@@ -98,9 +98,11 @@ export default function CreateTeamDialog() {
           feature="create_team"
           onUpgrade={() => setShowUpgradeModal(true)}
         >
-          <Button className=" text-white cursor-pointer">
-            <Users className="w-4 h-4 mr-2" />
-            Crear Equipo
+          <Button
+            onClick={() => setOpen(true)}
+            className=" text-white cursor-pointer"
+          >
+            Añadir equipo
           </Button>
         </FeatureLock>
       </DialogTrigger>

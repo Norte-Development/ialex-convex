@@ -132,11 +132,11 @@ function CaseTeamsPageInner() {
   return (
     <div className="space-y-6 min-h-screen  pl-5 pb-10">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between px-5 pt-3">
         <div>
           <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
             <Users className="h-6 w-6 text-blue-600" />
-            Equipos del Caso
+            Gestion de quipos
           </h1>
           <p className="text-gray-600 mt-1">
             Gestiona qué equipos tienen acceso a este caso
@@ -147,62 +147,13 @@ function CaseTeamsPageInner() {
             caseId={currentCase._id}
             trigger={
               <Button className="cursor-pointer">
-                <Plus className="h-4 w-4 mr-2" />
-                Gestionar Acceso
+                <Plus className="h-4 w-4 " />
+                Añadir equipo
               </Button>
             }
           />
         )}
       </div>
-
-      {/* Case Info Card */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-lg">{currentCase.title}</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div>
-              <p className="text-sm font-medium text-gray-500">Estado</p>
-              <Badge
-                className={
-                  currentCase.status === "en progreso"
-                    ? "bg-green-100 text-green-800"
-                    : currentCase.status === "completado"
-                      ? "bg-blue-100 text-blue-800"
-                      : currentCase.status === "pendiente"
-                        ? "bg-yellow-100 text-yellow-800"
-                        : currentCase.status === "archivado"
-                          ? "bg-gray-100 text-gray-800"
-                          : "bg-red-100 text-red-800" // cancelado
-                }
-              >
-                {currentCase.status === "en progreso"
-                  ? "En Progreso"
-                  : currentCase.status === "completado"
-                    ? "Completado"
-                    : currentCase.status === "pendiente"
-                      ? "Pendiente"
-                      : currentCase.status === "archivado"
-                        ? "Archivado"
-                        : "Cancelado"}
-              </Badge>
-            </div>
-            <div>
-              <p className="text-sm font-medium text-gray-500">Creado</p>
-              <p className="text-sm">{formatDate(currentCase._creationTime)}</p>
-            </div>
-            <div>
-              <p className="text-sm font-medium text-gray-500">
-                Equipos con acceso
-              </p>
-              <p className="text-sm font-semibold">
-                {teamsWithAccess?.length || 0}
-              </p>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
 
       {/* Teams with Access */}
       <Card>
@@ -309,18 +260,6 @@ function CaseTeamsPageInner() {
                   )}
                 </div>
               ))}
-
-              <div className="pt-4 border-t">
-                <TeamAccessDialog
-                  caseId={caseId}
-                  trigger={
-                    <Button variant="outline" className="w-full cursor-pointer">
-                      <Plus className="h-4 w-4 mr-2 " />
-                      Gestionar Más Equipos
-                    </Button>
-                  }
-                />
-              </div>
             </div>
           )}
         </CardContent>
@@ -343,10 +282,7 @@ function CaseTeamsPageInner() {
               <IndividualUserPermissionsDialog
                 caseId={caseId}
                 trigger={
-                  <Button className="cursor-pointer">
-                    <Plus className="h-4 w-4 mr-2" />
-                    Agregar Usuario
-                  </Button>
+                  <Button className="cursor-pointer">Añadir Miembro</Button>
                 }
               />
             )}

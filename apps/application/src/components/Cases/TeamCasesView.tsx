@@ -1,14 +1,24 @@
+import { useState } from "react";
 import { useQuery } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import { Id } from "../../../convex/_generated/dataModel";
 import { Badge } from "../ui/badge";
-import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
-import { Shield, Eye, Calendar, FileText, Users } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Checkbox } from "../ui/checkbox";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "../ui/table";
+import { Shield, Eye, Users } from "lucide-react";
 import { useCase } from "@/context/CaseContext";
 import { usePermissions } from "@/context/CasePermissionsContext";
 import TeamMemberPermissionsDialog from "./TeamMemberPermissionsDialog";
 import { useAuth } from "@/context/AuthContext";
+import { Card, CardContent, CardHeader } from "../ui/card";
+import { Input } from "../ui/input";
 
 interface TeamCasesViewProps {
   teamId: Id<"teams">;
@@ -21,6 +31,7 @@ export default function TeamCasesView({ teamId }: TeamCasesViewProps) {
   const { can } = usePermissions();
   const canManageTeams = can?.teams?.write || false;
   const { user } = useAuth();
+  const [searchQuery, setSearchQuery] = useState("");
 
   const casesWithAccess = useQuery(
     api.functions.teams.getCasesAccessibleByTeam,
@@ -32,6 +43,16 @@ export default function TeamCasesView({ teamId }: TeamCasesViewProps) {
     api.functions.teams.getTeamMembersWithCaseAccess,
     currentCase ? { caseId: currentCase._id, teamId } : "skip",
   );
+
+  // Filter team members based on search query
+  const filteredMembers = teamMembers?.filter((member) => {
+    const query = searchQuery.toLowerCase();
+    return (
+      member.user.name?.toLowerCase().includes(query) ||
+      member.user.email?.toLowerCase().includes(query) ||
+      member.teamRole?.toLowerCase().includes(query)
+    );
+  });
 
   const getAccessLevelIcon = (level: AccessLevel | "read" | "full") => {
     // Map legacy values to new system
@@ -162,107 +183,102 @@ export default function TeamCasesView({ teamId }: TeamCasesViewProps) {
   if (currentCase && teamMembers) {
     return (
       <div className="space-y-4">
-        <div className="flex items-center justify-between">
-          <h3 className="text-lg font-semibold">Miembros del Equipo</h3>
-          <Badge variant="outline">
-            {teamMembers.length}{" "}
-            {teamMembers.length === 1 ? "miembro" : "miembros"}
-          </Badge>
+        <div className="flex items-center justify-between mb-4">
+          <Input
+            placeholder="Buscar por nombre, email o rol..."
+            className="w-[300px] h-[32px] placeholder:text-xs"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+          />
+          {searchQuery && (
+            <span className="text-sm text-gray-500">
+              {filteredMembers?.length} de {teamMembers.length} miembros
+            </span>
+          )}
         </div>
 
         {teamMembers.length === 0 ? (
-          <Card>
-            <CardContent className="flex flex-col items-center justify-center py-8">
-              <Users className="h-12 w-12 text-gray-400 mb-4" />
-              <p className="text-gray-500 text-center">
-                Este equipo no tiene miembros asignados
-              </p>
-            </CardContent>
-          </Card>
+          <div className="flex flex-col items-center justify-center py-12 text-center">
+            <Users className="h-12 w-12 text-gray-400 mb-4" />
+            <p className="text-gray-500">
+              Este equipo no tiene miembros asignados
+            </p>
+          </div>
+        ) : filteredMembers && filteredMembers.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-12 text-center">
+            <Users className="h-12 w-12 text-gray-400 mb-4" />
+            <p className="text-gray-500">
+              No se encontraron miembros que coincidan con "{searchQuery}"
+            </p>
+          </div>
         ) : (
-          <div className="grid gap-3">
-            {teamMembers.map((member) => (
-              <Card
-                key={member.user._id}
-                className="hover:shadow-sm transition-shadow"
-              >
-                <CardContent className="p-4">
-                  <div className="flex items-center justify-between">
+          <Table>
+            <TableHeader className="bg-[#F5F5F5]">
+              <TableRow>
+                <TableHead>
+                  <Checkbox />
+                </TableHead>
+                <TableHead>Nombre</TableHead>
+                <TableHead>Rol </TableHead>
+                <TableHead>Email</TableHead>
+                {canManageTeams && <TableHead>Permisos</TableHead>}
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {filteredMembers?.map((member) => (
+                <TableRow key={member.user._id}>
+                  <TableCell>
+                    <Checkbox />
+                  </TableCell>
+                  <TableCell>
                     <div className="flex items-center gap-3">
                       <div className="flex flex-col">
                         <span className="font-medium">
-                          {member.user.name}{" "}
+                          {member.user.name}
                           {user?._id === member.user._id && (
-                            <span className="text-sm text-gray-500">(Vos)</span>
+                            <span className="text-sm text-gray-500 ml-1">
+                              (Vos)
+                            </span>
                           )}
-                        </span>
-                        <span className="text-sm text-gray-500 capitalize">
-                          {member.teamRole}
                         </span>
                       </div>
                     </div>
+                  </TableCell>
+                  <TableCell>
+                    <Badge className="capitalize">{member.teamRole}</Badge>
+                  </TableCell>
 
-                    <div className="flex flex-col gap-2 items-end">
-                      <div className="flex items-center gap-2">
-                        {member.effectiveAccessLevel ? (
-                          <Badge
-                            variant="secondary"
-                            className={`text-xs flex items-center gap-1 ${getAccessLevelColor(member.effectiveAccessLevel)}`}
-                          >
-                            {getAccessLevelIcon(member.effectiveAccessLevel)}
-                            {getAccessLevelText(member.effectiveAccessLevel)}
-                          </Badge>
-                        ) : (
-                          <Badge variant="outline" className="text-xs">
-                            Sin acceso
-                          </Badge>
-                        )}
-
-                        <Badge variant="outline" className="text-xs">
-                          {member.accessSource === "individual"
-                            ? "Individual"
-                            : "Equipo"}
-                        </Badge>
-
-                        {canManageTeams && (
-                          <TeamMemberPermissionsDialog
-                            member={{
-                              _id: member.user._id,
-                              name: member.user.name,
-                              email: member.user.email,
-                              role: member.teamRole,
-                            }}
-                            caseId={currentCase._id}
-                            teamId={teamId}
-                          />
-                        )}
-                      </div>
-
-                      {(member.individualAccess?.expiresAt ||
-                        member.teamAccess?.expiresAt) && (
-                        <span className="text-xs text-gray-500">
-                          Expira:{" "}
-                          {formatDate(
-                            (member.individualAccess?.expiresAt ||
-                              member.teamAccess?.expiresAt)!,
-                          )}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
+                  <TableCell>
+                    <span className="text-sm text-black">
+                      {member.user.email}
+                    </span>
+                  </TableCell>
+                  {canManageTeams && (
+                    <TableCell>
+                      <TeamMemberPermissionsDialog
+                        member={{
+                          _id: member.user._id,
+                          name: member.user.name,
+                          email: member.user.email,
+                          role: member.teamRole,
+                        }}
+                        caseId={currentCase._id}
+                        teamId={teamId}
+                      />
+                    </TableCell>
+                  )}
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
         )}
       </div>
     );
   }
 
-  // Default view: show cases accessible by team
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between mb-4">
         <h3 className="text-lg font-semibold">Casos Accesibles</h3>
         <Badge variant="outline">
           {casesWithAccess?.length || 0}{" "}
@@ -271,92 +287,81 @@ export default function TeamCasesView({ teamId }: TeamCasesViewProps) {
       </div>
 
       {(casesWithAccess?.length || 0) === 0 ? (
-        <Card>
-          <CardContent className="flex flex-col items-center justify-center py-8">
-            <FileText className="h-12 w-12 text-gray-400 mb-4" />
-            <p className="text-gray-500 text-center">
-              Este equipo no tiene acceso a ningún caso
-            </p>
-          </CardContent>
-        </Card>
+        <div className="flex flex-col items-center justify-center py-12 text-center">
+          <Shield className="h-12 w-12 text-gray-400 mb-4" />
+          <p className="text-gray-500">
+            Este equipo no tiene acceso a ningún caso
+          </p>
+        </div>
       ) : (
-        <div className="grid gap-4">
-          {casesWithAccess?.map((caseItem) => (
-            <Card
-              key={caseItem._id}
-              className="hover:shadow-md transition-shadow"
-            >
-              <CardHeader className="pb-3">
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    <CardTitle className="text-base mb-2">
-                      <Link
-                        to={`/caso/${caseItem._id}`}
-                        className="hover:text-blue-600 transition-colors"
-                      >
-                        {caseItem.title}
-                      </Link>
-                    </CardTitle>
+        <Table>
+          <TableHeader className="bg-[#F5F5F5]">
+            <TableRow>
+              <TableHead>Caso</TableHead>
+              <TableHead>Estado</TableHead>
+              <TableHead>Nivel de Acceso</TableHead>
+              <TableHead>Fecha de Creación</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {casesWithAccess?.map((caseItem) => (
+              <TableRow key={caseItem._id}>
+                <TableCell>
+                  <div className="flex flex-col">
+                    <span className="font-medium hover:text-blue-600 transition-colors cursor-pointer">
+                      {caseItem.title}
+                    </span>
                     {caseItem.description && (
-                      <p className="text-sm text-gray-600 line-clamp-2">
+                      <span className="text-sm text-gray-500 line-clamp-1">
                         {caseItem.description}
-                      </p>
+                      </span>
+                    )}
+                    {caseItem.tags && caseItem.tags.length > 0 && (
+                      <div className="flex items-center gap-1 flex-wrap mt-1">
+                        {caseItem.tags.slice(0, 2).map((tag, index) => (
+                          <Badge
+                            key={index}
+                            variant="secondary"
+                            className="text-xs"
+                          >
+                            {tag}
+                          </Badge>
+                        ))}
+                        {caseItem.tags.length > 2 && (
+                          <Badge variant="secondary" className="text-xs">
+                            +{caseItem.tags.length - 2}
+                          </Badge>
+                        )}
+                      </div>
                     )}
                   </div>
-                  <div className="flex flex-col gap-2 ml-4">
-                    <Badge
-                      variant="outline"
-                      className={`flex items-center gap-1 ${getAccessLevelColor(caseItem.accessLevel)}`}
-                    >
-                      {getAccessLevelIcon(caseItem.accessLevel)}
-                      {getAccessLevelText(caseItem.accessLevel)}
-                    </Badge>
-                    <Badge
-                      variant="outline"
-                      className={getStatusColor(caseItem.status as string)}
-                    >
-                      {getStatusText(caseItem.status as string)}
-                    </Badge>
-                  </div>
-                </div>
-              </CardHeader>
-              <CardContent className="pt-0">
-                <div className="flex items-center gap-4 text-sm text-gray-500">
-                  <div className="flex items-center gap-1">
-                    <Calendar className="h-4 w-4" />
-                    <span>
-                      Creado: {formatDate(caseItem._creationTime as number)}
-                    </span>
-                  </div>
-                  {caseItem.startDate && (
-                    <div className="flex items-center gap-1">
-                      <Calendar className="h-4 w-4" />
-                      <span>Inicio: {formatDate(caseItem.startDate)}</span>
-                    </div>
-                  )}
-                  {caseItem.tags && caseItem.tags.length > 0 && (
-                    <div className="flex items-center gap-1 flex-wrap">
-                      {caseItem.tags.slice(0, 3).map((tag, index) => (
-                        <Badge
-                          key={index}
-                          variant="secondary"
-                          className="text-xs"
-                        >
-                          {tag}
-                        </Badge>
-                      ))}
-                      {caseItem.tags.length > 3 && (
-                        <Badge variant="secondary" className="text-xs">
-                          +{caseItem.tags.length - 3}
-                        </Badge>
-                      )}
-                    </div>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+                </TableCell>
+                <TableCell>
+                  <Badge
+                    variant="outline"
+                    className={getStatusColor(caseItem.status as string)}
+                  >
+                    {getStatusText(caseItem.status as string)}
+                  </Badge>
+                </TableCell>
+                <TableCell>
+                  <Badge
+                    variant="secondary"
+                    className={`flex items-center gap-1 w-fit ${getAccessLevelColor(caseItem.accessLevel)}`}
+                  >
+                    {getAccessLevelIcon(caseItem.accessLevel)}
+                    {getAccessLevelText(caseItem.accessLevel)}
+                  </Badge>
+                </TableCell>
+                <TableCell>
+                  <span className="text-sm">
+                    {formatDate(caseItem._creationTime as number)}
+                  </span>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
       )}
     </div>
   );

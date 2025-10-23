@@ -12,7 +12,7 @@ import {
   FileType2,
   Settings,
 } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useQuery } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import {
@@ -28,6 +28,7 @@ export default function CaseDetailPage() {
   const { currentCase } = useCase();
   const [isDocumentsDialogOpen, setIsDocumentsDialogOpen] = useState(false);
   const [isEscritosDialogOpen, setIsEscritosDialogOpen] = useState(false);
+  const navigate = useNavigate();
 
   // Queries para métricas
   const documents = useQuery(
@@ -127,7 +128,9 @@ export default function CaseDetailPage() {
 
         <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
           <div
-            onClick={() => setIsDocumentsDialogOpen(true)}
+            onClick={() =>
+              currentCase && navigate(`/caso/${currentCase._id}/documentos`)
+            }
             className="space-y-2 p-6 rounded-lg border border-tertiary hover:border-tertiary/80 transition-colors cursor-pointer group min-h-[140px]"
           >
             <div className="flex items-center justify-between">
@@ -146,7 +149,9 @@ export default function CaseDetailPage() {
           </div>
 
           <div
-            onClick={() => setIsEscritosDialogOpen(true)}
+            onClick={() =>
+              currentCase && navigate(`/caso/${currentCase._id}/escritos`)
+            }
             className="space-y-2 p-6 rounded-lg border border-tertiary hover:border-tertiary/80 transition-colors cursor-pointer group min-h-[140px]"
           >
             <div className="flex items-center justify-between">

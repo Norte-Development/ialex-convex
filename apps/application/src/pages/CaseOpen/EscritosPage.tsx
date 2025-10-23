@@ -38,30 +38,31 @@ export default function EscritosPage() {
     isValidEscritoId ? { escritoId: escritoId as Id<"escritos"> } : "skip",
   );
 
+  console.log("Escritos", all_escritos);
 
   if (!escrito && !templateId) {
     return (
       <CaseLayout>
-          <EscritosList
-            all_escritos={all_escritos}
-            caseId={currentCase?._id}
-        />
-      <CreateEscritoDialog setOpen={() => {}} />
-    </CaseLayout>
-    )
+        <EscritosList all_escritos={all_escritos} caseId={currentCase?._id} />
+        <CreateEscritoDialog setOpen={() => {}} />
+      </CaseLayout>
+    );
   }
 
   if (escrito) {
     return (
       <CaseLayout>
-        <EscritoDetail escrito={escrito} templateId={templateId as Id<"modelos">} />
+        <EscritoDetail
+          escrito={escrito}
+          templateId={templateId as Id<"modelos">}
+        />
       </CaseLayout>
-    )
+    );
   }
 
   return (
     <CaseLayout>
       <div>No se encontró el escrito</div>
     </CaseLayout>
-  )
+  );
 }

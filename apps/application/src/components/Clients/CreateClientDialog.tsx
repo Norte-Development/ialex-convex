@@ -108,8 +108,7 @@ export default function CreateClientDialog() {
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         <Button className="gap-2 cursor-pointer text-[12px]" size="sm">
-          <UserPlus className="h-4 w-4" />
-          Crear Cliente
+          Añadir Cliente
         </Button>
       </DialogTrigger>
 

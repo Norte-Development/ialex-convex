@@ -57,7 +57,7 @@ export default function Breadcrumbs() {
   };
 
   return (
-    <div className="flex items-center gap-2">
+    <div className="flex items-center gap-2 text-[18px]">
       {pathnames.map((value, index) => {
         const isLast = index === pathnames.length - 1;
         const to = getLinkPath(index);

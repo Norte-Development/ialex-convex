@@ -36,7 +36,9 @@ export default function CaseDocumentPage() {
 
   // Mutations
   const createEscrito = useMutation(api.functions.documents.createEscrito);
-  const retryProcessing = useMutation(api.functions.documentProcessing.retryDocumentProcessing);
+  const retryProcessing = useMutation(
+    api.functions.documentProcessing.retryDocumentProcessing,
+  );
 
   // Estado para mostrar resultado de conversión
   const [conversionResult, setConversionResult] = useState<string | null>(null);
@@ -394,13 +396,13 @@ export default function CaseDocumentPage() {
           {/* Processing Status Display */}
           {document.processingStatus === "processing" && (
             <div className="mb-3">
-              <ProcessingProgress 
+              <ProcessingProgress
                 phase={document.processingPhase}
                 progress={document.processingProgress}
               />
             </div>
           )}
-          
+
           {document.processingStatus === "failed" && (
             <div className="mb-3">
               <ProcessingError
@@ -412,11 +414,13 @@ export default function CaseDocumentPage() {
                     await retryProcessing({ documentId: document._id });
                     toast.success("Reintentando indexación del documento");
                   } catch (error) {
-                    const errorMessage = error instanceof Error ? error.message : "Error desconocido";
+                    const errorMessage =
+                      error instanceof Error
+                        ? error.message
+                        : "Error desconocido";
                     toast.error("Error al reintentar: " + errorMessage);
                   }
                 }}
-                retrying={retryProcessing.isLoading}
               />
               {document.retryCount !== undefined && document.retryCount > 0 && (
                 <p className="text-xs text-muted-foreground mt-2">
@@ -432,27 +436,31 @@ export default function CaseDocumentPage() {
                 <div className="flex items-center gap-2">
                   <span className="text-muted-foreground">Método:</span>
                   <Badge variant="outline">
-                    {document.processingMethod === "mistral-ocr" && "OCR Avanzado"}
+                    {document.processingMethod === "mistral-ocr" &&
+                      "OCR Avanzado"}
                     {document.processingMethod === "pdfjs" && "Extracción PDF"}
-                    {document.processingMethod === "transcription" && "Transcripción"}
+                    {document.processingMethod === "transcription" &&
+                      "Transcripción"}
                   </Badge>
                 </div>
               )}
-              
+
               {document.wasResumed && (
                 <div className="flex items-center gap-2">
                   <span className="text-muted-foreground">Estado:</span>
                   <Badge variant="secondary">Recuperado automáticamente</Badge>
                 </div>
               )}
-              
+
               {document.processingDurationMs && (
                 <div className="flex items-center gap-2">
                   <span className="text-muted-foreground">Tiempo:</span>
-                  <span>{Math.round(document.processingDurationMs / 1000)}s</span>
+                  <span>
+                    {Math.round(document.processingDurationMs / 1000)}s
+                  </span>
                 </div>
               )}
-              
+
               {document.totalChunks && (
                 <div className="flex items-center gap-2">
                   <span className="text-muted-foreground">Fragmentos:</span>

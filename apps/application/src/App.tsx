@@ -15,6 +15,7 @@ import { EscritoProvider } from "./context/EscritoContext";
 import { PageProvider } from "./context/PageContext";
 import { CasePermissionsProvider } from "./context/CasePermissionsContext";
 import { ChatbotProvider } from "./context/ChatbotContext";
+import { LayoutProvider } from "./context/LayoutContext";
 
 // Lazy load pages to reduce initial bundle size
 const HomePage = lazy(() => import("./pages/home/HomePage"));
@@ -57,41 +58,43 @@ const HomeAgentChatPage = lazy(
 const EventosPage = lazy(() => import("./pages/EventosPage"));
 const EventDetailPage = lazy(() => import("./pages/EventDetailPage"));
 
-// Lazy load TestRunner for development
-const TestRunner = lazy(() =>
-  import("./components/HomeAgent/__tests__/TestRunner").then((module) => ({
-    default: module.TestRunner,
-  })),
+const CaseDocumentsPage = lazy(
+  () => import("./pages/CaseOpen/CaseDocumentsList"),
 );
 
 // Wrapper to provide CasePermissionsProvider with caseId from CaseContext
+// Este wrapper NO usa Layout porque CaseLayout maneja su propio layout con sidebar
 const CaseRoutesWrapper: React.FC = () => {
   return (
-    <CaseProvider>
-      <CasePermissionsWrapper>
-        <EscritoProvider>
-          <HighlightProvider>
-            <Routes>
-              <Route index element={<CaseDetailPage />} />
-              <Route path="escritos" element={<EscritosPage />} />
-              <Route path="escritos/:escritoId" element={<EscritosPage />} />
-              <Route path="clientes" element={<CaseClientsPage />} />
-              <Route path="equipos" element={<CaseTeamsPage />} />
-              <Route path="modelos" element={<CaseModelPage />} />
-              <Route path="base-de-datos" element={<CaseDataBasePage />} />
-              <Route
-                path="documentos/:documentId"
-                element={<CaseDocumentPage />}
-              />
-              <Route
-                path="configuracion/reglas"
-                element={<CaseSettingsRulesPage />}
-              />
-            </Routes>
-          </HighlightProvider>
-        </EscritoProvider>
-      </CasePermissionsWrapper>
-    </CaseProvider>
+    <LayoutProvider>
+      <CaseProvider>
+        <CasePermissionsWrapper>
+          <EscritoProvider>
+            <HighlightProvider>
+              <Routes>
+                <Route index element={<CaseDetailPage />} />
+                <Route path="escritos" element={<EscritosPage />} />
+                <Route path="escritos/:escritoId" element={<EscritosPage />} />
+                <Route path="documentos" element={<CaseDocumentsPage />} />
+
+                <Route path="clientes" element={<CaseClientsPage />} />
+                <Route path="equipos" element={<CaseTeamsPage />} />
+                <Route path="modelos" element={<CaseModelPage />} />
+                <Route path="base-de-datos" element={<CaseDataBasePage />} />
+                <Route
+                  path="documentos/:documentId"
+                  element={<CaseDocumentPage />}
+                />
+                <Route
+                  path="configuracion/reglas"
+                  element={<CaseSettingsRulesPage />}
+                />
+              </Routes>
+            </HighlightProvider>
+          </EscritoProvider>
+        </CasePermissionsWrapper>
+      </CaseProvider>
+    </LayoutProvider>
   );
 };
 
@@ -174,13 +177,15 @@ const AppWithThread = () => {
                       </ProtectedRoute>
                     }
                   />
-                  {/* Rutas de casos envueltas con CaseProvider */}
+                  {/* Rutas de casos - sin Layout porque CaseLayout maneja su propio layout */}
                   <Route
                     path="/caso/:id/*"
                     element={
-                      <ProtectedRoute>
-                        <CaseRoutesWrapper />
-                      </ProtectedRoute>
+                      <Protect fallback={<SignInPage />}>
+                        <OnboardingWrapper>
+                          <CaseRoutesWrapper />
+                        </OnboardingWrapper>
+                      </Protect>
                     }
                   />
                   <Route
