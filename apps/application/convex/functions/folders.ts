@@ -1,5 +1,6 @@
 import { v } from "convex/values";
 import { query, mutation } from "../_generated/server";
+import { paginationOptsValidator } from "convex/server";
 import { getCurrentUserFromAuth, requireNewCaseAccess } from "../auth_utils";
 
 // ========================================
@@ -142,7 +143,17 @@ export const getFoldersForCase = query({
     caseId: v.id("cases"),
     parentFolderId: v.optional(v.id("folders")),
     includeArchived: v.optional(v.boolean()),
+    paginationOpts: paginationOptsValidator,
+    search: v.optional(v.string()),
+    sortBy: v.optional(v.string()),
+    sortOrder: v.optional(v.union(v.literal("asc"), v.literal("desc"))),
   },
+  returns: v.object({
+    page: v.array(v.any()),
+    isDone: v.boolean(),
+    continueCursor: v.union(v.string(), v.null()),
+    totalCount: v.number(),
+  }),
   handler: async (ctx, args) => {
     // Verify user has case access
     const currentUser = await getCurrentUserFromAuth(ctx);
@@ -172,26 +183,76 @@ export const getFoldersForCase = query({
       folders = folders.filter((folder) => !folder.isArchived);
     }
 
-    // Sort by sortOrder then by name
-    folders.sort((a, b) => {
-      // First sort by sortOrder (if both have it)
-      if (a.sortOrder !== undefined && b.sortOrder !== undefined) {
-        if (a.sortOrder !== b.sortOrder) {
-          return a.sortOrder - b.sortOrder;
-        }
-      }
-      // If only one has sortOrder, prioritize it
-      if (a.sortOrder !== undefined && b.sortOrder === undefined) {
-        return -1;
-      }
-      if (a.sortOrder === undefined && b.sortOrder !== undefined) {
-        return 1;
-      }
-      // Finally sort alphabetically by name
-      return a.name.localeCompare(b.name);
-    });
+    // Apply search filter
+    if (args.search && args.search.trim()) {
+      const searchTerm = args.search.toLowerCase().trim();
+      folders = folders.filter((folder) =>
+        folder.name.toLowerCase().includes(searchTerm) ||
+        (folder.description && folder.description.toLowerCase().includes(searchTerm))
+      );
+    }
 
-    return folders;
+    // Apply sorting
+    if (args.sortBy && args.sortOrder) {
+      folders.sort((a, b) => {
+        let aValue, bValue;
+        
+        switch (args.sortBy) {
+          case "name":
+            aValue = a.name.toLowerCase();
+            bValue = b.name.toLowerCase();
+            break;
+          case "sortOrder":
+            aValue = a.sortOrder ?? 999999;
+            bValue = b.sortOrder ?? 999999;
+            break;
+          case "createdAt":
+          default:
+            aValue = a._creationTime;
+            bValue = b._creationTime;
+            break;
+        }
+
+        if (aValue < bValue) return args.sortOrder === "asc" ? -1 : 1;
+        if (aValue > bValue) return args.sortOrder === "asc" ? 1 : -1;
+        return 0;
+      });
+    } else {
+      // Default sort by sortOrder then by name
+      folders.sort((a, b) => {
+        // First sort by sortOrder (if both have it)
+        if (a.sortOrder !== undefined && b.sortOrder !== undefined) {
+          if (a.sortOrder !== b.sortOrder) {
+            return a.sortOrder - b.sortOrder;
+          }
+        }
+        // If only one has sortOrder, prioritize it
+        if (a.sortOrder !== undefined && b.sortOrder === undefined) {
+          return -1;
+        }
+        if (a.sortOrder === undefined && b.sortOrder !== undefined) {
+          return 1;
+        }
+        // Finally sort alphabetically by name
+        return a.name.localeCompare(b.name);
+      });
+    }
+
+    // Apply pagination
+    const offset = args.paginationOpts.cursor ? parseInt(args.paginationOpts.cursor) : 0;
+    const startIndex = offset;
+    const endIndex = offset + args.paginationOpts.numItems;
+    
+    const paginatedFolders = folders.slice(startIndex, endIndex);
+    const isDone = endIndex >= folders.length;
+    const continueCursor = isDone ? null : endIndex.toString();
+
+    return {
+      page: paginatedFolders,
+      isDone,
+      continueCursor,
+      totalCount: folders.length,
+    };
   },
 });
 
@@ -593,5 +654,82 @@ export const getFolderPath = query({
     }
 
     return path;
+  },
+});
+
+/**
+ * Gets all folders for a specific case without pagination (optimized for virtual scrolling).
+ *
+ * @param {Object} args - The function arguments
+ * @param {string} args.caseId - The ID of the case to get folders for
+ * @param {string} [args.parentFolderId] - Optional parent folder ID to get only subfolders
+ * @param {boolean} [args.includeArchived] - Whether to include archived folders (default: false)
+ * @returns {Promise<Object[]>} Array of all folder documents
+ * @throws {Error} When not authenticated or lacking case access
+ *
+ * @description This function returns ALL folders for a case without pagination.
+ * Use this with virtual scrolling on the frontend for optimal performance with large datasets.
+ *
+ * @example
+ * ```javascript
+ * const allFolders = await getAllFoldersForCase({ caseId: "case_123" });
+ * ```
+ */
+export const getAllFoldersForCase = query({
+  args: {
+    caseId: v.id("cases"),
+    parentFolderId: v.optional(v.id("folders")),
+    includeArchived: v.optional(v.boolean()),
+  },
+  returns: v.array(v.any()),
+  handler: async (ctx, args) => {
+    // Verify user has case access
+    const currentUser = await getCurrentUserFromAuth(ctx);
+    await requireNewCaseAccess(ctx, currentUser._id, args.caseId, "basic");
+
+    let folders;
+    if (args.parentFolderId) {
+      // Get folders with specific parent
+      folders = await ctx.db
+        .query("folders")
+        .withIndex("by_case_and_parent", (q) =>
+          q.eq("caseId", args.caseId).eq("parentFolderId", args.parentFolderId),
+        )
+        .collect();
+    } else {
+      // Get root folders (no parent)
+      folders = await ctx.db
+        .query("folders")
+        .withIndex("by_case_and_parent", (q) =>
+          q.eq("caseId", args.caseId).eq("parentFolderId", undefined),
+        )
+        .collect();
+    }
+
+    // Filter archived folders if not requested
+    if (!args.includeArchived) {
+      folders = folders.filter((folder) => !folder.isArchived);
+    }
+
+    // Default sort by sortOrder then by name
+    folders.sort((a, b) => {
+      // First sort by sortOrder (if both have it)
+      if (a.sortOrder !== undefined && b.sortOrder !== undefined) {
+        if (a.sortOrder !== b.sortOrder) {
+          return a.sortOrder - b.sortOrder;
+        }
+      }
+      // If only one has sortOrder, prioritize it
+      if (a.sortOrder !== undefined && b.sortOrder === undefined) {
+        return -1;
+      }
+      if (a.sortOrder === undefined && b.sortOrder !== undefined) {
+        return 1;
+      }
+      // Finally sort alphabetically by name
+      return a.name.localeCompare(b.name);
+    });
+
+    return folders;
   },
 });

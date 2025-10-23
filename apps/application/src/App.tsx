@@ -2,11 +2,12 @@ import React from "react";
 import { Routes, Route } from "react-router-dom";
 import { Protect } from "@clerk/clerk-react";
 import { AuthLoading } from "convex/react";
-import { lazy, Suspense, useMemo } from "react";
+import { lazy, useMemo } from "react";
 import Layout from "./components/Layout/Layout";
-import { AppSkeleton } from "./components/Skeletons";
 import { OnboardingWrapper } from "./components/Auth/OnboardingWrapper";
 import { SignInPage } from "./components/Auth/SignInPage";
+import { RouteSuspense } from "./components/RouteSuspense";
+import { AuthLoadingSkeleton } from "./components/AuthLoadingSkeleton";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ThreadProvider } from "./context/ThreadContext";
 import { CaseProvider, useCase } from "./context/CaseContext";
@@ -140,11 +141,11 @@ const AppWithThread = () => {
             <div>
               {/* Show authentication loading skeleton while Convex auth is initializing */}
               <AuthLoading>
-                <AppSkeleton />
+                <AuthLoadingSkeleton />
               </AuthLoading>
 
               {/* Main routing with Clerk's Protect component */}
-              <Suspense fallback={<AppSkeleton />}>
+              <RouteSuspense>
                 <Routes>
                   {/* Public authentication routes */}
                   <Route path="/signin" element={<SignInPage />} />
@@ -302,7 +303,7 @@ const AppWithThread = () => {
                     }
                   />
                 </Routes>
-              </Suspense>
+              </RouteSuspense>
             </div>
           </ThreadProvider>
         </ChatbotProvider>

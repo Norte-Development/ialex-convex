@@ -51,7 +51,7 @@ export default function TeamAccessDialog({
   const revokeAccess = useMutation(api.functions.teams.revokeNewTeamCaseAccess);
 
   const availableTeams =
-    allTeams?.filter(
+    allTeams?.page?.filter(
       (team) =>
         !teamsWithAccess?.some(
           (teamWithAccess) => teamWithAccess._id === team._id,

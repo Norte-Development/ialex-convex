@@ -37,11 +37,15 @@ export default function CaseDetailPage() {
   );
   const escritos = useQuery(
     api.functions.documents.getEscritos,
-    currentCase ? { caseId: currentCase._id } : "skip",
+    currentCase ? { caseId: currentCase._id, paginationOpts: { numItems: 100, cursor: null } } : "skip",
   );
   const clients = useQuery(
     api.functions.cases.getClientsForCase,
     currentCase ? { caseId: currentCase._id } : "skip",
+  );
+  const caseRules = useQuery(
+    api.functions.agentRules.getCaseRules as any,
+    currentCase ? { caseId: currentCase._id, activeOnly: false } : "skip",
   );
 
   const formatDate = (timestamp: number) => {
@@ -160,7 +164,7 @@ export default function CaseDetailPage() {
             </div>
             <div>
               <div className="text-3xl font-light text-gray-900">
-                {escritos?.length || 0}
+                {escritos?.page?.length || 0}
               </div>
               <div className="text-sm font-medium text-gray-900">Escritos</div>
               <div className="text-xs text-gray-500">Documentos legales</div>
@@ -191,12 +195,15 @@ export default function CaseDetailPage() {
             to={`/caso/${currentCase._id}/configuracion/reglas`}
             className="group cursor-pointer"
           >
-            <div className="space-y-2 p-6 rounded-lg border border-tertiary hover:border-tertiary/80 transition-colors min-h-[140px] flex flex-col justify-between">
+            <div className="space-y-2 p-6 rounded-lg border border-tertiary hover:border-tertiary/80 transition-colors min-h-[140px]">
               <div className="flex items-center justify-between">
                 <Settings className="h-5 w-5 text-tertiary group-hover:text-tertiary/80 transition-colors" />
                 <ArrowRight className="h-4 w-4 text-tertiary group-hover:text-tertiary/80 transition-colors" />
               </div>
               <div>
+                <div className="text-3xl font-light text-gray-900">
+                  {caseRules?.length || 0}
+                </div>
                 <div className="text-sm font-medium text-gray-900">
                   Reglas del Agente
                 </div>
@@ -396,15 +403,15 @@ export default function CaseDetailPage() {
               Escritos del Caso
             </DialogTitle>
             <DialogDescription>
-              {escritos && escritos.length > 0
+              {escritos && escritos.page && escritos.page.length > 0
                 ? "Haz clic en un escrito para abrirlo"
                 : "Aún no hay escritos en este caso"}
             </DialogDescription>
           </DialogHeader>
 
-          {escritos && escritos.length > 0 ? (
+          {escritos && escritos.page && escritos.page.length > 0 ? (
             <div className="space-y-2">
-              {escritos.map((escrito) => (
+              {escritos.page.map((escrito) => (
                 <Link
                   key={escrito._id}
                   to={`/caso/${currentCase._id}/escritos/${escrito._id}`}

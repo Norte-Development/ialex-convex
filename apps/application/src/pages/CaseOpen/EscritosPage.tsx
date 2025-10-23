@@ -7,7 +7,7 @@ import { useQuery } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import type { Id } from "../../../convex/_generated/dataModel";
 import { CreateEscritoDialog } from "@/components/CreateEscritoDialog";
-import EscritosList from "@/components/Escritos/EscritosList";
+import EscritosListContainer from "@/components/Escritos/EscritosListContainer";
 import EscritoDetail from "@/components/Escritos/EscritoDetail";
 
 export default function EscritosPage() {
@@ -26,24 +26,21 @@ export default function EscritosPage() {
   }, [escritoId, setEscritoId]);
 
   // Queries
-  const all_escritos = useQuery(
-    api.functions.documents.getEscritos,
-    !isValidEscritoId && currentCase?._id
-      ? { caseId: currentCase._id as Id<"cases"> }
-      : "skip",
-  );
 
   const escrito = useQuery(
     api.functions.documents.getEscrito,
     isValidEscritoId ? { escritoId: escritoId as Id<"escritos"> } : "skip",
   );
 
-  console.log("Escritos", all_escritos);
-
   if (!escrito && !templateId) {
     return (
       <CaseLayout>
-        <EscritosList all_escritos={all_escritos} caseId={currentCase?._id} />
+        {currentCase?._id && (
+          <EscritosListContainer 
+            caseId={currentCase._id} 
+            pageSize={20} 
+          />
+        )}
         <CreateEscritoDialog setOpen={() => {}} />
       </CaseLayout>
     );

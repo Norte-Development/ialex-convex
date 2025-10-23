@@ -1,9 +1,7 @@
 import {
   FileSearch2,
   FolderX,
-  FolderOpen,
   Folder,
-  FolderArchive,
   ArrowLeft,
   ArrowRight,
   FileType2,
@@ -28,6 +26,11 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { useLayout } from "@/context/LayoutContext";
 import { useLocation, useParams, useNavigate } from "react-router-dom";
 import { Link } from "react-router-dom";
@@ -36,7 +39,9 @@ import { useCase } from "@/context/CaseContext";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import { CreateEscritoDialog } from "../CreateEscritoDialog";
+import NewDocumentInput, { NewDocumentInputHandle } from "./NewDocumentInput";
 import { useEffect, useRef, useState } from "react";
+import { toast } from "sonner";
 import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
@@ -81,7 +86,9 @@ export default function CaseSidebar() {
   });
   const [isCreatingRootFolder, setIsCreatingRootFolder] = useState(false);
   const [newRootFolderName, setNewRootFolderName] = useState("");
+  const [isDocumentPopoverOpen, setIsDocumentPopoverOpen] = useState(false);
   const rootInputRef = useRef<HTMLInputElement | null>(null);
+  const documentInputRef = useRef<NewDocumentInputHandle>(null);
 
   const documents = useQuery(
     api.functions.documents.getDocuments,
@@ -115,13 +122,31 @@ export default function CaseSidebar() {
 
   const currentSection = getCurrentSection();
 
-  // Fetch actual escritos for the current case
-  const escritos = useQuery(
-    api.functions.documents.getEscritos,
-    currentCase ? { caseId: currentCase._id } : "skip",
+  // Search state for escritos
+  const [escritosSearchQuery, setEscritosSearchQuery] = useState("");
+
+  // 1. If searching, use search query
+  const searchResults = useQuery(
+    api.functions.documents.searchEscritos,
+    currentCase && escritosSearchQuery.length >= 2
+      ? { caseId: currentCase._id, query: escritosSearchQuery }
+      : "skip",
   );
 
-  const totalEscritos = escritos?.length || 0;
+  // 2. Otherwise, show recent escritos only (limit 10)
+  const recentEscritos = useQuery(
+    api.functions.documents.getRecentEscritos,
+    currentCase && !escritosSearchQuery
+      ? { caseId: currentCase._id, limit: 5 }
+      : "skip",
+  );
+
+  // Determine which escritos to display
+  const displayedEscritos = escritosSearchQuery
+    ? searchResults
+    : recentEscritos;
+
+  const totalEscritos = displayedEscritos?.length || 0;
 
   const totalDocumentos = documents?.length || 0;
 
@@ -207,6 +232,19 @@ export default function CaseSidebar() {
       console.error("Error creating root folder:", err);
       alert(err instanceof Error ? err.message : "No se pudo crear la carpeta");
     }
+  };
+
+  const handleCreateDocument = () => {
+    documentInputRef.current?.open();
+  };
+
+  const handleDocumentSuccess = () => {
+    toast.success("Documento subido exitosamente");
+  };
+
+  const handleDocumentError = (error: unknown) => {
+    console.error("Error uploading document:", error);
+    toast.error("Error al subir el documento");
   };
 
   return (
@@ -346,8 +384,46 @@ export default function CaseSidebar() {
                   )}
                 </CollapsibleTrigger>
                 <CollapsibleContent className="flex flex-col gap-1 pl-2 text-[12px] pt-1">
-                  {escritos && escritos.length > 0 ? (
-                    escritos.map((escrito) => (
+                  {/* Search Input */}
+                  <div className="px-2 py-1 mb-1">
+                    <Input
+                      placeholder="Buscar escritos..."
+                      value={escritosSearchQuery}
+                      onChange={(e) => {
+                        setEscritosSearchQuery(e.target.value);
+                      }}
+                      className="h-7 text-xs placeholder:text-xs"
+                      onClick={(e) => e.stopPropagation()}
+                    />
+                  </div>
+
+                  {/* View All Button */}
+                  <div className="px-2 pb-1">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        navigate(`${basePath}/escritos`);
+                      }}
+                      className="w-full h-6 text-xs text-muted-foreground hover:text-foreground"
+                    >
+                      Ver todos los escritos
+                    </Button>
+                  </div>
+
+                  {/* Search Results Count */}
+                  {escritosSearchQuery && searchResults && (
+                    <div className="px-2 pb-1 text-xs text-muted-foreground">
+                      {searchResults.length > 0
+                        ? `${searchResults.length} resultado${searchResults.length !== 1 ? "s" : ""}`
+                        : "Sin resultados"}
+                    </div>
+                  )}
+
+                  {/* Escritos List */}
+                  {displayedEscritos && displayedEscritos.length > 0 ? (
+                    displayedEscritos.map((escrito) => (
                       <div
                         key={escrito._id}
                         className={`flex flex-col gap-1 p-2 rounded hover:bg-gray-50 ${
@@ -356,13 +432,16 @@ export default function CaseSidebar() {
                             : ""
                         }`}
                       >
-                        <div className="flex items-center justify-between">
+                        <div className="flex items-center justify-between gap-1 min-w-0">
                           <Link
                             to={`${basePath}/escritos/${escrito._id}`}
-                            className="flex items-center gap-1 text-foreground hover:text-blue-600 flex-1"
+                            className="flex items-center gap-1 text-foreground hover:text-blue-600 flex-1 min-w-0"
                             onClick={handleNavigationFromCase}
                           >
-                            <FileType2 className="cursor-pointer" size={16} />
+                            <FileType2
+                              className="cursor-pointer flex-shrink-0"
+                              size={16}
+                            />
                             <span className="truncate">{escrito.title}</span>
                           </Link>
                           {can.escritos.delete && (
@@ -372,7 +451,7 @@ export default function CaseSidebar() {
                                   <Button
                                     variant="ghost"
                                     size="sm"
-                                    className="h-6 w-6 p-0 hover:bg-gray-200"
+                                    className="h-6 w-6 p-0 hover:bg-gray-200 flex-shrink-0"
                                     onClick={() =>
                                       handleArchiveEscrito(escrito._id, true)
                                     }
@@ -403,7 +482,9 @@ export default function CaseSidebar() {
                     ))
                   ) : (
                     <div className="text-muted-foreground text-xs p-2">
-                      No hay escritos
+                      {escritosSearchQuery
+                        ? "No se encontraron escritos"
+                        : "No hay escritos"}
                     </div>
                   )}
                 </CollapsibleContent>
@@ -432,18 +513,65 @@ export default function CaseSidebar() {
                       <p className="text-xs text-gray-500">
                         ({totalDocumentos})
                       </p>
-                      <CirclePlus
-                        className="cursor-pointer transition-colors rounded-full p-0.5 text-tertiary hover:bg-tertiary hover:text-white"
-                        size={20}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setIsCreatingRootFolder(true);
-                        }}
-                      />
+                      <Popover
+                        open={isDocumentPopoverOpen}
+                        onOpenChange={setIsDocumentPopoverOpen}
+                      >
+                        <PopoverTrigger asChild>
+                          <CirclePlus
+                            className="cursor-pointer transition-colors rounded-full p-0.5 text-tertiary hover:bg-tertiary hover:text-white"
+                            size={20}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                            }}
+                          />
+                        </PopoverTrigger>
+                        <PopoverContent className="w-48 p-2" align="end">
+                          <div className="flex flex-col gap-1">
+                            <Button
+                              variant="ghost"
+                              className="w-full justify-start gap-2 text-tertiary h-8 px-2 text-sm"
+                              onClick={() => {
+                                setIsCreatingRootFolder(true);
+                                setIsDocumentPopoverOpen(false);
+                              }}
+                            >
+                              <Folder size={16} />
+                              Crear carpeta
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              className="w-full justify-start gap-2 text-tertiary h-8 px-2 text-sm"
+                              onClick={() => {
+                                handleCreateDocument();
+                                setIsDocumentPopoverOpen(false);
+                              }}
+                            >
+                              <FileDown size={16} />
+                              Cargar archivo
+                            </Button>
+                          </div>
+                        </PopoverContent>
+                      </Popover>
                     </div>
                   )}
                 </CollapsibleTrigger>
                 <CollapsibleContent className="flex flex-col gap-1 pl-2 text-[12px] pt-1">
+                  {/* View All Documents Button */}
+                  <div className="px-2 py-1">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        navigate(`${basePath}/documentos`);
+                      }}
+                      className="w-full h-6 text-xs text-muted-foreground hover:text-foreground"
+                    >
+                      Ver todos los documentos
+                    </Button>
+                  </div>
+
                   {isCreatingRootFolder && (
                     <div className="flex items-center gap-2 p-1 pr-3">
                       <Input
@@ -496,13 +624,16 @@ export default function CaseSidebar() {
                       key={escrito._id}
                       className="flex flex-col gap-1 p-2 rounded hover:bg-gray-50"
                     >
-                      <div className="flex items-center justify-between">
+                      <div className="flex items-center justify-between gap-1 min-w-0">
                         <Link
                           to={`${basePath}/escritos/${escrito._id}`}
-                          className="flex items-center gap-1 text-foreground hover:text-blue-600 flex-1"
+                          className="flex items-center gap-1 text-foreground hover:text-blue-600 flex-1 min-w-0"
                           onClick={handleNavigationFromCase}
                         >
-                          <FileType2 className="cursor-pointer" size={16} />
+                          <FileType2
+                            className="cursor-pointer flex-shrink-0"
+                            size={16}
+                          />
                           <span className="truncate">{escrito.title}</span>
                         </Link>
                         <TooltipProvider>
@@ -511,7 +642,7 @@ export default function CaseSidebar() {
                               <Button
                                 variant="ghost"
                                 size="sm"
-                                className="h-6 w-6 p-0 hover:bg-gray-200"
+                                className="h-6 w-6 p-0 hover:bg-gray-200 flex-shrink-0"
                                 onClick={() =>
                                   handleArchiveEscrito(escrito._id, false)
                                 }
@@ -561,6 +692,17 @@ export default function CaseSidebar() {
           setOpen={setIsCreateEscritoOpen}
           onEscritoCreated={handleEscritoCreated}
         />
+
+        {/* Upload Document Input */}
+        {currentCase && (
+          <NewDocumentInput
+            ref={documentInputRef}
+            caseId={currentCase._id}
+            folderId={undefined}
+            onSuccess={handleDocumentSuccess}
+            onError={handleDocumentError}
+          />
+        )}
       </aside>
     </>
   );

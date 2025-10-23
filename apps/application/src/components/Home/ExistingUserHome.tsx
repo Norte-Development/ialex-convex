@@ -6,17 +6,31 @@ import { Calendar } from "lucide-react";
 import AllEventsDialog from "./AllEventsDialog";
 import CaseCards from "./CaseCards";
 import { useState } from "react";
+import { ExistingUserHomeSkeleton } from "./Skeletons";
 
 const ExistingUserHome = () => {
-  const casesResult = useQuery(api.functions.cases.getCases, {});
+  const casesResult = useQuery(api.functions.cases.getCases, {
+    paginationOpts: { numItems: 10, cursor: null },
+  });
   const upcomingEvents = useQuery(api.functions.events.getUpcomingEvents, {
     days: 30,
+    paginationOpts: { numItems: 100, cursor: null }
   });
 
-  const cases = casesResult || [];
-  const events = upcomingEvents || [];
+  // Show skeleton while loading
+  const isLoadingCases = casesResult === undefined;
+  const isLoadingEvents = upcomingEvents === undefined;
+  const isLoading = isLoadingCases || isLoadingEvents;
+
+  const cases = casesResult?.page || [];
+  const events = upcomingEvents?.page || [];
 
   const [open, setOpen] = useState(false);
+
+  // Show skeleton while data is loading
+  if (isLoading) {
+    return <ExistingUserHomeSkeleton />;
+  }
 
   return (
     <>

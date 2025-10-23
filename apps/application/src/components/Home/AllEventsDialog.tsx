@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { useQuery } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import {
@@ -22,15 +21,15 @@ export default function AllEventsDialog({
 }) {
   const upcomingEvents = useQuery(
     api.functions.events.getUpcomingEvents,
-    open ? { days: 90 } : "skip", // Solo cargar cuando el modal esté abierto
+    open ? { days: 90, paginationOpts: { numItems: 100, cursor: null } } : "skip", // Solo cargar cuando el modal esté abierto
   );
   const allEvents = useQuery(
     api.functions.events.getMyEvents,
-    open ? {} : "skip",
+    open ? { paginationOpts: { numItems: 100, cursor: null } } : "skip",
   );
 
-  const allEventsData = allEvents || [];
-  const events = upcomingEvents || [];
+  const allEventsData = allEvents?.page || [];
+  const events = upcomingEvents?.page || [];
 
   // Filtrar por estado
   const programados = allEventsData.filter((e) => e.status === "programado");

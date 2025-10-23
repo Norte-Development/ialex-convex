@@ -1,5 +1,6 @@
 import { v } from "convex/values";
 import { mutation, query } from "../_generated/server";
+import { paginationOptsValidator } from "convex/server";
 import { internal } from "../_generated/api";
 import { getCurrentUserFromAuth } from "../auth_utils";
 import { requireNewCaseAccess, checkNewCaseAccess } from "../auth_utils";
@@ -235,9 +236,33 @@ export const getTeamEvents = query({
 
 export const getMyEvents = query({
   args: {
-    startDate: v.optional(v.number()),
-    endDate: v.optional(v.number()),
+    paginationOpts: paginationOptsValidator,
+    status: v.optional(v.union(
+      v.literal("programado"),
+      v.literal("completado"),
+      v.literal("cancelado"),
+      v.literal("reprogramado"),
+    )),
+    eventType: v.optional(v.union(
+      v.literal("audiencia"),
+      v.literal("plazo"),
+      v.literal("reunion_cliente"),
+      v.literal("presentacion"),
+      v.literal("reunion_equipo"),
+      v.literal("personal"),
+      v.literal("otro"),
+    )),
+    dateFrom: v.optional(v.number()),
+    dateTo: v.optional(v.number()),
+    sortBy: v.optional(v.string()),
+    sortOrder: v.optional(v.union(v.literal("asc"), v.literal("desc"))),
   },
+  returns: v.object({
+    page: v.array(v.any()),
+    isDone: v.boolean(),
+    continueCursor: v.union(v.string(), v.null()),
+    totalCount: v.number(),
+  }),
   handler: async (ctx, args) => {
     const currentUser = await getCurrentUserFromAuth(ctx);
 
@@ -258,23 +283,88 @@ export const getMyEvents = query({
       (e) => e !== null && !e.isArchived,
     ) as Array<(typeof events)[number] & { _id: any }>;
 
-    // Filtrar por rango de fechas si se proporciona
-    if (args.startDate !== undefined) {
-      validEvents = validEvents.filter((e) => e.startDate >= args.startDate!);
-    }
-    if (args.endDate !== undefined) {
-      validEvents = validEvents.filter((e) => e.startDate <= args.endDate!);
+    // Apply filters
+    if (args.status) {
+      validEvents = validEvents.filter((e) => e.status === args.status);
     }
 
-    // Ordenar por fecha de inicio
-    validEvents.sort((a, b) => a.startDate - b.startDate);
+    if (args.eventType) {
+      validEvents = validEvents.filter((e) => e.eventType === args.eventType);
+    }
 
-    return validEvents;
+    if (args.dateFrom !== undefined) {
+      validEvents = validEvents.filter((e) => e.startDate >= args.dateFrom!);
+    }
+    if (args.dateTo !== undefined) {
+      validEvents = validEvents.filter((e) => e.startDate <= args.dateTo!);
+    }
+
+    // Apply sorting
+    if (args.sortBy && args.sortOrder) {
+      validEvents.sort((a, b) => {
+        let aValue, bValue;
+        
+        switch (args.sortBy) {
+          case "title":
+            aValue = a.title.toLowerCase();
+            bValue = b.title.toLowerCase();
+            break;
+          case "startDate":
+          default:
+            aValue = a.startDate;
+            bValue = b.startDate;
+            break;
+        }
+
+        if (aValue < bValue) return args.sortOrder === "asc" ? -1 : 1;
+        if (aValue > bValue) return args.sortOrder === "asc" ? 1 : -1;
+        return 0;
+      });
+    } else {
+      // Default sort by start date
+      validEvents.sort((a, b) => a.startDate - b.startDate);
+    }
+
+    // Apply pagination
+    const offset = args.paginationOpts.cursor ? parseInt(args.paginationOpts.cursor) : 0;
+    const startIndex = offset;
+    const endIndex = offset + args.paginationOpts.numItems;
+    
+    const paginatedEvents = validEvents.slice(startIndex, endIndex);
+    const isDone = endIndex >= validEvents.length;
+    const continueCursor = isDone ? null : endIndex.toString();
+
+    return {
+      page: paginatedEvents,
+      isDone,
+      continueCursor,
+      totalCount: validEvents.length,
+    };
   },
 });
 
 export const getUpcomingEvents = query({
-  args: { days: v.optional(v.number()) },
+  args: { 
+    paginationOpts: paginationOptsValidator,
+    days: v.optional(v.number()),
+    eventType: v.optional(v.union(
+      v.literal("audiencia"),
+      v.literal("plazo"),
+      v.literal("reunion_cliente"),
+      v.literal("presentacion"),
+      v.literal("reunion_equipo"),
+      v.literal("personal"),
+      v.literal("otro"),
+    )),
+    sortBy: v.optional(v.string()),
+    sortOrder: v.optional(v.union(v.literal("asc"), v.literal("desc"))),
+  },
+  returns: v.object({
+    page: v.array(v.any()),
+    isDone: v.boolean(),
+    continueCursor: v.union(v.string(), v.null()),
+    totalCount: v.number(),
+  }),
   handler: async (ctx, args) => {
     const currentUser = await getCurrentUserFromAuth(ctx);
     const days = args.days ?? 7;
@@ -295,7 +385,7 @@ export const getUpcomingEvents = query({
     );
 
     // Filtrar eventos próximos
-    const upcomingEvents = events.filter(
+    let upcomingEvents = events.filter(
       (e) =>
         e !== null &&
         !e.isArchived &&
@@ -304,10 +394,52 @@ export const getUpcomingEvents = query({
         e.startDate <= futureDate,
     ) as Array<(typeof events)[number] & { _id: any }>;
 
-    // Ordenar por fecha de inicio
-    upcomingEvents.sort((a, b) => a.startDate - b.startDate);
+    // Apply event type filter
+    if (args.eventType) {
+      upcomingEvents = upcomingEvents.filter((e) => e.eventType === args.eventType);
+    }
 
-    return upcomingEvents;
+    // Apply sorting
+    if (args.sortBy && args.sortOrder) {
+      upcomingEvents.sort((a, b) => {
+        let aValue, bValue;
+        
+        switch (args.sortBy) {
+          case "title":
+            aValue = a.title.toLowerCase();
+            bValue = b.title.toLowerCase();
+            break;
+          case "startDate":
+          default:
+            aValue = a.startDate;
+            bValue = b.startDate;
+            break;
+        }
+
+        if (aValue < bValue) return args.sortOrder === "asc" ? -1 : 1;
+        if (aValue > bValue) return args.sortOrder === "asc" ? 1 : -1;
+        return 0;
+      });
+    } else {
+      // Default sort by start date
+      upcomingEvents.sort((a, b) => a.startDate - b.startDate);
+    }
+
+    // Apply pagination
+    const offset = args.paginationOpts.cursor ? parseInt(args.paginationOpts.cursor) : 0;
+    const startIndex = offset;
+    const endIndex = offset + args.paginationOpts.numItems;
+    
+    const paginatedEvents = upcomingEvents.slice(startIndex, endIndex);
+    const isDone = endIndex >= upcomingEvents.length;
+    const continueCursor = isDone ? null : endIndex.toString();
+
+    return {
+      page: paginatedEvents,
+      isDone,
+      continueCursor,
+      totalCount: upcomingEvents.length,
+    };
   },
 });
 

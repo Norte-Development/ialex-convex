@@ -14,8 +14,8 @@ import { ArrowLeft, Users, Trash2, Calendar } from "lucide-react";
 import { useState, useMemo } from "react";
 import InviteUserDialog from "@/components/Teams/InviteUserDialog";
 import PendingInvitesTable from "@/components/Teams/PendingInvitesTable";
-import TeamCasesList from "@/components/Cases/TeamCasesList";
-import { TeamMembersTable } from "@/components/Teams/TeamMembersTable";
+import TeamCasesListContainer from "@/components/Cases/TeamCasesListContainer";
+import TeamMembersTableContainer from "@/components/Teams/TeamMembersTableContainer";
 import { TeamInvite } from "../../types/teams";
 import { useBillingData, UsageMeter } from "@/components/Billing";
 
@@ -266,9 +266,9 @@ export default function TeamManagePage() {
               </p>
             </div>
           )}
-          <TeamMembersTable
-            members={members}
-            isLoading={members === undefined}
+          <TeamMembersTableContainer
+            teamId={id as any}
+            pageSize={20}
             onRemoveMember={handleRemoveMember}
             removingMember={removingMember}
             isAdmin={isTeamAdmin}
@@ -291,7 +291,7 @@ export default function TeamManagePage() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <TeamCasesList teamId={id as any} />
+            <TeamCasesListContainer teamId={id as any} pageSize={20} />
           </CardContent>
         </Card>
       )}

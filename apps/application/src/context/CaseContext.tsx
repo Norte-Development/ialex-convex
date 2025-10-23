@@ -22,15 +22,25 @@ interface CaseProviderProps {
 export const CaseProvider: React.FC<CaseProviderProps> = ({ children }) => {
   const { id } = useParams<{ id: string }>();
 
+  // Validate that the id is a valid Convex ID format
+  // Convex IDs are strings that start with a letter and contain only alphanumeric characters
+  const isValidConvexId = (id: string): id is Id<"cases"> => {
+    return /^[a-zA-Z][a-zA-Z0-9]*$/.test(id) && id.length > 0;
+  };
+
   const currentCase = useQuery(
     api.functions.cases.getCaseById,
-    id ? { caseId: id as Id<"cases"> } : "skip"
+    id && isValidConvexId(id) ? { caseId: id as Id<"cases"> } : "skip"
   );
 
   const contextValue: CaseContextType = {
     currentCase,
     isLoading: currentCase === undefined,
-    error: currentCase === null && id ? `Caso no encontrado con ID: ${id}` : null,
+    error: currentCase === null && id && isValidConvexId(id) 
+      ? `Caso no encontrado con ID: ${id}` 
+      : id && !isValidConvexId(id) 
+        ? `ID inválido: ${id}` 
+        : null,
     caseId: currentCase?._id || null,
     caseTitle: currentCase?.title || null,
   };

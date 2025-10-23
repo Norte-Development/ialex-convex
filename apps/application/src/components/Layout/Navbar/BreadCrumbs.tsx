@@ -10,8 +10,10 @@ export default function Breadcrumbs() {
   const pathnames = location.pathname.split("/").filter((x) => x);
 
   const caseId = pathnames[0] === "caso" && pathnames[1] ? pathnames[1] : null;
-  const casesResult = useQuery(api.functions.cases.getCases, {});
-  const cases = casesResult || [];
+  const casesResult = useQuery(api.functions.cases.getCases, {
+    paginationOpts: { numItems: 100, cursor: null },
+  });
+  const cases = casesResult?.page || [];
   const currentCase = caseId ? cases.find((c) => c._id === caseId) : null;
 
   const escritoId =
@@ -57,7 +59,7 @@ export default function Breadcrumbs() {
   };
 
   return (
-    <div className="flex items-center gap-2 text-[18px]">
+    <div className="flex items-center gap-2 text-[18px] min-w-0 max-w-full overflow-hidden">
       {pathnames.map((value, index) => {
         const isLast = index === pathnames.length - 1;
         const to = getLinkPath(index);
@@ -68,13 +70,23 @@ export default function Breadcrumbs() {
         }
 
         return isLast ? (
-          <span key={to}>{displayName}</span>
+          <span
+            key={to}
+            className="truncate min-w-0 max-w-[200px] block"
+            title={displayName}
+          >
+            {displayName}
+          </span>
         ) : (
           <React.Fragment key={to}>
-            <Link to={to} className="hover:underline">
+            <Link
+              to={to}
+              className="hover:underline truncate min-w-0 max-w-[200px] block"
+              title={displayName}
+            >
               {displayName}
             </Link>
-            <span>/</span>
+            <span className="flex-shrink-0">/</span>
           </React.Fragment>
         );
       })}
