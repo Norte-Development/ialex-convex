@@ -12,7 +12,7 @@ import {
   TemplateTable, 
   TemplatePreviewDialog, 
   TemplateSearchBar 
-} from "@/components/Templates";
+} from "@/components/Modelos";
 
 export default function CaseModelPage() {
   const navigate = useNavigate();

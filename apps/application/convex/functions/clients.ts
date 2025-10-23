@@ -1,5 +1,6 @@
 import { v } from "convex/values";
 import { query, mutation, internalQuery } from "../_generated/server";
+import { paginationOptsValidator } from "convex/server";
 import { getCurrentUserFromAuth } from "../auth_utils";
 import type { QueryCtx } from "../_generated/server";
 import type { Doc } from "../_generated/dataModel";
@@ -236,13 +237,11 @@ export const createClient = mutation({
  */
 export const getClients = query({
   args: {
+    paginationOpts: v.optional(paginationOptsValidator),
     search: v.optional(v.string()),
-    paginationOpts: v.optional(
-      v.object({
-        cursor: v.optional(v.string()),
-        numItems: v.optional(v.number()),
-      }),
-    ),
+    clientType: v.optional(v.union(v.literal("individual"), v.literal("company"))),
+    sortBy: v.optional(v.string()),
+    sortOrder: v.optional(v.union(v.literal("asc"), v.literal("desc"))),
   },
   returns: v.object({
     page: v.array(
@@ -298,7 +297,8 @@ export const getClients = query({
       }),
     ),
     isDone: v.boolean(),
-    continueCursor: v.optional(v.string()),
+    continueCursor: v.union(v.string(), v.null()),
+    totalCount: v.number(),
   }),
   handler: async (ctx, args) => {
     // Require authentication to view clients
@@ -331,10 +331,10 @@ export const getClients = query({
       accessibleClientIds.add(client._id),
     );
 
-    let clientsResult;
+    let allClients: Doc<"clients">[] = [];
 
     if (args.search) {
-      // Use search index for better performance instead of loading all clients
+      // Use search index for better performance
       const searchResults = await ctx.db
         .query("clients")
         .withSearchIndex("search_clients", (q) =>
@@ -356,61 +356,76 @@ export const getClients = query({
         .collect();
 
       // Merge and deduplicate results
-      const allResults = [...searchResults];
+      allClients = [...searchResults];
       const existingIds = new Set(searchResults.map((c) => c._id));
       for (const result of dniCuitResults) {
         if (!existingIds.has(result._id)) {
-          allResults.push(result);
+          allClients.push(result);
         }
       }
-
-      // Filter by accessible clients
-      const filteredResults = allResults.filter((c) =>
-        accessibleClientIds.has(c._id),
-      );
-
-      clientsResult = {
-        page: filteredResults,
-        isDone: true,
-        continueCursor: undefined,
-      };
     } else {
-      // For non-search queries, use Convex's built-in pagination
-      const numItems = Math.min(args.paginationOpts?.numItems ?? 10, 100);
-
-      const allClients = await ctx.db
+      // Get all active clients
+      allClients = await ctx.db
         .query("clients")
         .withIndex("by_active_status", (q) => q.eq("isActive", true))
         .collect();
-
-      // Filter by accessible clients
-      const filteredClients = allClients.filter((c) =>
-        accessibleClientIds.has(c._id),
-      );
-
-      // Manual pagination for filtered results
-      const startIdx = args.paginationOpts?.cursor
-        ? parseInt(args.paginationOpts.cursor)
-        : 0;
-      const endIdx = startIdx + numItems;
-      const page = filteredClients.slice(startIdx, endIdx);
-      const isDone = endIdx >= filteredClients.length;
-      const continueCursor = isDone ? undefined : endIdx.toString();
-
-      clientsResult = {
-        page,
-        isDone,
-        continueCursor,
-      };
     }
 
+    // Filter by accessible clients
+    let filteredClients = allClients.filter((c) =>
+      accessibleClientIds.has(c._id),
+    );
+
+    // Apply client type filter
+    if (args.clientType) {
+      filteredClients = filteredClients.filter((c) => c.clientType === args.clientType);
+    }
+
+    // Apply sorting
+    if (args.sortBy && args.sortOrder) {
+      filteredClients.sort((a, b) => {
+        let aValue, bValue;
+        
+        switch (args.sortBy) {
+          case "name":
+            aValue = a.name.toLowerCase();
+            bValue = b.name.toLowerCase();
+            break;
+          case "clientType":
+            aValue = a.clientType;
+            bValue = b.clientType;
+            break;
+          case "createdAt":
+          default:
+            aValue = a._creationTime;
+            bValue = b._creationTime;
+            break;
+        }
+
+        if (aValue < bValue) return args.sortOrder === "asc" ? -1 : 1;
+        if (aValue > bValue) return args.sortOrder === "asc" ? 1 : -1;
+        return 0;
+      });
+    }
+
+    // Apply pagination
+    const numItems = args.paginationOpts?.numItems ?? 10;
+    const offset = args.paginationOpts?.cursor ? parseInt(args.paginationOpts.cursor) : 0;
+    const startIndex = offset;
+    const endIndex = offset + numItems;
+    
+    const paginatedClients = filteredClients.slice(startIndex, endIndex);
+    const isDone = endIndex >= filteredClients.length;
+    const continueCursor = isDone ? null : endIndex.toString();
+
     // Batch fetch related data to avoid N+1 queries
-    const clientsWithCases = await batchFetchClientCases(ctx, clientsResult.page);
+    const clientsWithCases = await batchFetchClientCases(ctx, paginatedClients);
 
     return {
       page: clientsWithCases,
-      isDone: clientsResult.isDone,
-      continueCursor: clientsResult.continueCursor,
+      isDone,
+      continueCursor,
+      totalCount: filteredClients.length,
     };
   },
 });

@@ -72,13 +72,14 @@ export default function CreateEventDialog({
   const [reminder1week, setReminder1week] = useState(false);
 
   // Queries para selectores
-  const cases = useQuery(
+  const casesResult = useQuery(
     api.functions.cases.getCases,
-    showCaseSelector ? {} : "skip",
+    showCaseSelector ? { paginationOpts: { numItems: 100, cursor: null } } : "skip",
   );
+  const cases = casesResult?.page || [];
   const teams = useQuery(
     api.functions.teams.getTeams,
-    showTeamSelector ? {} : "skip",
+    showTeamSelector ? { paginationOpts: { numItems: 100, cursor: null } } : "skip",
   );
 
   const createEvent = useMutation(api.functions.events.createEvent);
@@ -240,7 +241,7 @@ export default function CreateEventDialog({
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="none">Sin vincular</SelectItem>
-                  {teams?.map((team) => (
+                  {teams?.page?.map((team) => (
                     <SelectItem key={team._id} value={team._id}>
                       {team.name}
                     </SelectItem>

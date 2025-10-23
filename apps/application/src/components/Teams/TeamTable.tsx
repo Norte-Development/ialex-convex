@@ -13,9 +13,10 @@ import { Badge } from "../ui/badge";
 import { Users, Calendar, User } from "lucide-react";
 
 export default function TeamTable() {
-  const teams = useQuery(api.functions.teams.getTeams, {});
+  const teamsResult = useQuery(api.functions.teams.getTeams, {});
+  const teams = teamsResult?.page || [];
 
-  if (teams === undefined) {
+  if (teamsResult === undefined) {
     return (
       <div className="flex items-center justify-center p-8">
         <div className="text-gray-500">Cargando equipos...</div>

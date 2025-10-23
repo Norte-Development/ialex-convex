@@ -1,5 +1,3 @@
-import { useQuery } from "convex/react";
-import { api } from "../../../convex/_generated/api";
 import { Id } from "../../../convex/_generated/dataModel";
 import { Badge } from "../ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
@@ -8,15 +6,27 @@ import { Link } from "react-router-dom";
 
 interface TeamCasesListProps {
   teamId: Id<"teams">;
+  casesResult: {
+    page: Array<{
+      _id: string;
+      title: string;
+      description?: string;
+      status: string;
+      accessLevel: "none" | "basic" | "advanced" | "admin";
+      _creationTime: number;
+      startDate?: number;
+      tags?: string[];
+    }>;
+    isDone: boolean;
+    continueCursor: string | null;
+    totalCount: number;
+  } | undefined;
 }
 
 type AccessLevel = "none" | "basic" | "advanced" | "admin";
 
-export default function TeamCasesList({ teamId }: TeamCasesListProps) {
-  const casesWithAccess = useQuery(
-    api.functions.teams.getCasesAccessibleByTeam,
-    { teamId },
-  );
+export default function TeamCasesList({ casesResult }: TeamCasesListProps) {
+  const casesWithAccess = casesResult;
 
   const getAccessLevelIcon = (level: AccessLevel) => {
     return level === "admin" ? (
@@ -108,12 +118,12 @@ export default function TeamCasesList({ teamId }: TeamCasesListProps) {
       <div className="flex items-center justify-between">
         <h3 className="text-lg font-semibold">Casos Accesibles</h3>
         <Badge variant="outline">
-          {casesWithAccess?.length || 0}{" "}
-          {(casesWithAccess?.length || 0) === 1 ? "caso" : "casos"}
+          {casesWithAccess?.totalCount || 0}{" "}
+          {(casesWithAccess?.totalCount || 0) === 1 ? "caso" : "casos"}
         </Badge>
       </div>
 
-      {(casesWithAccess?.length || 0) === 0 ? (
+      {(casesWithAccess?.totalCount || 0) === 0 ? (
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-8">
             <FileText className="h-12 w-12 text-gray-400 mb-4" />
@@ -124,7 +134,7 @@ export default function TeamCasesList({ teamId }: TeamCasesListProps) {
         </Card>
       ) : (
         <div className="grid gap-4">
-          {casesWithAccess?.map((caseItem) => (
+          {casesWithAccess?.page?.map((caseItem) => (
             <Card
               key={caseItem._id}
               className="hover:shadow-md transition-shadow"

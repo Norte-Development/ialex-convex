@@ -1,22 +1,11 @@
 import { Input } from "@/components/ui/input";
 import { useState } from "react";
-import ClientsTable from "@/components/Clients/ClientsTable";
+import ClientsTableContainer from "@/components/Clients/ClientsTableContainer";
 import CreateClientDialog from "@/components/Clients/CreateClientDialog";
-import { useQuery } from "convex/react";
-import { api } from "../../convex/_generated/api";
 import { ClientsPageSkeleton } from "@/components/Clients/Skeletons/ClientsPageSkeleton";
 
 export default function ClientsPage() {
   const [search, setSearch] = useState("");
-
-  const clientsResult = useQuery(api.functions.clients.getClients, {
-    search,
-  });
-
-  // Show skeleton while loading
-  if (clientsResult === undefined) {
-    return <ClientsPageSkeleton />;
-  }
 
   return (
     <div
@@ -32,7 +21,10 @@ export default function ClientsPage() {
       </div>
 
       <div className="w-full   flex justify-start  rounded-lg ">
-        <ClientsTable clientsResult={clientsResult} />
+        <ClientsTableContainer 
+          searchQuery={search}
+          pageSize={20}
+        />
       </div>
     </div>
   );

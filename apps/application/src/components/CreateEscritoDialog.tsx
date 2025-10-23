@@ -42,9 +42,9 @@ export function CreateEscritoDialog({
   // Get current escritos for the case
   const escritos = useQuery(
     api.functions.documents.getEscritos,
-    currentCase?._id ? { caseId: currentCase._id as Id<"cases"> } : "skip"
+    currentCase?._id ? { caseId: currentCase._id as Id<"cases">, paginationOpts: { numItems: 100, cursor: null } } : "skip"
   );
-  const currentEscritoCount = escritos?.length || 0;
+  const currentEscritoCount = escritos?.page?.length || 0;
 
   // Check escrito limit
   const { allowed, isWarning, percentage, reason, currentCount, limit } = useBillingLimit("escritosPerCase", {

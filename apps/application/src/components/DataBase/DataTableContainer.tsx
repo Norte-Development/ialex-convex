@@ -11,7 +11,7 @@ import type {
   SortOrder,
 } from "../../../types/legislation";
 import { TableView } from "./TableView";
-import { PaginationControls } from "./PaginationControls";
+import { PaginationControls } from "../ui/pagination-controls";
 
 interface DataTableContainerProps {
   // Data-related state
@@ -163,7 +163,7 @@ export const DataTableContainer = memo(function DataTableContainer({
 
       <PaginationControls
         totalResults={computedData.totalResults}
-        page={page}
+        currentPage={page}
         pageSize={pageSize}
         totalPages={totalPages}
         isSearchMode={isSearchMode}

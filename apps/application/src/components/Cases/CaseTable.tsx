@@ -36,9 +36,19 @@ import { MoreVertical, Pencil, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
 import { Id } from "../../../convex/_generated/dataModel";
 import EditCaseDialog from "./EditCaseDialog";
+import { PaginationControls } from "../ui/pagination-controls";
 
 interface CaseTableProps {
-  cases: Case[] | undefined;
+  casesResult: {
+    page: Case[];
+    isDone: boolean;
+    continueCursor: string | null;
+    totalCount: number;
+  };
+  currentPage: number;
+  pageSize: number;
+  onPageChange: (page: number) => void;
+  searchQuery: string;
 }
 
 // Componente para mostrar equipos de un caso
@@ -158,7 +168,13 @@ function getStatusText(status: Case["status"]) {
   }
 }
 
-export default function CaseTable({ cases }: CaseTableProps) {
+export default function CaseTable({ 
+  casesResult, 
+  currentPage, 
+  pageSize, 
+  onPageChange, 
+  searchQuery 
+}: CaseTableProps) {
   const navigate = useNavigate();
   const [selectedCases, setSelectedCases] = useState<Set<string>>(new Set());
   const [caseToDelete, setCaseToDelete] = useState<Case | null>(null);
@@ -166,6 +182,9 @@ export default function CaseTable({ cases }: CaseTableProps) {
   const [isDeleting, setIsDeleting] = useState(false);
 
   const deleteCase = useMutation(api.functions.cases.deleteCase);
+
+  // Extract cases from result
+  const cases = casesResult?.page;
 
   const handleRowClick = (caseId: string) => {
     navigate(`/caso/${caseId}`);
@@ -252,10 +271,10 @@ export default function CaseTable({ cases }: CaseTableProps) {
   ).length || 0;
 
   return (
-    <div className="space-y-4 w-full">
+    <div className="flex flex-col h-[calc(100vh-200px)] w-full">
       {/* Barra de acciones masivas */}
       {selectedCases.size > 0 && (
-        <div className="flex items-center justify-between p-4 bg-blue-50 border border-blue-200 rounded-lg">
+        <div className="flex items-center justify-between p-4 bg-blue-50 border border-blue-200 rounded-lg mb-4">
           <div className="flex items-center gap-3">
             <div className="flex flex-col">
               <span className="font-medium text-blue-900">
@@ -315,8 +334,9 @@ export default function CaseTable({ cases }: CaseTableProps) {
         </div>
       )}
 
-      {/* Tabla de casos */}
-      <Table>
+      {/* Scrollable table container */}
+      <div className="flex-1 overflow-auto border rounded-lg">
+        <Table>
         <TableHeader className="bg-gray-100 py-[16px] px-[8px] text-black ">
           <TableRow>
             <TableCell className="w-12">
@@ -424,7 +444,23 @@ export default function CaseTable({ cases }: CaseTableProps) {
             ))
           )}
         </TableBody>
-      </Table>
+        </Table>
+      </div>
+
+      {/* Fixed pagination controls at bottom */}
+      {cases && cases.length > 0 && (
+        <div className="mt-4 flex-shrink-0">
+          <PaginationControls
+            totalResults={casesResult?.totalCount || 0}
+            currentPage={currentPage}
+            pageSize={pageSize}
+            totalPages={Math.ceil((casesResult?.totalCount || 0) / pageSize)}
+            isSearchMode={!!searchQuery.trim()}
+            searchQuery={searchQuery}
+            onPageChange={onPageChange}
+          />
+        </div>
+      )}
 
       {/* Dialog de confirmación para eliminar un caso */}
       <AlertDialog

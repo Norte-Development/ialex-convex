@@ -9,9 +9,12 @@ import { useState } from "react";
 import { ExistingUserHomeSkeleton } from "./Skeletons";
 
 const ExistingUserHome = () => {
-  const casesResult = useQuery(api.functions.cases.getCases, {});
+  const casesResult = useQuery(api.functions.cases.getCases, {
+    paginationOpts: { numItems: 10, cursor: null },
+  });
   const upcomingEvents = useQuery(api.functions.events.getUpcomingEvents, {
     days: 30,
+    paginationOpts: { numItems: 100, cursor: null }
   });
 
   // Show skeleton while loading
@@ -19,8 +22,8 @@ const ExistingUserHome = () => {
   const isLoadingEvents = upcomingEvents === undefined;
   const isLoading = isLoadingCases || isLoadingEvents;
 
-  const cases = casesResult || [];
-  const events = upcomingEvents || [];
+  const cases = casesResult?.page || [];
+  const events = upcomingEvents?.page || [];
 
   const [open, setOpen] = useState(false);
 

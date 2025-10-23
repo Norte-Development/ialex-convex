@@ -122,13 +122,31 @@ export default function CaseSidebar() {
 
   const currentSection = getCurrentSection();
 
-  // Fetch actual escritos for the current case
-  const escritos = useQuery(
-    api.functions.documents.getEscritos,
-    currentCase ? { caseId: currentCase._id } : "skip",
+  // Search state for escritos
+  const [escritosSearchQuery, setEscritosSearchQuery] = useState("");
+
+  // 1. If searching, use search query
+  const searchResults = useQuery(
+    api.functions.documents.searchEscritos,
+    currentCase && escritosSearchQuery.length >= 2
+      ? { caseId: currentCase._id, query: escritosSearchQuery }
+      : "skip",
   );
 
-  const totalEscritos = escritos?.length || 0;
+  // 2. Otherwise, show recent escritos only (limit 10)
+  const recentEscritos = useQuery(
+    api.functions.documents.getRecentEscritos,
+    currentCase && !escritosSearchQuery
+      ? { caseId: currentCase._id, limit: 5 }
+      : "skip",
+  );
+
+  // Determine which escritos to display
+  const displayedEscritos = escritosSearchQuery
+    ? searchResults
+    : recentEscritos;
+
+  const totalEscritos = displayedEscritos?.length || 0;
 
   const totalDocumentos = documents?.length || 0;
 
@@ -366,8 +384,46 @@ export default function CaseSidebar() {
                   )}
                 </CollapsibleTrigger>
                 <CollapsibleContent className="flex flex-col gap-1 pl-2 text-[12px] pt-1">
-                  {escritos && escritos.length > 0 ? (
-                    escritos.map((escrito) => (
+                  {/* Search Input */}
+                  <div className="px-2 py-1 mb-1">
+                    <Input
+                      placeholder="Buscar escritos..."
+                      value={escritosSearchQuery}
+                      onChange={(e) => {
+                        setEscritosSearchQuery(e.target.value);
+                      }}
+                      className="h-7 text-xs placeholder:text-xs"
+                      onClick={(e) => e.stopPropagation()}
+                    />
+                  </div>
+
+                  {/* View All Button */}
+                  <div className="px-2 pb-1">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        navigate(`${basePath}/escritos`);
+                      }}
+                      className="w-full h-6 text-xs text-muted-foreground hover:text-foreground"
+                    >
+                      Ver todos los escritos
+                    </Button>
+                  </div>
+
+                  {/* Search Results Count */}
+                  {escritosSearchQuery && searchResults && (
+                    <div className="px-2 pb-1 text-xs text-muted-foreground">
+                      {searchResults.length > 0
+                        ? `${searchResults.length} resultado${searchResults.length !== 1 ? "s" : ""}`
+                        : "Sin resultados"}
+                    </div>
+                  )}
+
+                  {/* Escritos List */}
+                  {displayedEscritos && displayedEscritos.length > 0 ? (
+                    displayedEscritos.map((escrito) => (
                       <div
                         key={escrito._id}
                         className={`flex flex-col gap-1 p-2 rounded hover:bg-gray-50 ${
@@ -426,7 +482,9 @@ export default function CaseSidebar() {
                     ))
                   ) : (
                     <div className="text-muted-foreground text-xs p-2">
-                      No hay escritos
+                      {escritosSearchQuery
+                        ? "No se encontraron escritos"
+                        : "No hay escritos"}
                     </div>
                   )}
                 </CollapsibleContent>
@@ -499,6 +557,21 @@ export default function CaseSidebar() {
                   )}
                 </CollapsibleTrigger>
                 <CollapsibleContent className="flex flex-col gap-1 pl-2 text-[12px] pt-1">
+                  {/* View All Documents Button */}
+                  <div className="px-2 py-1">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        navigate(`${basePath}/documentos`);
+                      }}
+                      className="w-full h-6 text-xs text-muted-foreground hover:text-foreground"
+                    >
+                      Ver todos los documentos
+                    </Button>
+                  </div>
+
                   {isCreatingRootFolder && (
                     <div className="flex items-center gap-2 p-1 pr-3">
                       <Input
