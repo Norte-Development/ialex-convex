@@ -27,7 +27,7 @@ export function TemplatePreviewDialog({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl">
+      <DialogContent className="max-w-4xl max-h-[80vh]  overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{template?.name}</DialogTitle>
         </DialogHeader>
@@ -54,12 +54,16 @@ function TemplatePreviewContent({ template }: TemplatePreviewContentProps) {
   }
 
   if (!template?.content) {
-    return <p className="text-muted-foreground">Esta plantilla no tiene contenido.</p>;
+    return (
+      <p className="text-muted-foreground">
+        Esta plantilla no tiene contenido.
+      </p>
+    );
   }
 
   return (
     <div
-      className="prose max-w-none"
+      className="prose max-w-none  "
       dangerouslySetInnerHTML={{ __html: template.content }}
     />
   );

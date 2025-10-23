@@ -3,20 +3,22 @@ import { useUser } from "@clerk/clerk-react";
 import { useQuery, useMutation, useConvexAuth } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import { OnboardingFlow } from "../Onboarding/OnboardingFlow";
-import { OnboardingSkeleton } from "../Skeletons";
+import { AuthLoadingSkeleton } from "../AuthLoadingSkeleton";
 
 interface OnboardingWrapperProps {
   children: React.ReactNode;
 }
 
-export const OnboardingWrapper: React.FC<OnboardingWrapperProps> = ({ children }) => {
+export const OnboardingWrapper: React.FC<OnboardingWrapperProps> = ({
+  children,
+}) => {
   const { user: clerkUser } = useUser();
   const { isAuthenticated } = useConvexAuth();
-  
+
   // Get user data from Convex database - only query when Convex considers user authenticated
   const user = useQuery(
     api.functions.users.getCurrentUser,
-    isAuthenticated && clerkUser ? { clerkId: clerkUser.id } : "skip"
+    isAuthenticated && clerkUser ? { clerkId: clerkUser.id } : "skip",
   );
 
   // Auto-sync user on first authentication
@@ -29,7 +31,8 @@ export const OnboardingWrapper: React.FC<OnboardingWrapperProps> = ({ children }
 
       try {
         const email = clerkUser.emailAddresses[0]?.emailAddress || "";
-        const name = clerkUser.fullName || clerkUser.firstName || "Unknown User";
+        const name =
+          clerkUser.fullName || clerkUser.firstName || "Unknown User";
 
         await getOrCreateUser({
           clerkId: clerkUser.id,
@@ -47,14 +50,14 @@ export const OnboardingWrapper: React.FC<OnboardingWrapperProps> = ({ children }
     }
   }, [clerkUser, isAuthenticated, user, getOrCreateUser]);
 
-  // Show onboarding skeleton while loading user data
+  // Show skeleton while loading user data (uses route-aware skeleton)
   if (isAuthenticated && user === undefined) {
-    return <OnboardingSkeleton />;
+    return <AuthLoadingSkeleton />;
   }
 
-  // If no user found in database and we're still syncing, show onboarding skeleton
+  // If no user found in database and we're still syncing, show skeleton
   if (isAuthenticated && !user) {
-    return <OnboardingSkeleton />;
+    return <AuthLoadingSkeleton />;
   }
 
   // Show onboarding flow if user hasn't completed onboarding
@@ -64,4 +67,4 @@ export const OnboardingWrapper: React.FC<OnboardingWrapperProps> = ({ children }
 
   // User is fully set up, show the main app
   return <>{children}</>;
-}; 
+};

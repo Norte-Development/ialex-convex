@@ -1,11 +1,12 @@
 import CreateCaseDialog from "../components/Cases/CreateCaseDialog";
 import { useCase } from "@/context/CaseContext";
 import { CaseProvider } from "@/context/CaseContext";
-import CasesTableContainer from "@/components/Cases/CasesTableContainer";
-import { useBillingData, UsageMeter } from "@/components/Billing";
+import CasesTableContainer from "../components/Cases/CasesTableContainer";
+import { useBillingData, UsageMeter } from "../components/Billing";
+import { CasesPageSkeleton } from "../components/Cases/Skeletons";
 import { useState, useCallback, useMemo } from "react";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
+import { Input } from "../components/ui/input";
+import { Button } from "../components/ui/button";
 import { Search, Filter, X } from "lucide-react";
 import {
   Select,
@@ -13,7 +14,7 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select";
+} from "../components/ui/select";
 
 function CasesContent() {
   const { currentCase } = useCase();

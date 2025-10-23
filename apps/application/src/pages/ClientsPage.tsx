@@ -2,6 +2,7 @@ import { Input } from "@/components/ui/input";
 import { useState } from "react";
 import ClientsTableContainer from "@/components/Clients/ClientsTableContainer";
 import CreateClientDialog from "@/components/Clients/CreateClientDialog";
+import { ClientsPageSkeleton } from "@/components/Clients/Skeletons/ClientsPageSkeleton";
 
 export default function ClientsPage() {
   const [search, setSearch] = useState("");

@@ -17,9 +17,12 @@ export default function HomePage() {
 
   const { sendMessage } = useHomeThreads();
 
-  // This component will only render when user is authenticated and loaded
+  if (!user) {
+    return null;
+  }
+
   // Show new user experience if they're missing key info or just completed onboarding
-  const isNewUserExperience = !user?.isOnboardingComplete;
+  const isNewUserExperience = !user.isOnboardingComplete;
 
   const handleSendMessage = async () => {
     if (!inputValue.trim() || isCreating) return;

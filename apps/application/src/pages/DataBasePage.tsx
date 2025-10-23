@@ -5,23 +5,71 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useAction } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { useQuery } from "@tanstack/react-query";
+import { DataBasePageSkeleton } from "@/components/DataBase/Skeletons/DataBasePageSkeleton";
 
 export default function DataBasePage() {
   const [activeView, setActiveView] = useState<"simple" | "advanced">("simple");
-  
-  const getNormativesFacets = useAction(api.functions.legislation.getNormativesFacets);
+
+  const getNormativesFacets = useAction(
+    api.functions.legislation.getNormativesFacets,
+  );
+  const getNormatives = useAction(api.functions.legislation.getNormatives);
 
   // Fetch jurisdictions once at page level with long cache time
   // No filters applied to get all available jurisdictions
-  const { data: jurisdictionsData } = useQuery({
+  const { data: jurisdictionsData, isLoading } = useQuery({
     queryKey: ["all-jurisdictions"],
     queryFn: () => getNormativesFacets({ filters: {} }),
     staleTime: 60 * 60 * 1000, // Cache for 1 hour
     gcTime: 24 * 60 * 60 * 1000, // Keep in cache for 24 hours
   });
 
+  // Also fetch initial facets to ensure everything is ready before showing UI
+  const { data: initialFacets, isLoading: isInitialFacetsLoading } = useQuery({
+    queryKey: ["normatives-facets", "all", {}],
+    queryFn: () => getNormativesFacets({ filters: {} }),
+    staleTime: 5 * 60 * 1000,
+  });
+
+  // Fetch initial table data
+  const { data: initialTableData, isLoading: isInitialTableLoading } = useQuery(
+    {
+      queryKey: [
+        "getNormatives",
+        "all",
+        {},
+        "",
+        1,
+        25,
+        "sanction_date",
+        "desc",
+      ],
+      queryFn: () =>
+        getNormatives({
+          filters: {},
+          limit: 25,
+          offset: 0,
+          sortBy: "sanction_date",
+          sortOrder: "desc",
+        }),
+      staleTime: 5 * 60 * 1000,
+    },
+  );
+
+  // Show skeleton while loading initial data - wait for ALL queries
+  if (
+    isLoading ||
+    !jurisdictionsData ||
+    isInitialFacetsLoading ||
+    !initialFacets ||
+    isInitialTableLoading ||
+    !initialTableData
+  ) {
+    return <DataBasePageSkeleton />;
+  }
+
   // Extract jurisdictions from facets data
-  const availableJurisdictions = jurisdictionsData?.jurisdicciones 
+  const availableJurisdictions = jurisdictionsData.jurisdicciones
     ? ["all", ...Object.keys(jurisdictionsData.jurisdicciones)]
     : ["all"];
 
@@ -52,7 +100,7 @@ export default function DataBasePage() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-            <DataBaseTable jurisdictions={availableJurisdictions} />
+          <DataBaseTable jurisdictions={availableJurisdictions} />
         </CardContent>
       </Card>
     </section>
