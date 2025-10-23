@@ -1,5 +1,6 @@
 import { v } from "convex/values";
 import { query, mutation, action, internalQuery } from "../_generated/server";
+import { paginationOptsValidator } from "convex/server";
 import { getCurrentUserFromAuth, requireNewCaseAccess } from "../auth_utils";
 import { prosemirrorSync } from "../prosemirror";
 import { internal, api } from "../_generated/api";
@@ -347,21 +348,102 @@ export const getDocumentsInFolder = query({
   args: {
     caseId: v.id("cases"),
     folderId: v.optional(v.id("folders")),
+    paginationOpts: paginationOptsValidator,
+    search: v.optional(v.string()),
+    documentType: v.optional(v.union(
+      v.literal("contract"),
+      v.literal("evidence"),
+      v.literal("correspondence"),
+      v.literal("legal_brief"),
+      v.literal("court_filing"),
+      v.literal("other"),
+    )),
+    sortBy: v.optional(v.string()),
+    sortOrder: v.optional(v.union(v.literal("asc"), v.literal("desc"))),
   },
+  returns: v.object({
+    page: v.array(v.any()),
+    isDone: v.boolean(),
+    continueCursor: v.union(v.string(), v.null()),
+    totalCount: v.number(),
+  }),
   handler: async (ctx, args) => {
     // Verify user has document read permission using NEW system
     const currentUser = await getCurrentUserFromAuth(ctx);
     await requireNewCaseAccess(ctx, currentUser._id, args.caseId, "basic");
 
-    const documents = await ctx.db
+    // Get all documents for the case and folder
+    let documents = await ctx.db
       .query("documents")
       .withIndex("by_case_and_folder", (q) =>
         q.eq("caseId", args.caseId).eq("folderId", args.folderId ?? undefined),
       )
-      .order("desc")
       .collect();
 
-    return documents;
+    // Apply search filter
+    if (args.search && args.search.trim()) {
+      const searchTerm = args.search.toLowerCase().trim();
+      documents = documents.filter((doc) =>
+        doc.title.toLowerCase().includes(searchTerm) ||
+        (doc.description && doc.description.toLowerCase().includes(searchTerm)) ||
+        (doc.originalFileName && doc.originalFileName.toLowerCase().includes(searchTerm))
+      );
+    }
+
+    // Apply document type filter
+    if (args.documentType) {
+      documents = documents.filter((doc) => doc.documentType === args.documentType);
+    }
+
+    // Apply sorting
+    if (args.sortBy && args.sortOrder) {
+      documents.sort((a, b) => {
+        let aValue, bValue;
+        
+        switch (args.sortBy) {
+          case "title":
+            aValue = a.title.toLowerCase();
+            bValue = b.title.toLowerCase();
+            break;
+          case "documentType":
+            aValue = a.documentType || "";
+            bValue = b.documentType || "";
+            break;
+          case "fileSize":
+            aValue = a.fileSize;
+            bValue = b.fileSize;
+            break;
+          case "createdAt":
+          default:
+            aValue = a._creationTime;
+            bValue = b._creationTime;
+            break;
+        }
+
+        if (aValue < bValue) return args.sortOrder === "asc" ? -1 : 1;
+        if (aValue > bValue) return args.sortOrder === "asc" ? 1 : -1;
+        return 0;
+      });
+    } else {
+      // Default sort by creation time (newest first)
+      documents.sort((a, b) => b._creationTime - a._creationTime);
+    }
+
+    // Apply pagination
+    const offset = args.paginationOpts.cursor ? parseInt(args.paginationOpts.cursor) : 0;
+    const startIndex = offset;
+    const endIndex = offset + args.paginationOpts.numItems;
+    
+    const paginatedDocuments = documents.slice(startIndex, endIndex);
+    const isDone = endIndex >= documents.length;
+    const continueCursor = isDone ? null : endIndex.toString();
+
+    return {
+      page: paginatedDocuments,
+      isDone,
+      continueCursor,
+      totalCount: documents.length,
+    };
   },
 });
 
@@ -780,20 +862,88 @@ export const updateEscrito = mutation({
 export const getEscritos = query({
   args: {
     caseId: v.id("cases"),
+    paginationOpts: paginationOptsValidator,
+    search: v.optional(v.string()),
+    status: v.optional(v.union(v.literal("borrador"), v.literal("terminado"))),
+    sortBy: v.optional(v.string()),
+    sortOrder: v.optional(v.union(v.literal("asc"), v.literal("desc"))),
   },
+  returns: v.object({
+    page: v.array(v.any()),
+    isDone: v.boolean(),
+    continueCursor: v.union(v.string(), v.null()),
+    totalCount: v.number(),
+  }),
   handler: async (ctx, args) => {
     // Verify user has escrito read permission using NEW system
     const currentUser = await getCurrentUserFromAuth(ctx);
     await requireNewCaseAccess(ctx, currentUser._id, args.caseId, "basic");
 
-    const escritos = await ctx.db
+    // Get all escritos for the case
+    let escritos = await ctx.db
       .query("escritos")
       .withIndex("by_case", (q) => q.eq("caseId", args.caseId))
       .filter((q) => q.eq(q.field("isArchived"), false))
-      .order("desc")
       .collect();
 
-    return escritos;
+    // Apply search filter
+    if (args.search && args.search.trim()) {
+      const searchTerm = args.search.toLowerCase().trim();
+      escritos = escritos.filter((escrito) =>
+        escrito.title.toLowerCase().includes(searchTerm)
+      );
+    }
+
+    // Apply status filter
+    if (args.status) {
+      escritos = escritos.filter((escrito) => escrito.status === args.status);
+    }
+
+    // Apply sorting
+    if (args.sortBy && args.sortOrder) {
+      escritos.sort((a, b) => {
+        let aValue, bValue;
+        
+        switch (args.sortBy) {
+          case "title":
+            aValue = a.title.toLowerCase();
+            bValue = b.title.toLowerCase();
+            break;
+          case "status":
+            aValue = a.status;
+            bValue = b.status;
+            break;
+          case "createdAt":
+          default:
+            aValue = a._creationTime;
+            bValue = b._creationTime;
+            break;
+        }
+
+        if (aValue < bValue) return args.sortOrder === "asc" ? -1 : 1;
+        if (aValue > bValue) return args.sortOrder === "asc" ? 1 : -1;
+        return 0;
+      });
+    } else {
+      // Default sort by creation time (newest first)
+      escritos.sort((a, b) => b._creationTime - a._creationTime);
+    }
+
+    // Apply pagination
+    const offset = args.paginationOpts.cursor ? parseInt(args.paginationOpts.cursor) : 0;
+    const startIndex = offset;
+    const endIndex = offset + args.paginationOpts.numItems;
+    
+    const paginatedEscritos = escritos.slice(startIndex, endIndex);
+    const isDone = endIndex >= escritos.length;
+    const continueCursor = isDone ? null : endIndex.toString();
+
+    return {
+      page: paginatedEscritos,
+      isDone,
+      continueCursor,
+      totalCount: escritos.length,
+    };
   },
 });
 
@@ -958,6 +1108,153 @@ export const getArchivedEscritos = query({
       .collect();
 
     return archivedEscritos;
+  },
+});
+
+/**
+ * Searches escritos by title for a specific case.
+ *
+ * @param {Object} args - The function arguments
+ * @param {string} args.caseId - The ID of the case
+ * @param {string} args.query - The search query string
+ * @param {number} [args.limit] - Maximum number of results (default: 20)
+ * @returns {Promise<Object[]>} Array of matching escrito documents
+ * @throws {Error} When not authenticated or lacking case access
+ *
+ * @description Performs a case-insensitive search on escrito titles.
+ * Only returns non-archived escritos.
+ *
+ * @example
+ * ```javascript
+ * const results = await searchEscritos({ 
+ *   caseId: "case_123", 
+ *   query: "motion",
+ *   limit: 10
+ * });
+ * ```
+ */
+export const searchEscritos = query({
+  args: {
+    caseId: v.id("cases"),
+    query: v.string(),
+    limit: v.optional(v.number()),
+  },
+  returns: v.array(v.any()),
+  handler: async (ctx, args) => {
+    // Verify user has escrito read permission
+    const currentUser = await getCurrentUserFromAuth(ctx);
+    await requireNewCaseAccess(ctx, currentUser._id, args.caseId, "basic");
+
+    const limit = args.limit || 20;
+    const searchTerm = args.query.toLowerCase().trim();
+
+    if (!searchTerm) {
+      return [];
+    }
+
+    // Get all non-archived escritos for the case
+    const escritos = await ctx.db
+      .query("escritos")
+      .withIndex("by_case", (q) => q.eq("caseId", args.caseId))
+      .filter((q) => q.eq(q.field("isArchived"), false))
+      .collect();
+
+    // Filter by search term and limit results
+    return escritos
+      .filter((escrito) => 
+        escrito.title.toLowerCase().includes(searchTerm)
+      )
+      .sort((a, b) => b.lastEditedAt - a.lastEditedAt)
+      .slice(0, limit);
+  },
+});
+
+/**
+ * Gets the most recent escritos for a specific case.
+ *
+ * @param {Object} args - The function arguments
+ * @param {string} args.caseId - The ID of the case
+ * @param {number} [args.limit] - Maximum number of results (default: 10)
+ * @returns {Promise<Object[]>} Array of recent escrito documents
+ * @throws {Error} When not authenticated or lacking case access
+ *
+ * @description Returns the most recently edited non-archived escritos.
+ *
+ * @example
+ * ```javascript
+ * const recent = await getRecentEscritos({ 
+ *   caseId: "case_123", 
+ *   limit: 5
+ * });
+ * ```
+ */
+export const getRecentEscritos = query({
+  args: {
+    caseId: v.id("cases"),
+    limit: v.optional(v.number()),
+  },
+  returns: v.array(v.any()),
+  handler: async (ctx, args) => {
+    // Verify user has escrito read permission
+    const currentUser = await getCurrentUserFromAuth(ctx);
+    await requireNewCaseAccess(ctx, currentUser._id, args.caseId, "basic");
+
+    const limit = args.limit || 10;
+
+    const escritos = await ctx.db
+      .query("escritos")
+      .withIndex("by_case", (q) => q.eq("caseId", args.caseId))
+      .filter((q) => q.eq(q.field("isArchived"), false))
+      .order("desc")
+      .take(limit);
+
+    return escritos;
+  },
+});
+
+/**
+ * Gets all documents in a folder without pagination (optimized for virtual scrolling).
+ *
+ * @param {Object} args - The function arguments
+ * @param {string} args.caseId - The ID of the case
+ * @param {string} [args.folderId] - Optional folder ID (undefined for root)
+ * @returns {Promise<Object[]>} Array of all document documents
+ * @throws {Error} When not authenticated or lacking case access
+ *
+ * @description This function returns ALL documents for a folder without pagination.
+ * Use this with virtual scrolling on the frontend for optimal performance with large datasets.
+ *
+ * @example
+ * ```javascript
+ * const allDocs = await getAllDocumentsInFolder({ 
+ *   caseId: "case_123",
+ *   folderId: "folder_456"
+ * });
+ * ```
+ */
+export const getAllDocumentsInFolder = query({
+  args: {
+    caseId: v.id("cases"),
+    folderId: v.optional(v.id("folders")),
+  },
+  returns: v.array(v.any()),
+  handler: async (ctx, args) => {
+    // Verify user has document read permission
+    const currentUser = await getCurrentUserFromAuth(ctx);
+    await requireNewCaseAccess(ctx, currentUser._id, args.caseId, "basic");
+
+    // Get all documents for the case and folder
+    const documents = await ctx.db
+      .query("documents")
+      .withIndex("by_case_and_folder", (q) =>
+        q.eq("caseId", args.caseId).eq("folderId", args.folderId ?? undefined),
+      )
+      .collect();
+
+    // Sort by creation time (most recent first)
+    documents.sort((a, b) => b._creationTime - a._creationTime);
+
+    return documents;
   },
 });
 

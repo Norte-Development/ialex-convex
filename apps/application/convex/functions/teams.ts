@@ -1,5 +1,6 @@
 import { v } from "convex/values";
 import { query, mutation, internalQuery } from "../_generated/server";
+import { paginationOptsValidator } from "convex/server";
 import {
   getCurrentUserFromAuth,
   AccessLevel,
@@ -106,8 +107,18 @@ export const createTeam = mutation({
  */
 export const getTeams = query({
   args: {
+    paginationOpts: v.optional(paginationOptsValidator),
+    search: v.optional(v.string()),
     isActive: v.optional(v.boolean()),
+    sortBy: v.optional(v.string()),
+    sortOrder: v.optional(v.union(v.literal("asc"), v.literal("desc"))),
   },
+  returns: v.object({
+    page: v.array(v.any()),
+    isDone: v.boolean(),
+    continueCursor: v.union(v.string(), v.null()),
+    totalCount: v.number(),
+  }),
   handler: async (ctx, args) => {
     const currentUser = await getCurrentUserFromAuth(ctx);
 
@@ -137,7 +148,7 @@ export const getTeams = query({
     );
 
     // Combine and deduplicate teams
-    const allTeams = [...leadTeams];
+    let allTeams = [...leadTeams];
     for (const team of memberTeams) {
       if (team && team.isActive === (args.isActive ?? true)) {
         // Check if team is not already in the list (user might be both lead and member)
@@ -147,7 +158,57 @@ export const getTeams = query({
       }
     }
 
-    return allTeams;
+    // Apply search filter
+    if (args.search && args.search.trim()) {
+      const searchTerm = args.search.toLowerCase().trim();
+      allTeams = allTeams.filter((team) =>
+        team.name.toLowerCase().includes(searchTerm) ||
+        (team.description && team.description.toLowerCase().includes(searchTerm))
+      );
+    }
+
+    // Apply sorting
+    if (args.sortBy && args.sortOrder) {
+      allTeams.sort((a, b) => {
+        let aValue, bValue;
+        
+        switch (args.sortBy) {
+          case "name":
+            aValue = a.name.toLowerCase();
+            bValue = b.name.toLowerCase();
+            break;
+          case "createdAt":
+          default:
+            aValue = a._creationTime;
+            bValue = b._creationTime;
+            break;
+        }
+
+        if (aValue < bValue) return args.sortOrder === "asc" ? -1 : 1;
+        if (aValue > bValue) return args.sortOrder === "asc" ? 1 : -1;
+        return 0;
+      });
+    } else {
+      // Default sort by name
+      allTeams.sort((a, b) => a.name.localeCompare(b.name));
+    }
+
+    // Apply pagination
+    const numItems = args.paginationOpts?.numItems ?? 10;
+    const offset = args.paginationOpts?.cursor ? parseInt(args.paginationOpts.cursor) : 0;
+    const startIndex = offset;
+    const endIndex = offset + numItems;
+    
+    const paginatedTeams = allTeams.slice(startIndex, endIndex);
+    const isDone = endIndex >= allTeams.length;
+    const continueCursor = isDone ? null : endIndex.toString();
+
+    return {
+      page: paginatedTeams,
+      isDone,
+      continueCursor,
+      totalCount: allTeams.length,
+    };
   },
 });
 
@@ -504,7 +565,18 @@ export const removeUserFromTeam = mutation({
 export const getTeamMembers = query({
   args: {
     teamId: v.id("teams"),
+    paginationOpts: paginationOptsValidator,
+    search: v.optional(v.string()),
+    role: v.optional(v.string()),
+    sortBy: v.optional(v.string()),
+    sortOrder: v.optional(v.union(v.literal("asc"), v.literal("desc"))),
   },
+  returns: v.object({
+    page: v.array(v.any()),
+    isDone: v.boolean(),
+    continueCursor: v.union(v.string(), v.null()),
+    totalCount: v.number(),
+  }),
   handler: async (ctx, args) => {
     // Require authentication to view team members
     await getCurrentUserFromAuth(ctx);
@@ -526,7 +598,70 @@ export const getTeamMembers = query({
       }),
     );
 
-    return members;
+    // Apply search filter
+    let filteredMembers = members;
+    if (args.search && args.search.trim()) {
+      const searchTerm = args.search.toLowerCase().trim();
+      filteredMembers = members.filter((member) =>
+        (member.name && member.name.toLowerCase().includes(searchTerm)) ||
+        (member.email && member.email.toLowerCase().includes(searchTerm))
+      );
+    }
+
+    // Apply role filter
+    if (args.role && args.role !== "all") {
+      filteredMembers = filteredMembers.filter((member) => member.teamRole === args.role);
+    }
+
+    // Apply sorting
+    if (args.sortBy && args.sortOrder) {
+      filteredMembers.sort((a, b) => {
+        let aValue, bValue;
+        
+        switch (args.sortBy) {
+          case "name":
+            aValue = a.name?.toLowerCase() || "";
+            bValue = b.name?.toLowerCase() || "";
+            break;
+          case "email":
+            aValue = a.email?.toLowerCase() || "";
+            bValue = b.email?.toLowerCase() || "";
+            break;
+          case "role":
+            aValue = a.teamRole;
+            bValue = b.teamRole;
+            break;
+          case "joinedAt":
+          default:
+            aValue = a.joinedAt;
+            bValue = b.joinedAt;
+            break;
+        }
+
+        if (aValue < bValue) return args.sortOrder === "asc" ? -1 : 1;
+        if (aValue > bValue) return args.sortOrder === "asc" ? 1 : -1;
+        return 0;
+      });
+    } else {
+      // Default sort by name
+      filteredMembers.sort((a, b) => (a.name || "").localeCompare(b.name || ""));
+    }
+
+    // Apply pagination
+    const offset = args.paginationOpts.cursor ? parseInt(args.paginationOpts.cursor) : 0;
+    const startIndex = offset;
+    const endIndex = offset + args.paginationOpts.numItems;
+    
+    const paginatedMembers = filteredMembers.slice(startIndex, endIndex);
+    const isDone = endIndex >= filteredMembers.length;
+    const continueCursor = isDone ? null : endIndex.toString();
+
+    return {
+      page: paginatedMembers,
+      isDone,
+      continueCursor,
+      totalCount: filteredMembers.length,
+    };
   },
 });
 
@@ -715,7 +850,19 @@ export const revokeNewTeamCaseAccess = mutation({
 export const getCasesAccessibleByTeam = query({
   args: {
     teamId: v.id("teams"),
+    paginationOpts: paginationOptsValidator,
+    search: v.optional(v.string()),
+    status: v.optional(v.string()),
+    accessLevel: v.optional(v.string()),
+    sortBy: v.optional(v.string()),
+    sortOrder: v.optional(v.union(v.literal("asc"), v.literal("desc"))),
   },
+  returns: v.object({
+    page: v.array(v.any()),
+    isDone: v.boolean(),
+    continueCursor: v.union(v.string(), v.null()),
+    totalCount: v.number(),
+  }),
   handler: async (ctx, args) => {
     // Require authentication to view team case access
     await getCurrentUserFromAuth(ctx);
@@ -736,7 +883,76 @@ export const getCasesAccessibleByTeam = query({
       }),
     );
 
-    return cases;
+    // Apply search filter
+    let filteredCases = cases;
+    if (args.search && args.search.trim()) {
+      const searchTerm = args.search.toLowerCase().trim();
+      filteredCases = cases.filter((caseItem) =>
+        (caseItem.title && caseItem.title.toLowerCase().includes(searchTerm)) ||
+        (caseItem.description && caseItem.description.toLowerCase().includes(searchTerm))
+      );
+    }
+
+    // Apply status filter
+    if (args.status && args.status !== "all") {
+      filteredCases = filteredCases.filter((caseItem) => caseItem.status === args.status);
+    }
+
+    // Apply access level filter
+    if (args.accessLevel && args.accessLevel !== "all") {
+      filteredCases = filteredCases.filter((caseItem) => caseItem.accessLevel === args.accessLevel);
+    }
+
+    // Apply sorting
+    if (args.sortBy && args.sortOrder) {
+      filteredCases.sort((a, b) => {
+        let aValue: any = "";
+        let bValue: any = "";
+        
+        switch (args.sortBy) {
+          case "title":
+            aValue = a.title?.toLowerCase() || "";
+            bValue = b.title?.toLowerCase() || "";
+            break;
+          case "status":
+            aValue = a.status || "";
+            bValue = b.status || "";
+            break;
+          case "priority":
+            aValue = a.priority || "";
+            bValue = b.priority || "";
+            break;
+          case "createdAt":
+          default:
+            aValue = a._creationTime || 0;
+            bValue = b._creationTime || 0;
+            break;
+        }
+
+        if (aValue < bValue) return args.sortOrder === "asc" ? -1 : 1;
+        if (aValue > bValue) return args.sortOrder === "asc" ? 1 : -1;
+        return 0;
+      });
+    } else {
+      // Default sort by creation time (newest first)
+      filteredCases.sort((a, b) => (b._creationTime || 0) - (a._creationTime || 0));
+    }
+
+    // Apply pagination
+    const offset = args.paginationOpts.cursor ? parseInt(args.paginationOpts.cursor) : 0;
+    const startIndex = offset;
+    const endIndex = offset + args.paginationOpts.numItems;
+    
+    const paginatedCases = filteredCases.slice(startIndex, endIndex);
+    const isDone = endIndex >= filteredCases.length;
+    const continueCursor = isDone ? null : endIndex.toString();
+
+    return {
+      page: paginatedCases,
+      isDone,
+      continueCursor,
+      totalCount: filteredCases.length,
+    };
   },
 });
 

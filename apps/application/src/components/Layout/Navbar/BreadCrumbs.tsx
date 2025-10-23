@@ -10,8 +10,10 @@ export default function Breadcrumbs() {
   const pathnames = location.pathname.split("/").filter((x) => x);
 
   const caseId = pathnames[0] === "caso" && pathnames[1] ? pathnames[1] : null;
-  const casesResult = useQuery(api.functions.cases.getCases, {});
-  const cases = casesResult || [];
+  const casesResult = useQuery(api.functions.cases.getCases, {
+    paginationOpts: { numItems: 100, cursor: null },
+  });
+  const cases = casesResult?.page || [];
   const currentCase = caseId ? cases.find((c) => c._id === caseId) : null;
 
   const escritoId =

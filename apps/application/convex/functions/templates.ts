@@ -158,6 +158,7 @@ export const getModelos = query({
     })),
     isDone: v.boolean(),
     continueCursor: v.union(v.string(), v.null()),
+    totalCount: v.number(),
   }),
   handler: async (ctx, args) => {
     const currentUser = await getCurrentUserFromAuth(ctx);
@@ -204,6 +205,7 @@ export const getModelos = query({
       page,
       isDone,
       continueCursor,
+      totalCount: filteredModelos.length,
     };
   },
 });
@@ -327,6 +329,7 @@ export const searchModelos = query({
     })),
     isDone: v.boolean(),
     continueCursor: v.union(v.string(), v.null()),
+    totalCount: v.number(),
   }),
   handler: async (ctx, args) => {
     const currentUser = await getCurrentUserFromAuth(ctx);
@@ -378,6 +381,7 @@ export const searchModelos = query({
       page,
       isDone,
       continueCursor,
+      totalCount: filteredModelos.length,
     };
   },
 });

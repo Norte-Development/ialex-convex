@@ -8,13 +8,16 @@ import CaseCards from "./CaseCards";
 import { useState } from "react";
 
 const ExistingUserHome = () => {
-  const casesResult = useQuery(api.functions.cases.getCases, {});
+  const casesResult = useQuery(api.functions.cases.getCases, {
+    paginationOpts: { numItems: 10, cursor: null },
+  });
   const upcomingEvents = useQuery(api.functions.events.getUpcomingEvents, {
     days: 30,
+    paginationOpts: { numItems: 100, cursor: null }
   });
 
-  const cases = casesResult || [];
-  const events = upcomingEvents || [];
+  const cases = casesResult?.page || [];
+  const events = upcomingEvents?.page || [];
 
   const [open, setOpen] = useState(false);
 
