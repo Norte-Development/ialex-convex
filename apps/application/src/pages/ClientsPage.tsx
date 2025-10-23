@@ -4,6 +4,7 @@ import ClientsTable from "@/components/Clients/ClientsTable";
 import CreateClientDialog from "@/components/Clients/CreateClientDialog";
 import { useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
+import { ClientsPageSkeleton } from "@/components/Clients/Skeletons/ClientsPageSkeleton";
 
 export default function ClientsPage() {
   const [search, setSearch] = useState("");
@@ -11,6 +12,11 @@ export default function ClientsPage() {
   const clientsResult = useQuery(api.functions.clients.getClients, {
     search,
   });
+
+  // Show skeleton while loading
+  if (clientsResult === undefined) {
+    return <ClientsPageSkeleton />;
+  }
 
   return (
     <div
