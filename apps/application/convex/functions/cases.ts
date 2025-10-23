@@ -8,6 +8,7 @@ import {
 import { internal } from "../_generated/api";
 import { _checkLimit, _getBillingEntity } from "../billing/features";
 import { Id } from "../_generated/dataModel";
+import { caseUpdateTemplate } from "../services/emailTemplates";
 
 // ========================================
 // CASE MANAGEMENT
@@ -195,7 +196,6 @@ export const updateCase = mutation({
 
     // Send notification if status changed
     if (args.status !== undefined && args.status !== existingCase.status) {
-      const { caseUpdateTemplate } = await import("../services/emailTemplates");
       const assignedUser = await ctx.db.get(existingCase.assignedLawyer);
       
       await ctx.scheduler.runAfter(0, internal.services.notificationService.sendNotificationIfEnabled, {
