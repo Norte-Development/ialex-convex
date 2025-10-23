@@ -43,6 +43,10 @@ export default function CaseDetailPage() {
     api.functions.cases.getClientsForCase,
     currentCase ? { caseId: currentCase._id } : "skip",
   );
+  const caseRules = useQuery(
+    api.functions.agentRules.getCaseRules as any,
+    currentCase ? { caseId: currentCase._id, activeOnly: false } : "skip",
+  );
 
   const formatDate = (timestamp: number) => {
     return new Date(timestamp).toLocaleDateString("es-ES", {
@@ -191,12 +195,15 @@ export default function CaseDetailPage() {
             to={`/caso/${currentCase._id}/configuracion/reglas`}
             className="group cursor-pointer"
           >
-            <div className="space-y-2 p-6 rounded-lg border border-tertiary hover:border-tertiary/80 transition-colors min-h-[140px] flex flex-col justify-between">
+            <div className="space-y-2 p-6 rounded-lg border border-tertiary hover:border-tertiary/80 transition-colors min-h-[140px]">
               <div className="flex items-center justify-between">
                 <Settings className="h-5 w-5 text-tertiary group-hover:text-tertiary/80 transition-colors" />
                 <ArrowRight className="h-4 w-4 text-tertiary group-hover:text-tertiary/80 transition-colors" />
               </div>
               <div>
+                <div className="text-3xl font-light text-gray-900">
+                  {caseRules?.length || 0}
+                </div>
                 <div className="text-sm font-medium text-gray-900">
                   Reglas del Agente
                 </div>
