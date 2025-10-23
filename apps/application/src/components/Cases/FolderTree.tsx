@@ -414,15 +414,15 @@ function FolderItem({
     <div className="relative">
       {open ? (
         <div
-          className={`flex items-center justify-between px-2 py-1 rounded hover:bg-gray-50 ${
+          className={`flex items-center justify-between gap-1 px-2 py-1 rounded hover:bg-gray-50 min-w-0 ${
             currentFolderId === (folder._id as Id<"folders">)
               ? "bg-blue-50"
               : ""
           } ${highlightedFolder === folder._id ? "animate-pulse-once " : ""}`}
         >
-          <div className="flex items-center gap-1 min-w-0">
+          <div className="flex items-center gap-1 min-w-0 flex-1">
             <button
-              className="h-5 w-5 flex items-center justify-center text-gray-600 hover:text-gray-800"
+              className="h-5 w-5 flex items-center justify-center text-gray-600 hover:text-gray-800 flex-shrink-0"
               onClick={handleToggleOpen}
               aria-label={open ? "Contraer" : "Expandir"}
             >
@@ -453,7 +453,7 @@ function FolderItem({
               />
             ) : (
               <button
-                className="truncate text-left px-1 hover:text-foreground"
+                className="truncate text-left px-1 hover:text-foreground min-w-0"
                 title={folder.name}
                 onClick={() => onFolderChange(folder._id as Id<"folders">)}
               >
@@ -461,7 +461,7 @@ function FolderItem({
               </button>
             )}
           </div>
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-1 flex-shrink-0">
             {folder.description && (
               <span className="text-xs text-muted-foreground truncate max-w-[40%] mr-2">
                 {folder.description}
@@ -496,7 +496,7 @@ function FolderItem({
           {(dropProvided, dropSnapshot) => (
             <div ref={dropProvided.innerRef} {...dropProvided.droppableProps}>
               <div
-                className={`flex items-center justify-between px-2 py-1 rounded hover:bg-gray-50 ${
+                className={`flex items-center justify-between gap-1 px-2 py-1 rounded hover:bg-gray-50 min-w-0 ${
                   currentFolderId === (folder._id as Id<"folders">)
                     ? "bg-blue-50"
                     : ""
@@ -508,9 +508,9 @@ function FolderItem({
                     : "border border-transparent"
                 }`}
               >
-                <div className="flex items-center gap-1 min-w-0">
+                <div className="flex items-center gap-1 min-w-0 flex-1">
                   <button
-                    className="h-5 w-5 flex items-center justify-center text-gray-600 hover:text-gray-800"
+                    className="h-5 w-5 flex items-center justify-center text-gray-600 hover:text-gray-800 flex-shrink-0"
                     onClick={handleToggleOpen}
                     aria-label={open ? "Contraer" : "Expandir"}
                   >
@@ -541,7 +541,7 @@ function FolderItem({
                     />
                   ) : (
                     <button
-                      className="truncate text-left px-1 hover:text-foreground"
+                      className="truncate text-left px-1 hover:text-foreground min-w-0"
                       title={folder.name}
                       onClick={() =>
                         onFolderChange(folder._id as Id<"folders">)
@@ -551,7 +551,7 @@ function FolderItem({
                     </button>
                   )}
                 </div>
-                <div className="flex items-center gap-1">
+                <div className="flex items-center gap-1 flex-shrink-0">
                   {folder.description && (
                     <span className="text-xs text-muted-foreground truncate max-w-[40%] mr-2">
                       {folder.description}

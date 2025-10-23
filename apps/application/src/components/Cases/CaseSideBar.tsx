@@ -376,13 +376,16 @@ export default function CaseSidebar() {
                             : ""
                         }`}
                       >
-                        <div className="flex items-center justify-between">
+                        <div className="flex items-center justify-between gap-1 min-w-0">
                           <Link
                             to={`${basePath}/escritos/${escrito._id}`}
-                            className="flex items-center gap-1 text-foreground hover:text-blue-600 flex-1"
+                            className="flex items-center gap-1 text-foreground hover:text-blue-600 flex-1 min-w-0"
                             onClick={handleNavigationFromCase}
                           >
-                            <FileType2 className="cursor-pointer" size={16} />
+                            <FileType2
+                              className="cursor-pointer flex-shrink-0"
+                              size={16}
+                            />
                             <span className="truncate">{escrito.title}</span>
                           </Link>
                           {can.escritos.delete && (
@@ -392,7 +395,7 @@ export default function CaseSidebar() {
                                   <Button
                                     variant="ghost"
                                     size="sm"
-                                    className="h-6 w-6 p-0 hover:bg-gray-200"
+                                    className="h-6 w-6 p-0 hover:bg-gray-200 flex-shrink-0"
                                     onClick={() =>
                                       handleArchiveEscrito(escrito._id, true)
                                     }
@@ -548,13 +551,16 @@ export default function CaseSidebar() {
                       key={escrito._id}
                       className="flex flex-col gap-1 p-2 rounded hover:bg-gray-50"
                     >
-                      <div className="flex items-center justify-between">
+                      <div className="flex items-center justify-between gap-1 min-w-0">
                         <Link
                           to={`${basePath}/escritos/${escrito._id}`}
-                          className="flex items-center gap-1 text-foreground hover:text-blue-600 flex-1"
+                          className="flex items-center gap-1 text-foreground hover:text-blue-600 flex-1 min-w-0"
                           onClick={handleNavigationFromCase}
                         >
-                          <FileType2 className="cursor-pointer" size={16} />
+                          <FileType2
+                            className="cursor-pointer flex-shrink-0"
+                            size={16}
+                          />
                           <span className="truncate">{escrito.title}</span>
                         </Link>
                         <TooltipProvider>
@@ -563,7 +569,7 @@ export default function CaseSidebar() {
                               <Button
                                 variant="ghost"
                                 size="sm"
-                                className="h-6 w-6 p-0 hover:bg-gray-200"
+                                className="h-6 w-6 p-0 hover:bg-gray-200 flex-shrink-0"
                                 onClick={() =>
                                   handleArchiveEscrito(escrito._id, false)
                                 }
