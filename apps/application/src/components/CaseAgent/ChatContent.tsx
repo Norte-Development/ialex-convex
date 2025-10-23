@@ -3,10 +3,9 @@
 import { useMutation } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import { optimisticallySendMessage, useUIMessages } from "@convex-dev/agent/react";
-import { MessageCircle } from "lucide-react";
+import { MessageCircle, Copy, ThumbsUp, ThumbsDown } from "lucide-react";
 import { useThread } from "@/context/ThreadContext";
 import { useCase } from "@/context/CaseContext";
-import { SidebarMessage } from "./SidebarMessage";
 import { ChatInput } from "./ChatInput";
 import { useEscrito } from "@/context/EscritoContext";
 import { useAuth } from "@/context/AuthContext";
@@ -15,13 +14,41 @@ import { ContextSummaryBar } from "./ContextSummaryBar";
 import type { Id } from "convex/_generated/dataModel";
 import {
   useState,
-  useRef,
   useEffect,
   useCallback,
   useMemo,
 } from "react";
 import type { Reference, ReferenceWithOriginal } from "./types/reference-types";
 import { Button } from "@/components/ui/button";
+import {
+  Conversation,
+  ConversationContent,
+  ConversationEmptyState,
+  ConversationScrollButton,
+} from "../ai-elements/conversation";
+import { Message, MessageContent, MessageAvatar } from "../ai-elements/message";
+import { Reasoning, ReasoningContent, ReasoningTrigger } from "../ai-elements/reasoning";
+import { Sources, SourcesTrigger, SourcesContent } from "../ai-elements/source";
+import { Actions, Action } from "../ai-elements/actions";
+import { Tool } from "../ai-elements/tool";
+import { MessageText } from "../ai-elements/message-text";
+import { CitationModal } from "./citation-modal";
+import { cn } from "@/lib/utils";
+import type { ToolUIPart } from "ai";
+
+// Extended message type that includes status property from Convex agent
+type AgentMessage = {
+  id: string;
+  key: string;
+  role: "user" | "assistant" | "system";
+  status?: "pending" | "streaming" | "done" | "failed" | "success";
+  order?: number;
+  parts?: Array<{
+    type: string;
+    text?: string;
+    [key: string]: unknown;
+  }>;
+};
 
 export function ChatContent({ threadId }: { threadId: string | undefined }) {
   const { createThreadWithTitle, setThreadId } = useThread();
@@ -29,23 +56,16 @@ export function ChatContent({ threadId }: { threadId: string | undefined }) {
   const { escritoId, cursorPosition } = useEscrito();
   const { user } = useAuth();
   const { pageState } = usePage();
+  
   // State for resolved @-references to display in context bar
-  const [lastReferences, setLastReferences] = useState<ReferenceWithOriginal[]>(
-    [],
-  );
+  const [lastReferences, setLastReferences] = useState<ReferenceWithOriginal[]>([]);
   // State for current active references from input
   const [currentReferences, setCurrentReferences] = useState<Reference[]>([]);
-
-  // Simple scroll management
-  const messagesEndRef = useRef<HTMLDivElement>(null);
-  const messagesContainerRef = useRef<HTMLDivElement>(null);
-  const resizeObserverRef = useRef<ResizeObserver | null>(null);
-  const scrollTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-
-  // Handle content resize
-  const handleContentResize = useCallback(() => {
-    scrollToBottom();
-  }, []);
+  
+  // Citation modal state
+  const [citationOpen, setCitationOpen] = useState(false);
+  const [citationId, setCitationId] = useState("");
+  const [citationType, setCitationType] = useState("");
 
   // Handle removing references from context bar
   const handleRemoveReference = useCallback(
@@ -71,69 +91,16 @@ export function ChatContent({ threadId }: { threadId: string | undefined }) {
   } = useUIMessages(
     api.agents.case.streaming.listMessages,
     !threadId ? "skip" : ({ threadId } as any),
-    { initialNumItems: 10, stream: true },
+    { initialNumItems: 50, stream: true },
   );
 
   console.log("messages", messages);
-
-  // Simple auto-scroll like HomeAgentPage
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  };
-
-  useEffect(() => {
-    scrollToBottom();
-  }, [messages]);
 
   // Clear references when thread changes to prevent trailing state
   useEffect(() => {
     setLastReferences([]);
     setCurrentReferences([]);
   }, [threadId]);
-
-  // Setup resize observer for auto-scroll
-  useEffect(() => {
-    if (!messagesContainerRef.current) return;
-
-    // Clean up existing observer
-    if (resizeObserverRef.current) {
-      resizeObserverRef.current.disconnect();
-    }
-
-    let rafId: number | null = null;
-    let lastCallTime = 0;
-    const throttleMs = 16; // ~60fps
-
-    // Create new ResizeObserver with throttling
-    resizeObserverRef.current = new ResizeObserver(() => {
-      const now = Date.now();
-
-      if (rafId) cancelAnimationFrame(rafId);
-
-      if (now - lastCallTime >= throttleMs) {
-        lastCallTime = now;
-        handleContentResize();
-      } else {
-        rafId = requestAnimationFrame(() => {
-          lastCallTime = Date.now();
-          handleContentResize();
-        });
-      }
-    });
-
-    // Observe the messages container
-    resizeObserverRef.current.observe(messagesContainerRef.current);
-
-    return () => {
-      if (rafId) cancelAnimationFrame(rafId);
-      if (resizeObserverRef.current) {
-        resizeObserverRef.current.disconnect();
-      }
-      if (scrollTimeoutRef.current) {
-        clearTimeout(scrollTimeoutRef.current);
-      }
-    };
-  }, [handleContentResize]);
 
   const initiateWorkflow = useMutation(
     api.agents.case.workflow.initiateWorkflowStreaming,
@@ -248,37 +215,46 @@ export function ChatContent({ threadId }: { threadId: string | undefined }) {
 
   return (
     <>
-      {/* Messages area */}
-      <div ref={messagesContainerRef} className="flex-1 overflow-y-auto p-4 space-y-3">
-        {messages?.length > 0 ? (
-          <>
-            {status === "CanLoadMore" && (
-              <div className="flex justify-center py-2">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => loadMore(20)}
-                  className="text-xs text-muted-foreground hover:text-foreground"
-                >
-                  ↑ Más mensajes
-                </Button>
-              </div>
-            )}
-            {messages.map((m) => (
-              <SidebarMessage key={m.key} message={m} />
-            ))}
-            <div ref={messagesEndRef} />
-          </>
-        ) : (
-          <div className="flex flex-col items-center justify-center h-full text-center text-gray-500 text-sm">
-            <MessageCircle className="w-8 h-8 mb-2 text-gray-400" />
-            <p>Inicia una conversación con tu asistente de IA</p>
-          </div>
-        )}
-      </div>
-
-      {/* Todo panel */}
-      {/* <TodoPanel /> */}
+      {/* Messages area with auto-scroll */}
+      <Conversation className="flex-1">
+        <ConversationContent className="space-y-3">
+          {messages?.length === 0 ? (
+            <ConversationEmptyState
+              icon={<MessageCircle className="w-12 h-12" />}
+              title="Inicia una conversación"
+              description="Escribe un mensaje para comenzar a chatear con tu asistente de IA"
+            />
+          ) : (
+            <>
+              {status === "CanLoadMore" && (
+                <div className="flex justify-center py-2">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => loadMore(20)}
+                    className="text-xs text-muted-foreground hover:text-foreground"
+                  >
+                    ↑ Más mensajes
+                  </Button>
+                </div>
+              )}
+              {messages.map((m) => (
+                <MessageItem
+                  key={m.id}
+                  message={m}
+                  user={user}
+                  onCitationClick={(id, type) => {
+                    setCitationOpen(true);
+                    setCitationId(id);
+                    setCitationType(type);
+                  }}
+                />
+              ))}
+            </>
+          )}
+        </ConversationContent>
+        <ConversationScrollButton />
+      </Conversation>
 
       {/* Minimal context summary */}
       <ContextSummaryBar
@@ -293,7 +269,202 @@ export function ChatContent({ threadId }: { threadId: string | undefined }) {
         onAbortStream={handleAbortStream}
         onReferencesChange={setCurrentReferences}
       />
+
+      {/* Citation modal */}
+      <CitationModal
+        open={citationOpen}
+        setOpen={setCitationOpen}
+        citationId={citationId}
+        citationType={citationType}
+      />
     </>
+  );
+}
+
+// Separate component for rendering individual messages
+type MessageItemProps = {
+  message: AgentMessage;
+  user: { name: string } | null | undefined;
+  onCitationClick: (id: string, type: string) => void;
+};
+
+function MessageItem({ message, user, onCitationClick }: MessageItemProps) {
+  const isUser = message.role === "user";
+  
+  // Calculate messageText for the copy button and empty checks
+  const messageText = message.parts
+    ?.filter((part) => part.type === "text")
+    .map((part: any) => part.text)
+    .join("") || "";
+
+  // Tool call detection for thinking indicator
+  const toolCalls = message.parts?.filter((part) => (part as any).type?.startsWith("tool-")) || [];
+  const hasActiveTools = toolCalls.length > 0 && !toolCalls.every((part: any) => part.state === "output-available");
+
+  return (
+    <Message
+      from={message.role}
+      className={cn(
+        "!justify-start",
+        isUser ? "!flex-row-reverse" : "!flex-row",
+      )}
+    >
+      <MessageAvatar
+        src={isUser ? "" : "/iAlex.png"}
+        name={isUser ? (user?.name || "Usuario") : "iAlex"}
+        className={cn("shrink-0", isUser ? "ml-2" : "mr-2")}
+      />
+
+      <MessageContent
+        className={cn(
+          "group relative !rounded-lg !px-3 !py-2 !text-[12px] shadow-sm space-y-2 max-w-[85%]",
+          isUser && "!bg-[#F3F4F6] !text-black",
+          !isUser && "!bg-[#F3F4F6] !text-black",
+          message.status === "failed" && "!bg-red-100 !text-red-800 border-l-2 border-red-400",
+        )}
+      >
+        {/* Thinking indicator */}
+        {!isUser && message.status === "streaming" && (!messageText || messageText.trim() === "") && (
+          <div className="flex items-center gap-2">
+            <div className="flex gap-1">
+              <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: "0ms" }} />
+              <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: "150ms" }} />
+              <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: "300ms" }} />
+            </div>
+            <span className="text-xs text-gray-500 italic">
+              {hasActiveTools ? "Procesando herramientas..." : "Pensando..."}
+            </span>
+          </div>
+        )}
+
+        {/* Message parts */}
+        {message.parts?.map((part, index) => {
+          if (part.type === "text") {
+            const displayText = (part as any).text || "";
+            const textPreview = displayText.substring(0, 20).replace(/\s/g, '_');
+
+            return (
+              <div key={`text-${index}-${textPreview}`} className="prose prose-sm max-w-none whitespace-pre-wrap">
+                <MessageText
+                  text={displayText}
+                  renderMarkdown={true}
+                  onCitationClick={!isUser ? onCitationClick : undefined}
+                />
+              </div>
+            );
+          }
+
+          if (part.type === "reasoning") {
+            const reasoningText = (part.text || "") as string & React.ReactNode;
+            return (
+              <Reasoning key={`${message.id}-${index}`} defaultOpen={false} isStreaming={message.status === "streaming"}>
+                <ReasoningTrigger className="!text-[10px]" />
+                <ReasoningContent className="group relative !px-3 !py-2 !text-[10px] space-y-2 max-w-[85%]">
+                  {reasoningText}
+                </ReasoningContent>
+              </Reasoning>
+            );
+          }
+
+          if (part.type === "source-url") {
+            const sourceTitle = (part as any).title || (part as any).url || "Unknown source";
+            const sourceUrl = (part as any).url || "";
+            return (
+              <Sources key={`source-${index}-${sourceUrl.substring(0, 20)}`}>
+                <SourcesTrigger count={1}>
+                  <>Source: {sourceTitle}</>
+                </SourcesTrigger>
+                <SourcesContent>
+                  <div className="text-xs bg-blue-50 border border-blue-200 rounded p-2">
+                    <strong>URL:</strong> {sourceUrl}
+                    {(part as any).title && (
+                      <>
+                        <br />
+                        <strong>Title:</strong> {(part as any).title}
+                      </>
+                    )}
+                  </div>
+                </SourcesContent>
+              </Sources>
+            );
+          }
+
+          if (part.type === "file") {
+            const fileUrl = (part as any).url;
+            const mediaType = (part as any).mediaType;
+            const filename = (part as any).filename || "";
+
+            if (mediaType?.startsWith("image/")) {
+              return (
+                <div key={`file-img-${index}-${filename.substring(0, 20)}`} className="mt-2">
+                  <img src={fileUrl} alt={filename || "Attached image"} className="max-w-full h-auto rounded" />
+                </div>
+              );
+            }
+
+            return (
+              <div key={`file-doc-${index}-${filename.substring(0, 20)}`} className="text-xs bg-gray-50 border border-gray-200 rounded p-2">
+                <strong>File:</strong> {filename || "Unknown file"}
+              </div>
+            );
+          }
+
+          if (part.type.startsWith("tool-")) {
+            const aiSDKState = (part as any).state;
+            const outputType = (part as any)?.output?.type as string | undefined;
+            const isError = aiSDKState === "output-available" && (outputType?.startsWith("error-") ?? false);
+            const toolName = part.type.replace("tool-", "");
+
+            const toolState = isError
+              ? "output-error"
+              : aiSDKState === "output-available"
+                ? "output-available"
+                : aiSDKState === "input-available"
+                  ? "input-available"
+                  : "input-streaming";
+
+            return (
+              <Tool
+                key={`tool-${toolName}-${index}-${aiSDKState}`}
+                className="mb-4"
+                type={toolName}
+                state={toolState}
+                output={(part as any)?.output as ToolUIPart["output"]}
+                input={(part as any)?.input}
+              />
+            );
+          }
+
+          return null;
+        })}
+
+        {/* Failed status */}
+        {!isUser && message.status === "failed" && (
+          <div className="flex items-center gap-1 mt-2 text-red-600">
+            <span className="text-xs">❌ Error al procesar el mensaje</span>
+          </div>
+        )}
+
+        {/* Actions */}
+        {!isUser && message.status !== "streaming" && (
+          <Actions className="mt-2 transition-opacity">
+            <Action
+              tooltip="Copiar respuesta"
+              onClick={() => navigator.clipboard.writeText(messageText)}
+              className="cursor-pointer"
+            >
+              <Copy size={14} className="text-gray-500" />
+            </Action>
+            <Action tooltip="Me gusta" className="cursor-pointer">
+              <ThumbsUp size={14} className="text-gray-500" />
+            </Action>
+            <Action tooltip="No me gusta" className="cursor-pointer">
+              <ThumbsDown size={14} className="text-gray-500" />
+            </Action>
+          </Actions>
+        )}
+      </MessageContent>
+    </Message>
   );
 }
 

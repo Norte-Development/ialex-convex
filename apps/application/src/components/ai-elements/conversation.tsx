@@ -3,7 +3,7 @@
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { ArrowDownIcon } from 'lucide-react';
-import type { ComponentProps } from 'react';
+import type { ComponentProps, ReactNode } from 'react';
 import { useCallback } from 'react';
 import { StickToBottom, useStickToBottomContext } from 'use-stick-to-bottom';
 
@@ -60,3 +60,31 @@ export const ConversationScrollButton = ({
     )
   );
 };
+
+export type ConversationEmptyStateProps = ComponentProps<'div'> & {
+  icon?: ReactNode;
+  title?: string;
+  description?: string;
+};
+
+export const ConversationEmptyState = ({
+  icon,
+  title = "No messages yet",
+  description = "Start a conversation to see messages here",
+  className,
+  children,
+  ...props
+}: ConversationEmptyStateProps) => (
+  <div
+    className={cn(
+      'flex flex-col items-center justify-center h-full text-center text-muted-foreground',
+      className
+    )}
+    {...props}
+  >
+    {icon && <div className="mb-4 text-muted-foreground/50">{icon}</div>}
+    <h3 className="text-lg font-semibold mb-2">{title}</h3>
+    <p className="text-sm">{description}</p>
+    {children}
+  </div>
+);

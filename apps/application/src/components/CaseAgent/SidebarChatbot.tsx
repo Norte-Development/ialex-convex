@@ -7,7 +7,6 @@ import { ChatContent } from "./ChatContent";
 import type { SidebarChatbotProps } from "./types";
 import { useCase } from "@/context/CaseContext";
 import { useThread } from "@/context/ThreadContext";
-import { ChevronRight, ChevronLeft } from "lucide-react";
 
 export default function SidebarChatbot({
   isOpen,
