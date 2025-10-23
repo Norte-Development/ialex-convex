@@ -4,6 +4,7 @@ import { AppSkeleton } from "@/components/Skeletons";
 import { HomePageSkeleton } from "@/components/Home/Skeletons";
 import { DataBasePageSkeleton } from "@/components/DataBase/Skeletons/DataBasePageSkeleton";
 import { ClientsPageSkeleton } from "@/components/Clients/Skeletons/ClientsPageSkeleton";
+import { CasesPageSkeleton } from "@/components/Cases/Skeletons";
 
 interface RouteSuspenseProps {
   children: ReactNode;
@@ -33,6 +34,11 @@ export function RouteSuspense({ children }: RouteSuspenseProps) {
     // ClientsPage skeleton
     if (path.startsWith("/clientes")) {
       return <ClientsPageSkeleton />;
+    }
+
+    // CasesPage skeleton
+    if (path.startsWith("/casos")) {
+      return <CasesPageSkeleton />;
     }
 
     // Por defecto, usar AppSkeleton

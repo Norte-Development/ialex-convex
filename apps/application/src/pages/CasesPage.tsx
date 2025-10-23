@@ -6,6 +6,7 @@ import { api } from "../../convex/_generated/api";
 import { Case } from "types/cases";
 import CaseTable from "@/components/Cases/CaseTable";
 import { useBillingData, UsageMeter } from "@/components/Billing";
+import { CasesPageSkeleton } from "@/components/Cases/Skeletons";
 
 function CasesContent() {
   const { currentCase } = useCase();
@@ -14,6 +15,11 @@ function CasesContent() {
     | undefined;
 
   const { usage, limits } = useBillingData({});
+
+  // Mostrar skeleton mientras carga
+  if (cases === undefined) {
+    return <CasesPageSkeleton />;
+  }
 
   return (
     <div

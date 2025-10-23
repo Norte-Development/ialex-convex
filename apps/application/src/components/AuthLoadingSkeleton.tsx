@@ -3,6 +3,7 @@ import { AppSkeleton } from "@/components/Skeletons";
 import { HomePageSkeleton } from "@/components/Home/Skeletons";
 import { DataBasePageSkeleton } from "@/components/DataBase/Skeletons/DataBasePageSkeleton";
 import { ClientsPageSkeleton } from "@/components/Clients/Skeletons/ClientsPageSkeleton";
+import { CasesPageSkeleton } from "@/components/Cases/Skeletons";
 
 /**
  * Componente que muestra el skeleton correcto según la ruta actual
@@ -30,10 +31,10 @@ export function AuthLoadingSkeleton() {
       return <ClientsPageSkeleton />;
     }
 
-    // TODO: Agregar más skeletons específicos por ruta aquí
-    // if (path.startsWith("/casos")) {
-    //   return <CasesPageSkeleton />;
-    // }
+    // CasesPage skeleton
+    if (path.startsWith("/casos")) {
+      return <CasesPageSkeleton />;
+    }
 
     // Por defecto, usar AppSkeleton
     return <AppSkeleton />;
