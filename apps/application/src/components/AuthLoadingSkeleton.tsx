@@ -1,0 +1,31 @@
+import { useLocation } from "react-router-dom";
+import { AppSkeleton } from "@/components/Skeletons";
+import { HomePageSkeleton } from "@/components/Home/Skeletons";
+
+/**
+ * Componente que muestra el skeleton correcto según la ruta actual
+ * durante la carga de autenticación de Convex
+ */
+export function AuthLoadingSkeleton() {
+  const location = useLocation();
+
+  // Determinar qué skeleton mostrar según la ruta
+  const getSkeleton = () => {
+    const path = location.pathname;
+
+    // HomePage skeleton
+    if (path === "/" || path === "") {
+      return <HomePageSkeleton />;
+    }
+
+    // TODO: Agregar más skeletons específicos por ruta aquí
+    // if (path.startsWith("/casos")) {
+    //   return <CasesPageSkeleton />;
+    // }
+
+    // Por defecto, usar AppSkeleton
+    return <AppSkeleton />;
+  };
+
+  return getSkeleton();
+}
