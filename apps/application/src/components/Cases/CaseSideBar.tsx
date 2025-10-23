@@ -1,9 +1,7 @@
 import {
   FileSearch2,
   FolderX,
-  FolderOpen,
   Folder,
-  FolderArchive,
   ArrowLeft,
   ArrowRight,
   FileType2,
@@ -28,6 +26,11 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { useLayout } from "@/context/LayoutContext";
 import { useLocation, useParams, useNavigate } from "react-router-dom";
 import { Link } from "react-router-dom";
@@ -36,7 +39,9 @@ import { useCase } from "@/context/CaseContext";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import { CreateEscritoDialog } from "../CreateEscritoDialog";
+import NewDocumentInput, { NewDocumentInputHandle } from "./NewDocumentInput";
 import { useEffect, useRef, useState } from "react";
+import { toast } from "sonner";
 import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
@@ -81,7 +86,9 @@ export default function CaseSidebar() {
   });
   const [isCreatingRootFolder, setIsCreatingRootFolder] = useState(false);
   const [newRootFolderName, setNewRootFolderName] = useState("");
+  const [isDocumentPopoverOpen, setIsDocumentPopoverOpen] = useState(false);
   const rootInputRef = useRef<HTMLInputElement | null>(null);
+  const documentInputRef = useRef<NewDocumentInputHandle>(null);
 
   const documents = useQuery(
     api.functions.documents.getDocuments,
@@ -207,6 +214,19 @@ export default function CaseSidebar() {
       console.error("Error creating root folder:", err);
       alert(err instanceof Error ? err.message : "No se pudo crear la carpeta");
     }
+  };
+
+  const handleCreateDocument = () => {
+    documentInputRef.current?.open();
+  };
+
+  const handleDocumentSuccess = () => {
+    toast.success("Documento subido exitosamente");
+  };
+
+  const handleDocumentError = (error: unknown) => {
+    console.error("Error uploading document:", error);
+    toast.error("Error al subir el documento");
   };
 
   return (
@@ -432,14 +452,46 @@ export default function CaseSidebar() {
                       <p className="text-xs text-gray-500">
                         ({totalDocumentos})
                       </p>
-                      <CirclePlus
-                        className="cursor-pointer transition-colors rounded-full p-0.5 text-tertiary hover:bg-tertiary hover:text-white"
-                        size={20}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setIsCreatingRootFolder(true);
-                        }}
-                      />
+                      <Popover
+                        open={isDocumentPopoverOpen}
+                        onOpenChange={setIsDocumentPopoverOpen}
+                      >
+                        <PopoverTrigger asChild>
+                          <CirclePlus
+                            className="cursor-pointer transition-colors rounded-full p-0.5 text-tertiary hover:bg-tertiary hover:text-white"
+                            size={20}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                            }}
+                          />
+                        </PopoverTrigger>
+                        <PopoverContent className="w-48 p-2" align="end">
+                          <div className="flex flex-col gap-1">
+                            <Button
+                              variant="ghost"
+                              className="w-full justify-start gap-2 text-tertiary h-8 px-2 text-sm"
+                              onClick={() => {
+                                setIsCreatingRootFolder(true);
+                                setIsDocumentPopoverOpen(false);
+                              }}
+                            >
+                              <Folder size={16} />
+                              Crear carpeta
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              className="w-full justify-start gap-2 text-tertiary h-8 px-2 text-sm"
+                              onClick={() => {
+                                handleCreateDocument();
+                                setIsDocumentPopoverOpen(false);
+                              }}
+                            >
+                              <FileDown size={16} />
+                              Cargar archivo
+                            </Button>
+                          </div>
+                        </PopoverContent>
+                      </Popover>
                     </div>
                   )}
                 </CollapsibleTrigger>
@@ -561,6 +613,17 @@ export default function CaseSidebar() {
           setOpen={setIsCreateEscritoOpen}
           onEscritoCreated={handleEscritoCreated}
         />
+
+        {/* Upload Document Input */}
+        {currentCase && (
+          <NewDocumentInput
+            ref={documentInputRef}
+            caseId={currentCase._id}
+            folderId={undefined}
+            onSuccess={handleDocumentSuccess}
+            onError={handleDocumentError}
+          />
+        )}
       </aside>
     </>
   );
