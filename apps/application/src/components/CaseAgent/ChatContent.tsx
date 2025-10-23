@@ -38,6 +38,14 @@ export function ChatContent({ threadId }: { threadId: string | undefined }) {
 
   // Simple scroll management
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
+  const resizeObserverRef = useRef<ResizeObserver | null>(null);
+  const scrollTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Handle content resize
+  const handleContentResize = useCallback(() => {
+    scrollToBottom();
+  }, []);
 
   // Handle removing references from context bar
   const handleRemoveReference = useCallback(
@@ -82,6 +90,50 @@ export function ChatContent({ threadId }: { threadId: string | undefined }) {
     setLastReferences([]);
     setCurrentReferences([]);
   }, [threadId]);
+
+  // Setup resize observer for auto-scroll
+  useEffect(() => {
+    if (!messagesContainerRef.current) return;
+
+    // Clean up existing observer
+    if (resizeObserverRef.current) {
+      resizeObserverRef.current.disconnect();
+    }
+
+    let rafId: number | null = null;
+    let lastCallTime = 0;
+    const throttleMs = 16; // ~60fps
+
+    // Create new ResizeObserver with throttling
+    resizeObserverRef.current = new ResizeObserver(() => {
+      const now = Date.now();
+
+      if (rafId) cancelAnimationFrame(rafId);
+
+      if (now - lastCallTime >= throttleMs) {
+        lastCallTime = now;
+        handleContentResize();
+      } else {
+        rafId = requestAnimationFrame(() => {
+          lastCallTime = Date.now();
+          handleContentResize();
+        });
+      }
+    });
+
+    // Observe the messages container
+    resizeObserverRef.current.observe(messagesContainerRef.current);
+
+    return () => {
+      if (rafId) cancelAnimationFrame(rafId);
+      if (resizeObserverRef.current) {
+        resizeObserverRef.current.disconnect();
+      }
+      if (scrollTimeoutRef.current) {
+        clearTimeout(scrollTimeoutRef.current);
+      }
+    };
+  }, [handleContentResize]);
 
   const initiateWorkflow = useMutation(
     api.agents.case.workflow.initiateWorkflowStreaming,
@@ -197,7 +249,7 @@ export function ChatContent({ threadId }: { threadId: string | undefined }) {
   return (
     <>
       {/* Messages area */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-3">
+      <div ref={messagesContainerRef} className="flex-1 overflow-y-auto p-4 space-y-3">
         {messages?.length > 0 ? (
           <>
             {status === "CanLoadMore" && (

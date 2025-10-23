@@ -19,7 +19,7 @@ export default function ClientsPage() {
       <div className="w-full  flex  justify-between items-center">
         <Input
           onChange={(e) => setSearch(e.target.value)}
-          className="p-1 text-sm h-6 bg-white w-[60%] placeholder:text-[12px]"
+          className="p-1 text-sm h-6 bg-white w-[40%] placeholder:text-[12px]"
           placeholder="Buscar cliente..."
         />
         <CreateClientDialog />

@@ -1,6 +1,7 @@
 import type React from "react";
 import CaseSidebar from "./CaseSideBar";
 import SidebarChatbot from "../CaseAgent/SidebarChatbot";
+import NavBar from "../Layout/Navbar/NavBar";
 import { useLayout } from "@/context/LayoutContext";
 import { useChatbot } from "@/context/ChatbotContext";
 import { useState, useEffect, useCallback } from "react";
@@ -37,10 +38,12 @@ export default function CaseLayout({ children }: CaseDetailLayoutProps) {
 }
 
 function InnerCaseLayout({ children }: CaseDetailLayoutProps) {
+  // All hooks must be called before any conditional returns
   const { isCaseSidebarOpen } = useLayout();
   const { currentCase } = useCase();
   const { hasAccess, isLoading, can } = usePermissions();
-  const { isChatbotOpen, toggleChatbot, chatbotWidth, setChatbotWidth } = useChatbot();
+  const { isChatbotOpen, toggleChatbot, chatbotWidth, setChatbotWidth } =
+    useChatbot();
   const [isResizing, setIsResizing] = useState(false);
   const [uploadFiles, setUploadFiles] = useState<UploadFile[]>([]);
   const [isGlobalDragActive, setIsGlobalDragActive] = useState(false);
@@ -341,26 +344,64 @@ function InnerCaseLayout({ children }: CaseDetailLayoutProps) {
   }
 
   return (
-    <div {...getRootProps()} className="relative h-full w-full">
-      {/* Left Sidebar - fixed */}
-      <div className="fixed top-14 left-0 h-[calc(100vh-56px)] w-64 z-20">
+    <div
+      {...getRootProps()}
+      className="relative h-screen w-screen flex overflow-hidden"
+    >
+      {/* Left Sidebar - full height, fixed position */}
+      <div
+        className={`fixed top-0 left-0 h-screen z-20 ${
+          isResizing
+            ? "transition-none"
+            : "transition-all duration-300 ease-in-out"
+        }`}
+        style={{
+          width: isCaseSidebarOpen ? "256px" : "0px",
+        }}
+      >
         <CaseSidebar />
       </div>
 
-      {/* Main content - scrollable */}
-      <main
-        className={`pt-14 h-[calc(100vh-56px)] overflow-y-auto ${
+      {/* Main container - pushed by sidebars */}
+      <div
+        className={`flex-1 flex flex-col h-screen overflow-hidden ${
           isResizing
             ? "transition-none"
             : "transition-all duration-300 ease-in-out"
         }`}
         style={{
           marginLeft: isCaseSidebarOpen ? "256px" : "0px",
-          marginRight: isChatbotOpen ? `${chatbotWidth}px` : "0px",
         }}
       >
-        {children}
-      </main>
+        {/* Navbar at top */}
+        <NavBar />
+
+        {/* Content area with chatbot */}
+        <div className="flex-1 flex overflow-hidden">
+          <main
+            className={`flex-1 overflow-y-auto bg-white ${
+              isResizing
+                ? "transition-none"
+                : "transition-all duration-300 ease-in-out"
+            }`}
+            style={{
+              marginRight: isChatbotOpen ? `${chatbotWidth}px` : "0px",
+            }}
+          >
+            {children}
+          </main>
+
+          {/* Right Sidebar Chatbot */}
+          <SidebarChatbot
+            isOpen={isChatbotOpen}
+            onToggle={toggleChatbot}
+            width={chatbotWidth}
+            onWidthChange={handleWidthChange}
+            onResizeStart={handleResizeStart}
+            onResizeEnd={handleResizeEnd}
+          />
+        </div>
+      </div>
 
       {/* Upload Feedback Overlay */}
       {uploadFiles.length > 0 && (
@@ -428,16 +469,6 @@ function InnerCaseLayout({ children }: CaseDetailLayoutProps) {
           ))}
         </div>
       )}
-
-      {/* Right Sidebar Chatbot */}
-      <SidebarChatbot
-        isOpen={isChatbotOpen}
-        onToggle={toggleChatbot}
-        width={chatbotWidth}
-        onWidthChange={handleWidthChange}
-        onResizeStart={handleResizeStart}
-        onResizeEnd={handleResizeEnd}
-      />
 
       {/* Global drag overlay to capture drops over iframes/viewers */}
       {can.docs.write && (isGlobalDragActive || isDragActive) && (
