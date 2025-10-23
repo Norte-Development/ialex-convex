@@ -34,7 +34,7 @@ export default function LibraryPage() {
   const [showUploadDialog, setShowUploadDialog] = useState(false);
 
   // Fetch user's teams
-  const teams = useQuery(api.functions.teams.getTeams, {}) || [];
+  const teams = useQuery(api.functions.teams.getTeams, {})?.page || [];
 
   // Default to personal library - userId is handled server-side via auth
   const [activeScope, setActiveScope] = useState<LibraryScope>({

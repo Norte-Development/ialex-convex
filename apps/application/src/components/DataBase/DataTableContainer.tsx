@@ -1,4 +1,4 @@
-import React, { memo, useCallback, useMemo, useEffect } from "react"
+import { memo, useCallback, useMemo, useEffect } from "react"
 import { useAction } from "convex/react"
 import { api } from "../../../convex/_generated/api"
 import { useQuery } from "@tanstack/react-query"
@@ -6,7 +6,7 @@ import { AppSkeleton } from "../Skeletons"
 import { FileText } from "lucide-react"
 import type { Estado, NormativeFilters, SortBy, SortOrder } from "../../../types/legislation"
 import { TableView } from "./TableView"
-import { PaginationControls } from "./PaginationControls"
+import { PaginationControls } from "../ui/pagination-controls"
 
 interface DataTableContainerProps {
   // Data-related state
@@ -150,7 +150,7 @@ export const DataTableContainer = memo(function DataTableContainer({
 
       <PaginationControls
         totalResults={computedData.totalResults}
-        page={page}
+        currentPage={page}
         pageSize={pageSize}
         totalPages={totalPages}
         isSearchMode={isSearchMode}

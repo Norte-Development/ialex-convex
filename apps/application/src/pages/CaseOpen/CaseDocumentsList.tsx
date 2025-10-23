@@ -1,9 +1,7 @@
 import { useState, useRef } from "react";
-import { useQuery } from "convex/react";
-import { api } from "../../../convex/_generated/api";
 import type { Id } from "../../../convex/_generated/dataModel";
 import CaseLayout from "@/components/Cases/CaseLayout";
-import DocumentsList from "@/components/Documents/DocumentsList";
+import DocumentsListContainer from "@/components/Documents/DocumentsListContainer";
 import { DocumentsBreadcrumb } from "@/components/Documents/DocumentsBreadcrumb";
 import { CreateFolderDialog } from "@/components/Documents/CreateFolderDialog";
 import NewDocumentInput, {
@@ -20,27 +18,6 @@ export default function DocumentListPage() {
   const [isCreateFolderOpen, setIsCreateFolderOpen] = useState(false);
   const documentInputRef = useRef<NewDocumentInputHandle>(null);
 
-  // Fetch documents for current folder (or root if no folder selected)
-  const documents = useQuery(
-    api.functions.documents.getDocumentsInFolder,
-    currentCase
-      ? {
-          caseId: currentCase._id as Id<"cases">,
-          folderId: currentFolderId,
-        }
-      : "skip",
-  );
-
-  // Fetch folders for current folder (or root if no folder selected)
-  const folders = useQuery(
-    api.functions.folders.getFoldersForCase,
-    currentCase
-      ? {
-          caseId: currentCase._id as Id<"cases">,
-          parentFolderId: currentFolderId,
-        }
-      : "skip",
-  );
 
   const handleFolderClick = (folderId: Id<"folders">) => {
     setCurrentFolderId(folderId);
@@ -73,11 +50,10 @@ export default function DocumentListPage() {
 
   return (
     <CaseLayout>
-      <DocumentsList
-        documents={documents}
-        folders={folders}
+      <DocumentsListContainer
         caseId={currentCase._id as Id<"cases">}
         currentFolderId={currentFolderId}
+        pageSize={20}
         onFolderClick={handleFolderClick}
         onCreateFolder={handleCreateFolder}
         onCreateDocument={handleCreateDocument}

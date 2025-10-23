@@ -11,7 +11,6 @@ import { toast } from "sonner";
 import {
   ChevronRight,
   Folder,
-  MoreHorizontal,
   FileText,
   Trash2,
   Loader2,
@@ -129,16 +128,18 @@ function FolderList({
   basePath?: string;
   movingFrom: Record<string, string>;
 }) {
-  const args: any = parentFolderId ? { caseId, parentFolderId } : { caseId };
-  const folders = useQuery(api.functions.folders.getFoldersForCase, args) as
-    | FolderType[]
-    | undefined;
+  // Use new non-paginated queries for better performance
+  const folders = useQuery(api.functions.folders.getAllFoldersForCase, {
+    caseId,
+    parentFolderId,
+  }) as FolderType[] | undefined;
 
   // Also load documents for this level (root when parentFolderId is undefined)
-  const documents = useQuery(api.functions.documents.getDocumentsInFolder, {
+  const documents = useQuery(api.functions.documents.getAllDocumentsInFolder, {
     caseId,
     folderId: parentFolderId,
-  } as any) as { _id: Id<"documents">; title: string }[] | undefined;
+  }) as { _id: Id<"documents">; title: string }[] | undefined;
+  
   const isLoadingFolders = folders === undefined;
 
   const deleteDocument = useMutation(api.functions.documents.deleteDocument);

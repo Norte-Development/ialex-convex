@@ -24,5 +24,5 @@ export interface Case {
   expedientNumber?: string;
   // Access control fields (added by getCases query)
   accessLevel?: "basic" | "advanced" | "admin";
-  source?: "individual" | "team";
+  source?: "user" | "team";
 }

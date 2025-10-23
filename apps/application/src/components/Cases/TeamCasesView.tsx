@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { useQuery } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import { Id } from "../../../convex/_generated/dataModel";
@@ -19,6 +19,7 @@ import TeamMemberPermissionsDialog from "./TeamMemberPermissionsDialog";
 import { useAuth } from "@/context/AuthContext";
 import { Card, CardContent, CardHeader } from "../ui/card";
 import { Input } from "../ui/input";
+import { PaginationControls } from "../ui/pagination-controls";
 
 interface TeamCasesViewProps {
   teamId: Id<"teams">;
@@ -32,10 +33,18 @@ export default function TeamCasesView({ teamId }: TeamCasesViewProps) {
   const canManageTeams = can?.teams?.write || false;
   const { user } = useAuth();
   const [searchQuery, setSearchQuery] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 20;
 
   const casesWithAccess = useQuery(
     api.functions.teams.getCasesAccessibleByTeam,
-    { teamId },
+    { 
+      teamId,
+      paginationOpts: {
+        numItems: pageSize,
+        cursor: ((currentPage - 1) * pageSize).toString()
+      }
+    },
   );
 
   // If we're in a case context, show team members with their permissions
@@ -43,6 +52,16 @@ export default function TeamCasesView({ teamId }: TeamCasesViewProps) {
     api.functions.teams.getTeamMembersWithCaseAccess,
     currentCase ? { caseId: currentCase._id, teamId } : "skip",
   );
+
+  // Pagination handler
+  const handlePageChange = useCallback((page: number) => {
+    setCurrentPage(page);
+  }, []);
+
+  // Reset pagination when teamId changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [teamId]);
 
   // Filter team members based on search query
   const filteredMembers = teamMembers?.filter((member) => {
@@ -281,12 +300,12 @@ export default function TeamCasesView({ teamId }: TeamCasesViewProps) {
       <div className="flex items-center justify-between mb-4">
         <h3 className="text-lg font-semibold">Casos Accesibles</h3>
         <Badge variant="outline">
-          {casesWithAccess?.length || 0}{" "}
-          {(casesWithAccess?.length || 0) === 1 ? "caso" : "casos"}
+          {casesWithAccess?.totalCount || 0}{" "}
+          {(casesWithAccess?.totalCount || 0) === 1 ? "caso" : "casos"}
         </Badge>
       </div>
 
-      {(casesWithAccess?.length || 0) === 0 ? (
+      {(casesWithAccess?.totalCount || 0) === 0 ? (
         <div className="flex flex-col items-center justify-center py-12 text-center">
           <Shield className="h-12 w-12 text-gray-400 mb-4" />
           <p className="text-gray-500">
@@ -294,74 +313,89 @@ export default function TeamCasesView({ teamId }: TeamCasesViewProps) {
           </p>
         </div>
       ) : (
-        <Table>
-          <TableHeader className="bg-[#F5F5F5]">
-            <TableRow>
-              <TableHead>Caso</TableHead>
-              <TableHead>Estado</TableHead>
-              <TableHead>Nivel de Acceso</TableHead>
-              <TableHead>Fecha de Creación</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {casesWithAccess?.map((caseItem) => (
-              <TableRow key={caseItem._id}>
-                <TableCell>
-                  <div className="flex flex-col">
-                    <span className="font-medium hover:text-blue-600 transition-colors cursor-pointer">
-                      {caseItem.title}
-                    </span>
-                    {caseItem.description && (
-                      <span className="text-sm text-gray-500 line-clamp-1">
-                        {caseItem.description}
-                      </span>
-                    )}
-                    {caseItem.tags && caseItem.tags.length > 0 && (
-                      <div className="flex items-center gap-1 flex-wrap mt-1">
-                        {caseItem.tags.slice(0, 2).map((tag, index) => (
-                          <Badge
-                            key={index}
-                            variant="secondary"
-                            className="text-xs"
-                          >
-                            {tag}
-                          </Badge>
-                        ))}
-                        {caseItem.tags.length > 2 && (
-                          <Badge variant="secondary" className="text-xs">
-                            +{caseItem.tags.length - 2}
-                          </Badge>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                </TableCell>
-                <TableCell>
-                  <Badge
-                    variant="outline"
-                    className={getStatusColor(caseItem.status as string)}
-                  >
-                    {getStatusText(caseItem.status as string)}
-                  </Badge>
-                </TableCell>
-                <TableCell>
-                  <Badge
-                    variant="secondary"
-                    className={`flex items-center gap-1 w-fit ${getAccessLevelColor(caseItem.accessLevel)}`}
-                  >
-                    {getAccessLevelIcon(caseItem.accessLevel)}
-                    {getAccessLevelText(caseItem.accessLevel)}
-                  </Badge>
-                </TableCell>
-                <TableCell>
-                  <span className="text-sm">
-                    {formatDate(caseItem._creationTime as number)}
-                  </span>
-                </TableCell>
+        <>
+          <Table>
+            <TableHeader className="bg-[#F5F5F5]">
+              <TableRow>
+                <TableHead>Caso</TableHead>
+                <TableHead>Estado</TableHead>
+                <TableHead>Nivel de Acceso</TableHead>
+                <TableHead>Fecha de Creación</TableHead>
               </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+            </TableHeader>
+            <TableBody>
+              {casesWithAccess?.page?.map((caseItem) => (
+                <TableRow key={caseItem._id}>
+                  <TableCell>
+                    <div className="flex flex-col">
+                      <span className="font-medium hover:text-blue-600 transition-colors cursor-pointer">
+                        {caseItem.title}
+                      </span>
+                      {caseItem.description && (
+                        <span className="text-sm text-gray-500 line-clamp-1">
+                          {caseItem.description}
+                        </span>
+                      )}
+                      {caseItem.tags && caseItem.tags.length > 0 && (
+                        <div className="flex items-center gap-1 flex-wrap mt-1">
+                          {caseItem.tags.slice(0, 2).map((tag, index) => (
+                            <Badge
+                              key={index}
+                              variant="secondary"
+                              className="text-xs"
+                            >
+                              {tag}
+                            </Badge>
+                          ))}
+                          {caseItem.tags.length > 2 && (
+                            <Badge variant="secondary" className="text-xs">
+                              +{caseItem.tags.length - 2}
+                            </Badge>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <Badge
+                      variant="outline"
+                      className={getStatusColor(caseItem.status as string)}
+                    >
+                      {getStatusText(caseItem.status as string)}
+                    </Badge>
+                  </TableCell>
+                  <TableCell>
+                    <Badge
+                      variant="secondary"
+                      className={`flex items-center gap-1 w-fit ${getAccessLevelColor(caseItem.accessLevel)}`}
+                    >
+                      {getAccessLevelIcon(caseItem.accessLevel)}
+                      {getAccessLevelText(caseItem.accessLevel)}
+                    </Badge>
+                  </TableCell>
+                  <TableCell>
+                    <span className="text-sm">
+                      {formatDate(caseItem._creationTime as number)}
+                    </span>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+
+          {/* Pagination controls */}
+          {casesWithAccess?.page && casesWithAccess.page.length > 0 && (
+            <div className="mt-6">
+              <PaginationControls
+                totalResults={casesWithAccess?.totalCount || 0}
+                currentPage={currentPage}
+                pageSize={pageSize}
+                totalPages={Math.ceil((casesWithAccess?.totalCount || 0) / pageSize)}
+                onPageChange={handlePageChange}
+              />
+            </div>
+          )}
+        </>
       )}
     </div>
   );

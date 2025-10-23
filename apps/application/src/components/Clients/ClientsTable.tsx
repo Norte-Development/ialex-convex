@@ -27,15 +27,24 @@ import {
 } from "@/components/ui/popover";
 import { useNavigate } from "react-router-dom";
 import { FileText } from "lucide-react";
+import { PaginationControls } from "../ui/pagination-controls";
 
 interface ClientsTableProps {
   clientsResult: any;
   caseId?: Id<"cases">; // If provided, table adapts to case context (hide case count, enable unlink)
+  currentPage?: number;
+  pageSize?: number;
+  onPageChange?: (page: number) => void;
+  searchQuery?: string;
 }
 
 export default function ClientsTable({
   clientsResult,
   caseId,
+  currentPage = 1,
+  pageSize = 20,
+  onPageChange,
+  searchQuery = "",
 }: ClientsTableProps) {
   const navigate = useNavigate();
   const removeClientFromCase = useMutation(
@@ -242,6 +251,21 @@ export default function ClientsTable({
           ))}
         </TableBody>
       </Table>
+      
+      {/* Pagination controls */}
+      {clients && clients.length > 0 && onPageChange && (
+        <div className="mt-4">
+          <PaginationControls
+            totalResults={clientsResult?.totalCount || 0}
+            currentPage={currentPage}
+            pageSize={pageSize}
+            totalPages={Math.ceil((clientsResult?.totalCount || 0) / pageSize)}
+            isSearchMode={!!searchQuery.trim()}
+            searchQuery={searchQuery}
+            onPageChange={onPageChange}
+          />
+        </div>
+      )}
     </div>
   );
 }

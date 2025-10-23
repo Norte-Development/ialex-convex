@@ -1,10 +1,10 @@
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import {
-  TemplateTable,
   TemplatePreviewDialog,
   TemplateSearchBar,
-} from "@/components/Templates";
-import { useQuery, useMutation } from "convex/react";
+} from "@/components/Modelos";
+import TemplateTableContainer from "@/components/Modelos/TemplateTableContainer";
+import { useMutation } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
 import { useNavigate } from "react-router-dom";
@@ -20,32 +20,6 @@ export default function ModelsPage() {
   const [previewTemplateId, setPreviewTemplateId] =
     useState<Id<"modelos"> | null>(null);
   const [searchValue, setSearchValue] = useState("");
-
-  // Use search when there's a search term, otherwise use regular list
-  const hasSearchTerm = searchValue.trim().length > 0;
-
-  const searchResults = useQuery(
-    api.functions.templates.searchModelos,
-    hasSearchTerm
-      ? {
-          searchTerm: searchValue.trim(),
-          paginationOpts: { numItems: 100, cursor: null },
-        }
-      : "skip",
-  );
-
-  const listResults = useQuery(
-    api.functions.templates.getModelos,
-    !hasSearchTerm
-      ? {
-          paginationOpts: { numItems: 100, cursor: null },
-        }
-      : "skip",
-  );
-
-  const templates = hasSearchTerm ? searchResults : listResults;
-  const isLoadingTemplates = templates === undefined;
-  const modelos = templates?.page ?? [];
 
   const createEscrito = useMutation(api.functions.documents.createEscrito);
 
@@ -116,21 +90,23 @@ export default function ModelsPage() {
           onAddTemplate={handleAddTemplate}
         />
         <TabsContent value="Modelos" className="min-w-[90%]">
-          <TemplateTable
-            templates={modelos}
-            isLoading={isLoadingTemplates}
+          <TemplateTableContainer
+            searchQuery={searchValue}
+            pageSize={20}
             onPreview={handlePreviewTemplate}
             onCreateFromTemplate={handleCreateFromTemplate}
             canCreate={can.escritos.write}
+            showPublicOnly={true}
           />
         </TabsContent>
         <TabsContent value="Mis Modelos" className="min-w-[90%]">
-          <TemplateTable
-            templates={modelos.filter((t: any) => !t.isPublic)}
-            isLoading={isLoadingTemplates}
+          <TemplateTableContainer
+            searchQuery={searchValue}
+            pageSize={20}
             onPreview={handlePreviewTemplate}
             onCreateFromTemplate={handleCreateFromTemplate}
             canCreate={can.escritos.write}
+            showPublicOnly={false}
           />
         </TabsContent>
       </Tabs>

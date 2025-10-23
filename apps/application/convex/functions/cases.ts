@@ -1,5 +1,6 @@
 import { v } from "convex/values";
 import { query, mutation, internalQuery, QueryCtx, MutationCtx } from "../_generated/server";
+import { paginationOptsValidator } from "convex/server";
 import {
   getCurrentUserFromAuth,
   requireNewCaseAccess,
@@ -291,8 +292,10 @@ export const deleteCase = mutation({
  * const lawyerCases = await getCases({ assignedLawyer: "user_id_123" });
  * ```
  */
+// Updated getCases with pagination support
 export const getCases = query({
   args: {
+    paginationOpts: paginationOptsValidator,
     status: v.optional(
       v.union(
         v.literal("pendiente"),
@@ -303,7 +306,16 @@ export const getCases = query({
       ),
     ),
     assignedLawyer: v.optional(v.id("users")),
+    search: v.optional(v.string()),
+    sortBy: v.optional(v.string()),
+    sortOrder: v.optional(v.union(v.literal("asc"), v.literal("desc"))),
   },
+  returns: v.object({
+    page: v.array(v.any()),
+    isDone: v.boolean(),
+    continueCursor: v.union(v.string(), v.null()),
+    totalCount: v.number(),
+  }),
   handler: async (ctx, args) => {
     const currentUser = await getCurrentUserFromAuth(ctx);
 
@@ -349,7 +361,64 @@ export const getCases = query({
       }
     }
 
-    return accessibleCases;
+    // Apply search filter if provided
+    let filteredCases = accessibleCases;
+    if (args.search && args.search.trim()) {
+      const searchTerm = args.search.toLowerCase().trim();
+      filteredCases = accessibleCases.filter((caseData) =>
+        caseData.title.toLowerCase().includes(searchTerm) ||
+        (caseData.description && caseData.description.toLowerCase().includes(searchTerm)) ||
+        (caseData.expedientNumber && caseData.expedientNumber.toLowerCase().includes(searchTerm))
+      );
+    }
+
+    // Apply sorting
+    if (args.sortBy && args.sortOrder) {
+      filteredCases.sort((a, b) => {
+        let aValue, bValue;
+        
+        switch (args.sortBy) {
+          case "title":
+            aValue = a.title.toLowerCase();
+            bValue = b.title.toLowerCase();
+            break;
+          case "status":
+            aValue = a.status;
+            bValue = b.status;
+            break;
+          case "priority":
+            const priorityOrder = { high: 3, medium: 2, low: 1 };
+            aValue = priorityOrder[a.priority as keyof typeof priorityOrder] || 0;
+            bValue = priorityOrder[b.priority as keyof typeof priorityOrder] || 0;
+            break;
+          case "createdAt":
+          default:
+            aValue = a._creationTime;
+            bValue = b._creationTime;
+            break;
+        }
+
+        if (aValue < bValue) return args.sortOrder === "asc" ? -1 : 1;
+        if (aValue > bValue) return args.sortOrder === "asc" ? 1 : -1;
+        return 0;
+      });
+    }
+
+    // Apply pagination - calculate offset based on cursor
+    const offset = args.paginationOpts.cursor ? parseInt(args.paginationOpts.cursor) : 0;
+    const startIndex = offset;
+    const endIndex = offset + args.paginationOpts.numItems;
+    
+    const paginatedCases = filteredCases.slice(startIndex, endIndex);
+    const isDone = endIndex >= filteredCases.length;
+    const continueCursor = isDone ? null : endIndex.toString();
+
+    return {
+      page: paginatedCases,
+      isDone,
+      continueCursor,
+      totalCount: filteredCases.length,
+    };
   },
 });
 
