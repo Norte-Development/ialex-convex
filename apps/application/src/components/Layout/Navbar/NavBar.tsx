@@ -66,12 +66,14 @@ export default function NavBar() {
               showName={false}
             />
           </div>
-          <MessageCircle
-            className="cursor-pointer"
-            size={22}
-            onClick={toggleChatbot}
-            color="#3946D7"
-          />
+          {isInCaseContext && (
+            <MessageCircle
+              className="cursor-pointer"
+              size={22}
+              onClick={toggleChatbot}
+              color="#3946D7"
+            />
+          )}
         </div>
       </div>
       <div className={`flex justify-center items-center relative w-[30%]`}>

@@ -2,6 +2,7 @@ import { Suspense, ReactNode } from "react";
 import { useLocation } from "react-router-dom";
 import { AppSkeleton } from "@/components/Skeletons";
 import { HomePageSkeleton } from "@/components/Home/Skeletons";
+import { DataBasePageSkeleton } from "@/components/DataBase/Skeletons/DataBasePageSkeleton";
 
 interface RouteSuspenseProps {
   children: ReactNode;
@@ -21,6 +22,11 @@ export function RouteSuspense({ children }: RouteSuspenseProps) {
     // HomePage skeleton
     if (path === "/" || path === "") {
       return <HomePageSkeleton />;
+    }
+
+    // DataBasePage skeleton
+    if (path.startsWith("/base-de-datos")) {
+      return <DataBasePageSkeleton />;
     }
 
     // Por defecto, usar AppSkeleton

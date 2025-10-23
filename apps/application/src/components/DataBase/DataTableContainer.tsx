@@ -1,29 +1,34 @@
-import React, { memo, useCallback, useMemo, useEffect } from "react"
-import { useAction } from "convex/react"
-import { api } from "../../../convex/_generated/api"
-import { useQuery } from "@tanstack/react-query"
-import { AppSkeleton } from "../Skeletons"
-import { FileText } from "lucide-react"
-import type { Estado, NormativeFilters, SortBy, SortOrder } from "../../../types/legislation"
-import { TableView } from "./TableView"
-import { PaginationControls } from "./PaginationControls"
+import React, { memo, useCallback, useMemo, useEffect } from "react";
+import { useAction } from "convex/react";
+import { api } from "../../../convex/_generated/api";
+import { useQuery } from "@tanstack/react-query";
+import { DataTableSkeleton } from "./Skeletons/DataTableSkeleton";
+import { FileText } from "lucide-react";
+import type {
+  Estado,
+  NormativeFilters,
+  SortBy,
+  SortOrder,
+} from "../../../types/legislation";
+import { TableView } from "./TableView";
+import { PaginationControls } from "./PaginationControls";
 
 interface DataTableContainerProps {
   // Data-related state
-  jurisdiction: string
-  filters: NormativeFilters
-  debouncedQuery: string
-  page: number
-  pageSize: number
-  sortBy: SortBy
-  sortOrder: SortOrder
-  isSearchMode: boolean
-  searchQuery: string
+  jurisdiction: string;
+  filters: NormativeFilters;
+  debouncedQuery: string;
+  page: number;
+  pageSize: number;
+  sortBy: SortBy;
+  sortOrder: SortOrder;
+  isSearchMode: boolean;
+  searchQuery: string;
 
   // Callbacks
-  onRowClick: (id: string) => void
-  onPageChange: (newPage: number) => void
-  onTotalResultsChange?: (total: number) => void
+  onRowClick: (id: string) => void;
+  onPageChange: (newPage: number) => void;
+  onTotalResultsChange?: (total: number) => void;
 }
 
 export const DataTableContainer = memo(function DataTableContainer({
@@ -42,7 +47,7 @@ export const DataTableContainer = memo(function DataTableContainer({
 }: DataTableContainerProps) {
   const actions = {
     getNormatives: useAction(api.functions.legislation.getNormatives),
-  }
+  };
 
   const {
     data: normativesData,
@@ -60,16 +65,16 @@ export const DataTableContainer = memo(function DataTableContainer({
       sortOrder,
     ],
     queryFn: () => {
-      const queryFilters = { ...filters }
-      
+      const queryFilters = { ...filters };
+
       // Only add jurisdiction filter if not "all"
       if (jurisdiction !== "all") {
-        queryFilters.jurisdiccion = jurisdiction
+        queryFilters.jurisdiccion = jurisdiction;
       }
 
       // Add search query to filters if present
       if (debouncedQuery.trim()) {
-        queryFilters.search = debouncedQuery.trim()
+        queryFilters.search = debouncedQuery.trim();
       }
 
       return actions.getNormatives({
@@ -78,30 +83,30 @@ export const DataTableContainer = memo(function DataTableContainer({
         offset: (page - 1) * pageSize,
         sortBy,
         sortOrder,
-      })
+      });
     },
     staleTime: 5 * 60 * 1000,
-  })
+  });
 
   const computedData = useMemo(() => {
-    const totalResults = normativesData?.pagination?.total || 0
-    const items = normativesData?.items || []
+    const totalResults = normativesData?.pagination?.total || 0;
+    const items = normativesData?.items || [];
 
     return {
       totalResults,
       items,
       isLoading,
       error,
-      pagination: normativesData?.pagination
-    }
-  }, [normativesData, isLoading, error])
+      pagination: normativesData?.pagination,
+    };
+  }, [normativesData, isLoading, error]);
 
   // Notify parent of total results changes
   useEffect(() => {
     if (onTotalResultsChange && !computedData.isLoading) {
-      onTotalResultsChange(computedData.totalResults)
+      onTotalResultsChange(computedData.totalResults);
     }
-  }, [computedData.totalResults, computedData.isLoading, onTotalResultsChange])
+  }, [computedData.totalResults, computedData.isLoading, onTotalResultsChange]);
 
   const getEstadoBadgeColor = useCallback((estado: Estado) => {
     const colors = {
@@ -111,17 +116,20 @@ export const DataTableContainer = memo(function DataTableContainer({
       anulada: "bg-gray-50 text-gray-700 border-gray-200",
       suspendida: "bg-orange-50 text-orange-700 border-orange-200",
       abrogada: "bg-purple-50 text-purple-700 border-purple-200",
-    }
-    return colors[estado as keyof typeof colors] || "bg-blue-50 text-blue-700 border-blue-200"
-  }, [])
+    };
+    return (
+      colors[estado as keyof typeof colors] ||
+      "bg-blue-50 text-blue-700 border-blue-200"
+    );
+  }, []);
 
   const formatDate = useCallback((dateString?: string) => {
-    if (!dateString) return ""
-    return new Date(dateString).toLocaleDateString("es-AR")
-  }, [])
+    if (!dateString) return "";
+    return new Date(dateString).toLocaleDateString("es-AR");
+  }, []);
 
   if (computedData.isLoading) {
-    return <AppSkeleton />
+    return <DataTableSkeleton />;
   }
 
   if (computedData.error) {
@@ -130,13 +138,18 @@ export const DataTableContainer = memo(function DataTableContainer({
         <div className="text-center">
           <FileText className="w-8 h-8 mx-auto mb-2 opacity-50" />
           <p className="font-medium">Error loading legislation</p>
-          <p className="text-sm text-red-500 mt-1">{computedData.error.message}</p>
+          <p className="text-sm text-red-500 mt-1">
+            {computedData.error.message}
+          </p>
         </div>
       </div>
-    )
+    );
   }
 
-  const totalPages = Math.max(1, Math.ceil(computedData.totalResults / pageSize))
+  const totalPages = Math.max(
+    1,
+    Math.ceil(computedData.totalResults / pageSize),
+  );
 
   return (
     <>
@@ -158,5 +171,5 @@ export const DataTableContainer = memo(function DataTableContainer({
         onPageChange={onPageChange}
       />
     </>
-  )
-})
+  );
+});

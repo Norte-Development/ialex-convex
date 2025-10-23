@@ -1,6 +1,7 @@
 import { useLocation } from "react-router-dom";
 import { AppSkeleton } from "@/components/Skeletons";
 import { HomePageSkeleton } from "@/components/Home/Skeletons";
+import { DataBasePageSkeleton } from "@/components/DataBase/Skeletons/DataBasePageSkeleton";
 
 /**
  * Componente que muestra el skeleton correcto según la ruta actual
@@ -16,6 +17,11 @@ export function AuthLoadingSkeleton() {
     // HomePage skeleton
     if (path === "/" || path === "") {
       return <HomePageSkeleton />;
+    }
+
+    // DataBasePage skeleton
+    if (path.startsWith("/base-de-datos")) {
+      return <DataBasePageSkeleton />;
     }
 
     // TODO: Agregar más skeletons específicos por ruta aquí
