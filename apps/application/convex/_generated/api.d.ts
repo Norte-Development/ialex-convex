@@ -67,10 +67,12 @@ import type * as agents_tools_shared_sanitizeContent from "../agents/tools/share
 import type * as agents_tools_shared_utils from "../agents/tools/shared/utils.js";
 import type * as agents_tools_shared_validation from "../agents/tools/shared/validation.js";
 import type * as auth_utils from "../auth_utils.js";
+import type * as billing_analytics from "../billing/analytics.js";
 import type * as billing_features from "../billing/features.js";
 import type * as billing_migrations from "../billing/migrations.js";
 import type * as billing_planLimits from "../billing/planLimits.js";
 import type * as billing_subscriptions from "../billing/subscriptions.js";
+import type * as billing_trials from "../billing/trials.js";
 import type * as billing_webhookHandlers from "../billing/webhookHandlers.js";
 import type * as context_context from "../context/context.js";
 import type * as context_contextService from "../context/contextService.js";
@@ -200,10 +202,12 @@ declare const fullApi: ApiFromModules<{
   "agents/tools/shared/utils": typeof agents_tools_shared_utils;
   "agents/tools/shared/validation": typeof agents_tools_shared_validation;
   auth_utils: typeof auth_utils;
+  "billing/analytics": typeof billing_analytics;
   "billing/features": typeof billing_features;
   "billing/migrations": typeof billing_migrations;
   "billing/planLimits": typeof billing_planLimits;
   "billing/subscriptions": typeof billing_subscriptions;
+  "billing/trials": typeof billing_trials;
   "billing/webhookHandlers": typeof billing_webhookHandlers;
   "context/context": typeof context_context;
   "context/contextService": typeof context_contextService;

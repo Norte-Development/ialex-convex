@@ -3,6 +3,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useAuth } from "@/context/AuthContext";
+import { useMutation } from "convex/react";
+import { api } from "../../../convex/_generated/api";
 import { CircleArrowRight } from "lucide-react";
 import {
   Select,
@@ -42,8 +44,12 @@ interface OnboardingData {
 
 const STORAGE_KEY = "ialex-onboarding-progress";
 
-export const OnboardingFlow: React.FC = () => {
-  const { user, updateOnboarding } = useAuth();
+interface OnboardingFlowProps {
+  user: any; // User object from OnboardingWrapper
+}
+
+export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ user }) => {
+  const updateOnboardingInfo = useMutation(api.functions.users.updateOnboardingInfo);
 
   // Cargar datos persistidos al iniciar
   const loadPersistedData = () => {
@@ -198,7 +204,10 @@ export const OnboardingFlow: React.FC = () => {
         onboardingData.specializations = formData.specializations;
       }
 
-      await updateOnboarding(onboardingData);
+      await updateOnboardingInfo({
+        clerkId: user.clerkId,
+        ...onboardingData,
+      });
 
       localStorage.removeItem(STORAGE_KEY);
 
@@ -210,7 +219,7 @@ export const OnboardingFlow: React.FC = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [formData, updateOnboarding]);
+  }, [formData, updateOnboardingInfo, user.clerkId]);
 
   // Validar si el botón "Siguiente" debe estar deshabilitado
   const isNextDisabled = useCallback(() => {

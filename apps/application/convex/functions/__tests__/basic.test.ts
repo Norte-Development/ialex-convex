@@ -16,6 +16,7 @@ describe('Basic Convex Test Setup', () => {
         email: "test@example.com",
         isActive: true,
         isOnboardingComplete: true,
+        hasUsedTrial: false,
       });
     });
 
