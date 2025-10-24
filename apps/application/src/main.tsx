@@ -1,4 +1,3 @@
-import React from "react";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { BrowserRouter } from "react-router-dom";
@@ -13,6 +12,20 @@ import { ErrorBoundary } from "./ErrorBoundary.tsx";
 import { Toaster } from "./components/ui/sonner.tsx";
 import { esUY } from "@clerk/localizations";
 const convex = new ConvexReactClient(import.meta.env.VITE_CONVEX_URL as string);
+
+// Auto-reload when a lazy chunk fails after a deployment switch
+window.addEventListener('unhandledrejection', (e: PromiseRejectionEvent) => {
+  const msg = String((e.reason && (e.reason.message || e.reason)) || '');
+  if (
+    msg.includes('Loading chunk') ||
+    msg.includes('ChunkLoadError') ||
+    msg.includes('failed to fetch dynamically imported module') ||
+    msg.includes('Importing a module script failed')
+  ) {
+    e.preventDefault?.();
+    window.location.reload();
+  }
+});
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
