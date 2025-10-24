@@ -115,6 +115,12 @@ export async function checkNewCaseAccess(
       q.eq("caseId", caseId).eq("userId", userId),
     )
     .filter((q) => q.eq(q.field("isActive"), true))
+    .filter((q) =>
+      q.or(
+        q.eq(q.field("expiresAt"), undefined),
+        q.gt(q.field("expiresAt"), Date.now()),
+      ),
+    )
     .first();
 
   if (userAccess && userAccess.userId) {
@@ -150,6 +156,12 @@ export async function checkNewCaseAccess(
         q.eq("caseId", caseId).eq("teamId", membership.teamId),
       )
       .filter((q) => q.eq(q.field("isActive"), true))
+      .filter((q) =>
+        q.or(
+          q.eq(q.field("expiresAt"), undefined),
+          q.gt(q.field("expiresAt"), Date.now()),
+        ),
+      )
       .first();
 
     if (teamAccess && teamAccess.teamId) {
@@ -291,6 +303,12 @@ export const internalCheckNewCaseAccess = internalQuery({
         q.eq("caseId", caseId).eq("userId", userId),
       )
       .filter((q) => q.eq(q.field("isActive"), true))
+      .filter((q) =>
+        q.or(
+          q.eq(q.field("expiresAt"), undefined),
+          q.gt(q.field("expiresAt"), Date.now()),
+        ),
+      )
       .first();
 
     if (userAccess && userAccess.userId) {
@@ -324,6 +342,12 @@ export const internalCheckNewCaseAccess = internalQuery({
           q.eq("caseId", caseId).eq("teamId", membership.teamId),
         )
         .filter((q) => q.eq(q.field("isActive"), true))
+        .filter((q) =>
+          q.or(
+            q.eq(q.field("expiresAt"), undefined),
+            q.gt(q.field("expiresAt"), Date.now()),
+          ),
+        )
         .first();
 
       if (teamAccess && teamAccess.teamId) {

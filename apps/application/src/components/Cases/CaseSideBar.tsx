@@ -96,7 +96,23 @@ export default function CaseSidebar() {
   );
 
   // Permisos usando el nuevo sistema
-  const { can } = usePermissions();
+  const { can, accessLevel, hasAccess, source, isLoading } = usePermissions();
+
+  // Comprehensive debugging for permissions
+  console.group("🔐 User Permissions Debug");
+  console.log("Access Level:", accessLevel);
+  console.log("Has Access:", hasAccess);
+  console.log("Access Source:", source);
+  console.log("Is Loading:", isLoading);
+  console.log("Capabilities:", {
+    viewCase: can.viewCase,
+    editCase: can.editCase,
+    deleteCase: can.deleteCase,
+    docs: can.docs,
+    escritos: can.escritos,
+    clients: can.clients,
+  });
+  console.groupEnd();
 
   const basePath = `/caso/${id}`;
 

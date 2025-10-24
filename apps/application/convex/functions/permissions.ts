@@ -351,16 +351,19 @@ export const grantNewUserCaseAccess = mutation({
     const currentUser = await getCurrentUserFromAuth(ctx);
     await requireNewCaseAccess(ctx, currentUser._id, args.caseId, "admin");
 
-    // Remove existing access for this user and case
-    const existingAccess = await ctx.db
+    // Remove ALL existing access records for this user and case
+    // Use the more specific index and collect all records to handle edge cases
+    const existingAccessRecords = await ctx.db
       .query("caseAccess")
-      .withIndex("by_case", (q) => q.eq("caseId", args.caseId))
-      .filter((q) => q.eq(q.field("userId"), args.userId))
+      .withIndex("by_case_and_user", (q) =>
+        q.eq("caseId", args.caseId).eq("userId", args.userId),
+      )
       .filter((q) => q.eq(q.field("isActive"), true))
-      .first();
+      .collect();
 
-    if (existingAccess) {
-      await ctx.db.patch(existingAccess._id, { isActive: false });
+    // Deactivate all existing records
+    for (const record of existingAccessRecords) {
+      await ctx.db.patch(record._id, { isActive: false });
     }
 
     // Grant new access
