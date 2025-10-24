@@ -1,5 +1,15 @@
 import { Component, ReactNode } from "react";
 
+function isChunkLoadError(error: unknown): boolean {
+  const errorText = String((error as any)?.message || error || '');
+  return (
+    errorText.includes('Failed to fetch dynamically imported module') ||
+    errorText.includes('Loading chunk') ||
+    errorText.includes('ChunkLoadError') ||
+    errorText.includes('Importing a module script failed')
+  );
+}
+
 // NOTE: Once you get Clerk working you can simplify this error boundary
 // or remove it entirely.
 export class ErrorBoundary extends Component<
@@ -12,6 +22,12 @@ export class ErrorBoundary extends Component<
   }
 
   static getDerivedStateFromError(error: unknown) {
+    // Check for chunk loading errors and reload immediately
+    if (isChunkLoadError(error)) {
+      window.location.reload();
+      return { error: null };
+    }
+
     const errorText = "" + (error as any).toString();
     if (
       errorText.includes("@clerk/clerk-react") &&
