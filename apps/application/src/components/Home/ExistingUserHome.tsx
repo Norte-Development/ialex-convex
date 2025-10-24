@@ -7,6 +7,7 @@ import AllEventsDialog from "./AllEventsDialog";
 import CaseCards from "./CaseCards";
 import { useState } from "react";
 import { ExistingUserHomeSkeleton } from "./Skeletons";
+import { Link } from "react-router-dom";
 
 const ExistingUserHome = () => {
   const casesResult = useQuery(api.functions.cases.getCases, {
@@ -51,6 +52,11 @@ const ExistingUserHome = () => {
           ) : (
             <p className="text-gray-500 text-sm">No tienes casos activos</p>
           )}
+          <div className="flex justify-end col-span-full">
+          <Button variant="ghost" >
+            <Link to="/casos" className="text-blue-500 underline hover:no-underline hover:text-blue-600">Ver todos los casos</Link>
+          </Button>
+          </div>
         </div>
 
         <div className="w-full grid grid-cols-1 lg:grid-cols-[1fr_2fr] gap-8 mb-10 mt-10">
