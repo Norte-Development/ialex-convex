@@ -254,7 +254,7 @@ function InnerCaseLayout({ children }: CaseDetailLayoutProps) {
       "application/csv": [".csv"],
       // Treat some CSV uploads that use the legacy Excel MIME
       "application/vnd.ms-excel": [".csv"],
-      "image/*": [".png", ".jpg", ".jpeg", ".gif"],
+      // "image/*": [".png", ".jpg", ".jpeg", ".gif"],
       "text/plain": [".txt"],
       "audio/*": [".mp3", ".wav"],
       "video/*": [".mp4", ".mov"],
