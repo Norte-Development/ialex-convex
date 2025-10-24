@@ -84,8 +84,8 @@ export const agent = new Agent(components.agent, {
     searchLibraryDocuments: searchLibraryDocumentsTool,
     listLibraryDocuments: listLibraryDocumentsTool,
     readLibraryDocument: readLibraryDocumentTool,
-    // searchDoctrine: searchDoctrineTool,
-    // readDoctrine: readDoctrineTool,
+    searchDoctrine: searchDoctrineTool,
+    readDoctrine: readDoctrineTool,
   }
 });
 
