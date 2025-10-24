@@ -27,53 +27,83 @@ function isDevMode(): boolean {
  * EXPORTED for use in other files
  */
 export async function _getUserPlan(ctx: QueryCtx | MutationCtx, userId: Id<"users">): Promise<PlanType> {
-  // First, find the Stripe customer for this user
+  // Get user for trial status check
+  const user = await ctx.db.get(userId);
+  
+  // Check for Stripe subscription FIRST (paid subscriptions take precedence over trials)
   const customer = await ctx.db
     .query("stripeCustomers")
     .withIndex("byEntityId", (q) => q.eq("entityId", userId))
     .first();
 
-  if (!customer) return "free";
+  if (customer) {
+    // Query subscriptions using the Stripe customer ID
+    const subscriptions = await ctx.db
+      .query("stripeSubscriptions")
+      .withIndex("byCustomerId", (q) => q.eq("customerId", customer.customerId))
+      .collect();
 
-  // Now query subscriptions using the Stripe customer ID
-  const subscriptions = await ctx.db
-    .query("stripeSubscriptions")
-    .withIndex("byCustomerId", (q) => q.eq("customerId", customer.customerId))
-    .collect();
-
-  // Filter for active subscriptions
-  const activeSubscription = subscriptions.find((sub) => sub.stripe?.status === "active");
+    // Filter for active subscriptions
+    const activeSubscription = subscriptions.find((sub) => sub.stripe?.status === "active");
+    
+    if (activeSubscription) {
+      // Get the first item's price ID from the Stripe object
+      const priceId = activeSubscription.stripe?.items?.data?.[0]?.price?.id;
+      
+      if (priceId) {
+        // Find the price in stripePrices table
+        const price = await ctx.db
+          .query("stripePrices")
+          .withIndex("byPriceId", (q) => q.eq("priceId", priceId))
+          .first();
+        
+        if (price) {
+          // Get the product ID from the price
+          const productId = price.stripe.productId;
+          
+          if (productId) {
+            // Find the product - no index for productId, so use filter
+            const product = await ctx.db
+              .query("stripeProducts")
+              .filter((q) => q.eq(q.field("productId"), productId))
+              .first();
+            
+            if (product) {
+              // Check product metadata for plan type
+              const plan = product.stripe?.metadata?.plan;
+              if (plan === "premium_individual") {
+                // Mark trial as converted if user was in trial
+                if (user?.trialStatus === "active" && 'scheduler' in ctx) {
+                  await ctx.db.patch(userId, { trialStatus: "converted" });
+                }
+                return "premium_individual";
+              }
+              if (plan === "premium_team") {
+                // Mark trial as converted if user was in trial
+                if (user?.trialStatus === "active" && 'scheduler' in ctx) {
+                  await ctx.db.patch(userId, { trialStatus: "converted" });
+                }
+                return "premium_team";
+              }
+            }
+          }
+        }
+      }
+    }
+  }
   
-  if (!activeSubscription) return "free";
-
-  // Get the first item's price ID from the Stripe object
-  const priceId = activeSubscription.stripe?.items?.data?.[0]?.price?.id;
-  if (!priceId) return "free";
-
-  // Find the price in stripePrices table
-  const price = await ctx.db
-    .query("stripePrices")
-    .withIndex("byPriceId", (q) => q.eq("priceId", priceId))
-    .first();
+  // No active paid subscription - check if user has ACTIVE trial
+  if (user?.trialStatus === "active" && user.trialEndDate && user.trialEndDate > Date.now()) {
+    return user.trialPlan || "premium_individual";
+  }
   
-  if (!price) return "free";
-
-  // Get the product ID from the price
-  const productId = price.stripe.productId;
-  if (!productId) return "free";
-
-  // Find the product - no index for productId, so use filter
-  const product = await ctx.db
-    .query("stripeProducts")
-    .filter((q) => q.eq(q.field("productId"), productId))
-    .first();
-  
-  if (!product) return "free";
-
-  // Check product metadata for plan type
-  const plan = product.stripe?.metadata?.plan;
-  if (plan === "premium_individual") return "premium_individual";
-  if (plan === "premium_team") return "premium_team";
+  // If trial expired but status not updated yet, mark as expired (only in mutation context)
+  if (user?.trialStatus === "active" && user.trialEndDate && user.trialEndDate <= Date.now()) {
+    if ('scheduler' in ctx) {
+      // MutationCtx - can update
+      await ctx.db.patch(userId, { trialStatus: "expired" });
+    }
+  }
 
   return "free";
 }
