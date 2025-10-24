@@ -262,6 +262,19 @@ export const deleteCase = mutation({
   },
 });
 
+export const getCase = query({
+  args: {
+    caseId: v.id("cases"),
+  },
+  handler: async (ctx, args) => {
+    const currentUser = await getCurrentUserFromAuth(ctx);
+    await requireNewCaseAccess(ctx, currentUser._id, args.caseId, "basic");
+
+    const caseData = await ctx.db.get(args.caseId);
+    return caseData;
+  },
+})
+
 /**
  * Retrieves cases accessible to the current user with optional filtering.
  *

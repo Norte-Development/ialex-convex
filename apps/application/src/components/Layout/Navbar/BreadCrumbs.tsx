@@ -1,4 +1,10 @@
 import { useLocation } from "react-router-dom";
+import {
+  Breadcrumb,
+  BreadcrumbItem,
+  BreadcrumbList,
+  BreadcrumbSeparator,
+} from "@/components/ui/breadcrumb"
 import { Home } from "lucide-react";
 import React from "react";
 import { Link } from "react-router-dom";
@@ -11,38 +17,19 @@ export default function Breadcrumbs() {
   const pathnames = location.pathname.split("/").filter((x) => x);
 
   const caseId = pathnames[0] === "caso" && pathnames[1] ? pathnames[1] : null;
-  const casesResult = useQuery(api.functions.cases.getCases, {
-    paginationOpts: { numItems: 100, cursor: null },
+  const casesResult = useQuery(api.functions.cases.getCase, {
+    caseId: caseId as Id<"cases">,
   });
-  const cases = casesResult?.page || [];
-  const currentCase = caseId ? cases.find((c) => c._id === caseId) : null;
-
-  const escritoId =
-    pathnames[0] === "caso" && pathnames[2] === "escritos" && pathnames[3]
-      ? pathnames[3]
-      : null;
-  const escrito = useQuery(
-    api.functions.documents.getEscrito,
-    escritoId ? { escritoId: escritoId as Id<"escritos"> } : "skip",
-  );
+  const currentCase = caseId ? casesResult : null;
 
   if (pathnames.length === 0) return null;
 
   const formatBreadcrumb = (str: string, index: number) => {
     // Mostrar título del caso
     if (pathnames[0] === "caso" && index === 1 && currentCase) {
-      return currentCase.title;
+      return currentCase?.title || "";
     }
 
-    // Mostrar título del escrito
-    if (
-      pathnames[0] === "caso" &&
-      pathnames[2] === "escritos" &&
-      index === 3 &&
-      escrito
-    ) {
-      return escrito.title;
-    }
 
     const decoded = decodeURIComponent(str);
     return decoded
@@ -60,11 +47,14 @@ export default function Breadcrumbs() {
   };
 
   return (
-    <div className="flex items-center gap-2 text-[18px] min-w-0 max-w-full overflow-hidden">
+    <Breadcrumb className="flex items-center gap-2 text-[18px] min-w-0 max-w-full overflow-hidden">
+      <BreadcrumbList>
+      <BreadcrumbItem>
       <Link to="/" className="flex items-center gap-2">
         <Home className="h-4 w-4" />
-        <span className="flex-shrink-0">/</span>
+        <BreadcrumbSeparator className="flex-shrink-0" />
       </Link>
+      </BreadcrumbItem>
       {pathnames.map((value, index) => {
         const isLast = index === pathnames.length - 1;
         const to = getLinkPath(index);
@@ -75,6 +65,7 @@ export default function Breadcrumbs() {
         }
 
         return isLast ? (
+          <BreadcrumbItem>
           <span
             key={to}
             className="truncate min-w-0 max-w-[200px] block"
@@ -82,8 +73,10 @@ export default function Breadcrumbs() {
           >
             {displayName}
           </span>
+          </BreadcrumbItem>
         ) : (
           <React.Fragment key={to}>
+          <BreadcrumbItem>
             <Link
               to={to}
               className="hover:underline truncate min-w-0 max-w-[200px] block"
@@ -91,10 +84,12 @@ export default function Breadcrumbs() {
             >
               {displayName}
             </Link>
-            <span className="flex-shrink-0">/</span>
-          </React.Fragment>
-        );
-      })}
-    </div>
+            <BreadcrumbSeparator className="flex-shrink-0" />
+            </BreadcrumbItem>
+            </React.Fragment>
+            );
+          })}
+        </BreadcrumbList>
+    </Breadcrumb>
   );
 }
