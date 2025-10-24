@@ -18,50 +18,39 @@ import { CasePermissionsProvider } from "./context/CasePermissionsContext";
 import { ChatbotProvider } from "./context/ChatbotContext";
 import { LayoutProvider } from "./context/LayoutContext";
 
-// Lazy load pages to reduce initial bundle size
-const HomePage = lazy(() => import("./pages/home/HomePage"));
-const CasesPage = lazy(() => import("./pages/CasesPage"));
-const CaseDetailPage = lazy(() => import("./pages/CaseOpen/CaseDetailPage"));
-const ClientsPage = lazy(() => import("./pages/ClientsPage"));
-const EscritosPage = lazy(() => import("./pages/CaseOpen/EscritosPage"));
-const ModelsPage = lazy(() => import("./pages/ModelsPage"));
-const DataBasePage = lazy(() => import("./pages/DataBasePage"));
-const TeamPage = lazy(() => import("./pages/TeamPage"));
-const TeamManagePage = lazy(() => import("./pages/TeamManagePage"));
-const AcceptInvitePage = lazy(() => import("./pages/AcceptInvitePage"));
-const SignupInvitePage = lazy(() => import("./pages/SignupInvitePage"));
-const SignUpPage = lazy(() => import("./pages/SignUpPage"));
-const CaseClientsPage = lazy(() => import("./pages/CaseOpen/CaseClientPage"));
-const CaseTeamsPage = lazy(() => import("./pages/CaseOpen/CaseTeamsPage"));
-const CaseModelPage = lazy(() => import("./pages/CaseOpen/CaseModelPage"));
-const CaseDataBasePage = lazy(() => import("./pages/CaseOpen/CaseDataBase"));
+// Eager load core navigation pages (not heavy, safe to bundle)
+import HomePage from "./pages/home/HomePage";
+import CasesPage from "./pages/CasesPage";
+import CaseDetailPage from "./pages/CaseOpen/CaseDetailPage";
+import ClientsPage from "./pages/ClientsPage";
+import EscritosPage from "./pages/CaseOpen/EscritosPage";
+import ModelsPage from "./pages/ModelsPage";
+import DataBasePage from "./pages/DataBasePage";
+import TeamPage from "./pages/TeamPage";
+import TeamManagePage from "./pages/TeamManagePage";
+import AcceptInvitePage from "./pages/AcceptInvitePage";
+import SignupInvitePage from "./pages/SignupInvitePage";
+import SignUpPage from "./pages/SignUpPage";
+import CaseClientsPage from "./pages/CaseOpen/CaseClientPage";
+import CaseTeamsPage from "./pages/CaseOpen/CaseTeamsPage";
+import CaseModelPage from "./pages/CaseOpen/CaseModelPage";
+import CaseDataBasePage from "./pages/CaseOpen/CaseDataBase";
+import CaseSettingsRulesPage from "./pages/CaseOpen/CaseSettingsRulesPage";
+import ComponentsShowcasePage from "./pages/ComponentsShowcasePage";
+import LibraryPage from "./pages/LibraryPage";
+import UserPreferencesPage from "./pages/UserPreferencesPage";
+import BillingSuccessPage from "./pages/BillingSuccessPage";
+import EventosPage from "./pages/EventosPage";
+import EventDetailPage from "./pages/EventDetailPage";
+import CaseDocumentsPage from "./pages/CaseOpen/CaseDocumentsList";
+import HomeAgentPage from "./pages/home/HomeAgentPage";
+import HomeAgentChatPage from "./pages/home/HomeAgentThreadPage";
+
+// Lazy load only heavy pages with document viewers/editors
 const CaseDocumentPage = lazy(
   () => import("./pages/CaseOpen/CaseDocumentPage"),
 );
-const CaseSettingsRulesPage = lazy(
-  () => import("./pages/CaseOpen/CaseSettingsRulesPage"),
-);
-const ComponentsShowcasePage = lazy(
-  () => import("./pages/ComponentsShowcasePage"),
-);
-const LibraryPage = lazy(() => import("./pages/LibraryPage"));
 const LibraryDocumentPage = lazy(() => import("./pages/LibraryDocumentPage"));
-const UserPreferencesPage = lazy(() => import("./pages/UserPreferencesPage"));
-const BillingSuccessPage = lazy(() => import("./pages/BillingSuccessPage"));
-
-// AI Agent pages
-const HomeAgentPage = lazy(() => import("./pages/home/HomeAgentPage"));
-const HomeAgentChatPage = lazy(
-  () => import("./pages/home/HomeAgentThreadPage"),
-);
-
-// Eventos pages
-const EventosPage = lazy(() => import("./pages/EventosPage"));
-const EventDetailPage = lazy(() => import("./pages/EventDetailPage"));
-
-const CaseDocumentsPage = lazy(
-  () => import("./pages/CaseOpen/CaseDocumentsList"),
-);
 
 // Wrapper to provide CasePermissionsProvider with caseId from CaseContext
 // Este wrapper NO usa Layout porque CaseLayout maneja su propio layout con sidebar
