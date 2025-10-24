@@ -10,11 +10,11 @@ import { ExistingUserHomeSkeleton } from "./Skeletons";
 
 const ExistingUserHome = () => {
   const casesResult = useQuery(api.functions.cases.getCases, {
-    paginationOpts: { numItems: 10, cursor: null },
+    paginationOpts: { numItems: 5, cursor: null },
   });
   const upcomingEvents = useQuery(api.functions.events.getUpcomingEvents, {
     days: 30,
-    paginationOpts: { numItems: 100, cursor: null }
+    paginationOpts: { numItems: 10, cursor: null }
   });
 
   // Show skeleton while loading

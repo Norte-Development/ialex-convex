@@ -158,12 +158,14 @@ export default defineSchema({
     tags: v.optional(v.array(v.string())),
     estimatedHours: v.optional(v.number()),
     actualHours: v.optional(v.number()),
+    lastActivityAt: v.optional(v.number()),
   })
     .index("by_status", ["status"])
     .index("by_assigned_lawyer", ["assignedLawyer"])
     .index("by_created_by", ["createdBy"])
     .index("by_archived_status", ["isArchived"])
     .index("by_priority", ["priority"])
+    .index("by_last_activity", ["lastActivityAt"])
     .searchIndex("search_cases", {
       searchField: "title",
       filterFields: ["isArchived"],
