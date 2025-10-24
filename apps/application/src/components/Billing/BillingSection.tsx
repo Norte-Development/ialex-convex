@@ -166,11 +166,6 @@ export function BillingSection({ teamId }: BillingSectionProps) {
                   {isUpgrading ? "Procesando..." : "Actualizar a Premium"}
                 </Button>
               </div>
-              {!user?.hasUsedTrial && (
-                <p className="text-xs text-gray-500">
-                  Prueba Premium Individual gratis por 14 días. Sin compromiso.
-                </p>
-              )}
             </div>
           )}
           
