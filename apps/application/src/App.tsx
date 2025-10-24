@@ -8,6 +8,7 @@ import { OnboardingWrapper } from "./components/Auth/OnboardingWrapper";
 import { SignInPage } from "./components/Auth/SignInPage";
 import { RouteSuspense } from "./components/RouteSuspense";
 import { AuthLoadingSkeleton } from "./components/AuthLoadingSkeleton";
+import { LazyLoadErrorBoundary } from "./components/LazyLoadErrorBoundary";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ThreadProvider } from "./context/ThreadContext";
 import { CaseProvider, useCase } from "./context/CaseContext";
@@ -73,7 +74,11 @@ const CaseRoutesWrapper: React.FC = () => {
                 <Route path="base-de-datos" element={<CaseDataBasePage />} />
                 <Route
                   path="documentos/:documentId"
-                  element={<CaseDocumentPage />}
+                  element={
+                    <LazyLoadErrorBoundary>
+                      <CaseDocumentPage />
+                    </LazyLoadErrorBoundary>
+                  }
                 />
                 <Route
                   path="configuracion/reglas"
@@ -247,7 +252,9 @@ const AppWithThread = () => {
                     path="/ai"
                     element={
                       <ProtectedRoute>
-                        <HomeAgentPage />
+                        <LazyLoadErrorBoundary>
+                          <HomeAgentPage />
+                        </LazyLoadErrorBoundary>
                       </ProtectedRoute>
                     }
                   />
@@ -255,7 +262,9 @@ const AppWithThread = () => {
                     path="/ai/:threadId"
                     element={
                       <ProtectedRoute>
-                        <HomeAgentChatPage />
+                        <LazyLoadErrorBoundary>
+                          <HomeAgentChatPage />
+                        </LazyLoadErrorBoundary>
                       </ProtectedRoute>
                     }
                   />
@@ -271,7 +280,9 @@ const AppWithThread = () => {
                     path="/biblioteca/documento/:documentId"
                     element={
                       <ProtectedRoute>
-                        <LibraryDocumentPage />
+                        <LazyLoadErrorBoundary>
+                          <LibraryDocumentPage />
+                        </LazyLoadErrorBoundary>
                       </ProtectedRoute>
                     }
                   />
