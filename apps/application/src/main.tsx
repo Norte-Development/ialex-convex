@@ -11,7 +11,7 @@ import { AuthProvider } from "./context/AuthContext";
 import { LayoutProvider } from "./context/LayoutContext";
 import { ErrorBoundary } from "./ErrorBoundary.tsx";
 import { Toaster } from "./components/ui/sonner.tsx";
-
+import { esUY } from "@clerk/localizations";
 const convex = new ConvexReactClient(import.meta.env.VITE_CONVEX_URL as string);
 
 createRoot(document.getElementById("root")!).render(
@@ -19,9 +19,7 @@ createRoot(document.getElementById("root")!).render(
     <ErrorBoundary>
       <ClerkProvider
         publishableKey={import.meta.env.VITE_CLERK_PUBLISHABLE_KEY}
-        localization={{
-          locale: "es-ES"
-        }}
+        localization={esUY}
       >
         <ConvexProviderWithClerk client={convex} useAuth={useAuth}>
           <AuthProvider>
