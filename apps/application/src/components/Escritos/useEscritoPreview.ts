@@ -36,6 +36,12 @@ export function useEscritoPreview(prosemirrorId: string | undefined) {
       // Remove xmlns attributes that can cause rendering issues
       html = html.replace(/\s*xmlns="[^"]*"/g, "");
 
+      // Process images - replace base64 with placeholders for preview
+      html = html.replace(
+        /<img([^>]*?)src="data:image\/[^;]+;base64,[^"]*"([^>]*?)>/gi,
+        '<div class="image-placeholder">📷 Imagen</div>',
+      );
+
       return html;
     } catch (error) {
       console.error("Error generating HTML preview:", error);
