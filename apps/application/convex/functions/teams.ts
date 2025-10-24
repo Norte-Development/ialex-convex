@@ -1950,6 +1950,7 @@ export const createUserAndJoinTeam = mutation({
       isActive: true,
       isOnboardingComplete: false,
       onboardingStep: 1,
+      hasUsedTrial: false,
     });
 
     // Add user to the team

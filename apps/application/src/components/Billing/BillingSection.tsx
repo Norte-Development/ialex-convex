@@ -114,23 +114,68 @@ export function BillingSection({ teamId }: BillingSectionProps) {
           </div>
         </CardHeader>
         <CardContent className="space-y-4">
-          {plan === "free" && (
+          {/* Trial User - Has premium access but on trial */}
+          {user?.trialStatus === "active" && user?.trialEndDate && (
+            <div className="space-y-4">
+              <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                <p className="text-sm text-blue-900 font-medium mb-2">
+                  🎉 Estás en periodo de prueba Premium
+                </p>
+                <p className="text-sm text-blue-700">
+                  Tienes acceso completo a todas las funciones premium. Actualiza ahora para continuar 
+                  disfrutando de todas las funciones cuando termine tu prueba.
+                </p>
+              </div>
+              <div className="flex flex-col sm:flex-row gap-3">
+                <Button 
+                  onClick={handleUpgrade} 
+                  className="w-full sm:w-auto"
+                  disabled={isUpgrading}
+                >
+                  {isUpgrading ? "Procesando..." : "Actualizar a Premium"}
+                </Button>
+              </div>
+              <p className="text-xs text-gray-500">
+                Al actualizar, tu suscripción comenzará inmediatamente y continuará después de tu periodo de prueba.
+              </p>
+            </div>
+          )}
+
+          {/* Free User - No trial */}
+          {plan === "free" && user?.trialStatus !== "active" && (
             <div className="space-y-4">
               <p className="text-sm text-gray-600">
                 Estás usando el plan gratuito. Actualiza para desbloquear casos, 
                 documentos y escritos ilimitados, además de acceso a GPT-5.
               </p>
-              <Button 
-                onClick={handleUpgrade} 
-                className="w-full sm:w-auto"
-                disabled={isUpgrading}
-              >
-                {isUpgrading ? "Procesando..." : "Actualizar a Premium"}
-              </Button>
+              <div className="flex flex-col sm:flex-row gap-3">
+                {!user?.hasUsedTrial && (
+                  <Button 
+                    onClick={() => window.open('/signup?trial=true', '_blank')}
+                    variant="outline"
+                    className="w-full sm:w-auto"
+                  >
+                    🎉 Probar Premium Gratis (14 días)
+                  </Button>
+                )}
+                <Button 
+                  onClick={handleUpgrade} 
+                  className="w-full sm:w-auto"
+                  disabled={isUpgrading}
+                >
+                  {isUpgrading ? "Procesando..." : "Actualizar a Premium"}
+                </Button>
+              </div>
+              {!user?.hasUsedTrial && (
+                <p className="text-xs text-gray-500">
+                  Prueba Premium Individual gratis por 14 días. Sin compromiso.
+                </p>
+              )}
             </div>
           )}
           
-          {plan !== "free" && (
+          {/* Paid Premium User - Has active subscription */}
+          {plan !== "free" && user?.trialStatus !== "active" && (
             <div className="space-y-4">
               <p className="text-sm text-gray-600">
                 Tienes acceso completo a todas las funciones premium.

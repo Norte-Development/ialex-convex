@@ -62,6 +62,21 @@ export default defineSchema({
     experienceYears: v.optional(v.number()), // Years of experience
     bio: v.optional(v.string()), // Professional biography
 
+    // Trial tracking
+    trialStatus: v.optional(v.union(
+      v.literal("active"),      // Currently in trial
+      v.literal("expired"),     // Trial ended, no conversion
+      v.literal("converted"),   // Upgraded to paid
+      v.literal("none")         // Never had trial
+    )),
+    trialStartDate: v.optional(v.number()),
+    trialEndDate: v.optional(v.number()),
+    trialPlan: v.optional(v.union(
+      v.literal("premium_individual"),
+      v.literal("premium_team")
+    )),
+    hasUsedTrial: v.optional(v.boolean()), // Prevents re-use (default false for existing users)
+
     // User preferences
     preferences: v.optional(
       v.object({
@@ -93,7 +108,10 @@ export default defineSchema({
     .index("by_clerk_id", ["clerkId"])
     .index("by_email", ["email"])
     .index("by_active_status", ["isActive"])
-    .index("by_onboarding_status", ["isOnboardingComplete"]),
+    .index("by_onboarding_status", ["isOnboardingComplete"])
+    .index("by_trial_status", ["trialStatus"])
+    .index("by_trial_end_date", ["trialEndDate"])
+    .index("by_email_trial", ["email", "hasUsedTrial"]),
 
   // Clients table - legal clients
   clients: defineTable({
