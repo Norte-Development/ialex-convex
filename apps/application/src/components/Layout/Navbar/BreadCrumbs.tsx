@@ -1,4 +1,5 @@
 import { useLocation } from "react-router-dom";
+import { Home } from "lucide-react";
 import React from "react";
 import { Link } from "react-router-dom";
 import { useQuery } from "convex/react";
@@ -60,6 +61,10 @@ export default function Breadcrumbs() {
 
   return (
     <div className="flex items-center gap-2 text-[18px] min-w-0 max-w-full overflow-hidden">
+      <Link to="/" className="flex items-center gap-2">
+        <Home className="h-4 w-4" />
+        <span className="flex-shrink-0">/</span>
+      </Link>
       {pathnames.map((value, index) => {
         const isLast = index === pathnames.length - 1;
         const to = getLinkPath(index);
