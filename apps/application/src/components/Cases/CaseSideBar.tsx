@@ -55,6 +55,7 @@ import { Id } from "../../../convex/_generated/dataModel";
 import { usePermissionAwareNavigation } from "@/hooks/usePermissionAwareNavigation";
 import { usePermissions } from "@/context/CasePermissionsContext";
 import { useHighlight } from "@/context/HighlightContext";
+import { UpgradeModal, useBillingData } from "@/components/Billing";
 
 export default function CaseSidebar() {
   const {
@@ -87,6 +88,7 @@ export default function CaseSidebar() {
   const [isCreatingRootFolder, setIsCreatingRootFolder] = useState(false);
   const [newRootFolderName, setNewRootFolderName] = useState("");
   const [isDocumentPopoverOpen, setIsDocumentPopoverOpen] = useState(false);
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const rootInputRef = useRef<HTMLInputElement | null>(null);
   const documentInputRef = useRef<NewDocumentInputHandle>(null);
 
@@ -113,6 +115,9 @@ export default function CaseSidebar() {
     clients: can.clients,
   });
   console.groupEnd();
+
+  // Get current user plan for upgrade modal
+  const { plan: userPlan } = useBillingData();
 
   const basePath = `/caso/${id}`;
 
@@ -261,6 +266,10 @@ export default function CaseSidebar() {
   const handleDocumentError = (error: unknown) => {
     console.error("Error uploading document:", error);
     toast.error("Error al subir el documento");
+  };
+
+  const handleUpgradeRequired = () => {
+    setShowUpgradeModal(true);
   };
 
   return (
@@ -717,8 +726,18 @@ export default function CaseSidebar() {
             folderId={undefined}
             onSuccess={handleDocumentSuccess}
             onError={handleDocumentError}
+            onUpgradeRequired={handleUpgradeRequired}
           />
         )}
+
+        {/* Upgrade Modal */}
+        <UpgradeModal
+          open={showUpgradeModal}
+          onOpenChange={setShowUpgradeModal}
+          reason="Límite de 10 documentos por caso alcanzado."
+          currentPlan={userPlan || "free"}
+          recommendedPlan="premium_individual"
+        />
       </aside>
     </>
   );

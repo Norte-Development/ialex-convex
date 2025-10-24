@@ -9,6 +9,7 @@ import NewDocumentInput, {
 } from "@/components/Cases/NewDocumentInput";
 import { useCase } from "@/context/CaseContext";
 import { toast } from "sonner";
+import { UpgradeModal, useBillingData } from "@/components/Billing";
 
 export default function DocumentListPage() {
   const { currentCase } = useCase();
@@ -16,8 +17,11 @@ export default function DocumentListPage() {
     Id<"folders"> | undefined
   >(undefined);
   const [isCreateFolderOpen, setIsCreateFolderOpen] = useState(false);
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const documentInputRef = useRef<NewDocumentInputHandle>(null);
 
+  // Get current user plan for upgrade modal
+  const { plan: userPlan } = useBillingData();
 
   const handleFolderClick = (folderId: Id<"folders">) => {
     setCurrentFolderId(folderId);
@@ -42,6 +46,10 @@ export default function DocumentListPage() {
   const handleDocumentError = (error: unknown) => {
     console.error("Error uploading document:", error);
     toast.error("Error al subir el documento");
+  };
+
+  const handleUpgradeRequired = () => {
+    setShowUpgradeModal(true);
   };
 
   if (!currentCase) {
@@ -76,6 +84,16 @@ export default function DocumentListPage() {
         folderId={currentFolderId}
         onSuccess={handleDocumentSuccess}
         onError={handleDocumentError}
+        onUpgradeRequired={handleUpgradeRequired}
+      />
+
+      {/* Upgrade Modal */}
+      <UpgradeModal
+        open={showUpgradeModal}
+        onOpenChange={setShowUpgradeModal}
+        reason="Límite de 10 documentos por caso alcanzado."
+        currentPlan={userPlan || "free"}
+        recommendedPlan="premium_individual"
       />
     </CaseLayout>
   );

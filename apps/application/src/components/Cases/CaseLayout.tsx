@@ -6,7 +6,7 @@ import { useLayout } from "@/context/LayoutContext";
 import { useChatbot } from "@/context/ChatbotContext";
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useDropzone } from "react-dropzone";
-import { useAction, useMutation } from "convex/react";
+import { useAction, useMutation, useQuery } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import { useCase } from "@/context/CaseContext";
 import {
@@ -20,6 +20,7 @@ import {
 import { usePermissions } from "@/context/CasePermissionsContext";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
+import { useBillingLimit, UpgradeModal, useBillingData } from "@/components/Billing";
 
 interface CaseDetailLayoutProps {
   children: React.ReactNode;
@@ -47,6 +48,7 @@ function InnerCaseLayout({ children }: CaseDetailLayoutProps) {
   const [isResizing, setIsResizing] = useState(false);
   const [uploadFiles, setUploadFiles] = useState<UploadFile[]>([]);
   const [isGlobalDragActive, setIsGlobalDragActive] = useState(false);
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
 
   // Persistent dedupe tracking and drop guard
   const enqueuedUploadsRef = useRef<Set<string>>(new Set());
@@ -57,6 +59,21 @@ function InnerCaseLayout({ children }: CaseDetailLayoutProps) {
     api.functions.documents.generateUploadUrl,
   );
   const createDocument = useMutation(api.functions.documents.createDocument);
+
+  // Get documents for case to check limit
+  const documents = useQuery(
+    api.functions.documents.getDocuments,
+    currentCase ? { caseId: currentCase._id } : "skip"
+  );
+  const currentDocCount = documents?.length || 0;
+
+  // Check document per case limit
+  const documentsPerCaseCheck = useBillingLimit("documentsPerCase", { 
+    currentCount: currentDocCount 
+  });
+
+  // Get current user plan for upgrade modal
+  const { plan: userPlan } = useBillingData();
 
   // Save width to localStorage
   const handleWidthChange = (newWidth: number) => {
@@ -82,6 +99,15 @@ function InnerCaseLayout({ children }: CaseDetailLayoutProps) {
       if (!can.docs.write) {
         console.error("No permission to upload documents");
         toast.error("No tienes permisos para subir documentos");
+        return;
+      }
+
+      // Check document per case limit
+      if (!documentsPerCaseCheck.allowed) {
+        toast.error("Límite alcanzado", {
+          description: documentsPerCaseCheck.reason,
+        });
+        setShowUpgradeModal(true);
         return;
       }
 
@@ -169,6 +195,12 @@ function InnerCaseLayout({ children }: CaseDetailLayoutProps) {
       } catch (error) {
         console.error("Error uploading file:", error);
 
+        // Check if this is a limit error
+        const errorMessage = error instanceof Error ? error.message : "";
+        if (errorMessage.includes("Límite de 10 documentos por caso alcanzado")) {
+          setShowUpgradeModal(true);
+        }
+
         // Update to error
         setUploadFiles((prev) =>
           prev.map((f) =>
@@ -191,7 +223,7 @@ function InnerCaseLayout({ children }: CaseDetailLayoutProps) {
         enqueuedUploadsRef.current.delete(dedupeKey);
       }
     },
-    [currentCase, generateUploadUrl, createDocument, can.docs.write],
+    [currentCase, generateUploadUrl, createDocument, can.docs.write, documentsPerCaseCheck],
   );
 
   const onDrop = useCallback(
@@ -494,6 +526,15 @@ function InnerCaseLayout({ children }: CaseDetailLayoutProps) {
           </div>
         </div>
       )}
+
+      {/* Upgrade Modal for drag-and-drop */}
+      <UpgradeModal
+        open={showUpgradeModal}
+        onOpenChange={setShowUpgradeModal}
+        reason="Límite de 10 documentos por caso alcanzado."
+        currentPlan={userPlan || "free"}
+        recommendedPlan="premium_individual"
+      />
     </div>
   );
 }
