@@ -17,12 +17,17 @@ interface User {
   workLocation?: string;
   experienceYears?: number;
   bio?: string;
+  // Trial tracking fields
+  trialStatus?: "active" | "expired" | "converted" | "none";
+  trialStartDate?: number;
+  trialEndDate?: number;
+  trialPlan?: "premium_individual" | "premium_team";
+  hasUsedTrial?: boolean;
 }
 
 interface AuthContextType {
   user: User | null | undefined;
   clerkUser: any;
-  syncUser: () => Promise<void>;
   updateOnboarding: (data: any) => Promise<void>;
 }
 
@@ -41,27 +46,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     clerkUser ? { clerkId: clerkUser.id } : "skip"
   );
 
-  // Convex mutations
-  const getOrCreateUser = useMutation(api.functions.users.getOrCreateUser);
+  // Only keep the updateOnboardingInfo mutation
   const updateOnboardingInfo = useMutation(api.functions.users.updateOnboardingInfo);
-
-  // Sync user with database
-  const syncUser = async () => {
-    if (!clerkUser) return;
-
-    try {
-      const email = clerkUser.emailAddresses[0]?.emailAddress || "";
-      const name = clerkUser.fullName || clerkUser.firstName || "Unknown User";
-
-      await getOrCreateUser({
-        clerkId: clerkUser.id,
-        email,
-        name,
-      });
-    } catch (error) {
-      console.error("Error syncing user:", error);
-    }
-  };
 
   // Update onboarding info
   const updateOnboarding = async (data: any) => {
@@ -80,7 +66,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const value = {
     user,
     clerkUser,
-    syncUser,
     updateOnboarding,
   };
 

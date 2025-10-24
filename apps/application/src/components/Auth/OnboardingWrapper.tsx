@@ -1,6 +1,7 @@
 import React, { useEffect } from "react";
 import { useUser } from "@clerk/clerk-react";
 import { useQuery, useMutation, useConvexAuth } from "convex/react";
+import { useSearchParams } from "react-router-dom";
 import { api } from "../../../convex/_generated/api";
 import { OnboardingFlow } from "../Onboarding/OnboardingFlow";
 import { AuthLoadingSkeleton } from "../AuthLoadingSkeleton";
@@ -14,6 +15,7 @@ export const OnboardingWrapper: React.FC<OnboardingWrapperProps> = ({
 }) => {
   const { user: clerkUser } = useUser();
   const { isAuthenticated } = useConvexAuth();
+  const [searchParams] = useSearchParams();
 
   // Get user data from Convex database - only query when Convex considers user authenticated
   const user = useQuery(
@@ -34,10 +36,22 @@ export const OnboardingWrapper: React.FC<OnboardingWrapperProps> = ({
         const name =
           clerkUser.fullName || clerkUser.firstName || "Unknown User";
 
+        // Check if this is a trial signup
+        const isTrial = searchParams.get('trial') === 'true';
+        
+        console.log("🔍 Creating user with trial info:", {
+          email,
+          name,
+          isTrial,
+          clerkId: clerkUser.id,
+          searchParams: searchParams.toString()
+        });
+
         await getOrCreateUser({
           clerkId: clerkUser.id,
           email,
           name,
+          startTrial: isTrial,
         });
       } catch (error) {
         console.error("Error auto-syncing user:", error);
@@ -48,7 +62,7 @@ export const OnboardingWrapper: React.FC<OnboardingWrapperProps> = ({
     if (clerkUser && isAuthenticated && user === null) {
       syncUser();
     }
-  }, [clerkUser, isAuthenticated, user, getOrCreateUser]);
+  }, [clerkUser, isAuthenticated, user, getOrCreateUser, searchParams]);
 
   // Show skeleton while loading user data (uses route-aware skeleton)
   if (isAuthenticated && user === undefined) {
@@ -62,7 +76,17 @@ export const OnboardingWrapper: React.FC<OnboardingWrapperProps> = ({
 
   // Show onboarding flow if user hasn't completed onboarding
   if (user && !user.isOnboardingComplete) {
-    return <OnboardingFlow />;
+    console.log("🚀 Showing onboarding flow for user:", user);
+    return <OnboardingFlow user={user} />;
+  }
+
+  // Debug logging
+  if (user) {
+    console.log("👤 User found, onboarding status:", {
+      isOnboardingComplete: user.isOnboardingComplete,
+      trialStatus: user.trialStatus,
+      hasUsedTrial: user.hasUsedTrial
+    });
   }
 
   // User is fully set up, show the main app

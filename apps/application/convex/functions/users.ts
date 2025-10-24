@@ -38,6 +38,7 @@ export const getOrCreateUser = mutation({
     clerkId: v.string(),
     email: v.string(),
     name: v.string(),
+    startTrial: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
     // This function is called during auth flow, so we verify the identity matches
@@ -51,6 +52,13 @@ export const getOrCreateUser = mutation({
       throw new Error("Unauthorized: ClerkId mismatch");
     }
 
+    console.log("🔍 getOrCreateUser called with args:", {
+      clerkId: args.clerkId,
+      email: args.email,
+      name: args.name,
+      startTrial: args.startTrial
+    });
+
     // Check if user already exists
     const existingUser = await ctx.db
       .query("users")
@@ -58,18 +66,66 @@ export const getOrCreateUser = mutation({
       .first();
 
     if (existingUser) {
-      // Update user data if changed
-      if (
-        existingUser.name !== args.name ||
-        existingUser.email !== args.email
-      ) {
+      console.log("👤 User already exists:", {
+        _id: existingUser._id,
+        trialStatus: existingUser.trialStatus,
+        hasUsedTrial: existingUser.hasUsedTrial,
+        trialEndDate: existingUser.trialEndDate
+      });
+
+      // If startTrial is true and user doesn't have trial info, update with trial
+      if (args.startTrial && (!existingUser.trialStatus || existingUser.trialStatus === "none")) {
+        console.log("🔄 Updating existing user with trial info");
+        const now = Date.now();
+        const trialEndDate = now + (14 * 24 * 60 * 60 * 1000);
+        
         await ctx.db.patch(existingUser._id, {
           name: args.name,
           email: args.email,
+          hasUsedTrial: true,
+          trialStatus: "active",
+          trialStartDate: now,
+          trialEndDate: trialEndDate,
+          trialPlan: "premium_individual",
         });
+      } else {
+        // Update user data if changed
+        if (
+          existingUser.name !== args.name ||
+          existingUser.email !== args.email
+        ) {
+          await ctx.db.patch(existingUser._id, {
+            name: args.name,
+            email: args.email,
+          });
+        }
       }
       return existingUser._id;
     }
+
+    // For new users: Check if starting a trial
+    if (args.startTrial) {
+      // Check if email has used trial before
+      const previousUser = await ctx.db
+        .query("users")
+        .withIndex("by_email", (q) => q.eq("email", args.email))
+        .filter((q) => q.eq(q.field("hasUsedTrial"), true))
+        .first();
+      
+      if (previousUser) {
+        throw new Error("Este email ya ha usado una prueba gratuita");
+      }
+    }
+
+    const now = Date.now();
+    const trialEndDate = args.startTrial ? now + (14 * 24 * 60 * 60 * 1000) : undefined;
+
+    console.log("🆕 Creating new user with trial info:", {
+      startTrial: args.startTrial,
+      trialStatus: args.startTrial ? "active" : "none",
+      trialEndDate: trialEndDate,
+      hasUsedTrial: args.startTrial || false
+    });
 
     // Create new user with default preferences
     const userId = await ctx.db.insert("users", {
@@ -79,6 +135,11 @@ export const getOrCreateUser = mutation({
       isActive: true,
       isOnboardingComplete: false,
       onboardingStep: 1,
+      hasUsedTrial: args.startTrial || false,
+      trialStatus: args.startTrial ? "active" : "none",
+      trialStartDate: args.startTrial ? now : undefined,
+      trialEndDate: trialEndDate,
+      trialPlan: args.startTrial ? "premium_individual" : undefined,
       preferences: {
         language: "es-AR",
         timezone: "America/Argentina/Buenos_Aires",
@@ -106,7 +167,6 @@ export const getOrCreateUser = mutation({
     });
 
     await ctx.db.insert("usageLimits", {
-
       entityId: userId,
       entityType: "user",
       casesCount: 0,
@@ -118,6 +178,27 @@ export const getOrCreateUser = mutation({
       lastResetDate: Date.now(),
       currentMonthStart: Date.now(),
     });
+
+    // Schedule trial emails if trial started
+    if (args.startTrial && trialEndDate) {
+      // Send welcome email immediately
+      await ctx.scheduler.runAfter(0, internal.billing.trials.sendTrialWelcome, {
+        userId: userId,
+        email: args.email,
+        name: args.name,
+      });
+
+      // Day 14: Trial expiration + conversion attempt (keep this one active)
+      await ctx.scheduler.runAfter(
+        14 * 24 * 60 * 60 * 1000,
+        internal.billing.trials.handleTrialExpiration,
+        { 
+          userId: userId,
+          email: args.email,
+          name: args.name
+        }
+      );
+    }
 
     console.log("Created new user with id:", userId);
     return userId;
