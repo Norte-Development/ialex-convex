@@ -56,7 +56,7 @@ export default function NavBar() {
       <div className={` flex  items-center gap-5`}>
         <div className="flex items-center justify-center gap-4">
           <div className="flex items-center gap-1">
-            <Bell className="cursor-pointer" size={20} />
+            {/* <Bell className="cursor-pointer" size={20} /> */}
             <UserButton
               appearance={{
                 elements: {
