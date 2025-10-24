@@ -6,6 +6,82 @@ import Stripe from "stripe";
 const stripeSDK = new Stripe(process.env.STRIPE_SECRET_KEY!);
 
 /**
+ * Send welcome email when trial starts
+ */
+export const sendTrialWelcome = internalAction({
+  args: {
+    userId: v.id("users"),
+    email: v.string(),
+    name: v.string(),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const baseUrl = process.env.VITE_APP_URL || "http://localhost:5173";
+
+    const subject = "Bienvenido a IAlex Derecho Argentino I Potenciado por IA";
+    
+    const htmlContent = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+        <h1 style="color: #4F46E5; text-align: center;">Bienvenido a IAlex Derecho Argentino I Potenciado por IA</h1>
+        
+        <p>Hola, ${args.name},</p>
+        
+        <p>Felicitaciones. Acabas de tomar una de las decisiones más estratégicas para el futuro de tu práctica legal.</p>
+        
+        <p>Durante los próximos 14 días, no solo vas a probar un software; vas a experimentar lo que se siente al operar desde un verdadero centro de mando legal, el caos administrativo y las tareas repetitivas son parte del pasado.</p>
+        
+        <p>Sabemos que tu tiempo es tu activo más valioso. Por eso, te proponemos tres acciones clave para que descubras el poder de iAlex en menos de 15 minutos:</p>
+        
+        <ol style="margin: 20px 0; padding-left: 20px;">
+          <li style="margin: 10px 0;"><strong>Crea tu Primer Caso:</strong> Ve a "Casos", haz clic en "Nuevo Caso" y carga la información básica de un expediente real en el que estés trabajando ahora mismo.</li>
+          
+          <li style="margin: 10px 0;"><strong>Subí tu Primer Documento Clave:</strong> Ingresa a tu nuevo caso y arrastra un documento esencial (una demanda, una contestación, una prueba). Observa cómo iAlex lo centraliza y lo mantiene siempre a tu alcance.</li>
+          
+          <li style="margin: 10px 0;"><strong>Hacé tu Primera Búsqueda con IA:</strong> Utiliza nuestra barra de búsqueda inteligente para encontrar jurisprudencia o doctrina relevante para ese caso. Obtene respuestas contextualizadas en segundos, no en horas.</li>
+        </ol>
+        
+        <p>Completar estos tres pasos te dará una visión clara de cómo iAlex transformará tu flujo de trabajo.</p>
+        
+        <div style="background-color: #F3F4F6; padding: 15px; border-radius: 8px; margin: 20px 0;">
+          <p style="margin: 0;"><strong>Aca podes encontrar unos tutoriales de como realizar las operaciones básicas dentro de IAlex</strong></p>
+          <p style="margin: 10px 0 0 0;">
+            <a href="https://www.youtube.com/channel/UC-zI1KzkNwY4QI4Pob7ElfQ" 
+               style="color: #4F46E5; text-decoration: none;">
+              IAlex Derecho Argentino I Potenciado por IA - YouTube
+            </a>
+          </p>
+        </div>
+        
+        <div style="text-align: center; margin: 30px 0;">
+          <a href="${baseUrl}/casos" 
+             style="display: inline-block; background: #4F46E5; color: white; padding: 14px 28px; 
+                    text-decoration: none; border-radius: 6px; font-size: 16px; font-weight: bold;">
+            Comenzar con iAlex
+          </a>
+        </div>
+        
+        <p style="margin-top: 30px;">Un saludo,<br><strong>El Equipo de IAlex</strong></p>
+        
+        <div style="border-top: 1px solid #E5E7EB; padding-top: 20px; margin-top: 30px; font-size: 12px; color: #6B7280;">
+          <p>Este email fue enviado a ${args.email} porque comenzaste tu prueba gratuita de iAlex.</p>
+        </div>
+      </div>
+    `;
+
+    // Send email using the existing notification service
+    await ctx.runMutation(internal.utils.resend.sendEmail, {
+      from: "iAlex <notificaciones@ialex.com.ar>",
+      to: args.email,
+      subject,
+      body: htmlContent,
+    });
+
+    console.log(`📧 Sent trial welcome email to ${args.email}`);
+    return null;
+  },
+});
+
+/**
  * Send trial reminder emails (day 7 and day 12)
  */
 export const sendTrialReminder = internalAction({

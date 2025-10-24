@@ -179,33 +179,16 @@ export const getOrCreateUser = mutation({
       currentMonthStart: Date.now(),
     });
 
-    // Schedule trial reminder emails if trial started
+    // Schedule trial emails if trial started
     if (args.startTrial && trialEndDate) {
-      // Day 7: Mid-trial check-in
-      await ctx.scheduler.runAfter(
-        7 * 24 * 60 * 60 * 1000,
-        internal.billing.trials.sendTrialReminder,
-        { 
-          userId: userId,
-          email: args.email,
-          name: args.name,
-          reminderType: "mid_trial"
-        }
-      );
+      // Send welcome email immediately
+      await ctx.scheduler.runAfter(0, internal.billing.trials.sendTrialWelcome, {
+        userId: userId,
+        email: args.email,
+        name: args.name,
+      });
 
-      // Day 12: Final warning
-      await ctx.scheduler.runAfter(
-        12 * 24 * 60 * 60 * 1000,
-        internal.billing.trials.sendTrialReminder,
-        { 
-          userId: userId,
-          email: args.email,
-          name: args.name,
-          reminderType: "final_warning"
-        }
-      );
-
-      // Day 14: Trial expiration + conversion attempt
+      // Day 14: Trial expiration + conversion attempt (keep this one active)
       await ctx.scheduler.runAfter(
         14 * 24 * 60 * 60 * 1000,
         internal.billing.trials.handleTrialExpiration,
