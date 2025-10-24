@@ -4,7 +4,7 @@ import SidebarChatbot from "../CaseAgent/SidebarChatbot";
 import NavBar from "../Layout/Navbar/NavBar";
 import { useLayout } from "@/context/LayoutContext";
 import { useChatbot } from "@/context/ChatbotContext";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useDropzone } from "react-dropzone";
 import { useAction, useMutation } from "convex/react";
 import { api } from "../../../convex/_generated/api";
@@ -48,7 +48,9 @@ function InnerCaseLayout({ children }: CaseDetailLayoutProps) {
   const [uploadFiles, setUploadFiles] = useState<UploadFile[]>([]);
   const [isGlobalDragActive, setIsGlobalDragActive] = useState(false);
 
-  const enqueuedUploads = new Set<string>();
+  // Persistent dedupe tracking and drop guard
+  const enqueuedUploadsRef = useRef<Set<string>>(new Set());
+  const dropInProgressRef = useRef(false);
 
   // Convex mutations
   const generateUploadUrl = useAction(
@@ -84,14 +86,14 @@ function InnerCaseLayout({ children }: CaseDetailLayoutProps) {
       }
 
       const dedupeKey = `${currentCase._id}:${file.name}:${file.size}`;
-      if (enqueuedUploads.has(dedupeKey)) {
+      if (enqueuedUploadsRef.current.has(dedupeKey)) {
         console.warn("Skipping duplicate upload in session", {
           name: file.name,
           size: file.size,
         });
         return;
       }
-      enqueuedUploads.add(dedupeKey);
+      enqueuedUploadsRef.current.add(dedupeKey);
 
       const fileId = `${Date.now()}-${Math.random()}`;
 
@@ -186,7 +188,7 @@ function InnerCaseLayout({ children }: CaseDetailLayoutProps) {
           setUploadFiles((prev) => prev.filter((f) => f.id !== fileId));
         }, 5000);
       } finally {
-        enqueuedUploads.delete(dedupeKey);
+        enqueuedUploadsRef.current.delete(dedupeKey);
       }
     },
     [currentCase, generateUploadUrl, createDocument, can.docs.write],
@@ -194,11 +196,22 @@ function InnerCaseLayout({ children }: CaseDetailLayoutProps) {
 
   const onDrop = useCallback(
     async (acceptedFiles: File[]) => {
-      console.log("Files dropped:", acceptedFiles);
+      // Prevent duplicate drop handling
+      if (dropInProgressRef.current) {
+        console.warn("Drop already in progress, ignoring duplicate event");
+        return;
+      }
+      
+      dropInProgressRef.current = true;
+      try {
+        console.log("Files dropped:", acceptedFiles);
 
-      // Upload each file sequentially
-      for (const file of acceptedFiles) {
-        await uploadFile(file);
+        // Upload each file sequentially
+        for (const file of acceptedFiles) {
+          await uploadFile(file);
+        }
+      } finally {
+        dropInProgressRef.current = false;
       }
     },
     [uploadFile],
@@ -345,7 +358,6 @@ function InnerCaseLayout({ children }: CaseDetailLayoutProps) {
 
   return (
     <div
-      {...getRootProps()}
       className="relative h-screen w-screen flex overflow-hidden"
     >
       {/* Left Sidebar - full height, fixed position */}
