@@ -1,6 +1,6 @@
 import React, { memo } from "react"
 import { Card, CardContent } from "../ui/card"
-import type { NormativeFilters, SortBy, SortOrder, ContentType } from "../../../types/legislation"
+import type { NormativeFilters, SortBy, SortOrder, ContentType, UnifiedSortBy } from "../../../types/legislation"
 import { SearchBar } from "./SearchBar"
 import { TableControls } from "./TableControls"
 import { FiltersPanel } from "./FiltersPanel"
@@ -26,10 +26,10 @@ interface StaticControlsProps {
 
   // Table controls
   isSearchMode: boolean
-  sortBy: SortBy
+  sortBy: UnifiedSortBy
   sortOrder: SortOrder
   pageSize: number
-  onSortChange: (sortBy: SortBy, sortOrder: SortOrder) => void
+  onSortChange: (sortBy: UnifiedSortBy, sortOrder: SortOrder) => void
   onPageSizeChange: (pageSize: number) => void
 
   // Filters state

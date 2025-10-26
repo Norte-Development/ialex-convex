@@ -14,6 +14,7 @@ import type {
   SortBy,
   SortOrder,
   ContentType,
+  UnifiedSortBy,
 } from "../../../types/legislation";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "../ui/sheet";
 import { StaticControls } from "./StaticControls";
@@ -33,7 +34,7 @@ interface TableState {
   filters: NormativeFilters;
   page: number;
   pageSize: number;
-  sortBy: SortBy;
+  sortBy: UnifiedSortBy;
   sortOrder: SortOrder;
   selectedNormativeId: string | null;
   isDetailsOpen: boolean;
@@ -50,7 +51,7 @@ const initialState: TableState = {
   filters: {},
   page: 1,
   pageSize: 25,
-  sortBy: "sanction_date",
+  sortBy: "updated_at", // Common to both legislation and fallos
   sortOrder: "desc",
   selectedNormativeId: null,
   isDetailsOpen: false,
@@ -60,12 +61,10 @@ const initialState: TableState = {
 };
 
 export default function DataBaseTable({
-  jurisdictions = ["all"],
-  isInitialLoad = false,
+  jurisdictions = ["nac"],
 }: DataBaseTableProps) {
   const [state, setState] = useState<TableState>(initialState);
   const [searchParams, setSearchParams] = useSearchParams();
-  const navigate = useNavigate();
   
   const actions = {
     getNormativesFacets: useAction(
@@ -300,7 +299,7 @@ export default function DataBaseTable({
         onSortChange={(sortBy, sortOrder) => {
           setState((prev) => ({
             ...prev,
-            sortBy: sortBy as SortBy,
+            sortBy: sortBy as UnifiedSortBy,
             sortOrder: sortOrder as SortOrder,
             page: 1,
           }));

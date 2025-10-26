@@ -1,15 +1,15 @@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select"
-import type { SortBy, SortOrder, ContentType } from "../../../types/legislation"
+import type { SortBy, SortOrder, ContentType, UnifiedSortBy } from "../../../types/legislation"
 
 interface TableControlsProps {
   jurisdiction: string
   jurisdictions: string[]
   onJurisdictionChange: (jurisdiction: string) => void
   isSearchMode: boolean
-  sortBy: SortBy
+  sortBy: UnifiedSortBy
   sortOrder: SortOrder
   pageSize: number
-  onSortChange: (sortBy: SortBy | "relevancia", sortOrder: SortOrder) => void
+  onSortChange: (sortBy: UnifiedSortBy, sortOrder: SortOrder) => void
   onPageSizeChange: (pageSize: number) => void
   jurisdictionCounts?: Record<string, number>
   contentType: ContentType
@@ -85,7 +85,7 @@ export function TableControls({
             if (value === "relevancia") {
               onSortChange("relevancia", sortOrder)
             } else {
-              onSortChange(value as SortBy, sortOrder)
+              onSortChange(value as UnifiedSortBy, sortOrder)
             }
           }}
         >

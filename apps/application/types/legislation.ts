@@ -223,6 +223,9 @@ export interface ListNormativesParams {
 export type SortBy = "sanction_date" | "updated_at" | "created_at" | "relevancia";
 export type SortOrder = "asc" | "desc";
 
+// Combined sort type for unified table supporting both legislation and fallos
+export type UnifiedSortBy = SortBy | "fecha" | "promulgacion" | "publicacion";
+
 // Facets for filters UI
 export interface NormativesFacets {
   types: Record<string, number>;

@@ -11,6 +11,7 @@ import type {
   SortOrder,
   ContentType,
   CombinedDocument,
+  UnifiedSortBy,
 } from "../../../types/legislation";
 import { TableView } from "./TableView";
 import { PaginationControls } from "../ui/pagination-controls";
@@ -22,7 +23,7 @@ interface DataTableContainerProps {
   debouncedQuery: string;
   page: number;
   pageSize: number;
-  sortBy: SortBy;
+  sortBy: UnifiedSortBy;
   sortOrder: SortOrder;
   isSearchMode: boolean;
   searchQuery: string;
@@ -33,6 +34,24 @@ interface DataTableContainerProps {
   onPageChange: (newPage: number) => void;
   onTotalResultsChange?: (total: number) => void;
 }
+
+// Map UI sortBy to fallos-specific sort field
+const mapSortByForFallos = (sortBy: UnifiedSortBy): string => {
+  // Legislation-specific fields
+  if (sortBy === "sanction_date") {
+    return "fecha"; // Map to similar fallos field
+  }
+  // Fallos-specific fields
+  if (sortBy === "fecha" || sortBy === "promulgacion" || sortBy === "publicacion") {
+    return sortBy;
+  }
+  // Common fields
+  if (sortBy === "updated_at" || sortBy === "created_at" || sortBy === "relevancia") {
+    return sortBy;
+  }
+  // Default fallback
+  return "fecha";
+};
 
 export const DataTableContainer = memo(function DataTableContainer({
   jurisdiction,
@@ -132,11 +151,14 @@ export const DataTableContainer = memo(function DataTableContainer({
         queryFilters.search = debouncedQuery.trim();
       }
 
+      // Map sortBy to fallos-compatible value
+      const fallosSortBy = mapSortByForFallos(sortBy);
+
       return actions.getFallos({
         filters: queryFilters,
         limit: pageSize,
         offset: (page - 1) * pageSize,
-        sortBy: sortBy as any,
+        sortBy: fallosSortBy as any,
         sortOrder: sortOrder as any,
       });
     },
