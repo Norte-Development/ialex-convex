@@ -169,14 +169,13 @@ export const searchNormatives = internalAction({
       }
 
 
-      // Build Qdrant filter (MongoDB-compatible)
+      // Build simplified Qdrant filter
       const must: Array<any> = [];
-      const should: Array<any> = [];
       
       if (filters) {
-        console.log('Building filters from:', filters);
+        console.log('Building simplified filters from:', filters);
         
-        // Direct field filters
+        // Direct field filters - only use must conditions for simplicity
         if (filters.jurisdiccion) must.push({ key: 'jurisdiccion', match: { value: filters.jurisdiccion } });
         if (filters.tipo_general) must.push({ key: 'tipo_general', match: { value: filters.tipo_general } });
         if (filters.estado) must.push({ key: 'estado', match: { value: filters.estado } });
@@ -191,13 +190,14 @@ export const searchNormatives = internalAction({
           must.push({ key: 'tipo_general', match: { value: filters.tipo_norma } });
         }
         
-        // OR logic for number (search both number and numero fields)
+        // Simplified number filter - try number field first
         if (filters.number) {
           const numberStr = String(filters.number);
-          should.push(
-            { key: 'number', match: { value: numberStr } },
-            { key: 'numero', match: { value: numberStr } }
-          );
+          // Try both number and numero fields as fallback
+          must.push({ 
+            key: 'number', 
+            match: { value: numberStr } 
+          });
         }
         
         // Date range filters - convert date strings to timestamps
@@ -231,24 +231,26 @@ export const searchNormatives = internalAction({
           must.push({ key: 'publication_ts', range });
         }
         
-        console.log('Built filter conditions:', { must: must.length, should: should.length });
+        console.log('Built simplified filter conditions:', { must: must.length });
       }
 
       let points: Array<any> = [];
 
-      // Build final filter object
+      // Build final filter object - simplified structure
       const qdrantFilter: any = {};
-      if (must.length > 0) qdrantFilter.must = must;
-      if (should.length > 0) {
-        qdrantFilter.should = should;
-        qdrantFilter.min_should_match = 1;
+      if (must.length > 0) {
+        qdrantFilter.must = must;
       }
-      const hasFilters = must.length > 0 || should.length > 0;
+      const hasFilters = must.length > 0;
 
       if (useVectors && sparseEmbeddingData && denseEmbeddings) {
         // Use hybrid search with vectors
         try {
           console.log('Executing hybrid vector search...');
+          console.log('Filter being sent to Qdrant:', JSON.stringify(qdrantFilter, null, 2));
+          console.log('Sparse embedding data type:', typeof sparseEmbeddingData, 'keys:', Object.keys(sparseEmbeddingData || {}));
+          console.log('Dense embedding length:', denseEmbeddings.embedding?.length);
+          
           const searchResults = await client.query(LEGISLATION_COLLECTION_NAME, {
             prefetch: [
               {
@@ -276,7 +278,7 @@ export const searchNormatives = internalAction({
             stack: searchError instanceof Error ? searchError.stack : undefined,
             hasFilters,
             mustCount: must.length,
-            shouldCount: should.length
+            filter: JSON.stringify(qdrantFilter, null, 2)
           });
           throw new Error(`Hybrid search failed: ${searchError instanceof Error ? searchError.message : String(searchError)}`);
         }
