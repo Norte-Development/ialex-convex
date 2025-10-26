@@ -22,8 +22,8 @@ import {
   DropdownMenuTrigger,
 } from "../ui/dropdown-menu";
 import { ChevronDown, Save } from "lucide-react";
-import { exportToWord } from "@/utils/exportWord";
-import { exportElementToPdf } from "@/utils/exportPdf";
+import { exportToWord } from "@/components/Editor/utils/exportWord";
+import { exportElementToPdf } from "@/components/Editor/utils/exportPdf";
 export default function EscritoDetail({
   escrito,
   templateId,
