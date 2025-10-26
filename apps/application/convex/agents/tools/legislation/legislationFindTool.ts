@@ -124,7 +124,13 @@ FILTERS:
         const qdrantFilters: any = {};
         
         // Direct field filters
-        if (filters.jurisdiccion) qdrantFilters.jurisdiccion = filters.jurisdiccion;
+        if (filters.jurisdiccion){
+          if (filters.jurisdiccion === "nacional" || filters.jurisdiccion === "Argentina") {
+            qdrantFilters.jurisdiccion = "nac";
+          } else {
+            qdrantFilters.jurisdiccion = filters.jurisdiccion;
+          }
+        }
         if (filters.tipo_general) qdrantFilters.tipo_general = filters.tipo_general;
         if (filters.estado) qdrantFilters.estado = filters.estado;
         
