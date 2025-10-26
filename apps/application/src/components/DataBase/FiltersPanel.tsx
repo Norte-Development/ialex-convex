@@ -72,7 +72,7 @@ export function FiltersPanel({
       <CollapsibleContent className="mt-6">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 p-4 bg-white rounded-lg border border-gray-200">
           {/* Common filters - always shown */}
-          <div>
+          {/* <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
               <MapPin className="w-4 h-4 inline mr-1" />
               Jurisdicción
@@ -98,7 +98,7 @@ export function FiltersPanel({
                   ))}
               </SelectContent>
             </Select>
-          </div>
+          </div> */}
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">Estado</label>
@@ -178,7 +178,7 @@ export function FiltersPanel({
                 </Select>
               </div>
 
-              <div>
+              {/* <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   <FileText className="w-4 h-4 inline mr-1" />
                   Tipo Detalle
@@ -202,9 +202,9 @@ export function FiltersPanel({
                     ))}
                   </SelectContent>
                 </Select>
-              </div>
+              </div> */}
 
-              <div>
+              {/* <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   <FileText className="w-4 h-4 inline mr-1" />
                   Tipo Contenido
@@ -228,9 +228,9 @@ export function FiltersPanel({
                     ))}
                   </SelectContent>
                 </Select>
-              </div>
+              </div> */}
 
-              <div>
+              {/* <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Subestado</label>
                 <Select
                   value={filters.subestado || ""}
@@ -253,9 +253,9 @@ export function FiltersPanel({
                     ))}
                   </SelectContent>
                 </Select>
-              </div>
+              </div> */}
 
-              <div className="flex items-center space-x-2 pt-6">
+              {/* <div className="flex items-center space-x-2 pt-6">
                 <input
                   type="checkbox"
                   id="vigencia_actual"
@@ -266,7 +266,7 @@ export function FiltersPanel({
                 <label htmlFor="vigencia_actual" className="text-sm font-medium text-gray-700">
                   Solo vigentes
                 </label>
-              </div>
+              </div> */}
             </>
           )}
 
