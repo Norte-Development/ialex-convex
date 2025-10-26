@@ -83,12 +83,12 @@ export default function EscritoDetail({
     setIsExporting(true);
     try {
       const filename = `${(escrito?.title || "escrito").replace(/\s+/g, "_")}.pdf`;
+      const pageFormat = editorRef.current?.getPageFormat?.();
+      
       await exportElementToPdf({
         element: ".legal-editor-content",
         filename,
-        format: "a4",
-        orientation: "p",
-        marginMm: 10,
+        pageFormatFromEditor: pageFormat,
         scale: 2,
       });
       toast.success("PDF descargado correctamente");

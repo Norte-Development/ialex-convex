@@ -9,11 +9,13 @@ import { updateCursorContext } from "./cursorUtils";
 import { api } from "../../../convex/_generated/api";
 import { useEscrito } from "@/context/EscritoContext";
 import "./editor-styles.css";
+import "./editor-pages.css";
 import { useTemplate } from "./template";
 import { Id } from "../../../convex/_generated/dataModel";
 import EscritosLoadingState from "../Escritos/EscritosLoadingState";
 import { useMutation } from "convex/react";
 import { useSearchParams } from "react-router-dom";
+import { PageFormatPx, getDefaultPageFormat } from "../../../../../packages/shared/src/tiptap/pageFormat";
 
 interface TiptapProps {
   documentId?: string;
@@ -26,6 +28,7 @@ interface TiptapProps {
 export interface TiptapRef {
   getContent: () => JSONContent | null;
   hasPendingSuggestions?: () => boolean;
+  getPageFormat?: () => PageFormatPx;
 }
 
 export const Tiptap = forwardRef<TiptapRef, TiptapProps>(
@@ -181,6 +184,11 @@ export const Tiptap = forwardRef<TiptapRef, TiptapProps>(
           }
         });
         return found;
+      },
+      getPageFormat: () => {
+        if (!editor) return getDefaultPageFormat();
+        const attrs = editor.getAttributes('doc');
+        return attrs.pageFormat || getDefaultPageFormat();
       },
     }));
 

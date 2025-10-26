@@ -1,18 +1,44 @@
 import html2canvas from 'html2canvas-pro';
 import jsPDF from 'jspdf';
+import { PageFormatPx, pixelsToMm } from '../../../../../../packages/shared/src/tiptap/pageFormat';
 
 type PageFormat = 'a4' | 'letter' | [number, number];
 type Orientation = 'portrait' | 'landscape'| 'l' | 'p';
 
+export interface PageMarginsMm {
+    top: number;
+    right: number;
+    bottom: number;
+    left: number;
+}
+
 export interface PdfExportOptions {
     element: HTMLElement | string;              
     filename?: string;                          
-    marginMm?: number;                          
-    format?: PageFormat;                        
+    marginMm?: number;                          // Deprecated: use marginsMm for per-side margins
+    marginsMm?: PageMarginsMm;                  // Per-side margins in mm
+    format?: PageFormat | PageFormatPx;         // Support both old format and new PageFormatPx
     orientation?: Orientation;                  
     scale?: number;                             
     backgroundColor?: string;                   
     onProgress?: (progress: number) => void;    
+    pageFormatFromEditor?: PageFormatPx;        // Optional: pass format directly from editor
+}
+
+/**
+ * Convert PageFormatPx to jsPDF format
+ */
+function pageFormatToJsPdfFormat(format: PageFormatPx): [number, number] {
+    const widthMm = pixelsToMm(format.width);
+    const heightMm = pixelsToMm(format.height);
+    return [widthMm, heightMm];
+}
+
+/**
+ * Determine orientation from dimensions
+ */
+function determineOrientation(widthMm: number, heightMm: number): Orientation {
+    return heightMm > widthMm ? 'portrait' : 'landscape';
 }
 
 export async function exportElementToPdf(options: PdfExportOptions) {
@@ -20,18 +46,59 @@ export async function exportElementToPdf(options: PdfExportOptions) {
         element,
         filename = 'export.pdf',
         marginMm = 10,
+        marginsMm,
         format = 'a4',
-        orientation = 'p',
+        orientation,
         scale = 2,
         backgroundColor = '#ffffff',
         onProgress,
+        pageFormatFromEditor,
     } = options;
-
 
     const node = typeof element === 'string' ? document.querySelector(element) : element;
 
     if (!node) {
         throw new Error('Error al exportar el elemento a PDF');
+    }
+
+    // Determine the actual format and margins
+    let pdfFormat: string | [number, number] = format as string | [number, number];
+    let margins: PageMarginsMm;
+    let pdfOrientation: Orientation = orientation || 'p';
+
+    if (pageFormatFromEditor) {
+        // Use format from editor
+        const [widthMm, heightMm] = pageFormatToJsPdfFormat(pageFormatFromEditor);
+        pdfFormat = [widthMm, heightMm];
+        pdfOrientation = determineOrientation(widthMm, heightMm);
+        margins = {
+            top: pixelsToMm(pageFormatFromEditor.margins.top),
+            right: pixelsToMm(pageFormatFromEditor.margins.right),
+            bottom: pixelsToMm(pageFormatFromEditor.margins.bottom),
+            left: pixelsToMm(pageFormatFromEditor.margins.left),
+        };
+    } else if (typeof format === 'object' && 'width' in format) {
+        // PageFormatPx passed as format
+        const [widthMm, heightMm] = pageFormatToJsPdfFormat(format);
+        pdfFormat = [widthMm, heightMm];
+        pdfOrientation = orientation || determineOrientation(widthMm, heightMm);
+        margins = {
+            top: pixelsToMm(format.margins.top),
+            right: pixelsToMm(format.margins.right),
+            bottom: pixelsToMm(format.margins.bottom),
+            left: pixelsToMm(format.margins.left),
+        };
+    } else if (marginsMm) {
+        // Use per-side margins if provided
+        margins = marginsMm;
+    } else {
+        // Use uniform margin (backward compatible)
+        margins = {
+            top: marginMm,
+            right: marginMm,
+            bottom: marginMm,
+            left: marginMm,
+        };
     }
 
     const canvas = await html2canvas(node as HTMLElement, {
@@ -43,14 +110,15 @@ export async function exportElementToPdf(options: PdfExportOptions) {
         scrollX: 0,
         scrollY: -window.scrollY,
         windowWidth: document.documentElement.clientWidth,
-
     });
 
-    const pdf = new jsPDF(orientation, "mm", format);
+    const pdf = new jsPDF(pdfOrientation, "mm", pdfFormat);
     const pageWidthMm = pdf.internal.pageSize.getWidth();
     const pageHeightMm = pdf.internal.pageSize.getHeight();
-    const usableWidthMm = pageWidthMm - marginMm * 2;
-    const usableHeightMm = pageHeightMm - marginMm * 2;
+    
+    // Calculate usable area with per-side margins
+    const usableWidthMm = pageWidthMm - margins.left - margins.right;
+    const usableHeightMm = pageHeightMm - margins.top - margins.bottom;
 
     const pxPerMm = canvas.width / usableWidthMm;
     const pageHeightPx = Math.floor(usableHeightMm * pxPerMm);
@@ -90,8 +158,8 @@ export async function exportElementToPdf(options: PdfExportOptions) {
         pdf.addImage(
           imgData,
           "JPEG",
-          marginMm,
-          marginMm,
+          margins.left,
+          margins.top,
           usableWidthMm,
           sliceHeightMm,
         );
@@ -99,7 +167,6 @@ export async function exportElementToPdf(options: PdfExportOptions) {
         y += sliceHeight;
         pageIndex += 1;
         if (onProgress) onProgress(Math.min(1, y / canvas.height));
-
     }
 
     pdf.save(filename);

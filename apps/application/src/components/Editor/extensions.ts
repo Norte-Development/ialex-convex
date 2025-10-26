@@ -3,6 +3,7 @@ import StarterKit from "@tiptap/starter-kit";
 import TextAlign from "@tiptap/extension-text-align";
 import Underline from "@tiptap/extension-underline";
 import { TextStyle } from "@tiptap/extension-text-style";
+import LineHeight from "@tiptap/extension-text-style/line-height";
 import Image from "@tiptap/extension-image";
 import { Table } from "@tiptap/extension-table";
 import { TableRow } from "@tiptap/extension-table-row";
@@ -14,10 +15,15 @@ import {
   LineBreakChange,
 } from "../../../../../packages/shared/src/tiptap/changeNodes";
 import { TrackingExtension } from "./extensions/tracking";
+import { PageFormatExtension } from "./extensions/page-format";
 
 export const extensions = [
   StarterKit.configure({ horizontalRule: false }),
   TextStyle,
+  LineHeight.configure({
+    types: ["textStyle"],
+  }),
+  PageFormatExtension,
   InlineChange,
   BlockChange,
   LineBreakChange,

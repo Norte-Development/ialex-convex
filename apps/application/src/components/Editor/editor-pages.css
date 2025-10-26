@@ -1,0 +1,101 @@
+/* Page-like styling for the editor */
+
+.legal-editor-wrapper {
+  display: flex;
+  justify-content: center;
+  background: #f5f5f5;
+  padding: 20px 0;
+  min-height: 100%;
+}
+
+.legal-editor-content {
+  background: white;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  margin: 0 auto;
+  position: relative;
+  box-sizing: border-box;
+}
+
+/* Ensure content is visible and properly contained */
+.legal-editor-content .ProseMirror {
+  outline: none;
+  word-wrap: break-word;
+  white-space: pre-wrap;
+  white-space: break-spaces;
+  -webkit-font-variant-ligatures: none;
+  font-variant-ligatures: none;
+  font-feature-settings: "liga" 0;
+}
+
+/* Print styles */
+@media print {
+  .legal-editor-wrapper {
+    background: white;
+    padding: 0;
+  }
+
+  .legal-editor-content {
+    box-shadow: none;
+    margin: 0;
+    width: 100% !important;
+    max-width: none;
+  }
+
+  /* Force page breaks */
+  .page-break {
+    page-break-after: always;
+    break-after: page;
+  }
+
+  /* Preserve page format margins in print */
+  @page {
+    margin: 0;
+  }
+}
+
+/* Table styling enhancements */
+.legal-editor-content table {
+  border-collapse: collapse;
+  table-layout: fixed;
+  width: 100%;
+  margin: 1em 0;
+  overflow: hidden;
+}
+
+.legal-editor-content table td,
+.legal-editor-content table th {
+  min-width: 1em;
+  border: 1px solid #ddd;
+  padding: 8px;
+  vertical-align: top;
+  box-sizing: border-box;
+  position: relative;
+}
+
+.legal-editor-content table th {
+  font-weight: bold;
+  text-align: left;
+  background-color: #f8f9fa;
+}
+
+.legal-editor-content table .selectedCell {
+  background-color: #e3f2fd;
+}
+
+/* Image styling */
+.legal-editor-content .editor-image {
+  max-width: 100%;
+  height: auto;
+  display: inline-block;
+}
+
+/* Ensure proper spacing */
+.legal-editor-content p {
+  margin: 0;
+  padding: 0;
+}
+
+.legal-editor-content p + p {
+  margin-top: 1em;
+}
+

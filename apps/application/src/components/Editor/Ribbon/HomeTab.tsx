@@ -1,5 +1,6 @@
 import type { Editor } from "@tiptap/core";
 import { useEditorState } from "@tiptap/react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Bold,
@@ -13,7 +14,10 @@ import {
 } from "lucide-react";
 import { FontPicker } from "../Toolbar/FontPicker";
 import { FontSizePicker } from "../Toolbar/FontSizePicker";
+import { LineHeightPicker } from "../Toolbar/LineHeightPicker";
 import { ColorPicker } from "../Toolbar/ColorPicker";
+import { PageFormatSelector } from "../Toolbar/PageFormatSelector";
+import { PageFormatPx, getDefaultPageFormat } from "../../../../../../packages/shared/src/tiptap/pageFormat";
 import { cn } from "@/lib/utils";
 
 interface HomeTabProps {
@@ -21,6 +25,11 @@ interface HomeTabProps {
 }
 
 export function HomeTab({ editor }: HomeTabProps) {
+  const [currentFormat, setCurrentFormat] = useState<PageFormatPx>(() => {
+    const attrs = editor.getAttributes('doc');
+    return attrs.pageFormat || getDefaultPageFormat();
+  });
+
   const editorState = useEditorState({
     editor,
     selector: (ctx) => ({
@@ -35,6 +44,24 @@ export function HomeTab({ editor }: HomeTabProps) {
     }),
   });
 
+  // Update current format when editor changes
+  useEffect(() => {
+    const updateFormat = () => {
+      const attrs = editor.getAttributes('doc');
+      setCurrentFormat(attrs.pageFormat || getDefaultPageFormat());
+    };
+
+    editor.on('update', updateFormat);
+    return () => {
+      editor.off('update', updateFormat);
+    };
+  }, [editor]);
+
+  const handleFormatChange = (format: PageFormatPx) => {
+    editor.commands.setPageFormat(format);
+    setCurrentFormat(format);
+  };
+
   return (
     <div className="ribbon-tab-content">
       {/* Font Group */}
@@ -46,6 +73,7 @@ export function HomeTab({ editor }: HomeTabProps) {
             <div className="flex gap-1">
               <FontPicker editor={editor} />
               <FontSizePicker editor={editor} />
+              <LineHeightPicker editor={editor} />
             </div>
             
             {/* Formatting Buttons Row */}
@@ -196,6 +224,19 @@ export function HomeTab({ editor }: HomeTabProps) {
               Título 2
             </Button>
           </div>
+        </div>
+      </div>
+
+      <div className="ribbon-separator" />
+
+      {/* Page Format Group */}
+      <div className="ribbon-group">
+        <div className="ribbon-group-label">Formato de Página</div>
+        <div className="ribbon-group-content">
+          <PageFormatSelector
+            currentFormat={currentFormat}
+            onFormatChange={handleFormatChange}
+          />
         </div>
       </div>
     </div>
