@@ -9,6 +9,8 @@ import type {
   NormativeFilters,
   SortBy,
   SortOrder,
+  ContentType,
+  CombinedDocument,
 } from "../../../types/legislation";
 import { TableView } from "./TableView";
 import { PaginationControls } from "../ui/pagination-controls";
@@ -24,6 +26,7 @@ interface DataTableContainerProps {
   sortOrder: SortOrder;
   isSearchMode: boolean;
   searchQuery: string;
+  contentType: ContentType;
 
   // Callbacks
   onRowClick: (id: string) => void;
@@ -41,18 +44,20 @@ export const DataTableContainer = memo(function DataTableContainer({
   sortOrder,
   isSearchMode,
   searchQuery,
+  contentType,
   onRowClick,
   onPageChange,
   onTotalResultsChange,
 }: DataTableContainerProps) {
   const actions = {
     getNormatives: useAction(api.functions.legislation.getNormatives),
+    getFallos: useAction(api.functions.fallos.listFallos),
   };
 
   const {
     data: normativesData,
-    isLoading,
-    error,
+    isLoading: isNormativesLoading,
+    error: normativesError,
   } = useQuery({
     queryKey: [
       "getNormatives",
@@ -63,8 +68,13 @@ export const DataTableContainer = memo(function DataTableContainer({
       pageSize,
       sortBy,
       sortOrder,
+      contentType,
     ],
-    queryFn: () => {
+    queryFn: async () => {
+      if (contentType === "fallos") {
+        return null; // Don't fetch normatives for fallos-only view
+      }
+
       const queryFilters = { ...filters };
 
       // Only add jurisdiction filter if not "all"
@@ -85,21 +95,94 @@ export const DataTableContainer = memo(function DataTableContainer({
         sortOrder,
       });
     },
+    enabled: contentType !== "fallos",
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const {
+    data: fallosData,
+    isLoading: isFallosLoading,
+    error: fallosError,
+  } = useQuery({
+    queryKey: [
+      "getFallos",
+      jurisdiction,
+      filters,
+      debouncedQuery,
+      page,
+      pageSize,
+      sortBy,
+      sortOrder,
+      contentType,
+    ],
+    queryFn: async () => {
+      if (contentType === "legislation") {
+        return null; // Don't fetch fallos for legislation-only view
+      }
+
+      const queryFilters: any = { ...filters };
+
+      // Only add jurisdiction filter if not "all"
+      if (jurisdiction !== "all") {
+        queryFilters.jurisdiccion = jurisdiction;
+      }
+
+      // Add search query to filters if present
+      if (debouncedQuery.trim()) {
+        queryFilters.search = debouncedQuery.trim();
+      }
+
+      return actions.getFallos({
+        filters: queryFilters,
+        limit: pageSize,
+        offset: (page - 1) * pageSize,
+        sortBy: sortBy as any,
+        sortOrder: sortOrder as any,
+      });
+    },
+    enabled: contentType !== "legislation",
     staleTime: 5 * 60 * 1000,
   });
 
   const computedData = useMemo(() => {
-    const totalResults = normativesData?.pagination?.total || 0;
-    const items = normativesData?.items || [];
+    let totalResults = 0;
+    let items: CombinedDocument[] = [];
+    let isLoading = false;
+    let error: any = null;
+    let pagination: any = null;
+
+    if (contentType === "legislation") {
+      totalResults = normativesData?.pagination?.total || 0;
+      items = normativesData?.items || [];
+      isLoading = isNormativesLoading;
+      error = normativesError;
+      pagination = normativesData?.pagination;
+    } else if (contentType === "fallos") {
+      totalResults = fallosData?.pagination?.total || 0;
+      items = fallosData?.items || [];
+      isLoading = isFallosLoading;
+      error = fallosError;
+      pagination = fallosData?.pagination;
+    } else {
+      // "all" - combine both data sources
+      const normativesItems = normativesData?.items || [];
+      const fallosItems = fallosData?.items || [];
+      items = [...normativesItems, ...fallosItems];
+      totalResults = (normativesData?.pagination?.total || 0) + (fallosData?.pagination?.total || 0);
+      isLoading = isNormativesLoading || isFallosLoading;
+      error = normativesError || fallosError;
+      // For "all" view, we'll use the pagination from the primary content type
+      pagination = normativesData?.pagination || fallosData?.pagination;
+    }
 
     return {
       totalResults,
       items,
       isLoading,
       error,
-      pagination: normativesData?.pagination,
+      pagination,
     };
-  }, [normativesData, isLoading, error]);
+  }, [normativesData, fallosData, isNormativesLoading, isFallosLoading, normativesError, fallosError, contentType]);
 
   // Notify parent of total results changes
   useEffect(() => {
@@ -159,6 +242,7 @@ export const DataTableContainer = memo(function DataTableContainer({
         onRowClick={onRowClick}
         getEstadoBadgeColor={getEstadoBadgeColor}
         formatDate={formatDate}
+        contentType={contentType}
       />
 
       <PaginationControls

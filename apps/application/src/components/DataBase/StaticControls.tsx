@@ -1,6 +1,6 @@
 import React, { memo } from "react"
 import { Card, CardContent } from "../ui/card"
-import type { NormativeFilters, SortBy, SortOrder } from "../../../types/legislation"
+import type { NormativeFilters, SortBy, SortOrder, ContentType } from "../../../types/legislation"
 import { SearchBar } from "./SearchBar"
 import { TableControls } from "./TableControls"
 import { FiltersPanel } from "./FiltersPanel"
@@ -19,6 +19,10 @@ interface StaticControlsProps {
   jurisdiction: string
   jurisdictions: string[]
   onJurisdictionChange: (jurisdiction: string) => void
+
+  // Content type state
+  contentType: ContentType
+  onContentTypeChange: (contentType: ContentType) => void
 
   // Table controls
   isSearchMode: boolean
@@ -50,6 +54,8 @@ export const StaticControls = memo(function StaticControls({
   jurisdiction,
   jurisdictions,
   onJurisdictionChange,
+  contentType,
+  onContentTypeChange,
   isSearchMode,
   sortBy,
   sortOrder,
@@ -80,6 +86,8 @@ export const StaticControls = memo(function StaticControls({
           jurisdiction={jurisdiction}
           jurisdictions={jurisdictions}
           onJurisdictionChange={onJurisdictionChange}
+          contentType={contentType}
+          onContentTypeChange={onContentTypeChange}
           isSearchMode={isSearchMode}
           sortBy={sortBy}
           sortOrder={sortOrder}
@@ -96,6 +104,7 @@ export const StaticControls = memo(function StaticControls({
           onFilterChange={onFilterChange}
           jurisdictions={jurisdictions}
           jurisdiction={jurisdiction}
+          contentType={contentType}
           facets={facets}
         />
 

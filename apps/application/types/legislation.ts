@@ -1,3 +1,13 @@
+// Import fallos types
+import type { 
+  FalloDoc, 
+  EstadoFallo, 
+  TipoContenidoFallo, 
+  TipoGeneralFallo,
+  FalloSortBy,
+  FalloSortOrder
+} from "./fallos";
+
 // Core types for legislation data
 export type Estado = 
   | "vigente" | "derogada" | "caduca" | "anulada" 
@@ -218,4 +228,77 @@ export interface NormativesFacets {
   types: Record<string, number>;
   jurisdicciones: Record<string, number>;
   estados: Record<Estado, number>;
+}
+
+// Combined document types for unified view
+export type ContentType = "legislation" | "fallos" | "all";
+
+// Union type for combined legislation and fallos documents
+export type CombinedDocument = NormativeDoc | FalloDoc;
+
+// Discriminated union to distinguish between content types
+export type DocumentWithType = 
+  | (NormativeDoc & { _documentType: "legislation" })
+  | (FalloDoc & { _documentType: "fallos" });
+
+// Combined filter interface supporting both legislation and fallos filters
+export interface CombinedFilters {
+  // Common filters
+  jurisdiccion?: string;
+  estado?: Estado | EstadoFallo;
+  search?: string;
+  fecha_from?: string;
+  fecha_to?: string;
+  
+  // Legislation-specific filters
+  type?: string;
+  subestado?: Subestado;
+  tipo_general?: TipoGeneral;
+  tipo_detalle?: TipoDetalle;
+  tipo_contenido?: TipoContenido;
+  sanction_date_from?: string;
+  sanction_date_to?: string;
+  publication_date_from?: string;
+  publication_date_to?: string;
+  number?: number;
+  vigencia_actual?: boolean;
+  content_hash?: string;
+  date_ts_from?: number;
+  date_ts_to?: number;
+  sanction_ts_from?: number;
+  sanction_ts_to?: number;
+  publication_ts_from?: number;
+  publication_ts_to?: number;
+  fuente?: string;
+  country_code?: string;
+  document_id?: string;
+  
+  // Fallos-specific filters
+  tribunal?: string;
+  materia?: string;
+  actor?: string;
+  demandado?: string;
+  magistrados?: string;
+  sala?: string;
+  promulgacion_from?: string;
+  promulgacion_to?: string;
+  publicacion_from?: string;
+  publicacion_to?: string;
+  tags?: string[];
+  tipo_contenido_fallo?: TipoContenidoFallo;
+  tipo_general_fallo?: TipoGeneralFallo;
+}
+
+// Combined sort options
+export type CombinedSortBy = SortBy | FalloSortBy;
+export type CombinedSortOrder = SortOrder | FalloSortOrder;
+
+// Combined facets interface
+export interface CombinedFacets {
+  jurisdicciones: Record<string, number>;
+  estados: Record<string, number>;
+  types?: Record<string, number>;
+  tribunales?: Record<string, number>;
+  materias?: Record<string, number>;
+  tags?: Record<string, number>;
 }

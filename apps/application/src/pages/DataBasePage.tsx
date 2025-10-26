@@ -13,13 +13,23 @@ export default function DataBasePage() {
   const getNormativesFacets = useAction(
     api.functions.legislation.getNormativesFacets,
   );
+  const getFallosFacets = useAction(
+    api.functions.fallos.getFallosFacets,
+  );
   const getNormatives = useAction(api.functions.legislation.getNormatives);
+  const getFallos = useAction(api.functions.fallos.listFallos);
 
-  // Fetch jurisdictions once at page level with long cache time
-  // No filters applied to get all available jurisdictions
-  const { data: jurisdictionsData, isLoading } = useQuery({
-    queryKey: ["all-jurisdictions"],
+  // Fetch jurisdictions from both legislation and fallos
+  const { data: normativesJurisdictionsData, isLoading: isNormativesJurisdictionsLoading } = useQuery({
+    queryKey: ["normatives-jurisdictions"],
     queryFn: () => getNormativesFacets({ filters: {} }),
+    staleTime: 60 * 60 * 1000, // Cache for 1 hour
+    gcTime: 24 * 60 * 60 * 1000, // Keep in cache for 24 hours
+  });
+
+  const { data: fallosJurisdictionsData, isLoading: isFallosJurisdictionsLoading } = useQuery({
+    queryKey: ["fallos-jurisdictions"],
+    queryFn: () => getFallosFacets({ filters: {} }),
     staleTime: 60 * 60 * 1000, // Cache for 1 hour
     gcTime: 24 * 60 * 60 * 1000, // Keep in cache for 24 hours
   });
@@ -58,8 +68,10 @@ export default function DataBasePage() {
 
   // Show skeleton while loading initial data - wait for ALL queries
   if (
-    isLoading ||
-    !jurisdictionsData ||
+    isNormativesJurisdictionsLoading ||
+    !normativesJurisdictionsData ||
+    isFallosJurisdictionsLoading ||
+    !fallosJurisdictionsData ||
     isInitialFacetsLoading ||
     !initialFacets ||
     isInitialTableLoading ||
@@ -68,10 +80,17 @@ export default function DataBasePage() {
     return <DataBasePageSkeleton />;
   }
 
-  // Extract jurisdictions from facets data
-  const availableJurisdictions = jurisdictionsData.jurisdicciones
-    ? ["all", ...Object.keys(jurisdictionsData.jurisdicciones)]
-    : ["all"];
+  // Extract jurisdictions from both data sources and combine them
+  const normativesJurisdictions = normativesJurisdictionsData.jurisdicciones
+    ? Object.keys(normativesJurisdictionsData.jurisdicciones)
+    : [];
+  const fallosJurisdictions = fallosJurisdictionsData.jurisdicciones
+    ? Object.keys(fallosJurisdictionsData.jurisdicciones)
+    : [];
+  
+  // Combine and deduplicate jurisdictions
+  const allJurisdictions = Array.from(new Set([...normativesJurisdictions, ...fallosJurisdictions]));
+  const availableJurisdictions = ["all", ...allJurisdictions];
 
   return (
     <section
@@ -80,7 +99,7 @@ export default function DataBasePage() {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center justify-between">
-            Base de Datos Legislativa
+            Base de Datos Legal
             <div className="flex gap-2">
               <Button
                 variant={activeView === "simple" ? "default" : "outline"}
