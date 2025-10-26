@@ -25,6 +25,7 @@ interface TiptapProps {
 
 export interface TiptapRef {
   getContent: () => JSONContent | null;
+  hasPendingSuggestions?: () => boolean;
 }
 
 export const Tiptap = forwardRef<TiptapRef, TiptapProps>(
@@ -167,6 +168,20 @@ export const Tiptap = forwardRef<TiptapRef, TiptapProps>(
 
     useImperativeHandle(ref, () => ({
       getContent: () => editor?.getJSON() ?? null,
+      hasPendingSuggestions: () => {
+        if (!editor) return false;
+        let found = false;
+        editor.state.doc.descendants((node) => {
+          if (
+            node.type.name === "inlineChange" ||
+            node.type.name === "blockChange" ||
+            node.type.name === "lineBreakChange"
+          ) {
+            found = true;
+          }
+        });
+        return found;
+      },
     }));
 
     if (sync.isLoading) return <EscritosLoadingState />;

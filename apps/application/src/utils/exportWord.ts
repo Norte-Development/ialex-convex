@@ -10,6 +10,8 @@ import {
   TableCell,
   WidthType,
   BorderStyle,
+  ImageRun,
+  ExternalHyperlink,
 } from "docx";
 import { saveAs } from "file-saver";
 import type { JSONContent } from "@tiptap/core";
@@ -116,12 +118,7 @@ function convertNode(
 
   switch (node.type) {
     case "paragraph":
-      const alignment = getAlignment(node.attrs?.textAlign);
-      return new Paragraph({
-        children: convertInlineContent(node.content || []),
-        alignment: alignment,
-        spacing: { after: 200 },
-      });
+      return convertParagraphNode(node);
 
     case "heading":
       const level = node.attrs?.level || 1;
@@ -160,10 +157,73 @@ function convertNode(
         spacing: { after: 100 },
       });
 
+    case "image":
+      return convertImage(node);
+
     default:
       console.warn(`⚠️ Tipo de nodo no soportado: ${node.type}`);
       return new Paragraph({ text: "" });
   }
+}
+
+/**
+ * Convierte un párrafo manejando imágenes inline (divide en múltiples párrafos si es necesario)
+ */
+function convertParagraphNode(node: JSONContent): Paragraph | Paragraph[] {
+  const alignment = getAlignment(node.attrs?.textAlign);
+  const inline = node.content || [];
+
+  // Si no hay imágenes, devolvemos un único párrafo normal
+  const hasImage = inline.some((n) => n.type === "image");
+  if (!hasImage) {
+    return new Paragraph({
+      children: convertInlineContent(inline),
+      alignment,
+      spacing: { after: 200 },
+    });
+  }
+
+  // Si hay imágenes, dividimos el contenido en segmentos: texto antes, imagen, texto después, etc.
+  const paragraphs: Paragraph[] = [];
+  let currentTextRuns: TextRun[] = [];
+
+  const flushTextParagraph = () => {
+    if (currentTextRuns.length > 0) {
+      paragraphs.push(
+        new Paragraph({
+          children: currentTextRuns,
+          alignment,
+          spacing: { after: 200 },
+        }),
+      );
+      currentTextRuns = [];
+    }
+  };
+
+  for (const child of inline) {
+    if (child.type === "image") {
+      // Primero cerramos el párrafo de texto acumulado
+      flushTextParagraph();
+      // Luego insertamos la imagen como su propio párrafo
+      const imgPara = convertImage(child);
+      paragraphs.push(imgPara);
+    } else if (child.type === "hardBreak") {
+      currentTextRuns.push(new TextRun({ text: "", break: 1 }));
+    } else if (child.type === "text") {
+      // Reutilizamos la lógica de estilos
+      const [textRun] = convertInlineContent([child]);
+      currentTextRuns.push(textRun);
+    } else {
+      // Para cualquier otro nodo inline, lo intentamos convertir a runs genéricos
+      currentTextRuns.push(...convertInlineContent([child]));
+    }
+  }
+
+  // Volcar el texto restante
+  flushTextParagraph();
+
+  // Garantizar al menos un párrafo vacío si por alguna razón no hay contenido
+  return paragraphs.length > 0 ? paragraphs : [new Paragraph({ text: "" })];
 }
 
 /**
@@ -197,6 +257,11 @@ function convertInlineContent(content: JSONContent[]): TextRun[] {
     } else if (node.type === "hardBreak") {
       // Agregar salto de línea dentro del párrafo
       runs.push(new TextRun({ text: "", break: 1 }));
+    } else if (node.type === "image") {
+      // Las imágenes inline NO se renderizan dentro del mismo párrafo en DOCX.
+      // convertParagraphNode manejará separar la imagen en su propio párrafo.
+      // Aquí insertamos un marcador de salto para cortar el párrafo antes de la imagen.
+      runs.push(new TextRun({ text: "" }));
     }
   });
 
@@ -365,6 +430,103 @@ function convertTable(node: JSONContent): Table {
       insideVertical: { style: BorderStyle.SINGLE, size: 1, color: "CCCCCC" },
     },
   });
+}
+
+/**
+ * Convierte una imagen de TipTap a DOCX
+ */
+function convertImage(node: JSONContent): Paragraph {
+  console.log("🖼️ Convirtiendo imagen:", node.attrs);
+  
+  const src = node.attrs?.src;
+  const alt = node.attrs?.alt || "Imagen";
+  const width = node.attrs?.width;
+  const height = node.attrs?.height;
+  
+  if (!src) {
+    console.warn("⚠️ Imagen sin src, creando párrafo de texto");
+    return new Paragraph({
+      text: `[Imagen: ${alt}]`,
+      alignment: AlignmentType.CENTER,
+      spacing: { before: 200, after: 200 },
+    });
+  }
+
+  try {
+    // Determinar si es una imagen base64 o URL
+    const isBase64 = src.startsWith('data:');
+    const isUrl = src.startsWith('http://') || src.startsWith('https://');
+    
+    if (isBase64) {
+      // Manejar imagen base64
+      const base64Data = src.split(',')[1];
+      const mimeType = src.split(',')[0].split(':')[1].split(';')[0];
+      
+      // Convertir base64 a ArrayBuffer
+      const binaryString = atob(base64Data);
+      const bytes = new Uint8Array(binaryString.length);
+      for (let i = 0; i < binaryString.length; i++) {
+        bytes[i] = binaryString.charCodeAt(i);
+      }
+      
+      console.log("✅ Imagen base64 convertida, tamaño:", bytes.length, "bytes", "tipo:", mimeType);
+      
+      // Determinar el tipo de imagen para DOCX
+      let imageType: "jpg" | "png" | "gif" | "bmp" = "png";
+      if (mimeType.includes("jpeg") || mimeType.includes("jpg")) {
+        imageType = "jpg";
+      } else if (mimeType.includes("gif")) {
+        imageType = "gif";
+      } else if (mimeType.includes("bmp")) {
+        imageType = "bmp";
+      }
+      
+      const imageRun = new ImageRun({
+        data: bytes,
+        transformation: {
+          width: width ? Math.min(width, 600) : 300,
+          height: height ? Math.min(height, 400) : 200,
+        },
+        type: imageType,
+      });
+      
+      return new Paragraph({
+        children: [imageRun],
+        alignment: AlignmentType.CENTER,
+        spacing: { before: 200, after: 200 },
+      });
+      
+    } else if (isUrl) {
+      // Para URLs, crear un enlace externo (no podemos cargar la imagen directamente)
+      const hyperlink = new ExternalHyperlink({
+        link: src,
+        children: [new TextRun({ text: `[Imagen: ${alt}]`, color: "0563C1" })],
+      });
+      
+      return new Paragraph({
+        children: [hyperlink],
+        alignment: AlignmentType.CENTER,
+        spacing: { before: 200, after: 200 },
+      });
+      
+    } else {
+      // Imagen local o ruta relativa
+      console.warn("⚠️ Tipo de imagen no soportado:", src.substring(0, 50));
+      return new Paragraph({
+        text: `[Imagen: ${alt}]`,
+        alignment: AlignmentType.CENTER,
+        spacing: { before: 200, after: 200 },
+      });
+    }
+    
+  } catch (error) {
+    console.error("❌ Error procesando imagen:", error);
+    return new Paragraph({
+      text: `[Error cargando imagen: ${alt}]`,
+      alignment: AlignmentType.CENTER,
+      spacing: { before: 200, after: 200 },
+    });
+  }
 }
 
 /**
