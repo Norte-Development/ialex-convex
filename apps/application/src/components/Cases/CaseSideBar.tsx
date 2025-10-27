@@ -423,19 +423,21 @@ export default function CaseSidebar() {
                   </div>
 
                   {/* View All Button */}
-                  <div className="px-2 pb-1">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        navigate(`${basePath}/escritos`);
-                      }}
-                      className="w-full h-6 text-xs text-muted-foreground hover:text-foreground"
-                    >
-                      Ver todos los escritos
-                    </Button>
-                  </div>
+                  {displayedEscritos && displayedEscritos.length > 0 && (
+                    <div className="px-2 pb-1">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          navigate(`${basePath}/escritos`);
+                        }}
+                        className="w-full h-6 text-xs text-muted-foreground hover:text-foreground"
+                      >
+                        Ver todos los escritos
+                      </Button>
+                    </div>
+                  )}
 
                   {/* Search Results Count */}
                   {escritosSearchQuery && searchResults && (
@@ -583,19 +585,21 @@ export default function CaseSidebar() {
                 </CollapsibleTrigger>
                 <CollapsibleContent className="flex flex-col gap-1 pl-2 text-[12px] pt-1">
                   {/* View All Documents Button */}
-                  <div className="px-2 py-1">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        navigate(`${basePath}/documentos`);
-                      }}
-                      className="w-full h-6 text-xs text-muted-foreground hover:text-foreground"
-                    >
-                      Ver todos los documentos
-                    </Button>
-                  </div>
+                  {totalDocumentos > 0 && (
+                    <div className="px-2 py-1">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          navigate(`${basePath}/documentos`);
+                        }}
+                        className="w-full h-6 text-xs text-muted-foreground hover:text-foreground"
+                      >
+                        Ver todos los documentos
+                      </Button>
+                    </div>
+                  )}
 
                   {isCreatingRootFolder && (
                     <div className="flex items-center gap-2 p-1 pr-3">
@@ -702,12 +706,6 @@ export default function CaseSidebar() {
                 )}
               </CollapsibleContent>
             </Collapsible>
-
-            {/* Eliminados */}
-            <div className="flex gap-4 items-center text-red-400 cursor-pointer">
-              <Trash className="cursor-pointer" size={20} />
-              <p>Eliminados</p>
-            </div>
           </div>
         </div>
 

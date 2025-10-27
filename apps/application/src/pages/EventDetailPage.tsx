@@ -13,19 +13,27 @@ import {
   CheckCircle,
   XCircle,
   UserMinus,
+  Pencil,
+  Check,
+  X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
+import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import AddParticipantDialog from "@/components/eventos/AddParticipantDialog";
 import { useAuth } from "@/context/AuthContext";
+import { useState } from "react";
 
 export default function EventDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { user } = useAuth();
+
+  const [isEditingDescription, setIsEditingDescription] = useState(false);
+  const [editedDescription, setEditedDescription] = useState("");
 
   const event = useQuery(
     api.functions.events.getEventById,
@@ -39,6 +47,7 @@ export default function EventDetailPage() {
 
   const deleteEvent = useMutation(api.functions.events.deleteEvent);
   const updateStatus = useMutation(api.functions.events.updateEventStatus);
+  const updateEvent = useMutation(api.functions.events.updateEvent);
   const removeParticipant = useMutation(api.functions.events.removeParticipant);
 
   // Verificar si el usuario actual es organizador
@@ -154,6 +163,29 @@ export default function EventDetailPage() {
     }
   };
 
+  const handleStartEditDescription = () => {
+    setEditedDescription(event?.description || "");
+    setIsEditingDescription(true);
+  };
+
+  const handleSaveDescription = async () => {
+    try {
+      await updateEvent({
+        eventId: id as Id<"events">,
+        description: editedDescription || undefined,
+      });
+      toast.success("Descripción actualizada");
+      setIsEditingDescription(false);
+    } catch (error) {
+      toast.error("No se pudo actualizar la descripción");
+    }
+  };
+
+  const handleCancelEditDescription = () => {
+    setIsEditingDescription(false);
+    setEditedDescription("");
+  };
+
   return (
     <div className="container mx-auto py-8 px-4 pt-24 max-w-4xl">
       {/* Header */}
@@ -174,24 +206,26 @@ export default function EventDetailPage() {
             </div>
           </div>
 
-          <div className="flex gap-2">
-            {event.status === "programado" && (
-              <>
-                <Button variant="outline" onClick={handleMarkComplete}>
-                  <CheckCircle size={16} className="mr-2" />
-                  Completar
-                </Button>
-                <Button variant="outline" onClick={handleCancel}>
-                  <XCircle size={16} className="mr-2" />
-                  Cancelar
-                </Button>
-              </>
-            )}
-            <Button variant="destructive" onClick={handleDelete}>
-              <Trash2 size={16} className="mr-2" />
-              Eliminar
-            </Button>
-          </div>
+          {isOrganizer && (
+            <div className="flex gap-2">
+              {event.status === "programado" && (
+                <>
+                  <Button variant="outline" onClick={handleMarkComplete}>
+                    <CheckCircle size={16} className="mr-2" />
+                    Completar
+                  </Button>
+                  <Button variant="outline" onClick={handleCancel}>
+                    <XCircle size={16} className="mr-2" />
+                    Cancelar
+                  </Button>
+                </>
+              )}
+              <Button variant="destructive" onClick={handleDelete}>
+                <Trash2 size={16} className="mr-2" />
+                Eliminar
+              </Button>
+            </div>
+          )}
         </div>
       </div>
 
@@ -255,10 +289,97 @@ export default function EventDetailPage() {
                 <>
                   <Separator />
                   <div>
-                    <p className="font-semibold mb-2">Descripción</p>
-                    <p className="text-muted-foreground whitespace-pre-wrap">
-                      {event.description}
-                    </p>
+                    <div className="flex items-center justify-between mb-2">
+                      <p className="font-semibold">Descripción</p>
+                      {isOrganizer && !isEditingDescription && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={handleStartEditDescription}
+                        >
+                          <Pencil size={14} className="mr-1" />
+                          Editar
+                        </Button>
+                      )}
+                    </div>
+                    {isEditingDescription ? (
+                      <div className="space-y-2">
+                        <Textarea
+                          value={editedDescription}
+                          onChange={(e) => setEditedDescription(e.target.value)}
+                          rows={4}
+                          className="w-full"
+                        />
+                        <div className="flex gap-2">
+                          <Button size="sm" onClick={handleSaveDescription}>
+                            <Check size={14} className="mr-1" />
+                            Guardar
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={handleCancelEditDescription}
+                          >
+                            <X size={14} className="mr-1" />
+                            Cancelar
+                          </Button>
+                        </div>
+                      </div>
+                    ) : (
+                      <p className="text-muted-foreground whitespace-pre-wrap">
+                        {event.description}
+                      </p>
+                    )}
+                  </div>
+                </>
+              )}
+
+              {!event.description && isOrganizer && (
+                <>
+                  <Separator />
+                  <div>
+                    <div className="flex items-center justify-between mb-2">
+                      <p className="font-semibold">Descripción</p>
+                      {!isEditingDescription && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={handleStartEditDescription}
+                        >
+                          <Pencil size={14} className="mr-1" />
+                          Agregar
+                        </Button>
+                      )}
+                    </div>
+                    {isEditingDescription ? (
+                      <div className="space-y-2">
+                        <Textarea
+                          value={editedDescription}
+                          onChange={(e) => setEditedDescription(e.target.value)}
+                          rows={4}
+                          placeholder="Agregar una descripción..."
+                          className="w-full"
+                        />
+                        <div className="flex gap-2">
+                          <Button size="sm" onClick={handleSaveDescription}>
+                            <Check size={14} className="mr-1" />
+                            Guardar
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={handleCancelEditDescription}
+                          >
+                            <X size={14} className="mr-1" />
+                            Cancelar
+                          </Button>
+                        </div>
+                      </div>
+                    ) : (
+                      <p className="text-sm text-muted-foreground italic">
+                        Sin descripción
+                      </p>
+                    )}
                   </div>
                 </>
               )}
