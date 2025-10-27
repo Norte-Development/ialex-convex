@@ -1,6 +1,7 @@
 import type { Editor } from "@tiptap/core";
 import { Button } from "@/components/ui/button";
-import { Table, Image, Link, FileText } from "lucide-react";
+import { Table, Image, Link } from "lucide-react";
+// Import comentado para futuras versiones: FileText
 import { useState } from "react";
 import { LinkDialog } from "../Toolbar/LinkDialog";
 
@@ -92,7 +93,8 @@ export function InsertTab({ editor }: InsertTabProps) {
       <div className="ribbon-separator" />
 
       {/* Page Group */}
-      <div className="ribbon-group">
+      {/* NOTA: Salto de página real comentado para v1.0 - actualmente solo inserta un salto de línea */}
+      {/* <div className="ribbon-group">
         <div className="ribbon-group-label">Páginas</div>
         <div className="ribbon-group-content">
           <Button
@@ -109,7 +111,7 @@ export function InsertTab({ editor }: InsertTabProps) {
             <span className="text-xs">Salto de página</span>
           </Button>
         </div>
-      </div>
+      </div> */}
 
       <LinkDialog
         editor={editor}
