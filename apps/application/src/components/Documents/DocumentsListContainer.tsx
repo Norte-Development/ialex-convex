@@ -3,6 +3,7 @@ import { api } from "../../../convex/_generated/api";
 import { useState, useCallback, useEffect } from "react";
 import DocumentsList from "./DocumentsList";
 import { PaginationControls } from "../ui/pagination-controls";
+import { DocumentsListSkeleton } from "./Skeletons";
 import type { Id } from "../../../convex/_generated/dataModel";
 
 interface DocumentsListContainerProps {
@@ -26,29 +27,26 @@ export default function DocumentsListContainer({
 }: DocumentsListContainerProps) {
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
-  
+
   // Query documents with pagination
   const documentsResult = useQuery(
     api.functions.documents.getDocumentsInFolder,
     {
       caseId,
       folderId: currentFolderId,
-      paginationOpts: { 
-        numItems: pageSize, 
-        cursor: ((currentPage - 1) * pageSize).toString()
+      paginationOpts: {
+        numItems: pageSize,
+        cursor: ((currentPage - 1) * pageSize).toString(),
       },
-    }
+    },
   );
 
   // Query folders (these are typically fewer, so no pagination needed)
-  const foldersResult = useQuery(
-    api.functions.folders.getFoldersForCase,
-    {
-      caseId,
-      parentFolderId: currentFolderId,
-      paginationOpts: { numItems: 100, cursor: null }
-    }
-  );
+  const foldersResult = useQuery(api.functions.folders.getFoldersForCase, {
+    caseId,
+    parentFolderId: currentFolderId,
+    paginationOpts: { numItems: 100, cursor: null },
+  });
 
   // Handle pagination - memoized to prevent unnecessary re-renders
   const handlePageChange = useCallback((page: number) => {
@@ -62,11 +60,7 @@ export default function DocumentsListContainer({
 
   // Show loading state
   if (documentsResult === undefined || foldersResult === undefined) {
-    return (
-      <div className="flex items-center justify-center py-12">
-        <p className="text-gray-500">Cargando documentos...</p>
-      </div>
-    );
+    return <DocumentsListSkeleton />;
   }
 
   const documents = documentsResult?.page || [];
@@ -84,7 +78,7 @@ export default function DocumentsListContainer({
         onCreateFolder={onCreateFolder}
         onCreateDocument={onCreateDocument}
       />
-      
+
       {/* Pagination controls - only show if there are documents */}
       {documents.length > 0 && (
         <div className="mt-6 px-6">
@@ -92,7 +86,9 @@ export default function DocumentsListContainer({
             totalResults={documentsResult?.totalCount || 0}
             currentPage={currentPage}
             pageSize={pageSize}
-            totalPages={Math.ceil((documentsResult?.totalCount || 0) / pageSize)}
+            totalPages={Math.ceil(
+              (documentsResult?.totalCount || 0) / pageSize,
+            )}
             onPageChange={handlePageChange}
           />
         </div>
