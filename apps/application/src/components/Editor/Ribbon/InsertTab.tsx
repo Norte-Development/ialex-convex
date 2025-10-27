@@ -1,12 +1,15 @@
 import type { Editor } from "@tiptap/core";
 import { Button } from "@/components/ui/button";
 import { Table, Image, Link, FileText } from "lucide-react";
+import { useState } from "react";
+import { LinkDialog } from "../Toolbar/LinkDialog";
 
 interface InsertTabProps {
   editor: Editor;
 }
 
 export function InsertTab({ editor }: InsertTabProps) {
+  const [linkDialogOpen, setLinkDialogOpen] = useState(false);
   return (
     <div className="ribbon-tab-content">
       {/* Tables Group */}
@@ -78,6 +81,7 @@ export function InsertTab({ editor }: InsertTabProps) {
             size="sm"
             className="flex flex-col items-center gap-1 h-auto py-2 px-3 hover:bg-office-hover"
             title="Insertar hipervínculo"
+            onClick={() => setLinkDialogOpen(true)}
           >
             <Link className="h-6 w-6" />
             <span className="text-xs">Vínculo</span>
@@ -106,6 +110,12 @@ export function InsertTab({ editor }: InsertTabProps) {
           </Button>
         </div>
       </div>
+
+      <LinkDialog
+        editor={editor}
+        open={linkDialogOpen}
+        onOpenChange={setLinkDialogOpen}
+      />
     </div>
   );
 }
