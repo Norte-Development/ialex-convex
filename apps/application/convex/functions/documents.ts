@@ -7,7 +7,6 @@ import { internal, api } from "../_generated/api";
 import { _checkLimit, _getBillingEntity } from "../billing/features";
 import { PLAN_LIMITS } from "../billing/planLimits";
 
-
 /**
  * Generates a Google Cloud Storage V4 signed URL for client-side uploads.
  *
@@ -45,7 +44,10 @@ export const generateUploadUrl = action({
     }
 
     // Get current user from database
-    const currentUser = await ctx.runQuery(api.functions.users.getCurrentUser, {});
+    const currentUser = await ctx.runQuery(
+      api.functions.users.getCurrentUser,
+      {},
+    );
 
     if (!currentUser) {
       throw new Error("User not found");
@@ -64,16 +66,19 @@ export const generateUploadUrl = action({
     // For now, assume 0 usage to allow first upload
     const storageUsedBytes = usage?.storageUsedBytes || 0;
 
-    const limits = PLAN_LIMITS[userPlan] as typeof PLAN_LIMITS[keyof typeof PLAN_LIMITS];
+    const limits = PLAN_LIMITS[
+      userPlan
+    ] as (typeof PLAN_LIMITS)[keyof typeof PLAN_LIMITS];
 
     // Check storage limit (convert GB to bytes)
     const storageLimitBytes = limits.storageGB * 1024 * 1024 * 1024;
     const newStorageTotal = storageUsedBytes + args.fileSize;
 
     if (newStorageTotal > storageLimitBytes) {
-      const availableGB = (storageLimitBytes - storageUsedBytes) / (1024 * 1024 * 1024);
+      const availableGB =
+        (storageLimitBytes - storageUsedBytes) / (1024 * 1024 * 1024);
       throw new Error(
-        `No tienes suficiente espacio de almacenamiento. Disponible: ${availableGB.toFixed(2)}GB. Actualiza a Premium para más almacenamiento.`
+        `No tienes suficiente espacio de almacenamiento. Disponible: ${availableGB.toFixed(2)}GB. Actualiza a Premium para más almacenamiento.`,
       );
     }
 
@@ -198,9 +203,12 @@ export const createDocument = mutation({
     await requireNewCaseAccess(ctx, currentUser._id, args.caseId, "advanced");
 
     // Get team context from case
-    const teamContext = await ctx.runQuery(internal.functions.cases.getCaseTeamContext, {
-      caseId: args.caseId
-    });
+    const teamContext = await ctx.runQuery(
+      internal.functions.cases.getCaseTeamContext,
+      {
+        caseId: args.caseId,
+      },
+    );
 
     // Check document limit
     const existingDocuments = await ctx.db
@@ -350,14 +358,16 @@ export const getDocumentsInFolder = query({
     folderId: v.optional(v.id("folders")),
     paginationOpts: paginationOptsValidator,
     search: v.optional(v.string()),
-    documentType: v.optional(v.union(
-      v.literal("contract"),
-      v.literal("evidence"),
-      v.literal("correspondence"),
-      v.literal("legal_brief"),
-      v.literal("court_filing"),
-      v.literal("other"),
-    )),
+    documentType: v.optional(
+      v.union(
+        v.literal("contract"),
+        v.literal("evidence"),
+        v.literal("correspondence"),
+        v.literal("legal_brief"),
+        v.literal("court_filing"),
+        v.literal("other"),
+      ),
+    ),
     sortBy: v.optional(v.string()),
     sortOrder: v.optional(v.union(v.literal("asc"), v.literal("desc"))),
   },
@@ -383,23 +393,28 @@ export const getDocumentsInFolder = query({
     // Apply search filter
     if (args.search && args.search.trim()) {
       const searchTerm = args.search.toLowerCase().trim();
-      documents = documents.filter((doc) =>
-        doc.title.toLowerCase().includes(searchTerm) ||
-        (doc.description && doc.description.toLowerCase().includes(searchTerm)) ||
-        (doc.originalFileName && doc.originalFileName.toLowerCase().includes(searchTerm))
+      documents = documents.filter(
+        (doc) =>
+          doc.title.toLowerCase().includes(searchTerm) ||
+          (doc.description &&
+            doc.description.toLowerCase().includes(searchTerm)) ||
+          (doc.originalFileName &&
+            doc.originalFileName.toLowerCase().includes(searchTerm)),
       );
     }
 
     // Apply document type filter
     if (args.documentType) {
-      documents = documents.filter((doc) => doc.documentType === args.documentType);
+      documents = documents.filter(
+        (doc) => doc.documentType === args.documentType,
+      );
     }
 
     // Apply sorting
     if (args.sortBy && args.sortOrder) {
       documents.sort((a, b) => {
         let aValue, bValue;
-        
+
         switch (args.sortBy) {
           case "title":
             aValue = a.title.toLowerCase();
@@ -430,10 +445,12 @@ export const getDocumentsInFolder = query({
     }
 
     // Apply pagination
-    const offset = args.paginationOpts.cursor ? parseInt(args.paginationOpts.cursor) : 0;
+    const offset = args.paginationOpts.cursor
+      ? parseInt(args.paginationOpts.cursor)
+      : 0;
     const startIndex = offset;
     const endIndex = offset + args.paginationOpts.numItems;
-    
+
     const paginatedDocuments = documents.slice(startIndex, endIndex);
     const isDone = endIndex >= documents.length;
     const continueCursor = isDone ? null : endIndex.toString();
@@ -607,9 +624,12 @@ export const deleteDocument = mutation({
     }
 
     // Get team context from case to decrement usage from correct entity
-    const teamContext = await ctx.runQuery(internal.functions.cases.getCaseTeamContext, {
-      caseId: document.caseId
-    });
+    const teamContext = await ctx.runQuery(
+      internal.functions.cases.getCaseTeamContext,
+      {
+        caseId: document.caseId,
+      },
+    );
 
     const billing = await _getBillingEntity(ctx, {
       userId: currentUser._id,
@@ -691,25 +711,31 @@ export const createEscrito = mutation({
     // IDEMPOTENCY CHECK: Check if an escrito with this prosemirrorId already exists
     const existingEscrito = await ctx.db
       .query("escritos")
-      .withIndex("by_prosemirror_id", (q) => 
-        q.eq("prosemirrorId", args.prosemirrorId)
+      .withIndex("by_prosemirror_id", (q) =>
+        q.eq("prosemirrorId", args.prosemirrorId),
       )
       .first();
 
     if (existingEscrito) {
-      console.log("Escrito with prosemirrorId already exists:", existingEscrito._id);
+      console.log(
+        "Escrito with prosemirrorId already exists:",
+        existingEscrito._id,
+      );
       // Return the existing escrito instead of creating a duplicate
-      return { 
-        escritoId: existingEscrito._id, 
+      return {
+        escritoId: existingEscrito._id,
         prosemirrorId: existingEscrito.prosemirrorId,
-        alreadyExists: true 
+        alreadyExists: true,
       };
     }
 
     // Get team context
-    const teamContext = await ctx.runQuery(internal.functions.cases.getCaseTeamContext, {
-      caseId: args.caseId
-    });
+    const teamContext = await ctx.runQuery(
+      internal.functions.cases.getCaseTeamContext,
+      {
+        caseId: args.caseId,
+      },
+    );
 
     // Check escritos limit
     const existingEscritos = await ctx.db
@@ -755,7 +781,11 @@ export const createEscrito = mutation({
     });
 
     console.log("Created escrito with id:", escritoId);
-    return { escritoId, prosemirrorId: args.prosemirrorId, alreadyExists: false };
+    return {
+      escritoId,
+      prosemirrorId: args.prosemirrorId,
+      alreadyExists: false,
+    };
   },
 });
 
@@ -890,7 +920,7 @@ export const getEscritos = query({
     if (args.search && args.search.trim()) {
       const searchTerm = args.search.toLowerCase().trim();
       escritos = escritos.filter((escrito) =>
-        escrito.title.toLowerCase().includes(searchTerm)
+        escrito.title.toLowerCase().includes(searchTerm),
       );
     }
 
@@ -903,7 +933,7 @@ export const getEscritos = query({
     if (args.sortBy && args.sortOrder) {
       escritos.sort((a, b) => {
         let aValue, bValue;
-        
+
         switch (args.sortBy) {
           case "title":
             aValue = a.title.toLowerCase();
@@ -930,10 +960,12 @@ export const getEscritos = query({
     }
 
     // Apply pagination
-    const offset = args.paginationOpts.cursor ? parseInt(args.paginationOpts.cursor) : 0;
+    const offset = args.paginationOpts.cursor
+      ? parseInt(args.paginationOpts.cursor)
+      : 0;
     const startIndex = offset;
     const endIndex = offset + args.paginationOpts.numItems;
-    
+
     const paginatedEscritos = escritos.slice(startIndex, endIndex);
     const isDone = endIndex >= escritos.length;
     const continueCursor = isDone ? null : endIndex.toString();
@@ -952,7 +984,12 @@ export const getEscritosForAgent = internalQuery({
     caseId: v.id("cases"),
   },
   handler: async (ctx, args) => {
-    return await ctx.db.query("escritos").withIndex("by_case", (q) => q.eq("caseId", args.caseId)).filter((q) => q.eq(q.field("isArchived"), false)).order("desc").collect();
+    return await ctx.db
+      .query("escritos")
+      .withIndex("by_case", (q) => q.eq("caseId", args.caseId))
+      .filter((q) => q.eq(q.field("isArchived"), false))
+      .order("desc")
+      .collect();
   },
 });
 
@@ -1001,7 +1038,7 @@ export const internalGetEscrito = internalQuery({
   handler: async (ctx, args) => {
     return await ctx.db.get(args.escritoId);
   },
-})
+});
 
 /**
  * Archives or unarchives an escrito.
@@ -1049,9 +1086,12 @@ export const archiveEscrito = mutation({
     await ctx.db.patch(args.escritoId, { isArchived: args.isArchived });
 
     // Get team context from case to update usage counter from correct entity
-    const teamContext = await ctx.runQuery(internal.functions.cases.getCaseTeamContext, {
-      caseId: escrito.caseId
-    });
+    const teamContext = await ctx.runQuery(
+      internal.functions.cases.getCaseTeamContext,
+      {
+        caseId: escrito.caseId,
+      },
+    );
 
     const billing = await _getBillingEntity(ctx, {
       userId: currentUser._id,
@@ -1126,8 +1166,8 @@ export const getArchivedEscritos = query({
  *
  * @example
  * ```javascript
- * const results = await searchEscritos({ 
- *   caseId: "case_123", 
+ * const results = await searchEscritos({
+ *   caseId: "case_123",
  *   query: "motion",
  *   limit: 10
  * });
@@ -1161,9 +1201,7 @@ export const searchEscritos = query({
 
     // Filter by search term and limit results
     return escritos
-      .filter((escrito) => 
-        escrito.title.toLowerCase().includes(searchTerm)
-      )
+      .filter((escrito) => escrito.title.toLowerCase().includes(searchTerm))
       .sort((a, b) => b.lastEditedAt - a.lastEditedAt)
       .slice(0, limit);
   },
@@ -1182,8 +1220,8 @@ export const searchEscritos = query({
  *
  * @example
  * ```javascript
- * const recent = await getRecentEscritos({ 
- *   caseId: "case_123", 
+ * const recent = await getRecentEscritos({
+ *   caseId: "case_123",
  *   limit: 5
  * });
  * ```
@@ -1226,7 +1264,7 @@ export const getRecentEscritos = query({
  *
  * @example
  * ```javascript
- * const allDocs = await getAllDocumentsInFolder({ 
+ * const allDocs = await getAllDocumentsInFolder({
  *   caseId: "case_123",
  *   folderId: "folder_456"
  * });
