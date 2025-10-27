@@ -11,37 +11,162 @@ const EMPTY_DOC = {
 };
 
 /**
+ * Validates HTML content before conversion to TipTap JSON
+ * @param html - The HTML string to validate
+ * @returns Object with validation result and sanitized HTML
+ */
+function validateHtmlContent(html: string): { isValid: boolean; sanitizedHtml: string; error?: string } {
+  if (!html || typeof html !== 'string') {
+    return { isValid: false, sanitizedHtml: '', error: 'Invalid HTML content' };
+  }
+
+  // Check for basic HTML structure
+  const trimmedHtml = html.trim();
+  if (trimmedHtml.length === 0) {
+    return { isValid: false, sanitizedHtml: '', error: 'Empty HTML content' };
+  }
+
+  // Basic validation - check for common issues
+  const hasValidStructure = trimmedHtml.includes('<') && trimmedHtml.includes('>');
+  if (!hasValidStructure) {
+    return { isValid: false, sanitizedHtml: trimmedHtml, error: 'Invalid HTML structure' };
+  }
+
+  // Check for potentially problematic content
+  const hasScriptTags = /<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi.test(trimmedHtml);
+  if (hasScriptTags) {
+    return { isValid: false, sanitizedHtml: trimmedHtml, error: 'HTML contains script tags which are not allowed' };
+  }
+
+  // Check for extremely large content
+  if (trimmedHtml.length > 1000000) { // 1MB limit
+    return { isValid: false, sanitizedHtml: trimmedHtml, error: 'HTML content is too large' };
+  }
+
+  return { isValid: true, sanitizedHtml: trimmedHtml };
+}
+
+export interface TemplateResult {
+  content: JSONContent;
+  isLoading: boolean;
+  error: string | null;
+  templateNotFound: boolean;
+}
+
+/**
  * Custom hook to fetch and process a template for use in the TipTap editor.
  * 
  * This hook retrieves a template from the database and converts its HTML content
- * to JSON format that can be consumed by the TipTap editor.
+ * to JSON format that can be consumed by the TipTap editor. Includes proper
+ * error handling, loading states, and validation.
  * 
  * @param templateId - The unique identifier of the template to fetch (null to skip)
- * @returns The template content converted to TipTap JSON format, or EMPTY_DOC if no template
+ * @returns TemplateResult object with content, loading state, and error information
  * 
  * @example
  * ```tsx
  * const templateId = "k1234567890abcdef" as Id<"modelos">;
- * const jsonDoc = useTemplate({ templateId });
+ * const { content, isLoading, error, templateNotFound } = useTemplate({ templateId });
  * 
  * // Or skip loading template
- * const jsonDoc = useTemplate({ templateId: null });
+ * const { content } = useTemplate({ templateId: null });
  * ```
  */
-export function useTemplate({ templateId }: { templateId: Id<"modelos"> | null }) {
-
+export function useTemplate({ templateId }: { templateId: Id<"modelos"> | null }): TemplateResult {
     const template = useQuery(
         api.functions.templates.getModelo, 
         templateId ? { modeloId: templateId } : "skip"
     );
     
+    // No template requested
     if (!templateId) {
-        return EMPTY_DOC;
+        return {
+            content: EMPTY_DOC,
+            isLoading: false,
+            error: null,
+            templateNotFound: false
+        };
     }
     
-    const jsonDoc = generateJSON(template?.content || "", extensions);  
+    // Template is still loading
+    if (template === undefined) {
+        return {
+            content: EMPTY_DOC,
+            isLoading: true,
+            error: null,
+            templateNotFound: false
+        };
+    }
     
-    return jsonDoc;
+    // Template not found
+    if (template === null) {
+        console.warn(`Template with ID ${templateId} not found or access denied`);
+        return {
+            content: EMPTY_DOC,
+            isLoading: false,
+            error: `Template not found or you don't have access to it`,
+            templateNotFound: true
+        };
+    }
+    
+    // Validate template content
+    if (!template.content || typeof template.content !== 'string') {
+        console.warn(`Template ${templateId} has no content or invalid content type`);
+        return {
+            content: EMPTY_DOC,
+            isLoading: false,
+            error: `Template "${template.name}" has no content`,
+            templateNotFound: false
+        };
+    }
+    
+    // Validate HTML content before conversion
+    const htmlValidation = validateHtmlContent(template.content);
+    if (!htmlValidation.isValid) {
+        console.warn(`Template ${templateId} has invalid HTML content:`, htmlValidation.error);
+        return {
+            content: EMPTY_DOC,
+            isLoading: false,
+            error: `Template "${template.name}" has invalid content: ${htmlValidation.error}`,
+            templateNotFound: false
+        };
+    }
+    
+    // Convert HTML to JSON with error handling
+    try {
+        const jsonDoc = generateJSON(htmlValidation.sanitizedHtml, extensions);
+        
+        // Validate the generated JSON has proper structure
+        if (!jsonDoc || !jsonDoc.type || jsonDoc.type !== 'doc') {
+            throw new Error('Generated JSON is not a valid TipTap document');
+        }
+        
+        // Additional validation: ensure the document has some content
+        if (!jsonDoc.content || (Array.isArray(jsonDoc.content) && jsonDoc.content.length === 0)) {
+            console.warn(`Template ${templateId} generated empty document content`);
+            return {
+                content: EMPTY_DOC,
+                isLoading: false,
+                error: `Template "${template.name}" appears to be empty or contains no valid content`,
+                templateNotFound: false
+            };
+        }
+        
+        return {
+            content: jsonDoc,
+            isLoading: false,
+            error: null,
+            templateNotFound: false
+        };
+    } catch (error) {
+        console.error(`Error converting template ${templateId} to JSON:`, error);
+        return {
+            content: EMPTY_DOC,
+            isLoading: false,
+            error: `Failed to load template "${template.name}". The template content may be corrupted or incompatible.`,
+            templateNotFound: false
+        };
+    }
 }
 
 /**

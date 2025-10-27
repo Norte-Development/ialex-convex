@@ -128,6 +128,7 @@ import type * as rag_rag from "../rag/rag.js";
 import type * as rag_utils from "../rag/utils.js";
 import type * as services_emailTemplates from "../services/emailTemplates.js";
 import type * as services_notificationService from "../services/notificationService.js";
+import type * as services_teamInviteTemplates from "../services/teamInviteTemplates.js";
 import type * as stripe from "../stripe.js";
 import type * as utils_fallosService from "../utils/fallosService.js";
 import type * as utils_gcs from "../utils/gcs.js";
@@ -269,6 +270,7 @@ declare const fullApi: ApiFromModules<{
   "rag/utils": typeof rag_utils;
   "services/emailTemplates": typeof services_emailTemplates;
   "services/notificationService": typeof services_notificationService;
+  "services/teamInviteTemplates": typeof services_teamInviteTemplates;
   stripe: typeof stripe;
   "utils/fallosService": typeof utils_fallosService;
   "utils/gcs": typeof utils_gcs;

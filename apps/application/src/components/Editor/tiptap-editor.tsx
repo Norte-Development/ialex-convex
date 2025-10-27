@@ -14,6 +14,14 @@ import { Id } from "../../../convex/_generated/dataModel";
 import EscritosLoadingState from "../Escritos/EscritosLoadingState";
 import { useMutation } from "convex/react";
 import { useSearchParams } from "react-router-dom";
+import { Alert, AlertDescription } from "../ui/alert";
+import { AlertTriangle, Loader2 } from "lucide-react";
+import { Button } from "../ui/button";
+
+const EMPTY_DOC = {
+  type: "doc",
+  content: [{ type: "paragraph", attrs: { textAlign: null }, content: [] }],
+};
 
 interface TiptapProps {
   documentId?: string;
@@ -51,7 +59,8 @@ export const Tiptap = forwardRef<TiptapRef, TiptapProps>(
     const templateAppliedRef = useRef(false);
 
     // Always call useTemplate hook to maintain hook order (passes null to skip when no template)
-    const initialContent = useTemplate({ templateId });
+    const templateResult = useTemplate({ templateId });
+    const { content: initialContent, isLoading: templateLoading, error: templateError, templateNotFound } = templateResult;
 
     const editor = useEditor(
       {
@@ -134,11 +143,27 @@ export const Tiptap = forwardRef<TiptapRef, TiptapProps>(
 
         // Normal template/empty document flow
         if (templateId && !templateAppliedRef.current) {
+          // Check if template loading failed
+          if (templateError) {
+            console.error("Template loading failed:", templateError);
+            // Still create document but with empty content
+            sync.create(EMPTY_DOC as JSONContent);
+            templateAppliedRef.current = true;
+            return;
+          }
+
+          // Check if template is still loading
+          if (templateLoading) {
+            return; // Wait for template to load
+          }
+
           sync.create(initialContent as JSONContent);
           templateAppliedRef.current = true;
 
-          // Increment template usage counter
-          incrementModeloUsage({ modeloId: templateId });
+          // Increment template usage counter only if template loaded successfully
+          if (!templateNotFound && !templateError) {
+            incrementModeloUsage({ modeloId: templateId });
+          }
 
           // Remove templateId from URL after applying to prevent reapplication on reload
           const newSearchParams = new URLSearchParams(searchParams);
@@ -154,6 +179,9 @@ export const Tiptap = forwardRef<TiptapRef, TiptapProps>(
       sync,
       templateId,
       initialContent,
+      templateLoading,
+      templateError,
+      templateNotFound,
       searchParams,
       setSearchParams,
       incrementModeloUsage,
@@ -184,7 +212,8 @@ export const Tiptap = forwardRef<TiptapRef, TiptapProps>(
       },
     }));
 
-    if (sync.isLoading) return <EscritosLoadingState />;
+    // Show loading state for sync or template loading
+    if (sync.isLoading || templateLoading) return <EscritosLoadingState />;
     if (!editor) return <EscritosLoadingState />;
 
     return (
@@ -195,6 +224,31 @@ export const Tiptap = forwardRef<TiptapRef, TiptapProps>(
           <div className="bg-amber-50 border-b border-amber-200 px-4 py-2 text-amber-800 text-sm">
             Modo de solo lectura - No tienes permisos para editar este escrito
           </div>
+        )}
+
+        {/* Template loading error feedback */}
+        {templateError && (
+          <Alert className="mx-4 mt-4 border-orange-200 bg-orange-50">
+            <AlertTriangle className="h-4 w-4 text-orange-600" />
+            <AlertDescription className="text-orange-800">
+              <div className="flex items-center justify-between">
+                <span>{templateError}</span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    // Remove templateId from URL to continue with empty document
+                    const newSearchParams = new URLSearchParams(searchParams);
+                    newSearchParams.delete("templateId");
+                    setSearchParams(newSearchParams, { replace: true });
+                  }}
+                  className="ml-2 text-orange-700 border-orange-300 hover:bg-orange-100"
+                >
+                  Continuar sin plantilla
+                </Button>
+              </div>
+            </AlertDescription>
+          </Alert>
         )}
 
         <EditorContent editor={editor} className="w-full min-h-[600px]" />
