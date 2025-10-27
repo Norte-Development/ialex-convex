@@ -9,7 +9,6 @@ import {
   TextStyle,
 } from "@tiptap/extension-text-style";
 import Image from "@tiptap/extension-image";
-import Margin from "tiptap-extension-margin";
 import { Table } from "@tiptap/extension-table";
 import { TableRow } from "@tiptap/extension-table-row";
 import { TableHeader } from "@tiptap/extension-table-header";
@@ -41,9 +40,7 @@ export const extensions = [
   TrackingExtension,
   TextAlign.configure({ types: ["heading", "paragraph"] }),
   Underline,
-  Margin.configure({
-    types: ["heading", "paragraph"],
-  }),
+
   // Image extension
   Image.configure({
     inline: true,
