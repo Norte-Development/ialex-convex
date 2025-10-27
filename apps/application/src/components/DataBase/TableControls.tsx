@@ -94,14 +94,13 @@ export function TableControls({
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="relevancia">Relevancia</SelectItem>
-            {contentType === "legislation" || contentType === "all" ? (
+            {contentType === "legislation" ? (
               <>
                 <SelectItem value="sanction_date">Sanción</SelectItem>
                 <SelectItem value="updated_at">Actualizado</SelectItem>
                 <SelectItem value="created_at">Creado</SelectItem>
               </>
-            ) : null}
-            {contentType === "fallos" || contentType === "all" ? (
+            ) : contentType === "fallos" ? (
               <>
                 <SelectItem value="date">Fecha del fallo</SelectItem>
                 <SelectItem value="sanction_date">Promulgación</SelectItem>
@@ -112,7 +111,16 @@ export function TableControls({
                 <SelectItem value="promulgacion" className="hidden">Promulgación (legacy)</SelectItem>
                 <SelectItem value="publicacion" className="hidden">Publicación (legacy)</SelectItem>
               </>
-            ) : null}
+            ) : (
+              // contentType === "all" - show combined options without duplicates
+              <>
+                <SelectItem value="sanction_date">Sanción/Promulgación</SelectItem>
+                <SelectItem value="updated_at">Actualizado</SelectItem>
+                <SelectItem value="created_at">Creado</SelectItem>
+                <SelectItem value="date">Fecha del fallo</SelectItem>
+                <SelectItem value="publication_date">Publicación</SelectItem>
+              </>
+            )}
           </SelectContent>
         </Select>
         {!isSearchMode && (
