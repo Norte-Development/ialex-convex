@@ -36,7 +36,7 @@ export function ActiveFilters({
       )}
       {activeFilters.map(([key, value]) => (
         <Badge key={key} variant="secondary" className="gap-1">
-          {key}: {String(value)}
+          {key === "search" ? "Búsqueda" : key.replace("_", " ")}: {String(value)}
           <button
             onClick={() => onRemoveFilter(key as keyof NormativeFilters)}
             className="hover:text-red-600"

@@ -14,6 +14,7 @@ export default function AcceptInvitePage() {
   const { isSignedIn } = useAuth();
   const [isAccepting, setIsAccepting] = useState(false);
   const [acceptanceComplete, setAcceptanceComplete] = useState(false);
+  const [acceptedTeamName, setAcceptedTeamName] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const token = searchParams.get('token');
@@ -35,23 +36,29 @@ export default function AcceptInvitePage() {
   }, [isSignedIn, inviteDetails]);
 
   const handleAcceptInvite = async () => {
-    if (!token) return;
+    if (!token || !inviteDetails) return;
 
     setIsAccepting(true);
     setError(null);
+    
+    // Store team name before accepting to prevent losing it due to real-time updates
+    setAcceptedTeamName(inviteDetails.teamName);
+    
     try {
       await acceptInvite({ token });
+      // Set success state immediately after successful mutation
       setAcceptanceComplete(true);
     } catch (error) {
       console.error("Error accepting invitation:", error);
       setError((error as Error).message);
+      setAcceptedTeamName(null); // Clear stored team name on error
     } finally {
       setIsAccepting(false);
     }
   };
 
   const handleGoToTeams = () => {
-    navigate('/equipos');
+    navigate('/equipo');
   };
 
   // Loading state
@@ -86,7 +93,8 @@ export default function AcceptInvitePage() {
     );
   }
 
-  if (!inviteDetails) {
+  // Only show error state if invitation was never valid (not after successful acceptance)
+  if (!inviteDetails && !acceptanceComplete) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <Card className="w-full max-w-md">
@@ -102,7 +110,7 @@ export default function AcceptInvitePage() {
     );
   }
 
-  // Success state
+  // Success state - show this if acceptance is complete, regardless of inviteDetails state
   if (acceptanceComplete) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
@@ -111,7 +119,7 @@ export default function AcceptInvitePage() {
             <CheckCircle className="h-12 w-12 text-green-500 mx-auto mb-4" />
             <CardTitle className="text-green-600">¡Invitación Aceptada!</CardTitle>
             <CardDescription>
-              Te has unido exitosamente al equipo <strong>{inviteDetails.teamName}</strong>.
+              Te has unido exitosamente al equipo <strong>{acceptedTeamName || "el equipo"}</strong>.
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -149,6 +157,11 @@ export default function AcceptInvitePage() {
         return role;
     }
   };
+
+  // Don't render invitation details if we don't have valid data
+  if (!inviteDetails) {
+    return null;
+  }
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">

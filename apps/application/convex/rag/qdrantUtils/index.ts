@@ -27,3 +27,6 @@ export {
 
 // Export legislation functions
 export { searchNormatives } from './legislation';
+
+// Export fallos functions
+export { searchFallos, getFalloChunksByRange, getFalloChunkCount } from './fallos';

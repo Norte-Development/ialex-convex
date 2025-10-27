@@ -48,6 +48,9 @@ import type * as agents_tools_escritos_manageEscritoTool from "../agents/tools/e
 import type * as agents_tools_escritos_readEscritoTool from "../agents/tools/escritos/readEscritoTool.js";
 import type * as agents_tools_escritos_rewriteEscritoSectionTool from "../agents/tools/escritos/rewriteEscritoSectionTool.js";
 import type * as agents_tools_escritos_templates from "../agents/tools/escritos/templates.js";
+import type * as agents_tools_fallos_index from "../agents/tools/fallos/index.js";
+import type * as agents_tools_fallos_readFallosTool from "../agents/tools/fallos/readFallosTool.js";
+import type * as agents_tools_fallos_searchFallosTool from "../agents/tools/fallos/searchFallosTool.js";
 import type * as agents_tools_index from "../agents/tools/index.js";
 import type * as agents_tools_legislation_index from "../agents/tools/legislation/index.js";
 import type * as agents_tools_legislation_legislationFindTool from "../agents/tools/legislation/legislationFindTool.js";
@@ -93,6 +96,7 @@ import type * as functions_escritosTransforms_rewriteSectionByAnchors from "../f
 import type * as functions_escritosTransforms_types from "../functions/escritosTransforms/types.js";
 import type * as functions_eventNotifications from "../functions/eventNotifications.js";
 import type * as functions_events from "../functions/events.js";
+import type * as functions_fallos from "../functions/fallos.js";
 import type * as functions_folders from "../functions/folders.js";
 import type * as functions_html from "../functions/html.js";
 import type * as functions_index from "../functions/index.js";
@@ -114,6 +118,8 @@ import type * as migrations_addEventPreferences from "../migrations/addEventPref
 import type * as prosemirror from "../prosemirror.js";
 import type * as rag_qdrantUtils_caseDocuments from "../rag/qdrantUtils/caseDocuments.js";
 import type * as rag_qdrantUtils_client from "../rag/qdrantUtils/client.js";
+import type * as rag_qdrantUtils_fallos from "../rag/qdrantUtils/fallos.js";
+import type * as rag_qdrantUtils_fallosConfig from "../rag/qdrantUtils/fallosConfig.js";
 import type * as rag_qdrantUtils_index from "../rag/qdrantUtils/index.js";
 import type * as rag_qdrantUtils_legislation from "../rag/qdrantUtils/legislation.js";
 import type * as rag_qdrantUtils_legislationConfig from "../rag/qdrantUtils/legislationConfig.js";
@@ -123,7 +129,9 @@ import type * as rag_rag from "../rag/rag.js";
 import type * as rag_utils from "../rag/utils.js";
 import type * as services_emailTemplates from "../services/emailTemplates.js";
 import type * as services_notificationService from "../services/notificationService.js";
+import type * as services_teamInviteTemplates from "../services/teamInviteTemplates.js";
 import type * as stripe from "../stripe.js";
+import type * as utils_fallosService from "../utils/fallosService.js";
 import type * as utils_gcs from "../utils/gcs.js";
 import type * as utils_legislationService from "../utils/legislationService.js";
 import type * as utils_resend from "../utils/resend.js";
@@ -183,6 +191,9 @@ declare const fullApi: ApiFromModules<{
   "agents/tools/escritos/readEscritoTool": typeof agents_tools_escritos_readEscritoTool;
   "agents/tools/escritos/rewriteEscritoSectionTool": typeof agents_tools_escritos_rewriteEscritoSectionTool;
   "agents/tools/escritos/templates": typeof agents_tools_escritos_templates;
+  "agents/tools/fallos/index": typeof agents_tools_fallos_index;
+  "agents/tools/fallos/readFallosTool": typeof agents_tools_fallos_readFallosTool;
+  "agents/tools/fallos/searchFallosTool": typeof agents_tools_fallos_searchFallosTool;
   "agents/tools/index": typeof agents_tools_index;
   "agents/tools/legislation/index": typeof agents_tools_legislation_index;
   "agents/tools/legislation/legislationFindTool": typeof agents_tools_legislation_legislationFindTool;
@@ -228,6 +239,7 @@ declare const fullApi: ApiFromModules<{
   "functions/escritosTransforms/types": typeof functions_escritosTransforms_types;
   "functions/eventNotifications": typeof functions_eventNotifications;
   "functions/events": typeof functions_events;
+  "functions/fallos": typeof functions_fallos;
   "functions/folders": typeof functions_folders;
   "functions/html": typeof functions_html;
   "functions/index": typeof functions_index;
@@ -249,6 +261,8 @@ declare const fullApi: ApiFromModules<{
   prosemirror: typeof prosemirror;
   "rag/qdrantUtils/caseDocuments": typeof rag_qdrantUtils_caseDocuments;
   "rag/qdrantUtils/client": typeof rag_qdrantUtils_client;
+  "rag/qdrantUtils/fallos": typeof rag_qdrantUtils_fallos;
+  "rag/qdrantUtils/fallosConfig": typeof rag_qdrantUtils_fallosConfig;
   "rag/qdrantUtils/index": typeof rag_qdrantUtils_index;
   "rag/qdrantUtils/legislation": typeof rag_qdrantUtils_legislation;
   "rag/qdrantUtils/legislationConfig": typeof rag_qdrantUtils_legislationConfig;
@@ -258,7 +272,9 @@ declare const fullApi: ApiFromModules<{
   "rag/utils": typeof rag_utils;
   "services/emailTemplates": typeof services_emailTemplates;
   "services/notificationService": typeof services_notificationService;
+  "services/teamInviteTemplates": typeof services_teamInviteTemplates;
   stripe: typeof stripe;
+  "utils/fallosService": typeof utils_fallosService;
   "utils/gcs": typeof utils_gcs;
   "utils/legislationService": typeof utils_legislationService;
   "utils/resend": typeof utils_resend;

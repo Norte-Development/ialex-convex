@@ -15,7 +15,7 @@ import { api } from "../../../convex/_generated/api";
 import { useQuery } from "@tanstack/react-query";
 
 export default function CaseDataBasePage() {
-  const [category, setCategory] = useState("ley");
+
   
   const getNormativesFacets = useAction(api.functions.legislation.getNormativesFacets);
 
@@ -37,24 +37,6 @@ export default function CaseDataBasePage() {
       <section
         className={`w-full h-full bg-white flex pt-5  flex-col gap-5 px-5`}
       >
-        <div className="flex gap-2">
-          <Input
-            placeholder="buscar palabra clave"
-            className="bg-gray-200 p-1 w-[30%]"
-          />
-          <Select onValueChange={setCategory}>
-            <SelectTrigger className="w-[30%] text-sm" size="sm">
-              <SelectValue placeholder="Todas las categorías" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectGroup>
-                <SelectItem value="ley">Ley</SelectItem>
-                <SelectItem value="reglamento">Reglamento</SelectItem>
-                <SelectItem value="decreto">Decreto</SelectItem>
-              </SelectGroup>
-            </SelectContent>
-          </Select>
-        </div>
         <DataBaseTable jurisdictions={availableJurisdictions} />
       </section>
     </CaseLayout>

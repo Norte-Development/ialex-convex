@@ -15,6 +15,7 @@ export default function SignupInvitePage() {
   const { isSignedIn } = useAuth();
   const [isAccepting, setIsAccepting] = useState(false);
   const [acceptanceComplete, setAcceptanceComplete] = useState(false);
+  const [acceptedTeamName, setAcceptedTeamName] = useState<string | null>(null);
   const [showSignUp, setShowSignUp] = useState(false);
 
   const token = searchParams.get('token');
@@ -33,6 +34,10 @@ export default function SignupInvitePage() {
     const autoJoinTeam = async () => {
       if (isSignedIn && clerkUser && token && inviteDetails && !acceptanceComplete && !isAccepting) {
         setIsAccepting(true);
+        
+        // Store team name before accepting to prevent losing it due to real-time updates
+        setAcceptedTeamName(inviteDetails.teamName);
+        
         try {
           const email = clerkUser.emailAddresses[0]?.emailAddress || "";
           const name = clerkUser.fullName || clerkUser.firstName || "Usuario";
@@ -43,11 +48,13 @@ export default function SignupInvitePage() {
             name: name,
             token: token,
           });
+          // Set success state immediately after successful mutation
           setAcceptanceComplete(true);
         } catch (error) {
           console.error("Error joining team:", error);
           // For signup flow, we'll show the error in the UI instead of alert
           setIsAccepting(false);
+          setAcceptedTeamName(null); // Clear stored team name on error
         }
       }
     };
@@ -56,7 +63,7 @@ export default function SignupInvitePage() {
   }, [isSignedIn, clerkUser, token, inviteDetails, acceptanceComplete, isAccepting, createUserAndJoinTeam]);
 
   const handleGoToTeams = () => {
-    navigate('/equipos');
+    navigate('/equipo');
   };
 
   const handleCreateAccount = () => {
@@ -95,7 +102,8 @@ export default function SignupInvitePage() {
     );
   }
 
-  if (!inviteDetails) {
+  // Only show error state if invitation was never valid (not after successful acceptance)
+  if (!inviteDetails && !acceptanceComplete) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <Card className="w-full max-w-md">
@@ -111,7 +119,7 @@ export default function SignupInvitePage() {
     );
   }
 
-  // Success state
+  // Success state - show this if acceptance is complete, regardless of inviteDetails state
   if (acceptanceComplete) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
@@ -120,7 +128,7 @@ export default function SignupInvitePage() {
             <CheckCircle className="h-12 w-12 text-green-500 mx-auto mb-4" />
             <CardTitle className="text-green-600">¡Cuenta Creada y Equipo Unido!</CardTitle>
             <CardDescription>
-              Has creado tu cuenta exitosamente y te has unido al equipo <strong>{inviteDetails.teamName}</strong>.
+              Has creado tu cuenta exitosamente y te has unido al equipo <strong>{acceptedTeamName || "el equipo"}</strong>.
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -156,7 +164,7 @@ export default function SignupInvitePage() {
         <div className="w-full max-w-md">
           <div className="mb-6 text-center">
             <h2 className="text-2xl font-bold text-gray-900 mb-2">
-              Crear Cuenta para {inviteDetails.teamName}
+              Crear Cuenta para {inviteDetails?.teamName || "el equipo"}
             </h2>
             <p className="text-gray-600">
               Completa tu registro para unirte al equipo
@@ -165,9 +173,6 @@ export default function SignupInvitePage() {
           
           <SignUp 
             redirectUrl={window.location.href}
-            localization={{
-              locale: "es"
-            }}
             appearance={{
               elements: {
                 formButtonPrimary: "bg-blue-600 hover:bg-blue-700 text-sm normal-case",
@@ -220,6 +225,11 @@ export default function SignupInvitePage() {
         return role;
     }
   };
+
+  // Don't render invitation details if we don't have valid data
+  if (!inviteDetails) {
+    return null;
+  }
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">

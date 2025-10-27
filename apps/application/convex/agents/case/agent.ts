@@ -27,6 +27,9 @@ import {
 
   searchDoctrineTool,
   readDoctrineTool,
+
+  searchFallosTool,
+  readFallosTool,
 } from "../tools";
 
 const openrouter = createOpenRouter({
@@ -86,6 +89,8 @@ export const agent = new Agent(components.agent, {
     readLibraryDocument: readLibraryDocumentTool,
     searchDoctrine: searchDoctrineTool,
     readDoctrine: readDoctrineTool,
+    searchFallos: searchFallosTool,
+    readFallos: readFallosTool,
   }
 });
 

@@ -1,17 +1,19 @@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select"
-import type { SortBy, SortOrder } from "../../../types/legislation"
+import type { SortOrder, ContentType, UnifiedSortBy } from "../../../types/legislation"
 
 interface TableControlsProps {
   jurisdiction: string
   jurisdictions: string[]
   onJurisdictionChange: (jurisdiction: string) => void
   isSearchMode: boolean
-  sortBy: SortBy
+  sortBy: UnifiedSortBy
   sortOrder: SortOrder
   pageSize: number
-  onSortChange: (sortBy: SortBy | "relevancia", sortOrder: SortOrder) => void
+  onSortChange: (sortBy: UnifiedSortBy, sortOrder: SortOrder) => void
   onPageSizeChange: (pageSize: number) => void
-  jurisdictionCounts?: Record<string, number>
+  jurisdictionCounts?: Array<{ name: string; count: number }>
+  contentType: ContentType
+  onContentTypeChange: (contentType: ContentType) => void
 }
 
 export function TableControls({
@@ -25,6 +27,8 @@ export function TableControls({
   onSortChange,
   onPageSizeChange,
   jurisdictionCounts,
+  contentType,
+  onContentTypeChange,
 }: TableControlsProps) {
   const getJurisdictionLabel = (jur: string) => {
     if (jur === "all") return "Todas"
@@ -36,12 +40,27 @@ export function TableControls({
   const getJurisdictionLabelWithCount = (jur: string) => {
     const label = getJurisdictionLabel(jur)
     if (jur === "all" || !jurisdictionCounts) return label
-    const count = jurisdictionCounts[jur]
-    return count !== undefined ? `${label} (${count.toLocaleString()})` : label
+    const facet = jurisdictionCounts.find((f) => f.name === jur)
+    return facet ? `${label} (${facet.count.toLocaleString()})` : label
   }
+
 
   return (
     <div className="flex flex-wrap gap-4 items-center">
+      <div className="flex items-center gap-2">
+        <span className="text-sm font-medium text-gray-700">Tipo de contenido:</span>
+        <Select value={contentType} onValueChange={onContentTypeChange}>
+          <SelectTrigger className="w-[180px] bg-white">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Todos</SelectItem>
+            <SelectItem value="legislation">Legislación</SelectItem>
+            <SelectItem value="fallos">Fallos</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+
       <div className="flex items-center gap-2">
         <span className="text-sm font-medium text-gray-700">Jurisdicción:</span>
         <Select value={jurisdiction} onValueChange={onJurisdictionChange}>
@@ -66,7 +85,7 @@ export function TableControls({
             if (value === "relevancia") {
               onSortChange("relevancia", sortOrder)
             } else {
-              onSortChange(value as SortBy, sortOrder)
+              onSortChange(value as UnifiedSortBy, sortOrder)
             }
           }}
         >
@@ -75,9 +94,25 @@ export function TableControls({
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="relevancia">Relevancia</SelectItem>
-            <SelectItem value="sanction_date">Sanción</SelectItem>
-            <SelectItem value="updated_at">Actualizado</SelectItem>
-            <SelectItem value="created_at">Creado</SelectItem>
+            {contentType === "legislation" || contentType === "all" ? (
+              <>
+                <SelectItem value="sanction_date">Sanción</SelectItem>
+                <SelectItem value="updated_at">Actualizado</SelectItem>
+                <SelectItem value="created_at">Creado</SelectItem>
+              </>
+            ) : null}
+            {contentType === "fallos" || contentType === "all" ? (
+              <>
+                <SelectItem value="date">Fecha del fallo</SelectItem>
+                <SelectItem value="sanction_date">Promulgación</SelectItem>
+                <SelectItem value="publication_date">Publicación</SelectItem>
+                <SelectItem value="updated_at">Actualizado</SelectItem>
+                {/* Legacy options for backward compatibility - hidden but selectable */}
+                <SelectItem value="fecha" className="hidden">Fecha (legacy)</SelectItem>
+                <SelectItem value="promulgacion" className="hidden">Promulgación (legacy)</SelectItem>
+                <SelectItem value="publicacion" className="hidden">Publicación (legacy)</SelectItem>
+              </>
+            ) : null}
           </SelectContent>
         </Select>
         {!isSearchMode && (

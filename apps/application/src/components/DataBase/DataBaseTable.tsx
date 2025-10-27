@@ -1,22 +1,24 @@
 "use client";
 
 import type React from "react";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useAction } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import { useQuery } from "@tanstack/react-query";
+import { useSearchParams } from "react-router-dom";
 import { Button } from "../ui/button";
 import { Badge } from "../ui/badge";
 import { Filter } from "lucide-react";
 import type {
   NormativeFilters,
-  SortBy,
   SortOrder,
+  ContentType,
+  UnifiedSortBy,
 } from "../../../types/legislation";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "../ui/sheet";
 import { StaticControls } from "./StaticControls";
 import { DataTableContainer } from "./DataTableContainer";
-import { NormativeDetails } from "./NormativeDetails";
+import { DocumentDetails } from "./DocumentDetails";
 
 interface DataBaseTableProps {
   jurisdictions?: string[];
@@ -31,12 +33,13 @@ interface TableState {
   filters: NormativeFilters;
   page: number;
   pageSize: number;
-  sortBy: SortBy;
+  sortBy: UnifiedSortBy;
   sortOrder: SortOrder;
   selectedNormativeId: string | null;
   isDetailsOpen: boolean;
   jurisdiction: string;
   totalResults: number;
+  contentType: ContentType;
 }
 
 const initialState: TableState = {
@@ -47,25 +50,43 @@ const initialState: TableState = {
   filters: {},
   page: 1,
   pageSize: 25,
-  sortBy: "sanction_date",
+  sortBy: "updated_at", // Common to both legislation and fallos
   sortOrder: "desc",
   selectedNormativeId: null,
   isDetailsOpen: false,
   jurisdiction: "all",
   totalResults: 0,
+  contentType: "all",
 };
 
 export default function DataBaseTable({
-  jurisdictions = ["all"],
-  isInitialLoad = false,
+  jurisdictions = ["nac"],
 }: DataBaseTableProps) {
   const [state, setState] = useState<TableState>(initialState);
+  const [searchParams, setSearchParams] = useSearchParams();
+  
   const actions = {
     getNormativesFacets: useAction(
       api.functions.legislation.getNormativesFacets,
     ),
+    getFallosFacets: useAction(
+      api.functions.fallos.getFallosFacets,
+    ),
     getNormativeById: useAction(api.functions.legislation.getNormativeById),
+    getFallo: useAction(api.functions.fallos.getFallo),
   };
+
+  // Initialize state from URL params
+  useEffect(() => {
+    const contentType = (searchParams.get("contentType") as ContentType) || "all";
+    const jurisdiction = searchParams.get("jurisdiction") || "all";
+    
+    setState(prev => ({
+      ...prev,
+      contentType,
+      jurisdiction,
+    }));
+  }, [searchParams]);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -79,8 +100,8 @@ export default function DataBaseTable({
 
   // Fetch facets for filter options (types, estados, years)
   // This updates based on current filters to show relevant counts
-  const { data: facets, isLoading: isFacetsLoading } = useQuery({
-    queryKey: ["normatives-facets", state.jurisdiction, state.filters],
+  const { data: normativesFacets } = useQuery({
+    queryKey: ["normatives-facets", state.jurisdiction, state.filters, state.contentType],
     queryFn: () => {
       const facetFilters = { ...state.filters };
       // Only add jurisdiction filter if not "all"
@@ -91,8 +112,74 @@ export default function DataBaseTable({
         filters: facetFilters,
       });
     },
+    enabled: state.contentType === "legislation" || state.contentType === "all",
     staleTime: 5 * 60 * 1000,
   });
+
+  const { data: fallosFacets } = useQuery({
+    queryKey: ["fallos-facets", state.jurisdiction, state.filters, state.contentType],
+    queryFn: () => {
+      const facetFilters: any = { ...state.filters };
+      // Only add jurisdiction filter if not "all"
+      if (state.jurisdiction !== "all") {
+        facetFilters.jurisdiccion = state.jurisdiction;
+      }
+      return actions.getFallosFacets({
+        filters: facetFilters,
+      });
+    },
+    enabled: state.contentType === "fallos" || state.contentType === "all",
+    staleTime: 5 * 60 * 1000,
+  });
+
+  // Combine facets for "all" view
+  const facets = useMemo(() => {
+    if (state.contentType === "legislation") {
+      return normativesFacets;
+    } else if (state.contentType === "fallos") {
+      return fallosFacets;
+    } else {
+      // "all" - combine facets
+      const combinedJurisdicciones = [
+        ...(normativesFacets?.jurisdicciones || []),
+        ...(fallosFacets?.jurisdicciones || [])
+      ];
+
+      const combinedEstados = [
+        ...(normativesFacets?.estados || []),
+        ...(fallosFacets?.estados || [])
+      ];
+
+      // Combine arrays and aggregate counts by name
+      const jurisdiccionesMap = new Map<string, number>();
+      const estadosMap = new Map<string, number>();
+
+      combinedJurisdicciones.forEach(facet => {
+        const current = jurisdiccionesMap.get(facet.name) || 0;
+        jurisdiccionesMap.set(facet.name, current + facet.count);
+      });
+
+      combinedEstados.forEach(facet => {
+        const current = estadosMap.get(facet.name) || 0;
+        estadosMap.set(facet.name, current + facet.count);
+      });
+
+      return {
+        jurisdicciones: Array.from(jurisdiccionesMap.entries()).map(([name, count]) => ({
+          name,
+          count
+        })),
+        estados: Array.from(estadosMap.entries()).map(([name, count]) => ({
+          name,
+          count
+        })),
+        types: normativesFacets?.tipos || [],
+        tribunales: fallosFacets?.tribunales || [],
+        materias: fallosFacets?.materias || [],
+      };
+    }
+  }, [normativesFacets, fallosFacets, state.contentType]);
+
 
   const handleFilterChange = useCallback(
     (key: keyof NormativeFilters, value: string | boolean | undefined) => {
@@ -109,6 +196,23 @@ export default function DataBaseTable({
     [],
   );
 
+  const handleContentTypeChange = useCallback((contentType: ContentType) => {
+    setState((prev) => ({
+      ...prev,
+      contentType,
+      page: 1,
+      filters: {},
+      searchQuery: "",
+      debouncedQuery: "",
+      // Keep jurisdiction when switching content types
+    }));
+    
+    // Update URL
+    const newSearchParams = new URLSearchParams(searchParams);
+    newSearchParams.set("contentType", contentType);
+    setSearchParams(newSearchParams);
+  }, [searchParams, setSearchParams]);
+
   const handleJurisdictionChange = useCallback((jurisdiction: string) => {
     setState((prev) => ({
       ...prev,
@@ -118,7 +222,12 @@ export default function DataBaseTable({
       searchQuery: "",
       debouncedQuery: "",
     }));
-  }, []);
+    
+    // Update URL
+    const newSearchParams = new URLSearchParams(searchParams);
+    newSearchParams.set("jurisdiction", jurisdiction);
+    setSearchParams(newSearchParams);
+  }, [searchParams, setSearchParams]);
 
   const clearFilters = useCallback(() => {
     setState(initialState);
@@ -172,6 +281,11 @@ export default function DataBaseTable({
                   state.jurisdiction.slice(1)}{" "}
             • {state.totalResults}{" "}
             {state.totalResults === 1 ? "resultado" : "resultados"}
+            {state.debouncedQuery && (
+              <span className="ml-2 px-2 py-1 bg-yellow-100 text-yellow-800 text-xs rounded-full font-medium">
+                Modo búsqueda
+              </span>
+            )}
           </p>
         </div>
         <Button
@@ -203,6 +317,8 @@ export default function DataBaseTable({
         jurisdiction={state.jurisdiction}
         jurisdictions={jurisdictions}
         onJurisdictionChange={handleJurisdictionChange}
+        contentType={state.contentType}
+        onContentTypeChange={handleContentTypeChange}
         isSearchMode={!!state.debouncedQuery}
         sortBy={state.sortBy}
         sortOrder={state.sortOrder}
@@ -210,7 +326,7 @@ export default function DataBaseTable({
         onSortChange={(sortBy, sortOrder) => {
           setState((prev) => ({
             ...prev,
-            sortBy: sortBy as SortBy,
+            sortBy: sortBy as UnifiedSortBy,
             sortOrder: sortOrder as SortOrder,
             page: 1,
           }));
@@ -241,6 +357,7 @@ export default function DataBaseTable({
         sortOrder={state.sortOrder}
         isSearchMode={!!state.debouncedQuery}
         searchQuery={state.searchQuery}
+        contentType={state.contentType}
         onRowClick={handleRowClick}
         onPageChange={handlePageChange}
         onTotalResultsChange={handleTotalResultsChange}
@@ -255,14 +372,20 @@ export default function DataBaseTable({
       >
         <SheetContent className="w-full sm:max-w-2xl border-l border-gray-200 bg-white rounded-l-lg transition-all duration-300 ease-in-out">
           <SheetHeader>
-            <SheetTitle>Detalle de normativa</SheetTitle>
+            <SheetTitle>
+              {state.contentType === "fallos" 
+                ? "Detalle del fallo" 
+                : state.contentType === "legislation"
+                ? "Detalle de normativa"
+                : "Detalle del documento"}
+            </SheetTitle>
           </SheetHeader>
           <div className="mt-6">
             {state.selectedNormativeId && (
-              <NormativeDetails
+              <DocumentDetails
                 jurisdiction={state.jurisdiction}
                 id={state.selectedNormativeId}
-                getNormativeAction={actions.getNormativeById}
+                contentType={state.contentType}
               />
             )}
           </div>

@@ -251,8 +251,14 @@ export const streamAsync = internalAction({
         }
       );
 
+      // Add missing caseDocuments property to contextBundle
+      const completeContextBundle = {
+        ...contextBundle,
+        caseDocuments: [] // Add empty array for caseDocuments as it's required by ContextBundle interface
+      };
+
       // Format the rich context into a system message
-      const contextString = ContextService.formatContextForAgent(contextBundle);
+      const contextString = ContextService.formatContextForAgent(completeContextBundle);
 
       // Build ProseMirror schema summary at runtime and append to system message
       const schema = buildServerSchema();
