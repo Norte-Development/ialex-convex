@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import type { Editor } from "@tiptap/core";
 import {
   DropdownMenu,
@@ -14,23 +14,51 @@ interface FontPickerProps {
 }
 
 const FONTS = [
-  { name: "Calibri", value: "Calibri, sans-serif" },
   { name: "Arial", value: "Arial, sans-serif" },
-  { name: "Times New Roman", value: "'Times New Roman', serif" },
+  { name: "Calibri", value: "Calibri, sans-serif" },
+  { name: "Times New Roman", value: "Times New Roman, serif" },
   { name: "Georgia", value: "Georgia, serif" },
   { name: "Verdana", value: "Verdana, sans-serif" },
-  { name: "Courier New", value: "'Courier New', monospace" },
-  { name: "Comic Sans MS", value: "'Comic Sans MS', cursive" },
+  { name: "Courier New", value: "Courier New, monospace" },
+  { name: "Comic Sans MS", value: "Comic Sans MS, cursive" },
+  { name: "Trebuchet MS", value: "Trebuchet MS, sans-serif" },
+  { name: "Garamond", value: "Garamond, serif" },
 ];
 
 export function FontPicker({ editor }: FontPickerProps) {
-  const [selectedFont, setSelectedFont] = useState("Calibri");
+  const [selectedFont, setSelectedFont] = useState("Arial");
 
-  const handleFontChange = (fontName: string) => {
-    setSelectedFont(fontName);
-    // Note: This would require a custom extension to fully implement
-    // For now, this is a UI placeholder
-    editor.chain().focus().run();
+  useEffect(() => {
+    const updateFont = () => {
+      const { fontFamily } = editor.getAttributes("textStyle");
+      if (fontFamily) {
+        // Extract font name from the full value (e.g., "Arial, sans-serif" -> "Arial")
+        const fontName = fontFamily.split(",")[0].replace(/['"]/g, "").trim();
+        const matchedFont = FONTS.find((f) => f.value.startsWith(fontName));
+        if (matchedFont) {
+          setSelectedFont(matchedFont.name);
+        }
+      } else {
+        setSelectedFont("Arial");
+      }
+    };
+
+    // Update on selection change
+    editor.on("selectionUpdate", updateFont);
+    editor.on("transaction", updateFont);
+
+    // Initial update
+    updateFont();
+
+    return () => {
+      editor.off("selectionUpdate", updateFont);
+      editor.off("transaction", updateFont);
+    };
+  }, [editor]);
+
+  const handleFontChange = (font: { name: string; value: string }) => {
+    setSelectedFont(font.name);
+    editor.chain().focus().setFontFamily(font.value).run();
   };
 
   return (
@@ -45,11 +73,14 @@ export function FontPicker({ editor }: FontPickerProps) {
           <ChevronDown className="h-3 w-3 ml-1 shrink-0" />
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="start" className="w-[180px]">
+      <DropdownMenuContent
+        align="start"
+        className="w-[180px] max-h-[300px] overflow-y-auto"
+      >
         {FONTS.map((font) => (
           <DropdownMenuItem
             key={font.value}
-            onClick={() => handleFontChange(font.name)}
+            onClick={() => handleFontChange(font)}
             className="cursor-pointer"
             style={{ fontFamily: font.value }}
           >
@@ -60,4 +91,3 @@ export function FontPicker({ editor }: FontPickerProps) {
     </DropdownMenu>
   );
 }
-

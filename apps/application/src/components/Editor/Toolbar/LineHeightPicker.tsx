@@ -26,7 +26,8 @@ export function LineHeightPicker({ editor }: LineHeightPickerProps) {
 
   useEffect(() => {
     const updateLineHeight = () => {
-      const { lineHeight } = editor.getAttributes("paragraph");
+      // Get lineHeight from textStyle attributes
+      const { lineHeight } = editor.getAttributes("textStyle");
       setCurrentLineHeight(lineHeight || "1.5");
     };
 
