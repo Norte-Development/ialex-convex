@@ -8,17 +8,15 @@ interface TeamsContainerProps {
   pageSize: number;
 }
 
-export default function TeamsContainer({
-  pageSize,
-}: TeamsContainerProps) {
+export default function TeamsContainer({ pageSize }: TeamsContainerProps) {
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
-  
+
   // Query teams with pagination
   const teamsResult = useQuery(api.functions.teams.getTeams, {
-    paginationOpts: { 
-      numItems: pageSize, 
-      cursor: ((currentPage - 1) * pageSize).toString()
+    paginationOpts: {
+      numItems: pageSize,
+      cursor: ((currentPage - 1) * pageSize).toString(),
     },
   });
 
@@ -39,16 +37,16 @@ export default function TeamsContainer({
   const teams = teamsResult?.page || [];
 
   return (
-    <div className="w-full flex flex-col">
+    <div className="w-full flex flex-col min-h-[70vh] justify-between">
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 mb-10">
         {teams.map((team: any) => (
           <TeamCard key={team._id} team={team} />
         ))}
       </div>
-      
+
       {/* Pagination controls */}
       {teams.length > 0 && (
-        <div className="mt-4">
+        <div className="pb-4">
           <PaginationControls
             totalResults={teamsResult?.totalCount || 0}
             currentPage={currentPage}
