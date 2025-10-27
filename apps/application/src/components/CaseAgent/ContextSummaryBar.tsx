@@ -68,14 +68,14 @@ export function ContextSummaryBar({
     <div className=" bg-transparent px-4 py-2">
       <div className="flex flex-wrap items-center gap-2">
         {caseTitle && (
-          <Pill label="Case" value={caseTitle} icon={<span>📁</span>} />
+          <Pill label="Caso" value={caseTitle} icon={<span>📁</span>} />
         )}
         {escrito && (
           <Pill label="Escrito" value={escrito.title} icon={<span>📝</span>} />
         )}
         {page && page !== "unknown" && (
           <Pill
-            label="Page"
+            label="Página"
             value={page.charAt(0).toUpperCase() + page.slice(1)}
           />
         )}
