@@ -115,6 +115,17 @@ const vContextBundle = v.object({
       type: v.optional(v.string()),
     }),
   ),
+  resolvedReferences: v.optional(v.array(v.object({
+    type: v.union(
+      v.literal("client"),
+      v.literal("document"), 
+      v.literal("escrito"),
+      v.literal("case")
+    ),
+    id: v.string(),
+    name: v.string(),
+    originalText: v.string(),
+  }))),
 });
 
 export const gatherContextForWorkflow = internalMutation({
@@ -127,8 +138,19 @@ export const gatherContextForWorkflow = internalMutation({
     cursorPosition: v.optional(v.number()),
     searchQuery: v.optional(v.string()),
     currentEscritoId: v.optional(v.id("escritos")),
+    resolvedReferences: v.optional(v.array(v.object({
+      type: v.union(
+        v.literal("client"),
+        v.literal("document"), 
+        v.literal("escrito"),
+        v.literal("case")
+      ),
+      id: v.string(),
+      name: v.string(),
+      originalText: v.string(),
+    }))),
   },
-  returns: vContextBundle,
+  returns: v.any(),
   handler: async (ctx, args) => {
     const viewContext = {
       currentPage: args.currentPage,
@@ -144,6 +166,7 @@ export const gatherContextForWorkflow = internalMutation({
       args.userId,
       args.caseId,
       viewContext,
+      args.resolvedReferences,
     );
   },
 });
@@ -161,6 +184,17 @@ export const legalAgentWorkflow = workflow.define({
     cursorPosition: v.optional(v.number()),
     searchQuery: v.optional(v.string()),
     currentEscritoId: v.optional(v.id("escritos")),
+    resolvedReferences: v.optional(v.array(v.object({
+      type: v.union(
+        v.literal("client"),
+        v.literal("document"), 
+        v.literal("escrito"),
+        v.literal("case")
+      ),
+      id: v.string(),
+      name: v.string(),
+      originalText: v.string(),
+    }))),
   },
   handler: async (step, args): Promise<void> => {
     console.log("Starting legal agent workflow");
@@ -178,6 +212,7 @@ export const legalAgentWorkflow = workflow.define({
         cursorPosition: args.cursorPosition,
         searchQuery: args.searchQuery,
         currentEscritoId: args.currentEscritoId,
+        resolvedReferences: args.resolvedReferences,
       },
     );
 
@@ -374,6 +409,17 @@ export const initiateWorkflowStreaming = mutation({
     cursorPosition: v.optional(v.number()),
     searchQuery: v.optional(v.string()),
     currentEscritoId: v.optional(v.id("escritos")),
+    resolvedReferences: v.optional(v.array(v.object({
+      type: v.union(
+        v.literal("client"),
+        v.literal("document"), 
+        v.literal("escrito"),
+        v.literal("case")
+      ),
+      id: v.string(),
+      name: v.string(),
+      originalText: v.string(),
+    }))),
   },
   returns: v.object({
     workflowId: v.string(),
@@ -436,6 +482,7 @@ export const initiateWorkflowStreaming = mutation({
         cursorPosition: args.cursorPosition,
         searchQuery: args.searchQuery,
         currentEscritoId: args.currentEscritoId,
+        resolvedReferences: args.resolvedReferences,
       },
     );
 

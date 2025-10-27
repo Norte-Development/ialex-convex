@@ -3,6 +3,8 @@ import { mutation, query } from "../_generated/server";
 import { getCurrentUserFromAuth } from "../auth_utils";
 import { Id } from "../_generated/dataModel";
 import { checkNewCaseAccess } from "../auth_utils";
+import { createExpect } from "vitest";
+import { api } from "../_generated/api";
 
 // Types for @-references
 interface ParsedReference {
@@ -18,13 +20,24 @@ interface ParseResult {
 }
 
 /**
- * Parses @-references in a user message and resolves them to actual entities.
- * Supports: @client:name, @document:title, @escrito:title, @case:title
+ * Processes resolved references from frontend and replaces @-references in message.
+ * The frontend has already resolved the references, so we just need to replace them in the text.
  */
 export const parseAtReferences = mutation({
   args: {
     userId: v.id("users"),
     message: v.string(),
+    resolvedReferences: v.array(v.object({
+      type: v.union(
+        v.literal("client"),
+        v.literal("document"), 
+        v.literal("escrito"),
+        v.literal("case")
+      ),
+      id: v.string(),
+      name: v.string(),
+      originalText: v.string(),
+    })),
     caseId: v.optional(v.id("cases")),
   },
   handler: async (ctx, args): Promise<ParseResult> => {
@@ -38,71 +51,20 @@ export const parseAtReferences = mutation({
     const references: ParsedReference[] = [];
     let cleanMessage = args.message;
 
-    // Regex patterns for @-references
-    const patterns = {
-      client: /@client:([^@\s]+)/gi,
-      document: /@document:([^@\s]+)/gi,
-      escrito: /@escrito:([^@\s]+)/gi,
-      case: /@case:([^@\s]+)/gi,
-    };
+    // Process each resolved reference from frontend
+    for (const resolvedRef of args.resolvedReferences) {
+      // Convert frontend reference to backend format
+      const parsedRef: ParsedReference = {
+        type: resolvedRef.type,
+        id: resolvedRef.id,
+        name: resolvedRef.name,
+        originalText: resolvedRef.originalText,
+      };
 
-    // Process each type of reference
-    for (const [type, pattern] of Object.entries(patterns)) {
-      let match;
-      while ((match = pattern.exec(args.message)) !== null) {
-        const searchTerm = match[1].replace(/[_\-]/g, " ").toLowerCase();
-        const originalText = match[0];
-
-        try {
-          let resolvedRef: ParsedReference | null = null;
-
-          switch (type) {
-            case "client":
-              resolvedRef = await resolveClientReference(
-                ctx,
-                searchTerm,
-                args.caseId,
-                originalText,
-              );
-              break;
-            case "document":
-              resolvedRef = await resolveDocumentReference(
-                ctx,
-                searchTerm,
-                args.caseId,
-                originalText,
-              );
-              break;
-            case "escrito":
-              resolvedRef = await resolveEscritoReference(
-                ctx,
-                searchTerm,
-                args.caseId,
-                originalText,
-              );
-              break;
-            case "case":
-              resolvedRef = await resolveCaseReference(
-                ctx,
-                searchTerm,
-                originalText,
-              );
-              break;
-          }
-
-          if (resolvedRef) {
-            references.push(resolvedRef);
-            // Replace the @-reference with the resolved name
-            cleanMessage = cleanMessage.replace(originalText, resolvedRef.name);
-          }
-        } catch (error) {
-          console.warn(
-            `Failed to resolve ${type} reference "${searchTerm}":`,
-            error,
-          );
-          // Keep the original @-reference if resolution fails
-        }
-      }
+      references.push(parsedRef);
+      
+      // Replace the @-reference with the resolved name
+      cleanMessage = cleanMessage.replace(resolvedRef.originalText, resolvedRef.name);
     }
 
     return {
@@ -112,196 +74,6 @@ export const parseAtReferences = mutation({
   },
 });
 
-// Helper functions to resolve different types of references
-
-async function resolveClientReference(
-  ctx: any,
-  searchTerm: string,
-  caseId: Id<"cases"> | undefined,
-  originalText: string,
-): Promise<ParsedReference | null> {
-  if (!caseId) {
-    // Search across all accessible clients if no case context
-    // Use Convex's built-in string comparison methods
-    const clients = await ctx.db
-      .query("clients")
-      .filter((q: any) =>
-        q.or(
-          q.eq(q.field("name"), searchTerm),
-          q.like(q.field("name"), `%${searchTerm}%`),
-        ),
-      )
-      .take(10); // Get more to filter locally
-
-    // Filter by case-insensitive comparison in JavaScript
-    const matchingClient = clients.find((client: any) =>
-      client.name.toLowerCase().includes(searchTerm.toLowerCase()),
-    );
-
-    if (matchingClient) {
-      return {
-        type: "client",
-        id: matchingClient._id,
-        name: matchingClient.name,
-        originalText,
-      };
-    }
-  } else {
-    // Search within case clients
-    const clientCases = await ctx.db
-      .query("clientCases")
-      .withIndex("by_case", (q: any) => q.eq("caseId", caseId))
-      .filter((q: any) => q.eq(q.field("isActive"), true))
-      .collect();
-
-    for (const clientCase of clientCases) {
-      const client = await ctx.db.get(clientCase.clientId);
-      if (client && client.name.toLowerCase().includes(searchTerm)) {
-        return {
-          type: "client",
-          id: client._id,
-          name: client.name,
-          originalText,
-        };
-      }
-    }
-  }
-
-  return null;
-}
-
-async function resolveDocumentReference(
-  ctx: any,
-  searchTerm: string,
-  caseId: Id<"cases"> | undefined,
-  originalText: string,
-): Promise<ParsedReference | null> {
-  const query = caseId
-    ? ctx.db
-        .query("documents")
-        .withIndex("by_case", (q: any) => q.eq("caseId", caseId))
-    : ctx.db.query("documents");
-
-  const documents = await query
-    .filter((q: any) =>
-      q.and(
-        q.eq(q.field("isArchived"), false),
-        q.or(
-          q.eq(q.field("title"), searchTerm),
-          q.like(q.field("title"), `%${searchTerm}%`),
-        ),
-      ),
-    )
-    .take(10); // Get more to filter locally
-
-  // Filter by case-insensitive comparison in JavaScript
-  const matchingDoc = documents.find((doc: any) =>
-    doc.title.toLowerCase().includes(searchTerm.toLowerCase()),
-  );
-
-  if (matchingDoc) {
-    return {
-      type: "document",
-      id: matchingDoc._id,
-      name: matchingDoc.title,
-      originalText,
-    };
-  }
-
-  return null;
-}
-
-async function resolveEscritoReference(
-  ctx: any,
-  searchTerm: string,
-  caseId: Id<"cases"> | undefined,
-  originalText: string,
-): Promise<ParsedReference | null> {
-  const query = caseId
-    ? ctx.db
-        .query("escritos")
-        .withIndex("by_case", (q: any) => q.eq("caseId", caseId))
-    : ctx.db.query("escritos");
-
-  const escritos = await query
-    .filter((q: any) =>
-      q.and(
-        q.eq(q.field("isArchived"), false),
-        q.or(
-          q.eq(q.field("title"), searchTerm),
-          q.like(q.field("title"), `%${searchTerm}%`),
-        ),
-      ),
-    )
-    .take(10); // Get more to filter locally
-
-  // Filter by case-insensitive comparison in JavaScript
-  const matchingEscrito = escritos.find((escrito: any) =>
-    escrito.title.toLowerCase().includes(searchTerm.toLowerCase()),
-  );
-
-  if (matchingEscrito) {
-    return {
-      type: "escrito",
-      id: matchingEscrito._id,
-      name: matchingEscrito.title,
-      originalText,
-    };
-  }
-
-  return null;
-}
-
-async function resolveCaseReference(
-  ctx: any,
-  searchTerm: string,
-  originalText: string,
-): Promise<ParsedReference | null> {
-  // Get current user to check permissions
-  const currentUser = await getCurrentUserFromAuth(ctx);
-
-  const cases = await ctx.db
-    .query("cases")
-    .filter((q: any) =>
-      q.and(
-        q.eq(q.field("isArchived"), false),
-        q.or(
-          q.eq(q.field("title"), searchTerm),
-          q.like(q.field("title"), `%${searchTerm}%`),
-        ),
-      ),
-    )
-    .take(20); // Get more candidates to filter by permissions
-
-  // Filter cases by user access permissions and case-insensitive search
-  for (const caseData of cases) {
-    // Apply case-insensitive search filter
-    if (!caseData.title.toLowerCase().includes(searchTerm.toLowerCase())) {
-      continue;
-    }
-    try {
-      const access = await checkNewCaseAccess(
-        ctx,
-        currentUser._id,
-        caseData._id,
-        "basic",
-      );
-      if (access.hasAccess) {
-        return {
-          type: "case",
-          id: caseData._id,
-          name: caseData.title,
-          originalText,
-        };
-      }
-    } catch (error) {
-      // If access check fails, skip this case
-      console.warn(`Access check failed for case ${caseData._id}:`, error);
-    }
-  }
-
-  return null;
-}
 
 /**
  * Gets available reference suggestions for autocomplete based on current case context
@@ -359,15 +131,9 @@ export const getReferencesSuggestions = query({
 
     // Get documents (scoped to case if provided)
     if (!args.type || args.type === "document") {
-      const query = args.caseId
-        ? ctx.db
-            .query("documents")
-            .withIndex("by_case", (q: any) => q.eq("caseId", args.caseId))
-        : ctx.db.query("documents");
-
-      const documents = await query
-        .filter((q: any) => q.eq(q.field("isArchived"), false))
-        .take(20); // Get more to filter locally
+      const documents = await ctx.runQuery(api.functions.documents.getDocuments, {
+        caseId: args.caseId as Id<"cases">,
+      });
 
       const filteredDocs = documents
         .filter(

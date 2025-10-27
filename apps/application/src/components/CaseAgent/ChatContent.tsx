@@ -114,13 +114,26 @@ export function ChatContent({ threadId }: { threadId: string | undefined }) {
   const parseAtReferences = useMutation(api.context.context.parseAtReferences);
 
   const handleSendMessage = useCallback(
-    async (prompt: string) => {
+    async (prompt: string, activeReferences?: Array<{
+      type: string;
+      id: string;
+      name: string;
+    }>) => {
       if (!user?._id) return;
 
-      // Parse @ references first
+      // Convert activeReferences to resolvedReferences format for backend
+      const resolvedReferences = (activeReferences || []).map(ref => ({
+        type: ref.type as "client" | "document" | "escrito" | "case",
+        id: ref.id,
+        name: ref.name,
+        originalText: `@${ref.type}:${ref.name}`,
+      }));
+
+      // Parse @ references with resolved references from frontend
       const { cleanMessage, references } = await parseAtReferences({
         userId: user._id as Id<"users">,
         message: prompt,
+        resolvedReferences,
         caseId: caseId || undefined,
       });
 
@@ -165,6 +178,7 @@ export function ChatContent({ threadId }: { threadId: string | undefined }) {
           cursorPosition: currentViewContext.cursorPosition,
           searchQuery: currentViewContext.searchQuery,
           currentEscritoId: currentViewContext.currentEscritoId,
+          resolvedReferences: resolvedReferences,
         });
 
         if (!threadId) {
