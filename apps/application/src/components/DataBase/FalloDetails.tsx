@@ -78,8 +78,8 @@ export function FalloDetails({ jurisdiction, id, getFalloAction }: FalloDetailsP
       <div className="space-y-6 p-1">
         {/* Header */}
         <div className="sticky top-0 bg-white/95 backdrop-blur-sm border-b border-gray-100 pb-4 -mx-1 px-1">
-          <h2 className="text-2xl font-bold text-gray-900 leading-tight mb-4 text-pretty line-clamp-3" title={fallo.titulo}>
-            {fallo.titulo}
+          <h2 className="text-2xl font-bold text-gray-900 leading-tight mb-4 text-pretty line-clamp-3" title={fallo.title}>
+            {fallo.title}
           </h2>
 
           {/* Badges */}
@@ -134,27 +134,27 @@ export function FalloDetails({ jurisdiction, id, getFalloAction }: FalloDetailsP
               Fechas
             </h3>
             <div className="space-y-2 text-sm">
-              {fallo.fecha && (
+              {fallo.date && (
                 <div className="flex justify-between">
                   <span className="font-medium text-gray-600">Fecha del fallo:</span>
                   <span className="text-gray-900">
-                    {new Date(fallo.fecha).toLocaleDateString("es-ES")}
+                    {new Date(fallo.date).toLocaleDateString("es-ES")}
                   </span>
                 </div>
               )}
-              {fallo.promulgacion && (
+              {fallo.sanction_date && (
                 <div className="flex justify-between">
-                  <span className="font-medium text-gray-600">Promulgación:</span>
+                  <span className="font-medium text-gray-600">Sanción:</span>
                   <span className="text-gray-900">
-                    {new Date(fallo.promulgacion).toLocaleDateString("es-ES")}
+                    {new Date(fallo.sanction_date).toLocaleDateString("es-ES")}
                   </span>
                 </div>
               )}
-              {fallo.publicacion && (
+              {fallo.publication_date && (
                 <div className="flex justify-between">
                   <span className="font-medium text-gray-600">Publicación:</span>
                   <span className="text-gray-900">
-                    {new Date(fallo.publicacion).toLocaleDateString("es-ES")}
+                    {new Date(fallo.publication_date).toLocaleDateString("es-ES")}
                   </span>
                 </div>
               )}
@@ -215,18 +215,14 @@ export function FalloDetails({ jurisdiction, id, getFalloAction }: FalloDetailsP
         )}
 
         {/* Magistrados */}
-        {fallo.magistrados && fallo.magistrados.length > 0 && (
+        {fallo.magistrados && (
           <div className="space-y-3 bg-gray-50/50 p-4 rounded-lg">
             <h3 className="font-semibold text-gray-900 flex items-center gap-2">
               <Users className="w-4 h-4" />
               Magistrados
             </h3>
-            <div className="flex flex-wrap gap-2">
-              {fallo.magistrados.map((magistrado, index) => (
-                <Badge key={index} variant="secondary" className="hover:bg-gray-200 transition-colors">
-                  {magistrado}
-                </Badge>
-              ))}
+            <div className="text-sm text-gray-700">
+              {fallo.magistrados}
             </div>
           </div>
         )}
@@ -298,14 +294,14 @@ export function FalloDetails({ jurisdiction, id, getFalloAction }: FalloDetailsP
         )}
 
         {/* Content - Always visible */}
-        {fallo.contenido && (
+        {fallo.content && (
           <>
             <Separator />
             <div className="space-y-3">
               <h3 className="font-semibold text-gray-900">Contenido completo</h3>
               <div className="bg-gray-50/50 rounded-lg border border-gray-200 p-4">
                 <div className="prose prose-sm max-w-none text-gray-700 leading-relaxed prose-headings:text-gray-900 prose-p:text-gray-700 prose-a:text-blue-600 prose-strong:text-gray-900 prose-ul:text-gray-700 prose-ol:text-gray-700 prose-blockquote:text-gray-600 prose-code:text-gray-800 prose-pre:bg-gray-100">
-                  <ReactMarkdown remarkPlugins={[remarkGfm]}>{fallo.contenido}</ReactMarkdown>
+                  <ReactMarkdown remarkPlugins={[remarkGfm]}>{fallo.content}</ReactMarkdown>
                 </div>
               </div>
             </div>

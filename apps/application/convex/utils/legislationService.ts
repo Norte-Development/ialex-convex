@@ -477,18 +477,22 @@ export const getNormativesFacets = async (filters: NormativeFilters = {}) => {
     const [facetsResult] = await collection.aggregate(facetsAggregation).toArray();
 
     return {
-      jurisdicciones: Object.fromEntries(
-        facetsResult.jurisdicciones.map((item: any) => [item._id, item.count])
-      ),
-      tipos: Object.fromEntries(
-        facetsResult.tipos.map((item: any) => [item._id, item.count])
-      ),
-      estados: Object.fromEntries(
-        facetsResult.estados.map((item: any) => [item._id, item.count])
-      ),
-      years: Object.fromEntries(
-        facetsResult.years.map((item: any) => [item._id, item.count])
-      )
+      jurisdicciones: facetsResult.jurisdicciones.map((item: any) => ({
+        name: item._id,
+        count: item.count,
+      })),
+      tipos: facetsResult.tipos.map((item: any) => ({
+        name: item._id,
+        count: item.count,
+      })),
+      estados: facetsResult.estados.map((item: any) => ({
+        name: item._id,
+        count: item.count,
+      })),
+      years: facetsResult.years.map((item: any) => ({
+        name: item._id,
+        count: item.count,
+      }))
     };
   } catch (error) {
     console.error('Error fetching facets:', error);

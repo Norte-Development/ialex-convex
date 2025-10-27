@@ -5,13 +5,12 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useAction } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import { useQuery } from "@tanstack/react-query";
-import { useSearchParams, useNavigate } from "react-router-dom";
+import { useSearchParams } from "react-router-dom";
 import { Button } from "../ui/button";
 import { Badge } from "../ui/badge";
 import { Filter } from "lucide-react";
 import type {
   NormativeFilters,
-  SortBy,
   SortOrder,
   ContentType,
   UnifiedSortBy,
@@ -101,7 +100,7 @@ export default function DataBaseTable({
 
   // Fetch facets for filter options (types, estados, years)
   // This updates based on current filters to show relevant counts
-  const { data: normativesFacets, isLoading: isNormativesFacetsLoading } = useQuery({
+  const { data: normativesFacets } = useQuery({
     queryKey: ["normatives-facets", state.jurisdiction, state.filters, state.contentType],
     queryFn: () => {
       const facetFilters = { ...state.filters };
@@ -117,7 +116,7 @@ export default function DataBaseTable({
     staleTime: 5 * 60 * 1000,
   });
 
-  const { data: fallosFacets, isLoading: isFallosFacetsLoading } = useQuery({
+  const { data: fallosFacets } = useQuery({
     queryKey: ["fallos-facets", state.jurisdiction, state.filters, state.contentType],
     queryFn: () => {
       const facetFilters: any = { ...state.filters };
@@ -141,23 +140,46 @@ export default function DataBaseTable({
       return fallosFacets;
     } else {
       // "all" - combine facets
+      const combinedJurisdicciones = [
+        ...(normativesFacets?.jurisdicciones || []),
+        ...(fallosFacets?.jurisdicciones || [])
+      ];
+
+      const combinedEstados = [
+        ...(normativesFacets?.estados || []),
+        ...(fallosFacets?.estados || [])
+      ];
+
+      // Combine arrays and aggregate counts by name
+      const jurisdiccionesMap = new Map<string, number>();
+      const estadosMap = new Map<string, number>();
+
+      combinedJurisdicciones.forEach(facet => {
+        const current = jurisdiccionesMap.get(facet.name) || 0;
+        jurisdiccionesMap.set(facet.name, current + facet.count);
+      });
+
+      combinedEstados.forEach(facet => {
+        const current = estadosMap.get(facet.name) || 0;
+        estadosMap.set(facet.name, current + facet.count);
+      });
+
       return {
-        jurisdicciones: {
-          ...normativesFacets?.jurisdicciones,
-          ...fallosFacets?.jurisdicciones,
-        },
-        estados: {
-          ...normativesFacets?.estados,
-          ...fallosFacets?.estados,
-        },
-        types: normativesFacets?.tipos,
-        tribunales: fallosFacets?.tribunales,
-        materias: fallosFacets?.materias,
+        jurisdicciones: Array.from(jurisdiccionesMap.entries()).map(([name, count]) => ({
+          name,
+          count
+        })),
+        estados: Array.from(estadosMap.entries()).map(([name, count]) => ({
+          name,
+          count
+        })),
+        types: normativesFacets?.tipos || [],
+        tribunales: fallosFacets?.tribunales || [],
+        materias: fallosFacets?.materias || [],
       };
     }
   }, [normativesFacets, fallosFacets, state.contentType]);
 
-  const isFacetsLoading = isNormativesFacetsLoading || isFallosFacetsLoading;
 
   const handleFilterChange = useCallback(
     (key: keyof NormativeFilters, value: string | boolean | undefined) => {
@@ -259,6 +281,11 @@ export default function DataBaseTable({
                   state.jurisdiction.slice(1)}{" "}
             • {state.totalResults}{" "}
             {state.totalResults === 1 ? "resultado" : "resultados"}
+            {state.debouncedQuery && (
+              <span className="ml-2 px-2 py-1 bg-yellow-100 text-yellow-800 text-xs rounded-full font-medium">
+                Modo búsqueda
+              </span>
+            )}
           </p>
         </div>
         <Button

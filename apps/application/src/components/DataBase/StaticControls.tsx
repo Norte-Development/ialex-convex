@@ -1,6 +1,6 @@
 import React, { memo } from "react"
 import { Card, CardContent } from "../ui/card"
-import type { NormativeFilters, SortBy, SortOrder, ContentType, UnifiedSortBy } from "../../../types/legislation"
+import type { NormativeFilters, SortOrder, ContentType, UnifiedSortBy } from "../../../types/legislation"
 import { SearchBar } from "./SearchBar"
 import { TableControls } from "./TableControls"
 import { FiltersPanel } from "./FiltersPanel"
@@ -80,6 +80,7 @@ export const StaticControls = memo(function StaticControls({
           onClearFilters={onClearFilters}
           onKeyPress={onKeyPress}
           hasActiveFilters={hasActiveFilters}
+          contentType={contentType}
         />
 
         <TableControls
@@ -102,8 +103,6 @@ export const StaticControls = memo(function StaticControls({
           onShowFiltersChange={onShowFiltersChange}
           filters={filters}
           onFilterChange={onFilterChange}
-          jurisdictions={jurisdictions}
-          jurisdiction={jurisdiction}
           contentType={contentType}
           facets={facets}
         />

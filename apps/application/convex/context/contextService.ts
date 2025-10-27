@@ -9,6 +9,7 @@ export interface ContextBundle {
   recentActivity: ActivityContext[];
   rules: RuleContext[];
   metadata: ContextMetadata;
+  caseDocuments: CaseDocumentContext[];
 }
 
 export interface UserContext {
@@ -94,6 +95,12 @@ export interface ContextMetadata {
   priority: "low" | "medium" | "high";
 }
 
+export interface CaseDocumentContext {
+  name: string;
+  id: string;
+  type?: string;
+}
+
 /**
  * Context Service - Central service for gathering, optimizing, and formatting
  * context information for the legal assistant agent.
@@ -112,13 +119,14 @@ export class ContextService {
     const startTime = Date.now();
 
     // Gather context components in parallel
-    const [userContext, caseContext, clientContexts, recentActivity, userRules, caseRules] = await Promise.all([
+    const [userContext, caseContext, clientContexts, recentActivity, userRules, caseRules, caseDocuments] = await Promise.all([
       this.getUserContext(ctx, userId),
       caseId ? this.getCaseContext(ctx, caseId) : Promise.resolve(null),
       caseId ? this.getClientContexts(ctx, caseId) : Promise.resolve([]),
       this.getRecentActivity(ctx, userId, caseId),
       this.getUserRules(ctx, userId),
       caseId ? this.getCaseRules(ctx, caseId, userId) : Promise.resolve([]),
+      caseId ? this.getCaseDocuments(ctx, caseId) : Promise.resolve([]),
     ]);
 
     // Merge rules (user-level and case-level)
@@ -137,6 +145,7 @@ export class ContextService {
       recentActivity,
       rules,
       metadata,
+      caseDocuments,
     };
 
     // Optimize for token limits
@@ -303,6 +312,27 @@ export class ContextService {
   }
 
   /**
+   * Get case documents for quick reference
+   */
+  private static async getCaseDocuments(
+    ctx: any,
+    caseId: Id<"cases">
+  ): Promise<CaseDocumentContext[]> {
+    // Get case documents
+    const caseDocuments = await ctx.db
+      .query("caseDocumentos")
+      .withIndex("by_case", (q: any) => q.eq("caseId", caseId))
+      .filter((q: any) => q.eq(q.field("isActive"), true))
+      .collect();
+
+    return caseDocuments.map((doc: any) => ({
+      name: doc.title || doc.name || "Sin título",
+      id: doc._id,
+      type: doc.type || doc.category,
+    }));
+  }
+
+  /**
    * Optimize context bundle for token limits
    */
   private static optimizeForTokens(contextBundle: ContextBundle): ContextBundle {
@@ -385,6 +415,15 @@ ${clientInfo}`);
         .join('\n');
       sections.push(`## Actividad reciente
 ${activityInfo}`);
+    }
+
+    // Case documents
+    if (contextBundle.caseDocuments.length > 0) {
+      const documentsText = contextBundle.caseDocuments
+        .map(doc => `- ${doc.name}|${doc.id}${doc.type ? ` (${doc.type})` : ''}`)
+        .join('\n');
+      sections.push(`## Documentos del caso
+${documentsText}`);
     }
 
     // Agent rules

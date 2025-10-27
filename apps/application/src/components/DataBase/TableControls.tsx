@@ -1,5 +1,5 @@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select"
-import type { SortBy, SortOrder, ContentType, UnifiedSortBy } from "../../../types/legislation"
+import type { SortOrder, ContentType, UnifiedSortBy } from "../../../types/legislation"
 
 interface TableControlsProps {
   jurisdiction: string
@@ -11,7 +11,7 @@ interface TableControlsProps {
   pageSize: number
   onSortChange: (sortBy: UnifiedSortBy, sortOrder: SortOrder) => void
   onPageSizeChange: (pageSize: number) => void
-  jurisdictionCounts?: Record<string, number>
+  jurisdictionCounts?: Array<{ name: string; count: number }>
   contentType: ContentType
   onContentTypeChange: (contentType: ContentType) => void
 }
@@ -40,8 +40,8 @@ export function TableControls({
   const getJurisdictionLabelWithCount = (jur: string) => {
     const label = getJurisdictionLabel(jur)
     if (jur === "all" || !jurisdictionCounts) return label
-    const count = jurisdictionCounts[jur]
-    return count !== undefined ? `${label} (${count.toLocaleString()})` : label
+    const facet = jurisdictionCounts.find((f) => f.name === jur)
+    return facet ? `${label} (${facet.count.toLocaleString()})` : label
   }
 
 
@@ -103,11 +103,14 @@ export function TableControls({
             ) : null}
             {contentType === "fallos" || contentType === "all" ? (
               <>
-                <SelectItem value="fecha">Fecha del fallo</SelectItem>
-                <SelectItem value="promulgacion">Promulgación</SelectItem>
-                <SelectItem value="publicacion">Publicación</SelectItem>
+                <SelectItem value="date">Fecha del fallo</SelectItem>
+                <SelectItem value="sanction_date">Promulgación</SelectItem>
+                <SelectItem value="publication_date">Publicación</SelectItem>
                 <SelectItem value="updated_at">Actualizado</SelectItem>
-                <SelectItem value="created_at">Creado</SelectItem>
+                {/* Legacy options for backward compatibility - hidden but selectable */}
+                <SelectItem value="fecha" className="hidden">Fecha (legacy)</SelectItem>
+                <SelectItem value="promulgacion" className="hidden">Promulgación (legacy)</SelectItem>
+                <SelectItem value="publicacion" className="hidden">Publicación (legacy)</SelectItem>
               </>
             ) : null}
           </SelectContent>

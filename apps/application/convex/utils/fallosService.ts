@@ -79,10 +79,19 @@ interface JurisdiccionCache {
 
 let jurisdiccionCache: JurisdiccionCache | null = null;
 
+// Cache for tribunal enum values
+interface TribunalCache {
+  values: string[];
+  timestamp: number;
+}
+
+let tribunalCache: TribunalCache | null = null;
+
 // Cache clearing function
 export const clearFallosCache = () => {
   tipoGeneralCache = null;
   jurisdiccionCache = null;
+  tribunalCache = null;
   console.log('Fallos cache cleared');
 };
 
@@ -127,6 +136,50 @@ export const getJurisdiccionValues = async (): Promise<string[]> => {
       return jurisdiccionCache.values;
     }
     throw new Error('Failed to fetch jurisdiccion values for fallos');
+  }
+};
+
+// Get distinct tribunal values with caching
+export const getTribunalValues = async (): Promise<string[]> => {
+  const now = Date.now();
+  
+  // Return cached values if still valid
+  if (tribunalCache && (now - tribunalCache.timestamp) < CACHE_DURATION_MS) {
+    console.log('Returning cached tribunal values for fallos');
+    return tribunalCache.values;
+  }
+  
+  try {
+    console.log('Fetching distinct tribunal values from MongoDB for fallos...');
+    const mongoClient = getMongoClient();
+    const db = mongoClient.db(process.env.MONGODB_DATABASE_NAME);
+    const collection = db.collection(FALLOS_COLLECTION_NAME);
+    
+    const distinctValues = await collection.distinct('tribunal', {
+      tribunal: { $exists: true, $ne: null }
+    });
+    
+    // Filter out null/undefined and sort
+    const validValues = distinctValues
+      .filter((val): val is string => typeof val === 'string' && val.length > 0)
+      .sort();
+    
+    // Update cache
+    tribunalCache = {
+      values: validValues,
+      timestamp: now
+    };
+    
+    console.log(`Cached ${validValues.length} tribunal values for fallos:`, validValues);
+    return validValues;
+  } catch (error) {
+    console.error('Error fetching tribunal values for fallos:', error);
+    // Return cached values if available, even if expired
+    if (tribunalCache) {
+      console.warn('Using expired cache due to error');
+      return tribunalCache.values;
+    }
+    throw new Error('Failed to fetch tribunal values for fallos');
   }
 };
 
@@ -175,34 +228,57 @@ const buildMongoFilter = (filters: FalloFilters): Filter<Document> => {
     mongoFilter.document_id = filters.document_id;
   }
 
-  // Date range filters - using ISO date strings
-  if (filters.fecha_from || filters.fecha_to) {
-    mongoFilter.fecha = {};
-    if (filters.fecha_from) {
-      mongoFilter.fecha.$gte = filters.fecha_from;
+  // New field filters
+  if (filters.country_code) {
+    mongoFilter.country_code = filters.country_code;
+  }
+
+  if (filters.fuente) {
+    mongoFilter.fuente = filters.fuente;
+  }
+
+  if (filters.subestado) {
+    mongoFilter.subestado = filters.subestado;
+  }
+
+  if (filters.tipo_detalle) {
+    mongoFilter.tipo_detalle = filters.tipo_detalle;
+  }
+
+  // Date range filters - using new field names with legacy fallback
+  const dateFrom = filters.date_from || filters.fecha_from;
+  const dateTo = filters.date_to || filters.fecha_to;
+  if (dateFrom || dateTo) {
+    mongoFilter.date = {};
+    if (dateFrom) {
+      mongoFilter.date.$gte = dateFrom;
     }
-    if (filters.fecha_to) {
-      mongoFilter.fecha.$lte = filters.fecha_to;
+    if (dateTo) {
+      mongoFilter.date.$lte = dateTo;
     }
   }
 
-  if (filters.promulgacion_from || filters.promulgacion_to) {
-    mongoFilter.promulgacion = {};
-    if (filters.promulgacion_from) {
-      mongoFilter.promulgacion.$gte = filters.promulgacion_from;
+  const sanctionDateFrom = filters.sanction_date_from || filters.promulgacion_from;
+  const sanctionDateTo = filters.sanction_date_to || filters.promulgacion_to;
+  if (sanctionDateFrom || sanctionDateTo) {
+    mongoFilter.sanction_date = {};
+    if (sanctionDateFrom) {
+      mongoFilter.sanction_date.$gte = sanctionDateFrom;
     }
-    if (filters.promulgacion_to) {
-      mongoFilter.promulgacion.$lte = filters.promulgacion_to;
+    if (sanctionDateTo) {
+      mongoFilter.sanction_date.$lte = sanctionDateTo;
     }
   }
 
-  if (filters.publicacion_from || filters.publicacion_to) {
-    mongoFilter.publicacion = {};
-    if (filters.publicacion_from) {
-      mongoFilter.publicacion.$gte = filters.publicacion_from;
+  const publicationDateFrom = filters.publication_date_from || filters.publicacion_from;
+  const publicationDateTo = filters.publication_date_to || filters.publicacion_to;
+  if (publicationDateFrom || publicationDateTo) {
+    mongoFilter.publication_date = {};
+    if (publicationDateFrom) {
+      mongoFilter.publication_date.$gte = publicationDateFrom;
     }
-    if (filters.publicacion_to) {
-      mongoFilter.publicacion.$lte = filters.publicacion_to;
+    if (publicationDateTo) {
+      mongoFilter.publication_date.$lte = publicationDateTo;
     }
   }
 
@@ -230,12 +306,12 @@ const buildMongoFilter = (filters: FalloFilters): Filter<Document> => {
     mongoFilter.tags = { $in: filters.tags };
   }
 
-  // Text search in title, content, and materia
+  // Text search in title, content, and materia - using new field names
   if (filters.search) {
     andConditions.push({
       $or: [
-        { titulo: { $regex: filters.search, $options: 'i' } },
-        { contenido: { $regex: filters.search, $options: 'i' } },
+        { title: { $regex: filters.search, $options: 'i' } },
+        { content: { $regex: filters.search, $options: 'i' } },
         { materia: { $regex: filters.search, $options: 'i' } }
       ]
     });
@@ -252,21 +328,28 @@ const buildMongoFilter = (filters: FalloFilters): Filter<Document> => {
 // Build MongoDB sort from sort parameters
 const buildMongoSort = (sortBy?: FalloSortBy, sortOrder: FalloSortOrder = 'desc'): Sort => {
   const order = sortOrder === 'asc' ? 1 : -1;
-  
+
   switch (sortBy) {
-    case 'fecha':
-      return { fecha: order, _id: -1 };
-    case 'promulgacion':
-      return { promulgacion: order, _id: -1 };
-    case 'publicacion':
-      return { publicacion: order, _id: -1 };
+    case 'date':
+    case 'fecha': // Legacy Spanish field name
+      return { date: order, _id: -1 };
+    case 'sanction_date':
+    case 'promulgacion': // Legacy Spanish field name
+      return { sanction_date: order, _id: -1 };
+    case 'publication_date':
+    case 'publicacion': // Legacy Spanish field name
+      return { publication_date: order, _id: -1 };
+    case 'indexed_at':
+      return { indexed_at: order, _id: -1 };
     case 'created_at':
       return { created_at: order, _id: -1 };
     case 'updated_at':
       return { updated_at: order, _id: -1 };
+    case 'relevancia':
+      return { _id: -1 }; // For search results, just sort by _id
     default:
-      // Default sort by fecha with _id as secondary sort
-      return { fecha: order, _id: -1 };
+      // Default sort by date with _id as secondary sort
+      return { date: order, _id: -1 };
   }
 };
 
@@ -302,7 +385,7 @@ export const getFallos = async (params: ListFallosParams = {}): Promise<Paginate
       .find(mongoFilter)
       .project({
         // Exclude large content fields to improve performance
-        contenido: 0,
+        content: 0,
         relaciones: 0,
         created_at: 0,
         updated_at: 0
@@ -316,25 +399,46 @@ export const getFallos = async (params: ListFallosParams = {}): Promise<Paginate
     const mappedFallos: FalloDoc[] = fallos.map((fallo) => ({
       _id: fallo._id.toString(),
       document_id: fallo.document_id,
-      tipo_contenido: fallo.tipo_contenido,
-      tipo_general: fallo.tipo_general,
-      jurisdiccion: fallo.jurisdiccion,
-      tribunal: fallo.tribunal,
-      magistrados: fallo.magistrados || [],
       actor: fallo.actor,
-      demandado: fallo.demandado,
-      sala: fallo.sala,
-      titulo: fallo.titulo,
-      contenido: '', // Empty string since contenido is excluded in projection
-      fecha: fallo.fecha,
-      promulgacion: fallo.promulgacion,
-      publicacion: fallo.publicacion,
-      sumario: fallo.sumario,
-      materia: fallo.materia,
-      tags: fallo.tags || [],
-      referencias_normativas: fallo.referencias_normativas || [],
+      autor: fallo.autor || '',
       citas: fallo.citas || [],
-      estado: fallo.estado
+      content: '', // Empty string since content is excluded in projection
+      content_hash: fallo.content_hash || '',
+      country_code: fallo.country_code || '',
+      date: fallo.date,
+      date_source: fallo.date_source || '',
+      demandado: fallo.demandado,
+      estado: fallo.estado,
+      fuente: fallo.fuente || '',
+      indexed_at: fallo.indexed_at || '',
+      jurisdiccion: fallo.jurisdiccion,
+      jurisdiccion_detalle: fallo.jurisdiccion_detalle || null,
+      last_ingested_run_id: fallo.last_ingested_run_id || '',
+      magistrados: fallo.magistrados || '',
+      materia: fallo.materia,
+      number: fallo.number || '',
+      objeto: fallo.objeto || null,
+      observaciones: fallo.observaciones || null,
+      organismo_emisor: fallo.organismo_emisor || null,
+      publication_date: fallo.publication_date,
+      referencias_bibliograficas: fallo.referencias_bibliograficas || [],
+      referencias_jurisprudenciales: fallo.referencias_jurisprudenciales || [],
+      referencias_normativas: fallo.referencias_normativas || [],
+      relaciones_salientes: fallo.relaciones_salientes || [],
+      sala: fallo.sala,
+      sanction_date: fallo.sanction_date,
+      sigla_emisor: fallo.sigla_emisor || null,
+      subestado: fallo.subestado || '',
+      sumario: fallo.sumario,
+      sumario_extendido: fallo.sumario_extendido || '',
+      tags: fallo.tags || [],
+      tipo_contenido: fallo.tipo_contenido,
+      tipo_detalle: fallo.tipo_detalle || '',
+      tipo_general: fallo.tipo_general,
+      title: fallo.title,
+      tribunal: fallo.tribunal,
+      url: fallo.url || '',
+      relaciones: fallo.relaciones || []
     }));
 
     // Calculate pagination info
@@ -378,25 +482,46 @@ export const getFalloById = async (documentId: string): Promise<FalloDoc | null>
     return {
       _id: fallo._id.toString(),
       document_id: fallo.document_id,
-      tipo_contenido: fallo.tipo_contenido,
-      tipo_general: fallo.tipo_general,
-      jurisdiccion: fallo.jurisdiccion,
-      tribunal: fallo.tribunal,
-      magistrados: fallo.magistrados || [],
       actor: fallo.actor,
-      demandado: fallo.demandado,
-      sala: fallo.sala,
-      titulo: fallo.titulo,
-      contenido: fallo.contenido,
-      fecha: fallo.fecha,
-      promulgacion: fallo.promulgacion,
-      publicacion: fallo.publicacion,
-      sumario: fallo.sumario,
-      materia: fallo.materia,
-      tags: fallo.tags || [],
-      referencias_normativas: fallo.referencias_normativas || [],
+      autor: fallo.autor || '',
       citas: fallo.citas || [],
+      content: fallo.content,
+      content_hash: fallo.content_hash || '',
+      country_code: fallo.country_code || '',
+      date: fallo.date,
+      date_source: fallo.date_source || '',
+      demandado: fallo.demandado,
       estado: fallo.estado,
+      fuente: fallo.fuente || '',
+      indexed_at: fallo.indexed_at || '',
+      jurisdiccion: fallo.jurisdiccion,
+      jurisdiccion_detalle: fallo.jurisdiccion_detalle || null,
+      last_ingested_run_id: fallo.last_ingested_run_id || '',
+      magistrados: fallo.magistrados || '',
+      materia: fallo.materia,
+      number: fallo.number || '',
+      objeto: fallo.objeto || null,
+      observaciones: fallo.observaciones || null,
+      organismo_emisor: fallo.organismo_emisor || null,
+      publication_date: fallo.publication_date,
+      referencias_bibliograficas: fallo.referencias_bibliograficas || [],
+      referencias_jurisprudenciales: fallo.referencias_jurisprudenciales || [],
+      referencias_normativas: fallo.referencias_normativas || [],
+      relaciones_salientes: fallo.relaciones_salientes || [],
+      sala: fallo.sala,
+      sanction_date: fallo.sanction_date,
+      sigla_emisor: fallo.sigla_emisor || null,
+      subestado: fallo.subestado || '',
+      sumario: fallo.sumario,
+      sumario_extendido: fallo.sumario_extendido || '',
+      tags: fallo.tags || [],
+      tipo_contenido: fallo.tipo_contenido,
+      tipo_detalle: fallo.tipo_detalle || '',
+      tipo_general: fallo.tipo_general,
+      title: fallo.title,
+      tribunal: fallo.tribunal,
+      url: fallo.url || '',
+      relaciones: fallo.relaciones || [],
       created_at: fallo.created_at,
       updated_at: fallo.updated_at
     };
@@ -435,9 +560,33 @@ export const getFallosFacets = async (filters: FalloFilters = {}) => {
             { $group: { _id: '$estado', count: { $sum: 1 } } },
             { $sort: { count: -1 } }
           ],
-          tags: [
-            { $unwind: '$tags' },
-            { $group: { _id: '$tags', count: { $sum: 1 } } },
+          // tags: [
+          //   { $unwind: '$tags' },
+          //   { $group: { _id: '$tags', count: { $sum: 1 } } },
+          //   { $sort: { count: -1 } }
+          // ],
+          fuentes: [
+            { $group: { _id: '$fuente', count: { $sum: 1 } } },
+            { $sort: { count: -1 } }
+          ],
+          tipos_contenido: [
+            { $group: { _id: '$tipo_contenido', count: { $sum: 1 } } },
+            { $sort: { count: -1 } }
+          ],
+          tipos_general: [
+            { $group: { _id: '$tipo_general', count: { $sum: 1 } } },
+            { $sort: { count: -1 } }
+          ],
+          tipos_detalle: [
+            { $group: { _id: '$tipo_detalle', count: { $sum: 1 } } },
+            { $sort: { count: -1 } }
+          ],
+          subestados: [
+            { $group: { _id: '$subestado', count: { $sum: 1 } } },
+            { $sort: { count: -1 } }
+          ],
+          country_codes: [
+            { $group: { _id: '$country_code', count: { $sum: 1 } } },
             { $sort: { count: -1 } }
           ]
         }
@@ -446,22 +595,68 @@ export const getFallosFacets = async (filters: FalloFilters = {}) => {
 
     const [facetsResult] = await collection.aggregate(facetsAggregation).toArray();
 
+    // Handle case where aggregation returns undefined or empty result
+    if (!facetsResult) {
+      return {
+        jurisdicciones: {},
+        tribunales: {},
+        materias: {},
+        estados: {},
+        tags: {},
+        fuentes: {},
+        tipos_contenido: {},
+        tipos_general: {},
+        tipos_detalle: {},
+        subestados: {},
+        country_codes: {}
+      };
+    }
+
     return {
-      jurisdicciones: Object.fromEntries(
-        facetsResult.jurisdicciones.map((item: any) => [item._id, item.count])
-      ),
-      tribunales: Object.fromEntries(
-        facetsResult.tribunales.map((item: any) => [item._id, item.count])
-      ),
-      materias: Object.fromEntries(
-        facetsResult.materias.map((item: any) => [item._id, item.count])
-      ),
-      estados: Object.fromEntries(
-        facetsResult.estados.map((item: any) => [item._id, item.count])
-      ),
-      tags: Object.fromEntries(
-        facetsResult.tags.map((item: any) => [item._id, item.count])
-      )
+      jurisdicciones: (facetsResult.jurisdicciones || []).map((item: any) => ({
+        name: item._id,
+        count: item.count,
+      })),
+      tribunales: (facetsResult.tribunales || []).map((item: any) => ({
+        name: item._id,
+        count: item.count,
+      })),
+      materias: (facetsResult.materias || []).map((item: any) => ({
+        name: item._id,
+        count: item.count,
+      })),
+      estados: (facetsResult.estados || []).map((item: any) => ({
+        name: item._id,
+        count: item.count,
+      })),
+      tags: (facetsResult.tags || []).map((item: any) => ({
+        name: item._id,
+        count: item.count,
+      })),
+      fuentes: (facetsResult.fuentes || []).map((item: any) => ({
+        name: item._id,
+        count: item.count,
+      })),
+      tipos_contenido: (facetsResult.tipos_contenido || []).map((item: any) => ({
+        name: item._id,
+        count: item.count,
+      })),
+      tipos_general: (facetsResult.tipos_general || []).map((item: any) => ({
+        name: item._id,
+        count: item.count,
+      })),
+      tipos_detalle: (facetsResult.tipos_detalle || []).map((item: any) => ({
+        name: item._id,
+        count: item.count,
+      })),
+      subestados: (facetsResult.subestados || []).map((item: any) => ({
+        name: item._id,
+        count: item.count,
+      })),
+      country_codes: (facetsResult.country_codes || []).map((item: any) => ({
+        name: item._id,
+        count: item.count,
+      }))
     };
   } catch (error) {
     console.error('Error fetching fallos facets:', error);

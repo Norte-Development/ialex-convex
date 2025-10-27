@@ -47,6 +47,13 @@ export const searchFallos = internalAction({
       magistrados: v.optional(v.string()),
       tags: v.optional(v.array(v.string())),
       // Date filters
+      date_from: v.optional(v.string()),
+      date_to: v.optional(v.string()),
+      sanction_date_from: v.optional(v.string()),
+      sanction_date_to: v.optional(v.string()),
+      publication_date_from: v.optional(v.string()),
+      publication_date_to: v.optional(v.string()),
+      // Legacy field mappings for backward compatibility
       fecha_from: v.optional(v.string()),
       fecha_to: v.optional(v.string()),
       promulgacion_from: v.optional(v.string()),
@@ -62,17 +69,20 @@ export const searchFallos = internalAction({
     score: v.number(),
     payload: v.object({
       document_id: v.string(),
-      titulo: v.string(),
+      title: v.string(),
       tribunal: v.string(),
       jurisdiccion: v.string(),
-      fecha: v.string(),
-      promulgacion: v.string(),
+      date: v.string(),
+      sanction_date: v.string(),
       actor: v.string(),
       demandado: v.string(),
-      magistrados: v.array(v.string()),
+      magistrados: v.string(),
       materia: v.string(),
       tags: v.array(v.string()),
       sumario: v.string(),
+      content: v.string(),
+      url: v.string(),
+      sala: v.string(),
     }),
   })),
   handler: async (ctx, args) => {
@@ -185,26 +195,33 @@ export const searchFallos = internalAction({
           must.push({ key: 'tags', match: { any: filters.tags } });
         }
         
-        // Date range filters
-        if (filters.fecha_from || filters.fecha_to) {
+        // Date range filters (using timestamp fields from payload)
+        // Date filters with new field names and legacy fallback
+        const dateFrom = filters.date_from || filters.fecha_from;
+        const dateTo = filters.date_to || filters.fecha_to;
+        if (dateFrom || dateTo) {
           const range: any = {};
-          if (filters.fecha_from) range.gte = filters.fecha_from;
-          if (filters.fecha_to) range.lte = filters.fecha_to;
-          must.push({ key: 'fecha', range });
+          if (dateFrom) range.gte = parseInt(dateFrom);
+          if (dateTo) range.lte = parseInt(dateTo);
+          must.push({ key: 'date_ts', range });
         }
-        
-        if (filters.promulgacion_from || filters.promulgacion_to) {
+
+        const sanctionDateFrom = filters.sanction_date_from || filters.promulgacion_from;
+        const sanctionDateTo = filters.sanction_date_to || filters.promulgacion_to;
+        if (sanctionDateFrom || sanctionDateTo) {
           const range: any = {};
-          if (filters.promulgacion_from) range.gte = filters.promulgacion_from;
-          if (filters.promulgacion_to) range.lte = filters.promulgacion_to;
-          must.push({ key: 'promulgacion', range });
+          if (sanctionDateFrom) range.gte = parseInt(sanctionDateFrom);
+          if (sanctionDateTo) range.lte = parseInt(sanctionDateTo);
+          must.push({ key: 'sanction_ts', range });
         }
-        
-        if (filters.publicacion_from || filters.publicacion_to) {
+
+        const publicationDateFrom = filters.publication_date_from || filters.publicacion_from;
+        const publicationDateTo = filters.publication_date_to || filters.publicacion_to;
+        if (publicationDateFrom || publicationDateTo) {
           const range: any = {};
-          if (filters.publicacion_from) range.gte = filters.publicacion_from;
-          if (filters.publicacion_to) range.lte = filters.publicacion_to;
-          must.push({ key: 'publicacion', range });
+          if (publicationDateFrom) range.gte = parseInt(publicationDateFrom);
+          if (publicationDateTo) range.lte = parseInt(publicationDateTo);
+          must.push({ key: 'publication_ts', range });
         }
         
         console.log('Built filter conditions:', { must: must.length });
@@ -326,17 +343,20 @@ export const searchFallos = internalAction({
           score: pt.score,
           payload: {
             document_id: typeof payload.document_id === 'string' ? payload.document_id : pointId,
-            titulo: typeof payload.titulo === 'string' ? payload.titulo : '',
+            title: typeof payload.title === 'string' ? payload.title : '',
             tribunal: typeof payload.tribunal === 'string' ? payload.tribunal : '',
             jurisdiccion: typeof payload.jurisdiccion === 'string' ? payload.jurisdiccion : '',
-            fecha: typeof payload.fecha === 'string' ? payload.fecha : '',
-            promulgacion: typeof payload.promulgacion === 'string' ? payload.promulgacion : '',
+            date: typeof payload.date_ts === 'number' ? payload.date_ts.toString() : '',
+            sanction_date: typeof payload.sanction_ts === 'number' ? payload.sanction_ts.toString() : '',
             actor: typeof payload.actor === 'string' ? payload.actor : '',
             demandado: typeof payload.demandado === 'string' ? payload.demandado : '',
-            magistrados: Array.isArray(payload.magistrados) ? payload.magistrados : [],
+            magistrados: typeof payload.magistrados === 'string' ? payload.magistrados : '',
             materia: typeof payload.materia === 'string' ? payload.materia : '',
             tags: Array.isArray(payload.tags) ? payload.tags : [],
             sumario: typeof payload.sumario === 'string' ? payload.sumario : '',
+            content: typeof payload.content === 'string' ? payload.content : '',
+            url: typeof payload.url === 'string' ? payload.url : '',
+            sala: typeof payload.sala === 'string' ? payload.sala : '',
           }
         };
       };

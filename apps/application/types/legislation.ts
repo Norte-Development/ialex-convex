@@ -224,13 +224,14 @@ export type SortBy = "sanction_date" | "updated_at" | "created_at" | "relevancia
 export type SortOrder = "asc" | "desc";
 
 // Combined sort type for unified table supporting both legislation and fallos
-export type UnifiedSortBy = SortBy | "fecha" | "promulgacion" | "publicacion";
+// Includes both new field names and legacy Spanish field names for backward compatibility
+export type UnifiedSortBy = SortBy | "date" | "sanction_date" | "publication_date" | "indexed_at" | "fecha" | "promulgacion" | "publicacion";
 
-// Facets for filters UI
+// Facets for filters UI - Now arrays instead of objects
 export interface NormativesFacets {
-  types: Record<string, number>;
-  jurisdicciones: Record<string, number>;
-  estados: Record<Estado, number>;
+  types: Array<{ name: string; count: number }>;
+  jurisdicciones: Array<{ name: string; count: number }>;
+  estados: Array<{ name: Estado; count: number }>;
 }
 
 // Combined document types for unified view
@@ -296,12 +297,12 @@ export interface CombinedFilters {
 export type CombinedSortBy = SortBy | FalloSortBy;
 export type CombinedSortOrder = SortOrder | FalloSortOrder;
 
-// Combined facets interface
+// Combined facets interface - Now arrays instead of objects
 export interface CombinedFacets {
-  jurisdicciones: Record<string, number>;
-  estados: Record<string, number>;
-  types?: Record<string, number>;
-  tribunales?: Record<string, number>;
-  materias?: Record<string, number>;
-  tags?: Record<string, number>;
+  jurisdicciones: Array<{ name: string; count: number }>;
+  estados: Array<{ name: string; count: number }>;
+  types?: Array<{ name: string; count: number }>;
+  tribunales?: Array<{ name: string; count: number }>;
+  materias?: Array<{ name: string; count: number }>;
+  tags?: Array<{ name: string; count: number }>;
 }

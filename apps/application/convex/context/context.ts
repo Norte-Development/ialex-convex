@@ -93,6 +93,11 @@ export const gatherContext = query({
       contextSources: v.array(v.string()),
       priority: v.union(v.literal("low"), v.literal("medium"), v.literal("high")),
     }),
+    caseDocuments: v.array(v.object({
+      name: v.string(),
+      id: v.string(),
+      type: v.optional(v.string()),
+    })),
   }),
   handler: async (ctx, args): Promise<ContextBundle> => {
     const viewContext = {
@@ -191,6 +196,11 @@ export const formatContextForAgent = query({
         contextSources: v.array(v.string()),
         priority: v.union(v.literal("low"), v.literal("medium"), v.literal("high")),
       }),
+      caseDocuments: v.array(v.object({
+        name: v.string(),
+        id: v.string(),
+        type: v.optional(v.string()),
+      })),
     }),
   },
   returns: v.string(),

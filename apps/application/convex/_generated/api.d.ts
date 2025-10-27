@@ -49,6 +49,7 @@ import type * as agents_tools_escritos_readEscritoTool from "../agents/tools/esc
 import type * as agents_tools_escritos_rewriteEscritoSectionTool from "../agents/tools/escritos/rewriteEscritoSectionTool.js";
 import type * as agents_tools_escritos_templates from "../agents/tools/escritos/templates.js";
 import type * as agents_tools_fallos_index from "../agents/tools/fallos/index.js";
+import type * as agents_tools_fallos_readFallosTool from "../agents/tools/fallos/readFallosTool.js";
 import type * as agents_tools_fallos_searchFallosTool from "../agents/tools/fallos/searchFallosTool.js";
 import type * as agents_tools_index from "../agents/tools/index.js";
 import type * as agents_tools_legislation_index from "../agents/tools/legislation/index.js";
@@ -191,6 +192,7 @@ declare const fullApi: ApiFromModules<{
   "agents/tools/escritos/rewriteEscritoSectionTool": typeof agents_tools_escritos_rewriteEscritoSectionTool;
   "agents/tools/escritos/templates": typeof agents_tools_escritos_templates;
   "agents/tools/fallos/index": typeof agents_tools_fallos_index;
+  "agents/tools/fallos/readFallosTool": typeof agents_tools_fallos_readFallosTool;
   "agents/tools/fallos/searchFallosTool": typeof agents_tools_fallos_searchFallosTool;
   "agents/tools/index": typeof agents_tools_index;
   "agents/tools/legislation/index": typeof agents_tools_legislation_index;

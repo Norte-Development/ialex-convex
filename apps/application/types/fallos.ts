@@ -1,37 +1,55 @@
 // Core types for fallos (jurisprudencia) data
 
-export type EstadoFallo = 
-  | "vigente" | "derogada" | "caduca" | "anulada" 
-  | "suspendida" | "abrogada" | "sin_registro_oficial";
+export type EstadoFallo = string; // Now generic string to match MongoDB
 
-export type TipoContenidoFallo = 
-  | "leg" | "jur" | "adm";
+export type TipoContenidoFallo = string; // Now generic string to match MongoDB
 
 export type TipoGeneralFallo = string; // Dynamically loaded from MongoDB
 
 // Main document interface matching MongoDB structure
 export interface FalloDoc {
   _id?: string; // MongoDB ObjectId
-  document_id: string; // normalized document identifier
-  tipo_contenido: TipoContenidoFallo;
-  tipo_general: TipoGeneralFallo;
-  jurisdiccion: string; // nacional, provincial, municipal, etc.
-  tribunal: string; // court name
-  magistrados: string[]; // array of judge names
-  actor: string; // plaintiff
-  demandado: string; // defendant
-  sala: string; // chamber
-  titulo: string; // case title
-  contenido: string; // full content
-  fecha: string; // case date (ISO format)
-  promulgacion: string; // promulgation date (ISO format)
-  publicacion: string; // publication date (ISO format)
-  sumario: string; // summary
-  materia: string; // subject matter
-  tags: string[]; // tags array
-  referencias_normativas: string[]; // normative references
-  citas: string[]; // citations
-  estado: EstadoFallo;
+  document_id: string;
+  actor: string;
+  autor: string;
+  citas: string[];
+  content: string; // was 'contenido'
+  content_hash: string;
+  country_code: string;
+  date: string; // was 'fecha'
+  date_source: string;
+  demandado: string;
+  estado: string; // was specific enum, now generic string
+  fuente: string;
+  indexed_at: string;
+  jurisdiccion: string;
+  jurisdiccion_detalle: string | null;
+  last_ingested_run_id: string;
+  magistrados: string; // was string[], now string
+  materia: string;
+  number: string;
+  objeto: string | null;
+  observaciones: string | null;
+  organismo_emisor: string | null;
+  publication_date: string; // was 'publicacion'
+  referencias_bibliograficas: string[];
+  referencias_jurisprudenciales: string[];
+  referencias_normativas: string[];
+  relaciones_salientes: string[];
+  sala: string;
+  sanction_date: string;
+  sigla_emisor: string | null;
+  subestado: string;
+  sumario: string;
+  sumario_extendido: string;
+  tags: string[];
+  tipo_contenido: string; // was specific enum
+  tipo_detalle: string;
+  tipo_general: string;
+  title: string; // was 'titulo'
+  tribunal: string;
+  url: string;
+  relaciones: string[];
   created_at?: string;
   updated_at?: string;
 }
@@ -41,22 +59,33 @@ export interface FalloFilters {
   jurisdiccion?: string;
   tribunal?: string;
   materia?: string;
-  estado?: EstadoFallo;
-  fecha_from?: string; // ISO date string
-  fecha_to?: string; // ISO date string
-  promulgacion_from?: string; // ISO date string
-  promulgacion_to?: string; // ISO date string
-  publicacion_from?: string; // ISO date string
-  publicacion_to?: string; // ISO date string
+  estado?: string; // Now generic string
+  date_from?: string; // ISO date string (was fecha_from)
+  date_to?: string; // ISO date string (was fecha_to)
+  sanction_date_from?: string; // ISO date string
+  sanction_date_to?: string; // ISO date string
+  publication_date_from?: string; // ISO date string (was publicacion_from)
+  publication_date_to?: string; // ISO date string (was publicacion_to)
   actor?: string; // case-insensitive search
   demandado?: string; // case-insensitive search
   magistrados?: string; // case-insensitive search
   tags?: string[]; // array of tags to match
-  search?: string; // text search in titulo, contenido, materia
+  search?: string; // text search in title, content, materia
   document_id?: string; // exact match
-  tipo_contenido?: TipoContenidoFallo;
-  tipo_general?: TipoGeneralFallo;
+  tipo_contenido?: string; // Now generic string
+  tipo_general?: string; // Now generic string
   sala?: string;
+  country_code?: string;
+  fuente?: string;
+  subestado?: string;
+  tipo_detalle?: string;
+  // Legacy field mappings for backward compatibility
+  fecha_from?: string; // Maps to date_from
+  fecha_to?: string; // Maps to date_to
+  promulgacion_from?: string; // Maps to sanction_date_from
+  promulgacion_to?: string; // Maps to sanction_date_to
+  publicacion_from?: string; // Maps to publication_date_from
+  publicacion_to?: string; // Maps to publication_date_to
 }
 
 // Pagination and sorting parameters
@@ -69,7 +98,8 @@ export interface ListFallosParams {
 }
 
 // Sorting options
-export type FalloSortBy = "fecha" | "promulgacion" | "publicacion" | "relevancia" | "created_at" | "updated_at";
+// Supports both new field names and legacy Spanish field names for backward compatibility
+export type FalloSortBy = "date" | "sanction_date" | "publication_date" | "relevancia" | "created_at" | "updated_at" | "indexed_at" | "fecha" | "promulgacion" | "publicacion";
 export type FalloSortOrder = "asc" | "desc";
 
 // Reusable pagination response type
@@ -91,17 +121,20 @@ export interface FalloSearchResult {
   score: number;
   payload: {
     document_id: string;
-    titulo: string;
+    title: string; // was 'titulo'
     tribunal: string;
     jurisdiccion: string;
-    fecha: string;
-    promulgacion: string;
+    date: string; // was 'fecha'
+    sanction_date: string; // was 'promulgacion'
     actor: string;
     demandado: string;
-    magistrados: string[];
+    magistrados: string; // was string[], now string
     materia: string;
     tags: string[];
     sumario: string;
+    content: string; // was 'contenido'
+    url: string;
+    sala: string;
   };
 }
 
@@ -113,13 +146,19 @@ export interface FalloChunkResult {
   score: number;
 }
 
-// Facets for filters UI
+// Facets for filters UI - Now arrays instead of objects
 export interface FallosFacets {
-  jurisdicciones: Record<string, number>;
-  tribunales: Record<string, number>;
-  materias: Record<string, number>;
-  estados: Record<EstadoFallo, number>;
-  tags: Record<string, number>;
+  jurisdicciones: Array<{ name: string; count: number }>;
+  tribunales: Array<{ name: string; count: number }>;
+  materias: Array<{ name: string; count: number }>;
+  estados: Array<{ name: string; count: number }>;
+  tags: Array<{ name: string; count: number }>;
+  fuentes: Array<{ name: string; count: number }>;
+  tipos_contenido: Array<{ name: string; count: number }>;
+  tipos_general: Array<{ name: string; count: number }>;
+  tipos_detalle: Array<{ name: string; count: number }>;
+  subestados: Array<{ name: string; count: number }>;
+  country_codes: Array<{ name: string; count: number }>;
 }
 
 // Agent tool operation types

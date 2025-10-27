@@ -18,6 +18,7 @@ function isFalloDoc(item: CombinedDocument): item is FalloDoc {
 interface TableViewProps {
   items: CombinedDocument[]
   isSearchMode: boolean
+  searchQuery?: string
   onRowClick: (id: string) => void
   getEstadoBadgeColor: (estado: Estado) => string
   formatDate: (dateString?: string) => string
@@ -27,6 +28,7 @@ interface TableViewProps {
 export function TableView({
   items,
   isSearchMode,
+  searchQuery = "",
   onRowClick,
   getEstadoBadgeColor,
   formatDate,
@@ -36,37 +38,37 @@ export function TableView({
     if (contentType === "fallos") {
       return (
         <TableRow className="bg-gray-50">
-          <TableHead className="font-semibold">Título</TableHead>
-          <TableHead className="font-semibold">Tribunal</TableHead>
-          <TableHead className="font-semibold">Jurisdicción</TableHead>
-          <TableHead className="font-semibold">Fecha</TableHead>
-          <TableHead className="font-semibold">Actor</TableHead>
-          <TableHead className="font-semibold">Demandado</TableHead>
-          <TableHead className="font-semibold">Estado</TableHead>
+          <TableHead className="font-semibold min-w-0 flex-1">Título</TableHead>
+          <TableHead className="font-semibold w-48">Tribunal</TableHead>
+          <TableHead className="font-semibold w-32">Jurisdicción</TableHead>
+          <TableHead className="font-semibold w-32">Fecha</TableHead>
+          <TableHead className="font-semibold w-40">Actor</TableHead>
+          <TableHead className="font-semibold w-40">Demandado</TableHead>
+          <TableHead className="font-semibold w-32">Estado</TableHead>
         </TableRow>
       );
     } else if (contentType === "legislation") {
-  return (
-          <TableRow className="bg-gray-50">
-            <TableHead className="font-semibold">Título</TableHead>
-            <TableHead className="font-semibold">Tipo</TableHead>
-            <TableHead className="font-semibold">Número</TableHead>
-            <TableHead className="font-semibold">Jurisdicción</TableHead>
-            <TableHead className="font-semibold">Estado</TableHead>
-            <TableHead className="font-semibold">Sanción</TableHead>
-            <TableHead className="font-semibold">Vigente</TableHead>
-          </TableRow>
+      return (
+        <TableRow className="bg-gray-50">
+          <TableHead className="font-semibold min-w-0 flex-1">Título</TableHead>
+          <TableHead className="font-semibold w-48">Tipo</TableHead>
+          <TableHead className="font-semibold w-32">Número</TableHead>
+          <TableHead className="font-semibold w-32">Jurisdicción</TableHead>
+          <TableHead className="font-semibold w-32">Estado</TableHead>
+          <TableHead className="font-semibold w-32">Sanción</TableHead>
+          <TableHead className="font-semibold w-32">Vigente</TableHead>
+        </TableRow>
       );
     } else {
       // "all" - show mixed columns
       return (
         <TableRow className="bg-gray-50">
-          <TableHead className="font-semibold">Título</TableHead>
-          <TableHead className="font-semibold">Tipo</TableHead>
-          <TableHead className="font-semibold">Jurisdicción</TableHead>
-          <TableHead className="font-semibold">Fecha</TableHead>
-          <TableHead className="font-semibold">Estado</TableHead>
-          <TableHead className="font-semibold">Detalles</TableHead>
+          <TableHead className="font-semibold min-w-0 flex-1">Título</TableHead>
+          <TableHead className="font-semibold w-32">Tipo</TableHead>
+          <TableHead className="font-semibold w-32">Jurisdicción</TableHead>
+          <TableHead className="font-semibold w-32">Fecha</TableHead>
+          <TableHead className="font-semibold w-32">Estado</TableHead>
+          <TableHead className="font-semibold w-40">Detalles</TableHead>
         </TableRow>
       );
     }
@@ -86,17 +88,25 @@ export function TableView({
                   <FileText className="w-8 h-8 mx-auto mb-2 opacity-50" />
                   <p className="font-medium">
                     {isSearchMode
-                      ? "No se encontraron resultados para la búsqueda"
+                      ? contentType === "fallos"
+                        ? "No se encontraron fallos para la búsqueda"
+                        : contentType === "legislation"
+                        ? "No se encontró legislación para la búsqueda"
+                        : "No se encontraron documentos para la búsqueda"
                       : "No se encontraron documentos con los filtros aplicados"}
                   </p>
-                  <p className="text-sm mt-1">Intenta ajustar los filtros o términos de búsqueda</p>
+                  <p className="text-sm mt-1">
+                    {isSearchMode
+                      ? "Intenta usar términos de búsqueda diferentes"
+                      : "Intenta ajustar los filtros"}
+                  </p>
                 </div>
               </TableCell>
             </TableRow>
           ) : (
             items.map((item) => {
               const itemId = item.document_id;
-              const title = (item as FalloDoc).titulo || (item as NormativeDoc).title;
+              const title = (item as FalloDoc).title || (item as NormativeDoc).title;
               const jurisdiccion = item.jurisdiccion;
               const estado = item.estado;
 
@@ -106,7 +116,9 @@ export function TableView({
                   return (
                     <TableRow
                       key={itemId}
-                      className="cursor-pointer hover:bg-blue-50 transition-colors"
+                      className={`cursor-pointer transition-colors ${
+                        isSearchMode ? "hover:bg-yellow-50 border-l-4 border-l-yellow-400" : "hover:bg-blue-50"
+                      }`}
                       onClick={() => onRowClick(itemId)}
                     >
                       <TableCell className="font-medium">
@@ -129,7 +141,7 @@ export function TableView({
                       </TableCell>
                       <TableCell className="capitalize">{jurisdiccion || "-"}</TableCell>
                       <TableCell className="font-mono text-sm">
-                        {formatDate(item.fecha)}
+                        {formatDate(item.date)}
                       </TableCell>
                       <TableCell className="text-sm truncate max-w-32" title={item.actor}>
                         {item.actor || "-"}
@@ -138,7 +150,7 @@ export function TableView({
                         {item.demandado || "-"}
                       </TableCell>
                       <TableCell>
-                        <Badge className={getEstadoBadgeColor(estado)}>
+                        <Badge className={getEstadoBadgeColor(estado as any)}>
                           {estado.replace("_", " ")}
                         </Badge>
                       </TableCell>
@@ -149,7 +161,9 @@ export function TableView({
                   return (
                     <TableRow
                       key={itemId}
-                      className="cursor-pointer hover:bg-blue-50 transition-colors"
+                      className={`cursor-pointer transition-colors ${
+                        isSearchMode ? "hover:bg-yellow-50 border-l-4 border-l-yellow-400" : "hover:bg-blue-50"
+                      }`}
                       onClick={() => onRowClick(itemId)}
                     >
                       <TableCell className="font-medium">
@@ -172,10 +186,10 @@ export function TableView({
                       </TableCell>
                       <TableCell className="capitalize">{jurisdiccion || "-"}</TableCell>
                       <TableCell className="font-mono text-sm">
-                        {formatDate(item.fecha)}
+                        {formatDate(item.date)}
                       </TableCell>
                       <TableCell>
-                        <Badge className={getEstadoBadgeColor(estado)}>
+                        <Badge className={getEstadoBadgeColor(estado as any)}>
                           {estado.replace("_", " ")}
                         </Badge>
                       </TableCell>
@@ -217,7 +231,9 @@ export function TableView({
               return (
                 <TableRow
                   key={itemId}
-                  className="cursor-pointer hover:bg-blue-50 transition-colors"
+                  className={`cursor-pointer transition-colors ${
+                    isSearchMode ? "hover:bg-yellow-50 border-l-4 border-l-yellow-400" : "hover:bg-blue-50"
+                  }`}
                   onClick={() => onRowClick(itemId)}
                 >
                   <TableCell className="font-medium">
@@ -257,7 +273,7 @@ export function TableView({
                   <TableCell className="capitalize">{jurisdiccion || "-"}</TableCell>
                   <TableCell>
                     <div className="space-y-1">
-                      <Badge className={getEstadoBadgeColor(estado)}>
+                      <Badge className={getEstadoBadgeColor(estado as any)}>
                         {estado.replace("_", " ")}
                       </Badge>
                       {subestado && (
@@ -284,7 +300,9 @@ export function TableView({
                   return (
                     <TableRow
                       key={itemId}
-                      className="cursor-pointer hover:bg-blue-50 transition-colors"
+                      className={`cursor-pointer transition-colors ${
+                        isSearchMode ? "hover:bg-yellow-50 border-l-4 border-l-yellow-400" : "hover:bg-blue-50"
+                      }`}
                       onClick={() => onRowClick(itemId)}
                     >
                       <TableCell className="font-medium">
@@ -310,7 +328,7 @@ export function TableView({
                         {formatDate(sanctionDate)}
                       </TableCell>
                       <TableCell>
-                        <Badge className={getEstadoBadgeColor(estado)}>
+                        <Badge className={getEstadoBadgeColor(estado as any)}>
                           {estado.replace("_", " ")}
                         </Badge>
                       </TableCell>

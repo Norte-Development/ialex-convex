@@ -1,4 +1,4 @@
-import React, { memo, useCallback, useMemo, useEffect } from "react";
+import { memo, useCallback, useMemo, useEffect } from "react";
 import { useAction } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import { useQuery } from "@tanstack/react-query";
@@ -7,7 +7,6 @@ import { FileText } from "lucide-react";
 import type {
   Estado,
   NormativeFilters,
-  SortBy,
   SortOrder,
   ContentType,
   CombinedDocument,
@@ -37,20 +36,31 @@ interface DataTableContainerProps {
 
 // Map UI sortBy to fallos-specific sort field
 const mapSortByForFallos = (sortBy: UnifiedSortBy): string => {
-  // Legislation-specific fields
+  // Handle legacy Spanish field names (backward compatibility)
+  if (sortBy === "fecha") {
+    return "date";
+  }
+  if (sortBy === "promulgacion") {
+    return "sanction_date";
+  }
+  if (sortBy === "publicacion") {
+    return "publication_date";
+  }
+
+  // Map legislation fields to fallos equivalents
   if (sortBy === "sanction_date") {
-    return "fecha"; // Map to similar fallos field
+    return "sanction_date"; // Same field name for both
   }
-  // Fallos-specific fields
-  if (sortBy === "fecha" || sortBy === "promulgacion" || sortBy === "publicacion") {
+
+  // All other valid fields - these should already be correct
+  if (sortBy === "date" || sortBy === "publication_date" ||
+      sortBy === "indexed_at" || sortBy === "updated_at" || sortBy === "created_at" ||
+      sortBy === "relevancia") {
     return sortBy;
   }
-  // Common fields
-  if (sortBy === "updated_at" || sortBy === "created_at" || sortBy === "relevancia") {
-    return sortBy;
-  }
+
   // Default fallback
-  return "fecha";
+  return "date";
 };
 
 export const DataTableContainer = memo(function DataTableContainer({
@@ -110,8 +120,8 @@ export const DataTableContainer = memo(function DataTableContainer({
         filters: queryFilters,
         limit: pageSize,
         offset: (page - 1) * pageSize,
-        sortBy,
-        sortOrder,
+        sortBy: sortBy as "sanction_date" | "updated_at" | "created_at" | "relevancia",
+        sortOrder: sortOrder as "asc" | "desc",
       });
     },
     enabled: contentType !== "fallos",
@@ -158,8 +168,8 @@ export const DataTableContainer = memo(function DataTableContainer({
         filters: queryFilters,
         limit: pageSize,
         offset: (page - 1) * pageSize,
-        sortBy: fallosSortBy as any,
-        sortOrder: sortOrder as any,
+        sortBy: fallosSortBy as "date" | "sanction_date" | "publication_date" | "relevancia" | "created_at" | "updated_at" | "indexed_at" | "fecha" | "promulgacion" | "publicacion",
+        sortOrder: sortOrder as "asc" | "desc",
       });
     },
     enabled: contentType !== "legislation",
@@ -261,6 +271,7 @@ export const DataTableContainer = memo(function DataTableContainer({
       <TableView
         items={computedData.items}
         isSearchMode={isSearchMode}
+        searchQuery={searchQuery}
         onRowClick={onRowClick}
         getEstadoBadgeColor={getEstadoBadgeColor}
         formatDate={formatDate}

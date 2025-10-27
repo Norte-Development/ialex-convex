@@ -3,15 +3,25 @@ import { api, internal } from "../../../_generated/api";
 import { z } from "zod";
 import { createErrorResponse, validateStringParam } from "../shared/utils";
 
-// Cache for tipo_general values
-let tipoGeneralValuesCache: string[] | null = null;
-let tipoGeneralCacheTime = 0;
-const TIPO_GENERAL_CACHE_DURATION = 24 * 60 * 60 * 1000; // 24 hours
 
 // Cache for jurisdiccion values
 let jurisdiccionValuesCache: string[] | null = null;
 let jurisdiccionCacheTime = 0;
 const JURISDICCION_CACHE_DURATION = 24 * 60 * 60 * 1000; // 24 hours
+
+// Cache for tribunal values
+let tribunalValuesCache: string[] | null = null;
+let tribunalCacheTime = 0;
+const TRIBUNAL_CACHE_DURATION = 24 * 60 * 60 * 1000; // 24 hours
+
+// Helper function to convert ISO date string to Unix timestamp
+const isoToTimestamp = (isoDate: string): string => {
+  const date = new Date(isoDate);
+  if (isNaN(date.getTime())) {
+    throw new Error(`Invalid date format: ${isoDate}`);
+  }
+  return Math.floor(date.getTime() / 1000).toString();
+};
 
 /**
  * Unified fallos finder tool.
@@ -25,17 +35,6 @@ export const searchFallosTool = createTool({
   description: async (ctx: ToolCtx) => {
     const now = Date.now();
     
-    // Fetch tipo_general values with caching
-    if (!tipoGeneralValuesCache || (now - tipoGeneralCacheTime) > TIPO_GENERAL_CACHE_DURATION) {
-      try {
-        tipoGeneralValuesCache = await ctx.runAction(api.functions.fallos.getTipoGeneralValues, {});
-        tipoGeneralCacheTime = now;
-      } catch (error) {
-        console.error('Failed to fetch tipo_general values for tool description:', error);
-        tipoGeneralValuesCache = tipoGeneralValuesCache || []; // Use stale cache or empty array
-      }
-    }
-    
     // Fetch jurisdiccion values with caching
     if (!jurisdiccionValuesCache || (now - jurisdiccionCacheTime) > JURISDICCION_CACHE_DURATION) {
       try {
@@ -47,12 +46,23 @@ export const searchFallosTool = createTool({
       }
     }
     
-    const tipoGeneralList = tipoGeneralValuesCache && tipoGeneralValuesCache.length > 0
-      ? `Available tipo_general values: ${tipoGeneralValuesCache.join(', ')}`
-      : '';
+    // Fetch tribunal values with caching
+    if (!tribunalValuesCache || (now - tribunalCacheTime) > TRIBUNAL_CACHE_DURATION) {
+      try {
+        tribunalValuesCache = await ctx.runAction(api.functions.fallos.getTribunalValues, {});
+        tribunalCacheTime = now;
+      } catch (error) {
+        console.error('Failed to fetch tribunal values for tool description:', error);
+        tribunalValuesCache = tribunalValuesCache || []; // Use stale cache or empty array
+      }
+    }
     
     const jurisdiccionList = jurisdiccionValuesCache && jurisdiccionValuesCache.length > 0
       ? `Available jurisdiccion values: ${jurisdiccionValuesCache.join(', ')}`
+      : '';
+    
+    const tribunalList = tribunalValuesCache && tribunalValuesCache.length > 0
+      ? `Available tribunal values: ${tribunalValuesCache.join(', ')}`
       : '';
     
     return `Find fallos (jurisprudencia): hybrid search with filters, browse by filters, fetch facets, or get metadata. 
@@ -60,19 +70,11 @@ export const searchFallosTool = createTool({
 IMPORTANT: You can search by document_id alone without a query - just provide filters.document_id. Query is optional when filtering by document_id.
 
 FILTERS:
-- tipo_general: Type of fallo. ${tipoGeneralList}
-- jurisdiccion: Jurisdiction. ${jurisdiccionList}. Solo estas jurisdicciones son validas. Si hay dudas dejar en blanco. No se debe usar el pais como jurisdiccion. Las jurisdicciones son provincias o "nacional".
-- tribunal: Court name
+- tribunal: Court name. ${tribunalList}
 - materia: Subject matter
-- estado: Status (vigente, derogada, caduca, anulada, suspendida, abrogada, sin_registro_oficial)
-- actor: Plaintiff name (case-insensitive search)
-- demandado: Defendant name (case-insensitive search)
-- magistrados: Judge names (case-insensitive search)
-- sala: Chamber
-- tags: Array of tags
-- fecha_from/to: Case date range (ISO date strings)
-- promulgacion_from/to: Promulgation date range (ISO date strings)
-- publicacion_from/to: Publication date range (ISO date strings)`;
+- promulgacion_from/to: Promulgation date range (ISO date strings, converted to timestamps)
+- publicacion_from/to: Publication date range (ISO date strings, converted to timestamps)
+- document_id: Document ID for exact match`;
   },
   args: z
     .object({
@@ -83,14 +85,12 @@ FILTERS:
       // Common filters
       filters: z
         .object({
-          jurisdiccion: z.string().optional(),
           tribunal: z.string().optional(),
-          sala: z.string().optional(),
-          demandado: z.string().optional(),
-          magistrados: z.string().optional(),
-          fecha_from: z.string().optional(),
-          fecha_to: z.string().optional(),
-          search: z.string().optional(),
+          materia: z.string().optional(),
+          promulgacion_from: z.string().optional(),
+          promulgacion_to: z.string().optional(),
+          publicacion_from: z.string().optional(),
+          publicacion_to: z.string().optional(),
           document_id: z.string().optional().describe("Document ID for exact match"),
         })
         .optional(),
@@ -105,9 +105,6 @@ FILTERS:
     .required({ operation: true }),
   handler: async (ctx: ToolCtx, args: any) => {
     try {
-
-      console.log("args", args);
-
       const operation = args.operation as string;
 
       switch (operation) {
@@ -117,13 +114,21 @@ FILTERS:
         const qdrantFilters: any = {};
         
         // Direct field filters
-        if (filters.jurisdiccion) qdrantFilters.jurisdiccion = filters.jurisdiccion;
         if (filters.tribunal) qdrantFilters.tribunal = filters.tribunal;
         if (filters.sala) qdrantFilters.sala = filters.sala;
         if (filters.document_id) qdrantFilters.document_id = filters.document_id;
+        if (filters.materia) qdrantFilters.materia = filters.materia;
+
         
-        // Text search filters
-        if (filters.search) qdrantFilters.search = filters.search;
+        // Date filters - convert ISO dates to timestamps
+        try {
+          if (filters.promulgacion_from) qdrantFilters.sanction_date_from = isoToTimestamp(filters.promulgacion_from);
+          if (filters.promulgacion_to) qdrantFilters.sanction_date_to = isoToTimestamp(filters.promulgacion_to);
+          if (filters.publicacion_from) qdrantFilters.publication_date_from = isoToTimestamp(filters.publicacion_from);
+          if (filters.publicacion_to) qdrantFilters.publication_date_to = isoToTimestamp(filters.publicacion_to);
+        } catch (dateError) {
+          return createErrorResponse(`Error en formato de fecha: ${dateError instanceof Error ? dateError.message : 'Formato de fecha inválido'}`);
+        }
 
         // Query is optional when filtering by document_id
         let query = "";
@@ -154,11 +159,11 @@ FILTERS:
           score: r.score,
           id: r.id,
           documentId: r.payload.document_id,
-          titulo: r.payload.titulo,
+          titulo: r.payload.title,
           tribunal: r.payload.tribunal,
           jurisdiccion: r.payload.jurisdiccion,
-          fecha: r.payload.fecha,
-          promulgacion: r.payload.promulgacion,
+          fecha: r.payload.date,
+          promulgacion: r.payload.sanction_date,
           actor: r.payload.actor,
           demandado: r.payload.demandado,
           magistrados: r.payload.magistrados,
@@ -168,7 +173,7 @@ FILTERS:
           // Citation metadata for agent
           citationId: r.payload.document_id,
           citationType: 'jur',
-          citationTitle: r.payload.titulo || `${r.payload.tribunal} - ${r.payload.actor} vs ${r.payload.demandado}`.trim(),
+          citationTitle: r.payload.title || `${r.payload.tribunal} - ${r.payload.actor} vs ${r.payload.demandado}`.trim(),
         }));
 
         return `# 🔍 Resultados de Búsqueda de Fallos
@@ -191,7 +196,7 @@ ${results.length === 0 ? 'No se encontraron resultados para la consulta.' : resu
 - **Promulgación**: ${r.promulgacion ? new Date(r.promulgacion).toLocaleDateString() : 'N/A'}
 - **Actor**: ${r.actor || 'N/A'}
 - **Demandado**: ${r.demandado || 'N/A'}
-- **Magistrados**: ${r.magistrados.join(', ') || 'N/A'}
+- **Magistrados**: ${r.magistrados || 'N/A'}
 - **Materia**: ${r.materia || 'N/A'}
 - **Tags**: ${r.tags.join(', ') || 'N/A'}
 - **Puntuación de Relevancia**: ${r.score.toFixed(3)}
@@ -218,11 +223,11 @@ ${results.length === 0 ? 'No se encontraron resultados para la consulta.' : resu
         // Return only essential metadata fields for browse (no large content)
         const lightweightItems = result.items.map((item) => ({
           document_id: item.document_id,
-          titulo: item.titulo,
+          titulo: item.title,
           tribunal: item.tribunal,
           jurisdiccion: item.jurisdiccion,
-          fecha: item.fecha,
-          promulgacion: item.promulgacion,
+          fecha: item.date,
+          promulgacion: item.sanction_date,
           actor: item.actor,
           demandado: item.demandado,
           magistrados: item.magistrados,
@@ -254,7 +259,7 @@ ${lightweightItems.length === 0 ? 'No se encontraron elementos que coincidan con
 - **Promulgación**: ${item.promulgacion ? new Date(item.promulgacion).toLocaleDateString() : 'N/A'}
 - **Actor**: ${item.actor || 'N/A'}
 - **Demandado**: ${item.demandado || 'N/A'}
-- **Magistrados**: ${item.magistrados.join(', ') || 'N/A'}
+- **Magistrados**: ${item.magistrados || 'N/A'}
 - **Materia**: ${item.materia || 'N/A'}
 - **Tags**: ${item.tags.join(', ') || 'N/A'}
 - **Sumario**: ${item.sumario || 'Sin sumario disponible'}
@@ -296,13 +301,13 @@ ${Array.isArray(facetData) ? facetData.map(item => `- **${item.value}**: ${item.
         }
 
         // Compute presence flags
-        const hasContent = Boolean(fallo.contenido);
+        const hasContent = Boolean(fallo.content);
         const referenciasCount = Array.isArray(fallo.referencias_normativas) ? fallo.referencias_normativas.length : 0;
         const citasCount = Array.isArray(fallo.citas) ? fallo.citas.length : 0;
 
         // Return metadata without large fields
         const {
-          contenido, created_at, updated_at,
+          content, created_at, updated_at,
           ...rest
         } = fallo;
 
