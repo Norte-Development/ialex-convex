@@ -5,7 +5,7 @@ import { Users } from "lucide-react";
 export default function TeamPage() {
   return (
     <section
-      className={`flex flex-col mt-18 gap-4 py-5 w-[75%]  min-h-screen px-10 bg-white `}
+      className={`flex flex-col mt-18 gap-4 py-5 w-[75%] min-h-screen px-10 bg-white`}
     >
       <section className="w-full flex justify-between items-center">
         <div className="space-y-1 flex flex-col ">
@@ -19,7 +19,9 @@ export default function TeamPage() {
         </div>
         <CreateTeamDialog />
       </section>
-      <TeamsContainer pageSize={20} />
+      <div className="flex-1 flex flex-col">
+        <TeamsContainer pageSize={20} />
+      </div>
     </section>
   );
 }

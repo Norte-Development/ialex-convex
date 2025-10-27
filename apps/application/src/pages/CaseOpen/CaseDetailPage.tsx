@@ -23,6 +23,7 @@ import {
   DialogTitle,
 } from "../../components/ui/dialog";
 import { useState } from "react";
+import CaseStatusSelector from "@/components/Cases/CaseStatusSelector";
 
 export default function CaseDetailPage() {
   const { currentCase } = useCase();
@@ -37,7 +38,12 @@ export default function CaseDetailPage() {
   );
   const escritos = useQuery(
     api.functions.documents.getEscritos,
-    currentCase ? { caseId: currentCase._id, paginationOpts: { numItems: 100, cursor: null } } : "skip",
+    currentCase
+      ? {
+          caseId: currentCase._id,
+          paginationOpts: { numItems: 100, cursor: null },
+        }
+      : "skip",
   );
   const clients = useQuery(
     api.functions.cases.getClientsForCase,
@@ -110,9 +116,10 @@ export default function CaseDetailPage() {
           </div>
 
           <div className="flex items-center gap-4 text-sm">
-            <Badge variant={statusBadge.variant} className="font-normal">
-              {statusBadge.label}
-            </Badge>
+            <CaseStatusSelector
+              caseId={currentCase._id}
+              currentStatus={currentCase.status}
+            />
             <Badge variant="outline" className={priorityBadge.className}>
               {priorityBadge.label}
             </Badge>

@@ -12,21 +12,21 @@ interface UseUpgradeOptions {
 
 /**
  * Hook to handle plan upgrades via Stripe checkout
- * 
+ *
  * Provides functions to upgrade individual users or teams to premium plans.
  * Automatically redirects to Stripe checkout and handles errors.
- * 
+ *
  * @param options - Configuration options
  * @param options.teamId - Optional team ID for team upgrades
  * @param options.onSuccess - Callback when checkout session is created
  * @param options.onError - Callback when an error occurs
- * 
+ *
  * @example
  * ```tsx
  * const { upgradeToIndividual, upgradeToTeam, isUpgrading } = useUpgrade({
  *   onSuccess: () => toast.success("Redirigiendo a checkout..."),
  * });
- * 
+ *
  * <Button onClick={upgradeToIndividual}>
  *   Actualizar a Premium
  * </Button>
@@ -37,10 +37,10 @@ export function useUpgrade(options: UseUpgradeOptions = {}) {
   const [isUpgrading, setIsUpgrading] = useState(false);
 
   const user = useQuery(api.functions.users.getCurrentUser, {});
-  
+
   // Note: Type assertion needed until Convex types are regenerated
   const createCheckoutSession = useAction(
-    api.billing.subscriptions.createCheckoutSession
+    api.billing.subscriptions.createCheckoutSession,
   );
 
   /**
@@ -62,9 +62,10 @@ export function useUpgrade(options: UseUpgradeOptions = {}) {
 
     setIsUpgrading(true);
     try {
-      const priceId = targetPlan === "premium_individual" 
-        ? STRIPE_PRICE_IDS.premium_individual 
-        : STRIPE_PRICE_IDS.premium_team;
+      const priceId =
+        targetPlan === "premium_individual"
+          ? STRIPE_PRICE_IDS.premium_individual
+          : STRIPE_PRICE_IDS.premium_team;
 
       const result = await createCheckoutSession({
         entityId: user._id,
@@ -72,7 +73,10 @@ export function useUpgrade(options: UseUpgradeOptions = {}) {
       });
 
       if (result.url) {
-        const planName = targetPlan === "premium_individual" ? "Premium Individual" : "Premium Team";
+        const planName =
+          targetPlan === "premium_individual"
+            ? "Premium Individual"
+            : "Premium Team";
         toast.success(`Redirigiendo a checkout de ${planName}...`);
         onSuccess?.();
         // Redirect to Stripe checkout
@@ -81,8 +85,8 @@ export function useUpgrade(options: UseUpgradeOptions = {}) {
         throw new Error("No se recibió URL de checkout");
       }
     } catch (error) {
-      console.error("Error creating checkout session:", error);
-      const err = error instanceof Error ? error : new Error("Error desconocido");
+      const err =
+        error instanceof Error ? error : new Error("Error desconocido");
       toast.error("No se pudo crear la sesión de pago", {
         description: err.message,
       });
@@ -114,4 +118,3 @@ export function useUpgrade(options: UseUpgradeOptions = {}) {
     isUpgrading,
   };
 }
-
