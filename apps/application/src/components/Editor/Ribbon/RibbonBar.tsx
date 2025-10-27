@@ -1,8 +1,9 @@
 import { useState } from "react";
 import { HomeTab } from "./HomeTab";
 import { InsertTab } from "./InsertTab";
-// import { LayoutTab } from "./LayoutTab"; // Comentado para v1.0 - la mayoría de funcionalidades no están implementadas
+import { LayoutTab } from "./LayoutTab";
 import { ReviewTab } from "./ReviewTab";
+// @ts-ignore - TypeScript cache issue with @tiptap/core types
 import type { Editor } from "@tiptap/core";
 import { cn } from "@/lib/utils";
 
@@ -10,7 +11,7 @@ interface RibbonBarProps {
   editor: Editor;
 }
 
-type RibbonTab = "home" | "insert" | "review"; // Eliminado "layout" de las opciones
+type RibbonTab = "home" | "insert" | "layout" | "review";
 
 export function RibbonBar({ editor }: RibbonBarProps) {
   const [activeTab, setActiveTab] = useState<RibbonTab>("home");
@@ -18,7 +19,7 @@ export function RibbonBar({ editor }: RibbonBarProps) {
   const tabs = [
     { id: "home" as const, label: "Inicio" },
     { id: "insert" as const, label: "Insertar" },
-    // { id: "layout" as const, label: "Diseño" }, // Comentado para v1.0
+    { id: "layout" as const, label: "Diseño" },
     { id: "review" as const, label: "Revisar" },
   ];
 
@@ -44,7 +45,7 @@ export function RibbonBar({ editor }: RibbonBarProps) {
       <div className="ribbon-content">
         {activeTab === "home" && <HomeTab editor={editor} />}
         {activeTab === "insert" && <InsertTab editor={editor} />}
-        {/* {activeTab === "layout" && <LayoutTab editor={editor} />} */}
+        {activeTab === "layout" && <LayoutTab editor={editor} />}
         {activeTab === "review" && <ReviewTab editor={editor} />}
       </div>
     </div>

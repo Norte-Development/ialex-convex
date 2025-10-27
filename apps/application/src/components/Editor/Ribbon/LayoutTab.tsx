@@ -1,7 +1,8 @@
+// @ts-ignore - TypeScript cache issue with @tiptap/core types
 import type { Editor } from "@tiptap/core";
 import { Button } from "@/components/ui/button";
 import { Plus, Minus, Trash2 } from "lucide-react";
-// Imports comentados para futuras versiones: FileText, Columns, Ruler
+import { MarginSelector } from "./MarginSelector";
 
 interface LayoutTabProps {
   editor: Editor;
@@ -11,32 +12,14 @@ export function LayoutTab({ editor }: LayoutTabProps) {
   return (
     <div className="ribbon-tab-content">
       {/* Page Setup Group */}
-      {/* NOTA: Funcionalidades de márgenes y orientación comentadas para v1.0 - implementar en futuras versiones */}
-      {/* <div className="ribbon-group">
+      <div className="ribbon-group">
         <div className="ribbon-group-label">Configurar página</div>
         <div className="ribbon-group-content flex gap-1">
-          <Button
-            variant="ghost"
-            size="sm"
-            className="flex flex-col items-center gap-1 h-auto py-2 px-3 hover:bg-office-hover"
-            title="Márgenes"
-          >
-            <Ruler className="h-6 w-6" />
-            <span className="text-xs">Márgenes</span>
-          </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            className="flex flex-col items-center gap-1 h-auto py-2 px-3 hover:bg-office-hover"
-            title="Orientación"
-          >
-            <FileText className="h-6 w-6" />
-            <span className="text-xs">Orientación</span>
-          </Button>
+          <MarginSelector editor={editor} />
         </div>
-      </div> */}
+      </div>
 
-      {/* <div className="ribbon-separator" /> */}
+      <div className="ribbon-separator" />
 
       {/* Paragraph Group */}
       {/* NOTA: Funcionalidad de columnas comentada para v1.0 - implementar en futuras versiones */}
