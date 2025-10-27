@@ -6,7 +6,13 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Check, X } from "lucide-react";
 import { PlanType } from "./types";
@@ -100,10 +106,10 @@ const PLAN_HEADERS = {
 /**
  * Comparison table showing features across all billing plans
  * Highlights current plan and recommended upgrade
- * 
+ *
  * @param currentPlan - User's current plan (to highlight)
  * @param highlightPlan - Plan to highlight as recommended
- * 
+ *
  * @example
  * ```tsx
  * <PlanComparison currentPlan="free" highlightPlan="premium_individual" />
@@ -134,15 +140,15 @@ export function PlanComparison({
 
   const getPlanColumnClass = (plan: string): string => {
     const planKey = plan as "free" | "premium_individual" | "premium_team";
-    
+
     if (currentPlan === planKey) {
       return "bg-blue-50 border-l-2 border-r-2 border-blue-300";
     }
-    
+
     if (highlightPlan === planKey) {
       return "bg-purple-50 border-l-2 border-r-2 border-purple-300";
     }
-    
+
     return "";
   };
 
@@ -159,29 +165,47 @@ export function PlanComparison({
           <TableHeader>
             <TableRow>
               <TableHead className="w-1/4">Característica</TableHead>
-              <TableHead className={cn("text-center", getPlanColumnClass("free"))}>
+              <TableHead
+                className={cn("text-center", getPlanColumnClass("free"))}
+              >
                 {PLAN_HEADERS.free}
                 {currentPlan === "free" && (
                   <span className="ml-2 text-xs text-blue-600">(Actual)</span>
                 )}
               </TableHead>
-              <TableHead className={cn("text-center", getPlanColumnClass("premium_individual"))}>
+              <TableHead
+                className={cn(
+                  "text-center",
+                  getPlanColumnClass("premium_individual"),
+                )}
+              >
                 {PLAN_HEADERS.premium_individual}
                 {currentPlan === "premium_individual" && (
                   <span className="ml-2 text-xs text-blue-600">(Actual)</span>
                 )}
-                {highlightPlan === "premium_individual" && currentPlan !== "premium_individual" && (
-                  <span className="ml-2 text-xs text-purple-600">(Recomendado)</span>
-                )}
+                {highlightPlan === "premium_individual" &&
+                  currentPlan !== "premium_individual" && (
+                    <span className="ml-2 text-xs text-purple-600">
+                      (Recomendado)
+                    </span>
+                  )}
               </TableHead>
-              <TableHead className={cn("text-center", getPlanColumnClass("premium_team"))}>
+              <TableHead
+                className={cn(
+                  "text-center",
+                  getPlanColumnClass("premium_team"),
+                )}
+              >
                 {PLAN_HEADERS.premium_team}
                 {currentPlan === "premium_team" && (
                   <span className="ml-2 text-xs text-blue-600">(Actual)</span>
                 )}
-                {highlightPlan === "premium_team" && currentPlan !== "premium_team" && (
-                  <span className="ml-2 text-xs text-purple-600">(Recomendado)</span>
-                )}
+                {highlightPlan === "premium_team" &&
+                  currentPlan !== "premium_team" && (
+                    <span className="ml-2 text-xs text-purple-600">
+                      (Recomendado)
+                    </span>
+                  )}
               </TableHead>
             </TableRow>
           </TableHeader>
@@ -189,28 +213,55 @@ export function PlanComparison({
             {FEATURES.map((feature, index) => (
               <TableRow key={index}>
                 <TableCell className="font-medium">{feature.name}</TableCell>
-                <TableCell className={cn("text-center", getPlanColumnClass("free"))}>
+                <TableCell
+                  className={cn("text-center", getPlanColumnClass("free"))}
+                >
                   {renderCell(feature.free)}
                 </TableCell>
-                <TableCell className={cn("text-center", getPlanColumnClass("premium_individual"))}>
+                <TableCell
+                  className={cn(
+                    "text-center",
+                    getPlanColumnClass("premium_individual"),
+                  )}
+                >
                   {renderCell(feature.premiumIndividual)}
                 </TableCell>
-                <TableCell className={cn("text-center", getPlanColumnClass("premium_team"))}>
+                <TableCell
+                  className={cn(
+                    "text-center",
+                    getPlanColumnClass("premium_team"),
+                  )}
+                >
                   {renderCell(feature.premiumTeam)}
                 </TableCell>
               </TableRow>
             ))}
-            
+
             {/* Pricing Row */}
             <TableRow className="border-t-2">
               <TableCell className="font-bold">Precio</TableCell>
-              <TableCell className={cn("text-center font-semibold text-lg", getPlanColumnClass("free"))}>
+              <TableCell
+                className={cn(
+                  "text-center font-semibold text-lg",
+                  getPlanColumnClass("free"),
+                )}
+              >
                 {formatPrice("free")}
               </TableCell>
-              <TableCell className={cn("text-center font-semibold text-lg", getPlanColumnClass("premium_individual"))}>
+              <TableCell
+                className={cn(
+                  "text-center font-semibold text-lg",
+                  getPlanColumnClass("premium_individual"),
+                )}
+              >
                 {formatPrice("premium_individual")}
               </TableCell>
-              <TableCell className={cn("text-center font-semibold text-lg", getPlanColumnClass("premium_team"))}>
+              <TableCell
+                className={cn(
+                  "text-center font-semibold text-lg",
+                  getPlanColumnClass("premium_team"),
+                )}
+              >
                 {formatPrice("premium_team")}
               </TableCell>
             </TableRow>
@@ -219,36 +270,64 @@ export function PlanComparison({
             {onSelectPlan && (
               <TableRow>
                 <TableCell className="font-bold">Acción</TableCell>
-                <TableCell className={cn("text-center", getPlanColumnClass("free"))}>
+                <TableCell
+                  className={cn("text-center", getPlanColumnClass("free"))}
+                >
                   {currentPlan === "free" ? (
                     <span className="text-sm text-blue-600">Plan actual</span>
                   ) : (
                     <span className="text-sm text-gray-400">-</span>
                   )}
                 </TableCell>
-                <TableCell className={cn("text-center", getPlanColumnClass("premium_individual"))}>
+                <TableCell
+                  className={cn(
+                    "text-center",
+                    getPlanColumnClass("premium_individual"),
+                  )}
+                >
                   {currentPlan === "premium_individual" ? (
                     <span className="text-sm text-blue-600">Plan actual</span>
                   ) : (
                     <Button
-                      onClick={() => onSelectPlan("premium_individual")}
+                      onClick={() => {
+                        if (onSelectPlan) {
+                          onSelectPlan("premium_individual");
+                        }
+                      }}
                       disabled={isUpgrading}
                       size="sm"
-                      className={highlightPlan === "premium_individual" ? "bg-purple-600 hover:bg-purple-700" : ""}
+                      className={
+                        highlightPlan === "premium_individual"
+                          ? "bg-purple-600 hover:bg-purple-700"
+                          : ""
+                      }
                     >
                       {isUpgrading ? "..." : "Actualizar"}
                     </Button>
                   )}
                 </TableCell>
-                <TableCell className={cn("text-center", getPlanColumnClass("premium_team"))}>
+                <TableCell
+                  className={cn(
+                    "text-center",
+                    getPlanColumnClass("premium_team"),
+                  )}
+                >
                   {currentPlan === "premium_team" ? (
                     <span className="text-sm text-blue-600">Plan actual</span>
                   ) : (
                     <Button
-                      onClick={() => onSelectPlan("premium_team")}
+                      onClick={() => {
+                        if (onSelectPlan) {
+                          onSelectPlan("premium_team");
+                        }
+                      }}
                       disabled={isUpgrading}
                       size="sm"
-                      className={highlightPlan === "premium_team" ? "bg-purple-600 hover:bg-purple-700" : ""}
+                      className={
+                        highlightPlan === "premium_team"
+                          ? "bg-purple-600 hover:bg-purple-700"
+                          : ""
+                      }
                     >
                       {isUpgrading ? "..." : "Actualizar"}
                     </Button>
@@ -262,4 +341,3 @@ export function PlanComparison({
     </Card>
   );
 }
-

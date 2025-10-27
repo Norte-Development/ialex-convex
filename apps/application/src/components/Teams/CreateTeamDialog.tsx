@@ -14,7 +14,7 @@ import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import { Label } from "../ui/label";
 import { Textarea } from "../ui/textarea";
-import { FeatureLock, UpgradeModal } from "@/components/Billing";
+import { UpgradeModal, useUpgrade } from "@/components/Billing";
 import { toast } from "sonner";
 
 export default function CreateTeamDialog() {
@@ -22,6 +22,19 @@ export default function CreateTeamDialog() {
   const [isLoading, setIsLoading] = useState(false);
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const createTeam = useMutation(api.functions.teams.createTeam);
+
+  // Hook to handle plan upgrades
+  const { upgradeToPlan } = useUpgrade({
+    onSuccess: () => {
+      toast.success("Redirigiendo a la página de pago...");
+      setShowUpgradeModal(false);
+    },
+    onError: (error) => {
+      toast.error("Error al procesar la actualización", {
+        description: error.message,
+      });
+    },
+  });
 
   // Check team creation access (validates plan and ownership limit)
   const user = useQuery(api.functions.users.getCurrentUser, {});
@@ -94,17 +107,12 @@ export default function CreateTeamDialog() {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <FeatureLock
-          feature="create_team"
-          onUpgrade={() => setShowUpgradeModal(true)}
+        <Button
+          onClick={() => setOpen(true)}
+          className="text-white cursor-pointer"
         >
-          <Button
-            onClick={() => setOpen(true)}
-            className=" text-white cursor-pointer"
-          >
-            Añadir equipo
-          </Button>
-        </FeatureLock>
+          Añadir equipo
+        </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
@@ -165,6 +173,9 @@ export default function CreateTeamDialog() {
             reason={canCreateTeamCheck?.reason || "Funcionalidad no disponible"}
             currentPlan={userPlan || "free"}
             recommendedPlan="premium_individual"
+            onUpgrade={(plan) => {
+              upgradeToPlan(plan);
+            }}
           />
         )}
       </DialogContent>

@@ -19,20 +19,20 @@ interface UpgradeModalProps {
   reason?: string;
   currentPlan: PlanType;
   recommendedPlan?: PlanType;
-  onUpgrade?: () => void; // Optional custom upgrade handler
+  onUpgrade?: (plan: PlanType) => void; // Updated to receive the selected plan
 }
 
 /**
  * Modal shown when hard limit is reached
  * Displays reason for limit, plan comparison, and upgrade options
- * 
+ *
  * @param open - Whether modal is open
  * @param onOpenChange - Callback when modal state changes
  * @param reason - Explanation of why limit was reached
  * @param currentPlan - User's current plan
  * @param recommendedPlan - Suggested plan to upgrade to
- * @param onUpgrade - Callback when user clicks upgrade button
- * 
+ * @param onUpgrade - Callback when user clicks upgrade button (receives selected plan)
+ *
  * @example
  * ```tsx
  * <UpgradeModal
@@ -41,7 +41,7 @@ interface UpgradeModalProps {
  *   reason="Límite de 2 casos alcanzado"
  *   currentPlan="free"
  *   recommendedPlan="premium_individual"
- *   onUpgrade={handleStripeCheckout}
+ *   onUpgrade={(plan) => handleStripeCheckout(plan)}
  * />
  * ```
  */
@@ -121,11 +121,11 @@ export function UpgradeModal({
             highlightPlan={recommendedPlan}
             onSelectPlan={(plan) => {
               if (onUpgrade) {
-                onUpgrade();
+                onUpgrade(plan);
                 onOpenChange(false);
                 return;
               }
-              
+
               upgradeToPlan(plan);
               // Don't close modal - redirect will happen
             }}
@@ -134,10 +134,7 @@ export function UpgradeModal({
         </div>
 
         <DialogFooter className="gap-2 pt-4 border-t">
-          <Button
-            variant="outline"
-            onClick={() => onOpenChange(false)}
-          >
+          <Button variant="outline" onClick={() => onOpenChange(false)}>
             Cerrar
           </Button>
         </DialogFooter>
@@ -145,4 +142,3 @@ export function UpgradeModal({
     </Dialog>
   );
 }
-
