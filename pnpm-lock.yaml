@@ -362,7 +362,7 @@ importers:
         specifier: ^3.4.4
         version: 3.6.5(@tiptap/core@3.6.5(@tiptap/pm@3.6.5))
       '@tiptap/extension-text-style':
-        specifier: ^3.4.4
+        specifier: ^3.6.5
         version: 3.6.5(@tiptap/core@3.6.5(@tiptap/pm@3.6.5))
       '@tiptap/extension-underline':
         specifier: ^3.4.4
