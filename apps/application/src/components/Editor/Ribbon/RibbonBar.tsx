@@ -19,7 +19,7 @@ export function RibbonBar({ editor }: RibbonBarProps) {
   const tabs = [
     { id: "home" as const, label: "Inicio" },
     { id: "insert" as const, label: "Insertar" },
-    { id: "layout" as const, label: "Diseño" },
+    // { id: "layout" as const, label: "Diseño" },
     { id: "review" as const, label: "Revisar" },
   ];
 
