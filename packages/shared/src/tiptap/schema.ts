@@ -14,7 +14,10 @@ import { TableRow } from "@tiptap/extension-table-row";
 import { TableHeader } from "@tiptap/extension-table-header";
 import { TableCell } from "@tiptap/extension-table-cell";
 import Link from "@tiptap/extension-link";
+// @ts-ignore - No types available for tiptap-extension-margin
+import Margin from "tiptap-extension-margin";
 import { InlineChange, BlockChange, LineBreakChange } from "./changeNodes";
+// @ts-ignore - TypeScript cache issue with @tiptap/core types
 import { getSchema } from "@tiptap/core";
 import { Schema } from "@tiptap/pm/model";
 
@@ -43,6 +46,9 @@ export function buildServerSchema(): Schema {
     }),
     TextAlign.configure({ types: ["heading", "paragraph"] }),
     Underline,
+    Margin.configure({
+      types: ["heading", "paragraph"],
+    }),
     // Image extension
     Image.configure({
       inline: true,

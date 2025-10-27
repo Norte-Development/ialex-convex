@@ -475,6 +475,9 @@ importers:
       tailwindcss:
         specifier: ^4.0.14
         version: 4.1.14
+      tiptap-extension-margin:
+        specifier: ^1.0.0
+        version: 1.0.0(@tiptap/pm@3.6.5)
       tiptap-pagination-plus:
         specifier: ^1.1.8
         version: 1.2.0(@tiptap/core@3.6.5(@tiptap/pm@3.6.5))(@tiptap/pm@3.6.5)
@@ -679,6 +682,9 @@ importers:
       jsondiffpatch:
         specifier: ^0.7.3
         version: 0.7.3
+      tiptap-extension-margin:
+        specifier: ^1.0.0
+        version: 1.0.0(@tiptap/pm@3.6.5)
     devDependencies:
       tsup:
         specifier: ^8.3.5
@@ -2646,6 +2652,11 @@ packages:
 
   '@tanstack/virtual-core@3.13.12':
     resolution: {integrity: sha512-1YBOJfRHV4sXUmWsFSf5rQor4Ss82G8dQWLRbnk3GA4jeP8hQt1hxXh0tmflpC0dz3VgEv/1+qwPyLeWkQuPFA==}
+
+  '@tiptap/core@2.26.4':
+    resolution: {integrity: sha512-F8t0Nc1OeV51CCHR1WYVMg/gOzHD2fJALUpMxF67/LDjFnxM/rarsqTQnLZuBoP9U3TfbNLSAQLZ4TCnBZnXRA==}
+    peerDependencies:
+      '@tiptap/pm': ^2.7.0
 
   '@tiptap/core@3.6.5':
     resolution: {integrity: sha512-CgXuhevQbBcPfxaXzGZgIY9+aVMSAd68Q21g3EONz1iZBw026QgiaLhGK6jgGTErZL4GoNL/P+gC5nFCvN7+cA==}
@@ -6771,6 +6782,9 @@ packages:
     resolution: {integrity: sha512-n1cw8k1k0x4pgA2+9XrOkFydTerNcJ1zWCO5Nn9scWHTD+5tp8dghT2x1uduQePZTZgd3Tupf+x9BxJjeJi77Q==}
     engines: {node: '>=14.0.0'}
 
+  tiptap-extension-margin@1.0.0:
+    resolution: {integrity: sha512-OKh9Y4tC7MDUasGEc8yb1TTm+h/3DOyHr9ZrsGOvxholdpjNgiJrUhENnGKUvds3NiGrpAFm7ELBTEYiOwrhqg==}
+
   tiptap-pagination-plus@1.2.0:
     resolution: {integrity: sha512-5Iy9UhZt0BWCJxkvEg556FaIbSpoUbReFsHgrC3+iscqJ193DSgW9eNLT691Y4RfbhIDOzdBSo/mmTTZgsa5JQ==}
     peerDependencies:
@@ -9267,6 +9281,10 @@ snapshots:
       react-dom: 19.2.0(react@19.2.0)
 
   '@tanstack/virtual-core@3.13.12': {}
+
+  '@tiptap/core@2.26.4(@tiptap/pm@3.6.5)':
+    dependencies:
+      '@tiptap/pm': 3.6.5
 
   '@tiptap/core@3.6.5(@tiptap/pm@3.6.5)':
     dependencies:
@@ -14121,6 +14139,12 @@ snapshots:
   tinyrainbow@1.2.0: {}
 
   tinyspy@3.0.2: {}
+
+  tiptap-extension-margin@1.0.0(@tiptap/pm@3.6.5):
+    dependencies:
+      '@tiptap/core': 2.26.4(@tiptap/pm@3.6.5)
+    transitivePeerDependencies:
+      - '@tiptap/pm'
 
   tiptap-pagination-plus@1.2.0(@tiptap/core@3.6.5(@tiptap/pm@3.6.5))(@tiptap/pm@3.6.5):
     dependencies:

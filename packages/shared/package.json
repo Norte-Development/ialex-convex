@@ -20,7 +20,8 @@
     "@tiptap/extension-text-style": "^3.2.1",
     "@tiptap/extension-underline": "^3.2.1",
     "@tiptap/starter-kit": "^3.2.1",
-    "jsondiffpatch": "^0.7.3"
+    "jsondiffpatch": "^0.7.3",
+    "tiptap-extension-margin": "^1.0.0"
   },
   "devDependencies": {
     "tsup": "^8.3.5",
