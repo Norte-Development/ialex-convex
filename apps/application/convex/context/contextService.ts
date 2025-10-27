@@ -320,7 +320,7 @@ export class ContextService {
   ): Promise<CaseDocumentContext[]> {
     // Get case documents
     const caseDocuments = await ctx.db
-      .query("caseDocumentos")
+      .query("documents")
       .withIndex("by_case", (q: any) => q.eq("caseId", caseId))
       .filter((q: any) => q.eq(q.field("isActive"), true))
       .collect();
