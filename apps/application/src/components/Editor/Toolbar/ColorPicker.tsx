@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import type { Editor } from "@tiptap/core";
 import {
   DropdownMenu,
@@ -14,21 +14,99 @@ interface ColorPickerProps {
 
 const OFFICE_COLORS = [
   // Theme Colors
-  ["#000000", "#FFFFFF", "#E7E6E6", "#44546A", "#5B9BD5", "#ED7D31", "#A5A5A5", "#FFC000", "#4472C4", "#70AD47"],
+  [
+    "#000000",
+    "#FFFFFF",
+    "#E7E6E6",
+    "#44546A",
+    "#5B9BD5",
+    "#ED7D31",
+    "#A5A5A5",
+    "#FFC000",
+    "#4472C4",
+    "#70AD47",
+  ],
   // Lighter shades
-  ["#7F7F7F", "#D0CECE", "#C9C9C9", "#D6DCE4", "#DEEBF6", "#FCE4D6", "#EDEDED", "#FFF2CC", "#D9E2F3", "#E2EFD9"],
+  [
+    "#7F7F7F",
+    "#D0CECE",
+    "#C9C9C9",
+    "#D6DCE4",
+    "#DEEBF6",
+    "#FCE4D6",
+    "#EDEDED",
+    "#FFF2CC",
+    "#D9E2F3",
+    "#E2EFD9",
+  ],
   // Medium shades
-  ["#595959", "#AEAAAA", "#A6A6A6", "#ADB9CA", "#BDD7EE", "#F8CBAD", "#DBDBDB", "#FFE699", "#B4C7E7", "#C5E0B3"],
+  [
+    "#595959",
+    "#AEAAAA",
+    "#A6A6A6",
+    "#ADB9CA",
+    "#BDD7EE",
+    "#F8CBAD",
+    "#DBDBDB",
+    "#FFE699",
+    "#B4C7E7",
+    "#C5E0B3",
+  ],
   // Darker shades
-  ["#3F3F3F", "#757070", "#7B7B7B", "#8496B0", "#9BC2E6", "#F4B083", "#C9C9C9", "#FFD966", "#8FAADC", "#A8D08D"],
-  ["#262626", "#3A3838", "#525252", "#323E4F", "#2E75B5", "#C55A11", "#7B7B7B", "#BF8F00", "#305496", "#538135"],
+  [
+    "#3F3F3F",
+    "#757070",
+    "#7B7B7B",
+    "#8496B0",
+    "#9BC2E6",
+    "#F4B083",
+    "#C9C9C9",
+    "#FFD966",
+    "#8FAADC",
+    "#A8D08D",
+  ],
+  [
+    "#262626",
+    "#3A3838",
+    "#525252",
+    "#323E4F",
+    "#2E75B5",
+    "#C55A11",
+    "#7B7B7B",
+    "#BF8F00",
+    "#305496",
+    "#538135",
+  ],
 ];
 
 export function ColorPicker({ editor }: ColorPickerProps) {
   const [selectedColor, setSelectedColor] = useState("#000000");
 
+  useEffect(() => {
+    const updateColor = () => {
+      // Get color from textStyle attributes
+      const { color } = editor.getAttributes("textStyle");
+      if (color) {
+        setSelectedColor(color);
+      } else {
+        setSelectedColor("#000000");
+      }
+    };
+
+    // Update on selection change
+    editor.on("selectionUpdate", updateColor);
+    editor.on("transaction", updateColor);
+
+    // Initial update
+    updateColor();
+
+    return () => {
+      editor.off("selectionUpdate", updateColor);
+      editor.off("transaction", updateColor);
+    };
+  }, [editor]);
+
   const handleColorChange = (color: string) => {
-    setSelectedColor(color);
     editor.chain().focus().setColor(color).run();
   };
 
@@ -69,4 +147,3 @@ export function ColorPicker({ editor }: ColorPickerProps) {
     </DropdownMenu>
   );
 }
-

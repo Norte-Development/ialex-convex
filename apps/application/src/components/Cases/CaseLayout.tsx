@@ -9,33 +9,28 @@ import { useDropzone } from "react-dropzone";
 import { useAction, useMutation, useQuery } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import { useCase } from "@/context/CaseContext";
-import {
-  Loader2,
-  CheckCircle,
-  XCircle,
-  FileText,
-  Shield,
-  ArrowLeft,
-} from "lucide-react";
+import { Shield, ArrowLeft } from "lucide-react";
 import { usePermissions } from "@/context/CasePermissionsContext";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-import { useBillingLimit, UpgradeModal, useBillingData } from "@/components/Billing";
+import {
+  useBillingLimit,
+  UpgradeModal,
+  useBillingData,
+} from "@/components/Billing";
+import { UploadProvider, useUpload } from "@/context/UploadContext";
+import { UploadOverlay } from "./UploadOverlay";
 
 interface CaseDetailLayoutProps {
   children: React.ReactNode;
 }
 
-interface UploadFile {
-  id: string;
-  file: File;
-  status: "uploading" | "success" | "error";
-  progress: number;
-  error?: string;
-}
-
 export default function CaseLayout({ children }: CaseDetailLayoutProps) {
-  return <InnerCaseLayout>{children}</InnerCaseLayout>;
+  return (
+    <UploadProvider>
+      <InnerCaseLayout>{children}</InnerCaseLayout>
+    </UploadProvider>
+  );
 }
 
 function InnerCaseLayout({ children }: CaseDetailLayoutProps) {
@@ -46,7 +41,7 @@ function InnerCaseLayout({ children }: CaseDetailLayoutProps) {
   const { isChatbotOpen, toggleChatbot, chatbotWidth, setChatbotWidth } =
     useChatbot();
   const [isResizing, setIsResizing] = useState(false);
-  const [uploadFiles, setUploadFiles] = useState<UploadFile[]>([]);
+  const { addUpload, updateUpload, removeUpload } = useUpload();
   const [isGlobalDragActive, setIsGlobalDragActive] = useState(false);
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
 
@@ -63,13 +58,13 @@ function InnerCaseLayout({ children }: CaseDetailLayoutProps) {
   // Get documents for case to check limit
   const documents = useQuery(
     api.functions.documents.getDocuments,
-    currentCase ? { caseId: currentCase._id } : "skip"
+    currentCase ? { caseId: currentCase._id } : "skip",
   );
   const currentDocCount = documents?.length || 0;
 
   // Check document per case limit
-  const documentsPerCaseCheck = useBillingLimit("documentsPerCase", { 
-    currentCount: currentDocCount 
+  const documentsPerCaseCheck = useBillingLimit("documentsPerCase", {
+    currentCount: currentDocCount,
   });
 
   // Get current user plan for upgrade modal
@@ -121,24 +116,11 @@ function InnerCaseLayout({ children }: CaseDetailLayoutProps) {
       }
       enqueuedUploadsRef.current.add(dedupeKey);
 
-      const fileId = `${Date.now()}-${Math.random()}`;
-
-      // Add file to upload queue
-      setUploadFiles((prev) => [
-        ...prev,
-        {
-          id: fileId,
-          file,
-          status: "uploading",
-          progress: 0,
-        },
-      ]);
+      const fileId = addUpload(file);
 
       try {
         // Update progress to 25%
-        setUploadFiles((prev) =>
-          prev.map((f) => (f.id === fileId ? { ...f, progress: 25 } : f)),
-        );
+        updateUpload(fileId, { progress: 25 });
 
         // Step 1: Get a short-lived upload URL (GCS signed URL for PUT)
         const postUrl = await generateUploadUrl({
@@ -149,9 +131,7 @@ function InnerCaseLayout({ children }: CaseDetailLayoutProps) {
         });
 
         // Update progress to 50%
-        setUploadFiles((prev) =>
-          prev.map((f) => (f.id === fileId ? { ...f, progress: 50 } : f)),
-        );
+        updateUpload(fileId, { progress: 50 });
 
         // Step 2: PUT the file to the signed URL
         const putResp = await fetch(postUrl.url, {
@@ -164,9 +144,7 @@ function InnerCaseLayout({ children }: CaseDetailLayoutProps) {
         }
 
         // Update progress to 75%
-        setUploadFiles((prev) =>
-          prev.map((f) => (f.id === fileId ? { ...f, progress: 75 } : f)),
-        );
+        updateUpload(fileId, { progress: 75 });
 
         // Step 3: Save the GCS metadata to the database (idempotent on backend)
         await createDocument({
@@ -180,50 +158,49 @@ function InnerCaseLayout({ children }: CaseDetailLayoutProps) {
         });
 
         // Update to success
-        setUploadFiles((prev) =>
-          prev.map((f) =>
-            f.id === fileId ? { ...f, status: "success", progress: 100 } : f,
-          ),
-        );
+        updateUpload(fileId, { status: "success", progress: 100 });
 
         console.log(`File "${file.name}" uploaded successfully`);
 
         // Remove success files after 3 seconds
         setTimeout(() => {
-          setUploadFiles((prev) => prev.filter((f) => f.id !== fileId));
+          removeUpload(fileId);
         }, 3000);
       } catch (error) {
         console.error("Error uploading file:", error);
 
         // Check if this is a limit error
         const errorMessage = error instanceof Error ? error.message : "";
-        if (errorMessage.includes("Límite de 10 documentos por caso alcanzado")) {
+        if (
+          errorMessage.includes("Límite de 10 documentos por caso alcanzado")
+        ) {
           setShowUpgradeModal(true);
         }
 
         // Update to error
-        setUploadFiles((prev) =>
-          prev.map((f) =>
-            f.id === fileId
-              ? {
-                  ...f,
-                  status: "error",
-                  error:
-                    error instanceof Error ? error.message : "Upload failed",
-                }
-              : f,
-          ),
-        );
+        updateUpload(fileId, {
+          status: "error",
+          error: error instanceof Error ? error.message : "Upload failed",
+        });
 
         // Remove error files after 5 seconds
         setTimeout(() => {
-          setUploadFiles((prev) => prev.filter((f) => f.id !== fileId));
+          removeUpload(fileId);
         }, 5000);
       } finally {
         enqueuedUploadsRef.current.delete(dedupeKey);
       }
     },
-    [currentCase, generateUploadUrl, createDocument, can.docs.write, documentsPerCaseCheck],
+    [
+      currentCase,
+      generateUploadUrl,
+      createDocument,
+      can.docs.write,
+      documentsPerCaseCheck,
+      addUpload,
+      updateUpload,
+      removeUpload,
+    ],
   );
 
   const onDrop = useCallback(
@@ -233,7 +210,7 @@ function InnerCaseLayout({ children }: CaseDetailLayoutProps) {
         console.warn("Drop already in progress, ignoring duplicate event");
         return;
       }
-      
+
       dropInProgressRef.current = true;
       try {
         console.log("Files dropped:", acceptedFiles);
@@ -389,9 +366,7 @@ function InnerCaseLayout({ children }: CaseDetailLayoutProps) {
   }
 
   return (
-    <div
-      className="relative h-screen w-screen flex overflow-hidden"
-    >
+    <div className="relative h-screen w-screen flex overflow-hidden">
       {/* Left Sidebar - full height, fixed position */}
       <div
         className={`fixed top-0 left-0 h-screen z-20 ${
@@ -448,71 +423,7 @@ function InnerCaseLayout({ children }: CaseDetailLayoutProps) {
       </div>
 
       {/* Upload Feedback Overlay */}
-      {uploadFiles.length > 0 && (
-        <div className="fixed top-20 right-4 z-50 space-y-2 max-w-sm">
-          {uploadFiles.map((uploadFile) => (
-            <div
-              key={uploadFile.id}
-              className={`bg-white rounded-lg shadow-lg border p-3 transition-all duration-300 ${
-                uploadFile.status === "error"
-                  ? "border-red-200"
-                  : uploadFile.status === "success"
-                    ? "border-green-200"
-                    : "border-blue-200"
-              }`}
-            >
-              <div className="flex items-center space-x-3">
-                <div className="flex-shrink-0">
-                  {uploadFile.status === "uploading" && (
-                    <Loader2 className="h-5 w-5 text-blue-500 animate-spin" />
-                  )}
-                  {uploadFile.status === "success" && (
-                    <CheckCircle className="h-5 w-5 text-green-500" />
-                  )}
-                  {uploadFile.status === "error" && (
-                    <XCircle className="h-5 w-5 text-red-500" />
-                  )}
-                </div>
-
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center space-x-2">
-                    <FileText className="h-4 w-4 text-gray-400" />
-                    <p className="text-sm font-medium text-gray-900 truncate">
-                      {uploadFile.file.name}
-                    </p>
-                  </div>
-
-                  {uploadFile.status === "uploading" && (
-                    <div className="mt-1">
-                      <div className="w-full bg-gray-200 rounded-full h-1.5">
-                        <div
-                          className="bg-blue-500 h-1.5 rounded-full transition-all duration-300"
-                          style={{ width: `${uploadFile.progress}%` }}
-                        />
-                      </div>
-                      <p className="text-xs text-gray-500 mt-1">
-                        {uploadFile.progress}% complete
-                      </p>
-                    </div>
-                  )}
-
-                  {uploadFile.status === "success" && (
-                    <p className="text-xs text-green-600 mt-1">
-                      Archivo subido correctamente
-                    </p>
-                  )}
-
-                  {uploadFile.status === "error" && (
-                    <p className="text-xs text-red-600 mt-1">
-                      {uploadFile.error || "Upload failed"}
-                    </p>
-                  )}
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
+      <UploadOverlay />
 
       {/* Global drag overlay to capture drops over iframes/viewers */}
       {can.docs.write && (isGlobalDragActive || isDragActive) && (
