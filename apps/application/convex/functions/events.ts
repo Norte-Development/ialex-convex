@@ -1,4 +1,4 @@
-import { v } from "convex/values";
+import { ConvexError, v } from "convex/values";
 import { mutation, query } from "../_generated/server";
 import { paginationOptsValidator } from "convex/server";
 import { internal } from "../_generated/api";
@@ -128,7 +128,7 @@ export const createEvent = mutation({
     await ctx.scheduler.runAfter(
       0,
       internal.functions.eventNotifications.scheduleEventReminders,
-      { eventId }
+      { eventId },
     );
 
     return eventId;
@@ -149,8 +149,22 @@ export const getEventById = query({
       throw new Error("Evento no encontrado");
     }
 
-    // Verificar acceso
+    // Verificar si el usuario es participante del evento
+    const participation = await ctx.db
+      .query("eventParticipants")
+      .withIndex("by_event_and_user", (q) =>
+        q.eq("eventId", args.eventId).eq("userId", currentUser._id),
+      )
+      .first();
+
+    // Si es participante, tiene acceso directo
+    if (participation) {
+      return event;
+    }
+
+    // Si NO es participante, verificar acceso según el tipo de evento
     if (event.caseId) {
+      // Evento de caso: requiere acceso al caso
       await requireNewCaseAccess(ctx, currentUser._id, event.caseId, "basic");
     } else if (event.teamId) {
       const teamId = event.teamId; // Type narrowing
@@ -166,17 +180,8 @@ export const getEventById = query({
         throw new Error("No tienes acceso a este evento");
       }
     } else {
-      // Evento personal: verificar que sea participante
-      const participation = await ctx.db
-        .query("eventParticipants")
-        .withIndex("by_event_and_user", (q) =>
-          q.eq("eventId", args.eventId).eq("userId", currentUser._id),
-        )
-        .first();
-
-      if (!participation) {
-        throw new Error("No tienes acceso a este evento");
-      }
+      // Evento personal: solo accesible como participante
+      throw new Error("No tienes acceso a este evento");
     }
 
     return event;
@@ -237,21 +242,25 @@ export const getTeamEvents = query({
 export const getMyEvents = query({
   args: {
     paginationOpts: paginationOptsValidator,
-    status: v.optional(v.union(
-      v.literal("programado"),
-      v.literal("completado"),
-      v.literal("cancelado"),
-      v.literal("reprogramado"),
-    )),
-    eventType: v.optional(v.union(
-      v.literal("audiencia"),
-      v.literal("plazo"),
-      v.literal("reunion_cliente"),
-      v.literal("presentacion"),
-      v.literal("reunion_equipo"),
-      v.literal("personal"),
-      v.literal("otro"),
-    )),
+    status: v.optional(
+      v.union(
+        v.literal("programado"),
+        v.literal("completado"),
+        v.literal("cancelado"),
+        v.literal("reprogramado"),
+      ),
+    ),
+    eventType: v.optional(
+      v.union(
+        v.literal("audiencia"),
+        v.literal("plazo"),
+        v.literal("reunion_cliente"),
+        v.literal("presentacion"),
+        v.literal("reunion_equipo"),
+        v.literal("personal"),
+        v.literal("otro"),
+      ),
+    ),
     dateFrom: v.optional(v.number()),
     dateTo: v.optional(v.number()),
     sortBy: v.optional(v.string()),
@@ -303,7 +312,7 @@ export const getMyEvents = query({
     if (args.sortBy && args.sortOrder) {
       validEvents.sort((a, b) => {
         let aValue, bValue;
-        
+
         switch (args.sortBy) {
           case "title":
             aValue = a.title.toLowerCase();
@@ -326,10 +335,12 @@ export const getMyEvents = query({
     }
 
     // Apply pagination
-    const offset = args.paginationOpts.cursor ? parseInt(args.paginationOpts.cursor) : 0;
+    const offset = args.paginationOpts.cursor
+      ? parseInt(args.paginationOpts.cursor)
+      : 0;
     const startIndex = offset;
     const endIndex = offset + args.paginationOpts.numItems;
-    
+
     const paginatedEvents = validEvents.slice(startIndex, endIndex);
     const isDone = endIndex >= validEvents.length;
     const continueCursor = isDone ? null : endIndex.toString();
@@ -344,18 +355,20 @@ export const getMyEvents = query({
 });
 
 export const getUpcomingEvents = query({
-  args: { 
+  args: {
     paginationOpts: paginationOptsValidator,
     days: v.optional(v.number()),
-    eventType: v.optional(v.union(
-      v.literal("audiencia"),
-      v.literal("plazo"),
-      v.literal("reunion_cliente"),
-      v.literal("presentacion"),
-      v.literal("reunion_equipo"),
-      v.literal("personal"),
-      v.literal("otro"),
-    )),
+    eventType: v.optional(
+      v.union(
+        v.literal("audiencia"),
+        v.literal("plazo"),
+        v.literal("reunion_cliente"),
+        v.literal("presentacion"),
+        v.literal("reunion_equipo"),
+        v.literal("personal"),
+        v.literal("otro"),
+      ),
+    ),
     sortBy: v.optional(v.string()),
     sortOrder: v.optional(v.union(v.literal("asc"), v.literal("desc"))),
   },
@@ -396,14 +409,16 @@ export const getUpcomingEvents = query({
 
     // Apply event type filter
     if (args.eventType) {
-      upcomingEvents = upcomingEvents.filter((e) => e.eventType === args.eventType);
+      upcomingEvents = upcomingEvents.filter(
+        (e) => e.eventType === args.eventType,
+      );
     }
 
     // Apply sorting
     if (args.sortBy && args.sortOrder) {
       upcomingEvents.sort((a, b) => {
         let aValue, bValue;
-        
+
         switch (args.sortBy) {
           case "title":
             aValue = a.title.toLowerCase();
@@ -426,10 +441,12 @@ export const getUpcomingEvents = query({
     }
 
     // Apply pagination
-    const offset = args.paginationOpts.cursor ? parseInt(args.paginationOpts.cursor) : 0;
+    const offset = args.paginationOpts.cursor
+      ? parseInt(args.paginationOpts.cursor)
+      : 0;
     const startIndex = offset;
     const endIndex = offset + args.paginationOpts.numItems;
-    
+
     const paginatedEvents = upcomingEvents.slice(startIndex, endIndex);
     const isDone = endIndex >= upcomingEvents.length;
     const continueCursor = isDone ? null : endIndex.toString();
@@ -501,7 +518,7 @@ export const updateEvent = mutation({
       await ctx.scheduler.runAfter(
         0,
         internal.functions.eventNotifications.scheduleEventReminders,
-        { eventId }
+        { eventId },
       );
     }
 
@@ -752,32 +769,47 @@ export const getEventParticipants = query({
       throw new Error("Evento no encontrado");
     }
 
-    // Verificar acceso al evento
-    if (event.caseId) {
-      await requireNewCaseAccess(ctx, currentUser._id, event.caseId, "basic");
-    } else if (event.teamId) {
-      const teamId = event.teamId; // Type narrowing
-      const membership = await ctx.db
-        .query("teamMemberships")
-        .withIndex("by_team_and_user", (q) =>
-          q.eq("teamId", teamId).eq("userId", currentUser._id),
-        )
-        .filter((q) => q.eq(q.field("isActive"), true))
-        .first();
+    // DEBUG: Ver todos los participantes del evento
+    const allParticipants = await ctx.db
+      .query("eventParticipants")
+      .withIndex("by_event", (q) => q.eq("eventId", args.eventId))
+      .collect();
+    console.log(
+      "DEBUG - All participants for event:",
+      args.eventId,
+      allParticipants,
+    );
+    console.log("DEBUG - Current user:", currentUser._id);
 
-      if (!membership) {
-        throw new Error("No tienes acceso a este evento");
-      }
-    } else {
-      // Evento personal: verificar que sea participante
-      const participation = await ctx.db
-        .query("eventParticipants")
-        .withIndex("by_event_and_user", (q) =>
-          q.eq("eventId", args.eventId).eq("userId", currentUser._id),
-        )
-        .first();
+    // Verificar si el usuario es participante del evento
+    const participation = await ctx.db
+      .query("eventParticipants")
+      .withIndex("by_event_and_user", (q) =>
+        q.eq("eventId", args.eventId).eq("userId", currentUser._id),
+      )
+      .first();
 
-      if (!participation) {
+    console.log("DEBUG - Participation found:", participation);
+
+    // Si NO es participante, verificar acceso según el tipo de evento
+    if (!participation) {
+      if (event.caseId) {
+        await requireNewCaseAccess(ctx, currentUser._id, event.caseId, "basic");
+      } else if (event.teamId) {
+        const teamId = event.teamId; // Type narrowing
+        const membership = await ctx.db
+          .query("teamMemberships")
+          .withIndex("by_team_and_user", (q) =>
+            q.eq("teamId", teamId).eq("userId", currentUser._id),
+          )
+          .filter((q) => q.eq(q.field("isActive"), true))
+          .first();
+
+        if (!membership) {
+          throw new Error("No tienes acceso a este evento");
+        }
+      } else {
+        // Evento personal: solo accesible como participante
         throw new Error("No tienes acceso a este evento");
       }
     }

@@ -4,6 +4,7 @@ import { api } from "../../../convex/_generated/api";
 import { Id } from "convex/_generated/dataModel";
 import { useBillingLimit } from "@/components/Billing";
 import { toast } from "sonner";
+import { useUpload } from "@/context/UploadContext";
 
 type Props = {
   caseId: Id<"cases">;
@@ -19,8 +20,12 @@ export type NewDocumentInputHandle = {
 };
 
 const NewDocumentInput = forwardRef<NewDocumentInputHandle, Props>(
-  ({ caseId, folderId, onSuccess, onError, onUpgradeRequired, accept }, ref) => {
+  (
+    { caseId, folderId, onSuccess, onError, onUpgradeRequired, accept },
+    ref,
+  ) => {
     const inputRef = useRef<HTMLInputElement | null>(null);
+    const { addUpload, updateUpload, removeUpload } = useUpload();
 
     const generateUploadUrl = useAction(
       api.functions.documents.generateUploadUrl,
@@ -28,12 +33,14 @@ const NewDocumentInput = forwardRef<NewDocumentInputHandle, Props>(
     const createDocument = useMutation(api.functions.documents.createDocument);
 
     // Get current document count for the case
-    const documents = useQuery(api.functions.documents.getDocuments, { caseId });
+    const documents = useQuery(api.functions.documents.getDocuments, {
+      caseId,
+    });
     const currentDocCount = documents?.length || 0;
 
     // Check document per case limit
-    const documentsPerCaseCheck = useBillingLimit("documentsPerCase", { 
-      currentCount: currentDocCount 
+    const documentsPerCaseCheck = useBillingLimit("documentsPerCase", {
+      currentCount: currentDocCount,
     });
 
     useImperativeHandle(ref, () => ({
@@ -60,17 +67,22 @@ const NewDocumentInput = forwardRef<NewDocumentInputHandle, Props>(
             return;
           }
 
-          // Note: Storage check should ideally be done with file size, but since we need
-          // to check dynamically, we'll rely on the backend to enforce this limit
-          // A warning could be shown if storage is getting full
+          // Add file to upload queue
+          const fileId = addUpload(file);
 
           try {
+            // Update progress to 25%
+            updateUpload(fileId, { progress: 25 });
+
             const signed = await generateUploadUrl({
               caseId,
               originalFileName: file.name,
               mimeType: file.type || "application/octet-stream",
               fileSize: file.size,
             } as any);
+
+            // Update progress to 50%
+            updateUpload(fileId, { progress: 50 });
 
             const putResp = await fetch(signed.url, {
               method: "PUT",
@@ -81,6 +93,9 @@ const NewDocumentInput = forwardRef<NewDocumentInputHandle, Props>(
             });
             if (!putResp.ok)
               throw new Error(`Upload failed: ${putResp.status}`);
+
+            // Update progress to 75%
+            updateUpload(fileId, { progress: 75 });
 
             await createDocument({
               title: file.name,
@@ -93,10 +108,32 @@ const NewDocumentInput = forwardRef<NewDocumentInputHandle, Props>(
               fileSize: file.size,
             } as any);
 
+            // Update to success
+            updateUpload(fileId, { status: "success", progress: 100 });
+
+            console.log(`File "${file.name}" uploaded successfully via input`);
+
+            // Remove success files after 3 seconds
+            setTimeout(() => {
+              removeUpload(fileId);
+            }, 3000);
+
             if (inputRef.current) inputRef.current.value = "";
             onSuccess?.();
           } catch (err) {
             console.error("Error uploading document:", err);
+
+            // Update to error
+            updateUpload(fileId, {
+              status: "error",
+              error: err instanceof Error ? err.message : "Upload failed",
+            });
+
+            // Remove error files after 5 seconds
+            setTimeout(() => {
+              removeUpload(fileId);
+            }, 5000);
+
             onError?.(err);
             if (inputRef.current) inputRef.current.value = "";
           }

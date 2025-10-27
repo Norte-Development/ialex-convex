@@ -1,4 +1,4 @@
-import React, { memo, useCallback, useMemo, useEffect } from "react";
+import { memo, useCallback, useMemo, useEffect } from "react";
 import { useAction } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import { useQuery } from "@tanstack/react-query";
@@ -7,8 +7,10 @@ import { FileText } from "lucide-react";
 import type {
   Estado,
   NormativeFilters,
-  SortBy,
   SortOrder,
+  ContentType,
+  CombinedDocument,
+  UnifiedSortBy,
 } from "../../../types/legislation";
 import { TableView } from "./TableView";
 import { PaginationControls } from "../ui/pagination-controls";
@@ -20,16 +22,46 @@ interface DataTableContainerProps {
   debouncedQuery: string;
   page: number;
   pageSize: number;
-  sortBy: SortBy;
+  sortBy: UnifiedSortBy;
   sortOrder: SortOrder;
   isSearchMode: boolean;
   searchQuery: string;
+  contentType: ContentType;
 
   // Callbacks
   onRowClick: (id: string) => void;
   onPageChange: (newPage: number) => void;
   onTotalResultsChange?: (total: number) => void;
 }
+
+// Map UI sortBy to fallos-specific sort field
+const mapSortByForFallos = (sortBy: UnifiedSortBy): string => {
+  // Handle legacy Spanish field names (backward compatibility)
+  if (sortBy === "fecha") {
+    return "date";
+  }
+  if (sortBy === "promulgacion") {
+    return "sanction_date";
+  }
+  if (sortBy === "publicacion") {
+    return "publication_date";
+  }
+
+  // Map legislation fields to fallos equivalents
+  if (sortBy === "sanction_date") {
+    return "sanction_date"; // Same field name for both
+  }
+
+  // All other valid fields - these should already be correct
+  if (sortBy === "date" || sortBy === "publication_date" ||
+      sortBy === "indexed_at" || sortBy === "updated_at" || sortBy === "created_at" ||
+      sortBy === "relevancia") {
+    return sortBy;
+  }
+
+  // Default fallback
+  return "date";
+};
 
 export const DataTableContainer = memo(function DataTableContainer({
   jurisdiction,
@@ -41,18 +73,20 @@ export const DataTableContainer = memo(function DataTableContainer({
   sortOrder,
   isSearchMode,
   searchQuery,
+  contentType,
   onRowClick,
   onPageChange,
   onTotalResultsChange,
 }: DataTableContainerProps) {
   const actions = {
     getNormatives: useAction(api.functions.legislation.getNormatives),
+    getFallos: useAction(api.functions.fallos.listFallos),
   };
 
   const {
     data: normativesData,
-    isLoading,
-    error,
+    isLoading: isNormativesLoading,
+    error: normativesError,
   } = useQuery({
     queryKey: [
       "getNormatives",
@@ -63,8 +97,13 @@ export const DataTableContainer = memo(function DataTableContainer({
       pageSize,
       sortBy,
       sortOrder,
+      contentType,
     ],
-    queryFn: () => {
+    queryFn: async () => {
+      if (contentType === "fallos") {
+        return null; // Don't fetch normatives for fallos-only view
+      }
+
       const queryFilters = { ...filters };
 
       // Only add jurisdiction filter if not "all"
@@ -81,25 +120,101 @@ export const DataTableContainer = memo(function DataTableContainer({
         filters: queryFilters,
         limit: pageSize,
         offset: (page - 1) * pageSize,
-        sortBy,
-        sortOrder,
+        sortBy: sortBy as "sanction_date" | "updated_at" | "created_at" | "relevancia",
+        sortOrder: sortOrder as "asc" | "desc",
       });
     },
+    enabled: contentType !== "fallos",
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const {
+    data: fallosData,
+    isLoading: isFallosLoading,
+    error: fallosError,
+  } = useQuery({
+    queryKey: [
+      "getFallos",
+      jurisdiction,
+      filters,
+      debouncedQuery,
+      page,
+      pageSize,
+      sortBy,
+      sortOrder,
+      contentType,
+    ],
+    queryFn: async () => {
+      if (contentType === "legislation") {
+        return null; // Don't fetch fallos for legislation-only view
+      }
+
+      const queryFilters: any = { ...filters };
+
+      // Only add jurisdiction filter if not "all"
+      if (jurisdiction !== "all") {
+        queryFilters.jurisdiccion = jurisdiction;
+      }
+
+      // Add search query to filters if present
+      if (debouncedQuery.trim()) {
+        queryFilters.search = debouncedQuery.trim();
+      }
+
+      // Map sortBy to fallos-compatible value
+      const fallosSortBy = mapSortByForFallos(sortBy);
+
+      return actions.getFallos({
+        filters: queryFilters,
+        limit: pageSize,
+        offset: (page - 1) * pageSize,
+        sortBy: fallosSortBy as "date" | "sanction_date" | "publication_date" | "relevancia" | "created_at" | "updated_at" | "indexed_at" | "fecha" | "promulgacion" | "publicacion",
+        sortOrder: sortOrder as "asc" | "desc",
+      });
+    },
+    enabled: contentType !== "legislation",
     staleTime: 5 * 60 * 1000,
   });
 
   const computedData = useMemo(() => {
-    const totalResults = normativesData?.pagination?.total || 0;
-    const items = normativesData?.items || [];
+    let totalResults = 0;
+    let items: CombinedDocument[] = [];
+    let isLoading = false;
+    let error: any = null;
+    let pagination: any = null;
+
+    if (contentType === "legislation") {
+      totalResults = normativesData?.pagination?.total || 0;
+      items = normativesData?.items || [];
+      isLoading = isNormativesLoading;
+      error = normativesError;
+      pagination = normativesData?.pagination;
+    } else if (contentType === "fallos") {
+      totalResults = fallosData?.pagination?.total || 0;
+      items = fallosData?.items || [];
+      isLoading = isFallosLoading;
+      error = fallosError;
+      pagination = fallosData?.pagination;
+    } else {
+      // "all" - combine both data sources
+      const normativesItems = normativesData?.items || [];
+      const fallosItems = fallosData?.items || [];
+      items = [...normativesItems, ...fallosItems];
+      totalResults = (normativesData?.pagination?.total || 0) + (fallosData?.pagination?.total || 0);
+      isLoading = isNormativesLoading || isFallosLoading;
+      error = normativesError || fallosError;
+      // For "all" view, we'll use the pagination from the primary content type
+      pagination = normativesData?.pagination || fallosData?.pagination;
+    }
 
     return {
       totalResults,
       items,
       isLoading,
       error,
-      pagination: normativesData?.pagination,
+      pagination,
     };
-  }, [normativesData, isLoading, error]);
+  }, [normativesData, fallosData, isNormativesLoading, isFallosLoading, normativesError, fallosError, contentType]);
 
   // Notify parent of total results changes
   useEffect(() => {
@@ -156,9 +271,11 @@ export const DataTableContainer = memo(function DataTableContainer({
       <TableView
         items={computedData.items}
         isSearchMode={isSearchMode}
+        searchQuery={searchQuery}
         onRowClick={onRowClick}
         getEstadoBadgeColor={getEstadoBadgeColor}
         formatDate={formatDate}
+        contentType={contentType}
       />
 
       <PaginationControls

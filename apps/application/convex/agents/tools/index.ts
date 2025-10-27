@@ -29,6 +29,8 @@ export * from './library';
 // Doctrine tools
 export * from './doctrine';
 
+// Fallos tools
+export * from './fallos';
 
 // Shared utilities
 export * from './shared';

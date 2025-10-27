@@ -1,6 +1,6 @@
 import React, { memo } from "react"
 import { Card, CardContent } from "../ui/card"
-import type { NormativeFilters, SortBy, SortOrder } from "../../../types/legislation"
+import type { NormativeFilters, SortOrder, ContentType, UnifiedSortBy } from "../../../types/legislation"
 import { SearchBar } from "./SearchBar"
 import { TableControls } from "./TableControls"
 import { FiltersPanel } from "./FiltersPanel"
@@ -20,12 +20,16 @@ interface StaticControlsProps {
   jurisdictions: string[]
   onJurisdictionChange: (jurisdiction: string) => void
 
+  // Content type state
+  contentType: ContentType
+  onContentTypeChange: (contentType: ContentType) => void
+
   // Table controls
   isSearchMode: boolean
-  sortBy: SortBy
+  sortBy: UnifiedSortBy
   sortOrder: SortOrder
   pageSize: number
-  onSortChange: (sortBy: SortBy, sortOrder: SortOrder) => void
+  onSortChange: (sortBy: UnifiedSortBy, sortOrder: SortOrder) => void
   onPageSizeChange: (pageSize: number) => void
 
   // Filters state
@@ -50,6 +54,8 @@ export const StaticControls = memo(function StaticControls({
   jurisdiction,
   jurisdictions,
   onJurisdictionChange,
+  contentType,
+  onContentTypeChange,
   isSearchMode,
   sortBy,
   sortOrder,
@@ -74,12 +80,15 @@ export const StaticControls = memo(function StaticControls({
           onClearFilters={onClearFilters}
           onKeyPress={onKeyPress}
           hasActiveFilters={hasActiveFilters}
+          contentType={contentType}
         />
 
         <TableControls
           jurisdiction={jurisdiction}
           jurisdictions={jurisdictions}
           onJurisdictionChange={onJurisdictionChange}
+          contentType={contentType}
+          onContentTypeChange={onContentTypeChange}
           isSearchMode={isSearchMode}
           sortBy={sortBy}
           sortOrder={sortOrder}
@@ -94,8 +103,7 @@ export const StaticControls = memo(function StaticControls({
           onShowFiltersChange={onShowFiltersChange}
           filters={filters}
           onFilterChange={onFilterChange}
-          jurisdictions={jurisdictions}
-          jurisdiction={jurisdiction}
+          contentType={contentType}
           facets={facets}
         />
 

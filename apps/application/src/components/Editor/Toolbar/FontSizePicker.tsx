@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import type { Editor } from "@tiptap/core";
 import {
   DropdownMenu,
@@ -13,16 +13,41 @@ interface FontSizePickerProps {
   editor: Editor;
 }
 
-const FONT_SIZES = [8, 9, 10, 11, 12, 14, 16, 18, 20, 22, 24, 26, 28, 36, 48, 72];
+const FONT_SIZES = [
+  8, 9, 10, 11, 12, 14, 16, 18, 20, 22, 24, 26, 28, 36, 48, 72,
+];
 
 export function FontSizePicker({ editor }: FontSizePickerProps) {
-  const [selectedSize, setSelectedSize] = useState(11);
+  const [selectedSize, setSelectedSize] = useState("11");
+
+  useEffect(() => {
+    const updateFontSize = () => {
+      // Get fontSize from textStyle attributes
+      const { fontSize } = editor.getAttributes("textStyle");
+      if (fontSize) {
+        // Remove 'pt' or 'px' suffix if present
+        const sizeValue = fontSize.replace(/pt|px/gi, "");
+        setSelectedSize(sizeValue);
+      } else {
+        setSelectedSize("11");
+      }
+    };
+
+    // Update on selection change
+    editor.on("selectionUpdate", updateFontSize);
+    editor.on("transaction", updateFontSize);
+
+    // Initial update
+    updateFontSize();
+
+    return () => {
+      editor.off("selectionUpdate", updateFontSize);
+      editor.off("transaction", updateFontSize);
+    };
+  }, [editor]);
 
   const handleSizeChange = (size: number) => {
-    setSelectedSize(size);
-    // Note: This would require a custom extension to fully implement
-    // For now, this is a UI placeholder
-    editor.chain().focus().run();
+    editor.chain().focus().setFontSize(`${size}pt`).run();
   };
 
   return (
@@ -51,4 +76,3 @@ export function FontSizePicker({ editor }: FontSizePickerProps) {
     </DropdownMenu>
   );
 }
-

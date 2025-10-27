@@ -185,29 +185,25 @@ const buildMongoFilter = (filters: NormativeFilters): Filter<Document> => {
     mongoFilter.estado = filters.estado;
   }
 
-  // Date range filters - using timestamp fields (sanction_ts)
+  // Date range filters - using date string fields (sanction_date)
   if (filters.sanction_date_from || filters.sanction_date_to) {
-    mongoFilter.sanction_ts = {};
+    mongoFilter.sanction_date = {};
     if (filters.sanction_date_from) {
-      // Convert date string to Unix timestamp in seconds
-      mongoFilter.sanction_ts.$gte = Math.floor(new Date(filters.sanction_date_from).getTime() / 1000);
+      mongoFilter.sanction_date.$gte = filters.sanction_date_from;
     }
     if (filters.sanction_date_to) {
-      // Convert date string to Unix timestamp in seconds
-      mongoFilter.sanction_ts.$lte = Math.floor(new Date(filters.sanction_date_to).getTime() / 1000);
+      mongoFilter.sanction_date.$lte = filters.sanction_date_to;
     }
   }
 
-  // Publication date range - using timestamp fields (publication_ts)
+  // Publication date range - using date string fields (publication_date)
   if (filters.publication_date_from || filters.publication_date_to) {
-    mongoFilter.publication_ts = {};
+    mongoFilter.publication_date = {};
     if (filters.publication_date_from) {
-      // Convert date string to Unix timestamp in seconds
-      mongoFilter.publication_ts.$gte = Math.floor(new Date(filters.publication_date_from).getTime() / 1000);
+      mongoFilter.publication_date.$gte = filters.publication_date_from;
     }
     if (filters.publication_date_to) {
-      // Convert date string to Unix timestamp in seconds
-      mongoFilter.publication_ts.$lte = Math.floor(new Date(filters.publication_date_to).getTime() / 1000);
+      mongoFilter.publication_date.$lte = filters.publication_date_to;
     }
   }
 
@@ -245,15 +241,13 @@ const buildMongoSort = (sortBy?: SortBy, sortOrder: SortOrder = 'desc'): Sort =>
   
   switch (sortBy) {
     case 'sanction_date':
-      // Use sanction_ts timestamp field with _id as secondary sort for stability
-      return { sanction_ts: order, _id: -1 };
+      return { sanction_date: order, _id: -1 };
     case 'updated_at':
       return { updated_at: order, _id: -1 };
     case 'created_at':
       return { indexed_at: order, _id: -1 }; // using indexed_at as created_at equivalent
     default:
-      // Default sort by sanction_ts timestamp with _id as secondary sort
-      return { sanction_ts: order, _id: -1 };
+      return { sanction_date: order, _id: -1 };
   }
 };
 
@@ -317,14 +311,9 @@ export const getNormatives = async (params: ListNormativesParams = {}): Promise<
 
     // Map normatives to ensure consistent data structure
     const mappedNormatives: NormativeDoc[] = normatives.map((normative) => {
-      // Convert timestamps to ISO date strings
-      const publicationDate = normative.publication_ts 
-        ? new Date(normative.publication_ts * 1000).toISOString()
-        : normative.publication_date;
-      
-      const sanctionDate = normative.sanction_ts
-        ? new Date(normative.sanction_ts * 1000).toISOString()
-        : normative.sanction_date;
+      // Use date fields directly from MongoDB
+      const publicationDate = normative.publication_date;
+      const sanctionDate = normative.sanction_date;
 
       return {
         _id: normative._id.toString(),
@@ -403,14 +392,9 @@ export const getNormativeById = async (documentId: string): Promise<NormativeDoc
       return null;
     }
 
-    // Convert timestamps to ISO date strings
-    const publicationDate = normative.publication_ts 
-      ? new Date(normative.publication_ts * 1000).toISOString()
-      : normative.publication_date;
-    
-    const sanctionDate = normative.sanction_ts
-      ? new Date(normative.sanction_ts * 1000).toISOString()
-      : normative.sanction_date;
+    // Use date fields directly from MongoDB
+    const publicationDate = normative.publication_date;
+    const sanctionDate = normative.sanction_date;
 
     return {
       _id: normative._id.toString(),
@@ -468,13 +452,13 @@ export const getNormativesFacets = async (filters: NormativeFilters = {}) => {
           years: [
             {
               $match: {
-                sanction_ts: { $exists: true, $ne: null }
+                sanction_date: { $exists: true, $ne: null }
               }
             },
             {
               $addFields: {
                 sanctionDate: {
-                  $toDate: { $multiply: ['$sanction_ts', 1000] }
+                  $toDate: '$sanction_date'
                 }
               }
             },
@@ -493,18 +477,22 @@ export const getNormativesFacets = async (filters: NormativeFilters = {}) => {
     const [facetsResult] = await collection.aggregate(facetsAggregation).toArray();
 
     return {
-      jurisdicciones: Object.fromEntries(
-        facetsResult.jurisdicciones.map((item: any) => [item._id, item.count])
-      ),
-      tipos: Object.fromEntries(
-        facetsResult.tipos.map((item: any) => [item._id, item.count])
-      ),
-      estados: Object.fromEntries(
-        facetsResult.estados.map((item: any) => [item._id, item.count])
-      ),
-      years: Object.fromEntries(
-        facetsResult.years.map((item: any) => [item._id, item.count])
-      )
+      jurisdicciones: facetsResult.jurisdicciones.map((item: any) => ({
+        name: item._id,
+        count: item.count,
+      })),
+      tipos: facetsResult.tipos.map((item: any) => ({
+        name: item._id,
+        count: item.count,
+      })),
+      estados: facetsResult.estados.map((item: any) => ({
+        name: item._id,
+        count: item.count,
+      })),
+      years: facetsResult.years.map((item: any) => ({
+        name: item._id,
+        count: item.count,
+      }))
     };
   } catch (error) {
     console.error('Error fetching facets:', error);

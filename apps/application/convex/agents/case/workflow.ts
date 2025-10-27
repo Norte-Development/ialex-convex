@@ -108,6 +108,13 @@ const vContextBundle = v.object({
       v.literal("high"),
     ),
   }),
+  caseDocuments: v.array(
+    v.object({
+      name: v.string(),
+      id: v.string(),
+      type: v.optional(v.string()),
+    }),
+  ),
 });
 
 export const gatherContextForWorkflow = internalMutation({

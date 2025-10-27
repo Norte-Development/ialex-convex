@@ -10,6 +10,7 @@ import {
 } from "../auth_utils";
 import { internal } from "../_generated/api";
 import { _getUserPlan, _canAddTeamMember, _canCreateTeam } from "../billing/features";
+import { teamInviteExistingUserTemplate, teamInviteNewUserTemplate } from "../services/teamInviteTemplates";
 
 const newAccessLevelType = v.union(
   v.literal("none"),
@@ -17,6 +18,22 @@ const newAccessLevelType = v.union(
   v.literal("advanced"),
   v.literal("admin"),
 );
+
+// ========================================
+// HELPER FUNCTIONS
+// ========================================
+
+/**
+ * Converts role codes to display names for UI and emails
+ */
+function getRoleDisplayName(role: string): string {
+  switch (role) {
+    case "admin": return "Administrador";
+    case "abogado": return "Abogado";
+    case "secretario": return "Secretario";
+    default: return role;
+  }
+}
 
 // ========================================
 // TEAM MANAGEMENT
@@ -1312,21 +1329,11 @@ export const sendTeamInvite = mutation({
     const token = generateInviteToken();
     const expiresAt = Date.now() + 7 * 24 * 60 * 60 * 1000; // 7 days
 
-    // Create invitation
-    const inviteId = await ctx.db.insert("teamInvites", {
-      teamId: args.teamId,
-      email: args.email,
-      invitedBy: currentUser._id,
-      token: token,
-      role: args.role,
-      status: "pending",
-      expiresAt: expiresAt,
-    });
-
     // Prepare email content based on user existence
     const baseUrl = process.env.VITE_APP_URL || "http://localhost:5173";
     const fromEmail = process.env.RESEND_FROM_EMAIL || "noreply@ialex.com.ar";
     const expiryDate = new Date(expiresAt).toLocaleDateString("es-ES");
+    const roleDisplayName = getRoleDisplayName(args.role);
 
     let subject: string;
     let body: string;
@@ -1336,75 +1343,49 @@ export const sendTeamInvite = mutation({
       subject = `Invitación para unirte al equipo ${team.name}`;
       const inviteUrl = `${baseUrl}/invites/accept?token=${token}`;
 
-      body = `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
-          <h2 style="color: #2563eb;">¡Hola!</h2>
-          
-          <p>Has sido invitado/a por <strong>${currentUser.name}</strong> para unirte al equipo "<strong>${team.name}</strong>" en iAlex como <strong>${args.role}</strong>.</p>
-          
-          <p>Para aceptar la invitación, haz clic en el siguiente botón:</p>
-          
-          <div style="text-align: center; margin: 30px 0;">
-            <a href="${inviteUrl}" style="background-color: #2563eb; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block; font-weight: bold;">
-              Aceptar Invitación
-            </a>
-          </div>
-          
-          <p style="color: #666; font-size: 14px;">Esta invitación expira el ${expiryDate}.</p>
-          
-          <hr style="margin: 30px 0; border: none; border-top: 1px solid #ddd;">
-          
-          <p style="color: #666; font-size: 12px;">
-            Saludos,<br>
-            El equipo de iAlex
-          </p>
-          
-          <p style="color: #999; font-size: 11px;">
-            Si no esperabas esta invitación, puedes ignorar este email.
-          </p>
-        </div>
-      `;
+      body = teamInviteExistingUserTemplate(
+        team.name,
+        currentUser.name,
+        roleDisplayName,
+        inviteUrl,
+        expiryDate
+      );
     } else {
       // Email for new user
       subject = `Invitación para crear cuenta y unirte al equipo ${team.name}`;
       const signupUrl = `${baseUrl}/invites/signup?token=${token}`;
 
-      body = `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
-          <h2 style="color: #2563eb;">¡Hola!</h2>
-          
-          <p>Has sido invitado/a por <strong>${currentUser.name}</strong> para unirte al equipo "<strong>${team.name}</strong>" en iAlex como <strong>${args.role}</strong>.</p>
-          
-          <p>Para comenzar, necesitas crear una cuenta en iAlex y automáticamente serás agregado/a al equipo.</p>
-          
-          <div style="text-align: center; margin: 30px 0;">
-            <a href="${signupUrl}" style="background-color: #2563eb; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block; font-weight: bold;">
-              Crear Cuenta y Unirse al Equipo
-            </a>
-          </div>
-          
-          <p style="color: #666; font-size: 14px;">Esta invitación expira el ${expiryDate}.</p>
-          
-          <hr style="margin: 30px 0; border: none; border-top: 1px solid #ddd;">
-          
-          <p style="color: #666; font-size: 12px;">
-            Saludos,<br>
-            El equipo de iAlex
-          </p>
-          
-          <p style="color: #999; font-size: 11px;">
-            Si no esperabas esta invitación, puedes ignorar este email.
-          </p>
-        </div>
-      `;
+      body = teamInviteNewUserTemplate(
+        team.name,
+        currentUser.name,
+        roleDisplayName,
+        signupUrl,
+        expiryDate
+      );
     }
 
-    // Schedule email sending
-    await ctx.scheduler.runAfter(0, internal.utils.resend.sendEmail, {
-      from: fromEmail,
-      to: args.email,
-      subject: subject,
-      body: body,
+    // Try to send email first (atomic operation)
+    try {
+      await ctx.runMutation(internal.utils.resend.sendEmail, {
+        from: fromEmail,
+        to: args.email,
+        subject: subject,
+        body: body,
+      });
+    } catch (error) {
+      console.error("Failed to send team invitation email:", error);
+      throw new Error("No se pudo enviar el email de invitación. Por favor, intenta nuevamente.");
+    }
+
+    // Only create invitation if email was sent successfully
+    const inviteId = await ctx.db.insert("teamInvites", {
+      teamId: args.teamId,
+      email: args.email,
+      invitedBy: currentUser._id,
+      token: token,
+      role: args.role,
+      status: "pending",
+      expiresAt: expiresAt,
     });
 
     console.log("Created team invitation with id:", inviteId);
@@ -1769,6 +1750,7 @@ export const resendTeamInvite = mutation({
     const baseUrl = process.env.VITE_APP_URL || "http://localhost:5173";
     const fromEmail = process.env.RESEND_FROM_EMAIL || "noreply@ialex.com.ar";
     const expiryDate = new Date(invite.expiresAt).toLocaleDateString("es-ES");
+    const roleDisplayName = getRoleDisplayName(invite.role);
 
     let subject: string;
     let body: string;
@@ -1778,76 +1760,39 @@ export const resendTeamInvite = mutation({
       subject = `Recordatorio: Invitación para unirte al equipo ${team.name}`;
       const inviteUrl = `${baseUrl}/invites/accept?token=${invite.token}`;
 
-      body = `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
-          <h2 style="color: #2563eb;">¡Hola!</h2>
-          
-          <p>Este es un recordatorio de que has sido invitado/a por <strong>${currentUser.name}</strong> para unirte al equipo "<strong>${team.name}</strong>" en iAlex como <strong>${invite.role}</strong>.</p>
-          
-          <p>Para aceptar la invitación, haz clic en el siguiente botón:</p>
-          
-          <div style="text-align: center; margin: 30px 0;">
-            <a href="${inviteUrl}" style="background-color: #2563eb; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block; font-weight: bold;">
-              Aceptar Invitación
-            </a>
-          </div>
-          
-          <p style="color: #666; font-size: 14px;">Esta invitación expira el ${expiryDate}.</p>
-          
-          <hr style="margin: 30px 0; border: none; border-top: 1px solid #ddd;">
-          
-          <p style="color: #666; font-size: 12px;">
-            Saludos,<br>
-            El equipo de iAlex
-          </p>
-          
-          <p style="color: #999; font-size: 11px;">
-            Si no esperabas esta invitación, puedes ignorar este email.
-          </p>
-        </div>
-      `;
+      body = teamInviteExistingUserTemplate(
+        team.name,
+        currentUser.name,
+        roleDisplayName,
+        inviteUrl,
+        expiryDate
+      );
     } else {
       // Email for new user
       subject = `Recordatorio: Invitación para crear cuenta y unirte al equipo ${team.name}`;
       const signupUrl = `${baseUrl}/invites/signup?token=${invite.token}`;
 
-      body = `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
-          <h2 style="color: #2563eb;">¡Hola!</h2>
-          
-          <p>Este es un recordatorio de que has sido invitado/a por <strong>${currentUser.name}</strong> para unirte al equipo "<strong>${team.name}</strong>" en iAlex como <strong>${invite.role}</strong>.</p>
-          
-          <p>Para comenzar, necesitas crear una cuenta en iAlex y automáticamente serás agregado/a al equipo.</p>
-          
-          <div style="text-align: center; margin: 30px 0;">
-            <a href="${signupUrl}" style="background-color: #2563eb; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block; font-weight: bold;">
-              Crear Cuenta y Unirse al Equipo
-            </a>
-          </div>
-          
-          <p style="color: #666; font-size: 14px;">Esta invitación expira el ${expiryDate}.</p>
-          
-          <hr style="margin: 30px 0; border: none; border-top: 1px solid #ddd;">
-          
-          <p style="color: #666; font-size: 12px;">
-            Saludos,<br>
-            El equipo de iAlex
-          </p>
-          
-          <p style="color: #999; font-size: 11px;">
-            Si no esperabas esta invitación, puedes ignorar este email.
-          </p>
-        </div>
-      `;
+      body = teamInviteNewUserTemplate(
+        team.name,
+        currentUser.name,
+        roleDisplayName,
+        signupUrl,
+        expiryDate
+      );
     }
 
-    // Schedule email resending
-    await ctx.scheduler.runAfter(0, internal.utils.resend.sendEmail, {
-      from: fromEmail,
-      to: invite.email,
-      subject: subject,
-      body: body,
-    });
+    // Try to send email (atomic operation)
+    try {
+      await ctx.runMutation(internal.utils.resend.sendEmail, {
+        from: fromEmail,
+        to: invite.email,
+        subject: subject,
+        body: body,
+      });
+    } catch (error) {
+      console.error("Failed to resend team invitation email:", error);
+      throw new Error("No se pudo reenviar el email de invitación. Por favor, intenta nuevamente.");
+    }
 
     console.log("Resent team invitation email");
   },
