@@ -34,19 +34,28 @@ interface MercadoPagoCSVRow {
 
 // Parse CSV data
 function parseCSV(csvContent: string): MercadoPagoCSVRow[] {
-  const lines = csvContent.trim().split('\n');
-  const headers = lines[0].split(',');
-  
-  return lines.slice(1).map(line => {
-    const values = line.split(',');
-    const row: any = {};
+  try {
+    const lines = csvContent.trim().split('\n');
+    if (lines.length < 2) {
+      throw new Error('CSV must have at least a header row and one data row');
+    }
     
-    headers.forEach((header, index) => {
-      row[header.trim()] = values[index]?.trim() || '';
+    const headers = lines[0].split(',').map(h => h.trim());
+    
+    return lines.slice(1).map((line, index) => {
+      const values = line.split(',');
+      const row: any = {};
+      
+      headers.forEach((header, headerIndex) => {
+        row[header] = values[headerIndex]?.trim() || '';
+      });
+      
+      return row as MercadoPagoCSVRow;
     });
-    
-    return row as MercadoPagoCSVRow;
-  });
+  } catch (error) {
+    console.error('Error parsing CSV:', error);
+    throw new Error(`Failed to parse CSV: ${error instanceof Error ? error.message : 'Unknown error'}`);
+  }
 }
 
 // Map CSV status to our schema status
@@ -73,11 +82,20 @@ function mapBillingCycle(frequency: string, frequencyType: string): "monthly" | 
 
 // Parse date string to timestamp
 function parseDate(dateStr: string): number {
-  if (!dateStr) return Date.now();
+  if (!dateStr || dateStr.trim() === '') return Date.now();
   
-  // Handle format: 2025-08-12 19:49:55
-  const date = new Date(dateStr);
-  return isNaN(date.getTime()) ? Date.now() : date.getTime();
+  try {
+    // Handle format: 2025-08-12 19:49:55
+    const date = new Date(dateStr);
+    if (isNaN(date.getTime())) {
+      console.warn(`Invalid date string: ${dateStr}, using current time`);
+      return Date.now();
+    }
+    return date.getTime();
+  } catch (error) {
+    console.warn(`Error parsing date: ${dateStr}, using current time`);
+    return Date.now();
+  }
 }
 
 // Find user by email or create a placeholder
@@ -104,24 +122,43 @@ export const importMercadoPagoCSV = mutation({
     adminUserId: v.id("users"),
   },
   handler: async (ctx, { csvContent, adminUserId }) => {
-    const rows = parseCSV(csvContent);
-    const results = {
-      total: rows.length,
-      imported: 0,
-      skipped: 0,
-      errors: 0,
-      details: [] as any[],
-    };
+    try {
+      // Validate admin user exists
+      const adminUser = await ctx.db.get(adminUserId);
+      if (!adminUser) {
+        throw new Error(`Admin user with ID ${adminUserId} not found`);
+      }
+
+      const rows = parseCSV(csvContent);
+      const results = {
+        total: rows.length,
+        imported: 0,
+        skipped: 0,
+        errors: 0,
+        details: [] as any[],
+      };
 
     for (const row of rows) {
       try {
         // Skip empty rows
-        if (!row.id || !row.payer_id) {
+        if (!row.id || !row.payer_id || !row.payer_first_name || !row.payer_last_name) {
           results.skipped++;
           results.details.push({
             row: row,
             status: "skipped",
-            reason: "Missing required fields",
+            reason: "Missing required fields (id, payer_id, payer_first_name, payer_last_name)",
+          });
+          continue;
+        }
+
+        // Validate transaction amount
+        const amount = parseFloat(row.transaction_amount);
+        if (isNaN(amount) || amount <= 0) {
+          results.skipped++;
+          results.details.push({
+            row: row,
+            status: "skipped",
+            reason: "Invalid transaction amount",
           });
           continue;
         }
@@ -196,6 +233,10 @@ export const importMercadoPagoCSV = mutation({
     }
 
     return results;
+    } catch (error) {
+      console.error('Error in importMercadoPagoCSV:', error);
+      throw new Error(`Import failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
   },
 });
 
@@ -285,31 +326,69 @@ export const getImportPreview = mutation({
     csvContent: v.string(),
   },
   handler: async (ctx, { csvContent }) => {
-    const rows = parseCSV(csvContent);
-    
-    const preview = rows.map((row, index) => {
-      const email = `${row.payer_first_name.toLowerCase()}.${row.payer_last_name.toLowerCase()}@mercadopago.placeholder`;
-      const name = `${row.payer_first_name} ${row.payer_last_name}`;
+    try {
+      const rows = parseCSV(csvContent);
+      
+      const preview = rows.map((row, index) => {
+        const email = `${row.payer_first_name.toLowerCase()}.${row.payer_last_name.toLowerCase()}@mercadopago.placeholder`;
+        const name = `${row.payer_first_name} ${row.payer_last_name}`;
+        
+        return {
+          index: index + 1,
+          name: name,
+          email: email,
+          mpSubscriptionId: row.id,
+          mpCustomerId: row.payer_id,
+          status: mapStatus(row.status),
+          amount: Math.round(parseFloat(row.transaction_amount) * 100) || 0, // Convert pesos to cents
+          currency: row.currency_id || "ARS",
+          billingCycle: mapBillingCycle(row.frequency, row.frequency_type),
+          startDate: row.start_date || row.date_created,
+          nextPaymentDate: row.next_payment_date,
+          externalReference: row.external_reference,
+        };
+      });
+
+      return {
+        total: preview.length,
+        preview: preview,
+      };
+    } catch (error) {
+      console.error('Error in getImportPreview:', error);
+      throw new Error(`Preview failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  },
+});
+
+// Debug function to test CSV parsing
+export const debugCSVParsing = mutation({
+  args: {
+    csvContent: v.string(),
+  },
+  handler: async (ctx, { csvContent }) => {
+    try {
+      const lines = csvContent.trim().split('\n');
+      const headers = lines[0].split(',').map(h => h.trim());
       
       return {
-        index: index + 1,
-        name: name,
-        email: email,
-        mpSubscriptionId: row.id,
-        mpCustomerId: row.payer_id,
-        status: mapStatus(row.status),
-        amount: Math.round(parseFloat(row.transaction_amount) * 100) || 0, // Convert pesos to cents
-        currency: row.currency_id || "ARS",
-        billingCycle: mapBillingCycle(row.frequency, row.frequency_type),
-        startDate: row.start_date || row.date_created,
-        nextPaymentDate: row.next_payment_date,
-        externalReference: row.external_reference,
+        success: true,
+        lineCount: lines.length,
+        headers: headers,
+        firstRow: lines[1] ? lines[1].split(',') : null,
+        sampleParsed: lines.length > 1 ? (() => {
+          const values = lines[1].split(',');
+          const row: any = {};
+          headers.forEach((header, headerIndex) => {
+            row[header] = values[headerIndex]?.trim() || '';
+          });
+          return row;
+        })() : null,
       };
-    });
-
-    return {
-      total: preview.length,
-      preview: preview,
-    };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      };
+    }
   },
 });
