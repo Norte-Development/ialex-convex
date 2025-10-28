@@ -1,0 +1,315 @@
+import { v } from "convex/values";
+import { mutation, internalMutation } from "../_generated/server";
+import { Id } from "../_generated/dataModel";
+
+/**
+ * CSV Import functions for MercadoPago subscriptions
+ */
+
+// Interface for CSV row data
+interface MercadoPagoCSVRow {
+  id: string; // mp_subscription_id
+  payer_id: string; // mp_customer_id
+  payer_first_name: string;
+  payer_last_name: string;
+  status: string; // authorized, cancelled
+  reason: string;
+  external_reference: string; // Kinde user reference
+  date_created: string;
+  last_modified: string;
+  frequency: string; // 1, 12
+  frequency_type: string; // months
+  transaction_amount: string; // amount in pesos with decimal (e.g., "1500.0")
+  currency_id: string; // ARS
+  start_date: string;
+  end_date: string;
+  last_charge_date: string;
+  last_charge_amount: string;
+  next_payment_date: string;
+  charged_quantity: string;
+  pending_charge_quantity: string;
+  charge_amount: string;
+  pending_charge_amount: string;
+}
+
+// Parse CSV data
+function parseCSV(csvContent: string): MercadoPagoCSVRow[] {
+  const lines = csvContent.trim().split('\n');
+  const headers = lines[0].split(',');
+  
+  return lines.slice(1).map(line => {
+    const values = line.split(',');
+    const row: any = {};
+    
+    headers.forEach((header, index) => {
+      row[header.trim()] = values[index]?.trim() || '';
+    });
+    
+    return row as MercadoPagoCSVRow;
+  });
+}
+
+// Map CSV status to our schema status
+function mapStatus(csvStatus: string): "active" | "paused" | "cancelled" | "expired" {
+  switch (csvStatus.toLowerCase()) {
+    case 'authorized':
+      return 'active';
+    case 'cancelled':
+      return 'cancelled';
+    case 'paused':
+      return 'paused';
+    default:
+      return 'expired';
+  }
+}
+
+// Map frequency to billing cycle
+function mapBillingCycle(frequency: string, frequencyType: string): "monthly" | "yearly" {
+  if (frequencyType === 'months') {
+    return parseInt(frequency) === 12 ? 'yearly' : 'monthly';
+  }
+  return 'monthly';
+}
+
+// Parse date string to timestamp
+function parseDate(dateStr: string): number {
+  if (!dateStr) return Date.now();
+  
+  // Handle format: 2025-08-12 19:49:55
+  const date = new Date(dateStr);
+  return isNaN(date.getTime()) ? Date.now() : date.getTime();
+}
+
+// Find user by email or create a placeholder
+async function findOrCreateUser(ctx: any, email: string, name: string): Promise<Id<"users"> | null> {
+  // Try to find user by email first
+  const existingUser = await ctx.db
+    .query("users")
+    .withIndex("by_email", (q: any) => q.eq("email", email))
+    .first();
+  
+  if (existingUser) {
+    return existingUser._id;
+  }
+  
+  // If not found, we'll need to create a placeholder user
+  // For now, return null and handle in the import logic
+  return null;
+}
+
+// Bulk import MercadoPago subscriptions from CSV
+export const importMercadoPagoCSV = mutation({
+  args: {
+    csvContent: v.string(),
+    adminUserId: v.id("users"),
+  },
+  handler: async (ctx, { csvContent, adminUserId }) => {
+    const rows = parseCSV(csvContent);
+    const results = {
+      total: rows.length,
+      imported: 0,
+      skipped: 0,
+      errors: 0,
+      details: [] as any[],
+    };
+
+    for (const row of rows) {
+      try {
+        // Skip empty rows
+        if (!row.id || !row.payer_id) {
+          results.skipped++;
+          results.details.push({
+            row: row,
+            status: "skipped",
+            reason: "Missing required fields",
+          });
+          continue;
+        }
+
+        // Check if subscription already exists
+        const existingSubscription = await ctx.db
+          .query("mercadopagoSubscriptions")
+          .withIndex("by_mp_subscription_id", (q) => q.eq("mpSubscriptionId", row.id))
+          .first();
+
+        if (existingSubscription) {
+          results.skipped++;
+          results.details.push({
+            row: row,
+            status: "skipped",
+            reason: "Subscription already exists",
+            subscriptionId: existingSubscription._id,
+          });
+          continue;
+        }
+
+        // Try to find user by email (we'll need to construct email from name)
+        // For now, we'll create a placeholder user or skip
+        const email = `${row.payer_first_name.toLowerCase()}.${row.payer_last_name.toLowerCase()}@mercadopago.placeholder`;
+        const userId = await findOrCreateUser(ctx, email, `${row.payer_first_name} ${row.payer_last_name}`);
+
+        if (!userId) {
+          results.skipped++;
+          results.details.push({
+            row: row,
+            status: "skipped",
+            reason: "User not found and cannot create placeholder",
+          });
+          continue;
+        }
+
+        // Create subscription
+        const subscriptionId = await ctx.db.insert("mercadopagoSubscriptions", {
+          userId: userId,
+          mpSubscriptionId: row.id,
+          mpCustomerId: row.payer_id,
+          plan: "premium_individual", // Default to individual plan
+          status: mapStatus(row.status),
+          amount: Math.round(parseFloat(row.transaction_amount) * 100) || 0, // Convert pesos to cents
+          currency: row.currency_id || "ARS",
+          billingCycle: mapBillingCycle(row.frequency, row.frequency_type),
+          startDate: parseDate(row.start_date || row.date_created),
+          nextBillingDate: parseDate(row.next_payment_date),
+          endDate: row.status === 'cancelled' ? parseDate(row.end_date || row.last_modified) : undefined,
+          lastUpdatedBy: adminUserId,
+          notes: `Imported from CSV - External Ref: ${row.external_reference}`,
+          createdAt: Date.now(),
+          updatedAt: Date.now(),
+        });
+
+        results.imported++;
+        results.details.push({
+          row: row,
+          status: "imported",
+          subscriptionId: subscriptionId,
+          userId: userId,
+        });
+
+      } catch (error) {
+        results.errors++;
+        results.details.push({
+          row: row,
+          status: "error",
+          error: (error as Error).message,
+        });
+      }
+    }
+
+    return results;
+  },
+});
+
+// Create placeholder users for CSV import
+export const createPlaceholderUsers = mutation({
+  args: {
+    csvContent: v.string(),
+  },
+  handler: async (ctx, { csvContent }) => {
+    const rows = parseCSV(csvContent);
+    const results = {
+      total: rows.length,
+      created: 0,
+      skipped: 0,
+      errors: 0,
+      details: [] as any[],
+    };
+
+    for (const row of rows) {
+      try {
+        if (!row.payer_first_name || !row.payer_last_name) {
+          results.skipped++;
+          continue;
+        }
+
+        const email = `${row.payer_first_name.toLowerCase()}.${row.payer_last_name.toLowerCase()}@mercadopago.placeholder`;
+        const name = `${row.payer_first_name} ${row.payer_last_name}`;
+
+        // Check if user already exists
+        const existingUser = await ctx.db
+          .query("users")
+          .withIndex("by_email", (q) => q.eq("email", email))
+          .first();
+
+        if (existingUser) {
+          results.skipped++;
+          results.details.push({
+            name: name,
+            email: email,
+            status: "skipped",
+            reason: "User already exists",
+            userId: existingUser._id,
+          });
+          continue;
+        }
+
+        // Create placeholder user
+        const userId = await ctx.db.insert("users", {
+          clerkId: `mp_placeholder_${row.payer_id}`,
+          name: name,
+          email: email,
+          isActive: true,
+          isOnboardingComplete: false,
+          role: "basic",
+          migration: {
+            status: "pending",
+            oldKindeId: row.external_reference || `mp_${row.payer_id}`,
+            consentGiven: false,
+          },
+        });
+
+        results.created++;
+        results.details.push({
+          name: name,
+          email: email,
+          status: "created",
+          userId: userId,
+        });
+
+      } catch (error) {
+        results.errors++;
+        results.details.push({
+          row: row,
+          status: "error",
+          error: (error as Error).message,
+        });
+      }
+    }
+
+    return results;
+  },
+});
+
+// Get import preview (parse CSV without importing)
+export const getImportPreview = mutation({
+  args: {
+    csvContent: v.string(),
+  },
+  handler: async (ctx, { csvContent }) => {
+    const rows = parseCSV(csvContent);
+    
+    const preview = rows.map((row, index) => {
+      const email = `${row.payer_first_name.toLowerCase()}.${row.payer_last_name.toLowerCase()}@mercadopago.placeholder`;
+      const name = `${row.payer_first_name} ${row.payer_last_name}`;
+      
+      return {
+        index: index + 1,
+        name: name,
+        email: email,
+        mpSubscriptionId: row.id,
+        mpCustomerId: row.payer_id,
+        status: mapStatus(row.status),
+        amount: Math.round(parseFloat(row.transaction_amount) * 100) || 0, // Convert pesos to cents
+        currency: row.currency_id || "ARS",
+        billingCycle: mapBillingCycle(row.frequency, row.frequency_type),
+        startDate: row.start_date || row.date_created,
+        nextPaymentDate: row.next_payment_date,
+        externalReference: row.external_reference,
+      };
+    });
+
+    return {
+      total: preview.length,
+      preview: preview,
+    };
+  },
+});

@@ -12,7 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Calendar, DollarSign, Users, AlertTriangle, Plus, Edit, Trash2 } from "lucide-react";
+import { DollarSign, Users, AlertTriangle, Plus, Edit, Trash2, Upload, FileText } from "lucide-react";
 import { toast } from "sonner";
 
 interface MercadoPagoSubscription {
@@ -41,7 +41,22 @@ interface MercadoPagoSubscription {
 export function MercadoPagoAdminDashboard() {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [isImportDialogOpen, setIsImportDialogOpen] = useState(false);
   const [selectedSubscription, setSelectedSubscription] = useState<MercadoPagoSubscription | null>(null);
+  const [csvFile, setCsvFile] = useState<File | null>(null);
+  const [importPreview, setImportPreview] = useState<{
+    total: number;
+    preview: Array<{
+      name: string;
+      email: string;
+      status: string;
+      amount: number;
+      currency: string;
+      billingCycle: string;
+      nextPaymentDate: string;
+    }>;
+  } | null>(null);
+  const [isImporting, setIsImporting] = useState(false);
 
   // Queries
   const subscriptions = useQuery(api.functions.mercadopagoAdmin.getAllMercadoPagoSubscriptions);
@@ -53,6 +68,9 @@ export function MercadoPagoAdminDashboard() {
   const updateStatus = useMutation(api.functions.mercadopagoAdmin.updateMercadoPagoSubscriptionStatus);
   const updateBillingDate = useMutation(api.functions.mercadopagoAdmin.updateMercadoPagoBillingDate);
   const deleteSubscription = useMutation(api.functions.mercadopagoAdmin.deleteMercadoPagoSubscription);
+  const importCSV = useMutation(api.functions.mercadopagoImport.importMercadoPagoCSV);
+  const createPlaceholderUsers = useMutation(api.functions.mercadopagoImport.createPlaceholderUsers);
+  const getImportPreview = useMutation(api.functions.mercadopagoImport.getImportPreview);
 
   const handleCreateSubscription = async (formData: FormData) => {
     try {
@@ -105,6 +123,51 @@ export function MercadoPagoAdminDashboard() {
     }
   };
 
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    setCsvFile(file);
+    
+    try {
+      const content = await file.text();
+      const preview = await getImportPreview({ csvContent: content });
+      setImportPreview(preview);
+    } catch (error) {
+      toast.error(`Error al procesar archivo: ${error}`);
+    }
+  };
+
+  const handleImportCSV = async () => {
+    if (!csvFile || !importPreview) return;
+
+    setIsImporting(true);
+    try {
+      const content = await csvFile.text();
+      
+      // First create placeholder users
+      await createPlaceholderUsers({ csvContent: content });
+      
+      // Then import subscriptions
+      const importResult = await importCSV({ 
+        csvContent: content,
+        adminUserId: "jx7d2qe3tz4t41rf0zqmx0bdy17tah7m" as Id<"users"> // TODO: Get actual admin user ID
+      });
+      
+      toast.success(`Importación completada: ${importResult.imported} suscripciones importadas, ${importResult.skipped} omitidas, ${importResult.errors} errores`);
+      
+      // Reset form
+      setCsvFile(null);
+      setImportPreview(null);
+      setIsImportDialogOpen(false);
+      
+    } catch (error) {
+      toast.error(`Error durante la importación: ${error}`);
+    } finally {
+      setIsImporting(false);
+    }
+  };
+
   const formatCurrency = (amount: number, currency: string) => {
     return new Intl.NumberFormat('es-AR', {
       style: 'currency',
@@ -145,14 +208,30 @@ export function MercadoPagoAdminDashboard() {
             Administración manual de suscripciones MercadoPago
           </p>
         </div>
-        <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
-          <DialogTrigger asChild>
-            <Button>
-              <Plus className="w-4 h-4 mr-2" />
-              Nueva Suscripción
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="max-w-2xl">
+        <div className="flex space-x-2">
+          <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
+            <DialogTrigger asChild>
+              <Button>
+                <Plus className="w-4 h-4 mr-2" />
+                Nueva Suscripción
+              </Button>
+            </DialogTrigger>
+          </Dialog>
+          
+          <Dialog open={isImportDialogOpen} onOpenChange={setIsImportDialogOpen}>
+            <DialogTrigger asChild>
+              <Button variant="outline">
+                <Upload className="w-4 h-4 mr-2" />
+                Importar CSV
+              </Button>
+            </DialogTrigger>
+          </Dialog>
+        </div>
+      </div>
+
+      {/* Create Dialog */}
+      <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
+        <DialogContent className="max-w-2xl">
             <DialogHeader>
               <DialogTitle>Crear Nueva Suscripción</DialogTitle>
               <DialogDescription>
@@ -245,9 +324,8 @@ export function MercadoPagoAdminDashboard() {
                 <Button type="submit">Crear Suscripción</Button>
               </div>
             </form>
-          </DialogContent>
-        </Dialog>
-      </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -257,9 +335,9 @@ export function MercadoPagoAdminDashboard() {
             <Users className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{stats.total}</div>
+            <div className="text-2xl font-bold">{stats?.total || 0}</div>
             <p className="text-xs text-muted-foreground">
-              {stats.active} activas
+              {stats?.active || 0} activas
             </p>
           </CardContent>
         </Card>
@@ -271,7 +349,7 @@ export function MercadoPagoAdminDashboard() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {formatCurrency(stats.monthlyRevenue, 'ARS')}
+              {formatCurrency(stats?.monthlyRevenue || 0, 'ARS')}
             </div>
             <p className="text-xs text-muted-foreground">
               Suscripciones mensuales
@@ -286,7 +364,7 @@ export function MercadoPagoAdminDashboard() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {formatCurrency(stats.yearlyRevenue, 'ARS')}
+              {formatCurrency(stats?.yearlyRevenue || 0, 'ARS')}
             </div>
             <p className="text-xs text-muted-foreground">
               Suscripciones anuales
@@ -341,7 +419,7 @@ export function MercadoPagoAdminDashboard() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {subscriptions.map((subscription) => (
+              {subscriptions?.map((subscription) => (
                 <TableRow key={subscription._id}>
                   <TableCell>
                     <div>
@@ -464,6 +542,105 @@ export function MercadoPagoAdminDashboard() {
               </div>
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* CSV Import Dialog */}
+      <Dialog open={isImportDialogOpen} onOpenChange={setIsImportDialogOpen}>
+        <DialogContent className="max-w-4xl">
+          <DialogHeader>
+            <DialogTitle>Importar Suscripciones desde CSV</DialogTitle>
+            <DialogDescription>
+              Importa suscripciones MercadoPago desde un archivo CSV
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="csv-file">Archivo CSV</Label>
+              <Input
+                id="csv-file"
+                type="file"
+                accept=".csv"
+                onChange={handleFileUpload}
+                className="mt-2"
+              />
+              <p className="text-sm text-muted-foreground mt-1">
+                Selecciona el archivo CSV exportado desde MercadoPago
+              </p>
+            </div>
+
+            {importPreview && (
+              <div className="space-y-4">
+                <div className="flex items-center space-x-2">
+                  <FileText className="h-4 w-4" />
+                  <span className="font-medium">
+                    Vista previa: {importPreview.total} suscripciones encontradas
+                  </span>
+                </div>
+                
+                <div className="max-h-60 overflow-auto border rounded-lg">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Nombre</TableHead>
+                        <TableHead>Email</TableHead>
+                        <TableHead>Estado</TableHead>
+                        <TableHead>Monto</TableHead>
+                        <TableHead>Ciclo</TableHead>
+                        <TableHead>Próximo Pago</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {importPreview.preview.slice(0, 10).map((item, index: number) => (
+                        <TableRow key={index}>
+                          <TableCell>{item.name}</TableCell>
+                          <TableCell>{item.email}</TableCell>
+                          <TableCell>
+                            <Badge variant={item.status === 'active' ? 'default' : 'secondary'}>
+                              {item.status}
+                            </Badge>
+                          </TableCell>
+                          <TableCell>
+                            {formatCurrency(item.amount, item.currency)}
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant="outline">{item.billingCycle}</Badge>
+                          </TableCell>
+                          <TableCell>
+                            {item.nextPaymentDate ? formatDate(new Date(item.nextPaymentDate).getTime()) : 'N/A'}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                  {importPreview.preview.length > 10 && (
+                    <div className="p-2 text-sm text-muted-foreground text-center">
+                      ... y {importPreview.preview.length - 10} más
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex justify-end space-x-2">
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      setCsvFile(null);
+                      setImportPreview(null);
+                    }}
+                  >
+                    Cancelar
+                  </Button>
+                  <Button
+                    onClick={handleImportCSV}
+                    disabled={isImporting}
+                  >
+                    {isImporting ? 'Importando...' : 'Importar Suscripciones'}
+                  </Button>
+                </div>
+              </div>
+            )}
+          </div>
         </DialogContent>
       </Dialog>
     </div>
