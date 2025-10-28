@@ -105,6 +105,7 @@ import type * as functions_legislation from "../functions/legislation.js";
 import type * as functions_libraryDocument from "../functions/libraryDocument.js";
 import type * as functions_libraryDocumentProcessing from "../functions/libraryDocumentProcessing.js";
 import type * as functions_libraryFolders from "../functions/libraryFolders.js";
+import type * as functions_mercadopagoAdmin from "../functions/mercadopagoAdmin.js";
 import type * as functions_migration from "../functions/migration.js";
 import type * as functions_permissions from "../functions/permissions.js";
 import type * as functions_search from "../functions/search.js";
@@ -270,6 +271,7 @@ declare const fullApi: ApiFromModules<{
   "functions/libraryDocument": typeof functions_libraryDocument;
   "functions/libraryDocumentProcessing": typeof functions_libraryDocumentProcessing;
   "functions/libraryFolders": typeof functions_libraryFolders;
+  "functions/mercadopagoAdmin": typeof functions_mercadopagoAdmin;
   "functions/migration": typeof functions_migration;
   "functions/permissions": typeof functions_permissions;
   "functions/search": typeof functions_search;
