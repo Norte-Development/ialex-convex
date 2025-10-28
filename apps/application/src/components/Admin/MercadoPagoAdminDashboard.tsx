@@ -151,7 +151,7 @@ export function MercadoPagoAdminDashboard() {
       // Then import subscriptions
       const importResult = await importCSV({ 
         csvContent: content,
-        adminUserId: "jx7d2qe3tz4t41rf0zqmx0bdy17tah7m" as Id<"users"> // TODO: Get actual admin user ID
+        adminUserId: "kn78b2jg35859v48mpgngxbjas7tajmm" as Id<"users"> // TODO: Get actual admin user ID
       });
       
       toast.success(`Importación completada: ${importResult.imported} suscripciones importadas, ${importResult.skipped} omitidas, ${importResult.errors} errores`);
