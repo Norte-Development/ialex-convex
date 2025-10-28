@@ -14,8 +14,9 @@ export interface ChatInputProps {
   /**
    * Callback function called when user submits a message
    * @param message - The trimmed message text from the user
+   * @param activeReferences - Array of active references selected from autocomplete
    */
-  onSendMessage: (message: string) => void;
+  onSendMessage: (message: string, activeReferences?: Reference[]) => void;
 
   /**
    * Indicates whether the AI is currently streaming a response

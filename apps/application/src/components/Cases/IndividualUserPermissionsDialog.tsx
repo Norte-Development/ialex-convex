@@ -165,24 +165,27 @@ export default function IndividualUserPermissionsDialog({
           </Button>
         )}
       </DialogTrigger>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-[80vw] h-[85vh] overflow-y-auto overflow-x-hidden">
         <DialogHeader>
-          <DialogTitle>Gestionar Permisos Individuales de Usuario</DialogTitle>
+          <DialogTitle className="pr-6">
+            Gestionar Permisos Individuales de Usuario
+          </DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-6">
+        <div className="space-y-6 py-4 overflow-x-hidden">
           {/* Add New Permission */}
-          <Card>
+          <Card className="overflow-hidden">
             <CardHeader>
               <CardTitle className="text-lg">
                 Agregar Permisos de Usuario
               </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="space-y-2">
+            <CardContent className="space-y-4 overflow-x-hidden">
+              <div className="space-y-4 w-full">
+                {/* Search Bar - Full Width */}
+                <div className="space-y-2 w-full">
                   <Label htmlFor="user-search">Buscar Usuario</Label>
-                  <div className="relative">
+                  <div className="relative w-full">
                     <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
                     <Input
                       id="user-search"
@@ -192,8 +195,12 @@ export default function IndividualUserPermissionsDialog({
                       className="pl-10"
                     />
                   </div>
-                  {searchTerm.trim().length > 0 && (
-                    <div className="space-y-2">
+                </div>
+
+                {/* User Selection and Access Level - Side by Side */}
+                {searchTerm.trim().length > 0 && (
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 w-full">
+                    <div className="space-y-2 min-w-0">
                       <Label htmlFor="user-select">Seleccionar Usuario</Label>
                       <Select
                         value={selectedUser?._id || ""}
@@ -204,10 +211,10 @@ export default function IndividualUserPermissionsDialog({
                           setSelectedUser(user || null);
                         }}
                       >
-                        <SelectTrigger>
+                        <SelectTrigger className="w-full">
                           <SelectValue placeholder="Seleccionar usuario" />
                         </SelectTrigger>
-                        <SelectContent>
+                        <SelectContent className="max-w-[90vw]">
                           {!availableUsers || availableUsers.length === 0 ? (
                             <div className="px-2 py-1.5 text-sm text-gray-500">
                               {searchTerm.trim().length === 0
@@ -217,11 +224,11 @@ export default function IndividualUserPermissionsDialog({
                           ) : (
                             (availableUsers || []).map((user) => (
                               <SelectItem key={user._id} value={user._id}>
-                                <div className="flex flex-col">
-                                  <span className="font-medium">
+                                <div className="flex flex-col max-w-full">
+                                  <span className="font-medium truncate">
                                     {user.name}
                                   </span>
-                                  <span className="text-sm text-gray-500">
+                                  <span className="text-sm text-gray-500 truncate">
                                     {user.email}
                                   </span>
                                 </div>
@@ -231,29 +238,30 @@ export default function IndividualUserPermissionsDialog({
                         </SelectContent>
                       </Select>
                     </div>
-                  )}
-                </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="access-level">Nivel de Acceso</Label>
-                  <Select
-                    value={accessLevel}
-                    onValueChange={(value: AccessLevel) =>
-                      setAccessLevel(value)
-                    }
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="basic">Básico</SelectItem>
-                      <SelectItem value="advanced">Avanzado</SelectItem>
-                      <SelectItem value="admin">Administrador</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
+                    <div className="space-y-2 min-w-0">
+                      <Label htmlFor="access-level">Nivel de Acceso</Label>
+                      <Select
+                        value={accessLevel}
+                        onValueChange={(value: AccessLevel) =>
+                          setAccessLevel(value)
+                        }
+                      >
+                        <SelectTrigger className="w-full">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="basic">Básico</SelectItem>
+                          <SelectItem value="advanced">Avanzado</SelectItem>
+                          <SelectItem value="admin">Administrador</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                )}
 
-                <div className="flex items-end">
+                {/* Add Button - Full Width */}
+                {searchTerm.trim().length > 0 && (
                   <Button
                     onClick={handleAddPermission}
                     disabled={!selectedUser || isSubmitting}
@@ -266,17 +274,17 @@ export default function IndividualUserPermissionsDialog({
                     )}
                     Agregar Permisos
                   </Button>
-                </div>
+                )}
               </div>
             </CardContent>
           </Card>
 
           {/* Current Permissions */}
-          <Card>
+          <Card className="overflow-hidden">
             <CardHeader>
               <CardTitle className="text-lg">Permisos Actuales</CardTitle>
             </CardHeader>
-            <CardContent>
+            <CardContent className="overflow-x-hidden">
               {currentPermissions === undefined ? (
                 <div className="flex items-center justify-center py-8">
                   <Loader2 className="h-6 w-6 animate-spin mr-2" />
@@ -287,18 +295,18 @@ export default function IndividualUserPermissionsDialog({
                   No hay permisos individuales configurados
                 </div>
               ) : (
-                <div className="space-y-3">
+                <div className="space-y-3 w-full">
                   {currentPermissions.map((permission) => (
                     <div
                       key={permission.userId}
-                      className="flex items-center justify-between p-3 border rounded-lg"
+                      className="flex flex-col lg:flex-row lg:items-center lg:justify-between p-4 border rounded-lg gap-3 w-full overflow-hidden"
                     >
-                      <div className="flex items-center space-x-3">
-                        <div className="flex flex-col">
-                          <span className="font-medium">
+                      <div className="flex flex-col lg:flex-row lg:items-center gap-3 flex-1 min-w-0">
+                        <div className="flex flex-col min-w-0 flex-1">
+                          <span className="font-medium truncate">
                             {permission.user?.name}
                           </span>
-                          <span className="text-sm text-gray-500">
+                          <span className="text-sm text-gray-500 truncate">
                             {permission.user?.email}
                           </span>
                         </div>
@@ -310,8 +318,8 @@ export default function IndividualUserPermissionsDialog({
                           {getAccessLevelLabel(permission.accessLevel)}
                         </Badge>
                       </div>
-                      <div className="flex items-center space-x-2">
-                        <div className="text-sm text-gray-500">
+                      <div className="flex items-center justify-between lg:justify-end gap-3 flex-shrink-0">
+                        <div className="text-sm text-gray-500 whitespace-nowrap">
                           Nivel {permission.accessLevel}
                         </div>
                         <Button

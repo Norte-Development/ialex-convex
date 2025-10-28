@@ -179,7 +179,7 @@ export function ChatInput({
     setPrompt(""); // Clear input immediately for better UX
     setActiveReferences([]); // Clear references
     setShowAutocomplete(false);
-    onSendMessage(fullMessage);
+    onSendMessage(fullMessage, activeReferences);
   };
 
   /**

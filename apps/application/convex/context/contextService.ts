@@ -10,6 +10,14 @@ export interface ContextBundle {
   rules: RuleContext[];
   metadata: ContextMetadata;
   caseDocuments: CaseDocumentContext[];
+  resolvedReferences?: ResolvedReference[];
+}
+
+export interface ResolvedReference {
+  type: "client" | "document" | "escrito" | "case";
+  id: string;
+  name: string;
+  originalText: string;
 }
 
 export interface UserContext {
@@ -114,7 +122,8 @@ export class ContextService {
     ctx: any,
     userId: Id<"users">,
     caseId?: Id<"cases">,
-    viewContext?: ViewContext
+    viewContext?: ViewContext,
+    resolvedReferences?: ResolvedReference[]
   ): Promise<ContextBundle> {
     const startTime = Date.now();
 
@@ -146,6 +155,7 @@ export class ContextService {
       rules,
       metadata,
       caseDocuments,
+      resolvedReferences: resolvedReferences || [],
     };
 
     // Optimize for token limits
@@ -424,6 +434,15 @@ ${activityInfo}`);
         .join('\n');
       sections.push(`## Documentos del caso
 ${documentsText}`);
+    }
+
+    // Resolved references from @-mentions
+    if (contextBundle.resolvedReferences && contextBundle.resolvedReferences.length > 0) {
+      const referencesText = contextBundle.resolvedReferences
+        .map(ref => `- @${ref.type}:${ref.name} (ID: ${ref.id})`)
+        .join('\n');
+      sections.push(`## Referencias mencionadas en el mensaje
+${referencesText}`);
     }
 
     // Agent rules
