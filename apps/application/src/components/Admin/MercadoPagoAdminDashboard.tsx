@@ -47,13 +47,23 @@ export function MercadoPagoAdminDashboard() {
   const [importPreview, setImportPreview] = useState<{
     total: number;
     preview: Array<{
+      index: number;
       name: string;
       email: string;
-      status: string;
+      mpSubscriptionId: string;
+      mpCustomerId: string;
+      status: "active" | "expired" | "cancelled" | "paused";
       amount: number;
       currency: string;
-      billingCycle: string;
+      billingCycle: "monthly" | "yearly";
+      startDate: string;
       nextPaymentDate: string;
+      externalReference: string;
+      userMatch: {
+        type: "kindeId" | "email";
+        email: string;
+        name: string;
+      } | null;
     }>;
   } | null>(null);
   const [isImporting, setIsImporting] = useState(false);
@@ -585,6 +595,7 @@ export function MercadoPagoAdminDashboard() {
                       <TableRow>
                         <TableHead>Nombre</TableHead>
                         <TableHead>Email</TableHead>
+                        <TableHead>Usuario Encontrado</TableHead>
                         <TableHead>Estado</TableHead>
                         <TableHead>Monto</TableHead>
                         <TableHead>Ciclo</TableHead>
@@ -596,6 +607,21 @@ export function MercadoPagoAdminDashboard() {
                         <TableRow key={index}>
                           <TableCell>{item.name}</TableCell>
                           <TableCell>{item.email}</TableCell>
+                          <TableCell>
+                            {item.userMatch ? (
+                              <div className="space-y-1">
+                                <div className="text-sm font-medium">{item.userMatch.name}</div>
+                                <div className="text-xs text-muted-foreground">{item.userMatch.email}</div>
+                                <Badge variant={item.userMatch.type === 'kindeId' ? 'default' : 'secondary'} className="text-xs">
+                                  {item.userMatch.type === 'kindeId' ? 'Kinde ID' : 'Email'}
+                                </Badge>
+                              </div>
+                            ) : (
+                              <Badge variant="outline" className="text-xs">
+                                No encontrado
+                              </Badge>
+                            )}
+                          </TableCell>
                           <TableCell>
                             <Badge variant={item.status === 'active' ? 'default' : 'secondary'}>
                               {item.status}

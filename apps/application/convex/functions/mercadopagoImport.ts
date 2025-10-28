@@ -98,20 +98,34 @@ function parseDate(dateStr: string): number {
   }
 }
 
-// Find user by email or create a placeholder
-async function findOrCreateUser(ctx: any, email: string, name: string): Promise<Id<"users"> | null> {
-  // Try to find user by email first
+// Find user by kindeId (externalReference) or email, or create a placeholder
+async function findOrCreateUser(ctx: any, email: string, name: string, externalReference?: string): Promise<Id<"users"> | null> {
+  // First, try to find user by externalReference (kindeId) if provided
+  if (externalReference) {
+    const userByKindeId = await ctx.db
+      .query("users")
+      .filter((q) => q.eq(q.field("migration.oldKindeId"), externalReference))
+      .first();
+    
+    if (userByKindeId) {
+      console.log(`Found user by kindeId ${externalReference}: ${userByKindeId.email}`);
+      return userByKindeId._id;
+    }
+  }
+
+  // Fallback: try to find existing user by email
   const existingUser = await ctx.db
     .query("users")
     .withIndex("by_email", (q: any) => q.eq("email", email))
     .first();
   
   if (existingUser) {
+    console.log(`Found user by email ${email}: ${existingUser.email}`);
     return existingUser._id;
   }
   
-  // If not found, we'll need to create a placeholder user
-  // For now, return null and handle in the import logic
+  // If no user found, return null - we'll handle creation in the import logic
+  console.log(`No user found for email ${email} or kindeId ${externalReference}`);
   return null;
 }
 
@@ -180,17 +194,16 @@ export const importMercadoPagoCSV = mutation({
           continue;
         }
 
-        // Try to find user by email (we'll need to construct email from name)
-        // For now, we'll create a placeholder user or skip
+        // Try to find user by externalReference (kindeId) first, then by email
         const email = `${row.payer_first_name.toLowerCase()}.${row.payer_last_name.toLowerCase()}@mercadopago.placeholder`;
-        const userId = await findOrCreateUser(ctx, email, `${row.payer_first_name} ${row.payer_last_name}`);
+        const userId = await findOrCreateUser(ctx, email, `${row.payer_first_name} ${row.payer_last_name}`, row.external_reference);
 
         if (!userId) {
           results.skipped++;
           results.details.push({
             row: row,
             status: "skipped",
-            reason: "User not found and cannot create placeholder",
+            reason: `User not found for kindeId ${row.external_reference} or email ${email}`,
           });
           continue;
         }
@@ -283,7 +296,7 @@ export const createPlaceholderUsers = mutation({
           continue;
         }
 
-        // Create placeholder user
+        // Create placeholder user with proper kindeId reference
         const userId = await ctx.db.insert("users", {
           clerkId: `mp_placeholder_${row.payer_id}`,
           name: name,
@@ -329,9 +342,31 @@ export const getImportPreview = mutation({
     try {
       const rows = parseCSV(csvContent);
       
-      const preview = rows.map((row, index) => {
+      const preview = await Promise.all(rows.map(async (row, index) => {
         const email = `${row.payer_first_name.toLowerCase()}.${row.payer_last_name.toLowerCase()}@mercadopago.placeholder`;
         const name = `${row.payer_first_name} ${row.payer_last_name}`;
+        
+        // Check if user exists by kindeId or email
+        let userMatch: { type: "kindeId" | "email"; email: string; name: string } | null = null;
+        if (row.external_reference) {
+          const userByKindeId = await ctx.db
+            .query("users")
+            .filter((q) => q.eq(q.field("migration.oldKindeId"), row.external_reference))
+            .first();
+          if (userByKindeId) {
+            userMatch = { type: "kindeId" as const, email: userByKindeId.email, name: userByKindeId.name };
+          }
+        }
+        
+        if (!userMatch) {
+          const userByEmail = await ctx.db
+            .query("users")
+            .withIndex("by_email", (q: any) => q.eq("email", email))
+            .first();
+          if (userByEmail) {
+            userMatch = { type: "email" as const, email: userByEmail.email, name: userByEmail.name };
+          }
+        }
         
         return {
           index: index + 1,
@@ -346,8 +381,9 @@ export const getImportPreview = mutation({
           startDate: row.start_date || row.date_created,
           nextPaymentDate: row.next_payment_date,
           externalReference: row.external_reference,
+          userMatch: userMatch,
         };
-      });
+      }));
 
       return {
         total: preview.length,
