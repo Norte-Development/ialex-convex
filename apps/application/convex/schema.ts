@@ -104,6 +104,20 @@ export default defineSchema({
         activityLogVisible: v.optional(v.boolean()),
       }),
     ),
+
+    // Migration metadata for Kinde to Clerk migration
+    migration: v.optional(
+      v.object({
+        status: v.union(
+          v.literal("pending"),
+          v.literal("in_progress"),
+          v.literal("completed"),
+          v.literal("failed")
+        ),
+        oldKindeId: v.string(),
+        consentGiven: v.boolean(),
+      })
+    ),
   })
     .index("by_clerk_id", ["clerkId"])
     .index("by_email", ["email"])
