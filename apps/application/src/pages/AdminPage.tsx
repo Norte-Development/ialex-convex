@@ -13,7 +13,7 @@ export default function AdminPage() {
   const currentUser = useQuery(api.functions.users.getCurrentUser, { clerkId: undefined });
 
   // Check if user has admin role
-  const isAdmin = currentUser?._id === "jx7d2qe3tz4t41rf0zqmx0bdy17tah7m";
+  const isAdmin = currentUser?._id === "jx7d2qe3tz4t41rf0zqmx0bdy17tah7m" || currentUser?._id === "kn78b2jg35859v48mpgngxbjas7tajmm";
 
   if (!currentUser) {
     return (
