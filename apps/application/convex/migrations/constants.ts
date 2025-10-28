@@ -155,13 +155,13 @@ export const PHASE_2_BATCH_SIZE = 50;
  * File Download Timeout (ms)
  * Timeout for downloading files from Firebase Storage
  */
-export const FILE_DOWNLOAD_TIMEOUT_MS = 30000;
+export const FILE_DOWNLOAD_TIMEOUT_MS = 60000;
 
 /**
  * Max File Size (bytes)
- * Maximum file size for migration (100MB)
+ * Maximum file size for migration (1GB)
  */
-export const MAX_FILE_SIZE_BYTES = 100 * 1024 * 1024;
+export const MAX_FILE_SIZE_BYTES = 1024 * 1024 * 1024;
 
 /**
  * GCS Upload Retry Attempts
