@@ -104,7 +104,7 @@ async function findOrCreateUser(ctx: any, email: string, name: string, externalR
   if (externalReference) {
     const userByKindeId = await ctx.db
       .query("users")
-      .filter((q) => q.eq(q.field("migration.oldKindeId"), externalReference))
+      .filter((q: any) => q.eq(q.field("migration.oldKindeId"), externalReference))
       .first();
     
     if (userByKindeId) {
