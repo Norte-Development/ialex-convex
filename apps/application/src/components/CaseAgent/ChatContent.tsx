@@ -324,7 +324,7 @@ function MessageItem({ message, user, onCitationClick }: MessageItemProps) {
       )}
     >
       <MessageAvatar
-        src={isUser ? "" : "/iAlex.png"}
+        src={isUser ? "" : "/logo.ico"}
         name={isUser ? (user?.name || "Usuario") : "iAlex"}
         className={cn("shrink-0", isUser ? "ml-2" : "mr-2")}
       />
