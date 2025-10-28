@@ -128,11 +128,10 @@ export function BillingSection({ teamId }: BillingSectionProps) {
               </div>
               <div className="flex flex-col sm:flex-row gap-3">
                 <Button 
-                  onClick={handleUpgrade} 
+                  onClick={() => window.location.href = "#plan-comparison"} 
                   className="w-full sm:w-auto"
-                  disabled={isUpgrading}
                 >
-                  {isUpgrading ? "Procesando..." : "Actualizar a Premium"}
+                  Ver planes
                 </Button>
               </div>
               <p className="text-xs text-gray-500">
@@ -149,21 +148,11 @@ export function BillingSection({ teamId }: BillingSectionProps) {
                 documentos y escritos ilimitados, además de acceso a GPT-5.
               </p>
               <div className="flex flex-col sm:flex-row gap-3">
-                {!user?.hasUsedTrial && (
-                  <Button 
-                    onClick={() => window.open('/signup?trial=true', '_blank')}
-                    variant="outline"
-                    className="w-full sm:w-auto"
-                  >
-                    🎉 Probar Premium Gratis (14 días)
-                  </Button>
-                )}
                 <Button 
-                  onClick={handleUpgrade} 
+                  onClick={() => window.location.href = "#plan-comparison"} 
                   className="w-full sm:w-auto"
-                  disabled={isUpgrading}
                 >
-                  {isUpgrading ? "Procesando..." : "Actualizar a Premium"}
+                  Ver planes
                 </Button>
               </div>
             </div>
@@ -199,14 +188,16 @@ export function BillingSection({ teamId }: BillingSectionProps) {
       <Separator />
 
       {/* Plan Comparison */}
+      <div id="plan-comparison">
       <PlanComparison 
         currentPlan={plan} 
         onSelectPlan={handleSelectPlan}
         isUpgrading={isUpgrading}
       />
+      </div>
 
       {/* Payment History Section (Future) */}
-      <Card>
+      {/* <Card>
         <CardHeader>
           <CardTitle>Historial de Pagos</CardTitle>
           <CardDescription>
@@ -218,7 +209,7 @@ export function BillingSection({ teamId }: BillingSectionProps) {
             Esta funcionalidad estará disponible próximamente.
           </p>
         </CardContent>
-      </Card>
+      </Card> */}
     </div>
   );
 }
