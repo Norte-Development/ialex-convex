@@ -54,13 +54,11 @@ export const uploadFileToGCS = internalAction({
       const gcsFile = gcsBucket.file(gcsFileName);
       
       await gcsFile.save(fileBuffer, {
-        metadata: { 
+        metadata: {
           contentType: mimeType,
-          metadata: {
-            source: "migration",
-            originalFileName: fileName,
-            originalStorageUrl: storageUrl,
-          }
+          source: "migration",
+          originalFileName: fileName,
+          originalStorageUrl: storageUrl,
         }
       });
       
@@ -70,6 +68,7 @@ export const uploadFileToGCS = internalAction({
         success: true,
         gcsBucket: GCS_BUCKET,
         gcsObject: gcsFileName,
+        fileSize: fileBuffer.length,
         error: null,
       };
     } catch (error: any) {
@@ -78,6 +77,7 @@ export const uploadFileToGCS = internalAction({
         success: false,
         gcsBucket: null,
         gcsObject: null,
+        fileSize: 0,
         error: error.message,
       };
     }

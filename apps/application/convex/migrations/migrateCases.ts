@@ -44,6 +44,19 @@ export const createCase = internalMutation({
       isArchived: args.status === "archived",
       lastActivityAt: args.updatedAt,
     });
+
+    // Create case access record for the creator (admin access)
+    await ctx.db.insert("caseAccess", {
+      caseId,
+      userId: args.newUserId,
+      accessLevel: "admin",
+      grantedBy: args.newUserId,
+      grantedAt: args.createdAt,
+      isActive: true,
+    });
+
+    // Since assignedLawyer is the same as creator, no additional access record needed
+    // (unlike the main createCase function which handles different assigned lawyers)
     
     console.log(`Created case ${caseId} from Firestore expediente ${args.oldFirestoreCaseId}`);
     

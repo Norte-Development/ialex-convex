@@ -43,5 +43,4 @@ export { migrateUserData } from "./migrateUserData";
 export { createCase } from "./migrateCases";
 export { createClient } from "./migrateClients";
 export { createDocument } from "./migrateDocuments";
-export { createLibraryDocument } from "./migrateLibraryDocuments";
 

@@ -46,6 +46,7 @@ export interface FileUploadResult {
   success: boolean;
   gcsBucket: string | null;
   gcsObject: string | null;
+  fileSize: number;
   error: string | null;
 }
 
