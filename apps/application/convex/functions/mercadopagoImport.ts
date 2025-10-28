@@ -155,12 +155,12 @@ export const importMercadoPagoCSV = mutation({
     for (const row of rows) {
       try {
         // Skip empty rows
-        if (!row.id || !row.payer_id || !row.payer_first_name || !row.payer_last_name) {
+        if (!row.id || !row.payer_id || !row.payer_first_name) {
           results.skipped++;
           results.details.push({
             row: row,
             status: "skipped",
-            reason: "Missing required fields (id, payer_id, payer_first_name, payer_last_name)",
+            reason: "Missing required fields (id, payer_id, payer_first_name)",
           });
           continue;
         }
@@ -195,8 +195,14 @@ export const importMercadoPagoCSV = mutation({
         }
 
         // Try to find user by externalReference (kindeId) first, then by email
-        const email = `${row.payer_first_name.toLowerCase()}.${row.payer_last_name.toLowerCase()}@mercadopago.placeholder`;
-        const userId = await findOrCreateUser(ctx, email, `${row.payer_first_name} ${row.payer_last_name}`, row.external_reference);
+        const lastName = row.payer_last_name || '';
+        const email = lastName 
+          ? `${row.payer_first_name.toLowerCase()}.${lastName.toLowerCase()}@mercadopago.placeholder`
+          : `${row.payer_first_name.toLowerCase()}@mercadopago.placeholder`;
+        const fullName = lastName 
+          ? `${row.payer_first_name} ${lastName}`
+          : row.payer_first_name;
+        const userId = await findOrCreateUser(ctx, email, fullName, row.external_reference);
 
         if (!userId) {
           results.skipped++;
@@ -270,13 +276,18 @@ export const createPlaceholderUsers = mutation({
 
     for (const row of rows) {
       try {
-        if (!row.payer_first_name || !row.payer_last_name) {
+        if (!row.payer_first_name) {
           results.skipped++;
           continue;
         }
 
-        const email = `${row.payer_first_name.toLowerCase()}.${row.payer_last_name.toLowerCase()}@mercadopago.placeholder`;
-        const name = `${row.payer_first_name} ${row.payer_last_name}`;
+        const lastName = row.payer_last_name || '';
+        const email = lastName 
+          ? `${row.payer_first_name.toLowerCase()}.${lastName.toLowerCase()}@mercadopago.placeholder`
+          : `${row.payer_first_name.toLowerCase()}@mercadopago.placeholder`;
+        const name = lastName 
+          ? `${row.payer_first_name} ${lastName}`
+          : row.payer_first_name;
 
         // Check if user already exists
         const existingUser = await ctx.db
@@ -343,8 +354,13 @@ export const getImportPreview = mutation({
       const rows = parseCSV(csvContent);
       
       const preview = await Promise.all(rows.map(async (row, index) => {
-        const email = `${row.payer_first_name.toLowerCase()}.${row.payer_last_name.toLowerCase()}@mercadopago.placeholder`;
-        const name = `${row.payer_first_name} ${row.payer_last_name}`;
+        const lastName = row.payer_last_name || '';
+        const email = lastName 
+          ? `${row.payer_first_name.toLowerCase()}.${lastName.toLowerCase()}@mercadopago.placeholder`
+          : `${row.payer_first_name.toLowerCase()}@mercadopago.placeholder`;
+        const name = lastName 
+          ? `${row.payer_first_name} ${lastName}`
+          : row.payer_first_name;
         
         // Check if user exists by kindeId or email
         let userMatch: { type: "kindeId" | "email"; email: string; name: string } | null = null;
