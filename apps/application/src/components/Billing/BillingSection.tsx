@@ -11,7 +11,7 @@ import { UsageOverview } from "./UsageOverview";
 import { PlanComparison } from "./PlanComparison";
 import { useBillingData } from "./useBillingData";
 import { useUpgrade } from "./useUpgrade";
-import { PlanType } from "./types";
+import { PlanSelection } from "./types";
 import { toast } from "sonner";
 import { Id } from "../../../convex/_generated/dataModel";
 
@@ -36,7 +36,7 @@ export function BillingSection({ teamId }: BillingSectionProps) {
   const portal = useAction(api.billing.subscriptions.portal);
 
   // Use the upgrade hook for handling plan upgrades (all user-level now)
-  const { upgradeToPlan, upgradeToIndividual, isUpgrading } = useUpgrade();
+  const { upgradeToPlan, isUpgrading } = useUpgrade();
 
   const handlePortalAccess = async () => {
     if (!user?._id) return;
@@ -58,18 +58,13 @@ export function BillingSection({ teamId }: BillingSectionProps) {
     }
   };
 
-  const handleUpgrade = async () => {
-    // Default upgrade from free is to premium_individual
-    await upgradeToIndividual();
-  };
-
-  const handleSelectPlan = async (selectedPlan: PlanType) => {
-    if (selectedPlan === "free" || selectedPlan === plan) {
+  const handleSelectPlan = async (selection: PlanSelection) => {
+    if (selection.plan === "free" || selection.plan === plan) {
       return; // Can't downgrade or select current plan
     }
 
-    // All upgrades are user-level now, just call the appropriate function
-    await upgradeToPlan(selectedPlan);
+    // All upgrades are user-level now, pass the selection with period
+    await upgradeToPlan(selection);
   };
 
   if (isLoading) {
