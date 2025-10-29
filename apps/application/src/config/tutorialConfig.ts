@@ -353,14 +353,18 @@ export const tutorialConfig: TutorialPage[] = [
         id: "database-welcome",
         title: "Base de Datos Legal",
         content:
-          "Accede a una amplia base de jurisprudencia y legislación argentina actualizada.",
+          "Accede a una amplia base de jurisprudencia y legislación argentina. Busca fallos judiciales, leyes, decretos y más.",
         placement: "center",
+        action: {
+          type: "navigate",
+          value: "/base-de-datos",
+        },
       },
       {
         id: "database-search",
-        title: "Búsqueda Inteligente",
+        title: "Búsqueda Semántica",
         content:
-          "Busca fallos y normativa con búsqueda semántica potenciada por IA. Encuentra lo que necesitas rápidamente.",
+          "Busca documentos legales usando lenguaje natural. La IA encuentra resultados relevantes aunque no uses las palabras exactas.",
         target: '[data-tutorial="database-search"]',
         placement: "bottom",
         highlightPadding: 8,
@@ -368,19 +372,31 @@ export const tutorialConfig: TutorialPage[] = [
       {
         id: "database-filters",
         title: "Filtros Avanzados",
-        content: "Filtra por jurisdicción, fecha, tribunal, materia y más.",
+        content:
+          "Refina tu búsqueda por jurisdicción, fecha, tribunal, estado y más. Combina múltiples filtros para resultados precisos.",
         target: '[data-tutorial="database-filters"]',
-        placement: "bottom",
+        placement: "top",
         highlightPadding: 8,
       },
       {
-        id: "database-use",
-        title: "Usar en Casos",
+        id: "database-results",
+        title: "Resultados y Exportación",
         content:
-          "Puedes agregar fallos y normativa directamente a tus casos y escritos.",
+          "Haz clic en cualquier documento para verlo completo. Puedes agregarlo directamente a tus casos o exportarlo.",
         target: '[data-tutorial="database-results"]',
         placement: "top",
         highlightPadding: 8,
+      },
+      {
+        id: "database-complete",
+        title: "¡Tutorial Completado!",
+        content:
+          "Has completado el recorrido por iAlex. Ahora estás listo para gestionar tus casos legales con todas las herramientas disponibles. ¡Éxito!",
+        placement: "center",
+        action: {
+          type: "navigate",
+          value: "/",
+        },
       },
     ],
   },
