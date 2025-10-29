@@ -125,7 +125,7 @@ export const tutorialConfig: TutorialPage[] = [
   {
     page: "casos",
     title: "Gestión de Casos",
-    description: "Aprende a crear y organizar tus casos",
+    description: "Crea tu primer caso legal",
     steps: [
       {
         id: "cases-welcome",
@@ -139,57 +139,58 @@ export const tutorialConfig: TutorialPage[] = [
         },
       },
       {
-        id: "cases-create",
-        title: "Crear Nuevo Caso",
+        id: "cases-create-button",
+        title: "Crear tu Primer Caso",
         content:
-          "Con este boton puedes crear un nuevo caso legal. Donde podrás agregar documentos, clientes y utilizar herramientas de IA.",
+          "Haz clic en este botón para abrir el formulario de creación de caso.",
         target: '[data-tutorial="create-case"]',
         placement: "bottom",
         highlightPadding: 8,
-        allowClickThrough: false,
+        allowClickThrough: true,
+        autoAdvanceOn: {
+          event: "click",
+          selector: '[data-tutorial="create-case"]',
+        },
       },
       {
-        id: "cases-filters",
-        title: "Filtrar Casos",
+        id: "cases-form-title",
+        title: "Título del Caso",
         content:
-          "Usa estos filtros para organizar tus casos por estado, prioridad o categoría.",
-        target: '[data-tutorial="cases-filters"]',
+          'Ingresa un título para tu caso, por ejemplo "Mi Primer Caso de Prueba".',
+        target: '[data-tutorial="case-form-title"]',
         placement: "bottom",
         highlightPadding: 8,
+        allowClickThrough: true,
       },
       {
-        id: "cases-search",
-        title: "Buscar Casos",
+        id: "cases-form-submit",
+        title: "Crear el Caso",
         content:
-          "Busca rápidamente un caso por nombre, número de expediente o cualquier palabra clave.",
-        target: '[data-tutorial="cases-search"]',
+          "Haz clic en el botón de crear para guardar tu caso. Una vez creado, iremos automáticamente a la vista detallada.",
+        target: '[data-tutorial="case-form-submit"]',
         placement: "bottom",
         highlightPadding: 8,
-      },
-      {
-        id: "cases-open",
-        title: "Abrir un Caso",
-        content:
-          "Haz clic en cualquier caso para abrirlo y ver todos sus detalles, documentos y herramientas.",
-        target: '[data-tutorial="case-card"]:first-child',
-        placement: "bottom",
-        highlightPadding: 8,
+        allowClickThrough: true,
+        autoAdvanceOn: {
+          event: "custom",
+          customEvent: "tutorial:caseCreated",
+        },
       },
     ],
   },
 
   // CASE DETAIL PAGE
   {
-    page: "case-detail",
+    page: "caso/:id", // Matches any case detail route like casos/abc123
     title: "Vista de Caso",
     description: "Explora todas las herramientas disponibles en un caso",
     prerequisite: "casos",
     steps: [
       {
         id: "case-detail-welcome",
-        title: "Vista Detallada del Caso",
+        title: "¡Caso Creado!",
         content:
-          "Aquí encontrarás todo lo relacionado con este caso: documentos, escritos, clientes, y herramientas de IA.",
+          "Perfecto, ahora estás en la vista detallada de tu caso. Aquí encontrarás todas las herramientas: documentos, escritos, clientes, chat con IA y más.",
         placement: "center",
       },
       {

@@ -20,9 +20,11 @@ import CollapsibleMenuButton from "./CollapsibleMenuButton";
 import { useGlobalSearch } from "@/hooks/useGlobalSearch";
 import SearchDropdown from "@/components/Search/SearchDropdown";
 import { useChatbot } from "@/context/ChatbotContext";
+import { useTutorial } from "@/context/TutorialContext";
 
 export default function NavBar() {
   const location = useLocation();
+  const { isActive, currentStepNumber } = useTutorial();
   const {
     searchQuery,
     results,
@@ -116,7 +118,10 @@ export default function NavBar() {
           </div>
         ) : (
           <div className="flex gap-4">
-            <CollapsibleMenuButton options={menuOptions} />
+            <CollapsibleMenuButton
+              open={isActive && currentStepNumber === 4}
+              options={menuOptions}
+            />
           </div>
         )}
       </div>

@@ -99,8 +99,9 @@ export const TutorialProvider: React.FC<TutorialProviderProps> = ({
 
       // Map URL to page names used in tutorial config
       switch (firstSegment) {
-        case "cases":
-          pageName = pathSegments.length > 1 ? "case-detail" : "cases";
+        case "casos":
+          // Match dynamic routes like "casos/:id" -> "casos/:id"
+          pageName = pathSegments.length > 1 ? "casos/:id" : "casos";
           break;
         case "clients":
           pageName = "clients";
