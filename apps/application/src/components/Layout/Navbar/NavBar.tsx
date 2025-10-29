@@ -13,6 +13,7 @@ import {
   FolderOpen,
 } from "lucide-react";
 import { useLocation } from "react-router-dom";
+import { useEffect } from "react";
 import Breadcrumbs from "./BreadCrumbs";
 import { UserButton } from "@clerk/clerk-react";
 import { Input } from "@/components/ui/input";
@@ -37,7 +38,14 @@ export default function NavBar() {
   } = useGlobalSearch();
 
   const isInCaseContext = location.pathname.includes("/caso/");
-  const { toggleChatbot } = useChatbot();
+  const { toggleChatbot, isChatbotOpen } = useChatbot();
+
+  // Auto-open chatbot when tutorial reaches step 15
+  useEffect(() => {
+    if (isActive && currentStepNumber === 15 && !isChatbotOpen) {
+      toggleChatbot();
+    }
+  }, [isActive, currentStepNumber, isChatbotOpen, toggleChatbot]);
 
   const menuOptions = [
     { label: "Inicio", path: "/", icon: Home },

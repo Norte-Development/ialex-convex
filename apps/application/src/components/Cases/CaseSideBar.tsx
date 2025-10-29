@@ -286,6 +286,7 @@ export default function CaseSidebar() {
       )}
 
       <aside
+        data-tutorial="case-sidebar"
         className={`fixed top-0 left-0 z-30 w-64 h-screen pt-1 bg-white border-r border-border flex flex-col text-sm transform transition-transform duration-300 ease-in-out  ${
           isCaseSidebarOpen ? "translate-x-0" : "-translate-x-full"
         }`}
@@ -300,7 +301,10 @@ export default function CaseSidebar() {
         {/* Dropdown de navegación - Fixed */}
         <div className="pl-1 py-2 border-b border-gray-200 flex-shrink-0">
           <DropdownMenu>
-            <DropdownMenuTrigger className="w-full cursor-pointer justify-start flex items-center gap-2  px-3 py-2 rounded-lg  transition-colors group">
+            <DropdownMenuTrigger
+              data-tutorial="case-tabs"
+              className="w-full cursor-pointer justify-start flex items-center gap-2  px-3 py-2 rounded-lg  transition-colors group"
+            >
               <div className="flex items-center justify-center gap-1">
                 <currentSection.icon size={18} className="text-black" />
                 <span className="text-sm font-medium text-gray-900">

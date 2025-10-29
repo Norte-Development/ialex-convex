@@ -367,7 +367,30 @@ export const TutorialProvider: React.FC<TutorialProviderProps> = ({
     switch (action.type) {
       case "navigate":
         if (action.value) {
-          navigate(action.value);
+          let targetPath: string;
+
+          if (action.value.startsWith("/")) {
+            // 1. Absolute path: use as is
+            // Example: "/casos" -> "/casos"
+            targetPath = action.value;
+          } else if (action.value.startsWith("./")) {
+            // 2. Relative append: add to current path
+            // Example: from "/casos/abc123" + "./documentos" -> "/casos/abc123/documentos"
+            const relativePath = action.value.substring(2); // Remove "./"
+            targetPath = `${location.pathname}/${relativePath}`;
+          } else {
+            // 3. Relative replace: replace last segment
+            // Example: from "/casos/abc123/documentos" + "escritos" -> "/casos/abc123/escritos"
+            const pathSegments = location.pathname.split("/").filter(Boolean);
+
+            // Remove the last segment and add the new one
+            pathSegments.pop();
+            pathSegments.push(action.value);
+
+            targetPath = "/" + pathSegments.join("/");
+          }
+
+          navigate(targetPath);
         }
         break;
       case "click":

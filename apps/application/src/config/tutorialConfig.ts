@@ -197,10 +197,10 @@ export const tutorialConfig: TutorialPage[] = [
         id: "case-detail-info",
         title: "Información del Caso",
         content:
-          "Detalles principales del caso: estado, prioridad, fechas y descripción. Puedes editar cualquier campo.",
+          "Detalles principales del caso: estado, prioridad, fechas y descripción.",
         target: '[data-tutorial="case-info"]',
         placement: "bottom",
-        highlightPadding: 8,
+        highlightPadding: 2,
       },
       {
         id: "case-detail-tabs",
@@ -219,6 +219,10 @@ export const tutorialConfig: TutorialPage[] = [
         target: '[data-tutorial="case-documents"]',
         placement: "bottom",
         highlightPadding: 8,
+        action: {
+          type: "navigate",
+          value: "./documentos",
+        },
       },
       {
         id: "case-detail-escritos",
@@ -227,6 +231,19 @@ export const tutorialConfig: TutorialPage[] = [
           "Crea y edita escritos legales con ayuda de IA. El editor es potente y fácil de usar.",
         target: '[data-tutorial="case-escritos"]',
         placement: "bottom",
+        highlightPadding: 8,
+        action: {
+          type: "navigate",
+          value: "escritos",
+        },
+      },
+      {
+        id: "case-sidebar",
+        title: "Barra Lateral del Caso",
+        content:
+          "Desde aca tambien podes acceder a los documentos, escritos y datos de este caso.",
+        target: '[data-tutorial="case-sidebar"]',
+        placement: "right",
         highlightPadding: 8,
       },
       {
