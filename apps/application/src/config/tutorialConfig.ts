@@ -260,65 +260,64 @@ export const tutorialConfig: TutorialPage[] = [
 
   // CLIENTS PAGE
   {
-    page: "clients",
+    page: "clientes",
     title: "Gestión de Clientes",
-    description: "Administra tu cartera de clientes",
+    description: "Aprende a gestionar tus clientes",
     steps: [
       {
         id: "clients-welcome",
         title: "Gestión de Clientes",
         content:
-          "Aquí puedes administrar todos tus clientes: personas físicas y empresas.",
+          "Aquí administras tu cartera de clientes: personas físicas, empresas y sus datos de contacto.",
         placement: "center",
-      },
-      {
-        id: "clients-create",
-        title: "Agregar Cliente",
-        content:
-          "Crea un nuevo cliente con toda su información: nombre, DNI, CUIT, email, teléfono, etc.",
-        target: '[data-tutorial="create-client"]',
-        placement: "bottom",
-        highlightPadding: 8,
+        action: {
+          type: "navigate",
+          value: "/clientes",
+        },
       },
       {
         id: "clients-search",
         title: "Buscar Clientes",
         content:
-          "Encuentra rápidamente clientes por nombre, DNI, CUIT o email.",
+          "Usa este buscador para encontrar rápidamente clientes por nombre, DNI, CUIT o email.",
         target: '[data-tutorial="clients-search"]',
         placement: "bottom",
         highlightPadding: 8,
       },
       {
-        id: "clients-link",
-        title: "Vincular con Casos",
+        id: "clients-create",
+        title: "Agregar Nuevo Cliente",
         content:
-          "Puedes vincular clientes con múltiples casos y definir su rol en cada uno.",
-        target: '[data-tutorial="client-card"]:first-child',
-        placement: "right",
+          "Haz clic aquí para crear un nuevo cliente con toda su información: datos personales, contacto y documentos.",
+        target: '[data-tutorial="create-client"]',
+        placement: "bottom",
         highlightPadding: 8,
       },
     ],
   },
 
-  // LIBRARY PAGE
+  // BIBLIOTECA PAGE
   {
-    page: "library",
+    page: "biblioteca",
     title: "Biblioteca de Documentos",
-    description: "Tu repositorio central de documentos",
+    description: "Tu repositorio de plantillas y documentos",
     steps: [
       {
         id: "library-welcome",
         title: "Biblioteca de Documentos",
         content:
-          "Tu repositorio central de plantillas, documentos modelo y recursos legales reutilizables.",
+          "Aquí guardas plantillas, documentos modelo y recursos legales que puedes reutilizar en múltiples casos.",
         placement: "center",
+        action: {
+          type: "navigate",
+          value: "/biblioteca",
+        },
       },
       {
         id: "library-scopes",
-        title: "Alcance de Documentos",
+        title: "Niveles de Alcance",
         content:
-          "Organiza documentos en tres niveles: Personal (solo tú), Equipo (tu firma), o Global (todos).",
+          "Organiza documentos en tres niveles: Personal (solo tú), Equipo (tu firma), o compartidos con todos.",
         target: '[data-tutorial="library-scopes"]',
         placement: "bottom",
         highlightPadding: 8,
@@ -327,7 +326,7 @@ export const tutorialConfig: TutorialPage[] = [
         id: "library-upload",
         title: "Subir Documentos",
         content:
-          "Sube documentos modelo, plantillas o cualquier recurso que quieras reutilizar.",
+          "Haz clic aquí para subir plantillas, modelos de escritos o cualquier documento que quieras reutilizar.",
         target: '[data-tutorial="library-upload"]',
         placement: "bottom",
         highlightPadding: 8,
@@ -336,9 +335,9 @@ export const tutorialConfig: TutorialPage[] = [
         id: "library-folders",
         title: "Organizar en Carpetas",
         content:
-          "Crea carpetas y subcarpetas para mantener tus documentos organizados.",
+          "Crea carpetas y subcarpetas para mantener tu biblioteca organizada por tema o tipo de documento.",
         target: '[data-tutorial="library-folders"]',
-        placement: "right",
+        placement: "bottom",
         highlightPadding: 8,
       },
     ],
@@ -346,7 +345,7 @@ export const tutorialConfig: TutorialPage[] = [
 
   // DATABASE PAGE
   {
-    page: "database",
+    page: "base-de-datos",
     title: "Base de Datos Legal",
     description: "Accede a jurisprudencia y legislación",
     steps: [

@@ -103,14 +103,14 @@ export const TutorialProvider: React.FC<TutorialProviderProps> = ({
           // Match dynamic routes like "casos/:id" -> "casos/:id"
           pageName = pathSegments.length > 1 ? "casos/:id" : "casos";
           break;
-        case "clients":
-          pageName = "clients";
+        case "clientes":
+          pageName = "clientes";
           break;
-        case "library":
-          pageName = "library";
+        case "biblioteca":
+          pageName = "biblioteca";
           break;
-        case "data-base":
-          pageName = "database";
+        case "base-de-datos":
+          pageName = "base-de-datos";
           break;
         default:
           pageName = firstSegment;
