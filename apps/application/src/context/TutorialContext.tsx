@@ -65,8 +65,11 @@ export const TutorialProvider: React.FC<TutorialProviderProps> = ({
   const navigate = useNavigate();
   const { user } = useAuth();
 
-  // Convex queries and mutations
-  const tutorialProgress = useQuery(api.functions.tutorial.getTutorialProgress);
+  // Convex queries and mutations - skip if user is not authenticated
+  const tutorialProgress = useQuery(
+    api.functions.tutorial.getTutorialProgress,
+    user ? {} : "skip",
+  );
   const initializeTutorialMutation = useMutation(
     api.functions.tutorial.initializeTutorial,
   );
