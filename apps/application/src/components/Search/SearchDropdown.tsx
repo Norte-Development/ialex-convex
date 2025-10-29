@@ -12,7 +12,7 @@ interface SearchDropdownProps {
   onResultClick: (
     type: any,
     id: string,
-    metadata?: { caseId?: string; teamId?: string; userId?: string }
+    metadata?: { caseId?: string; teamId?: string; userId?: string },
   ) => void;
   onClose: () => void;
 }
@@ -66,7 +66,7 @@ export default function SearchDropdown({
         "bg-popover text-popover-foreground",
         "rounded-md border shadow-lg",
         "max-h-[500px] overflow-y-auto",
-        "animate-in fade-in-0 zoom-in-95 slide-in-from-top-2"
+        "animate-in fade-in-0 zoom-in-95 slide-in-from-top-2",
       )}
     >
       {isLoading ? (

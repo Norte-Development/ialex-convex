@@ -106,7 +106,7 @@ export default function CreateClientDialog() {
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
+      <DialogTrigger asChild data-tutorial="create-client">
         <Button className="gap-2 cursor-pointer text-[12px]" size="sm">
           Añadir Cliente
         </Button>

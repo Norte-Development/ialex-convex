@@ -13,6 +13,7 @@ import {
   FolderOpen,
 } from "lucide-react";
 import { useLocation } from "react-router-dom";
+import { useEffect } from "react";
 import Breadcrumbs from "./BreadCrumbs";
 import { UserButton } from "@clerk/clerk-react";
 import { Input } from "@/components/ui/input";
@@ -20,9 +21,11 @@ import CollapsibleMenuButton from "./CollapsibleMenuButton";
 import { useGlobalSearch } from "@/hooks/useGlobalSearch";
 import SearchDropdown from "@/components/Search/SearchDropdown";
 import { useChatbot } from "@/context/ChatbotContext";
+import { useTutorial } from "@/context/TutorialContext";
 
 export default function NavBar() {
   const location = useLocation();
+  const { isActive, currentStepNumber } = useTutorial();
   const {
     searchQuery,
     results,
@@ -35,7 +38,14 @@ export default function NavBar() {
   } = useGlobalSearch();
 
   const isInCaseContext = location.pathname.includes("/caso/");
-  const { toggleChatbot } = useChatbot();
+  const { toggleChatbot, isChatbotOpen } = useChatbot();
+
+  // Auto-open chatbot when tutorial reaches step 15
+  useEffect(() => {
+    if (isActive && currentStepNumber === 15 && !isChatbotOpen) {
+      toggleChatbot();
+    }
+  }, [isActive, currentStepNumber, isChatbotOpen, toggleChatbot]);
 
   const menuOptions = [
     { label: "Inicio", path: "/", icon: Home },
@@ -116,7 +126,10 @@ export default function NavBar() {
           </div>
         ) : (
           <div className="flex gap-4">
-            <CollapsibleMenuButton options={menuOptions} />
+            <CollapsibleMenuButton
+              open={isActive && currentStepNumber === 4}
+              options={menuOptions}
+            />
           </div>
         )}
       </div>

@@ -13,6 +13,7 @@ export default function ClientsPage() {
     >
       <div className="w-full  flex  justify-between items-center">
         <Input
+          data-tutorial="clients-search"
           onChange={(e) => setSearch(e.target.value)}
           className="p-1 text-sm h-6 bg-white w-[40%] placeholder:text-[12px]"
           placeholder="Buscar cliente..."
@@ -21,10 +22,7 @@ export default function ClientsPage() {
       </div>
 
       <div className="w-full   flex justify-start  rounded-lg ">
-        <ClientsTableContainer 
-          searchQuery={search}
-          pageSize={20}
-        />
+        <ClientsTableContainer searchQuery={search} pageSize={20} />
       </div>
     </div>
   );

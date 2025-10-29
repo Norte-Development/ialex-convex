@@ -223,7 +223,7 @@ export default function CaseDetailPage() {
         </div>
 
         {/* Información del Caso */}
-        <div className="space-y-6">
+        <div className="space-y-6" data-tutorial="case-info">
           <h2 className="text-lg font-medium text-gray-900">
             Información del Caso
           </h2>

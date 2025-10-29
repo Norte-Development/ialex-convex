@@ -45,7 +45,9 @@ export default function LibraryPage() {
     setCurrentFolderId(folderId);
   };
 
-  const handleBreadcrumbClick = (folderId: Id<"libraryFolders"> | undefined) => {
+  const handleBreadcrumbClick = (
+    folderId: Id<"libraryFolders"> | undefined,
+  ) => {
     setCurrentFolderId(folderId);
   };
 
@@ -71,7 +73,11 @@ export default function LibraryPage() {
           </p>
         </div>
         <div className="flex items-center gap-3">
-          <Button onClick={() => setShowUploadDialog(true)} className="gap-2">
+          <Button
+            onClick={() => setShowUploadDialog(true)}
+            className="gap-2"
+            data-tutorial="library-upload"
+          >
             <Upload className="h-4 w-4" />
             Subir Archivo
           </Button>
@@ -79,6 +85,7 @@ export default function LibraryPage() {
             onClick={() => setShowCreateFolderDialog(true)}
             variant="outline"
             className="gap-2"
+            data-tutorial="library-folders"
           >
             <FolderPlus className="h-4 w-4" />
             Nueva Carpeta
@@ -99,7 +106,7 @@ export default function LibraryPage() {
           </div>
           <div className="w-64">
             <UsageMeter
-              used={(usage.storageUsedBytes / (1024 * 1024 * 1024))}
+              used={usage.storageUsedBytes / (1024 * 1024 * 1024)}
               limit={limits.storageGB}
               label="Almacenamiento (GB)"
               showPercentage={false}
@@ -109,7 +116,7 @@ export default function LibraryPage() {
       )}
 
       {/* Tabs Section */}
-      <div>
+      <div data-tutorial="library-scopes">
         <LibraryTabs
           teams={teams}
           activeScope={activeScope}
@@ -169,4 +176,3 @@ export default function LibraryPage() {
     </section>
   );
 }
-

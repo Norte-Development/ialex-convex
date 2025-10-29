@@ -74,6 +74,7 @@ export default function SidebarChatbot({
     <>
       {/* Sidebar */}
       <div
+        data-tutorial="case-chat"
         ref={sidebarRef}
         className={cn(
           "fixed top-10 right-0 h-[calc(100vh-41px)]  bg-[#E2EFF7] border-l border-gray-200 shadow-lg z-20 transform flex flex-col",
