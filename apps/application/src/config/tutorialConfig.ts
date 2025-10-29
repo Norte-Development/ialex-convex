@@ -156,19 +156,9 @@ export const tutorialConfig: TutorialPage[] = [
         id: "cases-form-title",
         title: "Título del Caso",
         content:
-          'Ingresa un título para tu caso, por ejemplo "Mi Primer Caso de Prueba".',
+          'Ingresa un título para tu caso, por ejemplo "Mi Primer Caso de Prueba". Presiona Enter  para continuar.',
         target: '[data-tutorial="case-form-title"]',
-        placement: "bottom",
-        highlightPadding: 8,
-        allowClickThrough: true,
-      },
-      {
-        id: "cases-form-submit",
-        title: "Crear el Caso",
-        content:
-          "Haz clic en el botón de crear para guardar tu caso. Una vez creado, iremos automáticamente a la vista detallada.",
-        target: '[data-tutorial="case-form-submit"]',
-        placement: "bottom",
+        placement: "right",
         highlightPadding: 8,
         allowClickThrough: true,
         autoAdvanceOn: {

@@ -249,7 +249,7 @@ export default function CreateCaseDialog() {
       setOpen(false);
 
       // Navigate to the created case
-      navigate(`/casos/${caseId}`);
+      navigate(`/caso/${caseId}`);
 
       // Dispatch custom event for tutorial
       window.dispatchEvent(

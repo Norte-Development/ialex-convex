@@ -436,8 +436,11 @@ const TutorialCard: React.FC<TutorialCardProps> = ({
           <Button
             size="sm"
             onClick={onNext}
-            disabled={false}
-            className={cn("bg-[#4F46E5] hover:bg-[#4338CA] text-white")}
+            disabled={!!step.autoAdvanceOn}
+            className={cn(
+              "bg-[#4F46E5] hover:bg-[#4338CA] text-white",
+              step.autoAdvanceOn && "opacity-50 cursor-not-allowed",
+            )}
           >
             {canGoNext ? "Siguiente" : "Finalizar"}
             {canGoNext && <ChevronRight className="w-4 h-4 ml-1" />}
