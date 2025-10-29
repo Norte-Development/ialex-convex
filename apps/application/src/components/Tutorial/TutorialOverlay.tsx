@@ -23,7 +23,6 @@ export const TutorialOverlay: React.FC = () => {
     nextStep,
     previousStep,
     skipPage,
-    dismissTutorial,
     canGoNext,
     canGoPrevious,
   } = useTutorial();
@@ -185,7 +184,7 @@ export const TutorialOverlay: React.FC = () => {
         onNext={nextStep}
         onPrevious={previousStep}
         onSkip={skipPage}
-        onDismiss={dismissTutorial}
+        onDismiss={skipPage}
         canGoNext={canGoNext}
         canGoPrevious={canGoPrevious}
       />

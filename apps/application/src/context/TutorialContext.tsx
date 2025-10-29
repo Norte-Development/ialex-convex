@@ -17,6 +17,7 @@ import {
   getStepNumber,
   getTotalSteps,
   hasPageTutorial,
+  getPageForStep,
   type TutorialStep,
 } from "@/config/tutorialConfig";
 import { useAuth } from "./AuthContext";
@@ -130,10 +131,19 @@ export const TutorialProvider: React.FC<TutorialProviderProps> = ({
       return;
     }
 
-    // If we have a saved current step ID, use that
+    // Check if current page is skipped - don't show tutorial on skipped pages
+    if (tutorialProgress.skippedPages?.includes(currentPage)) {
+      setCurrentStep(null);
+      return;
+    }
+
+    // Check if we have a saved current step ID and it belongs to the current page
     if (tutorialProgress.currentStepId) {
       const step = getStepById(tutorialProgress.currentStepId);
-      if (step) {
+      const stepPage = getPageForStep(tutorialProgress.currentStepId);
+
+      // Only use saved step if it belongs to the current page
+      if (step && stepPage?.page === currentPage) {
         setCurrentStep(step);
         return;
       }
@@ -302,31 +312,21 @@ export const TutorialProvider: React.FC<TutorialProviderProps> = ({
     [currentPage, updateCurrentStepMutation, navigate],
   );
 
-  // Skip current page
+  // Skip current page - just hide tutorial on this page, don't navigate
   const skipPage = useCallback(async () => {
     if (!currentPage) return;
 
     try {
+      // Mark current page as skipped
       await skipPageMutation({ page: currentPage });
 
-      // Find next page with tutorial
-      const currentPageIndex = tutorialConfig.findIndex(
-        (p) => p.page === currentPage,
-      );
-      if (currentPageIndex < tutorialConfig.length - 1) {
-        const nextPage = tutorialConfig[currentPageIndex + 1];
-        const pageRoute = getRouteForPage(nextPage.page);
-        if (pageRoute) {
-          navigate(pageRoute);
-        }
-      } else {
-        // No more pages - complete tutorial
-        await completeTutorialMutation();
-      }
+      // Hide tutorial by clearing current step
+      // Tutorial will show again when user navigates to another page
+      setCurrentStep(null);
     } catch (error) {
       console.error("Failed to skip page:", error);
     }
-  }, [currentPage, skipPageMutation, completeTutorialMutation, navigate]);
+  }, [currentPage, skipPageMutation]);
 
   // Complete tutorial
   const completeTutorial = useCallback(async () => {
@@ -417,16 +417,16 @@ export const TutorialProvider: React.FC<TutorialProviderProps> = ({
     switch (page) {
       case "home":
         return "/";
-      case "cases":
-        return "/cases";
-      case "case-detail":
-        return "/cases"; // Will need a specific case ID in real usage
-      case "clients":
-        return "/clients";
-      case "library":
-        return "/library";
-      case "database":
-        return "/data-base";
+      case "casos":
+        return "/casos";
+      case "caso/:id":
+        return null; // Dynamic route, can't navigate without ID
+      case "clientes":
+        return "/clientes";
+      case "biblioteca":
+        return "/biblioteca";
+      case "base-de-datos":
+        return "/base-de-datos";
       default:
         return null;
     }
