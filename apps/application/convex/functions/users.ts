@@ -181,23 +181,12 @@ export const getOrCreateUser = mutation({
 
     // Schedule trial emails if trial started
     if (args.startTrial && trialEndDate) {
-      // Send welcome email immediately
+      // Send welcome email immediately (this will schedule all other emails in the chain)
       await ctx.scheduler.runAfter(0, internal.billing.trials.sendTrialWelcome, {
         userId: userId,
         email: args.email,
         name: args.name,
       });
-
-      // Day 14: Trial expiration + conversion attempt (keep this one active)
-      await ctx.scheduler.runAfter(
-        14 * 24 * 60 * 60 * 1000,
-        internal.billing.trials.handleTrialExpiration,
-        { 
-          userId: userId,
-          email: args.email,
-          name: args.name
-        }
-      );
     }
 
     console.log("Created new user with id:", userId);
