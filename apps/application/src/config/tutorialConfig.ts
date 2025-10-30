@@ -46,6 +46,10 @@ export interface TutorialStep {
     selector?: string; // CSS selector to watch
     customEvent?: string; // Custom event name
   };
+  link?: {
+    url: string;
+    text: string;
+  };
 }
 
 export interface TutorialPage {
@@ -291,6 +295,17 @@ export const tutorialConfig: TutorialPage[] = [
         target: '[data-tutorial="library-folders"]',
         placement: "bottom",
         highlightPadding: 8,
+      },
+      {
+        id: "library-complete",
+        title: "¡Tutorial Completado! 🎉",
+        content:
+          "Has completado el recorrido inicial por iAlex. ¿Quieres aprender más? Visita nuestra playlist de tutoriales en YouTube para descubrir funcionalidades avanzadas y consejos prácticos.",
+        placement: "center",
+        link: {
+          url: "https://www.youtube.com/playlist?list=PLEQ0jk6nhTjS2Lp8dZU_4Aki2HDRIoTVk",
+          text: "Ver Tutoriales en YouTube",
+        },
       },
     ],
   },
