@@ -248,44 +248,6 @@ export const tutorialConfig: TutorialPage[] = [
     ],
   },
 
-  // CLIENTS PAGE
-  {
-    page: "clientes",
-    title: "Gestión de Clientes",
-    description: "Aprende a gestionar tus clientes",
-    steps: [
-      {
-        id: "clients-welcome",
-        title: "Gestión de Clientes",
-        content:
-          "Aquí administras tu cartera de clientes: personas físicas, empresas y sus datos de contacto.",
-        placement: "center",
-        action: {
-          type: "navigate",
-          value: "/clientes",
-        },
-      },
-      {
-        id: "clients-search",
-        title: "Buscar Clientes",
-        content:
-          "Usa este buscador para encontrar rápidamente clientes por nombre, DNI, CUIT o email.",
-        target: '[data-tutorial="clients-search"]',
-        placement: "bottom",
-        highlightPadding: 8,
-      },
-      {
-        id: "clients-create",
-        title: "Agregar Nuevo Cliente",
-        content:
-          "Haz clic aquí para crear un nuevo cliente con toda su información: datos personales, contacto y documentos.",
-        target: '[data-tutorial="create-client"]',
-        placement: "bottom",
-        highlightPadding: 8,
-      },
-    ],
-  },
-
   // BIBLIOTECA PAGE
   {
     page: "biblioteca",
@@ -329,64 +291,6 @@ export const tutorialConfig: TutorialPage[] = [
         target: '[data-tutorial="library-folders"]',
         placement: "bottom",
         highlightPadding: 8,
-      },
-    ],
-  },
-
-  // DATABASE PAGE
-  {
-    page: "base-de-datos",
-    title: "Base de Datos Legal",
-    description: "Accede a jurisprudencia y legislación",
-    steps: [
-      {
-        id: "database-welcome",
-        title: "Base de Datos Legal",
-        content:
-          "Accede a una amplia base de jurisprudencia y legislación argentina. Busca fallos judiciales, leyes, decretos y más.",
-        placement: "center",
-        action: {
-          type: "navigate",
-          value: "/base-de-datos",
-        },
-      },
-      {
-        id: "database-search",
-        title: "Búsqueda Semántica",
-        content:
-          "Busca documentos legales usando lenguaje natural. La IA encuentra resultados relevantes aunque no uses las palabras exactas.",
-        target: '[data-tutorial="database-search"]',
-        placement: "bottom",
-        highlightPadding: 8,
-      },
-      {
-        id: "database-filters",
-        title: "Filtros Avanzados",
-        content:
-          "Refina tu búsqueda por jurisdicción, fecha, tribunal, estado y más. Combina múltiples filtros para resultados precisos.",
-        target: '[data-tutorial="database-filters"]',
-        placement: "top",
-        highlightPadding: 8,
-      },
-      {
-        id: "database-results",
-        title: "Resultados y Exportación",
-        content:
-          "Haz clic en cualquier documento para verlo completo. Puedes agregarlo directamente a tus casos o exportarlo.",
-        target: '[data-tutorial="database-results"]',
-        placement: "top",
-        highlightPadding: 8,
-      },
-      {
-        id: "database-complete",
-        title: "¡Tutorial Completado!",
-        content:
-          "Has completado el recorrido por iAlex. Ahora estás listo para gestionar tus casos legales con todas las herramientas disponibles. ¡Éxito!",
-        placement: "center",
-        action: {
-          type: "navigate",
-          value: "/",
-        },
       },
     ],
   },
