@@ -82,6 +82,68 @@ export const sendTrialWelcome = internalAction({
     });
 
     console.log(`📧 Sent trial welcome email to ${args.email}`);
+
+    // 🔗 Schedule all trial emails in the chain
+    console.log(`📅 Scheduling trial email chain for user ${args.userId}`);
+
+    // Day 3: Research Assistant
+    await ctx.scheduler.runAfter(
+      3 * 24 * 60 * 60 * 1000, // 3 días
+      internal.billing.trials.sendDay3ResearchAssistant,
+      {
+        userId: args.userId,
+        email: args.email,
+        name: args.name,
+      },
+    );
+
+    // Day 5: Client Tranquility
+    await ctx.scheduler.runAfter(
+      5 * 24 * 60 * 60 * 1000, // 5 días
+      internal.billing.trials.sendDay5ClientTranquility,
+      {
+        userId: args.userId,
+        email: args.email,
+        name: args.name,
+      },
+    );
+
+    // Day 7: Mid-trial reminder
+    await ctx.scheduler.runAfter(
+      7 * 24 * 60 * 60 * 1000, // 7 días
+      internal.billing.trials.sendTrialReminder,
+      {
+        userId: args.userId,
+        email: args.email,
+        name: args.name,
+        reminderType: "mid_trial",
+      },
+    );
+
+    // Day 12: Final warning
+    await ctx.scheduler.runAfter(
+      12 * 24 * 60 * 60 * 1000, // 12 días
+      internal.billing.trials.sendTrialReminder,
+      {
+        userId: args.userId,
+        email: args.email,
+        name: args.name,
+        reminderType: "final_warning",
+      },
+    );
+
+    // Day 14: Trial expiration
+    await ctx.scheduler.runAfter(
+      14 * 24 * 60 * 60 * 1000, // 14 días
+      internal.billing.trials.handleTrialExpiration,
+      {
+        userId: args.userId,
+        email: args.email,
+        name: args.name,
+      },
+    );
+
+    console.log(`✅ All trial emails scheduled successfully for ${args.email}`);
     return null;
   },
 });
