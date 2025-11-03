@@ -28,8 +28,6 @@ export function GeneralSection({ preferences, onUpdate }: GeneralSectionProps) {
                 <SelectItem value="es-AR">Español (Argentina)</SelectItem>
                 <SelectItem value="es-MX">Español (México)</SelectItem>
                 <SelectItem value="es-ES">Español (España)</SelectItem>
-                <SelectItem value="en-US">English (US)</SelectItem>
-                <SelectItem value="pt-BR">Português (Brasil)</SelectItem>
               </SelectContent>
             </Select>
           </div>

@@ -9,6 +9,7 @@ import { Calendar, FileText, Tag, Globe, ExternalLink } from "lucide-react"
 import type { NormativeDoc } from "../../../types/legislation"
 import ReactMarkdown from "react-markdown"
 import remarkGfm from "remark-gfm"
+import { getJurisdictionName } from "./utils/jurisdictionUtils"
 
 interface NormativeDetailsProps {
   jurisdiction: string
@@ -112,7 +113,7 @@ export function NormativeDetails({ jurisdiction, id, getNormativeAction }: Norma
 
             <Badge variant="outline" className="flex items-center gap-1">
               <Globe className="w-3 h-3" />
-              {normative.jurisdiccion}
+              {getJurisdictionName(normative.jurisdiccion)}
             </Badge>
 
             <Badge

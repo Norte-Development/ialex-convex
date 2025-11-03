@@ -30,7 +30,22 @@ export async function _getUserPlan(ctx: QueryCtx | MutationCtx, userId: Id<"user
   // Get user for trial status check
   const user = await ctx.db.get(userId);
   
-  // Check for Stripe subscription FIRST (paid subscriptions take precedence over trials)
+  // Check for MercadoPago subscription FIRST (manual management)
+  const mpSubscription = await ctx.db
+    .query("mercadopagoSubscriptions")
+    .withIndex("by_user", (q) => q.eq("userId", userId))
+    .filter((q) => q.eq(q.field("status"), "active"))
+    .first();
+
+  if (mpSubscription) {
+    // Mark trial as converted if user was in trial
+    if (user?.trialStatus === "active" && 'scheduler' in ctx) {
+      await ctx.db.patch(userId, { trialStatus: "converted" });
+    }
+    return mpSubscription.plan as PlanType;
+  }
+
+  // Check for Stripe subscription (paid subscriptions take precedence over trials)
   const customer = await ctx.db
     .query("stripeCustomers")
     .withIndex("byEntityId", (q) => q.eq("entityId", userId))

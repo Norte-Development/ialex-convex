@@ -21,6 +21,7 @@ export default function SignUpPage() {
         <div className="flex justify-center">
           <SignUp 
             fallbackRedirectUrl={isTrial ? "/?trial=true" : "/"}
+            signInUrl="/signin"
             appearance={{
               elements: {
                 formButtonPrimary: "bg-blue-600 hover:bg-blue-700 text-sm normal-case",
@@ -34,7 +35,7 @@ export default function SignUpPage() {
             }}
           />
         </div>
-        {!isTrial && (
+        {/* {!isTrial && (
           <div className="mt-4 text-center">
             <p className="text-sm text-gray-600">
               ¿Quieres probar Premium?{" "}
@@ -43,7 +44,7 @@ export default function SignUpPage() {
               </a>
             </p>
           </div>
-        )}
+        )} */}
       </div>
     </div>
   );

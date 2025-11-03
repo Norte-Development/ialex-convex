@@ -44,18 +44,18 @@ export function AgentSection({ preferences, onUpdate }: AgentSectionProps) {
             <Label htmlFor="defaultJurisdiction" className="text-sm font-medium">
               Jurisdicción por Defecto
             </Label>
-            <Select 
+            {/* <Select 
               value={preferences.defaultJurisdiction} 
               onValueChange={(value) => onUpdate("defaultJurisdiction", value)}
-            >
-              <SelectTrigger id="defaultJurisdiction" className="w-full sm:w-[280px]">
+            > */}
+              {/* <SelectTrigger id="defaultJurisdiction" className="w-full sm:w-[280px]">
                 <SelectValue placeholder="Seleccionar jurisdicción" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="argentina">Argentina</SelectItem>
                 <SelectItem value="paraguay">Paraguay</SelectItem>
               </SelectContent>
-            </Select>
+            </Select> */}
             <p className="text-xs text-muted-foreground">
               Legislación aplicable por defecto
             </p>

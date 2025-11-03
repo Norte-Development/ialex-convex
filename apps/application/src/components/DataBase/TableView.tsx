@@ -4,6 +4,7 @@ import { Card } from "../ui/card"
 import { FileText, Scale } from "lucide-react"
 import type { NormativeDoc, SearchResult, Estado, ContentType, CombinedDocument } from "../../../types/legislation"
 import type { FalloDoc } from "../../../types/fallos"
+import { getJurisdictionName } from "./utils/jurisdictionUtils"
 
 // Type guard to safely check item types
 function isNormativeDoc(item: NormativeDoc | SearchResult): item is NormativeDoc {
@@ -44,7 +45,6 @@ export function TableView({
           <TableHead className="font-semibold w-32">Fecha</TableHead>
           <TableHead className="font-semibold w-40">Actor</TableHead>
           <TableHead className="font-semibold w-40">Demandado</TableHead>
-          <TableHead className="font-semibold w-32">Estado</TableHead>
         </TableRow>
       );
     } else if (contentType === "legislation") {
@@ -67,7 +67,6 @@ export function TableView({
           <TableHead className="font-semibold w-32">Tipo</TableHead>
           <TableHead className="font-semibold w-32">Jurisdicción</TableHead>
           <TableHead className="font-semibold w-32">Fecha</TableHead>
-          <TableHead className="font-semibold w-32">Estado</TableHead>
           <TableHead className="font-semibold w-40">Detalles</TableHead>
         </TableRow>
       );
@@ -83,7 +82,7 @@ export function TableView({
         <TableBody>
           {items.length === 0 ? (
             <TableRow>
-              <TableCell colSpan={contentType === "all" ? 6 : 7} className="text-center py-12">
+              <TableCell colSpan={contentType === "fallos" ? 6 : contentType === "all" ? 5 : 7} className="text-center py-12">
                 <div className="text-gray-500">
                   <FileText className="w-8 h-8 mx-auto mb-2 opacity-50" />
                   <p className="font-medium">
@@ -139,7 +138,7 @@ export function TableView({
                           {item.tribunal}
                         </div>
                       </TableCell>
-                      <TableCell className="capitalize">{jurisdiccion || "-"}</TableCell>
+                      <TableCell>{getJurisdictionName(jurisdiccion)}</TableCell>
                       <TableCell className="font-mono text-sm">
                         {formatDate(item.date)}
                       </TableCell>
@@ -148,11 +147,6 @@ export function TableView({
                       </TableCell>
                       <TableCell className="text-sm truncate max-w-32" title={item.demandado}>
                         {item.demandado || "-"}
-                      </TableCell>
-                      <TableCell>
-                        <Badge className={getEstadoBadgeColor(estado as any)}>
-                          {estado.replace("_", " ")}
-                        </Badge>
                       </TableCell>
                     </TableRow>
                   );
@@ -179,19 +173,13 @@ export function TableView({
                         </div>
                       </TableCell>
                       <TableCell>
-                        <div className="flex items-center gap-1">
-                          <Scale className="w-3 h-3" />
-                          <span className="text-xs">Fallo</span>
-                        </div>
+                        <Badge variant="outline" className="font-medium">
+                          FALLO
+                        </Badge>
                       </TableCell>
-                      <TableCell className="capitalize">{jurisdiccion || "-"}</TableCell>
+                      <TableCell>{getJurisdictionName(jurisdiccion)}</TableCell>
                       <TableCell className="font-mono text-sm">
                         {formatDate(item.date)}
-                      </TableCell>
-                      <TableCell>
-                        <Badge className={getEstadoBadgeColor(estado as any)}>
-                          {estado.replace("_", " ")}
-                        </Badge>
                       </TableCell>
                       <TableCell className="text-sm">
                         <div className="space-y-1">
@@ -224,8 +212,8 @@ export function TableView({
                   sanctionDate = new Date((item as any).sanction_ts * 1000).toISOString().split('T')[0];
               }
 
-              // Safely get vigencia_actual
-              const vigenciaActual = estado === "vigente" || estado === "sin_registro_oficial";
+              // Safely get vigencia_actual - only for legislation
+              const vigenciaActual = estado === "vigente";
 
                 if (contentType === "legislation") {
               return (
@@ -270,7 +258,7 @@ export function TableView({
                   <TableCell className="font-mono text-sm">
                     {numero || "-"}
                   </TableCell>
-                  <TableCell className="capitalize">{jurisdiccion || "-"}</TableCell>
+                  <TableCell>{getJurisdictionName(jurisdiccion)}</TableCell>
                   <TableCell>
                     <div className="space-y-1">
                       <Badge className={getEstadoBadgeColor(estado as any)}>
@@ -318,19 +306,13 @@ export function TableView({
                         </div>
                       </TableCell>
                       <TableCell>
-                        <div className="flex items-center gap-1">
-                          <FileText className="w-3 h-3" />
-                          <span className="text-xs">Ley</span>
-                        </div>
+                        <Badge variant="outline" className="font-medium">
+                          LEG
+                        </Badge>
                       </TableCell>
-                      <TableCell className="capitalize">{jurisdiccion || "-"}</TableCell>
+                      <TableCell>{getJurisdictionName(jurisdiccion)}</TableCell>
                       <TableCell className="font-mono text-sm">
                         {formatDate(sanctionDate)}
-                      </TableCell>
-                      <TableCell>
-                        <Badge className={getEstadoBadgeColor(estado as any)}>
-                          {estado.replace("_", " ")}
-                        </Badge>
                       </TableCell>
                       <TableCell className="text-sm">
                         <div className="space-y-1">

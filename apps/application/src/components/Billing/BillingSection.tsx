@@ -11,7 +11,7 @@ import { UsageOverview } from "./UsageOverview";
 import { PlanComparison } from "./PlanComparison";
 import { useBillingData } from "./useBillingData";
 import { useUpgrade } from "./useUpgrade";
-import { PlanType } from "./types";
+import { PlanSelection } from "./types";
 import { toast } from "sonner";
 import { Id } from "../../../convex/_generated/dataModel";
 
@@ -36,7 +36,7 @@ export function BillingSection({ teamId }: BillingSectionProps) {
   const portal = useAction(api.billing.subscriptions.portal);
 
   // Use the upgrade hook for handling plan upgrades (all user-level now)
-  const { upgradeToPlan, upgradeToIndividual, isUpgrading } = useUpgrade();
+  const { upgradeToPlan, isUpgrading } = useUpgrade();
 
   const handlePortalAccess = async () => {
     if (!user?._id) return;
@@ -58,18 +58,13 @@ export function BillingSection({ teamId }: BillingSectionProps) {
     }
   };
 
-  const handleUpgrade = async () => {
-    // Default upgrade from free is to premium_individual
-    await upgradeToIndividual();
-  };
-
-  const handleSelectPlan = async (selectedPlan: PlanType) => {
-    if (selectedPlan === "free" || selectedPlan === plan) {
+  const handleSelectPlan = async (selection: PlanSelection) => {
+    if (selection.plan === "free" || selection.plan === plan) {
       return; // Can't downgrade or select current plan
     }
 
-    // All upgrades are user-level now, just call the appropriate function
-    await upgradeToPlan(selectedPlan);
+    // All upgrades are user-level now, pass the selection with period
+    await upgradeToPlan(selection);
   };
 
   if (isLoading) {
@@ -128,11 +123,10 @@ export function BillingSection({ teamId }: BillingSectionProps) {
               </div>
               <div className="flex flex-col sm:flex-row gap-3">
                 <Button 
-                  onClick={handleUpgrade} 
+                  onClick={() => window.location.href = "#plan-comparison"} 
                   className="w-full sm:w-auto"
-                  disabled={isUpgrading}
                 >
-                  {isUpgrading ? "Procesando..." : "Actualizar a Premium"}
+                  Ver planes
                 </Button>
               </div>
               <p className="text-xs text-gray-500">
@@ -149,21 +143,11 @@ export function BillingSection({ teamId }: BillingSectionProps) {
                 documentos y escritos ilimitados, además de acceso a GPT-5.
               </p>
               <div className="flex flex-col sm:flex-row gap-3">
-                {!user?.hasUsedTrial && (
-                  <Button 
-                    onClick={() => window.open('/signup?trial=true', '_blank')}
-                    variant="outline"
-                    className="w-full sm:w-auto"
-                  >
-                    🎉 Probar Premium Gratis (14 días)
-                  </Button>
-                )}
                 <Button 
-                  onClick={handleUpgrade} 
+                  onClick={() => window.location.href = "#plan-comparison"} 
                   className="w-full sm:w-auto"
-                  disabled={isUpgrading}
                 >
-                  {isUpgrading ? "Procesando..." : "Actualizar a Premium"}
+                  Ver planes
                 </Button>
               </div>
             </div>
@@ -199,14 +183,16 @@ export function BillingSection({ teamId }: BillingSectionProps) {
       <Separator />
 
       {/* Plan Comparison */}
+      <div id="plan-comparison">
       <PlanComparison 
         currentPlan={plan} 
         onSelectPlan={handleSelectPlan}
         isUpgrading={isUpgrading}
       />
+      </div>
 
       {/* Payment History Section (Future) */}
-      <Card>
+      {/* <Card>
         <CardHeader>
           <CardTitle>Historial de Pagos</CardTitle>
           <CardDescription>
@@ -218,7 +204,7 @@ export function BillingSection({ teamId }: BillingSectionProps) {
             Esta funcionalidad estará disponible próximamente.
           </p>
         </CardContent>
-      </Card>
+      </Card> */}
     </div>
   );
 }

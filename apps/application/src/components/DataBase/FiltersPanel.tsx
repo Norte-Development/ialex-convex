@@ -39,33 +39,34 @@ export function FiltersPanel({
     >
       <CollapsibleContent className="mt-6">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 p-4 bg-white rounded-lg border border-gray-200">
-          {/* Common filters - always shown */}
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Estado</label>
-            <Select
-              value={filters.estado || ""}
-              onValueChange={(value) =>
-                onFilterChange("estado", value === "all" ? undefined : (value as Estado))
-              }
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Todos los estados" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todos</SelectItem>
-                {estadoOptions.map((estado) => (
-                  <SelectItem key={estado} value={estado}>
-                    {estado.charAt(0).toUpperCase() + estado.slice(1).replace("_", " ")}
-                    {(() => {
-                      const facet = facets?.estados?.find((f) => f.name === estado);
-                      return facet ? <span className="text-gray-500 ml-1">({facet.count})</span> : null;
-                    })()}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+          {/* Estado filter - only for legislation */}
+          {(contentType === "legislation" || contentType === "all") && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Estado</label>
+              <Select
+                value={filters.estado || ""}
+                onValueChange={(value) =>
+                  onFilterChange("estado", value === "all" ? undefined : (value as Estado))
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Todos los estados" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos</SelectItem>
+                  {estadoOptions.map((estado) => (
+                    <SelectItem key={estado} value={estado}>
+                      {estado.charAt(0).toUpperCase() + estado.slice(1).replace("_", " ")}
+                      {(() => {
+                        const facet = facets?.estados?.find((f) => f.name === estado);
+                        return facet ? <span className="text-gray-500 ml-1">({facet.count})</span> : null;
+                      })()}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -219,6 +220,19 @@ export function FiltersPanel({
           {/* Fallos-specific filters */}
           {(contentType === "fallos" || contentType === "all") && (
             <>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <FileText className="w-4 h-4 inline mr-1" />
+                  Carátula
+                </label>
+                <Input
+                  type="text"
+                  placeholder="Buscar por título/carátula"
+                  value={(filters as any).title || ""}
+                  onChange={(e) => onFilterChange("title" as any, e.target.value || undefined)}
+                />
+              </div>
+
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   <Scale className="w-4 h-4 inline mr-1" />

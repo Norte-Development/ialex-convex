@@ -1,11 +1,10 @@
-import { action, mutation, query, internalQuery } from "../_generated/server";
+import { action, mutation, query, internalQuery, internalMutation } from "../_generated/server";
 import { api, internal } from "../_generated/api";
 import { v } from "convex/values";
 import { paginationOptsValidator } from "convex/server";
 import { getCurrentUserFromAuth } from "../auth_utils";
 import { _checkLimit, _getBillingEntity } from "../billing/features";
 import { PLAN_LIMITS } from "../billing/planLimits";
-
 // ========================================
 // LIBRARY DOCUMENT MANAGEMENT
 // ========================================
@@ -677,6 +676,103 @@ export const updateLibraryDocument = mutation({
 
     await ctx.db.patch(args.documentId, updateData);
     console.log("Updated library document:", args.documentId);
+  },
+});
+
+/**
+ * Internal version of createLibraryDocument for migration use.
+ * Bypasses authentication and billing checks for migration purposes.
+ *
+ * @param {Object} args - The function arguments
+ * @param {string} args.title - The document title
+ * @param {string} [args.description] - Optional document description
+ * @param {string} [args.teamId] - Team ID for team library (mutually exclusive with personal library)
+ * @param {string} [args.folderId] - Optional folder to organize the document
+ * @param {string} [args.gcsBucket] - GCS bucket name
+ * @param {string} args.gcsObject - GCS object path
+ * @param {string} args.mimeType - MIME type of the document
+ * @param {number} args.fileSize - File size in bytes
+ * @param {string[]} [args.tags] - Optional tags for organization
+ * @param {string} args.createdBy - User ID who created the document
+ * @returns {Promise<string>} The created library document's ID
+ */
+export const internalCreateLibraryDocument = internalMutation({
+  args: {
+    title: v.string(),
+    description: v.optional(v.string()),
+    teamId: v.optional(v.id("teams")),
+    folderId: v.optional(v.id("libraryFolders")),
+    gcsBucket: v.optional(v.string()),
+    gcsObject: v.string(),
+    mimeType: v.string(),
+    fileSize: v.number(),
+    tags: v.optional(v.array(v.string())),
+    createdBy: v.id("users"),
+  },
+  handler: async (ctx, args) => {
+    // Validate team membership if uploading to team library
+    if (args.teamId) {
+      const team = await ctx.db.get(args.teamId);
+      if (!team) throw new Error("Team not found");
+
+      const isTeamMember = await ctx.db
+        .query("teamMemberships")
+        .withIndex("by_team_and_user", (q) =>
+          q.eq("teamId", team._id).eq("userId", args.createdBy),
+        )
+        .filter((q) => q.eq(q.field("isActive"), true))
+        .first();
+
+      if (!isTeamMember) throw new Error("Not a team member");
+    }
+
+    // Validate folder if provided
+    if (args.folderId) {
+      const folder = await ctx.db.get(args.folderId);
+      if (!folder) throw new Error("Folder not found");
+
+      // Ensure folder belongs to the same scope (personal or team)
+      if (args.teamId && folder.teamId !== args.teamId) {
+        throw new Error("Folder doesn't belong to the specified team");
+      }
+      if (!args.teamId && folder.userId !== args.createdBy) {
+        throw new Error("Folder doesn't belong to your personal library");
+      }
+    }
+
+    // Idempotency: avoid duplicate records for the same GCS object
+    if (args.gcsObject) {
+      const existingGcs = await ctx.db
+        .query("libraryDocuments")
+        .withIndex("by_gcs_object", (q) => q.eq("gcsObject", args.gcsObject!))
+        .first();
+      if (existingGcs) return existingGcs._id;
+    }
+
+    const libraryDocumentId = await ctx.db.insert("libraryDocuments", {
+      title: args.title,
+      description: args.description,
+      userId: args.teamId ? undefined : args.createdBy,
+      teamId: args.teamId ?? undefined,
+      folderId: args.folderId ?? undefined,
+      createdBy: args.createdBy,
+      gcsBucket: args.gcsBucket,
+      gcsObject: args.gcsObject,
+      mimeType: args.mimeType,
+      fileSize: args.fileSize,
+      tags: args.tags,
+      processingStatus: "pending",
+    });
+
+    // Schedule document processing
+    await ctx.scheduler.runAfter(
+      0,
+      internal.functions.libraryDocumentProcessing.processLibraryDocument,
+      { libraryDocumentId },
+    );
+
+    console.log("Created library document with id:", libraryDocumentId);
+    return libraryDocumentId;
   },
 });
 

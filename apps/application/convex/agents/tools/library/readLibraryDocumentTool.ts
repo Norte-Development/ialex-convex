@@ -1,7 +1,7 @@
 import { createTool, ToolCtx } from "@convex-dev/agent";
 import { api, internal } from "../../../_generated/api";
 import { z } from "zod";
-import { createErrorResponse, validateStringParam, validateNumberParam } from "../shared/utils";
+import { createErrorResponse, validateStringParam, validateNumberParam, getUserAndCaseIds } from "../shared/utils";
 import { Id } from "../../../_generated/dataModel";
 
 /**
@@ -44,6 +44,9 @@ export const readLibraryDocumentTool = createTool({
       if (!ctx.userId) {
         return createErrorResponse("No autenticado");
       }
+
+      // Extract userId from agent context using shared utility
+      const {caseId, userId} = getUserAndCaseIds(ctx.userId as string);
 
       // Validate inputs in handler
       const documentIdError = validateStringParam(args.documentId, "documentId");

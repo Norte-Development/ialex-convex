@@ -19,6 +19,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "../ui/sheet";
 import { StaticControls } from "./StaticControls";
 import { DataTableContainer } from "./DataTableContainer";
 import { DocumentDetails } from "./DocumentDetails";
+import { getJurisdictionName } from "./utils/jurisdictionUtils";
 
 interface DataBaseTableProps {
   jurisdictions?: string[];
@@ -273,12 +274,7 @@ export default function DataBaseTable({
             Base de Datos Legislativa
           </h1>
           <p className="text-sm text-gray-600 mt-1">
-            {state.jurisdiction === "all"
-              ? "Todas las Jurisdicciones"
-              : state.jurisdiction === "nac"
-                ? "Nacional"
-                : state.jurisdiction.charAt(0).toUpperCase() +
-                  state.jurisdiction.slice(1)}{" "}
+            {getJurisdictionName(state.jurisdiction)}{" "}
             • {state.totalResults}{" "}
             {state.totalResults === 1 ? "resultado" : "resultados"}
             {state.debouncedQuery && (
