@@ -119,7 +119,6 @@ import type * as functions_tutorial from "../functions/tutorial.js";
 import type * as functions_users from "../functions/users.js";
 import type * as http from "../http.js";
 import type * as migrations_addEventPreferences from "../migrations/addEventPreferences.js";
-import type * as migrations_tutorial_init from "../migrations/tutorial_init.js";
 import type * as migrations_bulkUserMigration from "../migrations/bulkUserMigration.js";
 import type * as migrations_clerkHelpers from "../migrations/clerkHelpers.js";
 import type * as migrations_constants from "../migrations/constants.js";
@@ -140,6 +139,7 @@ import type * as migrations_migrationWorkflow from "../migrations/migrationWorkf
 import type * as migrations_mimeTypeUtils from "../migrations/mimeTypeUtils.js";
 import type * as migrations_processingHelpers from "../migrations/processingHelpers.js";
 import type * as migrations_sendAnnouncement from "../migrations/sendAnnouncement.js";
+import type * as migrations_tutorial_init from "../migrations/tutorial_init.js";
 import type * as migrations_types from "../migrations/types.js";
 import type * as prosemirror from "../prosemirror.js";
 import type * as rag_qdrantUtils_caseDocuments from "../rag/qdrantUtils/caseDocuments.js";
@@ -288,7 +288,6 @@ declare const fullApi: ApiFromModules<{
   "functions/users": typeof functions_users;
   http: typeof http;
   "migrations/addEventPreferences": typeof migrations_addEventPreferences;
-  "migrations/tutorial_init": typeof migrations_tutorial_init;
   "migrations/bulkUserMigration": typeof migrations_bulkUserMigration;
   "migrations/clerkHelpers": typeof migrations_clerkHelpers;
   "migrations/constants": typeof migrations_constants;
@@ -309,6 +308,7 @@ declare const fullApi: ApiFromModules<{
   "migrations/mimeTypeUtils": typeof migrations_mimeTypeUtils;
   "migrations/processingHelpers": typeof migrations_processingHelpers;
   "migrations/sendAnnouncement": typeof migrations_sendAnnouncement;
+  "migrations/tutorial_init": typeof migrations_tutorial_init;
   "migrations/types": typeof migrations_types;
   prosemirror: typeof prosemirror;
   "rag/qdrantUtils/caseDocuments": typeof rag_qdrantUtils_caseDocuments;
