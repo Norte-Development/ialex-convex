@@ -134,7 +134,7 @@ export function FolderCard({
           className="relative"
         >
           <Card
-            className={`group relative flex flex-col items-center gap-3 p-4 transition-all hover:shadow-md hover:border-primary/50 cursor-pointer ${
+            className={`group relative flex flex-col items-center gap-3 p-4 transition-all hover:shadow-md hover:border-primary/50 cursor-pointer min-h-[140px] ${
               dropSnapshot.isDraggingOver
                 ? "bg-blue-50/80 border-2 border-blue-400 border-dashed scale-105 shadow-lg"
                 : ""
