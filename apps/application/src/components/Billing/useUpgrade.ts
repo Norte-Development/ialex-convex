@@ -3,7 +3,7 @@ import { useAction, useQuery } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import { toast } from "sonner";
 import { STRIPE_PRICE_IDS } from "@/lib/billing/pricingConfig";
-import { PlanType } from "./types";
+import { PlanType, PlanSelection } from "./types";
 
 interface UseUpgradeOptions {
   onSuccess?: () => void;
@@ -44,10 +44,10 @@ export function useUpgrade(options: UseUpgradeOptions = {}) {
   );
 
   /**
-   * Upgrade current user to a specific plan
+   * Upgrade current user to a specific plan with billing period
    * SIMPLIFIED: All upgrades are user-level (no separate team subscriptions)
    */
-  const upgradeToPlan = async (targetPlan: PlanType) => {
+  const upgradeToPlan = async (selection: PlanSelection | PlanType) => {
     if (!user?._id) {
       const error = new Error("Usuario no autenticado");
       toast.error("Debes iniciar sesión para actualizar tu plan");
@@ -55,17 +55,30 @@ export function useUpgrade(options: UseUpgradeOptions = {}) {
       return;
     }
 
-    if (targetPlan === "free") {
+    // Handle backward compatibility: if PlanType is passed, default to monthly
+    const planSelection: PlanSelection = 
+      typeof selection === "string" 
+        ? { plan: selection, period: "monthly" }
+        : selection;
+
+    if (planSelection.plan === "free") {
       toast.info("Ya estás en el plan gratuito");
       return;
     }
 
     setIsUpgrading(true);
     try {
-      const priceId =
-        targetPlan === "premium_individual"
-          ? STRIPE_PRICE_IDS.premium_individual
-          : STRIPE_PRICE_IDS.premium_team;
+      // Select the correct price ID based on plan and period
+      let priceId: string;
+      if (planSelection.plan === "premium_individual") {
+        priceId = planSelection.period === "annual"
+          ? STRIPE_PRICE_IDS.premium_individual_annual
+          : STRIPE_PRICE_IDS.premium_individual_monthly;
+      } else {
+        priceId = planSelection.period === "annual"
+          ? STRIPE_PRICE_IDS.premium_team_annual
+          : STRIPE_PRICE_IDS.premium_team_monthly;
+      }
 
       const result = await createCheckoutSession({
         entityId: user._id,
@@ -74,10 +87,11 @@ export function useUpgrade(options: UseUpgradeOptions = {}) {
 
       if (result.url) {
         const planName =
-          targetPlan === "premium_individual"
+          planSelection.plan === "premium_individual"
             ? "Premium Individual"
             : "Premium Team";
-        toast.success(`Redirigiendo a checkout de ${planName}...`);
+        const periodName = planSelection.period === "annual" ? "anual" : "mensual";
+        toast.success(`Redirigiendo a checkout de ${planName} (${periodName})...`);
         onSuccess?.();
         // Redirect to Stripe checkout
         window.location.href = result.url;

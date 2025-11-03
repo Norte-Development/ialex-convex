@@ -7,6 +7,13 @@ import { Id } from "@/../../convex/_generated/dataModel";
 
 export type PlanType = "free" | "premium_individual" | "premium_team";
 
+export type BillingPeriod = "monthly" | "annual";
+
+export interface PlanSelection {
+  plan: PlanType;
+  period: BillingPeriod;
+}
+
 export type LimitType = 
   | "cases" 
   | "documentsPerCase" 

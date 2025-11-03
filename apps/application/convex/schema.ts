@@ -60,7 +60,7 @@ export default defineSchema({
     firmName: v.optional(v.string()), // Law firm name
     workLocation: v.optional(v.string()), // Work location/city
     experienceYears: v.optional(v.number()), // Years of experience
-    bio: v.optional(v.string()), // Professional biography
+    bio: v.optional(v.string()), // Professional biography // Date of migration from another platform
 
     // Trial tracking
     trialStatus: v.optional(
@@ -846,4 +846,54 @@ export default defineSchema({
     .index("by_event_and_user", ["eventId", "userId"])
     .index("by_attendance_status", ["attendanceStatus"])
     .index("by_active_status", ["isActive"]),
+
+  // MercadoPago subscriptions - for manual management
+  mercadopagoSubscriptions: defineTable({
+    // User reference
+    userId: v.id("users"),
+    
+    // MercadoPago data
+    mpSubscriptionId: v.string(), // MercadoPago subscription ID
+    mpCustomerId: v.string(), // MercadoPago customer ID
+    
+    // Subscription details
+    plan: v.union(
+      v.literal("premium_individual"),
+      v.literal("premium_team"),
+      v.literal("enterprise")
+    ),
+    status: v.union(
+      v.literal("active"),
+      v.literal("paused"),
+      v.literal("cancelled"),
+      v.literal("expired")
+    ),
+    
+    // Billing info
+    amount: v.number(), // Amount in cents (e.g., 30000 for $300.00)
+    currency: v.string(), // e.g., "ARS" or "USD"
+    billingCycle: v.union(
+      v.literal("monthly"),
+      v.literal("yearly")
+    ),
+    
+    // Dates
+    startDate: v.number(), // Unix timestamp
+    nextBillingDate: v.number(), // Unix timestamp
+    endDate: v.optional(v.number()), // Unix timestamp (if cancelled)
+    
+    // Admin management
+    lastUpdatedBy: v.id("users"), // Admin who last updated this
+    notes: v.optional(v.string()), // Admin notes
+    
+    // Metadata
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_user", ["userId"])
+    .index("by_status", ["status"])
+    .index("by_plan", ["plan"])
+    .index("by_mp_subscription_id", ["mpSubscriptionId"])
+    .index("by_next_billing", ["nextBillingDate"])
+    .index("by_active_status", ["status", "nextBillingDate"]),
 });

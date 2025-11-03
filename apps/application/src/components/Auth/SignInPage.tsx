@@ -10,11 +10,8 @@ export const SignInPage: React.FC = () => {
           <p className="text-gray-600">Tu asistente legal inteligente</p>
         </div>
         <div className="flex justify-center">
-          <SignIn 
-            redirectUrl="/"
-            localization={{
-              locale: "es"
-            }}
+          <SignIn
+          signUpUrl="/signup"
             appearance={{
               elements: {
                 formButtonPrimary: "bg-blue-600 hover:bg-blue-700 text-sm normal-case",

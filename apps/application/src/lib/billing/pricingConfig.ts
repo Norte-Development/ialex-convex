@@ -15,22 +15,42 @@
 
 export const STRIPE_PRICE_IDS = {
   /**
-   * Premium Individual Plan
-   * - $30/month
+   * Premium Individual Plan - Monthly
+   * - $30.000/month
    * - Unlimited cases, documents, escritos
    * - GPT-5 access for owner
    * - Can create teams (up to 3 members each)
    */
-  premium_individual: import.meta.env.VITE_STRIPE_PRICE_PREMIUM_INDIVIDUAL || "price_premium_individual_default",
+  premium_individual_monthly: import.meta.env.VITE_STRIPE_PRICE_PREMIUM_INDIVIDUAL || "price_premium_individual_default",
   
   /**
-   * Premium Team Plan  
-   * - $200/month per team
+   * Premium Individual Plan - Annual
+   * - $300.000/year
+   * - All monthly features
+   * - Save compared to monthly billing
+   */
+  premium_individual_annual: import.meta.env.VITE_STRIPE_PRICE_PREMIUM_INDIVIDUAL_ANUAL || "price_premium_individual_annual_default",
+  
+  /**
+   * Premium Team Plan - Monthly
+   * - $200.000/month per team
    * - All Premium Individual features
    * - Up to 6 team members
    * - GPT-5 access for ALL team members
    * - Shared team library
    */
+  premium_team_monthly: import.meta.env.VITE_STRIPE_PRICE_PREMIUM_TEAM || "price_premium_team_default",
+  
+  /**
+   * Premium Team Plan - Annual
+   * - $980.000/year
+   * - All monthly features
+   * - Save compared to monthly billing
+   */
+  premium_team_annual: import.meta.env.VITE_STRIPE_PRICE_PREMIUM_EQUIPO_ANUAL || "price_premium_team_annual_default",
+  
+  // Backward compatibility aliases (monthly)
+  premium_individual: import.meta.env.VITE_STRIPE_PRICE_PREMIUM_INDIVIDUAL || "price_premium_individual_default",
   premium_team: import.meta.env.VITE_STRIPE_PRICE_PREMIUM_TEAM || "price_premium_team_default",
 } as const;
 

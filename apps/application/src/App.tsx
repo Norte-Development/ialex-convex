@@ -20,6 +20,7 @@ import { ChatbotProvider } from "./context/ChatbotContext";
 import { LayoutProvider } from "./context/LayoutContext";
 import { TutorialProvider } from "./context/TutorialContext";
 import { TutorialOverlay } from "./components/Tutorial/TutorialOverlay";
+import { MigrationWrapper } from "./components/Migration";
 
 // Eager load core navigation pages (not heavy, safe to bundle)
 import HomePage from "./pages/home/HomePage";
@@ -48,6 +49,7 @@ import EventDetailPage from "./pages/EventDetailPage";
 import CaseDocumentsPage from "./pages/CaseOpen/CaseDocumentsList";
 import HomeAgentPage from "./pages/home/HomeAgentPage";
 import HomeAgentChatPage from "./pages/home/HomeAgentThreadPage";
+import AdminPage from "./pages/AdminPage";
 
 // Lazy load only heavy pages with document viewers/editors
 const CaseDocumentPage = lazy(
@@ -114,7 +116,9 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({
   return (
     <Protect fallback={<SignInPage />}>
       <OnboardingWrapper>
-        <Layout>{children}</Layout>
+        <MigrationWrapper>
+          <Layout>{children}</Layout>
+        </MigrationWrapper>
       </OnboardingWrapper>
     </Protect>
   );
@@ -184,7 +188,9 @@ const AppWithThread = () => {
                       element={
                         <Protect fallback={<SignInPage />}>
                           <OnboardingWrapper>
-                            <CaseRoutesWrapper />
+                            <MigrationWrapper>
+                              <CaseRoutesWrapper />
+                            </MigrationWrapper>
                           </OnboardingWrapper>
                         </Protect>
                       }
@@ -305,6 +311,14 @@ const AppWithThread = () => {
                       element={
                         <ProtectedRoute>
                           <BillingSuccessPage />
+                        </ProtectedRoute>
+                      }
+                    />
+                    <Route
+                      path="/admin"
+                      element={
+                        <ProtectedRoute>
+                          <AdminPage />
                         </ProtectedRoute>
                       }
                     />

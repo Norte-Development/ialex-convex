@@ -1,5 +1,5 @@
 import { v } from "convex/values";
-import { query, mutation, action, internalQuery } from "../_generated/server";
+import { query, mutation, action, internalQuery, internalMutation } from "../_generated/server";
 import { paginationOptsValidator } from "convex/server";
 import { getCurrentUserFromAuth, requireNewCaseAccess } from "../auth_utils";
 import { prosemirrorSync } from "../prosemirror";
@@ -308,6 +308,100 @@ export const createDocument = mutation({
 
     console.log("Created document with id:", documentId);
     return documentId;
+  },
+});
+
+/**
+ * Internal version of createDocument for migrations.
+ * Skips permission checks and billing limits since it's for internal use.
+ */
+export const internalCreateDocument = internalMutation({
+  args: {
+    title: v.string(),
+    description: v.optional(v.string()),
+    caseId: v.id("cases"),
+    folderId: v.optional(v.id("folders")),
+    documentType: v.optional(
+      v.union(
+        v.literal("contract"),
+        v.literal("evidence"),
+        v.literal("correspondence"),
+        v.literal("legal_brief"),
+        v.literal("court_filing"),
+        v.literal("other"),
+      ),
+    ),
+    // Either legacy Convex storage or new GCS metadata
+    fileId: v.optional(v.id("_storage")),
+    gcsBucket: v.optional(v.string()),
+    gcsObject: v.optional(v.string()),
+    originalFileName: v.string(),
+    mimeType: v.string(),
+    fileSize: v.number(),
+    tags: v.optional(v.array(v.string())),
+    createdBy: v.id("users"), // Required for internal use
+  },
+  returns: v.object({
+    documentId: v.id("documents"),
+  }),
+  handler: async (ctx, args) => {
+    // If a folderId is provided, validate it exists and belongs to the same case
+    if (args.folderId) {
+      const folder = await ctx.db.get(args.folderId);
+      if (!folder) {
+        throw new Error("Folder not found");
+      }
+      if (folder.caseId !== args.caseId) {
+        throw new Error("Folder doesn't belong to the specified case");
+      }
+    }
+
+    // Idempotency: avoid duplicate records for the same backing object
+    if (args.fileId) {
+      const existing = await ctx.db
+        .query("documents")
+        .withIndex("by_file_id", (q) => q.eq("fileId", args.fileId!))
+        .first();
+      if (existing) return { documentId: existing._id };
+    }
+    if (args.gcsObject) {
+      const existingGcs = await ctx.db
+        .query("documents")
+        .withIndex("by_gcs_object", (q) => q.eq("gcsObject", args.gcsObject!))
+        .first();
+      if (existingGcs) return { documentId: existingGcs._id };
+    }
+
+    const documentId = await ctx.db.insert("documents", {
+      title: args.title,
+      description: args.description,
+      caseId: args.caseId,
+      folderId: args.folderId ?? undefined,
+      documentType: args.documentType,
+      fileId: args.fileId ?? undefined,
+      storageBackend: args.gcsBucket && args.gcsObject ? "gcs" : "convex",
+      gcsBucket: args.gcsBucket,
+      gcsObject: args.gcsObject,
+      originalFileName: args.originalFileName,
+      mimeType: args.mimeType,
+      fileSize: args.fileSize,
+      createdBy: args.createdBy,
+      tags: args.tags,
+      // Set initial processing status
+      processingStatus: "pending",
+    });
+
+    // Schedule the RAG processing to run asynchronously
+    await ctx.scheduler.runAfter(
+      0,
+      internal.functions.documentProcessing.processDocument,
+      {
+        documentId,
+      },
+    );
+
+    console.log("Created document with id:", documentId);
+    return { documentId };
   },
 });
 
