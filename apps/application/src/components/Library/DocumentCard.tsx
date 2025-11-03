@@ -124,56 +124,65 @@ export function DocumentCard({
           <Card
             ref={provided.innerRef}
             {...provided.draggableProps}
-            className={`flex items-center gap-4 p-4 transition-colors hover:bg-muted/50 cursor-pointer ${
+            className={`transition-colors hover:bg-muted/50 ${
               snapshot.isDragging
                 ? "bg-blue-100/80 border border-blue-300 opacity-80 shadow-lg"
                 : ""
             }`}
           >
-            <span
-              className="flex items-center text-gray-400 cursor-grab active:cursor-grabbing flex-shrink-0"
-              aria-label="Arrastrar documento"
-              title="Arrastrar documento"
-              {...provided.dragHandleProps}
-            >
-              <GripVertical size={16} />
-            </span>
-            <div
-              onClick={handleClick}
-              className="flex items-center gap-4 flex-1"
-            >
-              {getIcon(document.mimeType, color)}
-              <div className="flex-1">
-                <div className="flex items-center gap-2">
-                  <p className="font-medium">{document.title}</p>
-                  <ProcessingStatusIcon status={document.processingStatus} />
+            <div className="flex items-center gap-4 p-4">
+              <span
+                className="flex items-center text-gray-400 cursor-grab active:cursor-grabbing flex-shrink-0"
+                aria-label="Arrastrar documento"
+                title="Arrastrar documento"
+                {...provided.dragHandleProps}
+              >
+                <GripVertical size={16} />
+              </span>
+              <div
+                onClick={handleClick}
+                className="flex items-center gap-4 flex-1 cursor-pointer min-w-0"
+              >
+                <div className="flex-shrink-0">
+                  {getIcon(document.mimeType, color)}
                 </div>
-                <p className="text-sm text-muted-foreground">
-                  {formatFileSize(document.fileSize)}
-                </p>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <p className="font-medium truncate">{document.title}</p>
+                    <ProcessingStatusIcon status={document.processingStatus} />
+                  </div>
+                  <p className="text-sm text-muted-foreground">
+                    {formatFileSize(document.fileSize)}
+                  </p>
+                </div>
+              </div>
+              <div
+                className="flex-shrink-0"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" size="icon">
+                      <MoreVertical className="h-4 w-4" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem onClick={() => onDownload(document._id)}>
+                      Descargar
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => onEdit(document)}>
+                      Editar
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onClick={() => onDelete(document._id)}
+                      className="text-red-600"
+                    >
+                      Eliminar
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </div>
             </div>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
-                <Button variant="ghost" size="icon">
-                  <MoreVertical className="h-4 w-4" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem onClick={() => onDownload(document._id)}>
-                  Descargar
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => onEdit(document)}>
-                  Editar
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  onClick={() => onDelete(document._id)}
-                  className="text-red-600"
-                >
-                  Eliminar
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
           </Card>
         )}
       </Draggable>

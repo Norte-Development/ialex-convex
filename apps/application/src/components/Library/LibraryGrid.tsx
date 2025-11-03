@@ -13,7 +13,7 @@ import { EditFolderDialog } from "./EditFolderDialog";
 import { EditDocumentDialog } from "./EditDocumentDialog";
 import { Doc, Id } from "../../../convex/_generated/dataModel";
 import { toast } from "sonner";
-import { FileText, ChevronRight } from "lucide-react";
+import { FileText, ChevronRight, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { DragDropContext, Droppable, DropResult } from "react-beautiful-dnd";
 
@@ -213,60 +213,68 @@ export function LibraryGrid({
             </p>
           </div>
 
-          <Droppable
-            droppableId={droppableId}
-            type="LIBRARY_DOCUMENT"
-            isDropDisabled={false}
-            isCombineEnabled={false}
-            ignoreContainerClipping={false}
-            direction="vertical"
-            mode="standard"
-          >
-            {(dropProvided, dropSnapshot) => (
-              <div
-                ref={dropProvided.innerRef}
-                {...dropProvided.droppableProps}
-                className={`space-y-2 rounded-lg transition-colors ${
-                  dropSnapshot.isDraggingOver
-                    ? "bg-blue-50/70 border-2 border-blue-300 border-dashed p-2"
-                    : ""
-                }`}
-              >
-                {dropSnapshot.isDraggingOver && (
-                  <div className="px-2 py-2 text-sm text-blue-700 text-center">
-                    Suelta aquí para mover a esta ubicación
-                  </div>
-                )}
+          <div className="space-y-2">
+            {/* Folders are rendered outside main droppable as they are droppables themselves */}
+            {filteredFolders.map((folder) => (
+              <FolderCard
+                key={folder._id}
+                folder={folder}
+                documentCount={getFolderDocumentCount(folder._id)}
+                onClick={onFolderClick}
+                onEdit={setEditingFolder}
+                onDelete={handleDeleteFolder}
+                viewMode={viewMode}
+              />
+            ))}
 
-                {filteredFolders.map((folder) => (
-                  <FolderCard
-                    key={folder._id}
-                    folder={folder}
-                    documentCount={getFolderDocumentCount(folder._id)}
-                    onClick={onFolderClick}
-                    onEdit={setEditingFolder}
-                    onDelete={handleDeleteFolder}
-                    viewMode={viewMode}
-                  />
-                ))}
+            {/* Documents in the current folder/root */}
+            <Droppable
+              droppableId={droppableId}
+              type="LIBRARY_DOCUMENT"
+              isDropDisabled={false}
+              isCombineEnabled={false}
+              ignoreContainerClipping={false}
+              direction="vertical"
+              mode="standard"
+            >
+              {(dropProvided, dropSnapshot) => (
+                <div
+                  ref={dropProvided.innerRef}
+                  {...dropProvided.droppableProps}
+                  className={`space-y-2 rounded-lg transition-all duration-200 ${
+                    dropSnapshot.isDraggingOver
+                      ? "bg-blue-50/80 border-2 border-blue-400 border-dashed p-4 shadow-inner"
+                      : ""
+                  }`}
+                >
+                  {dropSnapshot.isDraggingOver && (
+                    <div className="flex items-center justify-center gap-2 px-4 py-3 mb-2 rounded-md bg-blue-100/60 border border-blue-300/50">
+                      <Upload className="h-5 w-5 text-blue-600 animate-bounce" />
+                      <span className="text-sm font-medium text-blue-700">
+                        Suelta aquí para mover a{" "}
+                        {currentFolderId ? "esta carpeta" : "la raíz"}
+                      </span>
+                    </div>
+                  )}
 
-                {filteredDocuments.map((doc, index) => (
-                  <DocumentCard
-                    key={doc._id}
-                    document={doc}
-                    onEdit={setEditingDocument}
-                    onDelete={handleDeleteDocument}
-                    onDownload={handleDownloadDocument}
-                    viewMode={viewMode}
-                    index={index}
-                    isDragDisabled={!isReady}
-                  />
-                ))}
+                  {filteredDocuments.map((doc, index) => (
+                    <DocumentCard
+                      key={doc._id}
+                      document={doc}
+                      onEdit={setEditingDocument}
+                      onDelete={handleDeleteDocument}
+                      onDownload={handleDownloadDocument}
+                      viewMode={viewMode}
+                      index={index}
+                      isDragDisabled={!isReady}
+                    />
+                  ))}
 
-                {dropProvided.placeholder}
-              </div>
-            )}
-          </Droppable>
+                  {dropProvided.placeholder}
+                </div>
+              )}
+            </Droppable>
+          </div>
 
           {documentsStatus === "CanLoadMore" && (
             <div className="flex justify-center pt-4">
@@ -319,18 +327,12 @@ export function LibraryGrid({
             <div
               ref={dropProvided.innerRef}
               {...dropProvided.droppableProps}
-              className={`grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 rounded-lg transition-colors ${
+              className={`grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 rounded-lg transition-all duration-200 ${
                 dropSnapshot.isDraggingOver
-                  ? "bg-blue-50/70 border-2 border-blue-300 border-dashed p-4"
+                  ? "bg-blue-50/50 border-2 border-blue-300 border-dashed"
                   : ""
               }`}
             >
-              {dropSnapshot.isDraggingOver && (
-                <div className="col-span-full px-2 py-2 text-sm text-blue-700 text-center">
-                  Suelta aquí para mover a esta ubicación
-                </div>
-              )}
-
               {filteredFolders.map((folder) => (
                 <FolderCard
                   key={folder._id}
