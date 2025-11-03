@@ -75,7 +75,7 @@ export default function HomePage() {
                 value={inputValue}
                 onChange={(e) => setInputValue(e.target.value)}
                 onKeyDown={handleKeyDown}
-                placeholder="Ej: prompt que muestre la mejor funcionalidad"
+                placeholder="¿En qué trabajamos hoy?"
                 className=" !h-[30px] max-h-[250px] pt-5 overflow-y-auto bg-[#f7f7f7] active:border-[#9ECBFB] border-[#9ECBFB] placeholder:text-[#5B738B] rounded-[17px] resize-none"
                 style={{
                   boxShadow:
