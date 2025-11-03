@@ -69,29 +69,29 @@ export const tutorialConfig: TutorialPage[] = [
   {
     page: "home",
     title: "Bienvenido a iAlex",
-    description: "Comencemos con un recorrido por la página principal",
+    description: "Empecemos con un recorrido por la página principal",
     steps: [
       {
         id: "home-welcome",
         title: "¡Bienvenido a iAlex!",
         content:
-          "iAlex es tu asistente legal potenciado por IA. Te ayudaremos a gestionar casos, documentos y mucho más.",
+          "iAlex es tu asistente legal potenciado por IA. Te vamos a ayudar a gestionar casos, documentos y mucho más.",
         placement: "center",
       },
       {
         id: "home-chat",
-        title: "Chat con tu Asistente Legal",
+        title: "Chateá con tu Asistente Legal",
         content:
-          "Aquí puedes hacer preguntas legales, obtener ayuda con documentos y mucho más. El chat aprende del contexto de tus casos.",
+          "Acá podés hacer preguntas legales, obtener ayuda con documentos y mucho más. El chat aprende del contexto de tus casos.",
         target: '[data-tutorial="home-chat"]',
         placement: "right",
         highlightPadding: 4,
       },
       {
         id: "home-menu",
-        title: "Navegación Principal",
+        title: "Menú Principal",
         content:
-          "Desde aquí puedes acceder a todas las secciones: Casos, Clientes, Documentos, Escritos y más.",
+          "Desde acá podés acceder a todas las secciones: Casos, Clientes, Documentos, Escritos y más.",
         target: '[data-tutorial="home-menu"]',
         placement: "right",
         highlightPadding: 10,
@@ -116,7 +116,7 @@ export const tutorialConfig: TutorialPage[] = [
         id: "home-cases-nav",
         title: "Gestión de Casos",
         content:
-          "Los casos son el corazón de iAlex. Haz clic en siguiente para ir a la sección de casos.",
+          "Los casos son el corazón de iAlex. Hacé clic en siguiente para ir a la sección de casos.",
         target: '[data-tutorial="nav-cases"]',
         placement: "right",
         highlightPadding: 4,
@@ -129,13 +129,13 @@ export const tutorialConfig: TutorialPage[] = [
   {
     page: "casos",
     title: "Gestión de Casos",
-    description: "Crea tu primer caso legal",
+    description: "Creá tu primer caso legal",
     steps: [
       {
         id: "cases-welcome",
         title: "Tus Casos Legales",
         content:
-          "Aquí encontrarás todos tus casos organizados. Cada caso puede contener documentos, escritos, clientes y más.",
+          "Acá vas a encontrar todos tus casos organizados. Cada caso puede contener documentos, escritos, clientes y más.",
         placement: "center",
         action: {
           type: "navigate",
@@ -144,9 +144,9 @@ export const tutorialConfig: TutorialPage[] = [
       },
       {
         id: "cases-create-button",
-        title: "Crear tu Primer Caso",
+        title: "Creá tu Primer Caso",
         content:
-          "Haz clic en este botón para abrir el formulario de creación de caso.",
+          "Hacé clic en este botón para abrir el formulario de creación de caso.",
         target: '[data-tutorial="create-case"]',
         placement: "bottom",
         highlightPadding: 8,
@@ -160,7 +160,7 @@ export const tutorialConfig: TutorialPage[] = [
         id: "cases-form-title",
         title: "Título del Caso",
         content:
-          'Ingresa un título para tu caso, por ejemplo "Mi Primer Caso de Prueba". Presiona Enter  para continuar.',
+          'Ingresá un título para tu caso, por ejemplo "Mi Primer Caso de Prueba". Presioná Enter para continuar.',
         target: '[data-tutorial="case-form-title"]',
         placement: "right",
         highlightPadding: 8,
@@ -177,14 +177,14 @@ export const tutorialConfig: TutorialPage[] = [
   {
     page: "caso/:id", // Matches any case detail route like casos/abc123
     title: "Vista de Caso",
-    description: "Explora todas las herramientas disponibles en un caso",
+    description: "Explorá todas las herramientas disponibles en un caso",
     prerequisite: "casos",
     steps: [
       {
         id: "case-detail-welcome",
         title: "¡Caso Creado!",
         content:
-          "Perfecto, ahora estás en la vista detallada de tu caso. Aquí encontrarás todas las herramientas: documentos, escritos, clientes, chat con IA y más.",
+          "Perfecto, ahora estás en la vista detallada de tu caso. Acá vas a encontrar todas las herramientas: documentos, escritos, clientes, chat con IA y más.",
         placement: "center",
       },
       {
@@ -200,7 +200,7 @@ export const tutorialConfig: TutorialPage[] = [
         id: "case-detail-tabs",
         title: "Secciones del Caso",
         content:
-          "Navega entre las diferentes secciones: Documentos, Escritos, Clientes, Base de Datos Legal, y más.",
+          "Navegá entre las diferentes secciones: Documentos, Escritos, Clientes, Base de Datos Legal, y más.",
         target: '[data-tutorial="case-tabs"]',
         placement: "bottom",
         highlightPadding: 8,
@@ -209,7 +209,7 @@ export const tutorialConfig: TutorialPage[] = [
         id: "case-detail-documents",
         title: "Documentos del Caso",
         content:
-          "Todos los documentos relacionados con este caso. Puedes subirlos, organizarlos en carpetas y editarlos.",
+          "Todos los documentos relacionados con este caso. Podés subirlos, organizarlos en carpetas y editarlos.",
         target: '[data-tutorial="case-documents"]',
         placement: "bottom",
         highlightPadding: 8,
@@ -222,7 +222,7 @@ export const tutorialConfig: TutorialPage[] = [
         id: "case-detail-escritos",
         title: "Escritos Legales",
         content:
-          "Crea y edita escritos legales con ayuda de IA. El editor es potente y fácil de usar.",
+          "Creá y editá escritos legales con ayuda de IA. El editor es potente y fácil de usar.",
         target: '[data-tutorial="case-escritos"]',
         placement: "bottom",
         highlightPadding: 8,
@@ -235,7 +235,7 @@ export const tutorialConfig: TutorialPage[] = [
         id: "case-sidebar",
         title: "Barra Lateral del Caso",
         content:
-          "Desde aca tambien podes acceder a los documentos, escritos y datos de este caso.",
+          "Desde acá también podés acceder a los documentos, escritos y datos de este caso.",
         target: '[data-tutorial="case-sidebar"]',
         placement: "right",
         highlightPadding: 8,
@@ -244,7 +244,7 @@ export const tutorialConfig: TutorialPage[] = [
         id: "case-detail-chat",
         title: "Chat Contextual del Caso",
         content:
-          "Este chat tiene acceso a todos los documentos y datos de este caso específico. Pregunta lo que necesites.",
+          "Este chat tiene acceso a todos los documentos y datos de este caso específico. Preguntale lo que necesites.",
         target: '[data-tutorial="case-chat"]',
         placement: "left",
         highlightPadding: 8,
@@ -262,7 +262,7 @@ export const tutorialConfig: TutorialPage[] = [
         id: "library-welcome",
         title: "Biblioteca de Documentos",
         content:
-          "Aquí guardas plantillas, documentos modelo y recursos legales que puedes reutilizar en múltiples casos.",
+          "Acá guardás plantillas, documentos modelo y recursos legales que podés reutilizar en múltiples casos.",
         placement: "center",
         action: {
           type: "navigate",
@@ -273,7 +273,7 @@ export const tutorialConfig: TutorialPage[] = [
         id: "library-scopes",
         title: "Niveles de Alcance",
         content:
-          "Organiza documentos en tres niveles: Personal (solo tú), Equipo (tu firma), o compartidos con todos.",
+          "Organizá documentos en tres niveles: Personal (solo vos), Equipo (tu estudio), o compartidos con todos.",
         target: '[data-tutorial="library-scopes"]',
         placement: "bottom",
         highlightPadding: 8,
@@ -282,7 +282,7 @@ export const tutorialConfig: TutorialPage[] = [
         id: "library-upload",
         title: "Subir Documentos",
         content:
-          "Haz clic aquí para subir plantillas, modelos de escritos o cualquier documento que quieras reutilizar.",
+          "Hacé clic acá para subir plantillas, modelos de escritos o cualquier documento que quieras reutilizar.",
         target: '[data-tutorial="library-upload"]',
         placement: "bottom",
         highlightPadding: 8,
@@ -291,7 +291,7 @@ export const tutorialConfig: TutorialPage[] = [
         id: "library-folders",
         title: "Organizar en Carpetas",
         content:
-          "Crea carpetas y subcarpetas para mantener tu biblioteca organizada por tema o tipo de documento.",
+          "Creá carpetas y subcarpetas para mantener tu biblioteca organizada por tema o tipo de documento.",
         target: '[data-tutorial="library-folders"]',
         placement: "bottom",
         highlightPadding: 8,
@@ -300,7 +300,7 @@ export const tutorialConfig: TutorialPage[] = [
         id: "library-complete",
         title: "¡Tutorial Completado! 🎉",
         content:
-          "Has completado el recorrido inicial por iAlex. ¿Quieres aprender más? Visita nuestra playlist de tutoriales en YouTube para descubrir funcionalidades avanzadas y consejos prácticos.",
+          "Completaste el recorrido inicial por iAlex. ¿Querés aprender más? Visitá nuestra playlist de tutoriales en YouTube para descubrir funcionalidades avanzadas y consejos prácticos.",
         placement: "center",
         link: {
           url: "https://www.youtube.com/playlist?list=PLEQ0jk6nhTjS2Lp8dZU_4Aki2HDRIoTVk",
