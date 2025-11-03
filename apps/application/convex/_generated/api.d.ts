@@ -115,6 +115,7 @@ import type * as functions_teams from "../functions/teams.js";
 import type * as functions_templates from "../functions/templates.js";
 import type * as functions_testReadEscritoHelpers from "../functions/testReadEscritoHelpers.js";
 import type * as functions_todos from "../functions/todos.js";
+import type * as functions_tutorial from "../functions/tutorial.js";
 import type * as functions_users from "../functions/users.js";
 import type * as http from "../http.js";
 import type * as migrations_addEventPreferences from "../migrations/addEventPreferences.js";
@@ -138,6 +139,7 @@ import type * as migrations_migrationWorkflow from "../migrations/migrationWorkf
 import type * as migrations_mimeTypeUtils from "../migrations/mimeTypeUtils.js";
 import type * as migrations_processingHelpers from "../migrations/processingHelpers.js";
 import type * as migrations_sendAnnouncement from "../migrations/sendAnnouncement.js";
+import type * as migrations_tutorial_init from "../migrations/tutorial_init.js";
 import type * as migrations_types from "../migrations/types.js";
 import type * as prosemirror from "../prosemirror.js";
 import type * as rag_qdrantUtils_caseDocuments from "../rag/qdrantUtils/caseDocuments.js";
@@ -282,6 +284,7 @@ declare const fullApi: ApiFromModules<{
   "functions/templates": typeof functions_templates;
   "functions/testReadEscritoHelpers": typeof functions_testReadEscritoHelpers;
   "functions/todos": typeof functions_todos;
+  "functions/tutorial": typeof functions_tutorial;
   "functions/users": typeof functions_users;
   http: typeof http;
   "migrations/addEventPreferences": typeof migrations_addEventPreferences;
@@ -305,6 +308,7 @@ declare const fullApi: ApiFromModules<{
   "migrations/mimeTypeUtils": typeof migrations_mimeTypeUtils;
   "migrations/processingHelpers": typeof migrations_processingHelpers;
   "migrations/sendAnnouncement": typeof migrations_sendAnnouncement;
+  "migrations/tutorial_init": typeof migrations_tutorial_init;
   "migrations/types": typeof migrations_types;
   prosemirror: typeof prosemirror;
   "rag/qdrantUtils/caseDocuments": typeof rag_qdrantUtils_caseDocuments;
