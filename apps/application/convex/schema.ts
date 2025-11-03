@@ -60,7 +60,7 @@ export default defineSchema({
     firmName: v.optional(v.string()), // Law firm name
     workLocation: v.optional(v.string()), // Work location/city
     experienceYears: v.optional(v.number()), // Years of experience
-    bio: v.optional(v.string()), // Professional biography
+    bio: v.optional(v.string()), // Professional biography // Date of migration from another platform
 
     // Trial tracking
     trialStatus: v.optional(v.union(
@@ -104,8 +104,6 @@ export default defineSchema({
         activityLogVisible: v.optional(v.boolean()),
       }),
     ),
-
-    // Migration metadata for Kinde to Clerk migration
     migration: v.optional(
       v.object({
         status: v.union(
