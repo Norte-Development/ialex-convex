@@ -1,28 +1,46 @@
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select"
-import { Input } from "../ui/input"
-import { FileText, Calendar, Scale, Users } from "lucide-react"
-import { Collapsible, CollapsibleContent } from "../ui/collapsible"
-import type { NormativeFilters, Estado, ContentType } from "../../../types/legislation"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "../ui/select";
+import { Input } from "../ui/input";
+import { FileText, Calendar, Scale, Users } from "lucide-react";
+import { Collapsible, CollapsibleContent } from "../ui/collapsible";
+import type {
+  NormativeFilters,
+  Estado,
+  ContentType,
+} from "../../../types/legislation";
 
 interface FiltersPanelProps {
-  showFilters: boolean
-  onShowFiltersChange: (show: boolean) => void
-  filters: NormativeFilters
-  onFilterChange: (key: keyof NormativeFilters, value: string | boolean | undefined) => void
-  contentType: ContentType
+  showFilters: boolean;
+  onShowFiltersChange: (show: boolean) => void;
+  filters: NormativeFilters;
+  onFilterChange: (
+    key: keyof NormativeFilters,
+    value: string | boolean | undefined,
+  ) => void;
+  contentType: ContentType;
   facets?: {
-    types?: Array<{ name: string; count: number }>
-    jurisdicciones?: Array<{ name: string; count: number }>
-    estados?: Array<{ name: string; count: number }>
-    tribunales?: Array<{ name: string; count: number }>
-    materias?: Array<{ name: string; count: number }>
-  }
+    types?: Array<{ name: string; count: number }>;
+    jurisdicciones?: Array<{ name: string; count: number }>;
+    estados?: Array<{ name: string; count: number }>;
+    tribunales?: Array<{ name: string; count: number }>;
+    materias?: Array<{ name: string; count: number }>;
+  };
 }
 
 const estadoOptions: Estado[] = [
-  "vigente", "derogada", "caduca", "anulada", "suspendida", "abrogada", "sin_registro_oficial"
-]
-
+  "vigente",
+  "derogada",
+  "caduca",
+  "anulada",
+  "suspendida",
+  "abrogada",
+  "sin_registro_oficial",
+];
 
 export function FiltersPanel({
   showFilters,
@@ -33,20 +51,25 @@ export function FiltersPanel({
   facets,
 }: FiltersPanelProps) {
   return (
-    <Collapsible
-      open={showFilters}
-      onOpenChange={onShowFiltersChange}
-    >
+    <Collapsible open={showFilters} onOpenChange={onShowFiltersChange}>
       <CollapsibleContent className="mt-6">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 p-4 bg-white rounded-lg border border-gray-200">
+        <div
+          className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 p-4 bg-white rounded-lg border border-gray-200"
+          data-tutorial="database-filters"
+        >
           {/* Estado filter - only for legislation */}
           {(contentType === "legislation" || contentType === "all") && (
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Estado</label>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Estado
+              </label>
               <Select
                 value={filters.estado || ""}
                 onValueChange={(value) =>
-                  onFilterChange("estado", value === "all" ? undefined : (value as Estado))
+                  onFilterChange(
+                    "estado",
+                    value === "all" ? undefined : (value as Estado),
+                  )
                 }
               >
                 <SelectTrigger>
@@ -56,10 +79,17 @@ export function FiltersPanel({
                   <SelectItem value="all">Todos</SelectItem>
                   {estadoOptions.map((estado) => (
                     <SelectItem key={estado} value={estado}>
-                      {estado.charAt(0).toUpperCase() + estado.slice(1).replace("_", " ")}
+                      {estado.charAt(0).toUpperCase() +
+                        estado.slice(1).replace("_", " ")}
                       {(() => {
-                        const facet = facets?.estados?.find((f) => f.name === estado);
-                        return facet ? <span className="text-gray-500 ml-1">({facet.count})</span> : null;
+                        const facet = facets?.estados?.find(
+                          (f) => f.name === estado,
+                        );
+                        return facet ? (
+                          <span className="text-gray-500 ml-1">
+                            ({facet.count})
+                          </span>
+                        ) : null;
                       })()}
                     </SelectItem>
                   ))}
@@ -76,7 +106,12 @@ export function FiltersPanel({
             <Input
               type="date"
               value={filters.sanction_date_from || ""}
-              onChange={(e) => onFilterChange("sanction_date_from", e.target.value || undefined)}
+              onChange={(e) =>
+                onFilterChange(
+                  "sanction_date_from",
+                  e.target.value || undefined,
+                )
+              }
             />
           </div>
 
@@ -88,7 +123,9 @@ export function FiltersPanel({
             <Input
               type="date"
               value={filters.sanction_date_to || ""}
-              onChange={(e) => onFilterChange("sanction_date_to", e.target.value || undefined)}
+              onChange={(e) =>
+                onFilterChange("sanction_date_to", e.target.value || undefined)
+              }
             />
           </div>
 
@@ -240,7 +277,12 @@ export function FiltersPanel({
                 </label>
                 <Select
                   value={(filters as any).tribunal || ""}
-                  onValueChange={(value) => onFilterChange("tribunal" as any, value === "all" ? undefined : value)}
+                  onValueChange={(value) =>
+                    onFilterChange(
+                      "tribunal" as any,
+                      value === "all" ? undefined : value,
+                    )
+                  }
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Todos los tribunales" />
@@ -250,7 +292,9 @@ export function FiltersPanel({
                     {(facets?.tribunales || []).map((tribunal) => (
                       <SelectItem key={tribunal.name} value={tribunal.name}>
                         {tribunal.name}
-                        <span className="text-gray-500 ml-1">({tribunal.count})</span>
+                        <span className="text-gray-500 ml-1">
+                          ({tribunal.count})
+                        </span>
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -264,7 +308,12 @@ export function FiltersPanel({
                 </label>
                 <Select
                   value={(filters as any).materia || ""}
-                  onValueChange={(value) => onFilterChange("materia" as any, value === "all" ? undefined : value)}
+                  onValueChange={(value) =>
+                    onFilterChange(
+                      "materia" as any,
+                      value === "all" ? undefined : value,
+                    )
+                  }
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Todas las materias" />
@@ -274,7 +323,9 @@ export function FiltersPanel({
                     {(facets?.materias || []).map((materia) => (
                       <SelectItem key={materia.name} value={materia.name}>
                         {materia.name}
-                        <span className="text-gray-500 ml-1">({materia.count})</span>
+                        <span className="text-gray-500 ml-1">
+                          ({materia.count})
+                        </span>
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -290,7 +341,9 @@ export function FiltersPanel({
                   type="text"
                   placeholder="Nombre del actor"
                   value={(filters as any).actor || ""}
-                  onChange={(e) => onFilterChange("actor" as any, e.target.value || undefined)}
+                  onChange={(e) =>
+                    onFilterChange("actor" as any, e.target.value || undefined)
+                  }
                 />
               </div>
 
@@ -303,7 +356,12 @@ export function FiltersPanel({
                   type="text"
                   placeholder="Nombre del demandado"
                   value={(filters as any).demandado || ""}
-                  onChange={(e) => onFilterChange("demandado" as any, e.target.value || undefined)}
+                  onChange={(e) =>
+                    onFilterChange(
+                      "demandado" as any,
+                      e.target.value || undefined,
+                    )
+                  }
                 />
               </div>
 
@@ -316,7 +374,12 @@ export function FiltersPanel({
                   type="text"
                   placeholder="Nombre de magistrados"
                   value={(filters as any).magistrados || ""}
-                  onChange={(e) => onFilterChange("magistrados" as any, e.target.value || undefined)}
+                  onChange={(e) =>
+                    onFilterChange(
+                      "magistrados" as any,
+                      e.target.value || undefined,
+                    )
+                  }
                 />
               </div>
 
@@ -329,7 +392,9 @@ export function FiltersPanel({
                   type="text"
                   placeholder="Sala del tribunal"
                   value={(filters as any).sala || ""}
-                  onChange={(e) => onFilterChange("sala" as any, e.target.value || undefined)}
+                  onChange={(e) =>
+                    onFilterChange("sala" as any, e.target.value || undefined)
+                  }
                 />
               </div>
             </>
@@ -337,5 +402,5 @@ export function FiltersPanel({
         </div>
       </CollapsibleContent>
     </Collapsible>
-  )
+  );
 }

@@ -18,6 +18,8 @@ import { PageProvider } from "./context/PageContext";
 import { CasePermissionsProvider } from "./context/CasePermissionsContext";
 import { ChatbotProvider } from "./context/ChatbotContext";
 import { LayoutProvider } from "./context/LayoutContext";
+import { TutorialProvider } from "./context/TutorialContext";
+import { TutorialOverlay } from "./components/Tutorial/TutorialOverlay";
 import { MigrationWrapper } from "./components/Migration";
 
 // Eager load core navigation pages (not heavy, safe to bundle)
@@ -115,7 +117,7 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({
     <Protect fallback={<SignInPage />}>
       <OnboardingWrapper>
         <MigrationWrapper>
-        <Layout>{children}</Layout>
+          <Layout>{children}</Layout>
         </MigrationWrapper>
       </OnboardingWrapper>
     </Protect>
@@ -136,189 +138,194 @@ const AppWithThread = () => {
       <PageProvider>
         <ChatbotProvider>
           <ThreadProvider>
-            <div>
-              {/* Show authentication loading skeleton while Convex auth is initializing */}
-              <AuthLoading>
-                <AuthLoadingSkeleton />
-              </AuthLoading>
+            <TutorialProvider>
+              <div>
+                {/* Show authentication loading skeleton while Convex auth is initializing */}
+                <AuthLoading>
+                  <AuthLoadingSkeleton />
+                </AuthLoading>
 
-              {/* Main routing with Clerk's Protect component */}
-              <RouteSuspense>
-                <Routes>
-                  {/* Public authentication routes */}
-                  <Route path="/signin" element={<SignInPage />} />
-                  <Route path="/signup" element={<SignUpPage />} />
+                {/* Tutorial Overlay - shown when tutorial is active */}
+                <TutorialOverlay />
 
-                  {/* Public invitation routes */}
-                  <Route
-                    path="/invites/accept"
-                    element={<AcceptInvitePage />}
-                  />
-                  <Route
-                    path="/invites/signup"
-                    element={<SignupInvitePage />}
-                  />
+                {/* Main routing with Clerk's Protect component */}
+                <RouteSuspense>
+                  <Routes>
+                    {/* Public authentication routes */}
+                    <Route path="/signin" element={<SignInPage />} />
+                    <Route path="/signup" element={<SignUpPage />} />
 
-                  {/* Protected routes using Clerk's Protect component */}
-                  <Route
-                    path="/"
-                    element={
-                      <ProtectedRoute>
-                        <HomePage />
-                      </ProtectedRoute>
-                    }
-                  />
-                  <Route
-                    path="/casos"
-                    element={
-                      <ProtectedRoute>
-                        <CasesPage />
-                      </ProtectedRoute>
-                    }
-                  />
-                  {/* Rutas de casos - sin Layout porque CaseLayout maneja su propio layout */}
-                  <Route
-                    path="/caso/:id/*"
-                    element={
-                      <Protect fallback={<SignInPage />}>
-                        <OnboardingWrapper>
-                          <MigrationWrapper>
-                          <CaseRoutesWrapper />
-                          </MigrationWrapper>
-                        </OnboardingWrapper>
-                      </Protect>
-                    }
-                  />
-                  <Route
-                    path="/clientes"
-                    element={
-                      <ProtectedRoute>
-                        <ClientsPage />
-                      </ProtectedRoute>
-                    }
-                  />
-                  <Route
-                    path="/modelos"
-                    element={
-                      <ProtectedRoute>
-                        <ModelsPage />
-                      </ProtectedRoute>
-                    }
-                  />
-                  <Route
-                    path="/base-de-datos"
-                    element={
-                      <ProtectedRoute>
-                        <DataBasePage />
-                      </ProtectedRoute>
-                    }
-                  />
-                  <Route
-                    path="/equipo"
-                    element={
-                      <ProtectedRoute>
-                        <TeamPage />
-                      </ProtectedRoute>
-                    }
-                  />
-                  <Route
-                    path="/equipos/:id"
-                    element={
-                      <ProtectedRoute>
-                        <TeamManagePage />
-                      </ProtectedRoute>
-                    }
-                  />
-                  <Route
-                    path="/eventos"
-                    element={
-                      <ProtectedRoute>
-                        <EventosPage />
-                      </ProtectedRoute>
-                    }
-                  />
-                  <Route
-                    path="/eventos/:id"
-                    element={
-                      <ProtectedRoute>
-                        <EventDetailPage />
-                      </ProtectedRoute>
-                    }
-                  />
-                  <Route
-                    path="/componentes"
-                    element={
-                      <ProtectedRoute>
-                        <ComponentsShowcasePage />
-                      </ProtectedRoute>
-                    }
-                  />
-                  {/* AI Agent routes */}
-                  <Route
-                    path="/ai"
-                    element={
-                      <ProtectedRoute>
-                        <LazyLoadErrorBoundary>
-                          <HomeAgentPage />
-                        </LazyLoadErrorBoundary>
-                      </ProtectedRoute>
-                    }
-                  />
-                  <Route
-                    path="/ai/:threadId"
-                    element={
-                      <ProtectedRoute>
-                        <LazyLoadErrorBoundary>
-                          <HomeAgentChatPage />
-                        </LazyLoadErrorBoundary>
-                      </ProtectedRoute>
-                    }
-                  />
-                  <Route
-                    path="/biblioteca"
-                    element={
-                      <ProtectedRoute>
-                        <LibraryPage />
-                      </ProtectedRoute>
-                    }
-                  />
-                  <Route
-                    path="/biblioteca/documento/:documentId"
-                    element={
-                      <ProtectedRoute>
-                        <LazyLoadErrorBoundary>
-                          <LibraryDocumentPage />
-                        </LazyLoadErrorBoundary>
-                      </ProtectedRoute>
-                    }
-                  />
-                  <Route
-                    path="/preferencias"
-                    element={
-                      <ProtectedRoute>
-                        <UserPreferencesPage />
-                      </ProtectedRoute>
-                    }
-                  />
-                  <Route
-                    path="/billing/success"
-                    element={
-                      <ProtectedRoute>
-                        <BillingSuccessPage />
-                      </ProtectedRoute>
-                    }
-                  />
-                  <Route
-                    path="/admin"
-                    element={
-                      <ProtectedRoute>
-                        <AdminPage />
-                      </ProtectedRoute>
-                    }
-                  />
-                </Routes>
-              </RouteSuspense>
-            </div>
+                    {/* Public invitation routes */}
+                    <Route
+                      path="/invites/accept"
+                      element={<AcceptInvitePage />}
+                    />
+                    <Route
+                      path="/invites/signup"
+                      element={<SignupInvitePage />}
+                    />
+
+                    {/* Protected routes using Clerk's Protect component */}
+                    <Route
+                      path="/"
+                      element={
+                        <ProtectedRoute>
+                          <HomePage />
+                        </ProtectedRoute>
+                      }
+                    />
+                    <Route
+                      path="/casos"
+                      element={
+                        <ProtectedRoute>
+                          <CasesPage />
+                        </ProtectedRoute>
+                      }
+                    />
+                    {/* Rutas de casos - sin Layout porque CaseLayout maneja su propio layout */}
+                    <Route
+                      path="/caso/:id/*"
+                      element={
+                        <Protect fallback={<SignInPage />}>
+                          <OnboardingWrapper>
+                            <MigrationWrapper>
+                              <CaseRoutesWrapper />
+                            </MigrationWrapper>
+                          </OnboardingWrapper>
+                        </Protect>
+                      }
+                    />
+                    <Route
+                      path="/clientes"
+                      element={
+                        <ProtectedRoute>
+                          <ClientsPage />
+                        </ProtectedRoute>
+                      }
+                    />
+                    <Route
+                      path="/modelos"
+                      element={
+                        <ProtectedRoute>
+                          <ModelsPage />
+                        </ProtectedRoute>
+                      }
+                    />
+                    <Route
+                      path="/base-de-datos"
+                      element={
+                        <ProtectedRoute>
+                          <DataBasePage />
+                        </ProtectedRoute>
+                      }
+                    />
+                    <Route
+                      path="/equipo"
+                      element={
+                        <ProtectedRoute>
+                          <TeamPage />
+                        </ProtectedRoute>
+                      }
+                    />
+                    <Route
+                      path="/equipos/:id"
+                      element={
+                        <ProtectedRoute>
+                          <TeamManagePage />
+                        </ProtectedRoute>
+                      }
+                    />
+                    <Route
+                      path="/eventos"
+                      element={
+                        <ProtectedRoute>
+                          <EventosPage />
+                        </ProtectedRoute>
+                      }
+                    />
+                    <Route
+                      path="/eventos/:id"
+                      element={
+                        <ProtectedRoute>
+                          <EventDetailPage />
+                        </ProtectedRoute>
+                      }
+                    />
+                    <Route
+                      path="/componentes"
+                      element={
+                        <ProtectedRoute>
+                          <ComponentsShowcasePage />
+                        </ProtectedRoute>
+                      }
+                    />
+                    {/* AI Agent routes */}
+                    <Route
+                      path="/ai"
+                      element={
+                        <ProtectedRoute>
+                          <LazyLoadErrorBoundary>
+                            <HomeAgentPage />
+                          </LazyLoadErrorBoundary>
+                        </ProtectedRoute>
+                      }
+                    />
+                    <Route
+                      path="/ai/:threadId"
+                      element={
+                        <ProtectedRoute>
+                          <LazyLoadErrorBoundary>
+                            <HomeAgentChatPage />
+                          </LazyLoadErrorBoundary>
+                        </ProtectedRoute>
+                      }
+                    />
+                    <Route
+                      path="/biblioteca"
+                      element={
+                        <ProtectedRoute>
+                          <LibraryPage />
+                        </ProtectedRoute>
+                      }
+                    />
+                    <Route
+                      path="/biblioteca/documento/:documentId"
+                      element={
+                        <ProtectedRoute>
+                          <LazyLoadErrorBoundary>
+                            <LibraryDocumentPage />
+                          </LazyLoadErrorBoundary>
+                        </ProtectedRoute>
+                      }
+                    />
+                    <Route
+                      path="/preferencias"
+                      element={
+                        <ProtectedRoute>
+                          <UserPreferencesPage />
+                        </ProtectedRoute>
+                      }
+                    />
+                    <Route
+                      path="/billing/success"
+                      element={
+                        <ProtectedRoute>
+                          <BillingSuccessPage />
+                        </ProtectedRoute>
+                      }
+                    />
+                    <Route
+                      path="/admin"
+                      element={
+                        <ProtectedRoute>
+                          <AdminPage />
+                        </ProtectedRoute>
+                      }
+                    />
+                  </Routes>
+                </RouteSuspense>
+              </div>
+            </TutorialProvider>
           </ThreadProvider>
         </ChatbotProvider>
       </PageProvider>

@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import { Id } from "../../../convex/_generated/dataModel";
+import { useNavigate } from "react-router-dom";
 import {
   Dialog,
   DialogContent,
@@ -34,6 +35,9 @@ import { Separator } from "../ui/separator";
 import { toast } from "sonner";
 
 export default function CreateCaseDialog() {
+  // Hooks
+  const navigate = useNavigate();
+
   // All useState hooks first
   const [open, setOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -243,6 +247,16 @@ export default function CreateCaseDialog() {
       setShowDeadlineForm(false);
 
       setOpen(false);
+
+      // Navigate to the created case
+      navigate(`/caso/${caseId}`);
+
+      // Dispatch custom event for tutorial
+      window.dispatchEvent(
+        new CustomEvent("tutorial:caseCreated", {
+          detail: { caseId },
+        }),
+      );
     } catch (error) {
       console.error("Error creating case:", error);
       alert("Error al crear el caso: " + (error as Error).message);
@@ -273,7 +287,7 @@ export default function CreateCaseDialog() {
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
+      <DialogTrigger asChild data-tutorial="create-case">
         <Button className="gap-2 cursor-pointer">
           <Plus className="h-4 w-4" />
           Nuevo Caso
@@ -314,6 +328,7 @@ export default function CreateCaseDialog() {
               <Label htmlFor="title">Título del Caso *</Label>
               <Input
                 id="title"
+                data-tutorial="case-form-title"
                 placeholder="Ej: Divorcio Consensuado - García vs García"
                 value={formData.title}
                 onChange={(e) => handleInputChange("title", e.target.value)}
@@ -651,7 +666,11 @@ export default function CreateCaseDialog() {
             >
               Cancelar
             </Button>
-            <Button type="submit" disabled={isLoading}>
+            <Button
+              type="submit"
+              disabled={isLoading}
+              data-tutorial="case-form-submit"
+            >
               {isLoading ? "Creando..." : "Crear Caso"}
             </Button>
           </DialogFooter>
