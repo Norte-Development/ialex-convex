@@ -15,6 +15,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
+import { tracking } from "@/lib/tracking";
 
 interface OnboardingData {
   // Paso 2: Nombre
@@ -79,6 +80,20 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ user }) => {
   const [currentStep, setCurrentStep] = useState(persisted.step);
   const [formData, setFormData] = useState<OnboardingData>(persisted.data);
   const [isLoading, setIsLoading] = useState(false);
+
+  // Track onboarding start
+  useEffect(() => {
+    if (currentStep === 1) {
+      tracking.onboardingStarted();
+    }
+  }, []);
+
+  // Track step completion
+  useEffect(() => {
+    if (currentStep > 1) {
+      tracking.onboardingStepCompleted(currentStep);
+    }
+  }, [currentStep]);
 
   useEffect(() => {
     try {
@@ -210,6 +225,9 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ user }) => {
       });
 
       localStorage.removeItem(STORAGE_KEY);
+
+      // Track onboarding completion
+      tracking.onboardingCompleted();
 
       console.log("✅ Onboarding completado exitosamente");
     } catch (error) {

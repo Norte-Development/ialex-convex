@@ -25,6 +25,7 @@
     "@google-cloud/storage": "^7.17.3",
     "@ialex/shared": "workspace:*",
     "@mendable/firecrawl-js": "^4.4.1",
+    "@microsoft/clarity": "^1.0.0",
     "@openrouter/ai-sdk-provider": "^1.2.0",
     "@qdrant/js-client-rest": "^1.15.1",
     "@radix-ui/react-alert-dialog": "^1.1.15",

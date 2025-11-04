@@ -23,6 +23,7 @@ import {
 } from "../ui/select";
 import { UserPlus } from "lucide-react";
 import { toast } from "sonner";
+import { tracking } from "@/lib/tracking";
 
 export default function CreateClientDialog() {
   const [open, setOpen] = useState(false);
@@ -82,6 +83,12 @@ export default function CreateClientDialog() {
 
       const clientId = await createClient(clientData);
       console.log("Client created with ID:", clientId);
+
+      // Track client creation
+      tracking.clientCreated({
+        clientId,
+        clientType: formData.clientType,
+      });
 
       // Reset form
       setFormData({

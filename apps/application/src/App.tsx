@@ -1,8 +1,10 @@
-import React from "react";
-import { Routes, Route } from "react-router-dom";
+import React, { useEffect } from "react";
+import { Routes, Route, useLocation } from "react-router-dom";
 import { Protect } from "@clerk/clerk-react";
 import { AuthLoading } from "convex/react";
 import { lazy, useMemo } from "react";
+import { useAuth } from "./context/AuthContext";
+import { clarity } from "./clarity";
 import Layout from "./components/Layout/Layout";
 import { OnboardingWrapper } from "./components/Auth/OnboardingWrapper";
 import { SignInPage } from "./components/Auth/SignInPage";
@@ -129,6 +131,30 @@ const useQueryClient = () => {
   return useMemo(() => new QueryClient(), []);
 };
 
+// Clarity tracking component
+const ClarityTracker = () => {
+  const location = useLocation();
+  const { user, clerkUser } = useAuth();
+
+  // Track page views
+  useEffect(() => {
+    const pageName = location.pathname.split("/").filter(Boolean).join("/") || "home";
+    clarity.page(pageName);
+  }, [location]);
+
+  // Identify user when available
+  useEffect(() => {
+    if (clerkUser?.id && user !== undefined && user !== null) {
+      const anonymizedId = `u_${clerkUser.id.slice(0, 12)}`;
+      clarity.identify(anonymizedId, {
+        role: (user as { role?: string }).role || "unknown",
+      });
+    }
+  }, [clerkUser, user]);
+
+  return null;
+};
+
 // Component that uses the thread context
 const AppWithThread = () => {
   const queryClient = useQueryClient();
@@ -147,6 +173,9 @@ const AppWithThread = () => {
 
                 {/* Tutorial Overlay - shown when tutorial is active */}
                 <TutorialOverlay />
+
+                {/* Clarity tracking */}
+                <ClarityTracker />
 
                 {/* Main routing with Clerk's Protect component */}
                 <RouteSuspense>
