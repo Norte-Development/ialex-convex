@@ -173,10 +173,7 @@ export function DocumentCard({
               </p>
             </div>
           </div>
-          <div
-            className="flex-shrink-0"
-            onClick={(e) => e.stopPropagation()}
-          >
+          <div className="flex-shrink-0" onClick={(e) => e.stopPropagation()}>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" size="icon">
@@ -240,26 +237,23 @@ export function DocumentCard({
         </div>
         <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
           <DropdownMenu>
-            <DropdownMenuTrigger
-              asChild
-              onClick={(e) => e.stopPropagation()}
-            >
+            <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
               <Button variant="ghost" size="icon" className="h-8 w-8">
                 <MoreVertical className="h-4 w-4" />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
               <DropdownMenuItem onClick={() => onDownload(document._id)}>
-                Bajá
+                Descargar
               </DropdownMenuItem>
               <DropdownMenuItem onClick={() => onEdit(document)}>
-                Editá
+                Editar
               </DropdownMenuItem>
               <DropdownMenuItem
                 onClick={() => onDelete(document._id)}
                 className="text-red-600"
               >
-                Borrá
+                Borrar
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
