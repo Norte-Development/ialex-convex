@@ -1,5 +1,6 @@
+// Use legacy build to avoid worker requirements in Node environments
 import { promises as fs } from 'fs';
-import * as pdfjs from 'pdfjs-dist';
+import { getDocument } from "pdfjs-dist/legacy/build/pdf.mjs";
 import { logger } from '../../middleware/logging';
 import { TempFileManager } from '../../utils/tempFileManager';
 import { StreamingJobState } from '../../types/jobState';
@@ -31,7 +32,7 @@ export class StreamingPdfExtractor {
       const buffer = await fs.readFile(pdfPath);
       // Convert Buffer to Uint8Array (pdfjs requires Uint8Array, not Buffer)
       const data = new Uint8Array(buffer);
-      const pdf = await pdfjs.getDocument({ data }).promise;
+      const pdf = await getDocument({ data }).promise;
       const totalPages = pdf.numPages;
 
       // Resume from last extracted page
@@ -74,7 +75,7 @@ export class StreamingPdfExtractor {
   }
 
   private async extractPageRange(
-    pdf: pdfjs.PDFDocumentProxy,
+    pdf: Awaited<NonNullable<ReturnType<typeof getDocument>['promise']>>,
     startPage: number,
     endPage: number
   ): Promise<string> {
