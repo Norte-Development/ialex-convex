@@ -1,13 +1,18 @@
 /**
- * Plan Limits and Feature Flags (Frontend Copy)
+ * Plan Limits and Feature Flags
  * 
  * Defines the limits and features available for each subscription tier.
- * This is a frontend copy of the backend plan limits for UI display purposes.
+ * Used by the billing/features.ts module to enforce access control.
  * 
- * HYBRID MODEL (Option 3):
- * - Free: No teams allowed
- * - Premium Individual ($30k): Can create unlimited teams, each limited to 3 members
- * - Premium Team ($200k): Per-team subscription for 6 members + GPT-5 for all
+ * TEAM OWNERSHIP LIMITS:
+ * - Free: No teams allowed (0 teams)
+ * - Premium Individual ($30k): Can create 1 team, limited to 3 members
+ * - Premium Team ($200k): Can create 1 team, with 6 members + GPT-5 for all
+ * 
+ * Examples:
+ * - Solo lawyer: $30k/month (premium_individual, 1 team)
+ * - Small firm (1 team, 3 people): $30k/month  
+ * - Growing firm (1 team, 6 people): $30k + $200k = $230k/month
  */
 
 export const PLAN_LIMITS = {
@@ -31,9 +36,9 @@ export const PLAN_LIMITS = {
     documentsPerCase: Infinity,
     aiMessagesPerMonth: Infinity,
     escritosPerCase: Infinity,
-    libraryDocuments: 100,
+    libraryDocuments: 500,
     storageGB: 50,
-    teamsAllowed: Infinity, // Can create unlimited teams
+    teamsAllowed: 1, // Can create 1 team
     teamMembers: 3, // But each team limited to 3 members
     features: {
       createTeam: true, // Unlocks team creation
@@ -46,9 +51,9 @@ export const PLAN_LIMITS = {
     documentsPerCase: Infinity,
     aiMessagesPerMonth: Infinity,
     escritosPerCase: Infinity,
-    libraryDocuments: 200,
+    libraryDocuments: 1000,
     storageGB: 200,
-    teamsAllowed: Infinity, // Can create unlimited teams
+    teamsAllowed: 1, // Can create 1 team
     teamMembers: 6, // Each subscribed team gets 6 members
     features: {
       createTeam: true,
@@ -59,4 +64,21 @@ export const PLAN_LIMITS = {
 } as const;
 
 export type PlanType = keyof typeof PLAN_LIMITS;
+
+export type FeatureName = 
+  | "create_case"
+  | "upload_document"
+  | "ai_message"
+  | "create_escrito"
+  | "create_team"
+  | "gpt5_access"
+  | "team_library";
+
+export type UsageCounter =
+  | "casesCount"
+  | "documentsCount"
+  | "aiMessagesThisMonth"
+  | "escritosCount"
+  | "libraryDocumentsCount"
+  | "storageUsedBytes";
 

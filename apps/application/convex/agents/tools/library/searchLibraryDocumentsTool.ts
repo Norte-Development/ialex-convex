@@ -1,7 +1,7 @@
 import { createTool, ToolCtx } from "@convex-dev/agent";
 import { api, internal } from "../../../_generated/api";
 import { z } from "zod";
-import { createErrorResponse, validateStringParam, validateNumberParam } from "../shared/utils";
+import { createErrorResponse, validateStringParam, validateNumberParam, getUserAndCaseIds } from "../shared/utils";
 import { Id } from "../../../_generated/dataModel";
 
 /**
@@ -51,20 +51,8 @@ export const searchLibraryDocumentsTool = createTool({
       const limit = args.limit !== undefined ? args.limit : 10;
       const contextWindow = args.contextWindow !== undefined ? args.contextWindow : 4;
 
-      // Extract userId from agent context (format: "case:${caseId}_${userId}" or "home_${userId}")
-      let userId: string;
-      
-      if (ctx.userId.startsWith("case:")) {
-        // Extract userId from case context: "case:caseId_userId"
-        const parts = ctx.userId.split("_");
-        userId = parts[parts.length - 1];
-      } else if (ctx.userId.startsWith("home_")) {
-        // Extract userId from home context: "home_userId"
-        userId = ctx.userId.replace("home_", "");
-      } else {
-        // Fallback: use the entire userId
-        userId = ctx.userId;
-      }
+      // Extract userId from agent context using shared utility
+      const {caseId, userId} = getUserAndCaseIds(ctx.userId as string);
 
       // Get user's team memberships to search team libraries
       const teamMemberships = await ctx.runQuery(internal.functions.teams.getUserTeamMembershipsInternal, {

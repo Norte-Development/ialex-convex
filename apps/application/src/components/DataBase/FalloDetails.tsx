@@ -9,6 +9,7 @@ import { Calendar, FileText, Globe, Users, Scale } from "lucide-react"
 import type { FalloDoc } from "../../../types/fallos"
 import ReactMarkdown from "react-markdown"
 import remarkGfm from "remark-gfm"
+import { getJurisdictionName } from "./utils/jurisdictionUtils"
 
 interface FalloDetailsProps {
   jurisdiction: string
@@ -96,17 +97,7 @@ export function FalloDetails({ jurisdiction, id, getFalloAction }: FalloDetailsP
 
             <Badge variant="outline" className="flex items-center gap-1">
               <Globe className="w-3 h-3" />
-              {fallo.jurisdiccion}
-            </Badge>
-
-            <Badge
-              className={
-                fallo.estado === "vigente"
-                  ? "bg-emerald-50 text-emerald-700 border-emerald-200"
-                  : "bg-gray-50 text-gray-700 border-gray-200"
-              }
-            >
-              {fallo.estado}
+              {getJurisdictionName(fallo.jurisdiccion)}
             </Badge>
 
             {fallo.tribunal && (
@@ -127,39 +118,23 @@ export function FalloDetails({ jurisdiction, id, getFalloAction }: FalloDetailsP
 
         {/* Details Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Dates */}
-          <div className="space-y-3 bg-gray-50/50 p-4 rounded-lg">
-            <h3 className="font-semibold text-gray-900 flex items-center gap-2">
-              <Calendar className="w-4 h-4" />
-              Fechas
-            </h3>
-            <div className="space-y-2 text-sm">
-              {fallo.date && (
+          {/* Date */}
+          {fallo.date && (
+            <div className="space-y-3 bg-gray-50/50 p-4 rounded-lg">
+              <h3 className="font-semibold text-gray-900 flex items-center gap-2">
+                <Calendar className="w-4 h-4" />
+                Fecha
+              </h3>
+              <div className="space-y-2 text-sm">
                 <div className="flex justify-between">
                   <span className="font-medium text-gray-600">Fecha del fallo:</span>
                   <span className="text-gray-900">
                     {new Date(fallo.date).toLocaleDateString("es-ES")}
                   </span>
                 </div>
-              )}
-              {fallo.sanction_date && (
-                <div className="flex justify-between">
-                  <span className="font-medium text-gray-600">Sanción:</span>
-                  <span className="text-gray-900">
-                    {new Date(fallo.sanction_date).toLocaleDateString("es-ES")}
-                  </span>
-                </div>
-              )}
-              {fallo.publication_date && (
-                <div className="flex justify-between">
-                  <span className="font-medium text-gray-600">Publicación:</span>
-                  <span className="text-gray-900">
-                    {new Date(fallo.publication_date).toLocaleDateString("es-ES")}
-                  </span>
-                </div>
-              )}
+              </div>
             </div>
-          </div>
+          )}
 
           {/* Court Information */}
           <div className="space-y-3 bg-gray-50/50 p-4 rounded-lg">

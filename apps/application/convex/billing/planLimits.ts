@@ -36,7 +36,7 @@ export const PLAN_LIMITS = {
     documentsPerCase: Infinity,
     aiMessagesPerMonth: Infinity,
     escritosPerCase: Infinity,
-    libraryDocuments: 100,
+    libraryDocuments: 500,
     storageGB: 50,
     teamsAllowed: 1, // Can create 1 team
     teamMembers: 3, // But each team limited to 3 members
@@ -51,7 +51,7 @@ export const PLAN_LIMITS = {
     documentsPerCase: Infinity,
     aiMessagesPerMonth: Infinity,
     escritosPerCase: Infinity,
-    libraryDocuments: 200,
+    libraryDocuments: 1000,
     storageGB: 200,
     teamsAllowed: 1, // Can create 1 team
     teamMembers: 6, // Each subscribed team gets 6 members
