@@ -44,7 +44,16 @@ export function LibraryGrid({
   const [editingDocument, setEditingDocument] =
     useState<Doc<"libraryDocuments"> | null>(null);
   const [isDraggingOver, setIsDraggingOver] = useState(false);
+  const [isDraggingOverParent, setIsDraggingOverParent] = useState(false);
   const dropZoneRef = useRef<HTMLDivElement>(null);
+  const parentDropZoneRef = useRef<HTMLDivElement>(null);
+
+  // Fetch current folder to get parent info
+  const currentFolder = useQuery(
+    api.functions.libraryFolders.getLibraryFolder,
+    currentFolderId ? { folderId: currentFolderId } : "skip",
+  );
+
 
   // Fetch folders - userId is handled server-side via auth
   const folders = useQuery(
@@ -139,6 +148,22 @@ export function LibraryGrid({
     });
   }, [currentFolderId]);
 
+  // Setup drop zone for parent folder (if exists)
+  useEffect(() => {
+    if (!parentDropZoneRef.current || !currentFolder?.parentFolderId) return;
+
+    return dropTargetForElements({
+      element: parentDropZoneRef.current,
+      onDragEnter: () => setIsDraggingOverParent(true),
+      onDragLeave: () => setIsDraggingOverParent(false),
+      onDrop: () => setIsDraggingOverParent(false),
+      getData: () => ({
+        folderId: currentFolder.parentFolderId,
+        type: "LIBRARY_DOCUMENT_DROP_ZONE",
+      }),
+    });
+  }, [currentFolder?.parentFolderId]);
+
   // Filter and sort
   const filteredFolders = (folders || []).filter((folder) =>
     folder.name.toLowerCase().includes(searchQuery.toLowerCase()),
@@ -222,6 +247,34 @@ export function LibraryGrid({
         </div>
 
         <div className="space-y-2">
+          {/* Parent folder drop zone */}
+          {currentFolder?.parentFolderId && (
+            <div
+              ref={parentDropZoneRef}
+              className={`rounded-lg transition-all duration-200 flex items-center justify-center py-3 ${
+                isDraggingOverParent
+                  ? "bg-amber-50/80 border-2 border-amber-400 border-dashed shadow-sm"
+                  : "border border-gray-200 bg-gray-50/50"
+              }`}
+            >
+              <div className="flex items-center justify-center gap-2 px-4">
+                <ChevronRight className={`h-4 w-4 rotate-180 transition-colors ${
+                  isDraggingOverParent ? "text-amber-600" : "text-gray-400"
+                }`} />
+                <span className={`text-sm transition-colors ${
+                  isDraggingOverParent 
+                    ? "font-medium text-amber-700" 
+                    : "text-gray-500"
+                }`}>
+                  {isDraggingOverParent 
+                    ? "Soltá acá para mover a la carpeta anterior"
+                    : "Arrastrá acá para mover a la carpeta anterior"
+                  }
+                </span>
+              </div>
+            </div>
+          )}
+
           {/* Folders are rendered outside main droppable as they are droppables themselves */}
           {filteredFolders.map((folder) => (
             <FolderCard
@@ -304,6 +357,34 @@ export function LibraryGrid({
           {totalItems} {totalItems === 1 ? "elemento" : "elementos"}
         </p>
       </div>
+
+      {/* Parent folder drop zone for grid view */}
+      {currentFolder?.parentFolderId && (
+        <div
+          ref={parentDropZoneRef}
+          className={`rounded-lg transition-all duration-200 flex items-center justify-center py-3 ${
+            isDraggingOverParent
+              ? "bg-amber-50/80 border-2 border-amber-400 border-dashed shadow-sm"
+              : "border border-gray-200 bg-gray-50/50"
+          }`}
+        >
+          <div className="flex items-center justify-center gap-2 px-4">
+            <ChevronRight className={`h-4 w-4 rotate-180 transition-colors ${
+              isDraggingOverParent ? "text-amber-600" : "text-gray-400"
+            }`} />
+            <span className={`text-sm transition-colors ${
+              isDraggingOverParent 
+                ? "font-medium text-amber-700" 
+                : "text-gray-500"
+            }`}>
+              {isDraggingOverParent 
+                ? "Soltá acá para mover a la carpeta anterior"
+                : "Arrastrá acá para mover a la carpeta anterior"
+              }
+            </span>
+          </div>
+        </div>
+      )}
 
       <div
         ref={dropZoneRef}
