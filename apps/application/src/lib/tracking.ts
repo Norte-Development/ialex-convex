@@ -1,8 +1,10 @@
 import { clarity } from "../clarity";
+import posthog from "posthog-js";
 
 /**
  * Centralized tracking helper for Phase 1 events
  * Tracks: Auth, Onboarding, CRUD, Billing, AI Chat, Errors
+ * Dual tracking: Clarity + PostHog
  */
 export const tracking = {
   // ========================================
@@ -12,26 +14,31 @@ export const tracking = {
   /** User signup - track when new user signs up */
   signup: (data: { trial?: boolean }) => {
     clarity.event("user_signup", { trial: data.trial || false });
+    posthog.capture("user_signup", { trial: data.trial || false });
   },
 
   /** User login */
   login: () => {
     clarity.event("user_login");
+    posthog.capture("user_login");
   },
 
   /** Onboarding started */
   onboardingStarted: () => {
     clarity.event("onboarding_started");
+    posthog.capture("onboarding_started");
   },
 
   /** Onboarding step completed */
   onboardingStepCompleted: (step: number) => {
     clarity.event("onboarding_step_completed", { step });
+    posthog.capture("onboarding_step_completed", { step });
   },
 
   /** Onboarding completed */
   onboardingCompleted: () => {
     clarity.event("onboarding_completed");
+    posthog.capture("onboarding_completed");
   },
 
   // ========================================
@@ -51,6 +58,12 @@ export const tracking = {
       priority: data.priority,
       status: data.status,
     });
+    posthog.capture("case_created", {
+      caseId: data.caseId,
+      category: data.category || null,
+      priority: data.priority,
+      status: data.status,
+    });
   },
 
   /** Client created */
@@ -59,6 +72,10 @@ export const tracking = {
     clientType: "individual" | "company";
   }) => {
     clarity.event("client_created", {
+      clientId: data.clientId,
+      clientType: data.clientType,
+    });
+    posthog.capture("client_created", {
       clientId: data.clientId,
       clientType: data.clientType,
     });
@@ -79,6 +96,13 @@ export const tracking = {
       mimeType: data.mimeType,
       caseId: data.caseId,
     });
+    posthog.capture("document_uploaded", {
+      documentId: data.documentId,
+      type: data.type || null,
+      fileSize: data.fileSize,
+      mimeType: data.mimeType,
+      caseId: data.caseId,
+    });
   },
 
   /** Document upload failed */
@@ -87,6 +111,10 @@ export const tracking = {
     fileSize: number;
   }) => {
     clarity.event("document_upload_failed", {
+      errorType: data.errorType,
+      fileSize: data.fileSize,
+    });
+    posthog.capture("document_upload_failed", {
       errorType: data.errorType,
       fileSize: data.fileSize,
     });
@@ -101,6 +129,10 @@ export const tracking = {
       escritoId: data.escritoId,
       caseId: data.caseId,
     });
+    posthog.capture("escrito_created", {
+      escritoId: data.escritoId,
+      caseId: data.caseId,
+    });
   },
 
   // ========================================
@@ -110,6 +142,7 @@ export const tracking = {
   /** Trial started */
   trialStarted: (plan: string) => {
     clarity.event("trial_started", { plan });
+    posthog.capture("trial_started", { plan });
   },
 
   /** Subscription created */
@@ -121,6 +154,10 @@ export const tracking = {
       plan: data.plan,
       billingCycle: data.billingCycle,
     });
+    posthog.capture("subscription_created", {
+      plan: data.plan,
+      billingCycle: data.billingCycle,
+    });
   },
 
   /** Billing limit reached */
@@ -128,6 +165,9 @@ export const tracking = {
     limitType: string;
   }) => {
     clarity.event("billing_limit_reached", {
+      limitType: data.limitType,
+    });
+    posthog.capture("billing_limit_reached", {
       limitType: data.limitType,
     });
   },
@@ -147,6 +187,11 @@ export const tracking = {
       context: data.context,
       caseId: data.caseId || null,
     });
+    posthog.capture("ai_chat_started", {
+      threadId: data.threadId,
+      context: data.context,
+      caseId: data.caseId || null,
+    });
   },
 
   /** AI message sent */
@@ -160,6 +205,11 @@ export const tracking = {
       messageLength: data.messageLength,
       hasReferences: data.hasReferences,
     });
+    posthog.capture("ai_message_sent", {
+      threadId: data.threadId,
+      messageLength: data.messageLength,
+      hasReferences: data.hasReferences,
+    });
   },
 
   /** AI chat aborted */
@@ -167,11 +217,18 @@ export const tracking = {
     clarity.event("ai_chat_aborted", {
       threadId: data.threadId,
     });
+    posthog.capture("ai_chat_aborted", {
+      threadId: data.threadId,
+    });
   },
 
   /** AI error */
   aiError: (data: { errorType: string; threadId?: string }) => {
     clarity.event("ai_error", {
+      errorType: data.errorType,
+      threadId: data.threadId || null,
+    });
+    posthog.capture("ai_error", {
       errorType: data.errorType,
       threadId: data.threadId || null,
     });
@@ -184,11 +241,13 @@ export const tracking = {
   /** Error boundary triggered */
   errorBoundary: (errorType: string) => {
     clarity.event("error_boundary_triggered", { errorType });
+    posthog.capture("error_boundary_triggered", { errorType });
   },
 
   /** Chunk load error */
   chunkLoadError: () => {
     clarity.event("chunk_load_error");
+    posthog.capture("chunk_load_error");
   },
 
   /** API error */
@@ -197,6 +256,10 @@ export const tracking = {
     statusCode?: number;
   }) => {
     clarity.event("api_error", {
+      endpoint: data.endpoint,
+      statusCode: data.statusCode || null,
+    });
+    posthog.capture("api_error", {
       endpoint: data.endpoint,
       statusCode: data.statusCode || null,
     });
