@@ -19,7 +19,8 @@ import {
 import { Button } from "@/components/ui/button";
 import { ViewMode } from "@/pages/LibraryPage";
 import { useNavigate } from "react-router-dom";
-import { Draggable } from "react-beautiful-dnd";
+import { useEffect, useRef, useState } from "react";
+import { draggable } from "@atlaskit/pragmatic-drag-and-drop/element/adapter";
 
 interface DocumentCardProps {
   document: Doc<"libraryDocuments">;
@@ -29,6 +30,7 @@ interface DocumentCardProps {
   viewMode: ViewMode;
   index: number;
   isDragDisabled?: boolean;
+  currentFolderId?: Id<"libraryFolders">;
 }
 
 function getIcon(mimeType: string, color: string) {
@@ -105,163 +107,164 @@ export function DocumentCard({
   viewMode,
   index,
   isDragDisabled = false,
+  currentFolderId,
 }: DocumentCardProps) {
   const navigate = useNavigate();
   const color = getColor(document.mimeType);
+  const cardRef = useRef<HTMLDivElement>(null);
+  const dragHandleRef = useRef<HTMLDivElement>(null);
+  const [isDragging, setIsDragging] = useState(false);
 
   const handleClick = () => {
     navigate(`/biblioteca/documento/${document._id}`);
   };
 
+  // Setup draggable with PDD
+  useEffect(() => {
+    if (isDragDisabled || !cardRef.current) return;
+
+    return draggable({
+      element: cardRef.current,
+      onDragStart: () => setIsDragging(true),
+      onDrop: () => setIsDragging(false),
+      getInitialData: () => ({
+        documentId: document._id,
+        index,
+        type: "LIBRARY_DOCUMENT",
+        currentFolderId,
+      }),
+      dragHandle: dragHandleRef.current ?? undefined,
+    });
+  }, [document._id, index, isDragDisabled, currentFolderId]);
+
   if (viewMode === "list") {
     return (
-      <Draggable
-        draggableId={document._id as unknown as string}
-        index={index}
-        isDragDisabled={isDragDisabled}
+      <Card
+        ref={cardRef}
+        className={`transition-colors hover:bg-muted/50 ${
+          isDragging
+            ? "bg-blue-100/80 border border-blue-300 opacity-80 shadow-lg"
+            : ""
+        }`}
       >
-        {(provided, snapshot) => (
-          <Card
-            ref={provided.innerRef}
-            {...provided.draggableProps}
-            className={`transition-colors hover:bg-muted/50 ${
-              snapshot.isDragging
-                ? "bg-blue-100/80 border border-blue-300 opacity-80 shadow-lg"
-                : ""
-            }`}
+        <div className="flex items-center gap-4 p-4">
+          <span
+            ref={dragHandleRef}
+            className="flex items-center text-gray-400 cursor-grab active:cursor-grabbing flex-shrink-0"
+            aria-label="Arrastrar documento"
+            title="Arrastrar documento"
           >
-            <div className="flex items-center gap-4 p-4">
-              <span
-                className="flex items-center text-gray-400 cursor-grab active:cursor-grabbing flex-shrink-0"
-                aria-label="Arrastrar documento"
-                title="Arrastrar documento"
-                {...provided.dragHandleProps}
-              >
-                <GripVertical size={16} />
-              </span>
-              <div
-                onClick={handleClick}
-                className="flex items-center gap-4 flex-1 cursor-pointer min-w-0"
-              >
-                <div className="flex-shrink-0">
-                  {getIcon(document.mimeType, color)}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
-                    <p className="font-medium truncate">{document.title}</p>
-                    <ProcessingStatusIcon status={document.processingStatus} />
-                  </div>
-                  <p className="text-sm text-muted-foreground">
-                    {formatFileSize(document.fileSize)}
-                  </p>
-                </div>
-              </div>
-              <div
-                className="flex-shrink-0"
-                onClick={(e) => e.stopPropagation()}
-              >
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" size="icon">
-                      <MoreVertical className="h-4 w-4" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
-                    <DropdownMenuItem onClick={() => onDownload(document._id)}>
-                      Descargar
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => onEdit(document)}>
-                      Editar
-                    </DropdownMenuItem>
-                    <DropdownMenuItem
-                      onClick={() => onDelete(document._id)}
-                      className="text-red-600"
-                    >
-                      Eliminar
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </div>
+            <GripVertical size={16} />
+          </span>
+          <div
+            onClick={handleClick}
+            className="flex items-center gap-4 flex-1 cursor-pointer min-w-0"
+          >
+            <div className="flex-shrink-0">
+              {getIcon(document.mimeType, color)}
             </div>
-          </Card>
-        )}
-      </Draggable>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2">
+                <p className="font-medium truncate">{document.title}</p>
+                <ProcessingStatusIcon status={document.processingStatus} />
+              </div>
+              <p className="text-sm text-muted-foreground">
+                {formatFileSize(document.fileSize)}
+              </p>
+            </div>
+          </div>
+          <div
+            className="flex-shrink-0"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon">
+                  <MoreVertical className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={() => onDownload(document._id)}>
+                  Bajá
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => onEdit(document)}>
+                  Editá
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => onDelete(document._id)}
+                  className="text-red-600"
+                >
+                  Borrá
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+        </div>
+      </Card>
     );
   }
 
   return (
-    <Draggable
-      draggableId={document._id as unknown as string}
-      index={index}
-      isDragDisabled={isDragDisabled}
-    >
-      {(provided, snapshot) => (
+    <div ref={cardRef} className="relative">
+      <Card
+        className={`group relative flex flex-col items-center gap-3 p-4 transition-all hover:shadow-md hover:border-primary/50 cursor-pointer ${
+          isDragging
+            ? "bg-blue-100/80 border border-blue-300 opacity-80 shadow-lg rotate-3"
+            : ""
+        }`}
+      >
         <div
-          ref={provided.innerRef}
-          {...provided.draggableProps}
-          className="relative"
+          ref={dragHandleRef}
+          className="absolute top-2 left-2 opacity-0 group-hover:opacity-100 transition-opacity cursor-grab active:cursor-grabbing"
+          aria-label="Arrastrar documento"
+          title="Arrastrar documento"
         >
-          <Card
-            className={`group relative flex flex-col items-center gap-3 p-4 transition-all hover:shadow-md hover:border-primary/50 cursor-pointer ${
-              snapshot.isDragging
-                ? "bg-blue-100/80 border border-blue-300 opacity-80 shadow-lg rotate-3"
-                : ""
-            }`}
-          >
-            <div
-              className="absolute top-2 left-2 opacity-0 group-hover:opacity-100 transition-opacity cursor-grab active:cursor-grabbing"
-              {...provided.dragHandleProps}
-              aria-label="Arrastrar documento"
-              title="Arrastrar documento"
-            >
-              <GripVertical size={16} className="text-gray-400" />
-            </div>
-            <div
-              onClick={handleClick}
-              className="flex flex-col items-center gap-3 w-full"
-            >
-              {getIcon(document.mimeType, color)}
-              <div className="w-full text-center">
-                <div className="flex items-center justify-center gap-1 mb-1">
-                  <p className="text-sm font-medium text-balance line-clamp-2">
-                    {document.title}
-                  </p>
-                  <ProcessingStatusIcon status={document.processingStatus} />
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  {formatFileSize(document.fileSize)}
-                </p>
-              </div>
-            </div>
-            <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
-              <DropdownMenu>
-                <DropdownMenuTrigger
-                  asChild
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  <Button variant="ghost" size="icon" className="h-8 w-8">
-                    <MoreVertical className="h-4 w-4" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <DropdownMenuItem onClick={() => onDownload(document._id)}>
-                    Descargar
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => onEdit(document)}>
-                    Editar
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    onClick={() => onDelete(document._id)}
-                    className="text-red-600"
-                  >
-                    Eliminar
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </div>
-          </Card>
+          <GripVertical size={16} className="text-gray-400" />
         </div>
-      )}
-    </Draggable>
+        <div
+          onClick={handleClick}
+          className="flex flex-col items-center gap-3 w-full"
+        >
+          {getIcon(document.mimeType, color)}
+          <div className="w-full text-center">
+            <div className="flex items-center justify-center gap-1 mb-1">
+              <p className="text-sm font-medium text-balance line-clamp-2">
+                {document.title}
+              </p>
+              <ProcessingStatusIcon status={document.processingStatus} />
+            </div>
+            <p className="text-xs text-muted-foreground">
+              {formatFileSize(document.fileSize)}
+            </p>
+          </div>
+        </div>
+        <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
+          <DropdownMenu>
+            <DropdownMenuTrigger
+              asChild
+              onClick={(e) => e.stopPropagation()}
+            >
+              <Button variant="ghost" size="icon" className="h-8 w-8">
+                <MoreVertical className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={() => onDownload(document._id)}>
+                Bajá
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => onEdit(document)}>
+                Editá
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => onDelete(document._id)}
+                className="text-red-600"
+              >
+                Borrá
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+      </Card>
+    </div>
   );
 }

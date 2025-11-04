@@ -8,14 +8,17 @@ import { api } from "../../../convex/_generated/api";
 import { LibraryScope, SortOption, ViewMode } from "@/pages/LibraryPage";
 import { FolderCard } from "./FolderCard";
 import { DocumentCard } from "./DocumentCard";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { EditFolderDialog } from "./EditFolderDialog";
 import { EditDocumentDialog } from "./EditDocumentDialog";
 import { Doc, Id } from "../../../convex/_generated/dataModel";
 import { toast } from "sonner";
 import { FileText, ChevronRight, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { DragDropContext, Droppable, DropResult } from "react-beautiful-dnd";
+import {
+  dropTargetForElements,
+  monitorForElements,
+} from "@atlaskit/pragmatic-drag-and-drop/element/adapter";
 
 interface LibraryGridProps {
   activeScope: LibraryScope;
@@ -40,7 +43,8 @@ export function LibraryGrid({
     useState<Doc<"libraryFolders"> | null>(null);
   const [editingDocument, setEditingDocument] =
     useState<Doc<"libraryDocuments"> | null>(null);
-  const [isReady, setIsReady] = useState(false);
+  const [isDraggingOver, setIsDraggingOver] = useState(false);
+  const dropZoneRef = useRef<HTMLDivElement>(null);
 
   // Fetch folders - userId is handled server-side via auth
   const folders = useQuery(
@@ -77,63 +81,68 @@ export function LibraryGrid({
     api.functions.libraryDocument.moveLibraryDocument,
   );
 
-  // Mark as ready after initial render to allow droppables to register
+  // Setup PDD monitor for drag and drop
   useEffect(() => {
-    const timer = setTimeout(() => setIsReady(true), 100);
-    return () => clearTimeout(timer);
-  }, []);
+    return monitorForElements({
+      onDragStart: () => {
+        try {
+          document.body.classList.add("overflow-x-hidden");
+        } catch {}
+      },
+      onDrop: async (args) => {
+        try {
+          document.body.classList.remove("overflow-x-hidden");
+        } catch {}
 
-  // Reset ready state when folder changes
+        const { source, location } = args;
+        if (source.data.type !== "LIBRARY_DOCUMENT") return;
+
+        const dropTargetData = location.current.dropTargets[0]?.data;
+        if (!dropTargetData) return;
+
+        const sourceDocumentId = source.data.documentId as Id<"libraryDocuments">;
+        const targetFolderId = dropTargetData.folderId as Id<"libraryFolders"> | undefined;
+
+        // Don't move if dropping in the same folder
+        if (source.data.currentFolderId === targetFolderId) return;
+
+        try {
+          await moveDocument({
+            documentId: sourceDocumentId,
+            newFolderId: targetFolderId,
+          });
+
+          toast.success("Documento movido exitosamente");
+        } catch (err) {
+          console.error("Error moving document:", err);
+          toast.error(
+            err instanceof Error ? err.message : "No se pudo mover el documento",
+          );
+        }
+      },
+    });
+  }, [moveDocument]);
+
+  // Setup drop zone for current folder
   useEffect(() => {
-    setIsReady(false);
-    const timer = setTimeout(() => setIsReady(true), 100);
-    return () => clearTimeout(timer);
+    if (!dropZoneRef.current) return;
+
+    return dropTargetForElements({
+      element: dropZoneRef.current,
+      onDragEnter: () => setIsDraggingOver(true),
+      onDragLeave: () => setIsDraggingOver(false),
+      onDrop: () => setIsDraggingOver(false),
+      getData: () => ({
+        folderId: currentFolderId,
+        type: "LIBRARY_DOCUMENT_DROP_ZONE",
+      }),
+    });
   }, [currentFolderId]);
-
-  // Drag and Drop handlers
-  const handleDragStart = () => {
-    try {
-      document.body.classList.add("overflow-x-hidden");
-    } catch {}
-  };
-
-  const handleDragEnd = async (result: DropResult) => {
-    try {
-      document.body.classList.remove("overflow-x-hidden");
-    } catch {}
-
-    const { destination, source, draggableId, type } = result;
-    if (!destination || type !== "LIBRARY_DOCUMENT") return;
-
-    // Only act when moving across different lists (folders/root)
-    if (destination.droppableId === source.droppableId) return;
-
-    const newFolderId =
-      destination.droppableId === "root"
-        ? undefined
-        : (destination.droppableId as unknown as Id<"libraryFolders">);
-
-    try {
-      await moveDocument({
-        documentId: draggableId as unknown as Id<"libraryDocuments">,
-        newFolderId,
-      });
-
-      toast.success("Documento movido exitosamente");
-    } catch (err) {
-      console.error("Error moving document:", err);
-      toast.error(
-        err instanceof Error ? err.message : "No se pudo mover el documento",
-      );
-    }
-  };
 
   // Filter and sort
   const filteredFolders = (folders || []).filter((folder) =>
     folder.name.toLowerCase().includes(searchQuery.toLowerCase()),
   );
-
-  const droppableId = (currentFolderId ?? "root") as string;
 
   const filteredDocuments = (documents || [])
     .filter((doc) => {
@@ -205,108 +214,6 @@ export function LibraryGrid({
 
   if (viewMode === "list") {
     return (
-      <DragDropContext onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
-        <div className="space-y-6">
-          <div className="flex items-center justify-between">
-            <p className="text-sm text-muted-foreground">
-              {totalItems} {totalItems === 1 ? "elemento" : "elementos"}
-            </p>
-          </div>
-
-          <div className="space-y-2">
-            {/* Folders are rendered outside main droppable as they are droppables themselves */}
-            {filteredFolders.map((folder) => (
-              <FolderCard
-                key={folder._id}
-                folder={folder}
-                documentCount={getFolderDocumentCount(folder._id)}
-                onClick={onFolderClick}
-                onEdit={setEditingFolder}
-                onDelete={handleDeleteFolder}
-                viewMode={viewMode}
-              />
-            ))}
-
-            {/* Documents in the current folder/root */}
-            <Droppable
-              droppableId={droppableId}
-              type="LIBRARY_DOCUMENT"
-              isDropDisabled={false}
-              isCombineEnabled={false}
-              ignoreContainerClipping={false}
-              direction="vertical"
-              mode="standard"
-            >
-              {(dropProvided, dropSnapshot) => (
-                <div
-                  ref={dropProvided.innerRef}
-                  {...dropProvided.droppableProps}
-                  className={`space-y-2 rounded-lg transition-all duration-200 ${
-                    dropSnapshot.isDraggingOver
-                      ? "bg-blue-50/80 border-2 border-blue-400 border-dashed p-4 shadow-inner"
-                      : ""
-                  }`}
-                >
-                  {dropSnapshot.isDraggingOver && (
-                    <div className="flex items-center justify-center gap-2 px-4 py-3 mb-2 rounded-md bg-blue-100/60 border border-blue-300/50">
-                      <Upload className="h-5 w-5 text-blue-600 animate-bounce" />
-                      <span className="text-sm font-medium text-blue-700">
-                        Suelta aquí para mover a{" "}
-                        {currentFolderId ? "esta carpeta" : "la raíz"}
-                      </span>
-                    </div>
-                  )}
-
-                  {filteredDocuments.map((doc, index) => (
-                    <DocumentCard
-                      key={doc._id}
-                      document={doc}
-                      onEdit={setEditingDocument}
-                      onDelete={handleDeleteDocument}
-                      onDownload={handleDownloadDocument}
-                      viewMode={viewMode}
-                      index={index}
-                      isDragDisabled={!isReady}
-                    />
-                  ))}
-
-                  {dropProvided.placeholder}
-                </div>
-              )}
-            </Droppable>
-          </div>
-
-          {documentsStatus === "CanLoadMore" && (
-            <div className="flex justify-center pt-4">
-              <Button
-                onClick={() => loadMore(50)}
-                variant="outline"
-                disabled={isLoadingDocuments}
-              >
-                {isLoadingDocuments ? "Cargando..." : "Cargar más documentos"}
-                <ChevronRight className="ml-2 h-4 w-4" />
-              </Button>
-            </div>
-          )}
-
-          <EditFolderDialog
-            folder={editingFolder}
-            open={!!editingFolder}
-            onOpenChange={(open: boolean) => !open && setEditingFolder(null)}
-          />
-
-          <EditDocumentDialog
-            document={editingDocument}
-            open={!!editingDocument}
-            onOpenChange={(open: boolean) => !open && setEditingDocument(null)}
-          />
-        </div>
-      </DragDropContext>
-    );
-  }
-
-  return (
-    <DragDropContext onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <p className="text-sm text-muted-foreground">
@@ -314,66 +221,53 @@ export function LibraryGrid({
           </p>
         </div>
 
-        <Droppable
-          droppableId={droppableId}
-          type="LIBRARY_DOCUMENT"
-          isDropDisabled={false}
-          isCombineEnabled={false}
-          ignoreContainerClipping={false}
-          direction="horizontal"
-          mode="standard"
-        >
-          {(dropProvided, dropSnapshot) => (
-            <div
-              ref={dropProvided.innerRef}
-              {...dropProvided.droppableProps}
-              className={`grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 rounded-lg transition-all duration-200 ${
-                dropSnapshot.isDraggingOver
-                  ? "bg-blue-50/50 border-2 border-blue-300 border-dashed"
-                  : ""
-              }`}
-            >
-              {filteredFolders.map((folder) => (
-                <FolderCard
-                  key={folder._id}
-                  folder={folder}
-                  documentCount={getFolderDocumentCount(folder._id)}
-                  onClick={onFolderClick}
-                  onEdit={setEditingFolder}
-                  onDelete={handleDeleteFolder}
-                  viewMode={viewMode}
-                />
-              ))}
+        <div className="space-y-2">
+          {/* Folders are rendered outside main droppable as they are droppables themselves */}
+          {filteredFolders.map((folder) => (
+            <FolderCard
+              key={folder._id}
+              folder={folder}
+              documentCount={getFolderDocumentCount(folder._id)}
+              onClick={onFolderClick}
+              onEdit={setEditingFolder}
+              onDelete={handleDeleteFolder}
+              viewMode={viewMode}
+            />
+          ))}
 
-              {filteredDocuments.map((doc, index) => (
-                <DocumentCard
-                  key={doc._id}
-                  document={doc}
-                  onEdit={setEditingDocument}
-                  onDelete={handleDeleteDocument}
-                  onDownload={handleDownloadDocument}
-                  viewMode={viewMode}
-                  index={index}
-                  isDragDisabled={!isReady}
-                />
-              ))}
+          {/* Documents in the current folder/root */}
+          <div
+            ref={dropZoneRef}
+            className={`space-y-2 rounded-lg transition-all duration-200 ${
+              isDraggingOver
+                ? "bg-blue-50/80 border-2 border-blue-400 border-dashed p-4 shadow-inner"
+                : ""
+            }`}
+          >
+            {isDraggingOver && (
+              <div className="flex items-center justify-center gap-2 px-4 py-3 mb-2 rounded-md bg-blue-100/60 border border-blue-300/50">
+                <Upload className="h-5 w-5 text-blue-600 animate-bounce" />
+                <span className="text-sm font-medium text-blue-700">
+                  Soltá acá para mover a{" "}
+                  {currentFolderId ? "esta carpeta" : "la raíz"}
+                </span>
+              </div>
+            )}
 
-              {dropProvided.placeholder}
-            </div>
-          )}
-        </Droppable>
-
-        {totalItems === 0 && (
-          <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-border py-16">
-            <FileText className="mb-4 h-12 w-12 text-muted-foreground/50" />
-            <p className="text-sm font-medium text-muted-foreground">
-              No hay documentos ni carpetas
-            </p>
-            <p className="mt-1 text-xs text-muted-foreground">
-              Comienza subiendo un archivo o creando una carpeta
-            </p>
+            {filteredDocuments.map((doc, index) => (
+              <DocumentCard
+                key={doc._id}
+                document={doc}
+                onEdit={setEditingDocument}
+                onDelete={handleDeleteDocument}
+                onDownload={handleDownloadDocument}
+                viewMode={viewMode}
+                index={index}
+                currentFolderId={currentFolderId}
+              />
+            ))}
           </div>
-        )}
+        </div>
 
         {documentsStatus === "CanLoadMore" && (
           <div className="flex justify-center pt-4">
@@ -382,7 +276,7 @@ export function LibraryGrid({
               variant="outline"
               disabled={isLoadingDocuments}
             >
-              {isLoadingDocuments ? "Cargando..." : "Cargar más documentos"}
+              {isLoadingDocuments ? "Cargando..." : "Cargá más documentos"}
               <ChevronRight className="ml-2 h-4 w-4" />
             </Button>
           </div>
@@ -400,6 +294,87 @@ export function LibraryGrid({
           onOpenChange={(open: boolean) => !open && setEditingDocument(null)}
         />
       </div>
-    </DragDropContext>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <p className="text-sm text-muted-foreground">
+          {totalItems} {totalItems === 1 ? "elemento" : "elementos"}
+        </p>
+      </div>
+
+      <div
+        ref={dropZoneRef}
+        className={`grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 rounded-lg transition-all duration-200 ${
+          isDraggingOver
+            ? "bg-blue-50/50 border-2 border-blue-300 border-dashed"
+            : ""
+        }`}
+      >
+        {filteredFolders.map((folder) => (
+          <FolderCard
+            key={folder._id}
+            folder={folder}
+            documentCount={getFolderDocumentCount(folder._id)}
+            onClick={onFolderClick}
+            onEdit={setEditingFolder}
+            onDelete={handleDeleteFolder}
+            viewMode={viewMode}
+          />
+        ))}
+
+        {filteredDocuments.map((doc, index) => (
+          <DocumentCard
+            key={doc._id}
+            document={doc}
+            onEdit={setEditingDocument}
+            onDelete={handleDeleteDocument}
+            onDownload={handleDownloadDocument}
+            viewMode={viewMode}
+            index={index}
+            currentFolderId={currentFolderId}
+          />
+        ))}
+      </div>
+
+      {totalItems === 0 && (
+        <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-border py-16">
+          <FileText className="mb-4 h-12 w-12 text-muted-foreground/50" />
+          <p className="text-sm font-medium text-muted-foreground">
+            No hay documentos ni carpetas
+          </p>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Empežá subiendo un archivo o creando una carpeta
+          </p>
+        </div>
+      )}
+
+      {documentsStatus === "CanLoadMore" && (
+        <div className="flex justify-center pt-4">
+          <Button
+            onClick={() => loadMore(50)}
+            variant="outline"
+            disabled={isLoadingDocuments}
+          >
+            {isLoadingDocuments ? "Cargando..." : "Cargá más documentos"}
+            <ChevronRight className="ml-2 h-4 w-4" />
+          </Button>
+        </div>
+      )}
+
+      <EditFolderDialog
+        folder={editingFolder}
+        open={!!editingFolder}
+        onOpenChange={(open: boolean) => !open && setEditingFolder(null)}
+      />
+
+      <EditDocumentDialog
+        document={editingDocument}
+        open={!!editingDocument}
+        onOpenChange={(open: boolean) => !open && setEditingDocument(null)}
+      />
+    </div>
   );
 }
