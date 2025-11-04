@@ -1,7 +1,7 @@
 import { createTool, ToolCtx } from "@convex-dev/agent";
 import { internal } from "../../../_generated/api";
 import { z } from "zod";
-import { createErrorResponse } from "../shared/utils";
+import { createErrorResponse, getUserAndCaseIds } from "../shared/utils";
 import { Id } from "../../../_generated/dataModel";
 
 /**
@@ -43,17 +43,8 @@ export const listLibraryDocumentsTool = createTool({
         return createErrorResponse("No autenticado");
       }
 
-      // Extract userId from agent context
-      let userId: string;
-      
-      if (ctx.userId.startsWith("case:")) {
-        const parts = ctx.userId.split("_");
-        userId = parts[parts.length - 1];
-      } else if (ctx.userId.startsWith("home_")) {
-        userId = ctx.userId.replace("home_", "");
-      } else {
-        userId = ctx.userId;
-      }
+      // Extract userId from agent context using shared utility
+      const {caseId, userId} = getUserAndCaseIds(ctx.userId as string);
 
       console.log("Listing library documents for user:", userId);
 

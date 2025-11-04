@@ -82,10 +82,10 @@ export default function DataBasePage() {
 
   // Extract jurisdictions from both data sources and combine them
   const normativesJurisdictions = normativesJurisdictionsData.jurisdicciones
-    ? Object.keys(normativesJurisdictionsData.jurisdicciones)
+    ? normativesJurisdictionsData.jurisdicciones.map((j: { name: string; count: number }) => j.name)
     : [];
   const fallosJurisdictions = fallosJurisdictionsData.jurisdicciones
-    ? Object.keys(fallosJurisdictionsData.jurisdicciones)
+    ? fallosJurisdictionsData.jurisdicciones.map((j: { name: string; count: number }) => j.name)
     : [];
   
   // Combine and deduplicate jurisdictions

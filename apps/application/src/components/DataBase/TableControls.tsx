@@ -1,5 +1,6 @@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select"
 import type { SortOrder, ContentType, UnifiedSortBy } from "../../../types/legislation"
+import { getJurisdictionName } from "./utils/jurisdictionUtils"
 
 interface TableControlsProps {
   jurisdiction: string
@@ -30,15 +31,8 @@ export function TableControls({
   contentType,
   onContentTypeChange,
 }: TableControlsProps) {
-  const getJurisdictionLabel = (jur: string) => {
-    if (jur === "all") return "Todas"
-    if (jur === "nac") return "Nacional"
-    if (jur === "nacional") return "Nacional"
-    return jur.charAt(0).toUpperCase() + jur.slice(1)
-  }
-
   const getJurisdictionLabelWithCount = (jur: string) => {
-    const label = getJurisdictionLabel(jur)
+    const label = getJurisdictionName(jur)
     if (jur === "all" || !jurisdictionCounts) return label
     const facet = jurisdictionCounts.find((f) => f.name === jur)
     return facet ? `${label} (${facet.count.toLocaleString()})` : label

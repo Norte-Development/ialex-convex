@@ -1,6 +1,6 @@
 import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
-import {stripeTables} from "@raideno/convex-stripe/server"
+import { stripeTables } from "@raideno/convex-stripe/server";
 
 // Define granular permission types matching frontend constants
 const granularPermissionType = v.union(
@@ -60,21 +60,22 @@ export default defineSchema({
     firmName: v.optional(v.string()), // Law firm name
     workLocation: v.optional(v.string()), // Work location/city
     experienceYears: v.optional(v.number()), // Years of experience
-    bio: v.optional(v.string()), // Professional biography
+    bio: v.optional(v.string()), // Professional biography // Date of migration from another platform
 
     // Trial tracking
-    trialStatus: v.optional(v.union(
-      v.literal("active"),      // Currently in trial
-      v.literal("expired"),     // Trial ended, no conversion
-      v.literal("converted"),   // Upgraded to paid
-      v.literal("none")         // Never had trial
-    )),
+    trialStatus: v.optional(
+      v.union(
+        v.literal("active"), // Currently in trial
+        v.literal("expired"), // Trial ended, no conversion
+        v.literal("converted"), // Upgraded to paid
+        v.literal("none"), // Never had trial
+      ),
+    ),
     trialStartDate: v.optional(v.number()),
     trialEndDate: v.optional(v.number()),
-    trialPlan: v.optional(v.union(
-      v.literal("premium_individual"),
-      v.literal("premium_team")
-    )),
+    trialPlan: v.optional(
+      v.union(v.literal("premium_individual"), v.literal("premium_team")),
+    ),
     hasUsedTrial: v.optional(v.boolean()), // Prevents re-use (default false for existing users)
 
     // User preferences
@@ -104,6 +105,18 @@ export default defineSchema({
         activityLogVisible: v.optional(v.boolean()),
       }),
     ),
+    migration: v.optional(
+      v.object({
+        status: v.union(
+          v.literal("pending"),
+          v.literal("in_progress"),
+          v.literal("completed"),
+          v.literal("failed")
+        ),
+        oldKindeId: v.string(),
+        consentGiven: v.boolean(),
+      })
+    ),
   })
     .index("by_clerk_id", ["clerkId"])
     .index("by_email", ["email"])
@@ -112,6 +125,31 @@ export default defineSchema({
     .index("by_trial_status", ["trialStatus"])
     .index("by_trial_end_date", ["trialEndDate"])
     .index("by_email_trial", ["email", "hasUsedTrial"]),
+
+  // Tutorial Progress - tracks user's progress through the tutorial
+  tutorialProgress: defineTable({
+    userId: v.id("users"),
+
+    // Overall tutorial state
+    isActive: v.boolean(), // Whether tutorial is currently showing
+    isCompleted: v.boolean(), // Whether user has finished the entire tutorial
+
+    // Current position
+    currentPage: v.optional(v.string()), // e.g., "home", "cases", "case-detail"
+    currentStepId: v.optional(v.string()), // ID of the current step
+
+    // Progress tracking
+    completedSteps: v.array(v.string()), // Array of completed step IDs
+    skippedPages: v.array(v.string()), // Pages user chose to skip
+
+    // Metadata
+    startedAt: v.number(),
+    lastUpdatedAt: v.number(),
+    completedAt: v.optional(v.number()),
+  })
+    .index("by_user", ["userId"])
+    .index("by_active_status", ["isActive"])
+    .index("by_completion_status", ["isCompleted"]),
 
   // Clients table - legal clients
   clients: defineTable({
@@ -640,93 +678,76 @@ export default defineSchema({
     .index("by_case_and_active", ["caseId", "isActive"])
     .index("by_scope", ["scope"])
     .index("by_created_by", ["createdBy"]),
-  
 
-usageLimits: defineTable({
+  usageLimits: defineTable({
+    entityId: v.string(), // userId o teamId
 
-  entityId: v.string(), // userId o teamId
-  
-  entityType: v.union(v.literal("user"), v.literal("team")),
-  
-  // Contadores
-  
-  casesCount: v.number(),
-  
-  documentsCount: v.number(),
-  
-  aiMessagesThisMonth: v.number(),
-  
-  escritosCount: v.number(),
-  
-  libraryDocumentsCount: v.number(),
-  
-  storageUsedBytes: v.number(),
-  
-  // Control de reset mensual
-  
-  lastResetDate: v.number(),
-  
-  currentMonthStart: v.number(),
-  
+    entityType: v.union(v.literal("user"), v.literal("team")),
+
+    // Contadores
+
+    casesCount: v.number(),
+
+    documentsCount: v.number(),
+
+    aiMessagesThisMonth: v.number(),
+
+    escritosCount: v.number(),
+
+    libraryDocumentsCount: v.number(),
+
+    storageUsedBytes: v.number(),
+
+    // Control de reset mensual
+
+    lastResetDate: v.number(),
+
+    currentMonthStart: v.number(),
   })
-  
-  .index("by_entity", ["entityId"])
-  
-  .index("by_entity_type", ["entityType"]),
-  
-  
-  
+    .index("by_entity", ["entityId"])
+
+    .index("by_entity_type", ["entityType"]),
+
   aiCreditPurchases: defineTable({
-  
-  userId: v.id("users"),
-  
-  stripeInvoiceId: v.string(),
-  
-  creditsAmount: v.number(),
-  
-  priceUSD: v.number(),
-  
-  status: v.union(
-  
-  v.literal("pending"),
-  
-  v.literal("completed"),
-  
-  v.literal("failed")
-  
-  ),
-  
-  purchasedAt: v.number(),
-  
-  expiresAt: v.number(), // 90 días
-  
+    userId: v.id("users"),
+
+    stripeInvoiceId: v.string(),
+
+    creditsAmount: v.number(),
+
+    priceUSD: v.number(),
+
+    status: v.union(
+      v.literal("pending"),
+
+      v.literal("completed"),
+
+      v.literal("failed"),
+    ),
+
+    purchasedAt: v.number(),
+
+    expiresAt: v.number(), // 90 días
   })
-  
-  .index("by_user", ["userId"])
-  
-  .index("by_stripe_invoice", ["stripeInvoiceId"])
-  
-  .index("by_status", ["status"]),
-  
-  
-  
+    .index("by_user", ["userId"])
+
+    .index("by_stripe_invoice", ["stripeInvoiceId"])
+
+    .index("by_status", ["status"]),
+
   aiCredits: defineTable({
-  
-  userId: v.id("users"),
-  
-  purchased: v.number(),
-  
-  used: v.number(),
-  
-  remaining: v.number(),
-  
-  expiresAt: v.optional(v.number()),
-  
-  lastUpdated: v.number(),
-  
-  })
-  
-  .index("by_user", ["userId"]),
+    userId: v.id("users"),
+
+    purchased: v.number(),
+
+    used: v.number(),
+
+    remaining: v.number(),
+
+    expiresAt: v.optional(v.number()),
+
+    lastUpdated: v.number(),
+  }).index("by_user", ["userId"]),
 
   // ========================================
   // EVENTS & CALENDAR SYSTEM
@@ -796,7 +817,6 @@ usageLimits: defineTable({
       searchField: "title",
       filterFields: ["isArchived", "status"],
     }),
-  
 
   // Event Participants - Users invited to events
   eventParticipants: defineTable({
@@ -826,4 +846,54 @@ usageLimits: defineTable({
     .index("by_event_and_user", ["eventId", "userId"])
     .index("by_attendance_status", ["attendanceStatus"])
     .index("by_active_status", ["isActive"]),
+
+  // MercadoPago subscriptions - for manual management
+  mercadopagoSubscriptions: defineTable({
+    // User reference
+    userId: v.id("users"),
+    
+    // MercadoPago data
+    mpSubscriptionId: v.string(), // MercadoPago subscription ID
+    mpCustomerId: v.string(), // MercadoPago customer ID
+    
+    // Subscription details
+    plan: v.union(
+      v.literal("premium_individual"),
+      v.literal("premium_team"),
+      v.literal("enterprise")
+    ),
+    status: v.union(
+      v.literal("active"),
+      v.literal("paused"),
+      v.literal("cancelled"),
+      v.literal("expired")
+    ),
+    
+    // Billing info
+    amount: v.number(), // Amount in cents (e.g., 30000 for $300.00)
+    currency: v.string(), // e.g., "ARS" or "USD"
+    billingCycle: v.union(
+      v.literal("monthly"),
+      v.literal("yearly")
+    ),
+    
+    // Dates
+    startDate: v.number(), // Unix timestamp
+    nextBillingDate: v.number(), // Unix timestamp
+    endDate: v.optional(v.number()), // Unix timestamp (if cancelled)
+    
+    // Admin management
+    lastUpdatedBy: v.id("users"), // Admin who last updated this
+    notes: v.optional(v.string()), // Admin notes
+    
+    // Metadata
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_user", ["userId"])
+    .index("by_status", ["status"])
+    .index("by_plan", ["plan"])
+    .index("by_mp_subscription_id", ["mpSubscriptionId"])
+    .index("by_next_billing", ["nextBillingDate"])
+    .index("by_active_status", ["status", "nextBillingDate"]),
 });

@@ -105,6 +105,9 @@ import type * as functions_legislation from "../functions/legislation.js";
 import type * as functions_libraryDocument from "../functions/libraryDocument.js";
 import type * as functions_libraryDocumentProcessing from "../functions/libraryDocumentProcessing.js";
 import type * as functions_libraryFolders from "../functions/libraryFolders.js";
+import type * as functions_mercadopagoAdmin from "../functions/mercadopagoAdmin.js";
+import type * as functions_mercadopagoImport from "../functions/mercadopagoImport.js";
+import type * as functions_migration from "../functions/migration.js";
 import type * as functions_permissions from "../functions/permissions.js";
 import type * as functions_search from "../functions/search.js";
 import type * as functions_seedCases from "../functions/seedCases.js";
@@ -112,9 +115,32 @@ import type * as functions_teams from "../functions/teams.js";
 import type * as functions_templates from "../functions/templates.js";
 import type * as functions_testReadEscritoHelpers from "../functions/testReadEscritoHelpers.js";
 import type * as functions_todos from "../functions/todos.js";
+import type * as functions_tutorial from "../functions/tutorial.js";
 import type * as functions_users from "../functions/users.js";
 import type * as http from "../http.js";
 import type * as migrations_addEventPreferences from "../migrations/addEventPreferences.js";
+import type * as migrations_bulkUserMigration from "../migrations/bulkUserMigration.js";
+import type * as migrations_clerkHelpers from "../migrations/clerkHelpers.js";
+import type * as migrations_constants from "../migrations/constants.js";
+import type * as migrations_fileStorageHelpers from "../migrations/fileStorageHelpers.js";
+import type * as migrations_firebaseHelpers from "../migrations/firebaseHelpers.js";
+import type * as migrations_firestoreDataHelpers from "../migrations/firestoreDataHelpers.js";
+import type * as migrations_handleEmailConflicts from "../migrations/handleEmailConflicts.js";
+import type * as migrations_helpers from "../migrations/helpers.js";
+import type * as migrations_identifyExistingUsers from "../migrations/identifyExistingUsers.js";
+import type * as migrations_index from "../migrations/index.js";
+import type * as migrations_kindeHelpers from "../migrations/kindeHelpers.js";
+import type * as migrations_migrateCases from "../migrations/migrateCases.js";
+import type * as migrations_migrateClients from "../migrations/migrateClients.js";
+import type * as migrations_migrateDocuments from "../migrations/migrateDocuments.js";
+import type * as migrations_migrateTestUsers from "../migrations/migrateTestUsers.js";
+import type * as migrations_migrateUserData from "../migrations/migrateUserData.js";
+import type * as migrations_migrationWorkflow from "../migrations/migrationWorkflow.js";
+import type * as migrations_mimeTypeUtils from "../migrations/mimeTypeUtils.js";
+import type * as migrations_processingHelpers from "../migrations/processingHelpers.js";
+import type * as migrations_sendAnnouncement from "../migrations/sendAnnouncement.js";
+import type * as migrations_tutorial_init from "../migrations/tutorial_init.js";
+import type * as migrations_types from "../migrations/types.js";
 import type * as prosemirror from "../prosemirror.js";
 import type * as rag_qdrantUtils_caseDocuments from "../rag/qdrantUtils/caseDocuments.js";
 import type * as rag_qdrantUtils_client from "../rag/qdrantUtils/client.js";
@@ -248,6 +274,9 @@ declare const fullApi: ApiFromModules<{
   "functions/libraryDocument": typeof functions_libraryDocument;
   "functions/libraryDocumentProcessing": typeof functions_libraryDocumentProcessing;
   "functions/libraryFolders": typeof functions_libraryFolders;
+  "functions/mercadopagoAdmin": typeof functions_mercadopagoAdmin;
+  "functions/mercadopagoImport": typeof functions_mercadopagoImport;
+  "functions/migration": typeof functions_migration;
   "functions/permissions": typeof functions_permissions;
   "functions/search": typeof functions_search;
   "functions/seedCases": typeof functions_seedCases;
@@ -255,9 +284,32 @@ declare const fullApi: ApiFromModules<{
   "functions/templates": typeof functions_templates;
   "functions/testReadEscritoHelpers": typeof functions_testReadEscritoHelpers;
   "functions/todos": typeof functions_todos;
+  "functions/tutorial": typeof functions_tutorial;
   "functions/users": typeof functions_users;
   http: typeof http;
   "migrations/addEventPreferences": typeof migrations_addEventPreferences;
+  "migrations/bulkUserMigration": typeof migrations_bulkUserMigration;
+  "migrations/clerkHelpers": typeof migrations_clerkHelpers;
+  "migrations/constants": typeof migrations_constants;
+  "migrations/fileStorageHelpers": typeof migrations_fileStorageHelpers;
+  "migrations/firebaseHelpers": typeof migrations_firebaseHelpers;
+  "migrations/firestoreDataHelpers": typeof migrations_firestoreDataHelpers;
+  "migrations/handleEmailConflicts": typeof migrations_handleEmailConflicts;
+  "migrations/helpers": typeof migrations_helpers;
+  "migrations/identifyExistingUsers": typeof migrations_identifyExistingUsers;
+  "migrations/index": typeof migrations_index;
+  "migrations/kindeHelpers": typeof migrations_kindeHelpers;
+  "migrations/migrateCases": typeof migrations_migrateCases;
+  "migrations/migrateClients": typeof migrations_migrateClients;
+  "migrations/migrateDocuments": typeof migrations_migrateDocuments;
+  "migrations/migrateTestUsers": typeof migrations_migrateTestUsers;
+  "migrations/migrateUserData": typeof migrations_migrateUserData;
+  "migrations/migrationWorkflow": typeof migrations_migrationWorkflow;
+  "migrations/mimeTypeUtils": typeof migrations_mimeTypeUtils;
+  "migrations/processingHelpers": typeof migrations_processingHelpers;
+  "migrations/sendAnnouncement": typeof migrations_sendAnnouncement;
+  "migrations/tutorial_init": typeof migrations_tutorial_init;
+  "migrations/types": typeof migrations_types;
   prosemirror: typeof prosemirror;
   "rag/qdrantUtils/caseDocuments": typeof rag_qdrantUtils_caseDocuments;
   "rag/qdrantUtils/client": typeof rag_qdrantUtils_client;
@@ -3774,31 +3826,32 @@ export declare const components: {
           };
         }
       >;
-      startStep: FunctionReference<
+      startSteps: FunctionReference<
         "mutation",
         "internal",
         {
           generationNumber: number;
-          name: string;
-          retry?:
-            | boolean
-            | { base: number; initialBackoffMs: number; maxAttempts: number };
-          schedulerOptions?: { runAt?: number } | { runAfter?: number };
-          step: {
-            args: any;
-            argsSize: number;
-            completedAt?: number;
-            functionType: "query" | "mutation" | "action";
-            handle: string;
-            inProgress: boolean;
-            name: string;
-            runResult?:
-              | { kind: "success"; returnValue: any }
-              | { error: string; kind: "failed" }
-              | { kind: "canceled" };
-            startedAt: number;
-            workId?: string;
-          };
+          steps: Array<{
+            retry?:
+              | boolean
+              | { base: number; initialBackoffMs: number; maxAttempts: number };
+            schedulerOptions?: { runAt?: number } | { runAfter?: number };
+            step: {
+              args: any;
+              argsSize: number;
+              completedAt?: number;
+              functionType: "query" | "mutation" | "action";
+              handle: string;
+              inProgress: boolean;
+              name: string;
+              runResult?:
+                | { kind: "success"; returnValue: any }
+                | { error: string; kind: "failed" }
+                | { kind: "canceled" };
+              startedAt: number;
+              workId?: string;
+            };
+          }>;
           workflowId: string;
           workpoolOptions?: {
             defaultRetryBehavior?: {
@@ -3811,7 +3864,7 @@ export declare const components: {
             retryActionsByDefault?: boolean;
           };
         },
-        {
+        Array<{
           _creationTime: number;
           _id: string;
           step: {
@@ -3831,7 +3884,7 @@ export declare const components: {
           };
           stepNumber: number;
           workflowId: string;
-        }
+        }>
       >;
     };
     workflow: {

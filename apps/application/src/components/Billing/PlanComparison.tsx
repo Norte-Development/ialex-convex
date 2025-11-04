@@ -14,16 +14,18 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/switch";
 import { Check, X } from "lucide-react";
-import { PlanType } from "./types";
+import { PlanType, PlanSelection } from "./types";
 import { cn } from "@/lib/utils";
 import { PLAN_PRICING } from "@/lib/billing/pricingConfig";
+import { useState } from "react";
 
 interface PlanComparisonProps {
   currentPlan?: PlanType;
   highlightPlan?: PlanType;
   className?: string;
-  onSelectPlan?: (plan: PlanType) => void;
+  onSelectPlan?: (selection: PlanSelection) => void;
   isUpgrading?: boolean;
 }
 
@@ -103,6 +105,11 @@ const PLAN_HEADERS = {
   premium_team: "Premium Equipo",
 };
 
+const ANNUAL_PRICING = {
+  premium_individual: 300000,
+  premium_team: 980000,
+};
+
 /**
  * Comparison table showing features across all billing plans
  * Highlights current plan and recommended upgrade
@@ -122,9 +129,17 @@ export function PlanComparison({
   onSelectPlan,
   isUpgrading = false,
 }: PlanComparisonProps) {
+  const [isAnnual, setIsAnnual] = useState(false);
+
   const formatPrice = (plan: PlanType) => {
     const pricing = PLAN_PRICING[plan];
     if (pricing.price === 0) return "Gratis";
+    
+    if (isAnnual && (plan === "premium_individual" || plan === "premium_team")) {
+      const annualPrice = ANNUAL_PRICING[plan];
+      return `$${annualPrice.toLocaleString()} ARS/año`;
+    }
+    
     return `$${pricing.price.toLocaleString()} ARS/${pricing.period}`;
   };
   const renderCell = (value: string | boolean): React.ReactNode => {
@@ -159,6 +174,19 @@ export function PlanComparison({
         <CardDescription>
           Compara las características y límites de cada plan
         </CardDescription>
+        <div className="flex items-center justify-center gap-3 pt-4">
+          <span className={cn("text-sm font-medium", !isAnnual && "text-primary")}>
+            Mensual
+          </span>
+          <Switch
+            checked={isAnnual}
+            onCheckedChange={setIsAnnual}
+            aria-label="Alternar entre precios mensuales y anuales"
+          />
+          <span className={cn("text-sm font-medium", isAnnual && "text-primary")}>
+            Anual
+          </span>
+        </div>
       </CardHeader>
       <CardContent>
         <Table>
@@ -291,7 +319,10 @@ export function PlanComparison({
                     <Button
                       onClick={() => {
                         if (onSelectPlan) {
-                          onSelectPlan("premium_individual");
+                          onSelectPlan({
+                            plan: "premium_individual",
+                            period: isAnnual ? "annual" : "monthly",
+                          });
                         }
                       }}
                       disabled={isUpgrading}
@@ -318,7 +349,10 @@ export function PlanComparison({
                     <Button
                       onClick={() => {
                         if (onSelectPlan) {
-                          onSelectPlan("premium_team");
+                          onSelectPlan({
+                            plan: "premium_team",
+                            period: isAnnual ? "annual" : "monthly",
+                          });
                         }
                       }}
                       disabled={isUpgrading}

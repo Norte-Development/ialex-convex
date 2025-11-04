@@ -29,7 +29,7 @@ export default function CaseDataBasePage() {
 
   // Extract jurisdictions from facets data
   const availableJurisdictions = jurisdictionsData?.jurisdicciones 
-    ? ["all", ...Object.keys(jurisdictionsData.jurisdicciones)]
+    ? ["all", ...jurisdictionsData.jurisdicciones.map((j: { name: string; count: number }) => j.name)]
     : ["all"];
 
   return (
