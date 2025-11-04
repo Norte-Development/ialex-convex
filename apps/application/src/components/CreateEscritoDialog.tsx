@@ -20,6 +20,7 @@ import { useCase } from "@/context/CaseContext";
 import { usePermissions } from "@/context/CasePermissionsContext";
 import { PermissionToasts } from "@/lib/permissionToasts";
 import { useBillingLimit, UpgradeModal, LimitWarningBanner } from "@/components/Billing";
+import { tracking } from "@/lib/tracking";
 
 interface CreateEscritoDialogProps {
   open?: boolean;
@@ -130,6 +131,14 @@ export function CreateEscritoDialog({
       
       // Extract the escritoId from the result object
       const escritoId = result.escritoId;
+
+      // Track escrito creation (only if not already exists)
+      if (!result.alreadyExists) {
+        tracking.escritoCreated({
+          escritoId,
+          caseId: currentCase._id,
+        });
+      }
 
       resetForm();
       setOpen(false);

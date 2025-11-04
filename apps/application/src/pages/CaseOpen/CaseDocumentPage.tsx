@@ -23,6 +23,7 @@ import { extensions } from "@/components/Editor/extensions";
 import { toast } from "sonner";
 import { ProcessingProgress } from "@/components/Documents/ProcessingProgress";
 import { ProcessingError } from "@/components/Documents/ProcessingError";
+import { tracking } from "@/lib/tracking";
 
 export default function CaseDocumentPage() {
   const { documentId } = useParams();
@@ -154,6 +155,12 @@ export default function CaseDocumentPage() {
 
       if (alreadyExists) {
         console.log("Escrito ya existía, usando el existente");
+      } else {
+        // Track escrito creation from DOCX conversion
+        tracking.escritoCreated({
+          escritoId,
+          caseId: document.caseId,
+        });
       }
 
       console.log("Escrito creado exitosamente:", { escritoId, prosemirrorId });

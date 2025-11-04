@@ -11,6 +11,7 @@ import { LayoutProvider } from "./context/LayoutContext";
 import { ErrorBoundary } from "./ErrorBoundary.tsx";
 import { Toaster } from "./components/ui/sonner.tsx";
 import { esUY } from "@clerk/localizations";
+import "./clarity.ts";
 const convex = new ConvexReactClient(import.meta.env.VITE_CONVEX_URL as string);
 
 // Auto-reload when a lazy chunk fails after a deployment switch

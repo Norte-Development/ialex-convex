@@ -5,6 +5,7 @@ import { useSearchParams } from "react-router-dom";
 import { api } from "../../../convex/_generated/api";
 import { OnboardingFlow } from "../Onboarding/OnboardingFlow";
 import { AuthLoadingSkeleton } from "../AuthLoadingSkeleton";
+import { tracking } from "@/lib/tracking";
 
 interface OnboardingWrapperProps {
   children: React.ReactNode;
@@ -53,6 +54,12 @@ export const OnboardingWrapper: React.FC<OnboardingWrapperProps> = ({
           name,
           startTrial: isTrial,
         });
+
+        // Track signup and trial
+        tracking.signup({ trial: isTrial });
+        if (isTrial) {
+          tracking.trialStarted("premium_individual");
+        }
       } catch (error) {
         console.error("Error auto-syncing user:", error);
       }

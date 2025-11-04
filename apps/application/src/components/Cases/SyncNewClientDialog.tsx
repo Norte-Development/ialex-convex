@@ -26,6 +26,7 @@ import { Badge } from "../ui/badge";
 import { UserPlus, Search, Loader2, Link2 } from "lucide-react";
 import { toast } from "sonner";
 import { useCase } from "../../context/CaseContext";
+import { tracking } from "@/lib/tracking";
 
 interface SyncNewClientDialogProps {
   open: boolean;
@@ -164,6 +165,12 @@ export default function SyncNewClientDialog({
       };
 
       const clientId = await createClient(clientData);
+
+      // Track client creation
+      tracking.clientCreated({
+        clientId,
+        clientType: formData.clientType,
+      });
 
       // Vincular automáticamente al caso
       await addClientToCase({
