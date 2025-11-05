@@ -13,6 +13,7 @@
 import { internalAction, internalQuery } from "../_generated/server";
 import { v } from "convex/values";
 import { internal } from "../_generated/api";
+import type { Id } from "../_generated/dataModel";
 import type {
   DopplerSubscriber,
   DopplerFieldValue,
@@ -128,6 +129,25 @@ function getAccountName(): string {
 
 
 /**
+ * Type representing the user data returned by getUserForDoppler query
+ */
+type UserForDoppler = {
+  _id: Id<"users">;
+  email: string;
+  name: string;
+  role: string | undefined;
+  barNumber: string | undefined;
+  firmName: string | undefined;
+  workLocation: string | undefined;
+  experienceYears: number | undefined;
+  bio: string | undefined;
+  specializations: string[] | undefined;
+  hasDespacho: boolean | undefined;
+  isOnboardingComplete: boolean | undefined;
+  trialStatus: "active" | "expired" | "converted" | "none" | undefined;
+};
+
+/**
  * Internal query to get user by ID for Doppler integration
  */
 export const getUserForDoppler = internalQuery({
@@ -178,7 +198,7 @@ function parseName(fullName: string): { firstName: string; lastName: string } {
  * Maps user data to Doppler subscriber fields
  * Only includes non-empty values to avoid sending unnecessary data
  */
-function mapUserToDopplerFields(user: NonNullable<Awaited<ReturnType<typeof getUserForDoppler>>>): DopplerFieldValue[] {
+function mapUserToDopplerFields(user: UserForDoppler): DopplerFieldValue[] {
   const fields: DopplerFieldValue[] = [];
   
   // Parse name into firstName and lastName
