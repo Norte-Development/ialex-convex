@@ -20,8 +20,21 @@ export function LibraryBreadcrumb({
     currentFolderId ? { folderId: currentFolderId } : "skip"
   );
 
+  // Get Root folder to filter it out from the path (ghost folder)
+  const rootFolder = useQuery(
+    api.functions.libraryFolders.getLibraryRootFolder,
+    activeScope.type === "personal"
+      ? {}
+      : { teamId: activeScope.teamId },
+  );
+
   const libraryName =
     activeScope.type === "personal" ? "Mi Biblioteca" : "Biblioteca del Equipo";
+
+  // Filter out Root folder from the path (users don't see Root in breadcrumbs)
+  const visiblePath = folderPath?.filter(
+    (folder) => !rootFolder || folder._id !== rootFolder._id
+  ) || [];
 
   return (
     <div className="flex items-center gap-2 text-sm">
@@ -33,22 +46,21 @@ export function LibraryBreadcrumb({
         <span>{libraryName}</span>
       </button>
 
-      {folderPath &&
-        folderPath.map((folder, index) => (
-          <div key={folder._id} className="flex items-center gap-2">
-            <ChevronRight className="h-4 w-4 text-muted-foreground" />
-            <button
-              onClick={() => onBreadcrumbClick(folder._id)}
-              className={
-                index === folderPath.length - 1
-                  ? "rounded-md px-2 py-1 font-medium"
-                  : "rounded-md px-2 py-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-              }
-            >
-              {folder.name}
-            </button>
-          </div>
-        ))}
+      {visiblePath.map((folder, index) => (
+        <div key={folder._id} className="flex items-center gap-2">
+          <ChevronRight className="h-4 w-4 text-muted-foreground" />
+          <button
+            onClick={() => onBreadcrumbClick(folder._id)}
+            className={
+              index === visiblePath.length - 1
+                ? "rounded-md px-2 py-1 font-medium"
+                : "rounded-md px-2 py-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            }
+          >
+            {folder.name}
+          </button>
+        </div>
+      ))}
     </div>
   );
 }

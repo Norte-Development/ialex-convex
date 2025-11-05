@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { useQuery } from "convex/react";
+import { useState, useEffect, useRef } from "react";
+import { useQuery, useMutation } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { Id } from "../../convex/_generated/dataModel";
 import { Button } from "@/components/ui/button";
@@ -40,6 +40,36 @@ export default function LibraryPage() {
   const [activeScope, setActiveScope] = useState<LibraryScope>({
     type: "personal",
   });
+
+  // Track which scopes have been migrated to avoid duplicate calls
+  const migratedScopesRef = useRef<Set<string>>(new Set());
+
+  // Mutation to ensure Root folder exists and migrate existing items
+  const ensureRootFolder = useMutation(
+    api.functions.libraryFolders.ensureLibraryRootFolder,
+  );
+
+  // Ensure Root folder exists and migrate when accessing a library scope
+  useEffect(() => {
+    const scopeKey =
+      activeScope.type === "personal"
+        ? "personal"
+        : `team-${activeScope.teamId}`;
+
+    // Only migrate once per scope
+    if (!migratedScopesRef.current.has(scopeKey)) {
+      ensureRootFolder({
+        teamId: activeScope.type === "team" ? activeScope.teamId : undefined,
+      })
+        .then(() => {
+          migratedScopesRef.current.add(scopeKey);
+        })
+        .catch((error) => {
+          console.error("Failed to ensure Root folder:", error);
+          // Don't add to set on error so it can retry
+        });
+    }
+  }, [activeScope, ensureRootFolder]);
 
   const handleFolderClick = (folderId: Id<"libraryFolders">) => {
     setCurrentFolderId(folderId);

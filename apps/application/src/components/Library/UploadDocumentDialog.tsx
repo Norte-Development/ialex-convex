@@ -59,6 +59,17 @@ export function UploadDocumentDialog({
     api.functions.libraryDocument.createLibraryDocument
   );
 
+  // Get Root folder ID - when currentFolderId is undefined, we're uploading to Root
+  const rootFolder = useQuery(
+    api.functions.libraryFolders.getLibraryRootFolder,
+    activeScope.type === "personal"
+      ? {}
+      : { teamId: activeScope.teamId },
+  );
+
+  // Resolve actual folder ID: use Root ID when currentFolderId is undefined
+  const actualFolderId = currentFolderId || rootFolder?._id;
+
   // Check library document limit
   const teamId = activeScope.type === "team" ? activeScope.teamId : undefined;
   const { allowed, isWarning, percentage, reason, currentCount, limit } = useBillingLimit(
@@ -211,11 +222,12 @@ export function UploadDocumentDialog({
       });
 
       // Step 3: Create document record in Convex
+      // Use Root ID when currentFolderId is undefined (uploading to root level)
       await createDocument({
         title: item.title.trim(),
         description: item.description.trim() || undefined,
         teamId: activeScope.type === "team" ? activeScope.teamId : undefined,
-        folderId: currentFolderId,
+        folderId: actualFolderId,
         gcsBucket: uploadData.bucket,
         gcsObject: uploadData.object,
         mimeType: item.file.type,

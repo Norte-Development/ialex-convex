@@ -48,22 +48,45 @@ export function LibraryGrid({
   const dropZoneRef = useRef<HTMLDivElement>(null);
   const parentDropZoneRef = useRef<HTMLDivElement>(null);
 
+  // Get Root folder ID - needed to filter it out and use for queries
+  const rootFolder = useQuery(
+    api.functions.libraryFolders.getLibraryRootFolder,
+    activeScope.type === "personal"
+      ? {}
+      : { teamId: activeScope.teamId },
+  );
+
+  // Resolve actual folder ID: use Root ID when currentFolderId is undefined
+  const actualFolderId = currentFolderId || rootFolder?._id;
+
   // Fetch current folder to get parent info
   const currentFolder = useQuery(
     api.functions.libraryFolders.getLibraryFolder,
     currentFolderId ? { folderId: currentFolderId } : "skip",
   );
 
-
   // Fetch folders - userId is handled server-side via auth
+  // When at root (currentFolderId undefined), show folders in Root
   const folders = useQuery(
     api.functions.libraryFolders.getLibraryFolders,
     activeScope.type === "personal"
-      ? { parentFolderId: currentFolderId }
-      : { teamId: activeScope.teamId, parentFolderId: currentFolderId },
+      ? { parentFolderId: actualFolderId }
+      : { teamId: activeScope.teamId, parentFolderId: actualFolderId },
+  );
+
+  // Get document counts for all folders
+  const folderIds = folders?.map((f) => f._id) || [];
+  const folderDocumentCounts = useQuery(
+    api.functions.libraryFolders.getLibraryFolderDocumentCounts,
+    folderIds.length > 0
+      ? activeScope.type === "personal"
+        ? { folderIds }
+        : { folderIds, teamId: activeScope.teamId }
+      : "skip",
   );
 
   // Fetch documents with pagination - userId is handled server-side via auth
+  // When at root (currentFolderId undefined), show documents in Root
   const {
     results: documents,
     status: documentsStatus,
@@ -72,8 +95,8 @@ export function LibraryGrid({
   } = usePaginatedQuery(
     api.functions.libraryDocument.getLibraryDocuments,
     activeScope.type === "personal"
-      ? { folderId: currentFolderId }
-      : { teamId: activeScope.teamId, folderId: currentFolderId },
+      ? { folderId: actualFolderId }
+      : { teamId: activeScope.teamId, folderId: actualFolderId },
     { initialNumItems: 50 },
   );
 
@@ -142,11 +165,11 @@ export function LibraryGrid({
       onDragLeave: () => setIsDraggingOver(false),
       onDrop: () => setIsDraggingOver(false),
       getData: () => ({
-        folderId: currentFolderId,
+        folderId: actualFolderId,
         type: "LIBRARY_DOCUMENT_DROP_ZONE",
       }),
     });
-  }, [currentFolderId]);
+  }, [actualFolderId]);
 
   // Setup drop zone for parent folder (if exists)
   useEffect(() => {
@@ -165,18 +188,16 @@ export function LibraryGrid({
   }, [currentFolder?.parentFolderId]);
 
   // Filter and sort
-  const filteredFolders = (folders || []).filter((folder) =>
-    folder.name.toLowerCase().includes(searchQuery.toLowerCase()),
-  );
+  // Exclude Root folder from display (ghost folder - users see its contents but not the folder itself)
+  const filteredFolders = (folders || [])
+    .filter((folder) => {
+      // Hide Root folder from the list
+      if (rootFolder && folder._id === rootFolder._id) return false;
+      return folder.name.toLowerCase().includes(searchQuery.toLowerCase());
+    });
 
   const filteredDocuments = (documents || [])
     .filter((doc) => {
-      // Filter by folder: when currentFolderId is undefined, only show docs without folderId
-      // when currentFolderId is set, only show docs with that folderId
-      const matchesFolder = currentFolderId
-        ? doc.folderId === currentFolderId
-        : !doc.folderId;
-
       const matchesSearch = doc.title
         .toLowerCase()
         .includes(searchQuery.toLowerCase());
@@ -184,7 +205,7 @@ export function LibraryGrid({
         ? doc.mimeType.startsWith(typeFilter) ||
           doc.mimeType.includes(typeFilter)
         : true;
-      return matchesFolder && matchesSearch && matchesType;
+      return matchesSearch && matchesType;
     })
     .sort((a, b) => {
       switch (sortBy) {
@@ -227,12 +248,9 @@ export function LibraryGrid({
     }
   };
 
-  // Get folder document counts
+  // Get folder document count from the counts query
   const getFolderDocumentCount = (folderId: Id<"libraryFolders">) => {
-    const count = (documents || []).filter(
-      (doc) => doc.folderId === folderId,
-    ).length;
-    return count;
+    return folderDocumentCounts?.[folderId] || 0;
   };
 
   const totalItems = filteredFolders.length + filteredDocuments.length;
