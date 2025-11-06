@@ -11,9 +11,12 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Folder, ChevronRight, Home, FolderOpen } from "lucide-react";
 import { toast } from "sonner";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { FolderRow } from "./MoveDocumentDialog/FolderRow";
+import { BreadcrumbNavigation } from "./MoveDocumentDialog/BreadcrumbNavigation";
+import { CurrentLocationIndicator } from "./MoveDocumentDialog/CurrentLocationIndicator";
+import { EmptyFoldersState } from "./MoveDocumentDialog/EmptyFoldersState";
 
 interface MoveDocumentDialogProps {
   document: Doc<"libraryDocuments"> | null;
@@ -84,32 +87,59 @@ export function MoveDocumentDialog({
     }
   }, [open, currentFolderId]);
 
-  const handleMove = async () => {
-    if (!document || !rootFolder) return;
-
-    // If selectedFolderId is undefined or equals rootFolder._id, move to Root
-    const targetFolderId =
-      selectedFolderId === rootFolder._id ? rootFolder._id : selectedFolderId;
-
-    try {
-      await moveDocument({
-        documentId: document._id,
-        newFolderId: targetFolderId,
-      });
-
-      toast.success("Documento movido exitosamente");
-      onOpenChange(false);
-    } catch (error: any) {
-      toast.error(error.message || "No se pudo mover el documento");
-    }
-  };
-
   const handleFolderClick = (folderId: Id<"libraryFolders">) => {
     setCurrentViewFolderId(folderId);
   };
 
   const handleBreadcrumbClick = (folderId?: Id<"libraryFolders">) => {
     setCurrentViewFolderId(folderId);
+  };
+
+  const handleMoveToFolder = async (targetFolderId: Id<"libraryFolders">) => {
+    if (!document || !rootFolder) return;
+
+    // Get source folder name
+    const sourceFolderName = currentFolderId
+      ? currentFolderId === rootFolder._id
+        ? "Mi biblioteca"
+        : sourceFolder?.name || "carpeta actual"
+      : "Mi biblioteca";
+
+    // Get target folder
+    const targetFolder = folders?.find((f) => f._id === targetFolderId);
+    const targetFolderName = targetFolder?.name || "carpeta destino";
+
+    try {
+      await moveDocument({
+        documentId: document._id,
+        newFolderId: targetFolderId,
+      });
+      toast.success(`Movido de "${sourceFolderName}" a "${targetFolderName}"`);
+      onOpenChange(false);
+    } catch (error: any) {
+      toast.error(error.message || "No se pudo mover el documento");
+    }
+  };
+
+  const handleMoveToCurrentLocation = async () => {
+    if (!document || !rootFolder) return;
+    const targetFolderId = currentViewFolderId || rootFolder._id;
+
+    // Get target folder name
+    const targetFolderName = isRootView
+      ? "Mi biblioteca"
+      : currentViewFolder?.name || "carpeta seleccionada";
+
+    try {
+      await moveDocument({
+        documentId: document._id,
+        newFolderId: targetFolderId,
+      });
+      toast.success(`Movido a "${targetFolderName}"`);
+      onOpenChange(false);
+    } catch (error: any) {
+      toast.error(error.message || "No se pudo mover el documento");
+    }
   };
 
   // Filter out Root folder and current document's folder from the list
@@ -136,95 +166,25 @@ export function MoveDocumentDialog({
         </DialogHeader>
 
         {/* Current location indicator */}
-        <div className="px-6 py-3 border-b">
-          <div className="flex items-center gap-2">
-            <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-              Ubicación actual:
-            </span>
-            <div className="flex items-center gap-1.5 text-sm font-medium">
-              {isRootView ? (
-                <>
-                  <Home className="h-3.5 w-3.5 text-blue-500" />
-                  <span>Mi biblioteca</span>
-                </>
-              ) : (
-                <>
-                  <FolderOpen className="h-3.5 w-3.5 text-blue-500" />
-                  <span>{currentViewFolder?.name || "Cargando..."}</span>
-                </>
-              )}
-            </div>
-          </div>
-        </div>
+        <CurrentLocationIndicator
+          isRootView={isRootView}
+          currentViewFolder={currentViewFolder}
+        />
 
         {/* Folders list */}
         <ScrollArea className="flex-1 px-6 py-4">
           <div className="space-y-0.5">
             {filteredFolders.length > 0 ? (
               filteredFolders.map((folder) => (
-                <div
+                <FolderRow
                   key={folder._id}
-                  className="w-full flex items-center gap-2 px-3 py-2.5 rounded-md transition-all hover:bg-muted/60 group border border-transparent hover:border-border"
-                >
-                  <Folder className="h-4 w-4 shrink-0 text-blue-500" />
-                  <button
-                    onClick={() => handleFolderClick(folder._id)}
-                    className="flex-1 truncate text-sm font-medium text-left"
-                  >
-                    {folder.name}
-                  </button>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    onClick={async (e) => {
-                      e.stopPropagation();
-                      if (!document || !rootFolder) return;
-
-                      // Get source folder name
-                      const sourceFolderName = currentFolderId
-                        ? currentFolderId === rootFolder._id
-                          ? "Mi biblioteca"
-                          : sourceFolder?.name || "carpeta actual"
-                        : "Mi biblioteca";
-
-                      try {
-                        await moveDocument({
-                          documentId: document._id,
-                          newFolderId: folder._id,
-                        });
-                        toast.success(
-                          `Movido de "${sourceFolderName}" a "${folder.name}"`,
-                        );
-                        onOpenChange(false);
-                      } catch (error: any) {
-                        toast.error(
-                          error.message || "No se pudo mover el documento",
-                        );
-                      }
-                    }}
-                    className="opacity-0 group-hover:opacity-100 transition-opacity h-7 px-2 text-xs"
-                  >
-                    Mover
-                  </Button>
-                  <button
-                    onClick={() => handleFolderClick(folder._id)}
-                    className="p-1 hover:bg-muted rounded transition-colors"
-                    aria-label="Abrir carpeta"
-                  >
-                    <ChevronRight className="h-4 w-4 text-muted-foreground" />
-                  </button>
-                </div>
+                  folder={folder}
+                  onNavigate={handleFolderClick}
+                  onMove={handleMoveToFolder}
+                />
               ))
             ) : (
-              <div className="flex flex-col items-center justify-center py-12 text-center">
-                <FolderOpen className="h-12 w-12 text-muted-foreground/30 mb-3" />
-                <p className="text-sm font-medium text-muted-foreground">
-                  No hay subcarpetas
-                </p>
-                <p className="text-xs text-muted-foreground mt-1">
-                  Esta carpeta está vacía
-                </p>
-              </div>
+              <EmptyFoldersState />
             )}
           </div>
         </ScrollArea>
@@ -232,32 +192,11 @@ export function MoveDocumentDialog({
         {/* Footer */}
         <div className="px-6 py-4 border-t bg-muted/20">
           {/* Breadcrumb navigation */}
-          <div className="flex items-center gap-1 text-xs text-muted-foreground mb-3">
-            <button
-              onClick={() => handleBreadcrumbClick(undefined)}
-              className="flex items-center gap-1 hover:text-foreground transition-colors"
-            >
-              <Home className="h-3 w-3" />
-              <span>Mi biblioteca</span>
-            </button>
-            {folderPath && folderPath.length > 0 && (
-              <>
-                {folderPath
-                  .filter((f) => f._id !== rootFolder?._id)
-                  .map((folder) => (
-                    <div key={folder._id} className="flex items-center gap-1">
-                      <ChevronRight className="h-3 w-3" />
-                      <button
-                        onClick={() => handleBreadcrumbClick(folder._id)}
-                        className="hover:text-foreground transition-colors truncate max-w-[100px]"
-                      >
-                        {folder.name}
-                      </button>
-                    </div>
-                  ))}
-              </>
-            )}
-          </div>
+          <BreadcrumbNavigation
+            folderPath={folderPath}
+            rootFolderId={rootFolder?._id}
+            onNavigate={handleBreadcrumbClick}
+          />
 
           {/* Action buttons */}
           <DialogFooter>
@@ -270,28 +209,7 @@ export function MoveDocumentDialog({
             </Button>
             {canSelectCurrentLocation && (
               <Button
-                onClick={async () => {
-                  if (!document || !rootFolder) return;
-                  const targetFolderId = currentViewFolderId || rootFolder._id;
-
-                  // Get target folder name
-                  const targetFolderName = isRootView
-                    ? "Mi biblioteca"
-                    : currentViewFolder?.name || "carpeta seleccionada";
-
-                  try {
-                    await moveDocument({
-                      documentId: document._id,
-                      newFolderId: targetFolderId,
-                    });
-                    toast.success(`Movido a "${targetFolderName}"`);
-                    onOpenChange(false);
-                  } catch (error: any) {
-                    toast.error(
-                      error.message || "No se pudo mover el documento",
-                    );
-                  }
-                }}
+                onClick={handleMoveToCurrentLocation}
                 className="min-w-[100px]"
               >
                 Mover
