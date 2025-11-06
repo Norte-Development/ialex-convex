@@ -11,6 +11,7 @@ import { DocumentCard } from "./DocumentCard";
 import { useState, useEffect, useRef } from "react";
 import { EditFolderDialog } from "./EditFolderDialog";
 import { EditDocumentDialog } from "./EditDocumentDialog";
+import { MoveDocumentDialog } from "./MoveDocumentDialog";
 import { Doc, Id } from "../../../convex/_generated/dataModel";
 import { toast } from "sonner";
 import { FileText, ChevronRight, Upload } from "lucide-react";
@@ -42,6 +43,8 @@ export function LibraryGrid({
   const [editingFolder, setEditingFolder] =
     useState<Doc<"libraryFolders"> | null>(null);
   const [editingDocument, setEditingDocument] =
+    useState<Doc<"libraryDocuments"> | null>(null);
+  const [movingDocument, setMovingDocument] =
     useState<Doc<"libraryDocuments"> | null>(null);
   const [isDraggingOver, setIsDraggingOver] = useState(false);
   const [isDraggingOverParent, setIsDraggingOverParent] = useState(false);
@@ -343,6 +346,7 @@ export function LibraryGrid({
                 onEdit={setEditingDocument}
                 onDelete={handleDeleteDocument}
                 onDownload={handleDownloadDocument}
+                onMove={setMovingDocument}
                 viewMode={viewMode}
                 index={index}
                 currentFolderId={currentFolderId}
@@ -374,6 +378,13 @@ export function LibraryGrid({
           document={editingDocument}
           open={!!editingDocument}
           onOpenChange={(open: boolean) => !open && setEditingDocument(null)}
+        />
+
+        <MoveDocumentDialog
+          document={movingDocument}
+          open={!!movingDocument}
+          onOpenChange={(open: boolean) => !open && setMovingDocument(null)}
+          currentFolderId={currentFolderId}
         />
       </div>
     );
@@ -445,6 +456,7 @@ export function LibraryGrid({
             onEdit={setEditingDocument}
             onDelete={handleDeleteDocument}
             onDownload={handleDownloadDocument}
+            onMove={setMovingDocument}
             viewMode={viewMode}
             index={index}
             currentFolderId={currentFolderId}
@@ -487,6 +499,13 @@ export function LibraryGrid({
         document={editingDocument}
         open={!!editingDocument}
         onOpenChange={(open: boolean) => !open && setEditingDocument(null)}
+      />
+
+      <MoveDocumentDialog
+        document={movingDocument}
+        open={!!movingDocument}
+        onOpenChange={(open: boolean) => !open && setMovingDocument(null)}
+        currentFolderId={currentFolderId}
       />
     </div>
   );

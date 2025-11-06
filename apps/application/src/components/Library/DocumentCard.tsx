@@ -27,6 +27,7 @@ interface DocumentCardProps {
   onEdit: (document: Doc<"libraryDocuments">) => void;
   onDelete: (documentId: Id<"libraryDocuments">) => void;
   onDownload: (documentId: Id<"libraryDocuments">) => void;
+  onMove: (document: Doc<"libraryDocuments">) => void;
   viewMode: ViewMode;
   index: number;
   isDragDisabled?: boolean;
@@ -104,6 +105,7 @@ export function DocumentCard({
   onEdit,
   onDelete,
   onDownload,
+  onMove,
   viewMode,
   index,
   isDragDisabled = false,
@@ -150,7 +152,7 @@ export function DocumentCard({
         <div className="flex items-center gap-4 p-4">
           <span
             ref={dragHandleRef}
-            className="flex items-center text-gray-400 cursor-grab active:cursor-grabbing flex-shrink-0"
+            className="flex items-center text-gray-400 cursor-grab active:cursor-grabbing shrink-0"
             aria-label="Arrastrar documento"
             title="Arrastrar documento"
           >
@@ -160,9 +162,7 @@ export function DocumentCard({
             onClick={handleClick}
             className="flex items-center gap-4 flex-1 cursor-pointer min-w-0"
           >
-            <div className="flex-shrink-0">
-              {getIcon(document.mimeType, color)}
-            </div>
+            <div className="shrink-0">{getIcon(document.mimeType, color)}</div>
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2">
                 <p className="font-medium truncate">{document.title}</p>
@@ -173,7 +173,7 @@ export function DocumentCard({
               </p>
             </div>
           </div>
-          <div className="flex-shrink-0" onClick={(e) => e.stopPropagation()}>
+          <div className="shrink-0" onClick={(e) => e.stopPropagation()}>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" size="icon">
@@ -182,16 +182,19 @@ export function DocumentCard({
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
                 <DropdownMenuItem onClick={() => onDownload(document._id)}>
-                  Bajá
+                  Descargar
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => onMove(document)}>
+                  Organizar
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => onEdit(document)}>
-                  Editá
+                  Editar
                 </DropdownMenuItem>
                 <DropdownMenuItem
                   onClick={() => onDelete(document._id)}
                   className="text-red-600"
                 >
-                  Borrá
+                  Borrar
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
@@ -245,6 +248,9 @@ export function DocumentCard({
             <DropdownMenuContent align="end">
               <DropdownMenuItem onClick={() => onDownload(document._id)}>
                 Descargar
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => onMove(document)}>
+                Organizar
               </DropdownMenuItem>
               <DropdownMenuItem onClick={() => onEdit(document)}>
                 Editar
