@@ -631,6 +631,41 @@ export const moveLibraryDocument = mutation({
 });
 
 /**
+ * Moves a library document to Root (convenience wrapper).
+ *
+ * @param {Object} args - The function arguments
+ * @param {string} args.documentId - The document ID to move
+ */
+export const moveLibraryDocumentToRoot = mutation({
+  args: {
+    documentId: v.id("libraryDocuments"),
+  },
+  handler: async (ctx, args) => {
+    const currentUser = await getCurrentUserFromAuth(ctx);
+    const document = await ctx.db.get(args.documentId);
+
+    if (!document) throw new Error("Library document not found");
+
+    // Ensure Root exists and migrate existing items (idempotent)
+    const { internal } = await import("../_generated/api");
+    const rootFolder = await ctx.runMutation(
+      internal.functions.libraryFolders.getOrCreateLibraryRootFolder,
+      {
+        teamId: document.teamId,
+        userId: document.userId || currentUser._id,
+      },
+    );
+
+    // Use existing move function
+    await ctx.db.patch(args.documentId, {
+      folderId: rootFolder._id,
+    });
+
+    console.log("Moved library document to Root:", args.documentId);
+  },
+});
+
+/**
  * Updates a library document's metadata.
  *
  * @param {Object} args - The function arguments
