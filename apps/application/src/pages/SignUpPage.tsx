@@ -53,7 +53,7 @@ export default function SignUpPage() {
         <div className="max-w-lg mx-auto space-y-6">
           <div className="space-y-2">
             <div className="flex items-center gap-2">
-              <img src="/ialex-registro.webp" alt="iAlex" className="h-32"/>
+              <img src="/ialex-registro.webp" alt="iAlex" className="h-28"/>
             </div>
             {isTrial ? (
               <>
@@ -105,7 +105,7 @@ export default function SignUpPage() {
           {/* Mobile Header */}
           <div className="lg:hidden text-center mb-4">
             <div className="flex items-center justify-center gap-2 mb-1">
-              <img src="/ialex-registro.webp" alt="iAlex" className="h-32" />
+              <img src="/ialex-registro.webp" alt="iAlex" className="h-28" />
             </div>
             <p className="text-sm text-muted-foreground">
               {isTrial ? "¡Prueba Premium Gratis por 14 días!" : ""}

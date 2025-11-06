@@ -50,8 +50,8 @@ export const SignInPage: React.FC = () => {
         <div className="max-w-lg mx-auto space-y-6">
           <div className="space-y-2">
             <div className="flex items-center gap-2">
-              <img src="/ialex-registro.webp" alt="iAlex" className="h-32"/>
-            </div>
+              <img src="/ialex-registro.webp" alt="iAlex" className="h-28"/>
+            </div>  
             <p className="text-sm text-muted-foreground">
               Plataforma integral de gestión legal que combina organización tradicional 
               con inteligencia artificial avanzada para modernizar tu práctica jurídica.
@@ -87,7 +87,7 @@ export const SignInPage: React.FC = () => {
           {/* Mobile Header */}
           <div className="lg:hidden text-center mb-4">
             <div className="flex items-center justify-center gap-2 mb-1">
-              <img src="/ialex-registro.webp" alt="iAlex" className="h-32"/>
+              <img src="/ialex-registro.webp" alt="iAlex" className="h-28"/>
             </div>
           </div>
 
