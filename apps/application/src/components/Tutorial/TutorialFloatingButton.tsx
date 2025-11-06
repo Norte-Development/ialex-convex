@@ -88,7 +88,12 @@ export const TutorialFloatingButton: React.FC<TutorialFloatingButtonProps> = ({
             <HelpCircle className="h-6 w-6" />
           </Button>
         </TooltipTrigger>
-        <TooltipContent side="left" className="bg-gray-900 text-white">
+        <TooltipContent
+          side="left"
+          className="bg-gray-900 text-white border-0"
+          sideOffset={5}
+          hideArrow
+        >
           <p>Ayuda</p>
         </TooltipContent>
       </Tooltip>
@@ -158,7 +163,12 @@ export const TutorialFloatingButtonSmall: React.FC<
             <HelpCircle className="h-5 w-5" />
           </Button>
         </TooltipTrigger>
-        <TooltipContent side="left" className="bg-gray-900 text-white">
+        <TooltipContent
+          side="left"
+          className="bg-gray-900 text-white border-0"
+          sideOffset={5}
+          hideArrow
+        >
           <p>Ayuda</p>
         </TooltipContent>
       </Tooltip>
