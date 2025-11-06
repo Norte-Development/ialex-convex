@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import { Doc, Id } from "../../../convex/_generated/dataModel";
@@ -11,7 +11,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Folder, ChevronRight, Home } from "lucide-react";
+import { Folder, ChevronRight, Home, FolderOpen } from "lucide-react";
 import { toast } from "sonner";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
@@ -31,6 +31,9 @@ export function MoveDocumentDialog({
   const [selectedFolderId, setSelectedFolderId] = useState<
     Id<"libraryFolders"> | undefined
   >(currentFolderId);
+  const [currentViewFolderId, setCurrentViewFolderId] = useState<
+    Id<"libraryFolders"> | undefined
+  >(undefined);
 
   const moveDocument = useMutation(
     api.functions.libraryDocument.moveLibraryDocument,
@@ -42,11 +45,38 @@ export function MoveDocumentDialog({
     document?.teamId ? { teamId: document.teamId } : {},
   );
 
-  // Get all available destinations
-  const destinations = useQuery(
-    api.functions.libraryFolders.listMoveDestinationsForLibraryDocument,
-    document ? { documentId: document._id } : "skip",
+  // Get folders in current view
+  const folders = useQuery(
+    api.functions.libraryFolders.getLibraryFolders,
+    document
+      ? document.teamId
+        ? {
+            teamId: document.teamId,
+            parentFolderId: currentViewFolderId || rootFolder?._id,
+          }
+        : { parentFolderId: currentViewFolderId || rootFolder?._id }
+      : "skip",
   );
+
+  // Get current folder for breadcrumb
+  const currentViewFolder = useQuery(
+    api.functions.libraryFolders.getLibraryFolder,
+    currentViewFolderId ? { folderId: currentViewFolderId } : "skip",
+  );
+
+  // Get breadcrumb path
+  const folderPath = useQuery(
+    api.functions.libraryFolders.getLibraryFolderPath,
+    currentViewFolderId ? { folderId: currentViewFolderId } : "skip",
+  );
+
+  // Reset view when dialog opens
+  useEffect(() => {
+    if (open) {
+      setCurrentViewFolderId(undefined);
+      setSelectedFolderId(currentFolderId);
+    }
+  }, [open, currentFolderId]);
 
   const handleMove = async () => {
     if (!document || !rootFolder) return;
@@ -68,6 +98,25 @@ export function MoveDocumentDialog({
     }
   };
 
+  const handleFolderClick = (folderId: Id<"libraryFolders">) => {
+    setCurrentViewFolderId(folderId);
+  };
+
+  const handleBreadcrumbClick = (folderId?: Id<"libraryFolders">) => {
+    setCurrentViewFolderId(folderId);
+  };
+
+  // Filter out Root folder and current document's folder from the list
+  const filteredFolders = (folders || []).filter((folder) => {
+    if (rootFolder && folder._id === rootFolder._id) return false;
+    if (folder._id === currentFolderId) return false;
+    return true;
+  });
+
+  const isRootView =
+    !currentViewFolderId || currentViewFolderId === rootFolder?._id;
+  const canSelectCurrentLocation = currentViewFolderId !== currentFolderId;
+
   if (!document) return null;
 
   return (
@@ -80,53 +129,87 @@ export function MoveDocumentDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <ScrollArea className="max-h-[400px] pr-4">
-          <div className="space-y-1">
-            {/* Mi biblioteca (Root folder) option */}
-            {rootFolder && (
-              <button
-                onClick={() => setSelectedFolderId(rootFolder._id)}
-                className={`w-full flex items-center gap-2 px-3 py-2 rounded-md transition-colors text-left ${
-                  selectedFolderId === rootFolder._id
-                    ? "bg-primary/10 text-primary font-medium"
-                    : "hover:bg-muted"
-                }`}
+        {/* Breadcrumb navigation */}
+        <div className="flex items-center gap-1 text-sm text-muted-foreground border-b pb-3">
+          <button
+            onClick={() => handleBreadcrumbClick(undefined)}
+            className="flex items-center gap-1 hover:text-foreground transition-colors"
+          >
+            <Home className="h-4 w-4" />
+            <span>Mi biblioteca</span>
+          </button>
+          {folderPath && folderPath.length > 0 && (
+            <>
+              {folderPath
+                .filter((f) => f._id !== rootFolder?._id)
+                .map((folder) => (
+                  <div key={folder._id} className="flex items-center gap-1">
+                    <ChevronRight className="h-3 w-3" />
+                    <button
+                      onClick={() => handleBreadcrumbClick(folder._id)}
+                      className="hover:text-foreground transition-colors truncate max-w-[150px]"
+                    >
+                      {folder.name}
+                    </button>
+                  </div>
+                ))}
+            </>
+          )}
+        </div>
+
+        {/* Current location selector */}
+        <div className="bg-muted/30 rounded-lg p-3 border border-dashed">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              {isRootView ? (
+                <Home className="h-4 w-4 text-muted-foreground" />
+              ) : (
+                <FolderOpen className="h-4 w-4 text-muted-foreground" />
+              )}
+              <span className="text-sm font-medium">
+                {isRootView
+                  ? "Mi biblioteca"
+                  : currentViewFolder?.name || "Carpeta actual"}
+              </span>
+            </div>
+            {canSelectCurrentLocation && (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() =>
+                  setSelectedFolderId(currentViewFolderId || rootFolder?._id)
+                }
+                className={
+                  selectedFolderId === (currentViewFolderId || rootFolder?._id)
+                    ? "bg-primary/10 text-primary border-primary"
+                    : ""
+                }
               >
-                <Home className="h-4 w-4 shrink-0" />
-                <span className="flex-1">Mi biblioteca</span>
-                {selectedFolderId === rootFolder._id && (
-                  <ChevronRight className="h-4 w-4 text-primary" />
-                )}
-              </button>
+                {selectedFolderId === (currentViewFolderId || rootFolder?._id)
+                  ? "Seleccionada"
+                  : "Seleccionar esta ubicación"}
+              </Button>
             )}
+          </div>
+        </div>
 
-            {/* Folder list - Filter out Root folder if it appears in destinations */}
-            {destinations
-              ?.filter((dest) => dest.folderId !== rootFolder?._id)
-              .map((dest) => (
+        <ScrollArea className="max-h-[300px] pr-4">
+          <div className="space-y-1">
+            {filteredFolders.length > 0 ? (
+              filteredFolders.map((folder) => (
                 <button
-                  key={dest.folderId}
-                  onClick={() =>
-                    setSelectedFolderId(dest.folderId as Id<"libraryFolders">)
-                  }
-                  className={`w-full flex items-center gap-2 px-3 py-2 rounded-md transition-colors text-left ${
-                    selectedFolderId === dest.folderId
-                      ? "bg-primary/10 text-primary font-medium"
-                      : "hover:bg-muted"
-                  }`}
-                  style={{ paddingLeft: `${12 + dest.depth * 20}px` }}
+                  key={folder._id}
+                  onClick={() => handleFolderClick(folder._id)}
+                  className="w-full flex items-center gap-2 px-3 py-2 rounded-md transition-colors text-left hover:bg-muted group"
                 >
-                  <Folder className="h-4 w-4 shrink-0" />
-                  <span className="flex-1 truncate">{dest.name}</span>
-                  {selectedFolderId === dest.folderId && (
-                    <ChevronRight className="h-4 w-4 text-primary shrink-0" />
-                  )}
+                  <Folder className="h-4 w-4 shrink-0 text-muted-foreground" />
+                  <span className="flex-1 truncate">{folder.name}</span>
+                  <ChevronRight className="h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
                 </button>
-              ))}
-
-            {(!destinations || destinations.length === 0) && !rootFolder && (
+              ))
+            ) : (
               <div className="text-center py-8 text-muted-foreground text-sm">
-                No hay carpetas disponibles
+                No hay subcarpetas en esta ubicación
               </div>
             )}
           </div>
@@ -138,7 +221,7 @@ export function MoveDocumentDialog({
           </Button>
           <Button
             onClick={handleMove}
-            disabled={selectedFolderId === currentFolderId}
+            disabled={!selectedFolderId || selectedFolderId === currentFolderId}
           >
             Mover acá
           </Button>
