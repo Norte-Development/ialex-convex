@@ -51,9 +51,7 @@ export function LibraryGrid({
   // Get Root folder ID - needed to filter it out and use for queries
   const rootFolder = useQuery(
     api.functions.libraryFolders.getLibraryRootFolder,
-    activeScope.type === "personal"
-      ? {}
-      : { teamId: activeScope.teamId },
+    activeScope.type === "personal" ? {} : { teamId: activeScope.teamId },
   );
 
   // Resolve actual folder ID: use Root ID when currentFolderId is undefined
@@ -64,6 +62,9 @@ export function LibraryGrid({
     api.functions.libraryFolders.getLibraryFolder,
     currentFolderId ? { folderId: currentFolderId } : "skip",
   );
+
+  // Check if we're in a subfolder (not at Root level)
+  const isInSubfolder = currentFolderId && currentFolderId !== rootFolder?._id;
 
   // Fetch folders - userId is handled server-side via auth
   // When at root (currentFolderId undefined), show folders in Root
@@ -132,8 +133,11 @@ export function LibraryGrid({
         const dropTargetData = location.current.dropTargets[0]?.data;
         if (!dropTargetData) return;
 
-        const sourceDocumentId = source.data.documentId as Id<"libraryDocuments">;
-        const targetFolderId = dropTargetData.folderId as Id<"libraryFolders"> | undefined;
+        const sourceDocumentId = source.data
+          .documentId as Id<"libraryDocuments">;
+        const targetFolderId = dropTargetData.folderId as
+          | Id<"libraryFolders">
+          | undefined;
 
         // Don't move if dropping in the same folder
         if (source.data.currentFolderId === targetFolderId) return;
@@ -148,7 +152,9 @@ export function LibraryGrid({
         } catch (err) {
           console.error("Error moving document:", err);
           toast.error(
-            err instanceof Error ? err.message : "No se pudo mover el documento",
+            err instanceof Error
+              ? err.message
+              : "No se pudo mover el documento",
           );
         }
       },
@@ -171,9 +177,12 @@ export function LibraryGrid({
     });
   }, [actualFolderId]);
 
-  // Setup drop zone for parent folder (if exists)
+  // Setup drop zone for parent folder or Root (if in subfolder)
   useEffect(() => {
-    if (!parentDropZoneRef.current || !currentFolder?.parentFolderId) return;
+    if (!parentDropZoneRef.current || !isInSubfolder) return;
+
+    // If current folder has a parent, use that. Otherwise, use Root as the parent
+    const parentFolderId = currentFolder?.parentFolderId || rootFolder?._id;
 
     return dropTargetForElements({
       element: parentDropZoneRef.current,
@@ -181,20 +190,19 @@ export function LibraryGrid({
       onDragLeave: () => setIsDraggingOverParent(false),
       onDrop: () => setIsDraggingOverParent(false),
       getData: () => ({
-        folderId: currentFolder.parentFolderId,
+        folderId: parentFolderId,
         type: "LIBRARY_DOCUMENT_DROP_ZONE",
       }),
     });
-  }, [currentFolder?.parentFolderId]);
+  }, [currentFolder?.parentFolderId, rootFolder?._id, isInSubfolder]);
 
   // Filter and sort
   // Exclude Root folder from display (ghost folder - users see its contents but not the folder itself)
-  const filteredFolders = (folders || [])
-    .filter((folder) => {
-      // Hide Root folder from the list
-      if (rootFolder && folder._id === rootFolder._id) return false;
-      return folder.name.toLowerCase().includes(searchQuery.toLowerCase());
-    });
+  const filteredFolders = (folders || []).filter((folder) => {
+    // Hide Root folder from the list
+    if (rootFolder && folder._id === rootFolder._id) return false;
+    return folder.name.toLowerCase().includes(searchQuery.toLowerCase());
+  });
 
   const filteredDocuments = (documents || [])
     .filter((doc) => {
@@ -265,8 +273,8 @@ export function LibraryGrid({
         </div>
 
         <div className="space-y-2">
-          {/* Parent folder drop zone */}
-          {currentFolder?.parentFolderId && (
+          {/* Parent folder or Root drop zone (when in subfolder) */}
+          {isInSubfolder && (
             <div
               ref={parentDropZoneRef}
               className={`rounded-lg transition-all duration-200 flex items-center justify-center py-3 ${
@@ -276,18 +284,21 @@ export function LibraryGrid({
               }`}
             >
               <div className="flex items-center justify-center gap-2 px-4">
-                <ChevronRight className={`h-4 w-4 rotate-180 transition-colors ${
-                  isDraggingOverParent ? "text-amber-600" : "text-gray-400"
-                }`} />
-                <span className={`text-sm transition-colors ${
-                  isDraggingOverParent 
-                    ? "font-medium text-amber-700" 
-                    : "text-gray-500"
-                }`}>
-                  {isDraggingOverParent 
+                <ChevronRight
+                  className={`h-4 w-4 rotate-180 transition-colors ${
+                    isDraggingOverParent ? "text-amber-600" : "text-gray-400"
+                  }`}
+                />
+                <span
+                  className={`text-sm transition-colors ${
+                    isDraggingOverParent
+                      ? "font-medium text-amber-700"
+                      : "text-gray-500"
+                  }`}
+                >
+                  {isDraggingOverParent
                     ? "Soltá acá para mover a la carpeta anterior"
-                    : "Arrastrá acá para mover a la carpeta anterior"
-                  }
+                    : "Arrastrá acá para mover a la carpeta anterior"}
                 </span>
               </div>
             </div>
@@ -376,8 +387,8 @@ export function LibraryGrid({
         </p>
       </div>
 
-      {/* Parent folder drop zone for grid view */}
-      {currentFolder?.parentFolderId && (
+      {/* Parent folder or Root drop zone (when in subfolder) */}
+      {isInSubfolder && (
         <div
           ref={parentDropZoneRef}
           className={`rounded-lg transition-all duration-200 flex items-center justify-center py-3 ${
@@ -387,18 +398,21 @@ export function LibraryGrid({
           }`}
         >
           <div className="flex items-center justify-center gap-2 px-4">
-            <ChevronRight className={`h-4 w-4 rotate-180 transition-colors ${
-              isDraggingOverParent ? "text-amber-600" : "text-gray-400"
-            }`} />
-            <span className={`text-sm transition-colors ${
-              isDraggingOverParent 
-                ? "font-medium text-amber-700" 
-                : "text-gray-500"
-            }`}>
-              {isDraggingOverParent 
+            <ChevronRight
+              className={`h-4 w-4 rotate-180 transition-colors ${
+                isDraggingOverParent ? "text-amber-600" : "text-gray-400"
+              }`}
+            />
+            <span
+              className={`text-sm transition-colors ${
+                isDraggingOverParent
+                  ? "font-medium text-amber-700"
+                  : "text-gray-500"
+              }`}
+            >
+              {isDraggingOverParent
                 ? "Soltá acá para mover a la carpeta anterior"
-                : "Arrastrá acá para mover a la carpeta anterior"
-              }
+                : "Arrastrá acá para mover a la carpeta anterior"}
             </span>
           </div>
         </div>
