@@ -157,43 +157,7 @@ export function MoveDocumentDialog({
           )}
         </div>
 
-        {/* Current location selector */}
-        <div className="bg-muted/30 rounded-lg p-3 border border-dashed">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              {isRootView ? (
-                <Home className="h-4 w-4 text-muted-foreground" />
-              ) : (
-                <FolderOpen className="h-4 w-4 text-muted-foreground" />
-              )}
-              <span className="text-sm font-medium">
-                {isRootView
-                  ? "Mi biblioteca"
-                  : currentViewFolder?.name || "Carpeta actual"}
-              </span>
-            </div>
-            {canSelectCurrentLocation && (
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() =>
-                  setSelectedFolderId(currentViewFolderId || rootFolder?._id)
-                }
-                className={
-                  selectedFolderId === (currentViewFolderId || rootFolder?._id)
-                    ? "bg-primary/10 text-primary border-primary"
-                    : ""
-                }
-              >
-                {selectedFolderId === (currentViewFolderId || rootFolder?._id)
-                  ? "Seleccionada"
-                  : "Seleccionar esta ubicación"}
-              </Button>
-            )}
-          </div>
-        </div>
-
-        <ScrollArea className="max-h-[300px] pr-4">
+        <ScrollArea className="max-h-[350px] pr-4">
           <div className="space-y-1">
             {filteredFolders.length > 0 ? (
               filteredFolders.map((folder) => (
@@ -219,12 +183,26 @@ export function MoveDocumentDialog({
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Cancelar
           </Button>
-          <Button
-            onClick={handleMove}
-            disabled={!selectedFolderId || selectedFolderId === currentFolderId}
-          >
-            Mover acá
-          </Button>
+          {canSelectCurrentLocation && (
+            <Button
+              onClick={async () => {
+                if (!document || !rootFolder) return;
+                const targetFolderId = currentViewFolderId || rootFolder._id;
+                try {
+                  await moveDocument({
+                    documentId: document._id,
+                    newFolderId: targetFolderId,
+                  });
+                  toast.success("Documento movido exitosamente");
+                  onOpenChange(false);
+                } catch (error: any) {
+                  toast.error(error.message || "No se pudo mover el documento");
+                }
+              }}
+            >
+              Mover acá
+            </Button>
+          )}
         </DialogFooter>
       </DialogContent>
     </Dialog>
