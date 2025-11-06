@@ -34,6 +34,22 @@ window.addEventListener('unhandledrejection', (e: PromiseRejectionEvent) => {
   }
 });
 
+// Log NotFoundError removeChild context for debugging portal teardown issues
+window.addEventListener("error", (e) => {
+  if (String(e.message || "").includes("removeChild")) {
+    console.warn("NotFoundError removeChild detected - portal teardown issue", {
+      message: e.message,
+      filename: e.filename,
+      lineno: e.lineno,
+      colno: e.colno,
+      activeElement: document.activeElement?.tagName,
+      openSelects: document.querySelectorAll("[data-state='open'][data-slot='select-content']").length,
+      openDialogs: document.querySelectorAll("[data-slot='dialog-content']").length,
+      stack: e.error?.stack,
+    });
+  }
+});
+
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <PostHogProvider apiKey={import.meta.env.VITE_PUBLIC_POSTHOG_KEY} options={options}>

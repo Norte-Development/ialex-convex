@@ -27,6 +27,7 @@ import { UserPlus, Search, Loader2, Link2 } from "lucide-react";
 import { toast } from "sonner";
 import { useCase } from "../../context/CaseContext";
 import { tracking } from "@/lib/tracking";
+import { closeFloatingLayers } from "@/lib/closeFloatingLayers";
 
 interface SyncNewClientDialogProps {
   open: boolean;
@@ -118,6 +119,8 @@ export default function SyncNewClientDialog({
       });
 
       toast.success("Cliente vinculado exitosamente");
+      // Close any open floating layers before closing dialog to prevent NotFoundError
+      closeFloatingLayers();
       onOpenChange(false);
       setSearchTerm("");
       setSelectedClientId(null);
@@ -193,6 +196,8 @@ export default function SyncNewClientDialog({
         notes: "",
       });
       setSelectedRole("Demandante");
+      // Close any open floating layers before closing dialog to prevent NotFoundError
+      closeFloatingLayers();
       onOpenChange(false);
     } catch (error) {
       console.error("Error creating and linking client:", error);

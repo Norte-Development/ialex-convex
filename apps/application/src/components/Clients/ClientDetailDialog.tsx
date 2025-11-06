@@ -26,6 +26,7 @@ import { Separator } from "../ui/separator";
 import { AlertTriangle } from "lucide-react";
 import { Link } from "react-router-dom";
 import { toast } from "sonner";
+import { closeFloatingLayers } from "@/lib/closeFloatingLayers";
 
 interface ClientDetailDialogProps {
   clientId: Id<"clients">;
@@ -118,6 +119,8 @@ export default function ClientDetailDialog({
         clientType: formData.clientType,
         notes: formData.notes || undefined,
       });
+      // Close any open floating layers before closing dialog to prevent NotFoundError
+      closeFloatingLayers();
       setOpen(false);
     } catch (e) {
       toast.error("Error al guardar: " + (e as Error).message);
@@ -134,6 +137,8 @@ export default function ClientDetailDialog({
     setDeleting(true);
     try {
       await deleteClient({ clientId: clientId });
+      // Close any open floating layers before closing dialog to prevent NotFoundError
+      closeFloatingLayers();
       setOpen(false);
       toast.success("Cliente eliminado correctamente");
     } catch (e) {

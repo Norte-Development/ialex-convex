@@ -34,6 +34,7 @@ import {
 import { Separator } from "../ui/separator";
 import { toast } from "sonner";
 import { tracking } from "@/lib/tracking";
+import { closeFloatingLayers } from "@/lib/closeFloatingLayers";
 
 export default function CreateCaseDialog() {
   // Hooks
@@ -255,6 +256,8 @@ export default function CreateCaseDialog() {
       setDeadlines([]);
       setShowDeadlineForm(false);
 
+      // Close any open floating layers before closing dialog to prevent NotFoundError
+      closeFloatingLayers();
       setOpen(false);
 
       // Navigate to the created case

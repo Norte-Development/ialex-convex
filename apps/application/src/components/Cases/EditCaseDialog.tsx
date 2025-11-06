@@ -24,6 +24,7 @@ import {
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { Case } from "types/cases";
+import { closeFloatingLayers } from "@/lib/closeFloatingLayers";
 
 interface EditCaseDialogProps {
   case_: Case | null;
@@ -98,6 +99,8 @@ export default function EditCaseDialog({
       });
 
       toast.success("Caso actualizado exitosamente");
+      // Close any open floating layers before closing dialog to prevent NotFoundError
+      closeFloatingLayers();
       onOpenChange(false);
     } catch (error) {
       console.error("Error updating case:", error);
