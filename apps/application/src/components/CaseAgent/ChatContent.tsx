@@ -26,6 +26,7 @@ import {
   ConversationEmptyState,
   ConversationScrollButton,
 } from "../ai-elements/conversation";
+import { tracking } from "@/lib/tracking";
 import { Message, MessageContent, MessageAvatar } from "../ai-elements/message";
 import { Reasoning, ReasoningContent, ReasoningTrigger } from "../ai-elements/reasoning";
 import { Sources, SourcesTrigger, SourcesContent } from "../ai-elements/source";
@@ -162,7 +163,21 @@ export function ChatContent({ threadId }: { threadId: string | undefined }) {
             truncatedTitle,
             caseId || undefined,
           );
+          
+          // Track AI chat started
+          tracking.aiChatStarted({
+            threadId: activeThreadId,
+            context: caseId ? "case" : "home",
+            caseId: caseId || undefined,
+          });
         }
+
+        // Track message sent
+        tracking.aiMessageSent({
+          threadId: activeThreadId,
+          messageLength: cleanMessage.length,
+          hasReferences: references.length > 0,
+        });
 
         const {
           threadId: newThreadId,
@@ -191,6 +206,11 @@ export function ChatContent({ threadId }: { threadId: string | undefined }) {
         });
       } catch (error) {
         console.error("Failed to initiate workflow", error);
+        const errorThreadId = threadId || "unknown";
+        tracking.aiError({
+          errorType: error instanceof Error ? error.message : "unknown",
+          threadId: errorThreadId,
+        });
       }
     },
     [
@@ -211,6 +231,9 @@ export function ChatContent({ threadId }: { threadId: string | undefined }) {
     if (!threadId) return;
     const order = messages?.find((m) => m.status === "streaming")?.order ?? 0;
     void abortStreamByOrder({ threadId, order });
+    
+    // Track chat abort
+    tracking.aiChatAborted({ threadId });
   }, [threadId, messages, abortStreamByOrder]);
 
   // Simple streaming detection - just check if any message has streaming status

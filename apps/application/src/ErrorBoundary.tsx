@@ -1,4 +1,5 @@
 import { Component, ReactNode } from "react";
+import { tracking } from "./lib/tracking";
 
 function isChunkLoadError(error: unknown): boolean {
   const errorText = String((error as any)?.message || error || '');
@@ -24,11 +25,19 @@ export class ErrorBoundary extends Component<
   static getDerivedStateFromError(error: unknown) {
     // Check for chunk loading errors and reload immediately
     if (isChunkLoadError(error)) {
+      tracking.chunkLoadError();
       window.location.reload();
       return { error: null };
     }
 
     const errorText = "" + (error as any).toString();
+    
+    // Track error boundary
+    const errorType = errorText.includes("@clerk/clerk-react") 
+      ? "clerk_config" 
+      : "unknown";
+    tracking.errorBoundary(errorType);
+    
     if (
       errorText.includes("@clerk/clerk-react") &&
       errorText.includes("publishableKey")

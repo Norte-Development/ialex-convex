@@ -5,6 +5,7 @@ import { Id } from "convex/_generated/dataModel";
 import { useBillingLimit } from "@/components/Billing";
 import { toast } from "sonner";
 import { useUpload } from "@/context/UploadContext";
+import { tracking } from "@/lib/tracking";
 
 type Props = {
   caseId: Id<"cases">;
@@ -97,7 +98,7 @@ const NewDocumentInput = forwardRef<NewDocumentInputHandle, Props>(
             // Update progress to 75%
             updateUpload(fileId, { progress: 75 });
 
-            await createDocument({
+            const documentId = await createDocument({
               title: file.name,
               caseId,
               folderId,
@@ -107,6 +108,14 @@ const NewDocumentInput = forwardRef<NewDocumentInputHandle, Props>(
               mimeType: file.type || "application/octet-stream",
               fileSize: file.size,
             } as any);
+
+            // Track document upload
+            tracking.documentUploaded({
+              documentId,
+              fileSize: file.size,
+              mimeType: file.type || "application/octet-stream",
+              caseId,
+            });
 
             // Update to success
             updateUpload(fileId, { status: "success", progress: 100 });
@@ -122,6 +131,12 @@ const NewDocumentInput = forwardRef<NewDocumentInputHandle, Props>(
             onSuccess?.();
           } catch (err) {
             console.error("Error uploading document:", err);
+
+            // Track upload failure
+            tracking.documentUploadFailed({
+              errorType: err instanceof Error ? err.message : "unknown",
+              fileSize: file.size,
+            });
 
             // Update to error
             updateUpload(fileId, {

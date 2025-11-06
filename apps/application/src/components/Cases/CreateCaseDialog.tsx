@@ -33,6 +33,7 @@ import {
 } from "@/components/Billing";
 import { Separator } from "../ui/separator";
 import { toast } from "sonner";
+import { tracking } from "@/lib/tracking";
 
 export default function CreateCaseDialog() {
   // Hooks
@@ -184,6 +185,14 @@ export default function CreateCaseDialog() {
       };
 
       const caseId = await createCase(caseData);
+
+      // Track case creation
+      tracking.caseCreated({
+        caseId,
+        category: formData.category,
+        priority: formData.priority,
+        status: "pendiente",
+      });
 
       // Vincular clientes al caso
       if (selectedClients.length > 0) {
