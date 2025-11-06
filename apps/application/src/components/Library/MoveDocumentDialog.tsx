@@ -142,10 +142,9 @@ export function MoveDocumentDialog({
     }
   };
 
-  // Filter out Root folder and current document's folder from the list
+  // Filter out only Root folder (keep current folder to allow navigation to subfolders)
   const filteredFolders = (folders || []).filter((folder) => {
     if (rootFolder && folder._id === rootFolder._id) return false;
-    if (folder._id === currentFolderId) return false;
     return true;
   });
 
@@ -181,6 +180,7 @@ export function MoveDocumentDialog({
                   folder={folder}
                   onNavigate={handleFolderClick}
                   onMove={handleMoveToFolder}
+                  disableMove={folder._id === currentFolderId}
                 />
               ))
             ) : (
