@@ -24,6 +24,7 @@ import {
 import { UserPlus } from "lucide-react";
 import { toast } from "sonner";
 import { tracking } from "@/lib/tracking";
+import { closeFloatingLayers } from "@/lib/closeFloatingLayers";
 
 export default function CreateClientDialog() {
   const [open, setOpen] = useState(false);
@@ -102,6 +103,7 @@ export default function CreateClientDialog() {
         notes: "",
       });
 
+      closeFloatingLayers();
       setOpen(false);
     } catch (error) {
       console.error("Error creating client:", error);
@@ -239,7 +241,10 @@ export default function CreateClientDialog() {
             <Button
               type="button"
               variant="outline"
-              onClick={() => setOpen(false)}
+              onClick={() => {
+                closeFloatingLayers();
+                setOpen(false);
+              }}
               disabled={isLoading}
             >
               Cancelar

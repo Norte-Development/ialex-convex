@@ -673,7 +673,10 @@ export default function CreateCaseDialog() {
             <Button
               type="button"
               variant="outline"
-              onClick={() => setOpen(false)}
+              onClick={() => {
+                closeFloatingLayers();
+                setOpen(false);
+              }}
               disabled={isLoading}
             >
               Cancelar
