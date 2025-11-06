@@ -138,7 +138,8 @@ const ClarityTracker = () => {
 
   // Track page views
   useEffect(() => {
-    const pageName = location.pathname.split("/").filter(Boolean).join("/") || "home";
+    const pageName =
+      location.pathname.split("/").filter(Boolean).join("/") || "home";
     clarity.page(pageName);
   }, [location]);
 

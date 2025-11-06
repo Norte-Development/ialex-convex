@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useMutation } from "convex/react";
+import { useMutation, useQuery } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import {
   Dialog,
@@ -44,6 +44,14 @@ export function CreateFolderDialog({
   const [color, setColor] = useState(COLORS[0].value);
   const [isLoading, setIsLoading] = useState(false);
 
+  // Get Root folder ID - when parentFolderId is undefined, we're creating in Root
+  const rootFolder = useQuery(
+    api.functions.libraryFolders.getLibraryRootFolder,
+    activeScope.type === "personal"
+      ? {}
+      : { teamId: activeScope.teamId },
+  );
+
   const createFolder = useMutation(
     api.functions.libraryFolders.createLibraryFolder
   );
@@ -59,12 +67,15 @@ export function CreateFolderDialog({
     setIsLoading(true);
 
     try {
+      // Use Root ID when parentFolderId is undefined (creating at root level)
+      const actualParentFolderId = parentFolderId || rootFolder?._id;
+
       await createFolder({
         name: name.trim(),
         description: description.trim() || undefined,
         color,
         teamId: activeScope.type === "team" ? activeScope.teamId : undefined,
-        parentFolderId,
+        parentFolderId: actualParentFolderId,
       });
 
       toast.success("Carpeta creada exitosamente");
