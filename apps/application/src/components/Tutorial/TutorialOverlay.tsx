@@ -389,17 +389,15 @@ const TutorialCard: React.FC<TutorialCardProps> = ({
           </button>
         </div>
 
-        {/* Progress bar */}
+        {/* Progress indicator */}
         <div className="flex items-center gap-2 text-xs text-gray-500">
           <span>
             Paso {stepNumber} de {totalSteps}
           </span>
-          <div className="flex-1 h-1.5 bg-gray-200 rounded-full overflow-hidden">
-            <div
-              className="h-full bg-[#4F46E5] transition-all duration-300"
-              style={{ width: `${progress}%` }}
-            />
-          </div>
+          <span className="text-gray-400">•</span>
+          <span className="font-medium text-[#4F46E5]">
+            {Math.round(progress)}%
+          </span>
         </div>
       </div>
 

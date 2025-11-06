@@ -8,7 +8,7 @@ import NewUserHome from "@/components/Home/NewUserHome";
 import { CircleArrowUp } from "lucide-react";
 import { useHomeThreads } from "@/components/HomeAgent/hooks/useHomeThreads";
 import { Loader } from "@/components/ai-elements/loader";
-import { TutorialManager } from "@/components/Tutorial";
+import { TutorialManager, TutorialFloatingButton } from "@/components/Tutorial";
 
 export default function HomePage() {
   const { user } = useAuth();
@@ -56,6 +56,7 @@ export default function HomePage() {
   return (
     <>
       <TutorialManager />
+      <TutorialFloatingButton />
 
       <section className="flex flex-col min-h-screen w-full overflow-y-hidden bg-white justify-center items-center relative pt-20">
         <div className="w-3/4 flex flex-col gap-8 items-center justify-center">

@@ -72,18 +72,16 @@ export const TutorialProgress: React.FC = () => {
   if (!isActive) return null;
 
   return (
-    <div className="flex items-center gap-2 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-      <BookOpen className="w-4 h-4 text-blue-600" />
-      <div className="flex-1">
-        <div className="text-xs font-medium text-blue-900 mb-1">
-          Tutorial en progreso: {currentStepNumber}/{totalSteps}
-        </div>
-        <div className="h-1.5 bg-blue-200 rounded-full overflow-hidden">
-          <div
-            className="h-full bg-blue-600 transition-all duration-300"
-            style={{ width: `${progress}%` }}
-          />
-        </div>
+    <div className="flex items-center gap-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+      <BookOpen className="w-4 h-4 text-blue-600 shrink-0" />
+      <div className="flex items-center gap-2 text-xs">
+        <span className="font-medium text-blue-900">
+          Tutorial: {currentStepNumber}/{totalSteps}
+        </span>
+        <span className="text-blue-400">•</span>
+        <span className="font-semibold text-blue-600">
+          {Math.round(progress)}%
+        </span>
       </div>
     </div>
   );

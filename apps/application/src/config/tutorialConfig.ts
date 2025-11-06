@@ -192,7 +192,6 @@ export const tutorialConfig: TutorialPage[] = [
         title: "Información del Caso",
         content:
           "Detalles principales del caso: estado, prioridad, fechas y descripción.",
-        target: '[data-tutorial="case-info"]',
         placement: "bottom",
         highlightPadding: 2,
       },

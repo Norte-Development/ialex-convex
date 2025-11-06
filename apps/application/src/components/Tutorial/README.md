@@ -104,13 +104,20 @@ const {
 - `TutorialProgress`: Indicador de progreso
 - `TutorialWelcomeDialog`: Dialog de bienvenida
 
+#### `TutorialFloatingButton`
+
+- `TutorialFloatingButton`: Botón flotante con símbolo "?" para iniciar/reiniciar el tutorial
+- `TutorialFloatingButtonSmall`: Versión pequeña del botón flotante
+- Detecta automáticamente la página actual
+- Se posiciona en cualquier esquina de la pantalla
+
 ## 📖 Guía de Uso
 
 ### Iniciar el Tutorial
 
 ```tsx
 import { useTutorial } from "@/context/TutorialContext";
-import { TutorialTrigger } from "@/components/Tutorial/TutorialControls";
+import { TutorialTrigger, TutorialFloatingButton } from "@/components/Tutorial";
 
 function MyComponent() {
   const { startTutorial } = useTutorial();
@@ -120,12 +127,63 @@ function MyComponent() {
       {/* Opción 1: Usar el componente de trigger */}
       <TutorialTrigger />
 
-      {/* Opción 2: Iniciar manualmente */}
+      {/* Opción 2: Botón flotante (recomendado) - detecta la página automáticamente */}
+      <TutorialFloatingButton position="bottom-right" margin="24px" />
+
+      {/* Opción 3: Botón flotante pequeño */}
+      <TutorialFloatingButtonSmall position="bottom-left" />
+
+      {/* Opción 4: Forzar una página específica */}
+      <TutorialFloatingButton forcePage="cases" />
+
+      {/* Opción 5: Iniciar manualmente */}
       <button onClick={() => startTutorial("home")}>Comenzar Tutorial</button>
     </div>
   );
 }
 ```
+
+### Botón Flotante de Ayuda (?)
+
+El botón flotante es la forma más sencilla de agregar el tutorial a cualquier página:
+
+```tsx
+import { TutorialFloatingButton } from "@/components/Tutorial";
+
+function HomePage() {
+  return (
+    <div>
+      {/* Tu contenido */}
+
+      {/* Botón flotante que detecta automáticamente la página */}
+      <TutorialFloatingButton />
+    </div>
+  );
+}
+```
+
+**Props disponibles:**
+
+- `position`: `'bottom-right'` | `'bottom-left'` | `'top-right'` | `'top-left'` (default: `'bottom-right'`)
+- `margin`: Margen desde el borde (default: `'24px'`)
+- `forcePage`: Forzar una página específica del tutorial (opcional)
+
+**Comportamiento inteligente:**
+
+- ✅ Detecta automáticamente la página actual basándose en la ruta
+- ✅ Si el tutorial está **completado**, lo **reinicia** desde la página actual
+- ✅ Si el tutorial **no está activo**, lo **inicia** en la página actual
+- ✅ Si el tutorial está **pausado/dismissed**, lo **reactiva**
+
+**Mapeo de rutas a páginas:**
+
+| Ruta           | Página del tutorial |
+| -------------- | ------------------- |
+| `/` o `/home`  | `home`              |
+| `/ai/*`        | `chat`              |
+| `/cases/*`     | `cases`             |
+| `/documents/*` | `documents`         |
+| `/settings/*`  | `settings`          |
 
 ### Marcar Elementos para el Tutorial
 

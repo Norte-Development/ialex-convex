@@ -16,6 +16,10 @@ export {
   SidebarTutorialButton,
   HeaderTutorialBadge,
 } from "./TutorialManager";
+export {
+  TutorialFloatingButton,
+  TutorialFloatingButtonSmall,
+} from "./TutorialFloatingButton";
 
 // Re-export context hook for convenience
 export { useTutorial } from "@/context/TutorialContext";
