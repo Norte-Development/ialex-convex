@@ -1,10 +1,10 @@
 import { useQuery } from "convex/react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
-import { Sparkles, Landmark } from "lucide-react";
+import { Landmark } from "lucide-react";
 import { TutorialManager } from "@/components/Tutorial";
 import { QuickActions } from "@/components/quick-actions";
-import { AIInsights } from "@/components/ai-insights";
+import { ClientsList } from "@/components/clients-list";
 import EmptyState from "@/components/Home/EmptyState";
 import { api } from "../../../convex/_generated/api";
 import { Loader } from "@/components/ai-elements/loader";
@@ -50,7 +50,6 @@ export default function HomePage() {
               <h1 className="text-2xl sm:text-3xl font-bold text-[#130261] text-balance">
                 Bienvenido, {user?.name?.split(" ")[0] || "Dr. Martínez"}
               </h1>
-              <Sparkles className="h-5 w-5 sm:h-6 sm:w-6 text-purple-600" />
             </div>
             <p className="text-sm sm:text-base text-gray-600">
               Tu asistente legal inteligente está listo para ayudarte
@@ -58,7 +57,7 @@ export default function HomePage() {
           </div>
 
           {/* Quick Actions */}
-          <div>
+          <div data-tutorial="home-quick-actions">
             <h2 className="text-lg font-semibold text-[#130261] mb-3">
               Acciones Rápidas
             </h2>
@@ -67,9 +66,9 @@ export default function HomePage() {
 
           {/* Two Column Layout - Better proportions for large screens */}
           <div className="grid grid-cols-1 xl:grid-cols-4 gap-6 lg:gap-6">
-            {/* Left Column: AI Insights */}
+            {/* Left Column: Clients List */}
             <div className="xl:col-span-1">
-              <AIInsights />
+              <ClientsList />
             </div>
 
             {/* Right Column: Metrics & Overview */}
@@ -115,9 +114,14 @@ export default function HomePage() {
 
               {/* Recent Cases */}
               <div>
-                <h2 className="text-lg font-semibold text-[#130261] mb-3">
-                  Casos Recientes
-                </h2>
+                <div className="flex items-center justify-between">
+                  <h2 className="text-lg font-semibold text-[#130261] mb-3">
+                    Casos Recientes
+                  </h2>
+                  <div className="flex items-center justify-end">
+                    <button className="text-sm text-[#130261] hover:underline" onClick={() => navigate("/casos")}>Ver todos</button>
+                  </div>
+                </div>
                 {isLoadingCases ? (
                   <div className="flex items-center justify-center py-8">
                     <Loader size={32} />
