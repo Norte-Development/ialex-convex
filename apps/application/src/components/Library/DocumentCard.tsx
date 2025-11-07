@@ -25,8 +25,6 @@ import { ViewMode } from "@/pages/LibraryPage";
 import { useNavigate } from "react-router-dom";
 import { useEffect, useRef, useState } from "react";
 import { draggable } from "@atlaskit/pragmatic-drag-and-drop/element/adapter";
-import { useEffect, useRef, useState } from "react";
-import { draggable } from "@atlaskit/pragmatic-drag-and-drop/element/adapter";
 
 interface DocumentCardProps {
   document: Doc<"libraryDocuments">;
@@ -34,11 +32,7 @@ interface DocumentCardProps {
   onDelete: (documentId: Id<"libraryDocuments">) => void;
   onDownload: (documentId: Id<"libraryDocuments">) => void;
   onMove: (document: Doc<"libraryDocuments">) => void;
-  onMove: (document: Doc<"libraryDocuments">) => void;
   viewMode: ViewMode;
-  index: number;
-  isDragDisabled?: boolean;
-  currentFolderId?: Id<"libraryFolders">;
   index: number;
   isDragDisabled?: boolean;
   currentFolderId?: Id<"libraryFolders">;
@@ -134,20 +128,13 @@ export function DocumentCard({
   onDelete,
   onDownload,
   onMove,
-  onMove,
   viewMode,
-  index,
-  isDragDisabled = false,
-  currentFolderId,
   index,
   isDragDisabled = false,
   currentFolderId,
 }: DocumentCardProps) {
   const navigate = useNavigate();
   const color = getColor(document.mimeType);
-  const cardRef = useRef<HTMLDivElement>(null);
-  const dragHandleRef = useRef<HTMLDivElement>(null);
-  const [isDragging, setIsDragging] = useState(false);
   const cardRef = useRef<HTMLDivElement>(null);
   const dragHandleRef = useRef<HTMLDivElement>(null);
   const [isDragging, setIsDragging] = useState(false);
