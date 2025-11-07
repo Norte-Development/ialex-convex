@@ -55,14 +55,12 @@ export {
 export { applyTextBasedOperations } from "./escritosTransforms";
 
 // Test Read Escrito Helpers
-export {
-  testReadEscritoHelpers,
-} from "./testReadEscritoHelpers";
+export { testReadEscritoHelpers } from "./testReadEscritoHelpers";
 
 // Template Management (Modelos)
-export { 
-  createModelo, 
-  getModelos, 
+export {
+  createModelo,
+  getModelos,
   getModelo,
   searchModelos,
   incrementModeloUsage,
@@ -105,6 +103,7 @@ export {
   getLibraryDocuments,
   getAllAccessibleLibraryDocuments,
   getLibraryDocument,
+  getLibraryDocumentTranscription,
   getLibraryDocumentUrl,
   deleteLibraryDocument,
   moveLibraryDocument,

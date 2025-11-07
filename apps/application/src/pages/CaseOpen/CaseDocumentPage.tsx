@@ -15,8 +15,10 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { usePermissions } from "@/context/CasePermissionsContext";
 import DocumentViewer from "@/components/Documents/DocumentViewer";
+import TranscriptionViewer from "@/components/Documents/TranscriptionViewer";
 import { useDocxToHtml } from "@/hooks/useDocxToHtml";
 import { generateJSON } from "@tiptap/html";
 import { extensions } from "@/components/Editor/extensions";
@@ -47,6 +49,12 @@ export default function CaseDocumentPage() {
   // Fetch the specific document
   const document = useQuery(
     api.functions.documents.getDocument,
+    documentId ? { documentId: documentId as Id<"documents"> } : "skip",
+  );
+
+  // Fetch transcription for audio/video files
+  const transcription = useQuery(
+    api.functions.documents.getDocumentTranscription,
     documentId ? { documentId: documentId as Id<"documents"> } : "skip",
   );
 
@@ -527,7 +535,81 @@ export default function CaseDocumentPage() {
                 <Skeleton className="h-4 w-32" />
               </div>
             </div>
+          ) : // Check if it's audio/video to show tabs
+          document.mimeType?.startsWith("audio/") ||
+            document.mimeType?.startsWith("video/") ? (
+            <Tabs defaultValue="viewer" className="w-full">
+              <TabsList className="mb-4">
+                <TabsTrigger value="viewer">Reproductor</TabsTrigger>
+                <TabsTrigger
+                  value="transcription"
+                  disabled={!transcription?.hasExtractedText}
+                >
+                  Transcripción
+                  {transcription?.hasExtractedText && (
+                    <Badge variant="secondary" className="ml-2">
+                      Disponible
+                    </Badge>
+                  )}
+                </TabsTrigger>
+              </TabsList>
+
+              <TabsContent value="viewer">
+                <DocumentViewer
+                  url={documentUrl}
+                  mimeType={document.mimeType}
+                  title={document.title}
+                  fileSize={document.fileSize}
+                />
+              </TabsContent>
+
+              <TabsContent value="transcription">
+                {transcription?.hasExtractedText ? (
+                  <TranscriptionViewer
+                    extractedText={transcription.extractedText || ""}
+                    extractedTextLength={transcription.extractedTextLength || 0}
+                    transcriptionConfidence={
+                      transcription.transcriptionConfidence
+                    }
+                    transcriptionDuration={transcription.transcriptionDuration}
+                    transcriptionModel={transcription.transcriptionModel}
+                    title={document.title}
+                  />
+                ) : (
+                  <div className="flex items-center justify-center h-96">
+                    <div className="text-center text-gray-600">
+                      {document.processingStatus === "pending" && (
+                        <>
+                          <Clock className="w-12 h-12 mx-auto mb-4 text-yellow-500" />
+                          <p>La transcripción está pendiente...</p>
+                        </>
+                      )}
+                      {document.processingStatus === "processing" && (
+                        <>
+                          <Loader2 className="w-12 h-12 mx-auto mb-4 text-blue-500 animate-spin" />
+                          <p>Procesando transcripción...</p>
+                        </>
+                      )}
+                      {document.processingStatus === "failed" && (
+                        <>
+                          <AlertCircle className="w-12 h-12 mx-auto mb-4 text-red-500" />
+                          <p>Error al procesar la transcripción</p>
+                        </>
+                      )}
+                      {document.processingStatus === "completed" &&
+                        !transcription?.hasExtractedText && (
+                          <>
+                            <AlertCircle className="w-12 h-12 mx-auto mb-4 text-gray-400" />
+                            <p>No hay transcripción disponible</p>
+                          </>
+                        )}
+                    </div>
+                  </div>
+                )}
+              </TabsContent>
+            </Tabs>
           ) : (
+            // Regular document viewer for non-audio/video files
             <DocumentViewer
               url={documentUrl}
               mimeType={document.mimeType}
