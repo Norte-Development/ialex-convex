@@ -111,6 +111,7 @@ import type * as functions_migration from "../functions/migration.js";
 import type * as functions_permissions from "../functions/permissions.js";
 import type * as functions_search from "../functions/search.js";
 import type * as functions_seedCases from "../functions/seedCases.js";
+import type * as functions_stats from "../functions/stats.js";
 import type * as functions_teams from "../functions/teams.js";
 import type * as functions_templates from "../functions/templates.js";
 import type * as functions_testReadEscritoHelpers from "../functions/testReadEscritoHelpers.js";
@@ -280,6 +281,7 @@ declare const fullApi: ApiFromModules<{
   "functions/permissions": typeof functions_permissions;
   "functions/search": typeof functions_search;
   "functions/seedCases": typeof functions_seedCases;
+  "functions/stats": typeof functions_stats;
   "functions/teams": typeof functions_teams;
   "functions/templates": typeof functions_templates;
   "functions/testReadEscritoHelpers": typeof functions_testReadEscritoHelpers;
