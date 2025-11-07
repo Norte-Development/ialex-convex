@@ -1,5 +1,11 @@
 import { v } from "convex/values";
-import { query, mutation, action, internalQuery, internalMutation } from "../_generated/server";
+import {
+  query,
+  mutation,
+  action,
+  internalQuery,
+  internalMutation,
+} from "../_generated/server";
 import { paginationOptsValidator } from "convex/server";
 import { getCurrentUserFromAuth, requireNewCaseAccess } from "../auth_utils";
 import { prosemirrorSync } from "../prosemirror";
@@ -584,6 +590,43 @@ export const getDocument = query({
     await requireNewCaseAccess(ctx, currentUser._id, document.caseId, "basic");
 
     return document;
+  },
+});
+
+/**
+ * Get transcription data for an audio/video document
+ */
+export const getDocumentTranscription = query({
+  args: {
+    documentId: v.id("documents"),
+  },
+  handler: async (ctx, args) => {
+    const document = await ctx.db.get(args.documentId);
+
+    if (!document) {
+      return null;
+    }
+
+    // Verify permissions
+    const currentUser = await getCurrentUserFromAuth(ctx);
+    await requireNewCaseAccess(ctx, currentUser._id, document.caseId, "basic");
+
+    // Only return transcription for audio/video files
+    if (
+      !document.mimeType?.startsWith("audio/") &&
+      !document.mimeType?.startsWith("video/")
+    ) {
+      return null;
+    }
+
+    return {
+      extractedText: document.extractedText,
+      extractedTextLength: document.extractedTextLength,
+      transcriptionConfidence: document.transcriptionConfidence,
+      transcriptionDuration: document.transcriptionDuration,
+      transcriptionModel: document.transcriptionModel,
+      hasExtractedText: !!document.extractedText,
+    };
   },
 });
 

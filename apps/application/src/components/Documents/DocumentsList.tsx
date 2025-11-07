@@ -18,7 +18,10 @@ import {
   Trash2,
   FolderPlus,
   FilePlus,
+  FileAudio,
+  FileVideo,
 } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import { useNavigate } from "react-router-dom";
 import { usePermissions } from "@/context/CasePermissionsContext";
 import { ACCESS_LEVELS } from "@/permissions/types";
@@ -49,6 +52,10 @@ type DocumentItem = {
   fileSize: number;
   lastEditedAt?: number;
   folderId?: Id<"folders">;
+  extractedText?: string;
+  transcriptionConfidence?: number;
+  transcriptionDuration?: number;
+  transcriptionModel?: string;
 };
 
 type FolderItem = {
@@ -338,6 +345,19 @@ function DocumentRow({
     return type ? types[type] || type : "Documento";
   };
 
+  // Determine file icon based on mime type
+  const getFileIcon = () => {
+    if (document.mimeType.startsWith("audio/")) {
+      return <FileAudio className="h-4 w-4 text-purple-600" />;
+    }
+    if (document.mimeType.startsWith("video/")) {
+      return <FileVideo className="h-4 w-4 text-blue-600" />;
+    }
+    return <FileText className="h-4 w-4 text-primary" />;
+  };
+
+  const hasTranscription = !!document.extractedText;
+
   return (
     <TableRow className="cursor-pointer" onClick={onOpen}>
       <TableCell onClick={(e) => e.stopPropagation()}>
@@ -345,9 +365,18 @@ function DocumentRow({
       </TableCell>
       <TableCell>
         <div className="flex items-center gap-2">
-          <FileText className="h-4 w-4 text-primary" />
-          <div className="flex flex-col">
-            <span className="font-medium text-gray-900">{document.title}</span>
+          {getFileIcon()}
+          <div className="flex flex-col gap-1">
+            <div className="flex items-center gap-2">
+              <span className="font-medium text-gray-900">
+                {document.title}
+              </span>
+              {hasTranscription && (
+                <Badge variant="secondary" className="text-xs">
+                  Transcripción
+                </Badge>
+              )}
+            </div>
           </div>
         </div>
       </TableCell>
