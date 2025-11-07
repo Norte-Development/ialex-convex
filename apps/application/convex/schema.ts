@@ -111,11 +111,11 @@ export default defineSchema({
           v.literal("pending"),
           v.literal("in_progress"),
           v.literal("completed"),
-          v.literal("failed")
+          v.literal("failed"),
         ),
         oldKindeId: v.string(),
         consentGiven: v.boolean(),
-      })
+      }),
     ),
   })
     .index("by_clerk_id", ["clerkId"])
@@ -649,6 +649,12 @@ export default defineSchema({
     processingMethod: v.optional(v.string()), // "mistral-ocr", "pdfjs", "transcription"
     wasResumed: v.optional(v.boolean()),
     processingDurationMs: v.optional(v.number()),
+    // Extracted text fields (for transcriptions, OCR, etc.)
+    extractedText: v.optional(v.string()), // Full transcript or OCR text
+    extractedTextLength: v.optional(v.number()), // Character count for validation
+    transcriptionConfidence: v.optional(v.number()), // Deepgram confidence score
+    transcriptionDuration: v.optional(v.number()), // Audio/video duration in seconds
+    transcriptionModel: v.optional(v.string()), // e.g., "nova-3"
   })
     .index("by_user", ["userId"])
     .index("by_team", ["teamId"])
@@ -851,41 +857,38 @@ export default defineSchema({
   mercadopagoSubscriptions: defineTable({
     // User reference
     userId: v.id("users"),
-    
+
     // MercadoPago data
     mpSubscriptionId: v.string(), // MercadoPago subscription ID
     mpCustomerId: v.string(), // MercadoPago customer ID
-    
+
     // Subscription details
     plan: v.union(
       v.literal("premium_individual"),
       v.literal("premium_team"),
-      v.literal("enterprise")
+      v.literal("enterprise"),
     ),
     status: v.union(
       v.literal("active"),
       v.literal("paused"),
       v.literal("cancelled"),
-      v.literal("expired")
+      v.literal("expired"),
     ),
-    
+
     // Billing info
     amount: v.number(), // Amount in cents (e.g., 30000 for $300.00)
     currency: v.string(), // e.g., "ARS" or "USD"
-    billingCycle: v.union(
-      v.literal("monthly"),
-      v.literal("yearly")
-    ),
-    
+    billingCycle: v.union(v.literal("monthly"), v.literal("yearly")),
+
     // Dates
     startDate: v.number(), // Unix timestamp
     nextBillingDate: v.number(), // Unix timestamp
     endDate: v.optional(v.number()), // Unix timestamp (if cancelled)
-    
+
     // Admin management
     lastUpdatedBy: v.id("users"), // Admin who last updated this
     notes: v.optional(v.string()), // Admin notes
-    
+
     // Metadata
     createdAt: v.number(),
     updatedAt: v.number(),

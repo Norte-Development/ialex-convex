@@ -1,105 +1,186 @@
-import { useState } from "react";
+import { useQuery } from "convex/react";
 import { useNavigate } from "react-router-dom";
-import { Textarea } from "@/components/ui/textarea";
-import { Button } from "@/components/ui/button";
 import { useAuth } from "@/context/AuthContext";
-import ExistingUserHome from "@/components/Home/ExistingUserHome";
-import NewUserHome from "@/components/Home/NewUserHome";
-import { CircleArrowUp } from "lucide-react";
-import { useHomeThreads } from "@/components/HomeAgent/hooks/useHomeThreads";
-import { Loader } from "@/components/ai-elements/loader";
+import { Landmark } from "lucide-react";
 import { TutorialManager } from "@/components/Tutorial";
+import { QuickActions } from "@/components/quick-actions";
+import { ClientsList } from "@/components/clients-list";
+import EmptyState from "@/components/Home/EmptyState";
+import { api } from "../../../convex/_generated/api";
+import { Loader } from "@/components/ai-elements/loader";
 
 export default function HomePage() {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const [inputValue, setInputValue] = useState("");
-  const [isCreating, setIsCreating] = useState(false);
 
-  const { sendMessage } = useHomeThreads();
+  // Fetch data - show more cases on larger screens
+  const casesResult = useQuery(api.functions.cases.getCases, {
+    paginationOpts: { numItems: 8, cursor: null },
+  });
+  const totalCases = useQuery(api.functions.stats.getCasesCount);
+  const totalClients = useQuery(api.functions.stats.getClientsCount);
+  const totalEscritos = useQuery(api.functions.stats.getEscritosCount);
+
+  // Extract data
+  const cases = casesResult?.page || [];
+  const isLoadingCases = casesResult === undefined;
+  const isLoadingStats =
+    totalCases === undefined ||
+    totalClients === undefined ||
+    totalEscritos === undefined;
 
   if (!user) {
     return null;
   }
 
-  // Show new user experience if they're missing key info or just completed onboarding
-  const isNewUserExperience = !user.isOnboardingComplete;
-
-  const handleSendMessage = async () => {
-    if (!inputValue.trim() || isCreating) return;
-
-    const message = inputValue.trim();
-    setIsCreating(true);
-
-    try {
-      // Send message (will create thread automatically with message as title)
-      const result = await sendMessage(message);
-
-      if (result.threadId) {
-        // Navigate to the new thread
-        navigate(`/ai/${result.threadId}`);
-      }
-    } catch (error) {
-      console.error("Error creating thread:", error);
-    } finally {
-      setIsCreating(false);
-    }
-  };
-
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault();
-      handleSendMessage();
-    }
-  };
+  const casesInProgress =
+    cases.filter(
+      (c) => c.status === "en progreso" || c.status === "pendiente",
+    ).length || 0;
 
   return (
     <>
       <TutorialManager />
 
-      <section className="flex flex-col min-h-screen w-full overflow-y-hidden bg-white justify-center items-center relative pt-20">
-        <div className="w-3/4 flex flex-col gap-8 items-center justify-center">
-          <div className="flex flex-col gap-8 w-full justify-center items-center">
-            <h1
-              data-tutorial="home-welcome"
-              className="font-poppins font-[500] text-[#130261] justify-center items-center lg:text-[54px] text-xl flex flex-col "
-            >
-              ¡Buenos días, {user?.name}!<span>¿En qué trabajamos hoy?</span>
-            </h1>
-            <p className="text-[#666666] text-[20px] mt-10">
-              Comience el día con ayuda de su asistente IA
+      <div className="w-full bg-background px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
+        <div className="max-w-[1600px] mx-auto space-y-6 sm:space-y-8">
+          {/* Welcome Header */}
+          <div className="space-y-2 mt-10">
+            <div className="flex items-center gap-2 flex-wrap">
+              <h1 className="text-2xl sm:text-3xl font-bold text-[#130261] text-balance">
+                Bienvenido, {user?.name?.split(" ")[0] || "Dr. Martínez"}
+              </h1>
+            </div>
+            <p className="text-sm sm:text-base text-gray-600">
+              Tu asistente legal inteligente está listo para ayudarte
             </p>
-            <div className="relative w-full max-w-4xl h-fit mx-auto">
-              <Textarea
-                data-tutorial="home-chat"
-                value={inputValue}
-                onChange={(e) => setInputValue(e.target.value)}
-                onKeyDown={handleKeyDown}
-                placeholder="¿En qué trabajamos hoy?"
-                className=" !h-[30px] max-h-[250px] pt-5 overflow-y-auto bg-[#f7f7f7] active:border-[#9ECBFB] border-[#9ECBFB] placeholder:text-[#5B738B] rounded-[17px] resize-none"
-                style={{
-                  boxShadow:
-                    "0px 4.27px 34.18px -4.27px rgba(99, 140, 243, 0.32)",
-                }}
-                disabled={isCreating}
-              />
-              <Button
-                onClick={handleSendMessage}
-                disabled={!inputValue.trim() || isCreating}
-                size="icon"
-                className="absolute right-5 top-1/2 -translate-y-1/2 bg-transparent disabled:bg-transparent hover:bg-transparent text-black"
-              >
-                {isCreating ? (
-                  <Loader size={20} />
+          </div>
+
+          {/* Quick Actions */}
+          <div data-tutorial="home-quick-actions">
+            <h2 className="text-lg font-semibold text-[#130261] mb-3">
+              Acciones Rápidas
+            </h2>
+            <QuickActions />
+          </div>
+
+          {/* Two Column Layout - Better proportions for large screens */}
+          <div className="grid grid-cols-1 xl:grid-cols-4 gap-6 lg:gap-6">
+            {/* Left Column: Clients List */}
+            <div className="xl:col-span-1">
+              <ClientsList />
+            </div>
+
+            {/* Right Column: Metrics & Overview */}
+            <div className="xl:col-span-3 space-y-6">
+              {/* Dashboard Metrics */}
+              <div>
+                <h2 className="text-lg font-semibold text-[#130261] mb-3">
+                  Resumen General
+                </h2>
+                {isLoadingStats ? (
+                  <div className="flex items-center justify-center py-8">
+                    <Loader size={32} />
+                  </div>
                 ) : (
-                  <CircleArrowUp size={20} />
+                  <div className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-4 gap-4">
+                    <div className="bg-white rounded-lg border border-[#130261]/10 p-4 hover:shadow-sm transition-shadow">
+                      <div className="text-2xl font-bold text-[#130261] mb-1">
+                        {totalCases || 0}
+                      </div>
+                      <div className="text-xs text-gray-600">Casos Totales</div>
+                    </div>
+                    <div className="bg-white rounded-lg border border-[#130261]/10 p-4 hover:shadow-sm transition-shadow">
+                      <div className="text-2xl font-bold text-[#130261] mb-1">
+                        {casesInProgress}
+                      </div>
+                      <div className="text-xs text-gray-600">En Progreso</div>
+                    </div>
+                    <div className="bg-white rounded-lg border border-[#130261]/10 p-4 hover:shadow-sm transition-shadow">
+                      <div className="text-2xl font-bold text-[#130261] mb-1">
+                        {totalClients || 0}
+                      </div>
+                      <div className="text-xs text-gray-600">Clientes</div>
+                    </div>
+                    <div className="bg-white rounded-lg border border-[#130261]/10 p-4 hover:shadow-sm transition-shadow">
+                      <div className="text-2xl font-bold text-[#130261] mb-1">
+                        {totalEscritos || 0}
+                      </div>
+                      <div className="text-xs text-gray-600">Escritos</div>
+                    </div>
+                  </div>
                 )}
-              </Button>
+              </div>
+
+              {/* Recent Cases */}
+              <div>
+                <div className="flex items-center justify-between">
+                  <h2 className="text-lg font-semibold text-[#130261] mb-3">
+                    Casos Recientes
+                  </h2>
+                  <div className="flex items-center justify-end">
+                    <button className="text-sm text-[#130261] hover:underline" onClick={() => navigate("/casos")}>Ver todos</button>
+                  </div>
+                </div>
+                {isLoadingCases ? (
+                  <div className="flex items-center justify-center py-8">
+                    <Loader size={32} />
+                  </div>
+                ) : cases.length > 0 ? (
+                  <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-4">
+                    {cases.map((caseItem) => (
+                      <div
+                        key={caseItem._id}
+                        className="bg-white rounded-lg border border-[#130261]/10 p-4 hover:border-[#130261]/30 hover:shadow-sm transition-all cursor-pointer"
+                        onClick={() => navigate(`/caso/${caseItem._id}`)}
+                      >
+                        <div className="flex items-start justify-between mb-2">
+                          <h3 className="font-medium text-sm text-[#130261]">
+                            {caseItem.title}
+                          </h3>
+                          <span className="text-xs text-gray-500">
+                            {caseItem.status === "en progreso" ||
+                            caseItem.status === "pendiente"
+                              ? "Activo"
+                              : caseItem.status}
+                          </span>
+                        </div>
+                        <p className="text-xs text-gray-600 mb-2">
+                          Última actualización{" "}
+                          {caseItem._creationTime
+                            ? new Date(caseItem._creationTime).toLocaleDateString(
+                                "es-ES",
+                                {
+                                  day: "numeric",
+                                  month: "short",
+                                },
+                              )
+                            : "recientemente"}
+                        </p>
+                        {caseItem.category && (
+                          <div className="flex gap-2">
+                            <span className="text-xs px-2 py-1 bg-[#130261]/10 text-[#130261] rounded">
+                              {caseItem.category}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <EmptyState
+                    icon={Landmark}
+                    title="No tienes casos activos"
+                    description="Crea tu primer caso para comenzar a gestionar tus expedientes legales"
+                    actionText="Crear caso"
+                    onAction={() => navigate("/casos")}
+                  />
+                )}
+              </div>
             </div>
           </div>
-          {isNewUserExperience ? <NewUserHome /> : <ExistingUserHome />}
         </div>
-      </section>
+      </div>
     </>
   );
 }

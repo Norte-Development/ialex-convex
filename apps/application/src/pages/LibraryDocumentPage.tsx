@@ -19,7 +19,9 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import DocumentViewer from "@/components/Documents/DocumentViewer";
+import TranscriptionViewer from "@/components/Documents/TranscriptionViewer";
 import { ProcessingProgress } from "@/components/Documents/ProcessingProgress";
 import { ProcessingError } from "@/components/Documents/ProcessingError";
 import { toast } from "sonner";
@@ -29,18 +31,32 @@ export default function LibraryDocumentPage() {
   const navigate = useNavigate();
 
   // Mutations
-  const retryProcessing = useMutation(api.functions.libraryDocumentProcessing.retryLibraryDocumentProcessing);
+  const retryProcessing = useMutation(
+    api.functions.libraryDocumentProcessing.retryLibraryDocumentProcessing,
+  );
 
   const [retrying, setRetrying] = useState(false);
   // Fetch the specific document
   const document = useQuery(
     api.functions.libraryDocument.getLibraryDocument,
-    documentId ? { documentId: documentId as Id<"libraryDocuments"> } : "skip"
+    documentId ? { documentId: documentId as Id<"libraryDocuments"> } : "skip",
   );
+
+  // Fetch transcription for audio/video files
+  const transcription = useQuery(
+    api.functions.libraryDocument.getLibraryDocumentTranscription,
+    documentId ? { documentId: documentId as Id<"libraryDocuments"> } : "skip",
+  );
+
+  // Check if document is audio/video
+  const isAudioVideo =
+    document?.mimeType.startsWith("audio/") ||
+    document?.mimeType.startsWith("video/");
+  const hasTranscription = transcription && transcription.extractedText;
 
   // Action to get a signed URL for viewing/downloading the document
   const getDocumentUrlAction = useAction(
-    api.functions.libraryDocument.getLibraryDocumentUrl
+    api.functions.libraryDocument.getLibraryDocumentUrl,
   );
   const [documentUrl, setDocumentUrl] = useState<string | undefined>(undefined);
 
@@ -150,9 +166,13 @@ export default function LibraryDocumentPage() {
           <ArrowLeft className="h-5 w-5" />
         </Button>
         <div className="flex-1 space-y-1">
-          <h1 className="text-3xl font-bold tracking-tight">{document.title}</h1>
+          <h1 className="text-3xl font-bold tracking-tight">
+            {document.title}
+          </h1>
           {document.description && (
-            <p className="text-sm text-muted-foreground">{document.description}</p>
+            <p className="text-sm text-muted-foreground">
+              {document.description}
+            </p>
           )}
         </div>
         <Button
@@ -174,7 +194,7 @@ export default function LibraryDocumentPage() {
             {document.processingStatus === "processing" && (
               <div className="flex items-start gap-3">
                 <div className="flex-1">
-                  <ProcessingProgress 
+                  <ProcessingProgress
                     phase={document.processingPhase}
                     progress={document.processingProgress}
                   />
@@ -190,11 +210,17 @@ export default function LibraryDocumentPage() {
                   recoverable={document.processingErrorRecoverable}
                   onRetry={async () => {
                     try {
-                      await retryProcessing({ libraryDocumentId: document._id as Id<"libraryDocuments"> });
+                      await retryProcessing({
+                        libraryDocumentId:
+                          document._id as Id<"libraryDocuments">,
+                      });
                       setRetrying(true);
                       toast.success("Reintentando indexación del documento");
                     } catch (error) {
-                      const errorMessage = error instanceof Error ? error.message : "Error desconocido";
+                      const errorMessage =
+                        error instanceof Error
+                          ? error.message
+                          : "Error desconocido";
                       toast.error("Error al reintentar: " + errorMessage);
                     } finally {
                       setRetrying(false);
@@ -202,11 +228,12 @@ export default function LibraryDocumentPage() {
                   }}
                   retrying={retrying}
                 />
-                {document.retryCount !== undefined && document.retryCount > 0 && (
-                  <p className="text-xs text-muted-foreground">
-                    Intentos: {document.retryCount}
-                  </p>
-                )}
+                {document.retryCount !== undefined &&
+                  document.retryCount > 0 && (
+                    <p className="text-xs text-muted-foreground">
+                      Intentos: {document.retryCount}
+                    </p>
+                  )}
               </div>
             )}
 
@@ -226,27 +253,34 @@ export default function LibraryDocumentPage() {
                   <div className="flex items-center gap-2">
                     <span className="text-muted-foreground">Método:</span>
                     <Badge variant="outline">
-                      {document.processingMethod === "mistral-ocr" && "OCR Avanzado"}
-                      {document.processingMethod === "pdfjs" && "Extracción PDF"}
-                      {document.processingMethod === "transcription" && "Transcripción"}
+                      {document.processingMethod === "mistral-ocr" &&
+                        "OCR Avanzado"}
+                      {document.processingMethod === "pdfjs" &&
+                        "Extracción PDF"}
+                      {document.processingMethod === "transcription" &&
+                        "Transcripción"}
                     </Badge>
                   </div>
                 )}
-                
+
                 {document.wasResumed && (
                   <div className="flex items-center gap-2">
                     <span className="text-muted-foreground">Estado:</span>
-                    <Badge variant="secondary">Recuperado automáticamente</Badge>
+                    <Badge variant="secondary">
+                      Recuperado automáticamente
+                    </Badge>
                   </div>
                 )}
-                
+
                 {document.processingDurationMs && (
                   <div className="flex items-center gap-2">
                     <span className="text-muted-foreground">Tiempo:</span>
-                    <span>{Math.round(document.processingDurationMs / 1000)}s</span>
+                    <span>
+                      {Math.round(document.processingDurationMs / 1000)}s
+                    </span>
                   </div>
                 )}
-                
+
                 {document.totalChunks && (
                   <div className="flex items-center gap-2">
                     <span className="text-muted-foreground">Fragmentos:</span>
@@ -348,7 +382,92 @@ export default function LibraryDocumentPage() {
                 </p>
               </div>
             </div>
+          ) : isAudioVideo && hasTranscription ? (
+            // Audio/Video with Transcription - Show tabs
+            <Tabs defaultValue="viewer" className="w-full">
+              <TabsList className="grid w-full max-w-md grid-cols-2 mb-6">
+                <TabsTrigger value="viewer">Reproductor</TabsTrigger>
+                <TabsTrigger value="transcription">
+                  Transcripción
+                  {transcription.processingStatus === "processing" && (
+                    <Loader2 className="ml-2 h-3 w-3 animate-spin" />
+                  )}
+                  {transcription.processingStatus === "completed" && (
+                    <CheckCircle className="ml-2 h-3 w-3 text-green-600" />
+                  )}
+                </TabsTrigger>
+              </TabsList>
+
+              <TabsContent value="viewer">
+                <DocumentViewer
+                  url={documentUrl}
+                  mimeType={document.mimeType}
+                  title={document.title}
+                  fileSize={document.fileSize}
+                />
+              </TabsContent>
+
+              <TabsContent value="transcription">
+                {transcription.processingStatus === "processing" ? (
+                  <div className="flex flex-col items-center justify-center h-[400px] space-y-4">
+                    <Loader2 className="h-12 w-12 animate-spin text-muted-foreground" />
+                    <div className="text-center">
+                      <p className="text-lg font-medium">
+                        Transcribiendo audio...
+                      </p>
+                      <p className="text-sm text-muted-foreground mt-1">
+                        Este proceso puede tardar unos minutos
+                      </p>
+                    </div>
+                  </div>
+                ) : transcription.processingStatus === "failed" ? (
+                  <div className="flex flex-col items-center justify-center h-[400px] space-y-4">
+                    <AlertCircle className="h-12 w-12 text-red-500" />
+                    <div className="text-center">
+                      <p className="text-lg font-medium">
+                        Error al transcribir
+                      </p>
+                      <p className="text-sm text-muted-foreground mt-1">
+                        No se pudo generar la transcripción del audio
+                      </p>
+                    </div>
+                  </div>
+                ) : (
+                  <TranscriptionViewer
+                    extractedText={transcription.extractedText!}
+                    extractedTextLength={transcription.extractedTextLength}
+                    transcriptionConfidence={
+                      transcription.transcriptionConfidence
+                    }
+                    transcriptionDuration={transcription.transcriptionDuration}
+                    transcriptionModel={transcription.transcriptionModel}
+                    title={document.title}
+                  />
+                )}
+              </TabsContent>
+            </Tabs>
+          ) : isAudioVideo &&
+            !hasTranscription &&
+            document.processingStatus === "pending" ? (
+            // Audio/Video pending transcription
+            <div className="flex flex-col items-center justify-center h-[600px] space-y-4">
+              <Clock className="h-12 w-12 text-yellow-500" />
+              <div className="text-center">
+                <p className="text-lg font-medium">Transcripción pendiente</p>
+                <p className="text-sm text-muted-foreground mt-1">
+                  El audio está siendo procesado. La transcripción estará
+                  disponible pronto.
+                </p>
+              </div>
+              <DocumentViewer
+                url={documentUrl}
+                mimeType={document.mimeType}
+                title={document.title}
+                fileSize={document.fileSize}
+              />
+            </div>
           ) : (
+            // Regular document viewer
             <DocumentViewer
               url={documentUrl}
               mimeType={document.mimeType}
@@ -361,4 +480,3 @@ export default function LibraryDocumentPage() {
     </section>
   );
 }
-

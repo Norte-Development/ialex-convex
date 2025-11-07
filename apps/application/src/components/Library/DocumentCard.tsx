@@ -8,6 +8,9 @@ import {
   Loader2,
   AlertCircle,
   GripVertical,
+  FileAudio,
+  FileVideo,
+  MessageSquare,
 } from "lucide-react";
 import { Doc, Id } from "../../../convex/_generated/dataModel";
 import {
@@ -17,6 +20,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { ViewMode } from "@/pages/LibraryPage";
 import { useNavigate } from "react-router-dom";
 import { useEffect, useRef, useState } from "react";
@@ -36,6 +40,22 @@ interface DocumentCardProps {
 
 function getIcon(mimeType: string, color: string) {
   const iconClass = "h-10 w-10 text-white";
+
+  if (mimeType.startsWith("audio/")) {
+    return (
+      <div className={`rounded-lg ${color} p-3`}>
+        <FileAudio className={iconClass} />
+      </div>
+    );
+  }
+
+  if (mimeType.startsWith("video/")) {
+    return (
+      <div className={`rounded-lg ${color} p-3`}>
+        <FileVideo className={iconClass} />
+      </div>
+    );
+  }
 
   if (mimeType.startsWith("image/")) {
     return (
@@ -70,6 +90,8 @@ function getColor(mimeType: string): string {
   if (mimeType.includes("presentation") || mimeType.includes("powerpoint"))
     return "bg-orange-500";
   if (mimeType.startsWith("image/")) return "bg-purple-500";
+  if (mimeType.startsWith("audio/")) return "bg-pink-500";
+  if (mimeType.startsWith("video/")) return "bg-indigo-500";
   return "bg-gray-500";
 }
 
@@ -121,6 +143,12 @@ export function DocumentCard({
     navigate(`/biblioteca/documento/${document._id}`);
   };
 
+  // Check if document is audio/video with transcription
+  const isAudioVideo =
+    document.mimeType.startsWith("audio/") ||
+    document.mimeType.startsWith("video/");
+  const hasTranscription = isAudioVideo && document.extractedText;
+
   // Setup draggable with PDD
   useEffect(() => {
     if (isDragDisabled || !cardRef.current) return;
@@ -167,6 +195,15 @@ export function DocumentCard({
               <div className="flex items-center gap-2">
                 <p className="font-medium truncate">{document.title}</p>
                 <ProcessingStatusIcon status={document.processingStatus} />
+                {hasTranscription && (
+                  <Badge
+                    variant="secondary"
+                    className="flex items-center gap-1 text-xs"
+                  >
+                    <MessageSquare className="h-3 w-3" />
+                    Transcripción
+                  </Badge>
+                )}
               </div>
               <p className="text-sm text-muted-foreground">
                 {formatFileSize(document.fileSize)}
@@ -226,7 +263,7 @@ export function DocumentCard({
           className="flex flex-col items-center gap-3 w-full"
         >
           {getIcon(document.mimeType, color)}
-          <div className="w-full text-center">
+          <div className="w-full text-center space-y-1">
             <div className="flex items-center justify-center gap-1 mb-1">
               <p className="text-sm font-medium text-balance line-clamp-2">
                 {document.title}
@@ -236,6 +273,15 @@ export function DocumentCard({
             <p className="text-xs text-muted-foreground">
               {formatFileSize(document.fileSize)}
             </p>
+            {hasTranscription && (
+              <Badge
+                variant="secondary"
+                className="flex items-center gap-1 text-xs w-fit mx-auto"
+              >
+                <MessageSquare className="h-3 w-3" />
+                Transcripción
+              </Badge>
+            )}
           </div>
         </div>
         <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">

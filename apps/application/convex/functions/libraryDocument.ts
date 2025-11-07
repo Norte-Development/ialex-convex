@@ -1,4 +1,10 @@
-import { action, mutation, query, internalQuery, internalMutation } from "../_generated/server";
+import {
+  action,
+  mutation,
+  query,
+  internalQuery,
+  internalMutation,
+} from "../_generated/server";
 import { api, internal } from "../_generated/api";
 import { v } from "convex/values";
 import { paginationOptsValidator } from "convex/server";
@@ -23,82 +29,93 @@ import { PLAN_LIMITS } from "../billing/planLimits";
  * @throws {Error} If the user is unauthenticated or GCS configuration is missing
  */
 export const generateUploadUrl = action({
-    args: {
-      title: v.string(),
-      mimeType: v.string(),
-      fileSize: v.number(),
-    },
-    handler: async (ctx, args): Promise<{
-      url: string;
-      bucket: string;
-      object: string;
-      contentType: string;
-      expiresAt: number;
-    }> => {
-      const user = await ctx.auth.getUserIdentity();
-      if (!user) throw new Error("User not authenticated");
+  args: {
+    title: v.string(),
+    mimeType: v.string(),
+    fileSize: v.number(),
+  },
+  handler: async (
+    ctx,
+    args,
+  ): Promise<{
+    url: string;
+    bucket: string;
+    object: string;
+    contentType: string;
+    expiresAt: number;
+  }> => {
+    const user = await ctx.auth.getUserIdentity();
+    if (!user) throw new Error("User not authenticated");
 
-      // Get current user from database
-      const currentUser = await ctx.runQuery(api.functions.users.getCurrentUser, {});
+    // Get current user from database
+    const currentUser = await ctx.runQuery(
+      api.functions.users.getCurrentUser,
+      {},
+    );
 
-      if (!currentUser) {
-        throw new Error("User not found");
-      }
+    if (!currentUser) {
+      throw new Error("User not found");
+    }
 
-      // Check storage limits before generating upload URL
-      const userPlan = await ctx.runQuery(api.billing.features.getUserPlan, {
-        userId: currentUser._id,
-      });
+    // Check storage limits before generating upload URL
+    const userPlan = await ctx.runQuery(api.billing.features.getUserPlan, {
+      userId: currentUser._id,
+    });
 
-      const usage = await ctx.runQuery(api.billing.features.getUsageLimits, {
-        entityId: currentUser._id,
-      });
+    const usage = await ctx.runQuery(api.billing.features.getUsageLimits, {
+      entityId: currentUser._id,
+    });
 
-      // If no usage record exists yet, it will be created in createLibraryDocument
-      // For now, assume 0 usage to allow first upload
-      const storageUsedBytes = usage?.storageUsedBytes || 0;
+    // If no usage record exists yet, it will be created in createLibraryDocument
+    // For now, assume 0 usage to allow first upload
+    const storageUsedBytes = usage?.storageUsedBytes || 0;
 
-      const limits = PLAN_LIMITS[userPlan] as typeof PLAN_LIMITS[keyof typeof PLAN_LIMITS];
+    const limits = PLAN_LIMITS[
+      userPlan
+    ] as (typeof PLAN_LIMITS)[keyof typeof PLAN_LIMITS];
 
-      // Check storage limit (convert GB to bytes)
-      const storageLimitBytes = limits.storageGB * 1024 * 1024 * 1024;
-      const newStorageTotal = storageUsedBytes + args.fileSize;
+    // Check storage limit (convert GB to bytes)
+    const storageLimitBytes = limits.storageGB * 1024 * 1024 * 1024;
+    const newStorageTotal = storageUsedBytes + args.fileSize;
 
-      if (newStorageTotal > storageLimitBytes) {
-        const availableGB = (storageLimitBytes - storageUsedBytes) / (1024 * 1024 * 1024);
-        throw new Error(
-          `No tienes suficiente espacio de almacenamiento. Disponible: ${availableGB.toFixed(2)}GB. Actualiza a Premium para más almacenamiento.`
-        );
-      }
-
-      const bucket = process.env.GCS_BUCKET as string;
-      const ttl = Number(process.env.GCS_UPLOAD_URL_TTL_SECONDS || 900);
-
-      if (!bucket) throw new Error("Missing GCS bucket configuration");
-
-      const timestamp = Date.now();
-      const objectPath = `library/documents/${crypto.randomUUID()}/${timestamp}-${args.title}`;
-  
-      const { url, bucket: returnedBucket, object, expiresSeconds } = await ctx.runAction(
-        internal.utils.gcs.generateGcsV4SignedUrlAction,
-        {
-          bucket,
-          object: objectPath,
-          expiresSeconds: ttl,
-          method: "PUT",
-          contentType: args.mimeType,
-        },
+    if (newStorageTotal > storageLimitBytes) {
+      const availableGB =
+        (storageLimitBytes - storageUsedBytes) / (1024 * 1024 * 1024);
+      throw new Error(
+        `No tienes suficiente espacio de almacenamiento. Disponible: ${availableGB.toFixed(2)}GB. Actualiza a Premium para más almacenamiento.`,
       );
-  
-      return {
-        url,
-        bucket: returnedBucket,
-        object,
-        contentType: args.mimeType,
-        expiresAt: Date.now() + expiresSeconds * 1000,
-      };
-    },
-  });
+    }
+
+    const bucket = process.env.GCS_BUCKET as string;
+    const ttl = Number(process.env.GCS_UPLOAD_URL_TTL_SECONDS || 900);
+
+    if (!bucket) throw new Error("Missing GCS bucket configuration");
+
+    const timestamp = Date.now();
+    const objectPath = `library/documents/${crypto.randomUUID()}/${timestamp}-${args.title}`;
+
+    const {
+      url,
+      bucket: returnedBucket,
+      object,
+      expiresSeconds,
+    } = await ctx.runAction(internal.utils.gcs.generateGcsV4SignedUrlAction, {
+      bucket,
+      object: objectPath,
+      expiresSeconds: ttl,
+      method: "PUT",
+      contentType: args.mimeType,
+    });
+
+    return {
+      url,
+      bucket: returnedBucket,
+      object,
+      contentType: args.mimeType,
+      expiresAt: Date.now() + expiresSeconds * 1000,
+    };
+  },
+});
 
 /**
  * Creates a new library document record and schedules processing.
@@ -117,19 +134,19 @@ export const generateUploadUrl = action({
  * @throws {Error} When not authenticated or invalid permissions
  */
 export const createLibraryDocument = mutation({
-    args: {
-        title: v.string(),
+  args: {
+    title: v.string(),
     description: v.optional(v.string()),
-        teamId: v.optional(v.id("teams")),
+    teamId: v.optional(v.id("teams")),
     folderId: v.optional(v.id("libraryFolders")),
-        gcsBucket: v.optional(v.string()),
-        gcsObject: v.string(),
-        mimeType: v.string(),
+    gcsBucket: v.optional(v.string()),
+    gcsObject: v.string(),
+    mimeType: v.string(),
     fileSize: v.number(),
     tags: v.optional(v.array(v.string())),
-    },
-    handler: async (ctx, args) => {
-        const currentUser = await getCurrentUserFromAuth(ctx);
+  },
+  handler: async (ctx, args) => {
+    const currentUser = await getCurrentUserFromAuth(ctx);
 
     // Check library documents limit with team context
     await _checkLimit(ctx, {
@@ -148,8 +165,8 @@ export const createLibraryDocument = mutation({
 
     // Validate team membership if uploading to team library
     if (args.teamId) {
-            const team = await ctx.db.get(args.teamId);
-            if (!team) throw new Error("Team not found");
+      const team = await ctx.db.get(args.teamId);
+      if (!team) throw new Error("Team not found");
 
       const isTeamMember = await ctx.db
         .query("teamMemberships")
@@ -163,9 +180,9 @@ export const createLibraryDocument = mutation({
     }
 
     // Validate folder if provided
-        if (args.folderId) {
-            const folder = await ctx.db.get(args.folderId);
-            if (!folder) throw new Error("Folder not found");
+    if (args.folderId) {
+      const folder = await ctx.db.get(args.folderId);
+      if (!folder) throw new Error("Folder not found");
 
       // Ensure folder belongs to the same scope (personal or team)
       if (args.teamId && folder.teamId !== args.teamId) {
@@ -177,24 +194,24 @@ export const createLibraryDocument = mutation({
     }
 
     // Idempotency: avoid duplicate records for the same GCS object
-        if (args.gcsObject) {
-            const existingGcs = await ctx.db
-              .query("libraryDocuments")
-              .withIndex("by_gcs_object", (q) => q.eq("gcsObject", args.gcsObject!))
-              .first();
-            if (existingGcs) return existingGcs._id;
-        }
+    if (args.gcsObject) {
+      const existingGcs = await ctx.db
+        .query("libraryDocuments")
+        .withIndex("by_gcs_object", (q) => q.eq("gcsObject", args.gcsObject!))
+        .first();
+      if (existingGcs) return existingGcs._id;
+    }
 
-        const libraryDocumentId = await ctx.db.insert("libraryDocuments", {
-            title: args.title,
+    const libraryDocumentId = await ctx.db.insert("libraryDocuments", {
+      title: args.title,
       description: args.description,
       userId: args.teamId ? undefined : currentUser._id,
-            teamId: args.teamId ?? undefined,
-            folderId: args.folderId ?? undefined,
-            createdBy: currentUser._id,
-            gcsBucket: args.gcsBucket,
-            gcsObject: args.gcsObject,
-            mimeType: args.mimeType,
+      teamId: args.teamId ?? undefined,
+      folderId: args.folderId ?? undefined,
+      createdBy: currentUser._id,
+      gcsBucket: args.gcsBucket,
+      gcsObject: args.gcsObject,
+      mimeType: args.mimeType,
       fileSize: args.fileSize,
       tags: args.tags,
       processingStatus: "pending",
@@ -332,7 +349,7 @@ export const getAllAccessibleLibraryDocuments = query({
 
     // Combine and sort by creation time (descending)
     const allDocs = [...personalDocs, ...teamDocs].sort(
-      (a, b) => b._creationTime - a._creationTime
+      (a, b) => b._creationTime - a._creationTime,
     );
 
     // Apply pagination
@@ -347,8 +364,6 @@ export const getAllAccessibleLibraryDocuments = query({
     };
   },
 });
-
-
 
 /**
  * Gets all library documents accessible to the specified user (personal + all teams) with pagination.
@@ -396,7 +411,7 @@ export const getAllAccessibleLibraryDocumentsForAgent = internalQuery({
 
     // Combine and sort by creation time (descending)
     const allDocs = [...personalDocs, ...teamDocs].sort(
-      (a, b) => b._creationTime - a._creationTime
+      (a, b) => b._creationTime - a._creationTime,
     );
 
     // Apply pagination
@@ -409,7 +424,6 @@ export const getAllAccessibleLibraryDocumentsForAgent = internalQuery({
       hasMore,
       nextOffset: hasMore ? offset + limit : null,
     };
-
   },
 });
 
@@ -469,7 +483,66 @@ export const getLibraryDocumentForAgent = internalQuery({
   },
 });
 
+/**
+ * Gets the transcription data for a library document (audio/video only).
+ *
+ * @param {Object} args - The function arguments
+ * @param {string} args.documentId - The document ID
+ * @returns {Promise<Object | null>} The transcription data or null if not available
+ * @throws {Error} When not found or no access
+ */
+export const getLibraryDocumentTranscription = query({
+  args: {
+    documentId: v.id("libraryDocuments"),
+  },
+  handler: async (ctx, args) => {
+    const currentUser = await getCurrentUserFromAuth(ctx);
+    const document = await ctx.db.get(args.documentId);
 
+    if (!document) throw new Error("Library document not found");
+
+    // Check access
+    if (document.userId && document.userId !== currentUser._id) {
+      throw new Error("Cannot access this document");
+    }
+
+    if (document.teamId) {
+      const isTeamMember = await ctx.db
+        .query("teamMemberships")
+        .withIndex("by_team_and_user", (q) =>
+          q.eq("teamId", document.teamId!).eq("userId", currentUser._id),
+        )
+        .filter((q) => q.eq(q.field("isActive"), true))
+        .first();
+
+      if (!isTeamMember) throw new Error("Cannot access this document");
+    }
+
+    // Check if document is audio/video
+    const isAudioVideo =
+      document.mimeType.startsWith("audio/") ||
+      document.mimeType.startsWith("video/");
+
+    if (!isAudioVideo) {
+      return null;
+    }
+
+    // Return transcription data if available
+    if (!document.extractedText) {
+      return null;
+    }
+
+    return {
+      extractedText: document.extractedText,
+      extractedTextLength: document.extractedTextLength || 0,
+      transcriptionConfidence: document.transcriptionConfidence,
+      transcriptionDuration: document.transcriptionDuration,
+      transcriptionModel: document.transcriptionModel,
+      processingStatus: document.processingStatus,
+      processingMethod: document.processingMethod,
+    };
+  },
+});
 
 /**
  * Gets a download URL for a library document.
@@ -484,20 +557,26 @@ export const getLibraryDocumentUrl = action({
   },
   handler: async (ctx, args): Promise<string> => {
     // Get and validate document access
-    const document = await ctx.runQuery(api.functions.libraryDocument.getLibraryDocument, {
-      documentId: args.documentId,
-    });
+    const document = await ctx.runQuery(
+      api.functions.libraryDocument.getLibraryDocument,
+      {
+        documentId: args.documentId,
+      },
+    );
 
     if (!document.gcsBucket || !document.gcsObject) {
       throw new Error("Document not stored in GCS");
     }
 
-    const { url } = await ctx.runAction(internal.utils.gcs.generateGcsV4SignedUrlAction, {
-      bucket: document.gcsBucket,
-      object: document.gcsObject,
-      expiresSeconds: 900, // 15 minutes
-      method: "GET",
-    });
+    const { url } = await ctx.runAction(
+      internal.utils.gcs.generateGcsV4SignedUrlAction,
+      {
+        bucket: document.gcsBucket,
+        object: document.gcsObject,
+        expiresSeconds: 900, // 15 minutes
+        method: "GET",
+      },
+    );
 
     return url;
   },
@@ -706,7 +785,8 @@ export const updateLibraryDocument = mutation({
 
     const updateData: any = {};
     if (args.title !== undefined) updateData.title = args.title;
-    if (args.description !== undefined) updateData.description = args.description;
+    if (args.description !== undefined)
+      updateData.description = args.description;
     if (args.tags !== undefined) updateData.tags = args.tags;
 
     await ctx.db.patch(args.documentId, updateData);
@@ -810,4 +890,3 @@ export const internalCreateLibraryDocument = internalMutation({
     return libraryDocumentId;
   },
 });
-
