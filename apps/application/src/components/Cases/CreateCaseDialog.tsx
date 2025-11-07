@@ -71,6 +71,11 @@ export default function CreateCaseDialog() {
   >([]);
   const [showDeadlineForm, setShowDeadlineForm] = useState(false);
 
+  // Prevent dialog closing while submitting
+  const handleOpenChange = (newOpen: boolean) => {
+    if (!isLoading) setOpen(newOpen);
+  };
+
   // Then all mutations
   const createCase = useMutation(api.functions.cases.createCase);
   const addClientToCase = useMutation(api.functions.cases.addClientToCase);
@@ -300,7 +305,7 @@ export default function CreateCaseDialog() {
   ];
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild data-tutorial="create-case">
         <Button className="gap-2 cursor-pointer">
           <Plus className="h-4 w-4" />

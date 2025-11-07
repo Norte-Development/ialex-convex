@@ -112,8 +112,13 @@ export default function EditCaseDialog({
     }
   };
 
+  // Prevent dialog closing while submitting
+  const handleOpenChange = (newOpen: boolean) => {
+    if (!isLoading) onOpenChange(newOpen);
+  };
+
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="sm:max-w-[600px] max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Editar Caso</DialogTitle>

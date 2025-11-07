@@ -83,6 +83,11 @@ export default function ClientDetailDialog({
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
+  // Prevent dialog closing while submitting
+  const handleOpenChange = (newOpen: boolean) => {
+    if (!saving && !deleting) setOpen(newOpen);
+  };
+
   const handleChange = (field: string, value: string) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
   };
@@ -153,7 +158,7 @@ export default function ClientDetailDialog({
   };
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>{children}</DialogTrigger>
       <DialogContent className="sm:max-w-[720px] max-w-[90vw] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
