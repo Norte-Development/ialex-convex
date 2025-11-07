@@ -19,6 +19,7 @@ export const SUPPORTED_VIDEO_FORMATS = new Set([
   'video/quicktime', // .mov
   'video/mpeg',      // .mpg, .mpeg
   'video/x-msvideo', // .avi
+  'video/mkv',       // .mkv
 ]);
 
 // Maximum file sizes for different formats (Deepgram can handle large files)

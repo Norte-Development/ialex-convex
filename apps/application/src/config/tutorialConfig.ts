@@ -79,13 +79,13 @@ export const tutorialConfig: TutorialPage[] = [
         placement: "center",
       },
       {
-        id: "home-chat",
-        title: "Chateá con tu Asistente Legal",
+        id: "home-quick-actions",
+        title: "Acciones Rápidas",
         content:
-          "Acá podés hacer preguntas legales, obtener ayuda con documentos y mucho más. El chat aprende del contexto de tus casos.",
-        target: '[data-tutorial="home-chat"]',
-        placement: "right",
-        highlightPadding: 4,
+          "Desde acá podés acceder rápidamente a las funciones principales: crear casos, gestionar tu biblioteca, consultar la base legal y agregar clientes.",
+        target: '[data-tutorial="home-quick-actions"]',
+        placement: "bottom",
+        highlightPadding: 8,
       },
       {
         id: "home-menu",
