@@ -47,6 +47,7 @@ const falloSortOrderValidator = v.union(
 // Validator for fallo filters
 const falloFiltersValidator = v.optional(v.object({
   jurisdiccion: v.optional(v.string()),
+  jurisdiccion_detalle: v.optional(v.string()),
   tribunal: v.optional(v.string()),
   materia: v.optional(v.string()),
   estado: v.optional(estadoFalloValidator),
@@ -126,6 +127,7 @@ export const getFallosFacets = action({
   },
   returns: v.object({
     jurisdicciones: v.any(), // Record<string, number>
+    jurisdicciones_detalle: v.any(), // Record<string, number>
     tribunales: v.any(), // Record<string, number>
     materias: v.any(), // Record<string, number>
     estados: v.any(), // Record<string, number>

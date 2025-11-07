@@ -7,6 +7,7 @@ import {
   getNormativeById as getNormativeByIdService,
   getNormativesFacets as getNormativesFacetsService,
   getTipoGeneralValues as getTipoGeneralValuesService,
+  getTipoDetalleValues as getTipoDetalleValuesService,
   getJurisdiccionValues as getJurisdiccionValuesService,
   clearLegislationCache as clearLegislationCacheService,
   PaginatedResult 
@@ -39,14 +40,8 @@ const subestadoValidator = v.union(
 // TipoGeneral validator - uses string since values are dynamically loaded from MongoDB
 const tipoGeneralValidator = v.string();
 
-// Validator for TipoDetalle enum
-const tipoDetalleValidator = v.union(
-  v.literal("Ley"),
-  v.literal("Decreto"),
-  v.literal("Resolucion"),
-  v.literal("Ordenanza"),
-  v.literal("Reglamento")
-);
+// TipoDetalle validator - uses string since values are dynamically loaded from MongoDB
+const tipoDetalleValidator = v.string();
 
 // Validator for TipoContenido enum
 const tipoContenidoValidator = v.union(
@@ -151,6 +146,8 @@ export const getNormativesFacets = action({
     jurisdicciones: v.any(), // Record<string, number>
     tipos: v.any(), // Record<string, number>
     estados: v.any(), // Record<string, number>
+    subestados: v.any(), // Record<string, number>
+    tipos_detalle: v.any(), // Record<string, number>
     years: v.any() // Record<number, number>
   }),
   handler: async (ctx, args) => {
@@ -163,6 +160,14 @@ export const getTipoGeneralValues = action({
   returns: v.array(v.string()),
   handler: async (ctx, args) => {
     return await getTipoGeneralValuesService();
+  }
+});
+
+export const getTipoDetalleValues = action({
+  args: {},
+  returns: v.array(v.string()),
+  handler: async (ctx, args) => {
+    return await getTipoDetalleValuesService();
   }
 });
 

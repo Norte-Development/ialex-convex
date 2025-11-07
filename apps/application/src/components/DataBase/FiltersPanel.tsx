@@ -8,9 +8,14 @@ import {
 import { Input } from "../ui/input";
 import { FileText, Calendar, Scale, Users } from "lucide-react";
 import { Collapsible, CollapsibleContent } from "../ui/collapsible";
+import { useAction } from "convex/react";
+import { useQuery } from "@tanstack/react-query";
+import { api } from "../../../convex/_generated/api";
 import type {
   NormativeFilters,
   Estado,
+  Subestado,
+  TipoDetalle,
   ContentType,
 } from "../../../types/legislation";
 
@@ -26,7 +31,10 @@ interface FiltersPanelProps {
   facets?: {
     types?: Array<{ name: string; count: number }>;
     jurisdicciones?: Array<{ name: string; count: number }>;
+    jurisdicciones_detalle?: Array<{ name: string; count: number }>;
     estados?: Array<{ name: string; count: number }>;
+    subestados?: Array<{ name: string; count: number }>;
+    tipos_detalle?: Array<{ name: string; count: number }>;
     tribunales?: Array<{ name: string; count: number }>;
     materias?: Array<{ name: string; count: number }>;
   };
@@ -42,6 +50,17 @@ const estadoOptions: Estado[] = [
   "sin_registro_oficial",
 ];
 
+const subestadoOptions: Subestado[] = [
+  "alcance_general",
+  "individual_modificatoria_o_sin_eficacia",
+  "vetada",
+  "derogada",
+  "abrogada_implicita",
+  "ley_caduca",
+  "refundida_ley_caduca",
+  "sin_registro",
+];
+
 export function FiltersPanel({
   showFilters,
   onShowFiltersChange,
@@ -50,6 +69,29 @@ export function FiltersPanel({
   contentType,
   facets,
 }: FiltersPanelProps) {
+  // Fetch tipo_detalle values dynamically
+  const getTipoDetalleValues = useAction(
+    api.functions.legislation.getTipoDetalleValues,
+  );
+
+  const getTipoGeneralValues = useAction(
+    api.functions.legislation.getTipoGeneralValues,
+  );
+
+  const { data: tipoDetalleOptions = [] } = useQuery({
+    queryKey: ["tipo-detalle-values"],
+    queryFn: () => getTipoDetalleValues({}),
+    enabled: contentType === "legislation" || contentType === "all",
+    staleTime: 24 * 60 * 60 * 1000, // 24 hours - same as backend cache
+  });
+
+  const { data: tipoGeneralOptions = [] } = useQuery({
+    queryKey: ["tipo-general-values"],
+    queryFn: () => getTipoGeneralValues({}),
+    enabled: contentType === "legislation" || contentType === "all",
+    staleTime: 24 * 60 * 60 * 1000, // 24 hours - same as backend cache
+  });
+  
   return (
     <Collapsible open={showFilters} onOpenChange={onShowFiltersChange}>
       <CollapsibleContent className="mt-6">
@@ -132,7 +174,7 @@ export function FiltersPanel({
           {/* Legislation-specific filters */}
           {(contentType === "legislation" || contentType === "all") && (
             <>
-              {/* <div>
+              <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   <FileText className="w-4 h-4 inline mr-1" />
                   Tipo General
@@ -157,16 +199,21 @@ export function FiltersPanel({
                     ))}
                   </SelectContent>
                 </Select>
-              </div> */}
+              </div>
 
-              {/* <div>
+              <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   <FileText className="w-4 h-4 inline mr-1" />
                   Tipo Detalle
                 </label>
                 <Select
                   value={filters.tipo_detalle || ""}
-                  onValueChange={(value) => onFilterChange("tipo_detalle", value === "all" ? undefined : value)}
+                  onValueChange={(value) =>
+                    onFilterChange(
+                      "tipo_detalle",
+                      value === "all" ? undefined : (value as TipoDetalle),
+                    )
+                  }
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Todos los tipos detalle" />
@@ -175,16 +222,22 @@ export function FiltersPanel({
                     <SelectItem value="all">Todos</SelectItem>
                     {tipoDetalleOptions.map((tipo) => (
                       <SelectItem key={tipo} value={tipo}>
-                        {tipo.charAt(0).toUpperCase() + tipo.slice(1)}
+                        {tipo}
                         {(() => {
-                          const facet = facets?.types?.find((f) => f.name === tipo);
-                          return facet ? <span className="text-gray-500 ml-1">({facet.count})</span> : null;
+                          const facet = facets?.tipos_detalle?.find(
+                            (f) => f.name === tipo,
+                          );
+                          return facet ? (
+                            <span className="text-gray-500 ml-1">
+                              ({facet.count})
+                            </span>
+                          ) : null;
                         })()}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
-              </div> */}
+              </div>
 
               {/* <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -213,12 +266,17 @@ export function FiltersPanel({
                 </Select>
               </div> */}
 
-              {/* <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Subestado</label>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Subestado
+                </label>
                 <Select
                   value={filters.subestado || ""}
                   onValueChange={(value) =>
-                    onFilterChange("subestado", value === "all" ? undefined : (value as Subestado))
+                    onFilterChange(
+                      "subestado",
+                      value === "all" ? undefined : (value as Subestado),
+                    )
                   }
                 >
                   <SelectTrigger>
@@ -228,16 +286,27 @@ export function FiltersPanel({
                     <SelectItem value="all">Todos</SelectItem>
                     {subestadoOptions.map((subestado) => (
                       <SelectItem key={subestado} value={subestado}>
-                        {subestado.charAt(0).toUpperCase() + subestado.slice(1).replace("_", " ")}
+                        {subestado
+                          .charAt(0)
+                          .toUpperCase() +
+                          subestado
+                            .slice(1)
+                            .replace(/_/g, " ")}
                         {(() => {
-                          const facet = facets?.estados?.find((f) => f.name === subestado);
-                          return facet ? <span className="text-gray-500 ml-1">({facet.count})</span> : null;
+                          const facet = facets?.subestados?.find(
+                            (f) => f.name === subestado,
+                          );
+                          return facet ? (
+                            <span className="text-gray-500 ml-1">
+                              ({facet.count})
+                            </span>
+                          ) : null;
                         })()}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
-              </div> */}
+              </div>
 
               {/* <div className="flex items-center space-x-2 pt-6">
                 <input
@@ -294,6 +363,37 @@ export function FiltersPanel({
                         {tribunal.name}
                         <span className="text-gray-500 ml-1">
                           ({tribunal.count})
+                        </span>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <Scale className="w-4 h-4 inline mr-1" />
+                  Jurisdicción Detalle
+                </label>
+                <Select
+                  value={(filters as any).jurisdiccion_detalle || ""}
+                  onValueChange={(value) =>
+                    onFilterChange(
+                      "jurisdiccion_detalle" as any,
+                      value === "all" ? undefined : value,
+                    )
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Todas las jurisdicciones detalle" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todas</SelectItem>
+                    {(facets?.jurisdicciones_detalle || []).map((jurisdiccionDetalle) => (
+                      <SelectItem key={jurisdiccionDetalle.name} value={jurisdiccionDetalle.name}>
+                        {jurisdiccionDetalle.name}
+                        <span className="text-gray-500 ml-1">
+                          ({jurisdiccionDetalle.count})
                         </span>
                       </SelectItem>
                     ))}
