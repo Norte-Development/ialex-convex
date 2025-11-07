@@ -35,6 +35,7 @@ import { Separator } from "../ui/separator";
 import { toast } from "sonner";
 import { tracking } from "@/lib/tracking";
 import { closeFloatingLayers } from "@/lib/closeFloatingLayers";
+import { LocalErrorBoundary } from "../LocalErrorBoundary";
 
 export default function CreateCaseDialog() {
   // Hooks
@@ -69,6 +70,7 @@ export default function CreateCaseDialog() {
       type: "audiencia" | "plazo" | "presentacion" | "otro";
     }>
   >([]);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [showDeadlineForm, setShowDeadlineForm] = useState(false);
 
   // Prevent dialog closing while submitting
@@ -314,33 +316,34 @@ export default function CreateCaseDialog() {
       </DialogTrigger>
 
       <DialogContent className="sm:max-w-[700px] max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <div className="flex items-center justify-between">
-            <div>
-              <DialogTitle>Crear Nuevo Caso</DialogTitle>
-              <DialogDescription>
-                Complete la información para crear un nuevo caso legal y vincule
-                los clientes correspondientes.
-              </DialogDescription>
+        <LocalErrorBoundary resetKeys={[open]}>
+          <DialogHeader>
+            <div className="flex items-center justify-between">
+              <div>
+                <DialogTitle>Crear Nuevo Caso</DialogTitle>
+                <DialogDescription>
+                  Complete la información para crear un nuevo caso legal y vincule
+                  los clientes correspondientes.
+                </DialogDescription>
+              </div>
+              <span className="text-sm text-gray-500 whitespace-nowrap ml-4">
+                Casos: {currentCount}/{limit === Infinity ? "∞" : limit}
+              </span>
             </div>
-            <span className="text-sm text-gray-500 whitespace-nowrap ml-4">
-              Casos: {currentCount}/{limit === Infinity ? "∞" : limit}
-            </span>
-          </div>
-        </DialogHeader>
+          </DialogHeader>
 
-        {/* Warning banner if approaching limit */}
-        {isWarning && (
-          <LimitWarningBanner
-            limitType="cases"
-            percentage={percentage}
-            currentCount={currentCount}
-            limit={limit}
-            onUpgrade={() => setShowUpgradeModal(true)}
-          />
-        )}
+          {/* Warning banner if approaching limit */}
+          {isWarning && (
+            <LimitWarningBanner
+              limitType="cases"
+              percentage={percentage}
+              currentCount={currentCount}
+              limit={limit}
+              onUpgrade={() => setShowUpgradeModal(true)}
+            />
+          )}
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid grid-cols-1 gap-4">
             {/* Título */}
             <div className="space-y-2">
@@ -706,6 +709,7 @@ export default function CreateCaseDialog() {
           currentPlan={userPlan || "free"}
           recommendedPlan="premium_individual"
         />
+        </LocalErrorBoundary>
       </DialogContent>
     </Dialog>
   );

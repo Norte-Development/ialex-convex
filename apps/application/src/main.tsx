@@ -21,6 +21,23 @@ const options = {
   defaults: '2025-05-24',
 } as const
 
+// Safe DOM removal shim: ignore NotFoundError when a node is already gone.
+// This prevents commit-time crashes when extensions or other scripts move/remove nodes.
+(() => {
+  const nativeRemoveChild = Node.prototype.removeChild;
+  // @ts-ignore - augmenting DOM prototype
+  Node.prototype.removeChild = function (child: Node) {
+    // If the child isn't ours anymore, treat as no-op
+    if (child && (child as any).parentNode !== this) return child;
+    try {
+      return nativeRemoveChild.call(this, child);
+    } catch (e) {
+      if ((e as any)?.name === "NotFoundError") return child;
+      throw e;
+    }
+  };
+})();
+
 // Auto-reload when a lazy chunk fails after a deployment switch
 window.addEventListener('unhandledrejection', (e: PromiseRejectionEvent) => {
   const msg = String((e.reason && (e.reason.message || e.reason)) || '');
@@ -38,6 +55,8 @@ window.addEventListener('unhandledrejection', (e: PromiseRejectionEvent) => {
 // Log NotFoundError removeChild context for debugging portal teardown issues
 window.addEventListener("error", (e) => {
   if (String(e.message || "").includes("removeChild")) {
+    // Prevent default error propagation for this specific case
+    e.preventDefault?.();
     const details = {
       message: e.message,
       filename: e.filename,
@@ -50,7 +69,7 @@ window.addEventListener("error", (e) => {
       openTooltips: document.querySelectorAll("[data-slot='tooltip-content']").length,
       path: window.location.pathname,
       stack: (e as any).error?.stack,
-    } as const
+    } as const;
     console.warn("NotFoundError removeChild detected - portal teardown issue", details);
     try {
       posthog.capture('portal_teardown_notfound', details as any);

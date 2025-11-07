@@ -21,10 +21,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "../ui/select";
-import { UserPlus } from "lucide-react";
 import { toast } from "sonner";
 import { tracking } from "@/lib/tracking";
 import { closeFloatingLayers } from "@/lib/closeFloatingLayers";
+import { LocalErrorBoundary } from "../LocalErrorBoundary";
 
 export default function CreateClientDialog() {
   const [open, setOpen] = useState(false);
@@ -123,14 +123,15 @@ export default function CreateClientDialog() {
       </DialogTrigger>
 
       <DialogContent className="sm:max-w-[600px]">
-        <DialogHeader>
-          <DialogTitle>Crear Nuevo Cliente</DialogTitle>
-          <DialogDescription>
-            Complete la información para crear un nuevo cliente.
-          </DialogDescription>
-        </DialogHeader>
+        <LocalErrorBoundary resetKeys={[open]}>
+          <DialogHeader>
+            <DialogTitle>Crear Nuevo Cliente</DialogTitle>
+            <DialogDescription>
+              Complete la información para crear un nuevo cliente.
+            </DialogDescription>
+          </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid grid-cols-1 gap-4">
             {/* Nombre */}
             <div className="space-y-2">
@@ -255,6 +256,7 @@ export default function CreateClientDialog() {
             </Button>
           </DialogFooter>
         </form>
+        </LocalErrorBoundary>
       </DialogContent>
     </Dialog>
   );
