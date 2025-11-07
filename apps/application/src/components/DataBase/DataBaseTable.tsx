@@ -175,8 +175,11 @@ export default function DataBaseTable({
           count
         })),
         types: normativesFacets?.tipos || [],
+        subestados: normativesFacets?.subestados || [],
+        tipos_detalle: normativesFacets?.tipos_detalle || [],
         tribunales: fallosFacets?.tribunales || [],
         materias: fallosFacets?.materias || [],
+        jurisdicciones_detalle: fallosFacets?.jurisdicciones_detalle || [],
       };
     }
   }, [normativesFacets, fallosFacets, state.contentType]);

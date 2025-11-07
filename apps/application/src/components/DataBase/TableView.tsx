@@ -28,7 +28,7 @@ function isNormativeDoc(
 
 // Type guard to check if item is a fallo
 function isFalloDoc(item: CombinedDocument): item is FalloDoc {
-  return "tribunal" in item && "actor" in item && "demandado" in item;
+  return "tribunal" in item;
 }
 
 interface TableViewProps {
@@ -44,7 +44,6 @@ interface TableViewProps {
 export function TableView({
   items,
   isSearchMode,
-  searchQuery = "",
   onRowClick,
   getEstadoBadgeColor,
   formatDate,
@@ -57,21 +56,20 @@ export function TableView({
           <TableHead className="font-semibold min-w-0 flex-1">Título</TableHead>
           <TableHead className="font-semibold w-48">Tribunal</TableHead>
           <TableHead className="font-semibold w-32">Jurisdicción</TableHead>
+          <TableHead className="font-semibold w-32">Detalle</TableHead>
           <TableHead className="font-semibold w-32">Fecha</TableHead>
-          <TableHead className="font-semibold w-40">Actor</TableHead>
-          <TableHead className="font-semibold w-40">Demandado</TableHead>
         </TableRow>
       );
     } else if (contentType === "legislation") {
       return (
         <TableRow className="bg-gray-50">
           <TableHead className="font-semibold min-w-0 flex-1">Título</TableHead>
-          <TableHead className="font-semibold w-48">Tipo</TableHead>
+          <TableHead className="font-semibold w-32">Tipo</TableHead>
           <TableHead className="font-semibold w-32">Número</TableHead>
           <TableHead className="font-semibold w-32">Jurisdicción</TableHead>
           <TableHead className="font-semibold w-32">Estado</TableHead>
+          <TableHead className="font-semibold w-32">Subestado</TableHead>
           <TableHead className="font-semibold w-32">Sanción</TableHead>
-          <TableHead className="font-semibold w-32">Vigente</TableHead>
         </TableRow>
       );
     } else {
@@ -101,7 +99,7 @@ export function TableView({
               <TableCell
                 colSpan={
                   contentType === "fallos"
-                    ? 6
+                    ? 7
                     : contentType === "all"
                       ? 5
                       : 7
@@ -173,20 +171,11 @@ export function TableView({
                         </div>
                       </TableCell>
                       <TableCell>{getJurisdictionName(jurisdiccion)}</TableCell>
+                      <TableCell>
+                        {item.jurisdiccion_detalle || "-"}
+                      </TableCell>
                       <TableCell className="font-mono text-sm">
                         {formatDate(item.date)}
-                      </TableCell>
-                      <TableCell
-                        className="text-sm truncate max-w-32"
-                        title={item.actor}
-                      >
-                        {item.actor || "-"}
-                      </TableCell>
-                      <TableCell
-                        className="text-sm truncate max-w-32"
-                        title={item.demandado}
-                      >
-                        {item.demandado || "-"}
                       </TableCell>
                     </TableRow>
                   );
@@ -234,9 +223,6 @@ export function TableView({
                           <div className="text-xs text-gray-600">
                             Tribunal: {item.tribunal}
                           </div>
-                          <div className="text-xs text-gray-600">
-                            Actor: {item.actor}
-                          </div>
                         </div>
                       </TableCell>
                     </TableRow>
@@ -248,7 +234,6 @@ export function TableView({
                 const tipoDetalle = (item as any).tipo_detalle;
                 const tipoContenido = (item as any).tipo_contenido;
                 const numero = (item as any).numero || (item as any).number;
-                const subestado = (item as any).subestado;
                 const resumen = (item as any).resumen;
 
                 // Safely get sanction date
@@ -268,9 +253,6 @@ export function TableView({
                     .toISOString()
                     .split("T")[0];
                 }
-
-                // Safely get vigencia_actual - only for legislation
-                const vigenciaActual = estado === "vigente";
 
                 if (contentType === "legislation") {
                   return (
@@ -329,26 +311,24 @@ export function TableView({
                           <Badge className={getEstadoBadgeColor(estado as any)}>
                             {estado.replace("_", " ")}
                           </Badge>
-                          {subestado && (
-                            <Badge variant="outline" className="text-xs">
-                              {subestado.replace("_", " ")}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="space-y-1">
+                          {tipoDetalle && (
+                            <Badge variant="outline" className="font-medium">
+                              {tipoDetalle}
+                            </Badge>
+                          )}
+                          {(item as any).subestado && (
+                            <Badge variant="outline" className="font-medium">
+                              {(item as any).subestado}
                             </Badge>
                           )}
                         </div>
                       </TableCell>
                       <TableCell className="font-mono text-sm">
                         {formatDate(sanctionDate)}
-                      </TableCell>
-                      <TableCell>
-                        {vigenciaActual ? (
-                          <Badge className="bg-emerald-50 text-emerald-700 border-emerald-200">
-                            Sí
-                          </Badge>
-                        ) : (
-                          <Badge className="bg-gray-50 text-gray-700 border-gray-200">
-                            No
-                          </Badge>
-                        )}
                       </TableCell>
                     </TableRow>
                   );
@@ -395,6 +375,7 @@ export function TableView({
                         <div className="space-y-1">
                           <div className="text-xs text-gray-600">
                             Tipo: {type}
+                            
                           </div>
                           <div className="text-xs text-gray-600">
                             N°: {numero}
