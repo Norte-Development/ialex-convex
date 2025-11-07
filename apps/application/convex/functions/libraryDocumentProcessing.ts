@@ -23,31 +23,32 @@ export const retryLibraryDocumentProcessing = mutation({
     // Verify user is authenticated
     const currentUser = await getCurrentUserFromAuth(ctx);
     const document = await ctx.db.get(args.libraryDocumentId);
-    
+
     if (!document) {
       throw new Error("Library document not found");
     }
-    
+
     // Check if user has access (owner, team member, or creator)
     const hasAccess =
       document.userId === currentUser._id ||
       document.createdBy === currentUser._id ||
-      (document.teamId && await ctx.db
-        .query("teamMemberships")
-        .withIndex("by_team_and_user", (q) =>
-          q.eq("teamId", document.teamId!).eq("userId", currentUser._id)
-        )
-        .first());
-    
+      (document.teamId &&
+        (await ctx.db
+          .query("teamMemberships")
+          .withIndex("by_team_and_user", (q) =>
+            q.eq("teamId", document.teamId!).eq("userId", currentUser._id),
+          )
+          .first()));
+
     if (!hasAccess) {
       throw new Error("Access denied");
     }
-    
+
     // Only allow retry for failed documents
     if (document.processingStatus !== "failed") {
       throw new Error("Document is not in failed state");
     }
-    
+
     // Reset processing status
     await ctx.db.patch(args.libraryDocumentId, {
       processingStatus: "pending",
@@ -59,14 +60,14 @@ export const retryLibraryDocumentProcessing = mutation({
       retryCount: (document.retryCount || 0) + 1,
       lastRetryAt: Date.now(),
     });
-    
+
     // Re-trigger processing
     await ctx.scheduler.runAfter(
       0,
       internal.functions.libraryDocumentProcessing.processLibraryDocument,
-      { libraryDocumentId: args.libraryDocumentId }
+      { libraryDocumentId: args.libraryDocumentId },
     );
-    
+
     return null;
   },
 });
@@ -105,21 +106,21 @@ export const updateLibraryProcessingProgress = internalMutation({
         v.literal("chunking"),
         v.literal("embedding"),
         v.literal("upserting"),
-      )
+      ),
     ),
     progress: v.optional(v.number()), // 0-100
   },
   handler: async (ctx, args) => {
     const updates: any = {};
-    
+
     if (args.phase !== undefined) {
       updates.processingPhase = args.phase;
     }
-    
+
     if (args.progress !== undefined) {
       updates.processingProgress = Math.min(100, Math.max(0, args.progress));
     }
-    
+
     await ctx.db.patch(args.libraryDocumentId, updates);
   },
 });
@@ -179,7 +180,8 @@ export const updateLibraryDocumentProcessingStatus = internalMutation({
       updateData.processingErrorType = updateFields.processingErrorType;
     }
     if (updateFields.processingErrorRecoverable !== undefined) {
-      updateData.processingErrorRecoverable = updateFields.processingErrorRecoverable;
+      updateData.processingErrorRecoverable =
+        updateFields.processingErrorRecoverable;
     }
 
     await ctx.db.patch(libraryDocumentId, updateData);
@@ -187,6 +189,59 @@ export const updateLibraryDocumentProcessingStatus = internalMutation({
     console.log(
       `Updated library document ${libraryDocumentId} processing status to ${status}`,
     );
+  },
+});
+
+/**
+ * Internal mutation to update extracted text (transcription/OCR) for library documents.
+ */
+export const updateLibraryExtractedText = internalMutation({
+  args: {
+    libraryDocumentId: v.id("libraryDocuments"),
+    extractedText: v.string(),
+    extractedTextLength: v.number(),
+    transcriptionConfidence: v.optional(v.number()),
+    transcriptionDuration: v.optional(v.number()),
+    transcriptionModel: v.optional(v.string()),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const updates: {
+      extractedText: string;
+      extractedTextLength: number;
+      transcriptionConfidence?: number;
+      transcriptionDuration?: number;
+      transcriptionModel?: string;
+    } = {
+      extractedText: args.extractedText,
+      extractedTextLength: args.extractedTextLength,
+    };
+
+    if (args.transcriptionConfidence !== undefined) {
+      updates.transcriptionConfidence = args.transcriptionConfidence;
+    }
+
+    if (args.transcriptionDuration !== undefined) {
+      updates.transcriptionDuration = args.transcriptionDuration;
+    }
+
+    if (args.transcriptionModel !== undefined) {
+      updates.transcriptionModel = args.transcriptionModel;
+    }
+
+    await ctx.db.patch(args.libraryDocumentId, updates);
+
+    console.log(
+      `Updated extracted text for library document ${args.libraryDocumentId}`,
+      {
+        textLength: args.extractedTextLength,
+        confidence: args.transcriptionConfidence,
+        duration: args.transcriptionDuration,
+        model: args.transcriptionModel,
+      },
+    );
+
+    return null;
   },
 });
 
@@ -210,19 +265,23 @@ export const processLibraryDocument = internalAction({
     try {
       // Get the document details
       const document = await ctx.runQuery(
-        internal.functions.libraryDocumentProcessing.getLibraryDocumentForProcessing,
+        internal.functions.libraryDocumentProcessing
+          .getLibraryDocumentForProcessing,
         {
           libraryDocumentId: args.libraryDocumentId,
         },
       );
 
       if (!document) {
-        throw new Error(`Library document not found: ${args.libraryDocumentId}`);
+        throw new Error(
+          `Library document not found: ${args.libraryDocumentId}`,
+        );
       }
 
       // Update status to processing
       await ctx.runMutation(
-        internal.functions.libraryDocumentProcessing.updateLibraryDocumentProcessingStatus,
+        internal.functions.libraryDocumentProcessing
+          .updateLibraryDocumentProcessingStatus,
         {
           libraryDocumentId: args.libraryDocumentId,
           status: "processing",
@@ -290,7 +349,8 @@ export const processLibraryDocument = internalAction({
 
       // Update status to failed
       await ctx.runMutation(
-        internal.functions.libraryDocumentProcessing.updateLibraryDocumentProcessingStatus,
+        internal.functions.libraryDocumentProcessing
+          .updateLibraryDocumentProcessingStatus,
         {
           libraryDocumentId: args.libraryDocumentId,
           status: "failed",
@@ -324,7 +384,8 @@ export const deleteLibraryDocumentChunks = internalAction({
     try {
       // Call the Qdrant utility to delete chunks
       await ctx.runAction(
-        internal.rag.qdrantUtils.libraryDocuments.deleteLibraryDocumentChunksFromQdrant,
+        internal.rag.qdrantUtils.libraryDocuments
+          .deleteLibraryDocumentChunksFromQdrant,
         {
           libraryDocumentId: args.libraryDocumentId,
         },
@@ -343,4 +404,3 @@ export const deleteLibraryDocumentChunks = internalAction({
     }
   },
 });
-
