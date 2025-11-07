@@ -13,6 +13,7 @@ import { Toaster } from "./components/ui/sonner.tsx";
 import { esUY } from "@clerk/localizations";
 import "./clarity.ts";
 import { PostHogProvider } from 'posthog-js/react'
+import posthog from 'posthog-js'
 const convex = new ConvexReactClient(import.meta.env.VITE_CONVEX_URL as string);
 
 const options = {
@@ -37,7 +38,7 @@ window.addEventListener('unhandledrejection', (e: PromiseRejectionEvent) => {
 // Log NotFoundError removeChild context for debugging portal teardown issues
 window.addEventListener("error", (e) => {
   if (String(e.message || "").includes("removeChild")) {
-    console.warn("NotFoundError removeChild detected - portal teardown issue", {
+    const details = {
       message: e.message,
       filename: e.filename,
       lineno: e.lineno,
@@ -45,8 +46,15 @@ window.addEventListener("error", (e) => {
       activeElement: document.activeElement?.tagName,
       openSelects: document.querySelectorAll("[data-state='open'][data-slot='select-content']").length,
       openDialogs: document.querySelectorAll("[data-slot='dialog-content']").length,
-      stack: e.error?.stack,
-    });
+      openPopovers: document.querySelectorAll("[data-slot='popover-content']").length,
+      openTooltips: document.querySelectorAll("[data-slot='tooltip-content']").length,
+      path: window.location.pathname,
+      stack: (e as any).error?.stack,
+    } as const
+    console.warn("NotFoundError removeChild detected - portal teardown issue", details);
+    try {
+      posthog.capture('portal_teardown_notfound', details as any);
+    } catch {}
   }
 });
 

@@ -119,6 +119,8 @@ export default function ClientDetailDialog({
         clientType: formData.clientType,
         notes: formData.notes || undefined,
       });
+      // Small delay to avoid portal teardown races before closing dialog
+      await new Promise((resolve) => setTimeout(resolve, 100));
       // Close any open floating layers before closing dialog to prevent NotFoundError
       closeFloatingLayers();
       setOpen(false);
@@ -137,6 +139,8 @@ export default function ClientDetailDialog({
     setDeleting(true);
     try {
       await deleteClient({ clientId: clientId });
+      // Small delay to avoid portal teardown races before closing dialog
+      await new Promise((resolve) => setTimeout(resolve, 100));
       // Close any open floating layers before closing dialog to prevent NotFoundError
       closeFloatingLayers();
       setOpen(false);

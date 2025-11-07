@@ -102,7 +102,8 @@ export default function CreateClientDialog() {
         clientType: "individual",
         notes: "",
       });
-
+      // Small delay to avoid portal teardown races before closing dialog
+      await new Promise((resolve) => setTimeout(resolve, 100));
       closeFloatingLayers();
       setOpen(false);
     } catch (error) {

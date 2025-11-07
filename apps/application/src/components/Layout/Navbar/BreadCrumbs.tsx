@@ -90,7 +90,7 @@ export default function Breadcrumbs() {
   return (
     <Breadcrumb className="flex items-center gap-2 text-[18px] min-w-0 max-w-full overflow-hidden">
       <BreadcrumbList>
-        <BreadcrumbItem>
+        <BreadcrumbItem key="home">
           <Link to="/" className="flex items-center gap-2">
             <Home className="h-4 w-4" />
             <BreadcrumbSeparator className="flex-shrink-0" />
@@ -106,9 +106,8 @@ export default function Breadcrumbs() {
           }
 
           return isLast ? (
-            <BreadcrumbItem>
+            <BreadcrumbItem key={to}>
               <span
-                key={to}
                 className="truncate min-w-0 max-w-[200px] block"
                 title={displayName}
               >

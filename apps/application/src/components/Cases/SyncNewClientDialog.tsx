@@ -119,6 +119,8 @@ export default function SyncNewClientDialog({
       });
 
       toast.success("Cliente vinculado exitosamente");
+      // Small delay to avoid portal teardown races before closing dialog
+      await new Promise((resolve) => setTimeout(resolve, 100));
       // Close any open floating layers before closing dialog to prevent NotFoundError
       closeFloatingLayers();
       onOpenChange(false);
@@ -196,6 +198,8 @@ export default function SyncNewClientDialog({
         notes: "",
       });
       setSelectedRole("Demandante");
+      // Small delay to avoid portal teardown races before closing dialog
+      await new Promise((resolve) => setTimeout(resolve, 100));
       // Close any open floating layers before closing dialog to prevent NotFoundError
       closeFloatingLayers();
       onOpenChange(false);
