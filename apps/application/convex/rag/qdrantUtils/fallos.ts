@@ -35,6 +35,7 @@ export const searchFallos = internalAction({
     query: v.optional(v.string()),
     filters: v.optional(v.object({
       jurisdiccion: v.optional(v.string()),
+      jurisdiccion_detalle: v.optional(v.string()),
       tribunal: v.optional(v.string()),
       materia: v.optional(v.string()),
       estado: v.optional(v.string()),
@@ -171,6 +172,7 @@ export const searchFallos = internalAction({
         
         // Direct field filters
         if (filters.jurisdiccion) must.push({ key: 'jurisdiccion', match: { value: filters.jurisdiccion } });
+        if (filters.jurisdiccion_detalle) must.push({ key: 'jurisdiccion_detalle', match: { value: filters.jurisdiccion_detalle } });
         if (filters.tribunal) must.push({ key: 'tribunal', match: { value: filters.tribunal } });
         if (filters.materia) must.push({ key: 'materia', match: { value: filters.materia } });
         if (filters.estado) must.push({ key: 'estado', match: { value: filters.estado } });

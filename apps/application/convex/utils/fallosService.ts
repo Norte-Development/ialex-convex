@@ -256,6 +256,11 @@ const buildMongoFilter = (filters: FalloFilters): Filter<Document> => {
     mongoFilter.jurisdiccion = filters.jurisdiccion;
   }
 
+  // Jurisdiccion detalle filter
+  if (filters.jurisdiccion_detalle) {
+    mongoFilter.jurisdiccion_detalle = filters.jurisdiccion_detalle;
+  }
+
   // Tribunal filter
   if (filters.tribunal) {
     mongoFilter.tribunal = filters.tribunal;
@@ -612,6 +617,11 @@ export const getFallosFacets = async (filters: FalloFilters = {}) => {
             { $group: { _id: '$jurisdiccion', count: { $sum: 1 } } },
             { $sort: { count: -1 } }
           ],
+          jurisdicciones_detalle: [
+            { $match: { jurisdiccion_detalle: { $exists: true, $ne: null } } },
+            { $group: { _id: '$jurisdiccion_detalle', count: { $sum: 1 } } },
+            { $sort: { count: -1 } }
+          ],
           tribunales: [
             { $group: { _id: '$tribunal', count: { $sum: 1 } } },
             { $sort: { count: -1 } }
@@ -667,6 +677,7 @@ export const getFallosFacets = async (filters: FalloFilters = {}) => {
     if (!facetsResult) {
       return {
         jurisdicciones: {},
+        jurisdicciones_detalle: {},
         tribunales: {},
         materias: {},
         estados: {},
@@ -682,6 +693,10 @@ export const getFallosFacets = async (filters: FalloFilters = {}) => {
 
     return {
       jurisdicciones: (facetsResult.jurisdicciones || []).map((item: any) => ({
+        name: item._id,
+        count: item.count,
+      })),
+      jurisdicciones_detalle: (facetsResult.jurisdicciones_detalle || []).map((item: any) => ({
         name: item._id,
         count: item.count,
       })),

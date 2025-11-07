@@ -23,8 +23,9 @@ export type Subestado =
 // Use string type for flexibility, actual values are fetched via getTipoGeneralValues()
 export type TipoGeneral = string;
 
-export type TipoDetalle = 
-  | "Ley" | "Decreto" | "Resolucion" | "Ordenanza" | "Reglamento";
+// TipoDetalle is dynamically loaded from MongoDB and cached
+// Use string type for flexibility, actual values are fetched via getTipoDetalleValues()
+export type TipoDetalle = string;
 
 export type TipoContenido = 
   | "leg" | "jur" | "adm";
@@ -232,6 +233,8 @@ export interface NormativesFacets {
   types: Array<{ name: string; count: number }>;
   jurisdicciones: Array<{ name: string; count: number }>;
   estados: Array<{ name: Estado; count: number }>;
+  subestados: Array<{ name: Subestado; count: number }>;
+  tipos_detalle: Array<{ name: TipoDetalle; count: number }>;
 }
 
 // Combined document types for unified view
@@ -249,6 +252,7 @@ export type DocumentWithType =
 export interface CombinedFilters {
   // Common filters
   jurisdiccion?: string;
+  jurisdiccion_detalle?: string;
   estado?: Estado | EstadoFallo;
   search?: string;
   fecha_from?: string;

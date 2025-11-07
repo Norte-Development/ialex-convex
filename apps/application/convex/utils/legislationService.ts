@@ -134,6 +134,58 @@ export const getTipoGeneralValues = async (): Promise<string[]> => {
   }
 };
 
+// Cache for tipo_detalle enum values
+interface TipoDetalleCache {
+  values: string[];
+  timestamp: number;
+}
+
+let tipoDetalleCache: TipoDetalleCache | null = null;
+
+// Get distinct tipo_detalle values with caching
+export const getTipoDetalleValues = async (): Promise<string[]> => {
+  const now = Date.now();
+  
+  // Return cached values if still valid
+  if (tipoDetalleCache && (now - tipoDetalleCache.timestamp) < CACHE_DURATION_MS) {
+    console.log('Returning cached tipo_detalle values');
+    return tipoDetalleCache.values;
+  }
+  
+  try {
+    console.log('Fetching distinct tipo_detalle values from MongoDB...');
+    const distinctValues = await withMongoRetry(async (client) => {
+      const db = client.db(process.env.MONGODB_DATABASE_NAME);
+      const collection = db.collection(LEGISLATION_COLLECTION_NAME);
+      return await collection.distinct('tipo_detalle', {
+        tipo_detalle: { $exists: true, $ne: null }
+      });
+    });
+    
+    // Filter out null/undefined and sort
+    const validValues = distinctValues
+      .filter((val): val is string => typeof val === 'string' && val.length > 0)
+      .sort();
+    
+    // Update cache
+    tipoDetalleCache = {
+      values: validValues,
+      timestamp: now
+    };
+    
+    console.log(`Cached ${validValues.length} tipo_detalle values:`, validValues);
+    return validValues;
+  } catch (error) {
+    console.error('Error fetching tipo_detalle values:', error);
+    // Return cached values if available, even if expired
+    if (tipoDetalleCache) {
+      console.warn('Using expired cache due to error');
+      return tipoDetalleCache.values;
+    }
+    throw new Error('Failed to fetch tipo_detalle values');
+  }
+};
+
 // Cache for jurisdiccion enum values
 interface JurisdiccionCache {
   values: string[];
@@ -145,6 +197,7 @@ let jurisdiccionCache: JurisdiccionCache | null = null;
 // Cache clearing function
 export const clearLegislationCache = () => {
   tipoGeneralCache = null;
+  tipoDetalleCache = null;
   jurisdiccionCache = null;
   console.log('Legislation cache cleared');
 };
@@ -511,6 +564,16 @@ export const getNormativesFacets = async (filters: NormativeFilters = {}) => {
             { $group: { _id: '$estado', count: { $sum: 1 } } },
             { $sort: { count: -1 } }
           ],
+          subestados: [
+            { $match: { subestado: { $exists: true, $ne: null } } },
+            { $group: { _id: '$subestado', count: { $sum: 1 } } },
+            { $sort: { count: -1 } }
+          ],
+          tipos_detalle: [
+            { $match: { tipo_detalle: { $exists: true, $ne: null } } },
+            { $group: { _id: '$tipo_detalle', count: { $sum: 1 } } },
+            { $sort: { count: -1 } }
+          ],
           years: [
             {
               $match: {
@@ -552,6 +615,14 @@ export const getNormativesFacets = async (filters: NormativeFilters = {}) => {
         count: item.count,
       })),
       estados: facetsResult.estados.map((item: any) => ({
+        name: item._id,
+        count: item.count,
+      })),
+      subestados: facetsResult.subestados.map((item: any) => ({
+        name: item._id,
+        count: item.count,
+      })),
+      tipos_detalle: facetsResult.tipos_detalle.map((item: any) => ({
         name: item._id,
         count: item.count,
       })),

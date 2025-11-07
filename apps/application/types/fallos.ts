@@ -57,6 +57,7 @@ export interface FalloDoc {
 // Filter parameters for MongoDB queries
 export interface FalloFilters {
   jurisdiccion?: string;
+  jurisdiccion_detalle?: string;
   tribunal?: string;
   materia?: string;
   estado?: string; // Now generic string
@@ -149,6 +150,7 @@ export interface FalloChunkResult {
 // Facets for filters UI - Now arrays instead of objects
 export interface FallosFacets {
   jurisdicciones: Array<{ name: string; count: number }>;
+  jurisdicciones_detalle: Array<{ name: string; count: number }>;
   tribunales: Array<{ name: string; count: number }>;
   materias: Array<{ name: string; count: number }>;
   estados: Array<{ name: string; count: number }>;
