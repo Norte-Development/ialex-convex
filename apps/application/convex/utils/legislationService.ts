@@ -7,15 +7,78 @@ import { LEGISLATION_COLLECTION_NAME } from '../rag/qdrantUtils/legislationConfi
 // External service clients - lazy initialization
 let mongoClient: MongoClient | null = null;
 
-// Lazy getter for MongoDB client
+// Helper function to ensure MongoDB client is connected
+const ensureMongoClient = async (): Promise<MongoClient> => {
+  if (!process.env.MONGODB_URI) {
+    throw new Error('MONGODB_URI environment variable is not set');
+  }
+
+  // Create new client if needed
+  if (!mongoClient) {
+    mongoClient = new MongoClient(process.env.MONGODB_URI, {
+      // Connection pool options for serverless environments
+      maxPoolSize: 10,
+      minPoolSize: 1,
+      maxIdleTimeMS: 30000,
+      serverSelectionTimeoutMS: 5000,
+      socketTimeoutMS: 45000,
+    });
+  }
+
+  return mongoClient;
+};
+
+// Lazy getter for MongoDB client (for backward compatibility)
 const getMongoClient = (): MongoClient => {
   if (!mongoClient) {
     if (!process.env.MONGODB_URI) {
       throw new Error('MONGODB_URI environment variable is not set');
     }
-    mongoClient = new MongoClient(process.env.MONGODB_URI);
+    mongoClient = new MongoClient(process.env.MONGODB_URI, {
+      maxPoolSize: 10,
+      minPoolSize: 1,
+      maxIdleTimeMS: 30000,
+      serverSelectionTimeoutMS: 5000,
+      socketTimeoutMS: 45000,
+    });
   }
   return mongoClient;
+};
+
+// Helper function to execute MongoDB operations with retry logic
+const withMongoRetry = async <T>(
+  operation: (client: MongoClient) => Promise<T>,
+  retries = 1
+): Promise<T> => {
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    try {
+      const client = await ensureMongoClient();
+      return await operation(client);
+    } catch (error: any) {
+      const isTopologyClosed = 
+        error?.message?.includes('Topology is closed') ||
+        error?.message?.includes('topology was destroyed') ||
+        error?.code === 'MongoTopologyClosed';
+
+      if (isTopologyClosed && attempt < retries) {
+        console.log(`MongoDB topology closed, retrying (attempt ${attempt + 1}/${retries + 1})...`);
+        // Reset client to force reconnection
+        if (mongoClient) {
+          try {
+            await mongoClient.close();
+          } catch (closeError) {
+            // Ignore close errors
+          }
+        }
+        mongoClient = null;
+        // Wait a bit before retrying
+        await new Promise(resolve => setTimeout(resolve, 100 * (attempt + 1)));
+        continue;
+      }
+      throw error;
+    }
+  }
+  throw new Error('Operation failed after retries');
 };
 
 // Cache for tipo_general enum values
@@ -39,12 +102,12 @@ export const getTipoGeneralValues = async (): Promise<string[]> => {
   
   try {
     console.log('Fetching distinct tipo_general values from MongoDB...');
-    const mongoClient = getMongoClient();
-    const db = mongoClient.db(process.env.MONGODB_DATABASE_NAME);
-    const collection = db.collection(LEGISLATION_COLLECTION_NAME);
-    
-    const distinctValues = await collection.distinct('tipo_general', {
-      tipo_general: { $exists: true, $ne: null }
+    const distinctValues = await withMongoRetry(async (client) => {
+      const db = client.db(process.env.MONGODB_DATABASE_NAME);
+      const collection = db.collection(LEGISLATION_COLLECTION_NAME);
+      return await collection.distinct('tipo_general', {
+        tipo_general: { $exists: true, $ne: null }
+      });
     });
     
     // Filter out null/undefined and sort
@@ -98,12 +161,12 @@ export const getJurisdiccionValues = async (): Promise<string[]> => {
   
   try {
     console.log('Fetching distinct jurisdiccion values from MongoDB...');
-    const mongoClient = getMongoClient();
-    const db = mongoClient.db(process.env.MONGODB_DATABASE_NAME);
-    const collection = db.collection(LEGISLATION_COLLECTION_NAME);
-    
-    const distinctValues = await collection.distinct('jurisdiccion', {
-      jurisdiccion: { $exists: true, $ne: null }
+    const distinctValues = await withMongoRetry(async (client) => {
+      const db = client.db(process.env.MONGODB_DATABASE_NAME);
+      const collection = db.collection(LEGISLATION_COLLECTION_NAME);
+      return await collection.distinct('jurisdiccion', {
+        jurisdiccion: { $exists: true, $ne: null }
+      });
     });
     
     // Filter out null/undefined and sort
@@ -264,9 +327,6 @@ export interface PaginatedResult<T> {
 }
 
 export const getNormatives = async (params: ListNormativesParams = {}): Promise<PaginatedResult<NormativeDoc>> => {
-  const mongoClient = getMongoClient();
-  const db = mongoClient.db(process.env.MONGODB_DATABASE_NAME);
-  const collection = db.collection(LEGISLATION_COLLECTION_NAME);
   const {
     filters = {},
     limit = 20,
@@ -287,27 +347,35 @@ export const getNormatives = async (params: ListNormativesParams = {}): Promise<
   console.log('MongoDB sort:', mongoSort);
 
   try {
-    // Get total count for pagination
-    const total = await collection.countDocuments(mongoFilter);
+    // Execute query with retry logic
+    const { total, normatives } = await withMongoRetry(async (client) => {
+      const db = client.db(process.env.MONGODB_DATABASE_NAME);
+      const collection = db.collection(LEGISLATION_COLLECTION_NAME);
 
-    // Get paginated results with limited fields (exclude large content fields)
-    const normatives = await collection
-      .find(mongoFilter)
-      .project({
-        // Exclude large content fields to improve performance
-        content: 0,
-        texto: 0,
-        articulos: 0,
-        aprobacion: 0,
-        relaciones: 0,
-        created_at: 0,
-        updated_at: 0,
-        content_hash: 0
-      })
-      .sort(mongoSort)
-      .skip(validatedOffset)
-      .limit(validatedLimit)
-      .toArray();
+      // Get total count for pagination
+      const total = await collection.countDocuments(mongoFilter);
+
+      // Get paginated results with limited fields (exclude large content fields)
+      const normatives = await collection
+        .find(mongoFilter)
+        .project({
+          // Exclude large content fields to improve performance
+          content: 0,
+          texto: 0,
+          articulos: 0,
+          aprobacion: 0,
+          relaciones: 0,
+          created_at: 0,
+          updated_at: 0,
+          content_hash: 0
+        })
+        .sort(mongoSort)
+        .skip(validatedOffset)
+        .limit(validatedLimit)
+        .toArray();
+
+      return { total, normatives };
+    });
 
     // Map normatives to ensure consistent data structure
     const mappedNormatives: NormativeDoc[] = normatives.map((normative) => {
@@ -361,32 +429,30 @@ export const getNormatives = async (params: ListNormativesParams = {}): Promise<
 
 // Get a single normative by document_id (limited fields, no content)
 export const getNormativeById = async (documentId: string): Promise<NormativeDoc | null> => {
-  const mongoClient = getMongoClient();
-  const db = mongoClient.db(process.env.MONGODB_DATABASE_NAME);
-  const collection = db.collection(LEGISLATION_COLLECTION_NAME);
-
   try {
-
     // Create query filter - try both _id and document_id
-    const queryFilter = { document_id: documentId }
-      
+    const queryFilter = { document_id: documentId };
 
     // Use projection to limit fields returned from MongoDB (exclude large content fields)
-    const normative = await collection.findOne(
-      queryFilter,
-      {
-        projection: {
-          // Exclude large content fields to improve performance
-          texto: 0,
-          articulos: 0,
-          aprobacion: 0,
-          relaciones: 0,
-          created_at: 0,
-          updated_at: 0,
-          content_hash: 0
+    const normative = await withMongoRetry(async (client) => {
+      const db = client.db(process.env.MONGODB_DATABASE_NAME);
+      const collection = db.collection(LEGISLATION_COLLECTION_NAME);
+      return await collection.findOne(
+        queryFilter,
+        {
+          projection: {
+            // Exclude large content fields to improve performance
+            texto: 0,
+            articulos: 0,
+            aprobacion: 0,
+            relaciones: 0,
+            created_at: 0,
+            updated_at: 0,
+            content_hash: 0
+          }
         }
-      }
-    );
+      );
+    });
 
     if (!normative) {
       return null;
@@ -426,10 +492,6 @@ export const getNormativeById = async (documentId: string): Promise<NormativeDoc
 
 // Get facets for filter options
 export const getNormativesFacets = async (filters: NormativeFilters = {}) => {
-  const mongoClient = getMongoClient();
-  const db = mongoClient.db(process.env.MONGODB_DATABASE_NAME);
-  const collection = db.collection(LEGISLATION_COLLECTION_NAME);
-
   const baseFilter = buildMongoFilter(filters);
 
   try {
@@ -474,7 +536,11 @@ export const getNormativesFacets = async (filters: NormativeFilters = {}) => {
       }
     ];
 
-    const [facetsResult] = await collection.aggregate(facetsAggregation).toArray();
+    const [facetsResult] = await withMongoRetry(async (client) => {
+      const db = client.db(process.env.MONGODB_DATABASE_NAME);
+      const collection = db.collection(LEGISLATION_COLLECTION_NAME);
+      return await collection.aggregate(facetsAggregation).toArray();
+    });
 
     return {
       jurisdicciones: facetsResult.jurisdicciones.map((item: any) => ({

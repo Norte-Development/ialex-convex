@@ -13,9 +13,9 @@ export function ChatbotProvider({ children }: { children: ReactNode }) {
   const [isChatbotOpen, setIsChatbotOpen] = useState(() => {
     try {
       const stored = localStorage.getItem("chatbot-open");
-      return stored !== null ? JSON.parse(stored) : false;
+      return stored !== null ? JSON.parse(stored) : true;
     } catch {
-      return false;
+      return true;
     }
   });
 

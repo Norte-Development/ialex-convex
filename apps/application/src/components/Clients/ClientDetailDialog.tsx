@@ -26,6 +26,7 @@ import { Separator } from "../ui/separator";
 import { AlertTriangle } from "lucide-react";
 import { Link } from "react-router-dom";
 import { toast } from "sonner";
+import { closeFloatingLayers } from "@/lib/closeFloatingLayers";
 
 interface ClientDetailDialogProps {
   clientId: Id<"clients">;
@@ -82,6 +83,11 @@ export default function ClientDetailDialog({
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
+  // Prevent dialog closing while submitting
+  const handleOpenChange = (newOpen: boolean) => {
+    if (!saving && !deleting) setOpen(newOpen);
+  };
+
   const handleChange = (field: string, value: string) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
   };
@@ -118,6 +124,10 @@ export default function ClientDetailDialog({
         clientType: formData.clientType,
         notes: formData.notes || undefined,
       });
+      // Small delay to avoid portal teardown races before closing dialog
+      await new Promise((resolve) => setTimeout(resolve, 100));
+      // Close any open floating layers before closing dialog to prevent NotFoundError
+      closeFloatingLayers();
       setOpen(false);
     } catch (e) {
       toast.error("Error al guardar: " + (e as Error).message);
@@ -134,6 +144,10 @@ export default function ClientDetailDialog({
     setDeleting(true);
     try {
       await deleteClient({ clientId: clientId });
+      // Small delay to avoid portal teardown races before closing dialog
+      await new Promise((resolve) => setTimeout(resolve, 100));
+      // Close any open floating layers before closing dialog to prevent NotFoundError
+      closeFloatingLayers();
       setOpen(false);
       toast.success("Cliente eliminado correctamente");
     } catch (e) {
@@ -144,7 +158,7 @@ export default function ClientDetailDialog({
   };
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>{children}</DialogTrigger>
       <DialogContent className="sm:max-w-[720px] max-w-[90vw] max-h-[90vh] overflow-y-auto">
         <DialogHeader>

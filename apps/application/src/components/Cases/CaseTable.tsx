@@ -395,50 +395,52 @@ export default function CaseTable({
                 <TableCell className="text-center">
                   <CaseUsers caseId={case_._id} />
                 </TableCell>
-                
-                {/* Menú de acciones posicionado absolute a la derecha */}
-                {(case_.accessLevel === "advanced" || case_.accessLevel === "admin") && (
-                  <div 
-                    className="absolute right-2 top-1/2 -translate-y-1/2 z-10"
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button 
-                          variant="ghost" 
-                          size="sm" 
-                          className="h-8 w-8 p-0 opacity-0 group-hover:opacity-100 hover:!opacity-100 transition-opacity bg-white shadow-sm"
-                        >
-                          <MoreVertical className="h-4 w-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        {/* Editar: requiere advanced o admin */}
-                        {(case_.accessLevel === "advanced" || case_.accessLevel === "admin") && (
-                          <DropdownMenuItem
-                            onClick={() => handleEdit(case_)}
-                            className="cursor-pointer"
+                {/* Menú de acciones debe estar dentro de una celda para HTML válido */}
+                {(
+                  case_.accessLevel === "advanced" || case_.accessLevel === "admin"
+                ) && (
+                  <TableCell className="!p-0">
+                    <div
+                      className="absolute right-2 top-1/2 -translate-y-1/2 z-10"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-8 w-8 p-0 opacity-0 group-hover:opacity-100 hover:!opacity-100 transition-opacity bg-white shadow-sm"
                           >
-                            <Pencil className="mr-2 h-4 w-4" />
-                            <span>Editar</span>
-                          </DropdownMenuItem>
-                        )}
-                        {/* Eliminar: solo admin */}
-                        {case_.accessLevel === "admin" && (
-                          <>
-                            <DropdownMenuSeparator />
+                            <MoreVertical className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          {(case_.accessLevel === "advanced" ||
+                            case_.accessLevel === "admin") && (
                             <DropdownMenuItem
-                              onClick={() => setCaseToDelete(case_)}
-                              className="cursor-pointer text-red-600 focus:text-red-600"
+                              onClick={() => handleEdit(case_)}
+                              className="cursor-pointer"
                             >
-                              <Trash2 className="mr-2 h-4 w-4" />
-                              <span>Eliminar</span>
+                              <Pencil className="mr-2 h-4 w-4" />
+                              <span>Editar</span>
                             </DropdownMenuItem>
-                          </>
-                        )}
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </div>
+                          )}
+                          {case_.accessLevel === "admin" && (
+                            <>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem
+                                onClick={() => setCaseToDelete(case_)}
+                                className="cursor-pointer text-red-600 focus:text-red-600"
+                              >
+                                <Trash2 className="mr-2 h-4 w-4" />
+                                <span>Eliminar</span>
+                              </DropdownMenuItem>
+                            </>
+                          )}
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
+                  </TableCell>
                 )}
               </TableRow>
             ))

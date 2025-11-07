@@ -34,6 +34,8 @@ import {
 import { Separator } from "../ui/separator";
 import { toast } from "sonner";
 import { tracking } from "@/lib/tracking";
+import { closeFloatingLayers } from "@/lib/closeFloatingLayers";
+import { LocalErrorBoundary } from "../LocalErrorBoundary";
 
 export default function CreateCaseDialog() {
   // Hooks
@@ -68,7 +70,13 @@ export default function CreateCaseDialog() {
       type: "audiencia" | "plazo" | "presentacion" | "otro";
     }>
   >([]);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [showDeadlineForm, setShowDeadlineForm] = useState(false);
+
+  // Prevent dialog closing while submitting
+  const handleOpenChange = (newOpen: boolean) => {
+    if (!isLoading) setOpen(newOpen);
+  };
 
   // Then all mutations
   const createCase = useMutation(api.functions.cases.createCase);
@@ -255,6 +263,10 @@ export default function CreateCaseDialog() {
       setDeadlines([]);
       setShowDeadlineForm(false);
 
+      // Small delay to avoid portal teardown races before closing dialog
+      await new Promise((resolve) => setTimeout(resolve, 100));
+      // Close any open floating layers before closing dialog to prevent NotFoundError
+      closeFloatingLayers();
       setOpen(false);
 
       // Navigate to the created case
@@ -295,7 +307,7 @@ export default function CreateCaseDialog() {
   ];
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild data-tutorial="create-case">
         <Button className="gap-2 cursor-pointer">
           <Plus className="h-4 w-4" />
@@ -304,33 +316,34 @@ export default function CreateCaseDialog() {
       </DialogTrigger>
 
       <DialogContent className="sm:max-w-[700px] max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <div className="flex items-center justify-between">
-            <div>
-              <DialogTitle>Crear Nuevo Caso</DialogTitle>
-              <DialogDescription>
-                Complete la información para crear un nuevo caso legal y vincule
-                los clientes correspondientes.
-              </DialogDescription>
+        <LocalErrorBoundary resetKeys={[open]}>
+          <DialogHeader>
+            <div className="flex items-center justify-between">
+              <div>
+                <DialogTitle>Crear Nuevo Caso</DialogTitle>
+                <DialogDescription>
+                  Complete la información para crear un nuevo caso legal y vincule
+                  los clientes correspondientes.
+                </DialogDescription>
+              </div>
+              <span className="text-sm text-gray-500 whitespace-nowrap ml-4">
+                Casos: {currentCount}/{limit === Infinity ? "∞" : limit}
+              </span>
             </div>
-            <span className="text-sm text-gray-500 whitespace-nowrap ml-4">
-              Casos: {currentCount}/{limit === Infinity ? "∞" : limit}
-            </span>
-          </div>
-        </DialogHeader>
+          </DialogHeader>
 
-        {/* Warning banner if approaching limit */}
-        {isWarning && (
-          <LimitWarningBanner
-            limitType="cases"
-            percentage={percentage}
-            currentCount={currentCount}
-            limit={limit}
-            onUpgrade={() => setShowUpgradeModal(true)}
-          />
-        )}
+          {/* Warning banner if approaching limit */}
+          {isWarning && (
+            <LimitWarningBanner
+              limitType="cases"
+              percentage={percentage}
+              currentCount={currentCount}
+              limit={limit}
+              onUpgrade={() => setShowUpgradeModal(true)}
+            />
+          )}
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid grid-cols-1 gap-4">
             {/* Título */}
             <div className="space-y-2">
@@ -670,7 +683,10 @@ export default function CreateCaseDialog() {
             <Button
               type="button"
               variant="outline"
-              onClick={() => setOpen(false)}
+              onClick={() => {
+                closeFloatingLayers();
+                setOpen(false);
+              }}
               disabled={isLoading}
             >
               Cancelar
@@ -693,6 +709,7 @@ export default function CreateCaseDialog() {
           currentPlan={userPlan || "free"}
           recommendedPlan="premium_individual"
         />
+        </LocalErrorBoundary>
       </DialogContent>
     </Dialog>
   );

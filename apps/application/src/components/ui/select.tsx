@@ -4,6 +4,7 @@ import { CheckIcon, ChevronDownIcon, ChevronUpIcon } from "lucide-react";
 import { cva } from "class-variance-authority";
 
 import { cn } from "@/lib/utils";
+import { getPortalContainer } from "@/lib/portalContainer";
 
 const selectItemVariants = cva(
   "relative flex w-full cursor-pointer items-center gap-3 rounded-sm py-2.5 px-3 text-sm outline-hidden select-none data-[disabled]:pointer-events-none data-[disabled]:opacity-50 transition-colors hover:bg-[#E8F0FE] data-[state=checked]:border-l-2 data-[state=checked]:border-l-blue-600",
@@ -89,7 +90,7 @@ function SelectContent({
   ...props
 }: React.ComponentProps<typeof SelectPrimitive.Content>) {
   return (
-    <SelectPrimitive.Portal>
+    <SelectPrimitive.Portal container={getPortalContainer()}>
       <SelectPrimitive.Content
         data-slot="select-content"
         className={cn(

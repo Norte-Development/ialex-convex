@@ -1,6 +1,6 @@
 import {
   UserCheck,
-  Bell,
+  // Bell,
   Search,
   MessageCircle,
   X,
@@ -49,9 +49,9 @@ export default function NavBar() {
 
   const menuOptions = [
     { label: "Inicio", path: "/", icon: Home },
+    { label: "Casos", path: "/casos", icon: Landmark },
     { label: "Equipos", path: "/equipo", icon: Users },
     { label: "Clientes", path: "/clientes", icon: UserCheck },
-    { label: "Casos", path: "/casos", icon: Landmark },
     { label: "Modelos", path: "/modelos", icon: FilePen },
     { label: "Biblioteca", path: "/biblioteca", icon: FolderOpen },
     { label: "Legales", path: "/base-de-datos", icon: Database },

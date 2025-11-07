@@ -27,6 +27,7 @@ import { UserPlus, Search, Loader2, Link2 } from "lucide-react";
 import { toast } from "sonner";
 import { useCase } from "../../context/CaseContext";
 import { tracking } from "@/lib/tracking";
+import { closeFloatingLayers } from "@/lib/closeFloatingLayers";
 
 interface SyncNewClientDialogProps {
   open: boolean;
@@ -59,6 +60,11 @@ export default function SyncNewClientDialog({
     clientType: "individual" as "individual" | "company",
     notes: "",
   });
+
+  // Prevent dialog closing while submitting
+  const handleOpenChange = (newOpen: boolean) => {
+    if (!isLinking && !isCreating) onOpenChange(newOpen);
+  };
 
   // Obtener todos los clientes
   const allClientsResult = useQuery(api.functions.clients.getClients, {
@@ -118,6 +124,10 @@ export default function SyncNewClientDialog({
       });
 
       toast.success("Cliente vinculado exitosamente");
+      // Small delay to avoid portal teardown races before closing dialog
+      await new Promise((resolve) => setTimeout(resolve, 100));
+      // Close any open floating layers before closing dialog to prevent NotFoundError
+      closeFloatingLayers();
       onOpenChange(false);
       setSearchTerm("");
       setSelectedClientId(null);
@@ -193,6 +203,10 @@ export default function SyncNewClientDialog({
         notes: "",
       });
       setSelectedRole("Demandante");
+      // Small delay to avoid portal teardown races before closing dialog
+      await new Promise((resolve) => setTimeout(resolve, 100));
+      // Close any open floating layers before closing dialog to prevent NotFoundError
+      closeFloatingLayers();
       onOpenChange(false);
     } catch (error) {
       console.error("Error creating and linking client:", error);
@@ -209,7 +223,7 @@ export default function SyncNewClientDialog({
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="sm:max-w-[700px] max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Gestionar Cliente del Caso</DialogTitle>

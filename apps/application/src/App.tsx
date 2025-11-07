@@ -5,6 +5,7 @@ import { AuthLoading } from "convex/react";
 import { lazy, useMemo } from "react";
 import { useAuth } from "./context/AuthContext";
 import { clarity } from "./clarity";
+import { usePostHog } from "posthog-js/react";
 import Layout from "./components/Layout/Layout";
 import { OnboardingWrapper } from "./components/Auth/OnboardingWrapper";
 import { SignInPage } from "./components/Auth/SignInPage";
@@ -131,17 +132,22 @@ const useQueryClient = () => {
   return useMemo(() => new QueryClient(), []);
 };
 
-// Clarity tracking component
+// Clarity + PostHog tracking component
 const ClarityTracker = () => {
   const location = useLocation();
   const { user, clerkUser } = useAuth();
+  const posthog = usePostHog();
 
   // Track page views
   useEffect(() => {
     const pageName =
       location.pathname.split("/").filter(Boolean).join("/") || "home";
     clarity.page(pageName);
-  }, [location]);
+    posthog?.capture("$pageview", {
+      page_path: location.pathname,
+      page_name: pageName,
+    });
+  }, [location, posthog]);
 
   // Identify user when available
   useEffect(() => {
@@ -150,8 +156,15 @@ const ClarityTracker = () => {
       clarity.identify(anonymizedId, {
         role: (user as { role?: string }).role || "unknown",
       });
+      
+      // PostHog identify with user properties
+      posthog?.identify(clerkUser.id, {
+        email: clerkUser.emailAddresses[0]?.emailAddress,
+        name: clerkUser.fullName || clerkUser.firstName,
+        role: (user as { role?: string }).role || "unknown",
+      });
     }
-  }, [clerkUser, user]);
+  }, [clerkUser, user, posthog]);
 
   return null;
 };

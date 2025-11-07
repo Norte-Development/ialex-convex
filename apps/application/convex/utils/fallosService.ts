@@ -7,15 +7,78 @@ import { FALLOS_COLLECTION_NAME } from '../rag/qdrantUtils/fallosConfig';
 // External service clients - lazy initialization
 let mongoClient: MongoClient | null = null;
 
-// Lazy getter for MongoDB client
+// Helper function to ensure MongoDB client is connected
+const ensureMongoClient = async (): Promise<MongoClient> => {
+  if (!process.env.MONGODB_URI) {
+    throw new Error('MONGODB_URI environment variable is not set');
+  }
+
+  // Create new client if needed
+  if (!mongoClient) {
+    mongoClient = new MongoClient(process.env.MONGODB_URI, {
+      // Connection pool options for serverless environments
+      maxPoolSize: 10,
+      minPoolSize: 1,
+      maxIdleTimeMS: 30000,
+      serverSelectionTimeoutMS: 5000,
+      socketTimeoutMS: 45000,
+    });
+  }
+
+  return mongoClient;
+};
+
+// Lazy getter for MongoDB client (for backward compatibility)
 const getMongoClient = (): MongoClient => {
   if (!mongoClient) {
     if (!process.env.MONGODB_URI) {
       throw new Error('MONGODB_URI environment variable is not set');
     }
-    mongoClient = new MongoClient(process.env.MONGODB_URI);
+    mongoClient = new MongoClient(process.env.MONGODB_URI, {
+      maxPoolSize: 10,
+      minPoolSize: 1,
+      maxIdleTimeMS: 30000,
+      serverSelectionTimeoutMS: 5000,
+      socketTimeoutMS: 45000,
+    });
   }
   return mongoClient;
+};
+
+// Helper function to execute MongoDB operations with retry logic
+const withMongoRetry = async <T>(
+  operation: (client: MongoClient) => Promise<T>,
+  retries = 1
+): Promise<T> => {
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    try {
+      const client = await ensureMongoClient();
+      return await operation(client);
+    } catch (error: any) {
+      const isTopologyClosed = 
+        error?.message?.includes('Topology is closed') ||
+        error?.message?.includes('topology was destroyed') ||
+        error?.code === 'MongoTopologyClosed';
+
+      if (isTopologyClosed && attempt < retries) {
+        console.log(`MongoDB topology closed, retrying (attempt ${attempt + 1}/${retries + 1})...`);
+        // Reset client to force reconnection
+        if (mongoClient) {
+          try {
+            await mongoClient.close();
+          } catch (closeError) {
+            // Ignore close errors
+          }
+        }
+        mongoClient = null;
+        // Wait a bit before retrying
+        await new Promise(resolve => setTimeout(resolve, 100 * (attempt + 1)));
+        continue;
+      }
+      throw error;
+    }
+  }
+  throw new Error('Operation failed after retries');
 };
 
 // Cache for tipo_general enum values
@@ -39,12 +102,12 @@ export const getTipoGeneralValues = async (): Promise<string[]> => {
   
   try {
     console.log('Fetching distinct tipo_general values from MongoDB for fallos...');
-    const mongoClient = getMongoClient();
-    const db = mongoClient.db(process.env.MONGODB_DATABASE_NAME);
-    const collection = db.collection(FALLOS_COLLECTION_NAME);
-    
-    const distinctValues = await collection.distinct('tipo_general', {
-      tipo_general: { $exists: true, $ne: null }
+    const distinctValues = await withMongoRetry(async (client) => {
+      const db = client.db(process.env.MONGODB_DATABASE_NAME);
+      const collection = db.collection(FALLOS_COLLECTION_NAME);
+      return await collection.distinct('tipo_general', {
+        tipo_general: { $exists: true, $ne: null }
+      });
     });
     
     // Filter out null/undefined and sort
@@ -107,12 +170,12 @@ export const getJurisdiccionValues = async (): Promise<string[]> => {
   
   try {
     console.log('Fetching distinct jurisdiccion values from MongoDB for fallos...');
-    const mongoClient = getMongoClient();
-    const db = mongoClient.db(process.env.MONGODB_DATABASE_NAME);
-    const collection = db.collection(FALLOS_COLLECTION_NAME);
-    
-    const distinctValues = await collection.distinct('jurisdiccion', {
-      jurisdiccion: { $exists: true, $ne: null }
+    const distinctValues = await withMongoRetry(async (client) => {
+      const db = client.db(process.env.MONGODB_DATABASE_NAME);
+      const collection = db.collection(FALLOS_COLLECTION_NAME);
+      return await collection.distinct('jurisdiccion', {
+        jurisdiccion: { $exists: true, $ne: null }
+      });
     });
     
     // Filter out null/undefined and sort
@@ -151,12 +214,12 @@ export const getTribunalValues = async (): Promise<string[]> => {
   
   try {
     console.log('Fetching distinct tribunal values from MongoDB for fallos...');
-    const mongoClient = getMongoClient();
-    const db = mongoClient.db(process.env.MONGODB_DATABASE_NAME);
-    const collection = db.collection(FALLOS_COLLECTION_NAME);
-    
-    const distinctValues = await collection.distinct('tribunal', {
-      tribunal: { $exists: true, $ne: null }
+    const distinctValues = await withMongoRetry(async (client) => {
+      const db = client.db(process.env.MONGODB_DATABASE_NAME);
+      const collection = db.collection(FALLOS_COLLECTION_NAME);
+      return await collection.distinct('tribunal', {
+        tribunal: { $exists: true, $ne: null }
+      });
     });
     
     // Filter out null/undefined and sort
@@ -354,9 +417,6 @@ const buildMongoSort = (sortBy?: FalloSortBy, sortOrder: FalloSortOrder = 'desc'
 };
 
 export const getFallos = async (params: ListFallosParams = {}): Promise<PaginatedResult<FalloDoc>> => {
-  const mongoClient = getMongoClient();
-  const db = mongoClient.db(process.env.MONGODB_DATABASE_NAME);
-  const collection = db.collection(FALLOS_COLLECTION_NAME);
   const {
     filters = {},
     limit = 20,
@@ -377,23 +437,31 @@ export const getFallos = async (params: ListFallosParams = {}): Promise<Paginate
   console.log('MongoDB sort for fallos:', mongoSort);
 
   try {
-    // Get total count for pagination
-    const total = await collection.countDocuments(mongoFilter);
+    // Execute query with retry logic
+    const { total, fallos } = await withMongoRetry(async (client) => {
+      const db = client.db(process.env.MONGODB_DATABASE_NAME);
+      const collection = db.collection(FALLOS_COLLECTION_NAME);
 
-    // Get paginated results with limited fields (exclude large content fields)
-    const fallos = await collection
-      .find(mongoFilter)
-      .project({
-        // Exclude large content fields to improve performance
-        content: 0,
-        relaciones: 0,
-        created_at: 0,
-        updated_at: 0
-      })
-      .sort(mongoSort)
-      .skip(validatedOffset)
-      .limit(validatedLimit)
-      .toArray();
+      // Get total count for pagination
+      const total = await collection.countDocuments(mongoFilter);
+
+      // Get paginated results with limited fields (exclude large content fields)
+      const fallos = await collection
+        .find(mongoFilter)
+        .project({
+          // Exclude large content fields to improve performance
+          content: 0,
+          relaciones: 0,
+          created_at: 0,
+          updated_at: 0
+        })
+        .sort(mongoSort)
+        .skip(validatedOffset)
+        .limit(validatedLimit)
+        .toArray();
+
+      return { total, fallos };
+    });
 
     // Map fallos to ensure consistent data structure
     const mappedFallos: FalloDoc[] = fallos.map((fallo) => ({
@@ -464,16 +532,16 @@ export const getFallos = async (params: ListFallosParams = {}): Promise<Paginate
 
 // Get a single fallo by document_id (with full content)
 export const getFalloById = async (documentId: string): Promise<FalloDoc | null> => {
-  const mongoClient = getMongoClient();
-  const db = mongoClient.db(process.env.MONGODB_DATABASE_NAME);
-  const collection = db.collection(FALLOS_COLLECTION_NAME);
-
   try {
     // Create query filter
     const queryFilter = { document_id: documentId };
 
     // Get full document including content
-    const fallo = await collection.findOne(queryFilter);
+    const fallo = await withMongoRetry(async (client) => {
+      const db = client.db(process.env.MONGODB_DATABASE_NAME);
+      const collection = db.collection(FALLOS_COLLECTION_NAME);
+      return await collection.findOne(queryFilter);
+    });
 
     if (!fallo) {
       return null;
@@ -533,10 +601,6 @@ export const getFalloById = async (documentId: string): Promise<FalloDoc | null>
 
 // Get facets for filter options
 export const getFallosFacets = async (filters: FalloFilters = {}) => {
-  const mongoClient = getMongoClient();
-  const db = mongoClient.db(process.env.MONGODB_DATABASE_NAME);
-  const collection = db.collection(FALLOS_COLLECTION_NAME);
-
   const baseFilter = buildMongoFilter(filters);
 
   try {
@@ -593,7 +657,11 @@ export const getFallosFacets = async (filters: FalloFilters = {}) => {
       }
     ];
 
-    const [facetsResult] = await collection.aggregate(facetsAggregation).toArray();
+    const [facetsResult] = await withMongoRetry(async (client) => {
+      const db = client.db(process.env.MONGODB_DATABASE_NAME);
+      const collection = db.collection(FALLOS_COLLECTION_NAME);
+      return await collection.aggregate(facetsAggregation).toArray();
+    });
 
     // Handle case where aggregation returns undefined or empty result
     if (!facetsResult) {
