@@ -72,7 +72,7 @@ export const Tiptap = forwardRef<TiptapRef, TiptapProps>(
         editable: !readOnly,
         editorProps: {
           attributes: {
-            class: `legal-editor-content prose prose-lg focus:outline-none px-12 py-8 min-h-screen ${
+            class: `legal-editor-content prose prose-lg focus:outline-none px-3 py-4 sm:px-6 sm:py-6 md:px-12 md:py-8 min-h-screen ${
               readOnly ? "cursor-default select-text" : ""
             }`,
             "data-placeholder": readOnly
@@ -228,11 +228,11 @@ export const Tiptap = forwardRef<TiptapRef, TiptapProps>(
 
         {/* Template loading error feedback */}
         {templateError && (
-          <Alert className="mx-4 mt-4 border-orange-200 bg-orange-50">
+          <Alert className="mx-3 sm:mx-4 mt-3 sm:mt-4 border-orange-200 bg-orange-50">
             <AlertTriangle className="h-4 w-4 text-orange-600" />
             <AlertDescription className="text-orange-800">
-              <div className="flex items-center justify-between">
-                <span>{templateError}</span>
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                <span className="text-sm">{templateError}</span>
                 <Button
                   variant="outline"
                   size="sm"
@@ -242,7 +242,7 @@ export const Tiptap = forwardRef<TiptapRef, TiptapProps>(
                     newSearchParams.delete("templateId");
                     setSearchParams(newSearchParams, { replace: true });
                   }}
-                  className="ml-2 text-orange-700 border-orange-300 hover:bg-orange-100"
+                  className="sm:ml-2 text-orange-700 border-orange-300 hover:bg-orange-100 w-full sm:w-auto"
                 >
                   Continuar sin plantilla
                 </Button>
@@ -251,9 +251,11 @@ export const Tiptap = forwardRef<TiptapRef, TiptapProps>(
           </Alert>
         )}
 
-        <EditorContent editor={editor} className="w-full min-h-[600px]" />
+        <div className="legal-editor-content-wrapper">
+          <EditorContent editor={editor} className="w-full min-h-[400px] sm:min-h-[500px] md:min-h-[600px]" />
+        </div>
 
-        <div className="border-t border-gray-200 bg-gray-50/50 px-4 py-2 text-xs text-gray-500">
+        <div className="border-t border-gray-200 bg-gray-50/50 px-3 sm:px-4 py-2 text-xs text-gray-500">
           Words: {editor.storage.characterCount?.words() ?? 0} | Characters:{" "}
           {editor.storage.characterCount?.characters() ?? 0}
         </div>

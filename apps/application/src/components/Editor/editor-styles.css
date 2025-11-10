@@ -31,6 +31,8 @@
   background-color: var(--office-gray);
   padding: 0 8px;
   border-bottom: 1px solid var(--office-border);
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 .ribbon-tab {
@@ -43,6 +45,8 @@
   cursor: pointer;
   transition: all 0.15s ease;
   border-bottom: 2px solid transparent;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .ribbon-tab:hover {
@@ -60,18 +64,22 @@
   padding: 8px 12px;
   background-color: var(--office-background);
   min-height: 100px;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 .ribbon-tab-content {
   display: flex;
   align-items: flex-start;
   gap: 12px;
+  min-width: min-content;
 }
 
 .ribbon-group {
   display: flex;
   flex-direction: column;
   gap: 4px;
+  flex-shrink: 0;
 }
 
 .ribbon-group-label {
@@ -90,6 +98,7 @@
   padding: 4px;
   background-color: var(--office-background);
   border-radius: 4px;
+  flex-wrap: wrap;
 }
 
 .ribbon-separator {
@@ -97,6 +106,36 @@
   height: 80px;
   background-color: var(--office-border);
   margin: 0 4px;
+  flex-shrink: 0;
+}
+
+/* Mobile responsive ribbon */
+@media (max-width: 768px) {
+  .ribbon-tabs {
+    padding: 0 4px;
+  }
+
+  .ribbon-tab {
+    padding: 8px 12px;
+    font-size: 0.8125rem;
+  }
+
+  .ribbon-content {
+    padding: 6px 8px;
+    min-height: 80px;
+  }
+
+  .ribbon-tab-content {
+    gap: 8px;
+  }
+
+  .ribbon-group-content {
+    gap: 4px;
+  }
+
+  .ribbon-separator {
+    height: 60px;
+  }
 }
 
 /* Office Button Styles */
@@ -361,6 +400,14 @@
   word-break: break-word;
 }
 
+@media (max-width: 768px) {
+  .legal-editor-content-wrapper .ProseMirror {
+    min-height: 400px;
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+}
+
 /* Ensure content doesn't overflow */
 .legal-editor-content-wrapper {
   width: 100%;
@@ -374,26 +421,76 @@
 @media (max-width: 900px) {
   .legal-editor-content,
   .legal-editor-content-wrapper .ProseMirror {
-    width: 95%;
-    max-width: 95%;
+    width: 100%;
+    max-width: 100%;
+    padding: 1rem;
   }
 }
 
 @media (max-width: 768px) {
-  .legal-editor-content {
-    padding: 1rem !important;
+  .legal-editor-content,
+  .legal-editor-content-wrapper .ProseMirror {
+    width: 100% !important;
+    max-width: 100% !important;
+    padding: 0.75rem !important;
+    margin: 0 !important;
   }
 
   .legal-editor-content h1 {
     font-size: 1.5rem;
+    margin-top: 1.5rem;
+    margin-bottom: 0.75rem;
   }
 
   .legal-editor-content h2 {
     font-size: 1.25rem;
+    margin-top: 1.25rem;
+    margin-bottom: 0.5rem;
   }
 
   .legal-editor-content h3 {
     font-size: 1.125rem;
+    margin-top: 1rem;
+  }
+
+  .legal-editor-content h4,
+  .legal-editor-content h5,
+  .legal-editor-content h6 {
+    font-size: 1rem;
+    margin-top: 0.75rem;
+  }
+
+  .legal-editor-content p {
+    margin: 0.75rem 0;
+    line-height: 1.5;
+  }
+
+  .legal-editor-content ul,
+  .legal-editor-content ol {
+    padding: 0 0.75rem;
+    margin: 1rem 0.5rem;
+  }
+
+  .legal-editor-content table {
+    font-size: 0.875rem;
+    display: block;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .legal-editor-content-wrapper {
+    padding: 0;
+  }
+
+  /* ProseMirror editor classes need mobile padding */
+  .prose.px-12 {
+    padding-left: 0.75rem !important;
+    padding-right: 0.75rem !important;
+  }
+
+  .prose.py-8 {
+    padding-top: 1rem !important;
+    padding-bottom: 1rem !important;
   }
 }
 

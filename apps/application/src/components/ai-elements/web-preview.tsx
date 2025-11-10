@@ -167,12 +167,15 @@ export const WebPreviewBody = ({
   const { url } = useWebPreview();
 
   return (
-    <div className="flex-1">
+    <div className="flex-1 w-full overflow-hidden min-h-0">
       <iframe
-        className={cn('size-full', className)}
+        className={cn('w-full h-full min-h-[400px] border-0', className)}
         sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-presentation"
         src={(src ?? url) || undefined}
         title="Preview"
+        style={{
+          maxWidth: '100%',
+        }}
         {...props}
       />
       {loading}

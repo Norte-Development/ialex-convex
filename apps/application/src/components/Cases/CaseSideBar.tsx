@@ -274,12 +274,13 @@ export default function CaseSidebar() {
 
   return (
     <>
-      {/* Open sidebar button - positioned outside the sidebar container */}
+      {/* Open sidebar button - only show on desktop when sidebar is closed (mobile uses NavBar button) */}
       {!isCaseSidebarOpen && (
         <button
           onClick={toggleCaseSidebar}
-          className="fixed top-1/2 left-0 z-40 bg-white border border-border rounded-r-lg shadow-lg hover:shadow-xl transition-all duration-200 p-2 hover:bg-gray-50"
+          className="hidden md:block fixed top-1/2 left-0 z-40 bg-white border border-border rounded-r-lg shadow-lg hover:shadow-xl transition-all duration-200 p-2 hover:bg-gray-50"
           style={{ transform: "translateY(-50%)" }}
+          aria-label="Open sidebar"
         >
           <ArrowRight size={16} className="text-gray-600" />
         </button>

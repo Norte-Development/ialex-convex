@@ -13,9 +13,9 @@ export default function CaseCard({ caseId, title, status }: CaseCardProps) {
   const clients = useQuery(api.functions.cases.getClientsForCase, { caseId });
 
   return (
-    <div className="w-full max-w-[350px] h-48 bg-[#f7f7f7] border border-gray-200 flex flex-col justify-start shadow-md rounded-lg p-4">
-      <h1 className=" font-bold h-[30%]">{title}</h1>
-      <div className="flex flex-col gap-1 text-gray-500 h-[60%] overflow-y-auto">
+    <div className="w-full max-w-full sm:max-w-[350px] h-auto min-h-[180px] sm:h-48 bg-[#f7f7f7] border border-gray-200 flex flex-col justify-start shadow-md rounded-lg p-4">
+      <h1 className="font-bold text-base sm:text-lg h-auto sm:h-[30%] mb-2 sm:mb-0 line-clamp-2">{title}</h1>
+      <div className="flex flex-col gap-1 text-gray-500 h-auto sm:h-[60%] overflow-y-auto flex-1">
         <div className="text-sm font-medium">Clientes:</div>
         {clients === undefined ? (
           <div className="text-xs">Cargando clientes...</div>
@@ -50,10 +50,10 @@ export default function CaseCard({ caseId, title, status }: CaseCardProps) {
           </span>
         </div>
       </div>
-      <div className="h-[10%] flex justify-start items-center">
+      <div className="h-auto sm:h-[10%] flex justify-start items-center mt-2 sm:mt-0">
         <Link
           to={`/caso/${caseId}`}
-          className="cursor-pointer text-blue-600 hover:text-blue-800"
+          className="cursor-pointer text-blue-600 hover:text-blue-800 text-sm sm:text-base"
         >
           Ir a caso →
         </Link>

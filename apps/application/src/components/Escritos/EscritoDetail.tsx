@@ -210,9 +210,9 @@ export default function EscritoDetail({
         )} */}
       </div>
 
-      <div className="p-6">
-        <div className="flex gap-6">
-          <div className="flex-1">
+      <div className="p-3 sm:p-4 md:p-6">
+        <div className="flex gap-3 sm:gap-4 md:gap-6">
+          <div className="flex-1 w-full min-w-0">
             <Tiptap
               documentId={escrito?.prosemirrorId}
               templateId={templateId}

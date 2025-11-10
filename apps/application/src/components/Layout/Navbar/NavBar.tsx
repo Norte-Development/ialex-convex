@@ -11,6 +11,7 @@ import {
   Landmark,
   FilePen,
   FolderOpen,
+  Menu,
 } from "lucide-react";
 import { useLocation } from "react-router-dom";
 import { useEffect } from "react";
@@ -22,6 +23,9 @@ import { useGlobalSearch } from "@/hooks/useGlobalSearch";
 import SearchDropdown from "@/components/Search/SearchDropdown";
 import { useChatbot } from "@/context/ChatbotContext";
 import { useTutorial } from "@/context/TutorialContext";
+import { useLayout } from "@/context/LayoutContext";
+import { useIsMobile } from "@/hooks/use-mobile";
+import { Button } from "@/components/ui/button";
 
 export default function NavBar() {
   const location = useLocation();
@@ -39,6 +43,8 @@ export default function NavBar() {
 
   const isInCaseContext = location.pathname.includes("/caso/");
   const { toggleChatbot, isChatbotOpen } = useChatbot();
+  const { toggleCaseSidebar, isCaseSidebarOpen } = useLayout();
+  const isMobile = useIsMobile();
 
   // Auto-open chatbot when tutorial reaches step 15
   useEffect(() => {
@@ -122,6 +128,18 @@ export default function NavBar() {
       <div className={`flex gap-4 justify-center items-center `}>
         {isInCaseContext ? (
           <div className="text-xl font-bold text-black flex items-center gap-2">
+            {/* Mobile sidebar toggle button */}
+            {isMobile && (
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={toggleCaseSidebar}
+                className="md:hidden h-8 w-8"
+                aria-label="Toggle sidebar"
+              >
+                <Menu className="h-5 w-5" />
+              </Button>
+            )}
             <Breadcrumbs />
           </div>
         ) : (

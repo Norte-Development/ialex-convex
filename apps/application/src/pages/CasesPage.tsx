@@ -15,9 +15,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "../components/ui/select";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 function CasesContent() {
   const { currentCase } = useCase();
+  const isMobile = useIsMobile();
   
   // Search and filter state
   const [searchQuery, setSearchQuery] = useState("");
@@ -57,13 +59,25 @@ function CasesContent() {
 
   return (
     <div
-      className={`flex flex-col gap-4 w-full  min-h-screen px-5 ${currentCase ? "pt-5" : "pt-20"}`}
+      className={`flex flex-col gap-4 w-full min-h-screen px-3 sm:px-5 ${currentCase ? "pt-5" : "pt-20"}`}
     >
-      <div className="w-full flex justify-between items-center">
-        <h1 className="text-2xl font-bold">Casos</h1>
-        <div className="flex items-center gap-4">
+      {/* Header - Stack on mobile */}
+      <div className="w-full flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
+        <h1 className="text-xl sm:text-2xl font-bold">Casos</h1>
+        <div className="flex items-center gap-2 sm:gap-4">
           {usage && limits && (
-            <div className="w-64">
+            <div className="hidden sm:block sm:w-64">
+              <UsageMeter
+                used={usage.casesCount}
+                limit={limits.cases}
+                label="Casos"
+                showPercentage={false}
+              />
+            </div>
+          )}
+          {/* Show usage meter below title on mobile */}
+          {usage && limits && isMobile && (
+            <div className="w-full sm:hidden">
               <UsageMeter
                 used={usage.casesCount}
                 limit={limits.cases}
@@ -76,45 +90,47 @@ function CasesContent() {
         </div>
       </div>
 
-      {/* Search and Filter Controls */}
+      {/* Search and Filter Controls - Stack on mobile */}
       <div className="w-full flex flex-col gap-4">
-        <div className="flex items-center gap-4">
-          <div className="relative flex-1 max-w-md">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+          <div className="relative flex-1 w-full">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
             <Input
               placeholder="Buscar casos..."
               value={searchQuery}
               onChange={(e) => handleSearchChange(e.target.value)}
-              className="pl-10"
+              className="pl-10 w-full"
             />
           </div>
-          <Button
-            variant="outline"
-            onClick={() => setShowFilters(!showFilters)}
-            className="gap-2"
-          >
-            <Filter className="h-4 w-4" />
-            Filtros
-            {hasActiveFilters && (
-              <span className="bg-blue-500 text-white rounded-full w-5 h-5 text-xs flex items-center justify-center">
-                !
-              </span>
-            )}
-          </Button>
-          {hasActiveFilters && (
-            <Button variant="ghost" onClick={clearFilters} className="gap-2">
-              <X className="h-4 w-4" />
-              Limpiar
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setShowFilters(!showFilters)}
+              className="gap-2 flex-1 sm:flex-initial"
+            >
+              <Filter className="h-4 w-4" />
+              <span className="hidden sm:inline">Filtros</span>
+              {hasActiveFilters && (
+                <span className="bg-blue-500 text-white rounded-full w-5 h-5 text-xs flex items-center justify-center">
+                  !
+                </span>
+              )}
             </Button>
-          )}
+            {hasActiveFilters && (
+              <Button variant="ghost" onClick={clearFilters} className="gap-2">
+                <X className="h-4 w-4" />
+                <span className="hidden sm:inline">Limpiar</span>
+              </Button>
+            )}
+          </div>
         </div>
 
         {showFilters && (
-          <div className="flex items-center gap-4 p-4 bg-gray-50 rounded-lg">
-            <div className="flex items-center gap-2">
-              <label className="text-sm font-medium">Estado:</label>
+          <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 p-4 bg-gray-50 rounded-lg">
+            <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+              <label className="text-sm font-medium whitespace-nowrap">Estado:</label>
               <Select value={statusFilter || "all"} onValueChange={handleStatusFilterChange}>
-                <SelectTrigger className="w-40">
+                <SelectTrigger className="w-full sm:w-40">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -127,10 +143,10 @@ function CasesContent() {
                 </SelectContent>
               </Select>
             </div>
-            <div className="flex items-center gap-2">
-              <label className="text-sm font-medium">Ordenar por:</label>
+            <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+              <label className="text-sm font-medium whitespace-nowrap">Ordenar por:</label>
               <Select value={sortBy} onValueChange={handleSortByChange}>
-                <SelectTrigger className="w-40">
+                <SelectTrigger className="w-full sm:w-40">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -141,10 +157,10 @@ function CasesContent() {
                 </SelectContent>
               </Select>
             </div>
-            <div className="flex items-center gap-2">
-              <label className="text-sm font-medium">Orden:</label>
+            <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+              <label className="text-sm font-medium whitespace-nowrap">Orden:</label>
               <Select value={sortOrder} onValueChange={handleSortOrderChange}>
-                <SelectTrigger className="w-32">
+                <SelectTrigger className="w-full sm:w-32">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>

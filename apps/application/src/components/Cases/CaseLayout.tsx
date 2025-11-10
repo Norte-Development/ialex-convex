@@ -20,6 +20,7 @@ import {
 } from "@/components/Billing";
 import { UploadProvider, useUpload } from "@/context/UploadContext";
 import { UploadOverlay } from "./UploadOverlay";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 interface CaseDetailLayoutProps {
   children: React.ReactNode;
@@ -35,7 +36,7 @@ export default function CaseLayout({ children }: CaseDetailLayoutProps) {
 
 function InnerCaseLayout({ children }: CaseDetailLayoutProps) {
   // All hooks must be called before any conditional returns
-  const { isCaseSidebarOpen } = useLayout();
+  const { isCaseSidebarOpen, toggleCaseSidebar } = useLayout();
   const { currentCase } = useCase();
   const { hasAccess, isLoading, can } = usePermissions();
   const { isChatbotOpen, toggleChatbot, chatbotWidth, setChatbotWidth } =
@@ -44,6 +45,7 @@ function InnerCaseLayout({ children }: CaseDetailLayoutProps) {
   const { addUpload, updateUpload, removeUpload } = useUpload();
   const [isGlobalDragActive, setIsGlobalDragActive] = useState(false);
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+  const isMobile = useIsMobile();
 
   // Persistent dedupe tracking and drop guard
   const enqueuedUploadsRef = useRef<Set<string>>(new Set());
@@ -367,21 +369,39 @@ function InnerCaseLayout({ children }: CaseDetailLayoutProps) {
 
   return (
     <div className="relative h-screen w-screen flex overflow-hidden">
-      {/* Left Sidebar - full height, fixed position */}
-      <div
-        className={`fixed top-0 left-0 h-screen z-20 ${
-          isResizing
-            ? "transition-none"
-            : "transition-all duration-300 ease-in-out"
-        }`}
-        style={{
-          width: isCaseSidebarOpen ? "256px" : "0px",
-        }}
-      >
-        <CaseSidebar />
-      </div>
+      {/* Left Sidebar - overlay on mobile, push on desktop */}
+      {isMobile ? (
+        /* Mobile: Sidebar as overlay */
+        isCaseSidebarOpen && (
+          <div className="fixed inset-0 z-30 md:hidden">
+            {/* Backdrop */}
+            <div
+              className="absolute inset-0 bg-black/50"
+              onClick={toggleCaseSidebar}
+            />
+            {/* Sidebar */}
+            <div className="absolute left-0 top-0 h-full w-64 z-40">
+              <CaseSidebar />
+            </div>
+          </div>
+        )
+      ) : (
+        /* Desktop: Sidebar pushes content */
+        <div
+          className={`fixed top-0 left-0 h-screen z-20 ${
+            isResizing
+              ? "transition-none"
+              : "transition-all duration-300 ease-in-out"
+          }`}
+          style={{
+            width: isCaseSidebarOpen ? "256px" : "0px",
+          }}
+        >
+          <CaseSidebar />
+        </div>
+      )}
 
-      {/* Main container - pushed by sidebars */}
+      {/* Main container - no margin on mobile when sidebar is open (overlay) */}
       <div
         className={`flex-1 flex flex-col h-screen overflow-hidden ${
           isResizing
@@ -389,7 +409,7 @@ function InnerCaseLayout({ children }: CaseDetailLayoutProps) {
             : "transition-all duration-300 ease-in-out"
         }`}
         style={{
-          marginLeft: isCaseSidebarOpen ? "256px" : "0px",
+          marginLeft: !isMobile && isCaseSidebarOpen ? "256px" : "0px",
         }}
       >
         {/* Navbar at top */}
@@ -404,21 +424,44 @@ function InnerCaseLayout({ children }: CaseDetailLayoutProps) {
                 : "transition-all duration-300 ease-in-out"
             }`}
             style={{
-              marginRight: isChatbotOpen ? `${chatbotWidth}px` : "0px",
+              marginRight: !isMobile && isChatbotOpen ? `${chatbotWidth}px` : "0px",
             }}
           >
             {children}
           </main>
 
-          {/* Right Sidebar Chatbot */}
-          <SidebarChatbot
-            isOpen={isChatbotOpen}
-            onToggle={toggleChatbot}
-            width={chatbotWidth}
-            onWidthChange={handleWidthChange}
-            onResizeStart={handleResizeStart}
-            onResizeEnd={handleResizeEnd}
-          />
+          {/* Right Sidebar Chatbot - overlay on mobile */}
+          {isMobile ? (
+            /* Mobile: Chatbot as overlay */
+            isChatbotOpen && (
+              <div className="fixed inset-0 z-30 md:hidden">
+                <div 
+                  className="absolute inset-0 bg-black/50"
+                  onClick={toggleChatbot}
+                />
+                <div className="absolute right-0 top-0 h-full w-full sm:w-96 z-40">
+                  <SidebarChatbot
+                    isOpen={isChatbotOpen}
+                    onToggle={toggleChatbot}
+                    width={chatbotWidth}
+                    onWidthChange={handleWidthChange}
+                    onResizeStart={handleResizeStart}
+                    onResizeEnd={handleResizeEnd}
+                  />
+                </div>
+              </div>
+            )
+          ) : (
+            /* Desktop: Chatbot pushes content */
+            <SidebarChatbot
+              isOpen={isChatbotOpen}
+              onToggle={toggleChatbot}
+              width={chatbotWidth}
+              onWidthChange={handleWidthChange}
+              onResizeStart={handleResizeStart}
+              onResizeEnd={handleResizeEnd}
+            />
+          )}
         </div>
       </div>
 

@@ -81,11 +81,18 @@ export default function DocumentViewer({
 
   if (isPdf(mimeType)) {
     return (
-      <iframe
-        src={url}
-        title={title}
-        className={`w-full ${heightClassName} border-0`}
-      />
+      <div className="w-full overflow-hidden">
+        <iframe
+          src={url}
+          title={title}
+          className={`w-full ${heightClassName} border-0`}
+          style={{
+            maxWidth: "100%",
+            height: "100%",
+            minHeight: "400px",
+          }}
+        />
+      </div>
     );
   }
 
