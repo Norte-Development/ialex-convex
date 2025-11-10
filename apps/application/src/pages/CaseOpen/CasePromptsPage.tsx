@@ -1,8 +1,9 @@
 import { useState } from "react";
-import { useQuery } from "convex/react";
+import { useQuery, useMutation } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import type { Id } from "../../../convex/_generated/dataModel";
 import { usePermissions } from "@/context/CasePermissionsContext";
+import { useChatbot } from "@/context/ChatbotContext";
 import { ACCESS_LEVELS } from "@/permissions/types";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import CaseLayout from "@/components/Cases/CaseLayout";
@@ -17,6 +18,10 @@ import {
 
 export default function CasePromptsPage() {
   const { hasAccessLevel } = usePermissions();
+  const { openChatbotWithPrompt } = useChatbot();
+  const incrementUsage = useMutation(
+    api.functions.prompts.incrementPromptUsage,
+  );
   const [searchValue, setSearchValue] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
   const [previewPromptId, setPreviewPromptId] = useState<Id<"prompts"> | null>(
@@ -79,10 +84,19 @@ export default function CasePromptsPage() {
     setPreviewPromptId(promptId);
   };
 
-  const handleUsePrompt = (prompt: any) => {
-    // TODO: Implement use prompt functionality (e.g., open chat with prompt)
-    toast.success(`Usando prompt: ${prompt.titulo}`);
-    console.log("Using prompt:", prompt);
+  const handleUsePrompt = async (prompt: any) => {
+    try {
+      // Increment usage count
+      await incrementUsage({ promptId: prompt._id });
+
+      // Open chatbot with the prompt
+      openChatbotWithPrompt(prompt.prompt);
+
+      toast.success(`Prompt "${prompt.titulo}" enviado al chat`);
+    } catch (error) {
+      console.error("Error using prompt:", error);
+      toast.error("Error al usar el prompt");
+    }
   };
 
   const handleAddPrompt = () => {

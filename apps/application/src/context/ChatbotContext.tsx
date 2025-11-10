@@ -5,6 +5,9 @@ interface ChatbotContextType {
   toggleChatbot: () => void;
   chatbotWidth: number;
   setChatbotWidth: (width: number) => void;
+  pendingPrompt: string | null;
+  setPendingPrompt: (prompt: string | null) => void;
+  openChatbotWithPrompt: (prompt: string) => void;
 }
 
 const ChatbotContext = createContext<ChatbotContextType | undefined>(undefined);
@@ -24,6 +27,8 @@ export function ChatbotProvider({ children }: { children: ReactNode }) {
     return savedWidth ? Number.parseInt(savedWidth, 10) : 380;
   });
 
+  const [pendingPrompt, setPendingPrompt] = useState<string | null>(null);
+
   const toggleChatbot = () => {
     setIsChatbotOpen((prev: boolean) => {
       const newValue = !prev;
@@ -41,6 +46,18 @@ export function ChatbotProvider({ children }: { children: ReactNode }) {
     localStorage.setItem("chatbot-width", width.toString());
   };
 
+  const openChatbotWithPrompt = (prompt: string) => {
+    setPendingPrompt(prompt);
+    if (!isChatbotOpen) {
+      setIsChatbotOpen(true);
+      try {
+        localStorage.setItem("chatbot-open", JSON.stringify(true));
+      } catch {
+        // Ignore localStorage errors
+      }
+    }
+  };
+
   return (
     <ChatbotContext.Provider
       value={{
@@ -48,6 +65,9 @@ export function ChatbotProvider({ children }: { children: ReactNode }) {
         toggleChatbot,
         chatbotWidth,
         setChatbotWidth: handleSetChatbotWidth,
+        pendingPrompt,
+        setPendingPrompt,
+        openChatbotWithPrompt,
       }}
     >
       {children}

@@ -41,15 +41,33 @@ export function ChatInput({
   onAbortStream,
   placeholder = "¿En qué trabajamos hoy?",
   minHeight = 40,
-  maxHeight = 100,
+  maxHeight = 400,
   disabled = false,
   onReferencesChange,
+  initialPrompt,
 }: ChatInputProps) {
   const [prompt, setPrompt] = useState("");
   const [cursorPosition, setCursorPosition] = useState(0);
   const [showAutocomplete, setShowAutocomplete] = useState(false);
   const [activeReferences, setActiveReferences] = useState<Reference[]>([]);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  // Set initial prompt when provided
+  useEffect(() => {
+    if (initialPrompt) {
+      setPrompt(initialPrompt);
+      // Focus the textarea after setting the prompt
+      setTimeout(() => {
+        if (textareaRef.current) {
+          textareaRef.current.focus();
+          // Set cursor at the end
+          const length = initialPrompt.length;
+          textareaRef.current.setSelectionRange(length, length);
+          setCursorPosition(length);
+        }
+      }, 100);
+    }
+  }, [initialPrompt]);
 
   // Notify parent when references change
   useEffect(() => {
@@ -235,7 +253,7 @@ export function ChatInput({
               maxHeight: `${maxHeight}px`,
               height: `${minHeight}px`,
             }}
-            className="resize-none !min-h-0 bg-transparent placeholder:text-xs overflow-y-hidden"
+            className={`resize-none min-h-0 bg-transparent placeholder:text-xs ${prompt.trim() ? "overflow-y-auto" : "overflow-y-hidden"}`}
           />
 
           {/* 

@@ -49,6 +49,12 @@ export interface ChatInputProps {
   maxHeight?: number;
 
   /**
+   * Optional initial prompt to pre-fill the input
+   * Useful for passing prompts from prompt library
+   */
+  initialPrompt?: string;
+
+  /**
    * Optional disabled state for the entire input
    * @default false
    */
