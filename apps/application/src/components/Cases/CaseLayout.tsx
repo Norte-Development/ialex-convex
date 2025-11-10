@@ -323,6 +323,38 @@ function InnerCaseLayout({ children }: CaseDetailLayoutProps) {
     };
   }, [can.docs.write]);
 
+  // Global Cmd/Ctrl+K handler to open chat and add context
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Check for Cmd+K (Mac) or Ctrl+K (Windows/Linux)
+      const isModifierPressed = e.metaKey || e.ctrlKey;
+      const isKKey = e.key === "k" || e.key === "K";
+
+      if (isModifierPressed && isKKey) {
+        e.preventDefault();
+        e.stopPropagation();
+
+        // Ensure chat is open (don't close if already open)
+        if (!isChatbotOpen) {
+          toggleChatbot();
+        }
+
+        // Dispatch event for context injection (editor will handle it)
+        window.dispatchEvent(new CustomEvent("ialex:chatHotkey"));
+
+        // Focus chat input after a short delay to allow sidebar animation
+        setTimeout(() => {
+          window.dispatchEvent(new CustomEvent("ialex:focusChatInput"));
+        }, 100);
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [isChatbotOpen, toggleChatbot]);
+
   // Loading state
   if (isLoading) {
     return (
