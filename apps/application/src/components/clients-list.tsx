@@ -38,8 +38,7 @@ export function ClientsList() {
           {clients.map((client) => (
             <div
               key={client._id}
-              onClick={() => navigate(`/clientes/${client._id}`)}
-              className="bg-white rounded-lg border border-[#130261]/10 p-3 hover:border-[#130261]/30 hover:shadow-sm transition-all cursor-pointer"
+              className="bg-white rounded-lg border border-[#130261]/10 p-3"
             >
               <div className="flex items-start gap-3">
                 <div className="w-8 h-8 rounded-full bg-[#130261]/10 flex items-center justify-center flex-shrink-0">
