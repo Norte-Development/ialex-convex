@@ -6,6 +6,32 @@ import { Id } from "../_generated/dataModel";
 // Re-export parseReferences functions
 export { parseAtReferences, getReferencesSuggestions } from "./parseReferences";
 
+const vSelectionMeta = v.optional(v.object({
+  content: v.string(),
+  position: v.object({
+    line: v.number(),
+    column: v.number(),
+  }),
+  range: v.object({
+    from: v.number(),
+    to: v.number(),
+  }),
+  escritoId: v.id("escritos"),
+}));
+
+const vResolvedReference = v.object({
+  type: v.union(
+    v.literal("client"),
+    v.literal("document"), 
+    v.literal("escrito"),
+    v.literal("case")
+  ),
+  id: v.string(),
+  name: v.string(),
+  originalText: v.string(),
+  selection: vSelectionMeta,
+});
+
 /**
  * Gather context for the current user and case
  * This is the main public API for getting context
@@ -20,17 +46,7 @@ export const gatherContext = query({
     cursorPosition: v.optional(v.number()),
     searchQuery: v.optional(v.string()),
     currentEscritoId: v.optional(v.id("escritos")),
-    resolvedReferences: v.optional(v.array(v.object({
-      type: v.union(
-        v.literal("client"),
-        v.literal("document"), 
-        v.literal("escrito"),
-        v.literal("case")
-      ),
-      id: v.string(),
-      name: v.string(),
-      originalText: v.string(),
-    }))),
+    resolvedReferences: v.optional(v.array(vResolvedReference)),
   },
   returns: v.object({
     user: v.object({
@@ -109,17 +125,7 @@ export const gatherContext = query({
       id: v.string(),
       type: v.optional(v.string()),
     })),
-    resolvedReferences: v.optional(v.array(v.object({
-      type: v.union(
-        v.literal("client"),
-        v.literal("document"), 
-        v.literal("escrito"),
-        v.literal("case")
-      ),
-      id: v.string(),
-      name: v.string(),
-      originalText: v.string(),
-    }))),
+    resolvedReferences: v.optional(v.array(vResolvedReference)),
   }),
   handler: async (ctx, args): Promise<ContextBundle> => {
     const viewContext = {
@@ -224,17 +230,7 @@ export const formatContextForAgent = query({
         id: v.string(),
         type: v.optional(v.string()),
       })),
-      resolvedReferences: v.optional(v.array(v.object({
-        type: v.union(
-          v.literal("client"),
-          v.literal("document"), 
-          v.literal("escrito"),
-          v.literal("case")
-        ),
-        id: v.string(),
-        name: v.string(),
-        originalText: v.string(),
-      }))),
+      resolvedReferences: v.optional(v.array(vResolvedReference)),
     }),
   },
   returns: v.string(),

@@ -23,6 +23,19 @@ interface ParseResult {
  * Processes resolved references from frontend and replaces @-references in message.
  * The frontend has already resolved the references, so we just need to replace them in the text.
  */
+const vSelectionMeta = v.optional(v.object({
+  content: v.string(),
+  position: v.object({
+    line: v.number(),
+    column: v.number(),
+  }),
+  range: v.object({
+    from: v.number(),
+    to: v.number(),
+  }),
+  escritoId: v.id("escritos"),
+}));
+
 export const parseAtReferences = mutation({
   args: {
     userId: v.id("users"),
@@ -37,6 +50,7 @@ export const parseAtReferences = mutation({
       id: v.string(),
       name: v.string(),
       originalText: v.string(),
+      selection: vSelectionMeta,
     })),
     caseId: v.optional(v.id("cases")),
   },
