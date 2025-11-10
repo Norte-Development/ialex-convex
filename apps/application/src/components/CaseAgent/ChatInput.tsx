@@ -2,7 +2,6 @@ import { useState, useRef, useCallback, useEffect } from "react";
 import {
   PromptInput,
   PromptInputTextarea,
-  PromptInputToolbar,
   PromptInputSubmit,
 } from "../ai-elements/prompt-input";
 import type { ChatInputProps } from "./types/message-types";
@@ -41,7 +40,7 @@ export function ChatInput({
   onAbortStream,
   placeholder = "¿En qué trabajamos hoy?",
   minHeight = 40,
-  maxHeight = 100,
+  maxHeight = 250,
   disabled = false,
   onReferencesChange,
 }: ChatInputProps) {
@@ -212,12 +211,13 @@ export function ChatInput({
       <div className="relative">
         <PromptInput
           onSubmit={handleSubmit}
-          className="flex justify-between items-center px-2"
+          className="flex justify-between items-center px-2 overflow-auto"
         >
           {/* 
             PromptInputTextarea: Auto-resizing textarea with enhanced features
             - Supports Enter to submit, Shift+Enter for new line
             - Auto-resizes based on content within min/max bounds
+            - Scrollable when content exceeds max height
           */}
           <PromptInputTextarea
             ref={textareaRef}
@@ -233,9 +233,8 @@ export function ChatInput({
             style={{
               minHeight: `${minHeight}px`,
               maxHeight: `${maxHeight}px`,
-              height: `${minHeight}px`,
             }}
-            className="resize-none !min-h-0 bg-transparent placeholder:text-xs overflow-y-hidden"
+            className="resize-none min-h-0 bg-transparent placeholder:text-xs overflow-y-auto"
           />
 
           {/* 
