@@ -43,6 +43,7 @@ import CaseTeamsPage from "./pages/CaseOpen/CaseTeamsPage";
 import CaseModelPage from "./pages/CaseOpen/CaseModelPage";
 import CaseDataBasePage from "./pages/CaseOpen/CaseDataBase";
 import CaseSettingsRulesPage from "./pages/CaseOpen/CaseSettingsRulesPage";
+import CasePromptsPage from "./pages/CaseOpen/CasePromptsPage";
 import ComponentsShowcasePage from "./pages/ComponentsShowcasePage";
 import LibraryPage from "./pages/LibraryPage";
 import UserPreferencesPage from "./pages/UserPreferencesPage";
@@ -78,6 +79,7 @@ const CaseRoutesWrapper: React.FC = () => {
                 <Route path="clientes" element={<CaseClientsPage />} />
                 <Route path="equipos" element={<CaseTeamsPage />} />
                 <Route path="modelos" element={<CaseModelPage />} />
+                <Route path="prompts" element={<CasePromptsPage />} />
                 <Route path="base-de-datos" element={<CaseDataBasePage />} />
                 <Route
                   path="documentos/:documentId"
@@ -156,7 +158,7 @@ const ClarityTracker = () => {
       clarity.identify(anonymizedId, {
         role: (user as { role?: string }).role || "unknown",
       });
-      
+
       // PostHog identify with user properties
       posthog?.identify(clerkUser.id, {
         email: clerkUser.emailAddresses[0]?.emailAddress,
