@@ -11,6 +11,8 @@ import {
   PromptTable,
   PromptSearchBar,
   PromptPreviewDialog,
+  CreateEditPromptDialog,
+  DeletePromptDialog,
 } from "@/components/Prompts";
 
 export default function CasePromptsPage() {
@@ -20,6 +22,23 @@ export default function CasePromptsPage() {
   const [previewPromptId, setPreviewPromptId] = useState<Id<"prompts"> | null>(
     null,
   );
+  const [createEditDialog, setCreateEditDialog] = useState<{
+    isOpen: boolean;
+    mode: "create" | "edit";
+    promptId?: Id<"prompts"> | null;
+  }>({
+    isOpen: false,
+    mode: "create",
+    promptId: null,
+  });
+  const [deleteDialog, setDeleteDialog] = useState<{
+    isOpen: boolean;
+    promptId: Id<"prompts"> | null;
+    promptTitle?: string;
+  }>({
+    isOpen: false,
+    promptId: null,
+  });
 
   // Query for categories
   const categories = useQuery(api.functions.prompts.getPromptCategories);
@@ -71,30 +90,58 @@ export default function CasePromptsPage() {
       toast.error("No tienes permisos para crear prompts personalizados");
       return;
     }
-    // TODO: Implement add prompt functionality
-    toast.info("Función de agregar prompt próximamente");
+    setCreateEditDialog({
+      isOpen: true,
+      mode: "create",
+      promptId: null,
+    });
   };
 
-  const handleEditPrompt = (_promptId: Id<"prompts">) => {
+  const handleEditPrompt = (promptId: Id<"prompts">) => {
     if (!hasAccessLevel(ACCESS_LEVELS.ADVANCED)) {
       toast.error("No tienes permisos para editar prompts");
       return;
     }
-    // TODO: Implement edit prompt functionality
-    toast.info("Función de editar prompt próximamente");
+    setCreateEditDialog({
+      isOpen: true,
+      mode: "edit",
+      promptId,
+    });
   };
 
-  const handleDeletePrompt = (_promptId: Id<"prompts">) => {
+  const handleDeletePrompt = (promptId: Id<"prompts">) => {
     if (!hasAccessLevel(ACCESS_LEVELS.ADMIN)) {
       toast.error("No tienes permisos para eliminar prompts");
       return;
     }
-    // TODO: Implement delete prompt functionality
-    toast.info("Función de eliminar prompt próximamente");
+
+    // Find the prompt to get its title
+    const promptToDelete = allPrompts.find((p) => p._id === promptId);
+
+    setDeleteDialog({
+      isOpen: true,
+      promptId,
+      promptTitle: promptToDelete?.titulo,
+    });
   };
 
   const handlePreviewDialogClose = () => {
     setPreviewPromptId(null);
+  };
+
+  const handleCloseCreateEditDialog = () => {
+    setCreateEditDialog({
+      isOpen: false,
+      mode: "create",
+      promptId: null,
+    });
+  };
+
+  const handleCloseDeleteDialog = () => {
+    setDeleteDialog({
+      isOpen: false,
+      promptId: null,
+    });
   };
 
   return (
@@ -151,6 +198,20 @@ export default function CasePromptsPage() {
         promptId={previewPromptId}
         isOpen={previewPromptId !== null}
         onClose={handlePreviewDialogClose}
+      />
+
+      <CreateEditPromptDialog
+        isOpen={createEditDialog.isOpen}
+        mode={createEditDialog.mode}
+        promptId={createEditDialog.promptId}
+        onClose={handleCloseCreateEditDialog}
+      />
+
+      <DeletePromptDialog
+        isOpen={deleteDialog.isOpen}
+        promptId={deleteDialog.promptId}
+        promptTitle={deleteDialog.promptTitle}
+        onClose={handleCloseDeleteDialog}
       />
     </CaseLayout>
   );
