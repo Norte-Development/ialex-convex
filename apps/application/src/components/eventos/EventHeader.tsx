@@ -2,6 +2,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ArrowLeft } from "lucide-react";
 import EventActionsDropdown from "./EventActionsDropdown";
+import { JSX } from "react";
 
 interface EventHeaderProps {
   title: string;
