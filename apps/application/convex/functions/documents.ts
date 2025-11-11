@@ -926,6 +926,58 @@ export const createEscrito = mutation({
   },
 });
 
+
+
+const createEscritoInternal = internalMutation({
+  args: {
+
+    title: v.string(),
+    caseId: v.id("cases"),
+    userId: v.id("users"),
+    initialContent: v.string(),
+  },
+  handler: async (ctx, args) => {
+
+    const prosemirrorId = crypto.randomUUID();
+
+    const prosemirrorDocument = await prosemirrorSync.create(ctx, prosemirrorId, {
+      type: "doc",
+      content: [
+        {
+          type: "paragraph",
+          content: [
+            {
+              type: "text",
+              text: args.initialContent,
+            },
+          ],
+        },
+      ]
+    });
+
+
+
+    const now = Date.now();
+    const escritoId = await ctx.db.insert("escritos", {
+      title: args.title,
+      caseId: args.caseId,
+      prosemirrorId: prosemirrorId,
+      status: "borrador",
+      createdBy: args.userId,
+      lastModifiedBy: args.userId,
+      isArchived: false,
+      lastEditedAt: now,
+      // Reasonable defaults for optional metadata fields
+      expedientNumber: undefined,
+      presentationDate: undefined,
+      courtName: undefined,
+      wordCount: undefined,
+    });
+
+    return { escritoId };
+  },
+});
+
 /**
  * Updates an existing escrito with new content or metadata.
  *
