@@ -21,6 +21,32 @@ const openrouter = createOpenRouter({
 
 const workflow = new WorkflowManager(components.workflow);
 
+const vSelectionMeta = v.optional(v.object({
+  content: v.string(),
+  position: v.object({
+    line: v.number(),
+    column: v.number(),
+  }),
+  range: v.object({
+    from: v.number(),
+    to: v.number(),
+  }),
+  escritoId: v.id("escritos"),
+}));
+
+const vResolvedReference = v.object({
+  type: v.union(
+    v.literal("client"),
+    v.literal("document"), 
+    v.literal("escrito"),
+    v.literal("case")
+  ),
+  id: v.string(),
+  name: v.string(),
+  originalText: v.string(),
+  selection: vSelectionMeta,
+});
+
 const vContextBundle = v.object({
   user: v.object({
     id: v.id("users"),
@@ -120,17 +146,7 @@ const vContextBundle = v.object({
       type: v.optional(v.string()),
     }),
   ),
-  resolvedReferences: v.optional(v.array(v.object({
-    type: v.union(
-      v.literal("client"),
-      v.literal("document"), 
-      v.literal("escrito"),
-      v.literal("case")
-    ),
-    id: v.string(),
-    name: v.string(),
-    originalText: v.string(),
-  }))),
+  resolvedReferences: v.optional(v.array(vResolvedReference)),
 });
 
 export const gatherContextForWorkflow = internalMutation({
@@ -143,17 +159,7 @@ export const gatherContextForWorkflow = internalMutation({
     cursorPosition: v.optional(v.number()),
     searchQuery: v.optional(v.string()),
     currentEscritoId: v.optional(v.id("escritos")),
-    resolvedReferences: v.optional(v.array(v.object({
-      type: v.union(
-        v.literal("client"),
-        v.literal("document"), 
-        v.literal("escrito"),
-        v.literal("case")
-      ),
-      id: v.string(),
-      name: v.string(),
-      originalText: v.string(),
-    }))),
+    resolvedReferences: v.optional(v.array(vResolvedReference)),
   },
   returns: v.any(),
   handler: async (ctx, args) => {
@@ -189,17 +195,7 @@ export const legalAgentWorkflow = workflow.define({
     cursorPosition: v.optional(v.number()),
     searchQuery: v.optional(v.string()),
     currentEscritoId: v.optional(v.id("escritos")),
-    resolvedReferences: v.optional(v.array(v.object({
-      type: v.union(
-        v.literal("client"),
-        v.literal("document"), 
-        v.literal("escrito"),
-        v.literal("case")
-      ),
-      id: v.string(),
-      name: v.string(),
-      originalText: v.string(),
-    }))),
+    resolvedReferences: v.optional(v.array(vResolvedReference)),
   },
   handler: async (step, args): Promise<void> => {
     console.log("Starting legal agent workflow");
@@ -410,17 +406,7 @@ export const initiateWorkflowStreaming = mutation({
     cursorPosition: v.optional(v.number()),
     searchQuery: v.optional(v.string()),
     currentEscritoId: v.optional(v.id("escritos")),
-    resolvedReferences: v.optional(v.array(v.object({
-      type: v.union(
-        v.literal("client"),
-        v.literal("document"), 
-        v.literal("escrito"),
-        v.literal("case")
-      ),
-      id: v.string(),
-      name: v.string(),
-      originalText: v.string(),
-    }))),
+    resolvedReferences: v.optional(v.array(vResolvedReference)),
   },
   returns: v.object({
     workflowId: v.string(),

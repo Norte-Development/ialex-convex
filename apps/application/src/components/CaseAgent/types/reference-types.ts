@@ -5,6 +5,22 @@
  */
 
 /**
+ * Selection metadata for editor selections
+ */
+export interface SelectionMeta {
+  content: string;
+  position: {
+    line: number;
+    column: number;
+  };
+  range: {
+    from: number;
+    to: number;
+  };
+  escritoId: string;
+}
+
+/**
  * Base reference interface used across components
  */
 export interface Reference {
@@ -12,6 +28,7 @@ export interface Reference {
   id: string;
   name: string;
   preview?: string;
+  selection?: SelectionMeta;
 }
 
 /**
@@ -46,7 +63,7 @@ export interface ParsedAtReference {
 /**
  * Reference type union for type safety
  */
-export type ReferenceType = "client" | "document" | "escrito" | "case";
+export type ReferenceType = "client" | "document" | "escrito" | "case" | "selection";
 
 /**
  * Reference arrays used in components
