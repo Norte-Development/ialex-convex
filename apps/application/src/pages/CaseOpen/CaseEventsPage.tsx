@@ -3,10 +3,8 @@ import CaseLayout from "@/components/Cases/CaseLayout";
 import { useQuery } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import { Id } from "../../../convex/_generated/dataModel";
-import { Calendar, Clock, MapPin, Plus, ArrowLeft } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { usePermissions } from "@/context/CasePermissionsContext";
 import CreateEventDialog from "@/components/eventos/CreateEventDialog";
 import { Link } from "react-router-dom";
@@ -84,14 +82,34 @@ function CaseEventsPageInner({
   };
 
   const getStatusBadge = (status: string) => {
-    const variants: Record<string, any> = {
-      programado: "default",
-      completado: "secondary",
-      cancelado: "destructive",
-      reprogramado: "outline",
+    const styles: Record<string, { variant: any; className: string }> = {
+      programado: {
+        variant: "default",
+        className: "bg-blue-500/10 text-blue-700 border-blue-200 font-semibold",
+      },
+      completado: {
+        variant: "secondary",
+        className:
+          "bg-green-500/10 text-green-700 border-green-200 font-semibold",
+      },
+      cancelado: {
+        variant: "destructive",
+        className: "bg-red-500/10 text-red-700 border-red-200 font-semibold",
+      },
+      reprogramado: {
+        variant: "outline",
+        className:
+          "bg-yellow-500/10 text-yellow-700 border-yellow-200 font-semibold",
+      },
     };
+
+    const style = styles[status] || styles.programado;
+
     return (
-      <Badge variant={variants[status] || "default"}>
+      <Badge
+        variant={style.variant}
+        className={`${style.className} px-2.5 py-0.5`}
+      >
         {status.charAt(0).toUpperCase() + status.slice(1)}
       </Badge>
     );
@@ -111,7 +129,6 @@ function CaseEventsPageInner({
     return (
       <div className="max-w-7xl px-5 mx-auto bg-white space-y-6 pb-16">
         <div className="text-center py-12">
-          <Calendar className="h-16 w-16 text-gray-400 mx-auto mb-4" />
           <h3 className="text-lg font-semibold mb-2">Acceso Denegado</h3>
           <p className="text-muted-foreground">
             No tienes permisos para ver los eventos de este caso
@@ -149,40 +166,35 @@ function CaseEventsPageInner({
   );
 
   const EventCard = ({ event }: { event: any }) => (
-    <Link to={`/eventos/${event._id}`}>
-      <Card
-        className={`hover:shadow-lg transition-all cursor-pointer border-l-4 ${getStatusColor(event.status)}`}
-      >
+    <Link to={`/eventos/${event._id}`} className="group">
+      <Card className="h-full hover:shadow-md transition-all duration-200 cursor-pointer overflow-hidden">
         <CardHeader className="pb-3">
-          <div className="flex justify-between items-start">
-            <div className="flex-1">
-              <CardTitle className="text-lg mb-2">{event.title}</CardTitle>
-              <div className="flex items-center gap-2 text-sm text-muted-foreground flex-wrap">
-                <span>{getEventTypeLabel(event.eventType)}</span>
-                {getStatusBadge(event.status)}
-              </div>
-            </div>
+          <div className="flex items-start justify-between gap-3 mb-2">
+            <CardTitle className="text-base font-semibold text-gray-900 group-hover:text-blue-600 transition-colors line-clamp-2 flex-1">
+              {event.title}
+            </CardTitle>
+            {getStatusBadge(event.status)}
+          </div>
+          <div className="text-xs font-medium text-gray-500 uppercase tracking-wide">
+            {getEventTypeLabel(event.eventType)}
           </div>
         </CardHeader>
-        <CardContent className="space-y-2">
-          <div className="flex items-center gap-2 text-sm">
-            <Calendar size={16} className="text-muted-foreground" />
-            <span>{formatDate(event.startDate)}</span>
-          </div>
-          <div className="flex items-center gap-2 text-sm">
-            <Clock size={16} className="text-muted-foreground" />
-            <span>
+        <CardContent className="space-y-3 pt-0">
+          <div className="flex items-baseline gap-2">
+            <span className="text-sm font-medium text-gray-900">
+              {formatDate(event.startDate)}
+            </span>
+            <span className="text-xs text-gray-500">
               {formatTime(event.startDate)} - {formatTime(event.endDate)}
             </span>
           </div>
           {event.location && (
-            <div className="flex items-center gap-2 text-sm">
-              <MapPin size={16} className="text-muted-foreground" />
-              <span className="truncate">{event.location}</span>
+            <div className="text-sm text-gray-600 truncate">
+              {event.location}
             </div>
           )}
           {event.description && (
-            <p className="text-sm text-muted-foreground line-clamp-2 mt-2">
+            <p className="text-sm text-gray-600 line-clamp-2 leading-relaxed">
               {event.description}
             </p>
           )}
@@ -194,17 +206,17 @@ function CaseEventsPageInner({
   return (
     <div className="max-w-7xl px-5 mx-auto bg-white space-y-8 pb-16">
       {/* Header */}
-      <div className="space-y-4">
-        <div className="flex items-start justify-between">
-          <div className="space-y-2">
-            <h1 className="text-3xl font-light tracking-tight text-gray-900">
+      <div className="space-y-4 pt-2">
+        <div className="flex items-start justify-between gap-4">
+          <div className="space-y-2 flex-1">
+            <h1 className="text-3xl font-bold tracking-tight text-gray-900">
               Eventos del Caso
             </h1>
-            <p className="text-base text-gray-600">
-              Gestiona audiencias, plazos y reuniones relacionadas con este caso
+            <p className="text-sm text-gray-600">
+              Gestiona audiencias, plazos y reuniones relacionadas
             </p>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 shrink-0">
             {canCreateEvents && <CreateEventDialog caseId={caseId} />}
           </div>
         </div>
@@ -213,11 +225,12 @@ function CaseEventsPageInner({
       {/* Eventos próximos */}
       {upcomingEvents.length > 0 && (
         <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <h2 className="text-xl font-semibold">
-              Próximos Eventos ({upcomingEvents.length})
-            </h2>
-          </div>
+          <h2 className="text-lg font-semibold text-gray-900">
+            Próximos Eventos
+            <span className="ml-2 text-sm font-normal text-gray-500">
+              {upcomingEvents.length}
+            </span>
+          </h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {upcomingEvents
               .sort((a, b) => a.startDate - b.startDate)
@@ -231,11 +244,12 @@ function CaseEventsPageInner({
       {/* Eventos pasados */}
       {pastEvents.length > 0 && (
         <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <h2 className="text-xl font-semibold">
-              Eventos Pasados ({pastEvents.length})
-            </h2>
-          </div>
+          <h2 className="text-lg font-semibold text-gray-900">
+            Eventos Pasados
+            <span className="ml-2 text-sm font-normal text-gray-500">
+              {pastEvents.length}
+            </span>
+          </h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {pastEvents
               .sort((a, b) => b.startDate - a.startDate)
@@ -248,12 +262,11 @@ function CaseEventsPageInner({
 
       {/* Estado vacío */}
       {events.length === 0 && (
-        <div className="flex flex-col items-center justify-center py-16 text-center">
-          <Calendar size={64} className="text-muted-foreground mb-4" />
-          <h3 className="text-lg font-semibold mb-2">
+        <div className="flex flex-col items-center justify-center py-20 text-center">
+          <h3 className="text-xl font-semibold text-gray-900 mb-2">
             No hay eventos en este caso
           </h3>
-          <p className="text-muted-foreground mb-6 max-w-md">
+          <p className="text-gray-600 mb-8 max-w-md">
             Crea tu primer evento para comenzar a organizar audiencias, plazos y
             reuniones relacionadas con este caso
           </p>
