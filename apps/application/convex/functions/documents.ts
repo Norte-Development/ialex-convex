@@ -928,7 +928,7 @@ export const createEscrito = mutation({
 
 
 
-const createEscritoInternal = internalMutation({
+export const createEscritoInternal = internalMutation({
   args: {
 
     title: v.string(),
