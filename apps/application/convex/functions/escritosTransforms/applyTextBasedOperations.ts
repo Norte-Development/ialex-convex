@@ -394,7 +394,7 @@ export const applyTextBasedOperations = mutation({
             }
 
             // Find insertion position using normalized anchors first
-            let insertPos = 0;
+            let insertPos = 1;
             if (op.afterText || op.beforeText) {
               const docIndex = buildDocIndex(
                 tr.doc,
