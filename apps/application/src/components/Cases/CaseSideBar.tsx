@@ -14,6 +14,7 @@ import {
   CirclePlus,
   FilePen,
   FileDown,
+  Calendar,
 } from "lucide-react";
 import {
   Collapsible,
@@ -129,6 +130,7 @@ export default function CaseSidebar() {
     if (path.includes("/configuracion/reglas"))
       return { name: "Reglas del Agente", icon: ListChecks };
     if (path.includes("/modelos")) return { name: "Modelos", icon: BookCheck };
+    if (path.includes("/eventos")) return { name: "Eventos", icon: Calendar };
 
     // Buscar en navigationItems
     for (const item of navigationItems) {
@@ -342,6 +344,19 @@ export default function CaseSidebar() {
                   </Link>
                 </DropdownMenuItem>
               ))}
+
+              {can.viewCase && (
+                <DropdownMenuItem asChild>
+                  <Link
+                    to={`${basePath}/eventos`}
+                    onClick={handleNavigationFromCase}
+                    className="flex items-center gap-2 cursor-pointer"
+                  >
+                    <Calendar size={16} />
+                    <span>Eventos</span>
+                  </Link>
+                </DropdownMenuItem>
+              )}
 
               {can.viewCase && (
                 <DropdownMenuItem asChild>
