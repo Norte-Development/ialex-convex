@@ -10,6 +10,11 @@ import { prompt } from "./prompt";
 import { _getUserPlan, _getOrCreateUsageLimits, _getModelForUserPersonal } from "../../billing/features";
 import { PLAN_LIMITS } from "../../billing/planLimits";
 import { openai } from "@ai-sdk/openai";
+import { createOpenRouter } from '@openrouter/ai-sdk-provider';
+
+const openrouter = createOpenRouter({
+  apiKey: process.env.OPENROUTER_API_KEY,
+});
 
 const workflow = new WorkflowManager(components.workflow);
 
@@ -64,20 +69,14 @@ export const streamWithContextAction = internalAction({
 
     const { thread } = await agent.continueThread(ctx, { threadId });
 
+    const openRouterModel = modelToUse === 'gpt-5' ? 'openai/gpt-5' : 'openai/gpt-4o';
+
     try {
       await thread.streamText(
         {
           system: systemMessage,
           promptMessageId,
-          model: openai.responses(modelToUse),
-          ...(modelToUse === "gpt-5" && {
-            providerOptions: {
-              openai: {
-                reasoningEffort: "low",
-                reasoningSummary: "auto",
-              },
-            },
-          }),
+          model: openrouter(openRouterModel, modelToUse === 'gpt-5' ? { reasoning: { effort: "low" } } : undefined),
           experimental_repairToolCall: async (...args: any[]) => {
             console.log("Tool call repair triggered:", args);
             return null;

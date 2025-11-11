@@ -13,6 +13,11 @@ import { buildServerSchema } from "../../../../../packages/shared/src/tiptap/sch
 import { _getUserPlan, _getOrCreateUsageLimits, _getModelForUserInCase } from "../../billing/features";
 import { PLAN_LIMITS } from "../../billing/planLimits";
 import { openai } from "@ai-sdk/openai";
+import { createOpenRouter } from '@openrouter/ai-sdk-provider';
+
+const openrouter = createOpenRouter({
+  apiKey: process.env.OPENROUTER_API_KEY,
+});
 
 const workflow = new WorkflowManager(components.workflow);
 
@@ -283,20 +288,16 @@ export const streamWithContextAction = internalAction({
 
     const { thread } = await agent.continueThread(ctx, { threadId });
 
+    const openRouterModel = modelToUse === 'gpt-5' ? 'openai/gpt-5' : 'openai/gpt-4o';
+
+    console.log('openRouterModel', openRouterModel);
+
     try {
       await thread.streamText(
         {
           system: systemMessage,
           promptMessageId,
-          model: openai.responses(modelToUse),
-          ...(modelToUse === "gpt-5" && {
-            providerOptions: {
-              openai: {
-                reasoningEffort: "medium",
-                reasoningSummary: "auto",
-              },
-            },
-          }),
+          model: openrouter(openRouterModel, modelToUse === 'gpt-5' ? { reasoning: { effort: "low" } } : undefined),
           onAbort: () => {
             console.log(`[Stream Abort Callback] Thread ${threadId}: Stream abort callback triggered`);
           },
