@@ -56,7 +56,7 @@ export const agent = new Agent(components.agent, {
     //   // exclude: true
     // }
   }),
-  stopWhen: stepCountIs(25),
+  stopWhen: stepCountIs(50),
   // callSettings: {
   //   maxRetries: 3,
   // },
@@ -79,7 +79,7 @@ export const agent = new Agent(components.agent, {
     searchLegislation: legislationFindTool,
     readLegislation: legislationReadTool,
     // planAndTrack: planAndTrackTool,
-    markTaskComplete: markTaskCompleteTool,
+    // markTaskComplete: markTaskCompleteTool,
     insertContent: insertContentTool,
     // manageEscrito: manageEscritoTool,
     searchClients: searchCaseClientsTool,
