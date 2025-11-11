@@ -259,6 +259,101 @@ export const editEscritoTool = createTool({
       return createErrorResponse("Ediciones inválidas: debe ser un array no vacío");
     }
 
+    // Helper function to validate context text (must be actual text, not position markers)
+    function isValidContextText(context: string | undefined): { valid: boolean; reason?: string } {
+      if (!context) return { valid: true }; // Optional field
+      
+      // Reject position markers
+      if (/\[?Position:\s*\d+\]?/i.test(context)) {
+        return { 
+          valid: false, 
+          reason: "contextBefore/contextAfter must contain ACTUAL TEXT, not position markers like '[Position: 289]'. Extract the actual text that appears before/after the target." 
+        };
+      }
+      
+      // Reject strings that are just numbers or position-like
+      if (/^\s*\[?\s*\d+\s*\]?\s*$/.test(context)) {
+        return { 
+          valid: false, 
+          reason: "contextBefore/contextAfter must contain actual text content, not just numbers or position indicators." 
+        };
+      }
+      
+      // Ensure it contains actual text (at least a few letters)
+      if (!/[a-zA-Z]{3,}/.test(context)) {
+        return { 
+          valid: false, 
+          reason: "contextBefore/contextAfter must contain actual text (letters), not just numbers, symbols, or position markers." 
+        };
+      }
+      
+      return { valid: true };
+    }
+
+    // Sanitization function to remove extra fields based on operation type
+    // This ensures only valid fields for each operation type are sent to the mutation
+    function sanitizeEdit(edit: any): any {
+      const sanitized: any = { type: edit.type };
+      
+      switch (edit.type) {
+        case 'replace':
+          if (edit.findText !== undefined) sanitized.findText = edit.findText;
+          if (edit.replaceText !== undefined) sanitized.replaceText = edit.replaceText;
+          // Only include context fields if they have actual content (not empty strings)
+          if (edit.contextBefore !== undefined && edit.contextBefore !== '') sanitized.contextBefore = edit.contextBefore;
+          if (edit.contextAfter !== undefined && edit.contextAfter !== '') sanitized.contextAfter = edit.contextAfter;
+          if (edit.replaceAll !== undefined) sanitized.replaceAll = edit.replaceAll;
+          if (edit.occurrenceIndex !== undefined) sanitized.occurrenceIndex = edit.occurrenceIndex;
+          if (edit.maxOccurrences !== undefined) sanitized.maxOccurrences = edit.maxOccurrences;
+          break;
+          
+        case 'insert':
+          if (edit.insertText !== undefined) sanitized.insertText = edit.insertText;
+          if (edit.afterText !== undefined && edit.afterText !== '') sanitized.afterText = edit.afterText;
+          if (edit.beforeText !== undefined && edit.beforeText !== '') sanitized.beforeText = edit.beforeText;
+          break;
+          
+        case 'add_mark':
+          if (edit.text !== undefined) sanitized.text = edit.text;
+          if (edit.markType !== undefined && edit.markType !== '') sanitized.markType = edit.markType;
+          if (edit.contextBefore !== undefined && edit.contextBefore !== '') sanitized.contextBefore = edit.contextBefore;
+          if (edit.contextAfter !== undefined && edit.contextAfter !== '') sanitized.contextAfter = edit.contextAfter;
+          if (edit.occurrenceIndex !== undefined) sanitized.occurrenceIndex = edit.occurrenceIndex;
+          if (edit.maxOccurrences !== undefined) sanitized.maxOccurrences = edit.maxOccurrences;
+          break;
+          
+        case 'remove_mark':
+          if (edit.text !== undefined) sanitized.text = edit.text;
+          if (edit.markType !== undefined && edit.markType !== '') sanitized.markType = edit.markType;
+          if (edit.contextBefore !== undefined && edit.contextBefore !== '') sanitized.contextBefore = edit.contextBefore;
+          if (edit.contextAfter !== undefined && edit.contextAfter !== '') sanitized.contextAfter = edit.contextAfter;
+          if (edit.occurrenceIndex !== undefined) sanitized.occurrenceIndex = edit.occurrenceIndex;
+          if (edit.maxOccurrences !== undefined) sanitized.maxOccurrences = edit.maxOccurrences;
+          break;
+          
+        case 'replace_mark':
+          if (edit.text !== undefined) sanitized.text = edit.text;
+          if (edit.oldMarkType !== undefined && edit.oldMarkType !== '') sanitized.oldMarkType = edit.oldMarkType;
+          if (edit.newMarkType !== undefined && edit.newMarkType !== '') sanitized.newMarkType = edit.newMarkType;
+          if (edit.contextBefore !== undefined && edit.contextBefore !== '') sanitized.contextBefore = edit.contextBefore;
+          if (edit.contextAfter !== undefined && edit.contextAfter !== '') sanitized.contextAfter = edit.contextAfter;
+          if (edit.occurrenceIndex !== undefined) sanitized.occurrenceIndex = edit.occurrenceIndex;
+          if (edit.maxOccurrences !== undefined) sanitized.maxOccurrences = edit.maxOccurrences;
+          break;
+          
+        case 'add_paragraph':
+          if (edit.content !== undefined) sanitized.content = edit.content;
+          if (edit.paragraphType !== undefined) sanitized.paragraphType = edit.paragraphType;
+          if (edit.headingLevel !== undefined) sanitized.headingLevel = edit.headingLevel;
+          if (edit.afterText !== undefined && edit.afterText !== '') sanitized.afterText = edit.afterText;
+          if (edit.beforeText !== undefined && edit.beforeText !== '') sanitized.beforeText = edit.beforeText;
+          if (edit.occurrenceIndex !== undefined) sanitized.occurrenceIndex = edit.occurrenceIndex;
+          break;
+      }
+      
+      return sanitized;
+    }
+
     // Validate each edit operation - log errors but don't throw
     const validEdits = [];
     const validationErrors = [];
@@ -369,12 +464,11 @@ export const editEscritoTool = createTool({
         }
       }
 
-      // Validate occurrence control parameters
+      // Validate occurrence control parameters - default invalid values to 1
       if (edit.occurrenceIndex !== undefined) {
         if (typeof edit.occurrenceIndex !== 'number' || edit.occurrenceIndex < 1) {
-          console.log(`Skipping edit at index ${i}: occurrenceIndex must be a positive number (1-based)`);
-          validationErrors.push(`Edit ${i}: occurrenceIndex must be a positive number (1-based)`);
-          continue;
+          console.log(`Edit ${i}: occurrenceIndex is invalid (${edit.occurrenceIndex}), defaulting to 1`);
+          edit.occurrenceIndex = 1;
         }
       }
 
@@ -391,19 +485,12 @@ export const editEscritoTool = createTool({
         console.log(`Warning: Edit ${i} has both occurrenceIndex and maxOccurrences specified. occurrenceIndex takes precedence.`);
       }
 
-      // Normalize field names: convert content to replaceText for replace operations
-      if (edit.type === 'replace' && edit.content !== undefined && edit.replaceText === undefined) {
-        console.log(`Normalizing edit ${i}: converting 'content' field to 'replaceText' for replace operation`);
-        edit.replaceText = edit.content;
-        delete edit.content;
-      }
-
       // Content field bypass: Always include the edit if it has a content field, regardless of other validation
       // This happens AFTER defaults are set for addParagraph operations, so paragraphType will be set to "paragraph" if missing
-      // Note: This bypass only applies to add_paragraph operations now, after normalization above
-      if (edit.content !== undefined && edit.type === 'add_paragraph') {
+      if (edit.content !== undefined) {
         console.log(`Including edit ${i} with content field (bypassing remaining validation after defaults applied)`);
-        validEdits.push(edit);
+        const sanitizedEdit = sanitizeEdit(edit);
+        validEdits.push(sanitizedEdit);
         continue;
       }
 
@@ -439,7 +526,9 @@ export const editEscritoTool = createTool({
       // Note: delete operations are now handled by replace with empty string
 
       // If we get here, the edit passed validation
-      validEdits.push(edit);
+      // Sanitize the edit to remove extra fields before adding to validEdits
+      const sanitizedEdit = sanitizeEdit(edit);
+      validEdits.push(sanitizedEdit);
     }
 
     // Check if we have any valid edits
