@@ -64,7 +64,7 @@ export function usePermissions() {
           revoke: false,
         },
       },
-    };
+    } as ReturnType<typeof useCasePermissions>;
   }
   return ctx;
 }
