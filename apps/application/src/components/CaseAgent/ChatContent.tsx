@@ -98,12 +98,12 @@ export function ChatContent({ threadId }: { threadId: string | undefined }) {
     { initialNumItems: 50, stream: true },
   );
 
-  console.log("messages", messages);
 
   // Clear references when thread changes to prevent trailing state
   useEffect(() => {
     setLastReferences([]);
     setCurrentReferences([]);
+    setMessageLocalParts({});
   }, [threadId]);
 
   const initiateWorkflow = useMutation(
