@@ -940,7 +940,7 @@ const createEscritoInternal = internalMutation({
 
     const prosemirrorId = crypto.randomUUID();
 
-    const prosemirrorDocument = await prosemirrorSync.create(ctx, prosemirrorId, {
+    await prosemirrorSync.create(ctx, prosemirrorId, {
       type: "doc",
       content: [
         {
@@ -955,9 +955,8 @@ const createEscritoInternal = internalMutation({
       ]
     });
 
-
-
     const now = Date.now();
+
     const escritoId = await ctx.db.insert("escritos", {
       title: args.title,
       caseId: args.caseId,
