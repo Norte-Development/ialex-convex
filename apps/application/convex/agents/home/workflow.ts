@@ -76,7 +76,7 @@ export const streamWithContextAction = internalAction({
         {
           system: systemMessage,
           promptMessageId,
-          model: openrouter(openRouterModel, modelToUse === 'gpt-5' ? { reasoning: {enabled: true, effort: "low", exclude: false} } : undefined }),
+          model: openrouter(openRouterModel, modelToUse === 'gpt-5' ? { reasoning: {enabled: true, effort: "low", exclude: false} } : undefined),
           experimental_repairToolCall: async (...args: any[]) => {
             console.log("Tool call repair triggered:", args);
             return null;
