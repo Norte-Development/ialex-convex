@@ -90,7 +90,11 @@ export function PromptTable({
         </TableHeader>
         <TableBody>
           {prompts.map((prompt) => (
-            <TableRow key={prompt._id} className="hover:bg-gray-50">
+            <TableRow
+              key={prompt._id}
+              className="hover:bg-gray-50 cursor-pointer"
+              onClick={() => onUsePrompt(prompt)}
+            >
               <TableCell className="font-medium">
                 <div className="flex items-start gap-2">
                   <MessageSquare className="h-4 w-4 mt-1 text-blue-600 shrink-0" />
@@ -191,7 +195,10 @@ export function PromptTable({
                   </Badge>
                 </TableCell>
               )}
-              <TableCell className="text-right">
+              <TableCell
+                className="text-right"
+                onClick={(e) => e.stopPropagation()}
+              >
                 <PromptActions
                   promptId={prompt._id}
                   prompt={prompt}
