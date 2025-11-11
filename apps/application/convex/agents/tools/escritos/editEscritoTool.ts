@@ -391,9 +391,17 @@ export const editEscritoTool = createTool({
         console.log(`Warning: Edit ${i} has both occurrenceIndex and maxOccurrences specified. occurrenceIndex takes precedence.`);
       }
 
+      // Normalize field names: convert content to replaceText for replace operations
+      if (edit.type === 'replace' && edit.content !== undefined && edit.replaceText === undefined) {
+        console.log(`Normalizing edit ${i}: converting 'content' field to 'replaceText' for replace operation`);
+        edit.replaceText = edit.content;
+        delete edit.content;
+      }
+
       // Content field bypass: Always include the edit if it has a content field, regardless of other validation
       // This happens AFTER defaults are set for addParagraph operations, so paragraphType will be set to "paragraph" if missing
-      if (edit.content !== undefined) {
+      // Note: This bypass only applies to add_paragraph operations now, after normalization above
+      if (edit.content !== undefined && edit.type === 'add_paragraph') {
         console.log(`Including edit ${i} with content field (bypassing remaining validation after defaults applied)`);
         validEdits.push(edit);
         continue;

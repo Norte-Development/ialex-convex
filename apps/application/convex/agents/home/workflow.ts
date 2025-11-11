@@ -69,7 +69,7 @@ export const streamWithContextAction = internalAction({
 
     const { thread } = await agent.continueThread(ctx, { threadId });
 
-    const openRouterModel = modelToUse === 'gpt-5' ? 'openai/gpt-5' : 'openai/gpt-4o';
+    const openRouterModel = modelToUse === 'gpt-5' ? 'openai/gpt-5' : 'openai/gpt-5';
 
     try {
       await thread.streamText(
