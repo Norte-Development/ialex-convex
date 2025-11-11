@@ -24,6 +24,7 @@ import {
 import { ChevronDown, Save } from "lucide-react";
 import { exportToWord } from "@/components/Editor/utils/exportWord";
 import { exportElementToPdf } from "@/components/Editor/utils/exportPdf";
+import { EscritoStatusBadge } from "./EscritoStatusBadge";
 export default function EscritoDetail({
   escrito,
   templateId,
@@ -42,7 +43,7 @@ export default function EscritoDetail({
   const handleExportToWord = async () => {
     if (editorRef.current?.hasPendingSuggestions?.()) {
       toast.error(
-        "No puedes exportar mientras hay sugerencias pendientes. Acepta o rechaza todos los cambios."
+        "No puedes exportar mientras hay sugerencias pendientes. Acepta o rechaza todos los cambios.",
       );
       return;
     }
@@ -75,7 +76,7 @@ export default function EscritoDetail({
   const handleExportToPdf = async () => {
     if (editorRef.current?.hasPendingSuggestions?.()) {
       toast.error(
-        "No puedes exportar mientras hay sugerencias pendientes. Acepta o rechaza todos los cambios."
+        "No puedes exportar mientras hay sugerencias pendientes. Acepta o rechaza todos los cambios.",
       );
       return;
     }
@@ -100,7 +101,6 @@ export default function EscritoDetail({
     }
   };
 
-  
   const handleSaveAsTemplate = async (
     title: string,
     category: string,
@@ -109,7 +109,7 @@ export default function EscritoDetail({
   ) => {
     if (editorRef.current?.hasPendingSuggestions?.()) {
       toast.error(
-        "No puedes guardar como modelo con sugerencias pendientes. Acepta o rechaza todos los cambios."
+        "No puedes guardar como modelo con sugerencias pendientes. Acepta o rechaza todos los cambios.",
       );
       return;
     }
@@ -142,9 +142,12 @@ export default function EscritoDetail({
   return (
     <>
       <div className="bg-white border-b px-6 py-4 flex justify-between items-center">
-        <div>
+        <div className="flex items-center gap-3">
           <h1 className="text-2xl font-semibold">{escrito?.title}</h1>
-          {/* metadata */}
+          <EscritoStatusBadge
+            escritoId={escrito._id}
+            currentStatus={escrito.status}
+          />
         </div>
         <div className="flex gap-2">
           <DropdownMenu>
