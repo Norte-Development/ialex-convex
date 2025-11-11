@@ -210,10 +210,14 @@ export const Tiptap = forwardRef<TiptapRef, TiptapProps>(
       if (!editor) return;
 
       const handleScrollToRange = (e: CustomEvent<{ escritoId: string; from: number; to: number }>) => {
-        const { escritoId, from, to } = e.detail;
+        const { escritoId: eventEscritoId, from, to } = e.detail;
         
-        // Only handle if this is the correct escrito
-        if (escritoId !== documentId) return;
+        // eventEscritoId is a Convex ID, so compare against escrito?._id (Convex ID)
+        // Don't compare against documentId which is the prosemirrorId
+        const currentEscritoConvexId = escrito?._id;
+        if (!currentEscritoConvexId || eventEscritoId !== currentEscritoConvexId) {
+          return;
+        }
 
         try {
           // Set selection and scroll into view
@@ -241,7 +245,7 @@ export const Tiptap = forwardRef<TiptapRef, TiptapProps>(
       return () => {
         window.removeEventListener("ialex:scrollToEscritoRange", handleScrollToRange as EventListener);
       };
-    }, [editor, documentId]);
+    }, [editor, escrito]);
 
     // Handle chat hotkey to inject context (selection or active escrito)
     useEffect(() => {
