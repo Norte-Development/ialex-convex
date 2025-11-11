@@ -74,12 +74,16 @@ export default function CreateEventDialog({
   // Queries para selectores
   const casesResult = useQuery(
     api.functions.cases.getCases,
-    showCaseSelector ? { paginationOpts: { numItems: 100, cursor: null } } : "skip",
+    showCaseSelector
+      ? { paginationOpts: { numItems: 100, cursor: null } }
+      : "skip",
   );
   const cases = casesResult?.page || [];
   const teams = useQuery(
     api.functions.teams.getTeams,
-    showTeamSelector ? { paginationOpts: { numItems: 100, cursor: null } } : "skip",
+    showTeamSelector
+      ? { paginationOpts: { numItems: 100, cursor: null } }
+      : "skip",
   );
 
   const createEvent = useMutation(api.functions.events.createEvent);
@@ -261,19 +265,19 @@ export default function CreateEventDialog({
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="audiencia">🏛️ Audiencia</SelectItem>
-                <SelectItem value="plazo">⏰ Plazo Legal</SelectItem>
+                <SelectItem value="audiencia">Audiencia</SelectItem>
+                <SelectItem value="plazo">Plazo Legal</SelectItem>
                 <SelectItem value="reunion_cliente">
-                  👥 Reunión con Cliente
+                  Reunión con Cliente
                 </SelectItem>
                 <SelectItem value="presentacion">
-                  📄 Presentación de Documentos
+                  Presentación de Documentos
                 </SelectItem>
                 <SelectItem value="reunion_equipo">
-                  👨‍💼 Reunión de Equipo
+                  Reunión de Equipo
                 </SelectItem>
-                <SelectItem value="personal">🙋 Personal</SelectItem>
-                <SelectItem value="otro">📌 Otro</SelectItem>
+                <SelectItem value="personal">Personal</SelectItem>
+                <SelectItem value="otro">Otro</SelectItem>
               </SelectContent>
             </Select>
           </div>

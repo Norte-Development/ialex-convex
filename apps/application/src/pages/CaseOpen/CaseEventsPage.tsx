@@ -70,13 +70,13 @@ function CaseEventsPageInner({
 
   const getEventTypeLabel = (type: string) => {
     const labels: Record<string, string> = {
-      audiencia: "🏛️ Audiencia",
-      plazo: "⏰ Plazo",
-      reunion_cliente: "👥 Reunión Cliente",
-      presentacion: "📄 Presentación",
-      reunion_equipo: "👨‍💼 Reunión Equipo",
-      personal: "🙋 Personal",
-      otro: "📌 Otro",
+      audiencia: "Audiencia",
+      plazo: "Plazo",
+      reunion_cliente: "Reunión Cliente",
+      presentacion: "Presentación",
+      reunion_equipo: "Reunión Equipo",
+      personal: "Personal",
+      otro: "Otro",
     };
     return labels[type] || type;
   };
