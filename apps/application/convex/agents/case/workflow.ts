@@ -288,7 +288,7 @@ export const streamWithContextAction = internalAction({
 
     const { thread } = await agent.continueThread(ctx, { threadId });
 
-    const openRouterModel = modelToUse === 'gpt-5' ? 'openai/gpt-5' : 'openai/gpt-4o';
+    const openRouterModel = modelToUse === 'gpt-5' ? 'anthropic/claude-sonnet-4.5' : 'anthropic/claude-haiku-4.5';
 
     console.log('openRouterModel', openRouterModel);
 
@@ -297,7 +297,7 @@ export const streamWithContextAction = internalAction({
         {
           system: systemMessage,
           promptMessageId,
-          model: openrouter(openRouterModel, modelToUse === 'gpt-5' ? { reasoning: { effort: "low" } } : undefined),
+          model: openrouter(openRouterModel, modelToUse === 'gpt-5' ? { reasoning: {enabled: true, effort: "low", exclude: false } } : undefined),
           onAbort: () => {
             console.log(`[Stream Abort Callback] Thread ${threadId}: Stream abort callback triggered`);
           },
