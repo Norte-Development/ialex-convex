@@ -2,30 +2,14 @@ import { useParams, useNavigate } from "react-router-dom";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { Id } from "../../convex/_generated/dataModel";
-import {
-  Calendar,
-  Clock,
-  MapPin,
-  Link as LinkIcon,
-  Users,
-  ArrowLeft,
-  Trash2,
-  CheckCircle,
-  XCircle,
-  UserMinus,
-  Pencil,
-  Check,
-  X,
-} from "lucide-react";
-import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Separator } from "@/components/ui/separator";
-import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
-import AddParticipantDialog from "@/components/eventos/AddParticipantDialog";
 import { useAuth } from "@/context/AuthContext";
 import { useState } from "react";
+import EventHeader from "@/components/eventos/EventHeader";
+import EventDetailsCard from "@/components/eventos/EventDetailsCard";
+import EventParticipantsCard from "@/components/eventos/EventParticipantsCard";
+import EventRemindersCard from "@/components/eventos/EventRemindersCard";
 
 export default function EventDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -82,13 +66,13 @@ export default function EventDetailPage() {
 
   const getEventTypeLabel = (type: string) => {
     const labels: Record<string, string> = {
-      audiencia: "🏛️ Audiencia",
-      plazo: "⏰ Plazo",
-      reunion_cliente: "👥 Reunión Cliente",
-      presentacion: "📄 Presentación",
-      reunion_equipo: "👨‍💼 Reunión Equipo",
-      personal: "🙋 Personal",
-      otro: "📌 Otro",
+      audiencia: "Audiencia",
+      plazo: "Plazo",
+      reunion_cliente: "Reunión Cliente",
+      presentacion: "Presentación",
+      reunion_equipo: "Reunión Equipo",
+      personal: "Personal",
+      otro: "Otro",
     };
     return labels[type] || type;
   };
@@ -101,10 +85,7 @@ export default function EventDetailPage() {
       reprogramado: "outline",
     };
     return (
-      <Badge
-        variant={variants[status] || "default"}
-        className="text-base px-3 py-1"
-      >
+      <Badge variant={variants[status] || "default"}>
         {status.charAt(0).toUpperCase() + status.slice(1)}
       </Badge>
     );
@@ -187,331 +168,49 @@ export default function EventDetailPage() {
   };
 
   return (
-    <div className="container mx-auto py-8 px-4 pt-24 max-w-4xl">
-      {/* Header */}
-      <div className="mb-6">
-        <Button variant="ghost" onClick={() => navigate("/")} className="mb-4">
-          <ArrowLeft size={16} className="mr-2" />
-          Volver
-        </Button>
+    <div className="max-w-[90%] mx-auto py-8  bg-white min-h-screen">
+      <EventHeader
+        title={event.title}
+        eventType={event.eventType}
+        status={event.status}
+        isOrganizer={isOrganizer}
+        onBack={() => navigate(-1)}
+        onMarkComplete={handleMarkComplete}
+        onCancel={handleCancel}
+        onDelete={handleDelete}
+        getEventTypeLabel={getEventTypeLabel}
+        getStatusBadge={getStatusBadge}
+      />
 
-        <div className="flex justify-between items-start">
-          <div>
-            <h1 className="text-3xl font-bold mb-2">{event.title}</h1>
-            <div className="flex items-center gap-3">
-              <span className="text-lg">
-                {getEventTypeLabel(event.eventType)}
-              </span>
-              {getStatusBadge(event.status)}
-            </div>
-          </div>
-
-          {isOrganizer && (
-            <div className="flex gap-2">
-              {event.status === "programado" && (
-                <>
-                  <Button variant="outline" onClick={handleMarkComplete}>
-                    <CheckCircle size={16} className="mr-2" />
-                    Completar
-                  </Button>
-                  <Button variant="outline" onClick={handleCancel}>
-                    <XCircle size={16} className="mr-2" />
-                    Cancelar
-                  </Button>
-                </>
-              )}
-              <Button variant="destructive" onClick={handleDelete}>
-                <Trash2 size={16} className="mr-2" />
-                Eliminar
-              </Button>
-            </div>
-          )}
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Información principal */}
-        <div className="md:col-span-2 space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Detalles del Evento</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex items-start gap-3">
-                <Calendar size={20} className="text-muted-foreground mt-1" />
-                <div>
-                  <p className="font-semibold">Fecha</p>
-                  <p className="text-muted-foreground">
-                    {formatDate(event.startDate)}
-                  </p>
-                </div>
-              </div>
-
-              <div className="flex items-start gap-3">
-                <Clock size={20} className="text-muted-foreground mt-1" />
-                <div>
-                  <p className="font-semibold">Horario</p>
-                  <p className="text-muted-foreground">
-                    {formatTime(event.startDate)} - {formatTime(event.endDate)}
-                    {event.allDay && " (Todo el día)"}
-                  </p>
-                </div>
-              </div>
-
-              {event.location && (
-                <div className="flex items-start gap-3">
-                  <MapPin size={20} className="text-muted-foreground mt-1" />
-                  <div>
-                    <p className="font-semibold">Ubicación</p>
-                    <p className="text-muted-foreground">{event.location}</p>
-                  </div>
-                </div>
-              )}
-
-              {event.isVirtual && event.meetingUrl && (
-                <div className="flex items-start gap-3">
-                  <LinkIcon size={20} className="text-muted-foreground mt-1" />
-                  <div>
-                    <p className="font-semibold">Reunión Virtual</p>
-                    <a
-                      href={event.meetingUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-primary hover:underline"
-                    >
-                      {event.meetingUrl}
-                    </a>
-                  </div>
-                </div>
-              )}
-
-              {event.description && (
-                <>
-                  <Separator />
-                  <div>
-                    <div className="flex items-center justify-between mb-2">
-                      <p className="font-semibold">Descripción</p>
-                      {isOrganizer && !isEditingDescription && (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={handleStartEditDescription}
-                        >
-                          <Pencil size={14} className="mr-1" />
-                          Editar
-                        </Button>
-                      )}
-                    </div>
-                    {isEditingDescription ? (
-                      <div className="space-y-2">
-                        <Textarea
-                          value={editedDescription}
-                          onChange={(e) => setEditedDescription(e.target.value)}
-                          rows={4}
-                          className="w-full"
-                        />
-                        <div className="flex gap-2">
-                          <Button size="sm" onClick={handleSaveDescription}>
-                            <Check size={14} className="mr-1" />
-                            Guardar
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={handleCancelEditDescription}
-                          >
-                            <X size={14} className="mr-1" />
-                            Cancelar
-                          </Button>
-                        </div>
-                      </div>
-                    ) : (
-                      <p className="text-muted-foreground whitespace-pre-wrap">
-                        {event.description}
-                      </p>
-                    )}
-                  </div>
-                </>
-              )}
-
-              {!event.description && isOrganizer && (
-                <>
-                  <Separator />
-                  <div>
-                    <div className="flex items-center justify-between mb-2">
-                      <p className="font-semibold">Descripción</p>
-                      {!isEditingDescription && (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={handleStartEditDescription}
-                        >
-                          <Pencil size={14} className="mr-1" />
-                          Agregar
-                        </Button>
-                      )}
-                    </div>
-                    {isEditingDescription ? (
-                      <div className="space-y-2">
-                        <Textarea
-                          value={editedDescription}
-                          onChange={(e) => setEditedDescription(e.target.value)}
-                          rows={4}
-                          placeholder="Agregar una descripción..."
-                          className="w-full"
-                        />
-                        <div className="flex gap-2">
-                          <Button size="sm" onClick={handleSaveDescription}>
-                            <Check size={14} className="mr-1" />
-                            Guardar
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={handleCancelEditDescription}
-                          >
-                            <X size={14} className="mr-1" />
-                            Cancelar
-                          </Button>
-                        </div>
-                      </div>
-                    ) : (
-                      <p className="text-sm text-muted-foreground italic">
-                        Sin descripción
-                      </p>
-                    )}
-                  </div>
-                </>
-              )}
-
-              {event.notes && (
-                <>
-                  <Separator />
-                  <div>
-                    <p className="font-semibold mb-2">Notas</p>
-                    <p className="text-muted-foreground whitespace-pre-wrap">
-                      {event.notes}
-                    </p>
-                  </div>
-                </>
-              )}
-            </CardContent>
-          </Card>
+        <div className="lg:col-span-2 space-y-6">
+          <EventDetailsCard
+            event={event}
+            isOrganizer={isOrganizer}
+            isEditingDescription={isEditingDescription}
+            editedDescription={editedDescription}
+            onStartEditDescription={handleStartEditDescription}
+            onSaveDescription={handleSaveDescription}
+            onCancelEditDescription={handleCancelEditDescription}
+            onDescriptionChange={setEditedDescription}
+            formatDate={formatDate}
+            formatTime={formatTime}
+          />
         </div>
 
         {/* Sidebar */}
         <div className="space-y-6">
-          {/* Participantes */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Users size={18} />
-                  Participantes ({participants?.length || 0})
-                </div>
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              {participants && participants.length > 0 ? (
-                <>
-                  {participants.map((participant) => (
-                    <div
-                      key={participant._id}
-                      className="flex items-center justify-between group"
-                    >
-                      <div className="flex items-center gap-2 flex-1">
-                        <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
-                          <span className="text-sm font-semibold">
-                            {participant.user?.name?.charAt(0).toUpperCase()}
-                          </span>
-                        </div>
-                        <div className="flex-1">
-                          <p className="text-sm font-medium">
-                            {participant.user?.name}
-                          </p>
-                          <p className="text-xs text-muted-foreground">
-                            {participant.role}
-                          </p>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Badge variant="outline" className="text-xs">
-                          {participant.attendanceStatus}
-                        </Badge>
-                        {isOrganizer &&
-                          participant.role !== "organizador" &&
-                          participant.userId !== user?._id && (
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity"
-                              onClick={() =>
-                                handleRemoveParticipant(
-                                  participant.userId,
-                                  participant.user?.name || "Usuario",
-                                )
-                              }
-                            >
-                              <UserMinus
-                                size={14}
-                                className="text-destructive"
-                              />
-                            </Button>
-                          )}
-                      </div>
-                    </div>
-                  ))}
+          <EventParticipantsCard
+            eventId={id!}
+            participants={participants}
+            isOrganizer={isOrganizer}
+            currentUserId={user?._id as Id<"users"> | undefined}
+            onRemoveParticipant={handleRemoveParticipant}
+          />
 
-                  {isOrganizer && (
-                    <>
-                      <Separator className="my-3" />
-                      <AddParticipantDialog
-                        eventId={id as Id<"events">}
-                        existingParticipants={participants}
-                      />
-                    </>
-                  )}
-                </>
-              ) : (
-                <div className="text-center py-4">
-                  <p className="text-sm text-muted-foreground mb-3">
-                    No hay participantes
-                  </p>
-                  {isOrganizer && (
-                    <AddParticipantDialog
-                      eventId={id as Id<"events">}
-                      existingParticipants={[]}
-                    />
-                  )}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Recordatorios */}
           {event.reminderMinutes && event.reminderMinutes.length > 0 && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Clock size={18} />
-                  Recordatorios
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <ul className="space-y-2">
-                  {event.reminderMinutes.map((minutes, index) => (
-                    <li key={index} className="text-sm text-muted-foreground">
-                      •{" "}
-                      {minutes < 60
-                        ? `${minutes} minutos antes`
-                        : minutes < 1440
-                          ? `${Math.floor(minutes / 60)} horas antes`
-                          : `${Math.floor(minutes / 1440)} días antes`}
-                    </li>
-                  ))}
-                </ul>
-              </CardContent>
-            </Card>
+            <EventRemindersCard reminderMinutes={event.reminderMinutes} />
           )}
         </div>
       </div>

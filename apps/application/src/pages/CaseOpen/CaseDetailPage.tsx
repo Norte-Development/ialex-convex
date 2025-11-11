@@ -11,6 +11,7 @@ import {
   Folder,
   FileType2,
   Settings,
+  Calendar,
 } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { useQuery } from "convex/react";
@@ -52,6 +53,10 @@ export default function CaseDetailPage() {
   const caseRules = useQuery(
     api.functions.agentRules.getCaseRules as any,
     currentCase ? { caseId: currentCase._id, activeOnly: false } : "skip",
+  );
+  const caseEvents = useQuery(
+    api.functions.events.getCaseEvents,
+    currentCase ? { caseId: currentCase._id } : "skip",
   );
 
   const formatDate = (timestamp: number) => {
@@ -137,7 +142,7 @@ export default function CaseDetailPage() {
           </div>
         </div>
 
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-6">
           <div
             onClick={() =>
               currentCase && navigate(`/caso/${currentCase._id}/documentos`)
@@ -177,6 +182,25 @@ export default function CaseDetailPage() {
               <div className="text-xs text-gray-500">Documentos legales</div>
             </div>
           </div>
+
+          <Link
+            to={`/caso/${currentCase._id}/eventos`}
+            className="group cursor-pointer"
+          >
+            <div className="space-y-2 p-6 rounded-lg border border-tertiary hover:border-tertiary/80 transition-colors min-h-[140px]">
+              <div className="flex items-center justify-between">
+                <Calendar className="h-5 w-5 text-tertiary group-hover:text-tertiary/80 transition-colors" />
+                <ArrowRight className="h-4 w-4 text-tertiary group-hover:text-tertiary/80 transition-colors" />
+              </div>
+              <div>
+                <div className="text-3xl font-light text-gray-900">
+                  {caseEvents?.length || 0}
+                </div>
+                <div className="text-sm font-medium text-gray-900">Eventos</div>
+                <div className="text-xs text-gray-500">Audiencias y plazos</div>
+              </div>
+            </div>
+          </Link>
 
           <Link
             to={`/caso/${currentCase._id}/clientes`}

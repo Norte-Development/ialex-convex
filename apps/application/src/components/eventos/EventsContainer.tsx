@@ -19,31 +19,31 @@ export default function EventsContainer({
 }: EventsContainerProps) {
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
-  
+
   // Query events based on type
   const upcomingEvents = useQuery(
     api.functions.events.getUpcomingEvents,
     eventType === "upcoming"
       ? {
           days: 30,
-          paginationOpts: { 
-            numItems: pageSize, 
-            cursor: ((currentPage - 1) * pageSize).toString()
+          paginationOpts: {
+            numItems: pageSize,
+            cursor: ((currentPage - 1) * pageSize).toString(),
           },
         }
-      : "skip"
+      : "skip",
   );
 
   const allEvents = useQuery(
     api.functions.events.getMyEvents,
     eventType !== "upcoming"
       ? {
-          paginationOpts: { 
-            numItems: pageSize, 
-            cursor: ((currentPage - 1) * pageSize).toString()
+          paginationOpts: {
+            numItems: pageSize,
+            cursor: ((currentPage - 1) * pageSize).toString(),
           },
         }
-      : "skip"
+      : "skip",
   );
 
   // Handle pagination - memoized to prevent unnecessary re-renders
@@ -61,7 +61,7 @@ export default function EventsContainer({
     if (eventType === "upcoming") {
       return upcomingEvents?.page || [];
     }
-    
+
     const allEventsData = allEvents?.page || [];
     switch (eventType) {
       case "programados":
@@ -76,7 +76,10 @@ export default function EventsContainer({
   };
 
   const events = getEventsForType();
-  const isLoading = eventType === "upcoming" ? upcomingEvents === undefined : allEvents === undefined;
+  const isLoading =
+    eventType === "upcoming"
+      ? upcomingEvents === undefined
+      : allEvents === undefined;
 
   // Show loading state
   if (isLoading) {
@@ -105,13 +108,13 @@ export default function EventsContainer({
 
   const getEventTypeLabel = (type: string) => {
     const labels: Record<string, string> = {
-      audiencia: "🏛️ Audiencia",
-      plazo: "⏰ Plazo",
-      reunion_cliente: "👥 Reunión Cliente",
-      presentacion: "📄 Presentación",
-      reunion_equipo: "👨‍💼 Reunión Equipo",
-      personal: "🙋 Personal",
-      otro: "📌 Otro",
+      audiencia: "Audiencia",
+      plazo: "Plazo",
+      reunion_cliente: "Reunión Cliente",
+      presentacion: "Presentación",
+      reunion_equipo: "Reunión Equipo",
+      personal: "Personal",
+      otro: "Otro",
     };
     return labels[type] || type;
   };
@@ -179,10 +182,9 @@ export default function EventsContainer({
           No hay eventos {eventType === "upcoming" ? "próximos" : eventType}
         </h3>
         <p className="text-muted-foreground mb-4">
-          {eventType === "upcoming" 
+          {eventType === "upcoming"
             ? "Crea tu primer evento para comenzar"
-            : `No hay eventos ${eventType}`
-          }
+            : `No hay eventos ${eventType}`}
         </p>
         {eventType === "upcoming" && (
           <CreateEventDialog showCaseSelector showTeamSelector />
@@ -198,16 +200,22 @@ export default function EventsContainer({
           <EventCard key={event._id} event={event} />
         ))}
       </div>
-      
+
       {/* Pagination controls */}
       {events.length > 0 && (
         <div className="mt-6">
           <PaginationControls
-            totalResults={eventType === "upcoming" ? (upcomingEvents?.totalCount || 0) : (allEvents?.totalCount || 0)}
+            totalResults={
+              eventType === "upcoming"
+                ? upcomingEvents?.totalCount || 0
+                : allEvents?.totalCount || 0
+            }
             currentPage={currentPage}
             pageSize={pageSize}
             totalPages={Math.ceil(
-              (eventType === "upcoming" ? (upcomingEvents?.totalCount || 0) : (allEvents?.totalCount || 0)) / pageSize
+              (eventType === "upcoming"
+                ? upcomingEvents?.totalCount || 0
+                : allEvents?.totalCount || 0) / pageSize,
             )}
             onPageChange={handlePageChange}
           />
