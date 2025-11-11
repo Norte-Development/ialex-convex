@@ -53,7 +53,6 @@ export const applyTextBasedOperations = mutation({
     const schema = buildServerSchema();
 
     const operations: any[] = [];
-    let appliedOperationsCount = 0;
 
     // Process each edit using the existing ProseMirror sync system
     console.log("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
@@ -170,7 +169,6 @@ export const applyTextBasedOperations = mutation({
           }
 
           let tr = state.tr;
-          const stepsBeforeOp = tr.steps.length;
 
           // Ensure document has content for operations
           if (currentDoc.childCount === 0) {
@@ -396,7 +394,7 @@ export const applyTextBasedOperations = mutation({
             }
 
             // Find insertion position using normalized anchors first
-            let insertPos = 1;
+            let insertPos = 0;
             if (op.afterText || op.beforeText) {
               const docIndex = buildDocIndex(
                 tr.doc,
@@ -465,11 +463,6 @@ export const applyTextBasedOperations = mutation({
             }
           }
 
-          // If this operation produced any steps, count it as applied
-          if (tr.steps.length > stepsBeforeOp) {
-            appliedOperationsCount += 1;
-          }
-
           // Update current document for next iteration
           currentDoc = tr.doc;
         }
@@ -481,8 +474,8 @@ export const applyTextBasedOperations = mutation({
 
     return {
       ok: true,
-      message: `Applied ${appliedOperationsCount} operations successfully`,
-      operationsApplied: appliedOperationsCount,
+      message: `Applied ${operations.length} operations successfully`,
+      operationsApplied: operations.length,
     };
   },
 });
