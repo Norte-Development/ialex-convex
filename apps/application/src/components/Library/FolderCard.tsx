@@ -115,7 +115,7 @@ export function FolderCard({
   return (
     <div ref={folderRef} className="relative">
       <Card
-        className={`group relative flex flex-col items-center gap-3 p-4 transition-all hover:shadow-md hover:border-primary/50 cursor-pointer min-h-[140px] ${
+        className={`group relative flex flex-col items-center gap-3 p-4 transition-all hover:shadow-md hover:border-primary/50 cursor-pointer h-40 ${
           isDraggingOver
             ? "bg-blue-50/80 border-2 border-blue-400 border-dashed scale-105 shadow-lg"
             : ""
@@ -132,8 +132,11 @@ export function FolderCard({
           >
             <Folder className="h-10 w-10 text-white" />
           </div>
-          <div className="w-full text-center">
-            <p className="text-sm font-medium text-balance line-clamp-2 mb-1">
+          <div className="w-full text-center px-2">
+            <p
+              className="text-sm font-medium truncate mb-1"
+              title={folder.name}
+            >
               {folder.name}
             </p>
             <p
