@@ -555,3 +555,92 @@ export const sendDay5ClientTranquility = internalAction({
     return null;
   },
 });
+
+/**
+ * Send subscription thank you email when user completes payment
+ * This email is sent when a user successfully subscribes to a paid plan
+ */
+export const sendSubscriptionThankYou = internalAction({
+  args: {
+    userId: v.id("users"),
+    email: v.string(),
+    name: v.string(),
+    planName: v.string(),
+    planType: v.union(
+      v.literal("premium_individual"),
+      v.literal("premium_team"),
+      v.literal("ai_credits"),
+    ),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const { subscriptionThankYouTemplate } = await import(
+      "../services/emailTemplates"
+    );
+
+    // Define features based on plan type
+    let features: string[] = [];
+    let displayPlanName = args.planName;
+
+    switch (args.planType) {
+      case "premium_individual":
+        displayPlanName = "Premium Individual";
+        features = [
+          "Casos ilimitados con gestión completa",
+          "Documentos ilimitados y almacenamiento seguro",
+          "Asistente de IA con consultas ilimitadas",
+          "Búsqueda avanzada de jurisprudencia y doctrina",
+          "Generación de escritos legales con IA",
+          "Calendario de eventos y recordatorios",
+          "Biblioteca personal de documentos",
+          "Soporte prioritario",
+        ];
+        break;
+
+      case "premium_team":
+        displayPlanName = "Premium Equipo";
+        features = [
+          "Todo lo del plan Premium Individual",
+          "Hasta 6 miembros en tu equipo",
+          "Colaboración en tiempo real",
+          "Gestión de roles y permisos",
+          "Casos compartidos entre miembros",
+          "Biblioteca compartida del equipo",
+          "Panel de administración de equipo",
+          "Soporte prioritario para todo el equipo",
+        ];
+        break;
+
+      case "ai_credits":
+        displayPlanName = "Créditos de IA";
+        features = [
+          "Créditos para consultas al asistente de IA",
+          "Generación de escritos legales",
+          "Búsquedas avanzadas de jurisprudencia",
+          "Análisis de documentos legales",
+          "Válidos por 90 días",
+        ];
+        break;
+    }
+
+    const subject = `¡Bienvenido a iAlex! Tu suscripción está activa`;
+
+    const htmlContent = subscriptionThankYouTemplate(
+      args.name,
+      displayPlanName,
+      features,
+    );
+
+    await ctx.runMutation(internal.utils.resend.sendEmail, {
+      from: "iAlex <notificaciones@ialex.com.ar>",
+      to: args.email,
+      subject,
+      body: htmlContent,
+    });
+
+    console.log(
+      `📧 Sent subscription thank you email to ${args.email} for plan: ${args.planType}`,
+    );
+    return null;
+  },
+});

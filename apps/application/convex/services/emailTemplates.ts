@@ -1,17 +1,21 @@
-export function caseUpdateTemplate(caseName: string, newStatus: string, userName: string): string {
+export function caseUpdateTemplate(
+  caseName: string,
+  newStatus: string,
+  userName: string,
+): string {
   const statusConfig = {
     pendiente: { text: "Pendiente", color: "#F59E0B", emoji: "⏳" },
     "en progreso": { text: "En Progreso", color: "#3B82F6", emoji: "🔄" },
     completado: { text: "Completado", color: "#10B981", emoji: "✅" },
     archivado: { text: "Archivado", color: "#6B7280", emoji: "📦" },
     cancelado: { text: "Cancelado", color: "#EF4444", emoji: "❌" },
-  }
+  };
 
   const status = statusConfig[newStatus as keyof typeof statusConfig] || {
     text: newStatus,
     color: "#6B7280",
     emoji: "📋",
-  }
+  };
 
   return `
 <!DOCTYPE html>
@@ -173,7 +177,7 @@ export function caseUpdateTemplate(caseName: string, newStatus: string, userName
   </div>
 </body>
 </html>
-  `.trim()
+  `.trim();
 }
 
 export function documentProcessedTemplate(
@@ -182,7 +186,7 @@ export function documentProcessedTemplate(
   status: "success" | "failure",
   errorMessage?: string,
 ): string {
-  const isSuccess = status === "success"
+  const isSuccess = status === "success";
 
   const config = isSuccess
     ? {
@@ -192,7 +196,8 @@ export function documentProcessedTemplate(
         iconColor: "#059669",
         title: "Documento Procesado Exitosamente",
         message: `Tu documento <strong>"${docName}"</strong> ha sido procesado exitosamente y ya está disponible para consultas.`,
-        detail: "Ahora puedes buscar información dentro de este documento usando el agente de IA.",
+        detail:
+          "Ahora puedes buscar información dentro de este documento usando el agente de IA.",
         buttonText: "Abrir iAlex",
         buttonGradient: "linear-gradient(135deg, #10b981 0%, #059669 100%)",
       }
@@ -203,10 +208,12 @@ export function documentProcessedTemplate(
         iconColor: "#dc2626",
         title: "Error al Procesar Documento",
         message: `Lamentablemente, hubo un problema al procesar tu documento <strong>"${docName}"</strong>.`,
-        detail: errorMessage || "Por favor, intenta subirlo nuevamente o comunícate con el soporte.",
+        detail:
+          errorMessage ||
+          "Por favor, intenta subirlo nuevamente o comunícate con el soporte.",
         buttonText: "Intentar Nuevamente",
         buttonGradient: "linear-gradient(135deg, #ef4444 0%, #dc2626 100%)",
-      }
+      };
 
   return `
 <!DOCTYPE html>
@@ -340,10 +347,14 @@ export function documentProcessedTemplate(
   </div>
 </body>
 </html>
-  `.trim()
+  `.trim();
 }
 
-export function teamInviteTemplate(teamName: string, inviterName: string, inviteLink: string): string {
+export function teamInviteTemplate(
+  teamName: string,
+  inviterName: string,
+  inviteLink: string,
+): string {
   return `
 <!DOCTYPE html>
 <html lang="es">
@@ -501,10 +512,13 @@ export function teamInviteTemplate(teamName: string, inviterName: string, invite
   </div>
 </body>
 </html>
-  `.trim()
+  `.trim();
 }
 
-export function agentTaskCompleteTemplate(taskDescription: string, userName: string): string {
+export function agentTaskCompleteTemplate(
+  taskDescription: string,
+  userName: string,
+): string {
   return `
 <!DOCTYPE html>
 <html lang="es">
@@ -634,7 +648,7 @@ export function agentTaskCompleteTemplate(taskDescription: string, userName: str
   </div>
 </body>
 </html>
-  `.trim()
+  `.trim();
 }
 
 export function eventReminderTemplate(
@@ -647,24 +661,35 @@ export function eventReminderTemplate(
   userName: string,
   minutesUntil: number,
 ): string {
-  const eventTypeConfig: Record<string, { label: string; emoji: string; color: string }> = {
+  const eventTypeConfig: Record<
+    string,
+    { label: string; emoji: string; color: string }
+  > = {
     audiencia: { label: "Audiencia", emoji: "🏛️", color: "#dc2626" },
     plazo: { label: "Plazo Legal", emoji: "⏰", color: "#ea580c" },
-    reunion_cliente: { label: "Reunión con Cliente", emoji: "👥", color: "#2563eb" },
+    reunion_cliente: {
+      label: "Reunión con Cliente",
+      emoji: "👥",
+      color: "#2563eb",
+    },
     presentacion: { label: "Presentación", emoji: "📄", color: "#7c3aed" },
-    reunion_equipo: { label: "Reunión de Equipo", emoji: "👨‍💼", color: "#0891b2" },
+    reunion_equipo: {
+      label: "Reunión de Equipo",
+      emoji: "👨‍💼",
+      color: "#0891b2",
+    },
     personal: { label: "Evento Personal", emoji: "🙋", color: "#059669" },
     otro: { label: "Otro Evento", emoji: "📌", color: "#6b7280" },
-  }
+  };
 
-  const config = eventTypeConfig[eventType] || eventTypeConfig.otro
+  const config = eventTypeConfig[eventType] || eventTypeConfig.otro;
 
   const timeLabel =
     minutesUntil >= 1440
       ? `en ${Math.floor(minutesUntil / 1440)} día${Math.floor(minutesUntil / 1440) > 1 ? "s" : ""}`
       : minutesUntil >= 60
         ? `en ${Math.floor(minutesUntil / 60)} hora${Math.floor(minutesUntil / 60) > 1 ? "s" : ""}`
-        : `en ${minutesUntil} minuto${minutesUntil > 1 ? "s" : ""}`
+        : `en ${minutesUntil} minuto${minutesUntil > 1 ? "s" : ""}`;
 
   return `
 <!DOCTYPE html>
@@ -853,7 +878,7 @@ export function eventReminderTemplate(
   </div>
 </body>
 </html>
-  `.trim()
+  `.trim();
 }
 
 export function eventInviteTemplate(
@@ -866,17 +891,28 @@ export function eventInviteTemplate(
   organizerName: string,
   userName: string,
 ): string {
-  const eventTypeConfig: Record<string, { label: string; emoji: string; color: string }> = {
+  const eventTypeConfig: Record<
+    string,
+    { label: string; emoji: string; color: string }
+  > = {
     audiencia: { label: "Audiencia", emoji: "🏛️", color: "#dc2626" },
     plazo: { label: "Plazo Legal", emoji: "⏰", color: "#ea580c" },
-    reunion_cliente: { label: "Reunión con Cliente", emoji: "👥", color: "#2563eb" },
+    reunion_cliente: {
+      label: "Reunión con Cliente",
+      emoji: "👥",
+      color: "#2563eb",
+    },
     presentacion: { label: "Presentación", emoji: "📄", color: "#7c3aed" },
-    reunion_equipo: { label: "Reunión de Equipo", emoji: "👨‍💼", color: "#0891b2" },
+    reunion_equipo: {
+      label: "Reunión de Equipo",
+      emoji: "👨‍💼",
+      color: "#0891b2",
+    },
     personal: { label: "Evento Personal", emoji: "🙋", color: "#059669" },
     otro: { label: "Otro Evento", emoji: "📌", color: "#6b7280" },
-  }
+  };
 
-  const config = eventTypeConfig[eventType] || eventTypeConfig.otro
+  const config = eventTypeConfig[eventType] || eventTypeConfig.otro;
 
   return `
 <!DOCTYPE html>
@@ -1068,7 +1104,7 @@ export function eventInviteTemplate(
   </div>
 </body>
 </html>
-  `.trim()
+  `.trim();
 }
 
 export function eventUpdateTemplate(
@@ -1081,20 +1117,31 @@ export function eventUpdateTemplate(
   const updateLabels: Record<string, string> = {
     status: "Estado del Evento",
     details: "Detalles del Evento",
-  }
+  };
 
-  const statusConfig: Record<string, { label: string; color: string; emoji: string }> = {
+  const statusConfig: Record<
+    string,
+    { label: string; color: string; emoji: string }
+  > = {
     programado: { label: "Programado", color: "#3b82f6", emoji: "📅" },
     completado: { label: "Completado", color: "#10b981", emoji: "✅" },
     cancelado: { label: "Cancelado", color: "#ef4444", emoji: "❌" },
     reprogramado: { label: "Reprogramado", color: "#f59e0b", emoji: "🔄" },
-  }
+  };
 
-  const oldStatus = statusConfig[oldValue] || { label: oldValue, color: "#6b7280", emoji: "📋" }
-  const newStatus = statusConfig[newValue] || { label: newValue, color: "#6b7280", emoji: "📋" }
+  const oldStatus = statusConfig[oldValue] || {
+    label: oldValue,
+    color: "#6b7280",
+    emoji: "📋",
+  };
+  const newStatus = statusConfig[newValue] || {
+    label: newValue,
+    color: "#6b7280",
+    emoji: "📋",
+  };
 
-  const displayOld = updateType === "status" ? oldStatus.label : oldValue
-  const displayNew = updateType === "status" ? newStatus.label : newValue
+  const displayOld = updateType === "status" ? oldStatus.label : oldValue;
+  const displayNew = updateType === "status" ? newStatus.label : newValue;
 
   return `
 <!DOCTYPE html>
@@ -1287,5 +1334,228 @@ export function eventUpdateTemplate(
   </div>
 </body>
 </html>
-  `.trim()
+  `.trim();
+}
+
+export function subscriptionThankYouTemplate(
+  userName: string,
+  planName: string,
+  features: string[],
+): string {
+  return `
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <title>¡Gracias por Suscribirte! - iAlex</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { 
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; 
+      line-height: 1.6; 
+      color: #1f2937; 
+      background-color: #f3f4f6;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+    .email-wrapper { width: 100%; background-color: #f3f4f6; padding: 40px 20px; }
+    .email-container { 
+      max-width: 600px; 
+      margin: 0 auto; 
+      background: #ffffff; 
+      border-radius: 16px; 
+      overflow: hidden;
+      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+    }
+    .header { 
+      background: linear-gradient(135deg, #10b981 0%, #059669 100%); 
+      color: white; 
+      padding: 40px 32px; 
+      text-align: center; 
+    }
+    .header h1 { 
+      font-size: 28px; 
+      font-weight: 700; 
+      margin: 0; 
+      letter-spacing: -0.5px;
+    }
+    .header p { 
+      margin: 8px 0 0 0; 
+      opacity: 0.9; 
+      font-size: 14px; 
+    }
+    .content { 
+      padding: 40px 32px; 
+    }
+    .icon-wrapper {
+      width: 80px;
+      height: 80px;
+      background: #d1fae5;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto 24px;
+      font-size: 40px;
+    }
+    .greeting { 
+      font-size: 18px; 
+      color: #1f2937; 
+      margin-bottom: 24px; 
+      font-weight: 500;
+    }
+    .plan-card { 
+      background: linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%); 
+      border-radius: 12px; 
+      padding: 24px; 
+      margin: 24px 0;
+      border: 2px solid #a7f3d0;
+      text-align: center;
+    }
+    .plan-label { 
+      font-size: 13px; 
+      color: #047857; 
+      text-transform: uppercase; 
+      letter-spacing: 0.5px; 
+      font-weight: 600; 
+      margin-bottom: 8px;
+    }
+    .plan-name { 
+      font-size: 24px; 
+      font-weight: 700; 
+      color: #065f46; 
+      margin-bottom: 16px;
+    }
+    .features-list {
+      margin: 24px 0;
+      padding: 0;
+      list-style: none;
+    }
+    .feature-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      padding: 12px 0;
+      color: #374151;
+      font-size: 15px;
+      line-height: 1.5;
+    }
+    .feature-icon {
+      color: #10b981;
+      font-weight: bold;
+      font-size: 18px;
+      flex-shrink: 0;
+    }
+    .highlight-box {
+      background: #fef3c7;
+      border-left: 4px solid #f59e0b;
+      border-radius: 8px;
+      padding: 20px;
+      margin: 24px 0;
+    }
+    .highlight-box p {
+      color: #92400e;
+      margin: 0;
+      font-size: 15px;
+      line-height: 1.6;
+    }
+    .button { 
+      display: inline-block; 
+      padding: 14px 32px; 
+      background: linear-gradient(135deg, #10b981 0%, #059669 100%); 
+      color: white; 
+      text-decoration: none; 
+      border-radius: 8px; 
+      margin-top: 24px; 
+      font-weight: 600;
+      font-size: 15px;
+      box-shadow: 0 4px 6px -1px rgba(16, 185, 129, 0.3);
+    }
+    .footer { 
+      text-align: center; 
+      color: #6b7280; 
+      font-size: 13px; 
+      padding: 32px; 
+      background: #f9fafb;
+      border-top: 1px solid #e5e7eb;
+    }
+    .footer-brand { 
+      font-weight: 600; 
+      color: #1f2937; 
+      margin-bottom: 8px;
+      font-size: 14px;
+    }
+    @media only screen and (max-width: 600px) {
+      .email-wrapper { padding: 20px 10px; }
+      .header { padding: 32px 24px; }
+      .header h1 { font-size: 24px; }
+      .content { padding: 32px 24px; }
+      .plan-card { padding: 20px; }
+      .plan-name { font-size: 20px; }
+      .button { display: block; text-align: center; }
+    }
+  </style>
+</head>
+<body>
+  <div class="email-wrapper">
+    <div class="email-container">
+      <div class="header">
+        <h1>🎉 ¡Bienvenido a iAlex!</h1>
+        <p>Tu suscripción está activa</p>
+      </div>
+      <div class="content">
+        <div class="icon-wrapper">✨</div>
+        <p class="greeting">Hola ${userName},</p>
+        <p style="color: #4b5563; margin-bottom: 24px;">
+          Queremos agradecerte por unirte a iAlex. Tu confianza en nosotros es el motor que nos impulsa a seguir mejorando cada día.
+        </p>
+        <div class="plan-card">
+          <div class="plan-label">Tu Plan</div>
+          <div class="plan-name">${planName}</div>
+        </div>
+        <p style="color: #4b5563; margin: 24px 0 16px 0;">
+          <strong>Ahora tienes acceso completo a:</strong>
+        </p>
+        <ul class="features-list">
+          ${features
+            .map(
+              (feature) => `
+          <li class="feature-item">
+            <span class="feature-icon">✓</span>
+            <span>${feature}</span>
+          </li>
+          `,
+            )
+            .join("")}
+        </ul>
+        <div class="highlight-box">
+          <p>
+            <strong>💡 Consejo:</strong> Comienza creando tu primer caso y sube tus documentos clave. 
+            Nuestro asistente de IA estará listo para ayudarte con análisis jurídicos, 
+            búsquedas de jurisprudencia y redacción de escritos.
+          </p>
+        </div>
+        <p style="color: #4b5563; margin: 24px 0;">
+          Estamos aquí para ayudarte a transformar tu práctica legal. Si tienes alguna pregunta 
+          o necesitas asistencia, nuestro equipo está a tu disposición.
+        </p>
+        <div style="text-align: center;">
+          <a href="${process.env.VITE_APP_URL}/casos" class="button">Comenzar Ahora</a>
+        </div>
+        <p style="margin-top: 32px; color: #6b7280; font-size: 14px;">
+          Un cordial saludo,<br>
+          <strong style="color: #1f2937;">El Equipo de iAlex</strong>
+        </p>
+      </div>
+      <div class="footer">
+        <div class="footer-brand">iAlex - Tu asistente legal inteligente</div>
+        <div>Gracias por confiar en nosotros para potenciar tu práctica legal.</div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>
+  `.trim();
 }
