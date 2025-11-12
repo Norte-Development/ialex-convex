@@ -26,6 +26,8 @@ const DEFAULT_PREFERENCES = {
   eventUpdates: true,
   agentResponseStyle: "formal",
   defaultJurisdiction: "argentina",
+  provinceJurisdiction: "nacional",
+  specialization: "general",
   autoIncludeContext: true,
   citationFormat: "apa",
   sessionTimeout: 60,
@@ -34,7 +36,9 @@ const DEFAULT_PREFERENCES = {
 
 export default function UserPreferencesPage() {
   const currentUser = useQuery(api.functions.users.getCurrentUser, {});
-  const updatePreferences = useMutation(api.functions.users.updateUserPreferences);
+  const updatePreferences = useMutation(
+    api.functions.users.updateUserPreferences,
+  );
   const [searchParams, setSearchParams] = useSearchParams();
   const section = searchParams.get("section");
   // State for all preferences and UI
@@ -103,41 +107,39 @@ export default function UserPreferencesPage() {
       <div className="grid gap-8 lg:grid-cols-[240px_1fr]">
         {/* Navigation Sidebar */}
         <aside className="lg:sticky lg:top-24 lg:self-start">
-          <PreferencesNav 
-            activeSection={activeSection} 
-            onSectionChange={handleSectionChange} 
+          <PreferencesNav
+            activeSection={activeSection}
+            onSectionChange={handleSectionChange}
           />
         </aside>
 
         {/* Content Area */}
         <main className="min-w-0 pb-10">
           {activeSection === "general" && (
-            <GeneralSection 
+            <GeneralSection
               preferences={preferences}
               onUpdate={updatePreference}
             />
           )}
 
           {activeSection === "notifications" && (
-            <NotificationsSection 
+            <NotificationsSection
               preferences={preferences}
               onUpdate={updatePreference}
             />
           )}
 
           {activeSection === "agent" && (
-            <AgentSection 
+            <AgentSection
               preferences={preferences}
               onUpdate={updatePreference}
             />
           )}
 
-          {activeSection === "billing" && (
-            <BillingSection />
-          )}
+          {activeSection === "billing" && <BillingSection />}
 
           {activeSection === "privacy" && (
-            <PrivacySection 
+            <PrivacySection
               preferences={preferences}
               onUpdate={updatePreference}
             />

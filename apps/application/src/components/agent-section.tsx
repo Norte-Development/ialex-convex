@@ -1,7 +1,20 @@
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Label } from "@/components/ui/label"
-import { Switch } from "@/components/ui/switch"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Separator } from "@/components/ui/separator";
 
 interface AgentSectionProps {
   preferences: any;
@@ -13,19 +26,124 @@ export function AgentSection({ preferences, onUpdate }: AgentSectionProps) {
     <section id="agent" className="scroll-mt-8">
       <Card>
         <CardHeader>
-          <CardTitle className="text-balance">Preferencias del Agente IA</CardTitle>
-          <CardDescription className="text-pretty">Personaliza cómo el agente de IA interactúa contigo</CardDescription>
+          <CardTitle className="text-balance">
+            Preferencias del Agente IA
+          </CardTitle>
+          <CardDescription className="text-pretty">
+            Personaliza cómo el agente de IA interactúa contigo
+          </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
+          <div className="space-y-3">
+            <Label htmlFor="specialization" className="text-sm font-medium">
+              Especialización Legal
+            </Label>
+            <Select
+              value={preferences.specialization || "general"}
+              onValueChange={(value) => onUpdate("specialization", value)}
+            >
+              <SelectTrigger
+                id="specialization"
+                className="w-full sm:w-[280px]"
+              >
+                <SelectValue placeholder="Seleccionar especialización" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="general">Derecho General</SelectItem>
+                <SelectItem value="civil">Derecho Civil</SelectItem>
+                <SelectItem value="comercial">Derecho Comercial</SelectItem>
+                <SelectItem value="penal">Derecho Penal</SelectItem>
+                <SelectItem value="laboral">Derecho Laboral</SelectItem>
+                <SelectItem value="tributario">Derecho Tributario</SelectItem>
+                <SelectItem value="familia">Derecho de Familia</SelectItem>
+                <SelectItem value="administrativo">
+                  Derecho Administrativo
+                </SelectItem>
+                <SelectItem value="constitucional">
+                  Derecho Constitucional
+                </SelectItem>
+                <SelectItem value="ambiental">Derecho Ambiental</SelectItem>
+                <SelectItem value="internacional">
+                  Derecho Internacional
+                </SelectItem>
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground">
+              El agente priorizará contenido relacionado con tu especialización
+            </p>
+          </div>
+
+          <Separator />
+
+          <div className="space-y-3">
+            <Label
+              htmlFor="provinceJurisdiction"
+              className="text-sm font-medium"
+            >
+              Provincia / Jurisdicción
+            </Label>
+            <Select
+              value={preferences.provinceJurisdiction || "nacional"}
+              onValueChange={(value) => onUpdate("provinceJurisdiction", value)}
+            >
+              <SelectTrigger
+                id="provinceJurisdiction"
+                className="w-full sm:w-[280px]"
+              >
+                <SelectValue placeholder="Seleccionar provincia" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="nacional">Nacional</SelectItem>
+                <SelectItem value="caba">
+                  Ciudad Autónoma de Buenos Aires
+                </SelectItem>
+                <SelectItem value="buenos_aires">Buenos Aires</SelectItem>
+                <SelectItem value="catamarca">Catamarca</SelectItem>
+                <SelectItem value="chaco">Chaco</SelectItem>
+                <SelectItem value="chubut">Chubut</SelectItem>
+                <SelectItem value="cordoba">Córdoba</SelectItem>
+                <SelectItem value="corrientes">Corrientes</SelectItem>
+                <SelectItem value="entre_rios">Entre Ríos</SelectItem>
+                <SelectItem value="formosa">Formosa</SelectItem>
+                <SelectItem value="jujuy">Jujuy</SelectItem>
+                <SelectItem value="la_pampa">La Pampa</SelectItem>
+                <SelectItem value="la_rioja">La Rioja</SelectItem>
+                <SelectItem value="mendoza">Mendoza</SelectItem>
+                <SelectItem value="misiones">Misiones</SelectItem>
+                <SelectItem value="neuquen">Neuquén</SelectItem>
+                <SelectItem value="rio_negro">Río Negro</SelectItem>
+                <SelectItem value="salta">Salta</SelectItem>
+                <SelectItem value="san_juan">San Juan</SelectItem>
+                <SelectItem value="san_luis">San Luis</SelectItem>
+                <SelectItem value="santa_cruz">Santa Cruz</SelectItem>
+                <SelectItem value="santa_fe">Santa Fe</SelectItem>
+                <SelectItem value="santiago_del_estero">
+                  Santiago del Estero
+                </SelectItem>
+                <SelectItem value="tierra_del_fuego">
+                  Tierra del Fuego
+                </SelectItem>
+                <SelectItem value="tucuman">Tucumán</SelectItem>
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground">
+              Jurisprudencia provincial que utilizarás con más frecuencia
+            </p>
+          </div>
+
+          <Separator />
           <div className="space-y-3">
             <Label htmlFor="agentResponseStyle" className="text-sm font-medium">
               Estilo de Respuesta
             </Label>
-            <Select 
-              value={preferences.agentResponseStyle} 
+            <Select
+              value={preferences.agentResponseStyle}
               onValueChange={(value) => onUpdate("agentResponseStyle", value)}
             >
-              <SelectTrigger id="agentResponseStyle" className="w-full sm:w-[280px]">
+              <SelectTrigger
+                id="agentResponseStyle"
+                className="w-full sm:w-[280px]"
+              >
                 <SelectValue placeholder="Seleccionar estilo" />
               </SelectTrigger>
               <SelectContent>
@@ -41,14 +159,17 @@ export function AgentSection({ preferences, onUpdate }: AgentSectionProps) {
           </div>
 
           <div className="space-y-3">
-            <Label htmlFor="defaultJurisdiction" className="text-sm font-medium">
+            <Label
+              htmlFor="defaultJurisdiction"
+              className="text-sm font-medium"
+            >
               Jurisdicción por Defecto
             </Label>
             {/* <Select 
               value={preferences.defaultJurisdiction} 
               onValueChange={(value) => onUpdate("defaultJurisdiction", value)}
             > */}
-              {/* <SelectTrigger id="defaultJurisdiction" className="w-full sm:w-[280px]">
+            {/* <SelectTrigger id="defaultJurisdiction" className="w-full sm:w-[280px]">
                 <SelectValue placeholder="Seleccionar jurisdicción" />
               </SelectTrigger>
               <SelectContent>
@@ -65,18 +186,23 @@ export function AgentSection({ preferences, onUpdate }: AgentSectionProps) {
             <Label htmlFor="citationFormat" className="text-sm font-medium">
               Formato de Citas
             </Label>
-            <Select 
-              value={preferences.citationFormat} 
+            <Select
+              value={preferences.citationFormat}
               onValueChange={(value) => onUpdate("citationFormat", value)}
             >
-              <SelectTrigger id="citationFormat" className="w-full sm:w-[280px]">
+              <SelectTrigger
+                id="citationFormat"
+                className="w-full sm:w-[280px]"
+              >
                 <SelectValue placeholder="Seleccionar formato" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="apa">APA</SelectItem>
                 <SelectItem value="bluebook">Bluebook</SelectItem>
                 <SelectItem value="chicago">Chicago</SelectItem>
-                <SelectItem value="legal-arg">Estilo Legal Argentino</SelectItem>
+                <SelectItem value="legal-arg">
+                  Estilo Legal Argentino
+                </SelectItem>
               </SelectContent>
             </Select>
             <p className="text-xs text-muted-foreground">
@@ -86,15 +212,18 @@ export function AgentSection({ preferences, onUpdate }: AgentSectionProps) {
 
           <div className="flex items-start justify-between gap-4 pt-3">
             <div className="space-y-0.5 flex-1">
-              <Label htmlFor="autoIncludeContext" className="text-sm font-medium">
+              <Label
+                htmlFor="autoIncludeContext"
+                className="text-sm font-medium"
+              >
                 Incluir Contexto Automáticamente
               </Label>
               <p className="text-sm text-muted-foreground text-pretty">
                 El agente incluirá automáticamente información del caso actual
               </p>
             </div>
-            <Switch 
-              id="autoIncludeContext" 
+            <Switch
+              id="autoIncludeContext"
               checked={preferences.autoIncludeContext}
               onCheckedChange={(value) => onUpdate("autoIncludeContext", value)}
             />
@@ -102,6 +231,5 @@ export function AgentSection({ preferences, onUpdate }: AgentSectionProps) {
         </CardContent>
       </Card>
     </section>
-  )
+  );
 }
-

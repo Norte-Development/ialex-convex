@@ -56,7 +56,7 @@ export const getOrCreateUser = mutation({
       clerkId: args.clerkId,
       email: args.email,
       name: args.name,
-      startTrial: args.startTrial
+      startTrial: args.startTrial,
     });
 
     // Check if user already exists
@@ -70,15 +70,18 @@ export const getOrCreateUser = mutation({
         _id: existingUser._id,
         trialStatus: existingUser.trialStatus,
         hasUsedTrial: existingUser.hasUsedTrial,
-        trialEndDate: existingUser.trialEndDate
+        trialEndDate: existingUser.trialEndDate,
       });
 
       // If startTrial is true and user doesn't have trial info, update with trial
-      if (args.startTrial && (!existingUser.trialStatus || existingUser.trialStatus === "none")) {
+      if (
+        args.startTrial &&
+        (!existingUser.trialStatus || existingUser.trialStatus === "none")
+      ) {
         console.log("🔄 Updating existing user with trial info");
         const now = Date.now();
-        const trialEndDate = now + (14 * 24 * 60 * 60 * 1000);
-        
+        const trialEndDate = now + 14 * 24 * 60 * 60 * 1000;
+
         await ctx.db.patch(existingUser._id, {
           name: args.name,
           email: args.email,
@@ -111,20 +114,22 @@ export const getOrCreateUser = mutation({
         .withIndex("by_email", (q) => q.eq("email", args.email))
         .filter((q) => q.eq(q.field("hasUsedTrial"), true))
         .first();
-      
+
       if (previousUser) {
         throw new Error("Este email ya ha usado una prueba gratuita");
       }
     }
 
     const now = Date.now();
-    const trialEndDate = args.startTrial ? now + (14 * 24 * 60 * 60 * 1000) : undefined;
+    const trialEndDate = args.startTrial
+      ? now + 14 * 24 * 60 * 60 * 1000
+      : undefined;
 
     console.log("🆕 Creating new user with trial info:", {
       startTrial: args.startTrial,
       trialStatus: args.startTrial ? "active" : "none",
       trialEndDate: trialEndDate,
-      hasUsedTrial: args.startTrial || false
+      hasUsedTrial: args.startTrial || false,
     });
 
     // Create new user with default preferences
@@ -150,6 +155,8 @@ export const getOrCreateUser = mutation({
         agentResponses: true,
         agentResponseStyle: "formal",
         defaultJurisdiction: "argentina",
+        provinceJurisdiction: undefined, // Se establecerá según la ubicación del usuario
+        specialization: undefined, // Se establecerá según el perfil del usuario
         autoIncludeContext: true,
         citationFormat: "apa",
         sessionTimeout: 60,
@@ -157,14 +164,17 @@ export const getOrCreateUser = mutation({
       },
     });
 
-
     // Set up Stripe customer for the new user
-    await ctx.scheduler.runAfter(0, internal.billing.subscriptions.setupCustomerInternal, {
-      userId: userId,
-      email: args.email,
-      clerkId: args.clerkId,
-      name: args.name,
-    });
+    await ctx.scheduler.runAfter(
+      0,
+      internal.billing.subscriptions.setupCustomerInternal,
+      {
+        userId: userId,
+        email: args.email,
+        clerkId: args.clerkId,
+        name: args.name,
+      },
+    );
 
     await ctx.db.insert("usageLimits", {
       entityId: userId,
@@ -182,11 +192,15 @@ export const getOrCreateUser = mutation({
     // Schedule trial emails if trial started
     if (args.startTrial && trialEndDate) {
       // Send welcome email immediately (this will schedule all other emails in the chain)
-      await ctx.scheduler.runAfter(0, internal.billing.trials.sendTrialWelcome, {
-        userId: userId,
-        email: args.email,
-        name: args.name,
-      });
+      await ctx.scheduler.runAfter(
+        0,
+        internal.billing.trials.sendTrialWelcome,
+        {
+          userId: userId,
+          email: args.email,
+          name: args.name,
+        },
+      );
     }
 
     console.log("Created new user with id:", userId);
@@ -361,7 +375,8 @@ export const updateOnboardingInfo = mutation({
     if (args.fullName !== undefined) updateData.name = args.fullName;
     if (args.hasDespacho !== undefined)
       updateData.hasDespacho = args.hasDespacho;
-    if (args.despachoName !== undefined) updateData.firmName = args.despachoName;
+    if (args.despachoName !== undefined)
+      updateData.firmName = args.despachoName;
     if (args.role !== undefined) updateData.role = args.role;
     if (args.specializations !== undefined)
       updateData.specializations = args.specializations;
@@ -541,7 +556,7 @@ export const getUserById = query({
   args: { userId: v.id("users") },
   handler: async (ctx, args) => {
     const user = await ctx.db.get(args.userId);
-    
+
     if (!user) {
       return null;
     }
@@ -567,7 +582,7 @@ export const updateUserPreferences = mutation({
       // General
       language: v.string(),
       timezone: v.string(),
-      
+
       // Notifications
       emailNotifications: v.boolean(),
       caseUpdates: v.optional(v.boolean()),
@@ -576,13 +591,15 @@ export const updateUserPreferences = mutation({
       agentResponses: v.optional(v.boolean()),
       eventReminders: v.optional(v.boolean()),
       eventUpdates: v.optional(v.boolean()),
-      
+
       // Agent Preferences
       agentResponseStyle: v.optional(v.string()),
       defaultJurisdiction: v.optional(v.string()),
+      provinceJurisdiction: v.optional(v.string()),
+      specialization: v.optional(v.string()),
       autoIncludeContext: v.optional(v.boolean()),
       citationFormat: v.optional(v.string()),
-      
+
       // Privacy & Security
       sessionTimeout: v.optional(v.number()),
       activityLogVisible: v.optional(v.boolean()),
@@ -590,11 +607,11 @@ export const updateUserPreferences = mutation({
   },
   handler: async (ctx, args) => {
     const currentUser = await getCurrentUserFromAuth(ctx);
-    
+
     await ctx.db.patch(currentUser._id, {
       preferences: args.preferences,
     });
-    
+
     return { success: true };
   },
 });
