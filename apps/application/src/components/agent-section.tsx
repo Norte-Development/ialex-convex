@@ -18,9 +18,9 @@ import { Separator } from "@/components/ui/separator";
 
 interface AgentSectionProps {
   preferences: any;
-  user: any; // Usuario completo para acceder a specializations y workLocation
+  user: any;
   onUpdate: (key: string, value: any) => void;
-  onUpdateProfile: (key: string, value: any) => void; // Nueva función para actualizar el perfil
+  onUpdateProfile: (key: string, value: any) => void;
 }
 
 export function AgentSection({
@@ -46,9 +46,7 @@ export function AgentSection({
               Especialización Legal
             </Label>
             <Select
-              value={
-                (user?.specializations && user.specializations[0]) || "general"
-              }
+              value={(user?.specializations && user.specializations[0]) || ""}
               onValueChange={(value) =>
                 onUpdateProfile("specializations", [value])
               }
@@ -60,22 +58,35 @@ export function AgentSection({
                 <SelectValue placeholder="Seleccionar especialización" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="general">Derecho General</SelectItem>
-                <SelectItem value="civil">Derecho Civil</SelectItem>
-                <SelectItem value="comercial">Derecho Comercial</SelectItem>
-                <SelectItem value="penal">Derecho Penal</SelectItem>
-                <SelectItem value="laboral">Derecho Laboral</SelectItem>
-                <SelectItem value="tributario">Derecho Tributario</SelectItem>
-                <SelectItem value="familia">Derecho de Familia</SelectItem>
-                <SelectItem value="administrativo">
+                <SelectItem value="Derecho Civil">Derecho Civil</SelectItem>
+                <SelectItem value="Derecho Penal">Derecho Penal</SelectItem>
+                <SelectItem value="Derecho Mercantil">
+                  Derecho Mercantil
+                </SelectItem>
+                <SelectItem value="Derecho Laboral">Derecho Laboral</SelectItem>
+                <SelectItem value="Derecho de Familia">
+                  Derecho de Familia
+                </SelectItem>
+                <SelectItem value="Derecho Tributario">
+                  Derecho Tributario
+                </SelectItem>
+                <SelectItem value="Derecho Administrativo">
                   Derecho Administrativo
                 </SelectItem>
-                <SelectItem value="constitucional">
+                <SelectItem value="Derecho Constitucional">
                   Derecho Constitucional
                 </SelectItem>
-                <SelectItem value="ambiental">Derecho Ambiental</SelectItem>
-                <SelectItem value="internacional">
+                <SelectItem value="Derecho Internacional">
                   Derecho Internacional
+                </SelectItem>
+                <SelectItem value="Propiedad Intelectual">
+                  Propiedad Intelectual
+                </SelectItem>
+                <SelectItem value="Derecho Ambiental">
+                  Derecho Ambiental
+                </SelectItem>
+                <SelectItem value="Derecho de la Salud">
+                  Derecho de la Salud
                 </SelectItem>
               </SelectContent>
             </Select>
@@ -170,18 +181,7 @@ export function AgentSection({
             >
               Jurisdicción por Defecto
             </Label>
-            {/* <Select 
-              value={preferences.defaultJurisdiction} 
-              onValueChange={(value) => onUpdate("defaultJurisdiction", value)}
-            > */}
-            {/* <SelectTrigger id="defaultJurisdiction" className="w-full sm:w-[280px]">
-                <SelectValue placeholder="Seleccionar jurisdicción" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="argentina">Argentina</SelectItem>
-                <SelectItem value="paraguay">Paraguay</SelectItem>
-              </SelectContent>
-            </Select> */}
+
             <p className="text-xs text-muted-foreground">
               Legislación aplicable por defecto
             </p>
