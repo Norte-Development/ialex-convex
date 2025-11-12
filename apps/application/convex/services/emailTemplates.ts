@@ -1349,7 +1349,7 @@ export function subscriptionThankYouTemplate(
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta http-equiv="X-UA-Compatible" content="IE=edge">
-  <title>¡Gracias por Suscribirte! - iAlex</title>
+  <title>Suscripción Confirmada - iAlex</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body { 
@@ -1358,7 +1358,6 @@ export function subscriptionThankYouTemplate(
       color: #1f2937; 
       background-color: #f3f4f6;
       -webkit-font-smoothing: antialiased;
-      -moz-osx-font-smoothing: grayscale;
     }
     .email-wrapper { width: 100%; background-color: #f3f4f6; padding: 40px 20px; }
     .email-container { 
@@ -1367,10 +1366,10 @@ export function subscriptionThankYouTemplate(
       background: #ffffff; 
       border-radius: 16px; 
       overflow: hidden;
-      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
     }
     .header { 
-      background: linear-gradient(135deg, #10b981 0%, #059669 100%); 
+      background: linear-gradient(135deg, #1e293b 0%, #334155 100%); 
       color: white; 
       padding: 40px 32px; 
       text-align: center; 
@@ -1389,34 +1388,20 @@ export function subscriptionThankYouTemplate(
     .content { 
       padding: 40px 32px; 
     }
-    .icon-wrapper {
-      width: 80px;
-      height: 80px;
-      background: #d1fae5;
-      border-radius: 50%;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      margin: 0 auto 24px;
-      font-size: 40px;
-    }
     .greeting { 
       font-size: 18px; 
       color: #1f2937; 
       margin-bottom: 24px; 
       font-weight: 500;
     }
-    .plan-card { 
-      background: linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%); 
-      border-radius: 12px; 
-      padding: 24px; 
-      margin: 24px 0;
-      border: 2px solid #a7f3d0;
-      text-align: center;
+    .plan-info { 
+      margin: 32px 0;
+      padding-bottom: 24px;
+      border-bottom: 2px solid #e5e7eb;
     }
     .plan-label { 
       font-size: 13px; 
-      color: #047857; 
+      color: #6b7280; 
       text-transform: uppercase; 
       letter-spacing: 0.5px; 
       font-weight: 600; 
@@ -1425,11 +1410,20 @@ export function subscriptionThankYouTemplate(
     .plan-name { 
       font-size: 24px; 
       font-weight: 700; 
-      color: #065f46; 
+      color: #111827; 
+      margin-bottom: 0;
+    }
+    .features-section {
+      margin: 32px 0;
+    }
+    .features-title {
+      font-size: 16px;
+      font-weight: 600;
+      color: #1f2937;
       margin-bottom: 16px;
     }
     .features-list {
-      margin: 24px 0;
+      margin: 0;
       padding: 0;
       list-style: none;
     }
@@ -1441,38 +1435,33 @@ export function subscriptionThankYouTemplate(
       color: #374151;
       font-size: 15px;
       line-height: 1.5;
+      border-bottom: 1px solid #f3f4f6;
+    }
+    .feature-item:last-child {
+      border-bottom: none;
+      padding-bottom: 0;
     }
     .feature-icon {
       color: #10b981;
       font-weight: bold;
-      font-size: 18px;
+      font-size: 16px;
       flex-shrink: 0;
-    }
-    .highlight-box {
-      background: #fef3c7;
-      border-left: 4px solid #f59e0b;
-      border-radius: 8px;
-      padding: 20px;
-      margin: 24px 0;
-    }
-    .highlight-box p {
-      color: #92400e;
-      margin: 0;
-      font-size: 15px;
-      line-height: 1.6;
+      margin-top: 2px;
     }
     .button { 
       display: inline-block; 
       padding: 14px 32px; 
-      background: linear-gradient(135deg, #10b981 0%, #059669 100%); 
+      background: linear-gradient(135deg, #1e293b 0%, #334155 100%); 
       color: white; 
       text-decoration: none; 
       border-radius: 8px; 
       margin-top: 24px; 
       font-weight: 600;
       font-size: 15px;
-      box-shadow: 0 4px 6px -1px rgba(16, 185, 129, 0.3);
+      transition: transform 0.2s;
+      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
     }
+    .button:hover { transform: translateY(-1px); }
     .footer { 
       text-align: center; 
       color: #6b7280; 
@@ -1486,6 +1475,10 @@ export function subscriptionThankYouTemplate(
       color: #1f2937; 
       margin-bottom: 8px;
       font-size: 14px;
+    }
+    .footer-note { 
+      margin-top: 8px; 
+      opacity: 0.8; 
     }
     @media only screen and (max-width: 600px) {
       .email-wrapper { padding: 20px 10px; }
@@ -1502,56 +1495,43 @@ export function subscriptionThankYouTemplate(
   <div class="email-wrapper">
     <div class="email-container">
       <div class="header">
-        <h1>🎉 ¡Bienvenido a iAlex!</h1>
-        <p>Tu suscripción está activa</p>
+        <h1>iAlex</h1>
+        <p>Tu asistente legal inteligente</p>
       </div>
       <div class="content">
-        <div class="icon-wrapper">✨</div>
         <p class="greeting">Hola ${userName},</p>
         <p style="color: #4b5563; margin-bottom: 24px;">
-          Queremos agradecerte por unirte a iAlex. Tu confianza en nosotros es el motor que nos impulsa a seguir mejorando cada día.
+          Gracias por suscribirte a iAlex. Tu plan ha sido activado exitosamente.
         </p>
-        <div class="plan-card">
-          <div class="plan-label">Tu Plan</div>
+        <div class="plan-info">
+          <div class="plan-label">Plan Activo</div>
           <div class="plan-name">${planName}</div>
         </div>
-        <p style="color: #4b5563; margin: 24px 0 16px 0;">
-          <strong>Ahora tienes acceso completo a:</strong>
-        </p>
-        <ul class="features-list">
-          ${features
-            .map(
-              (feature) => `
-          <li class="feature-item">
-            <span class="feature-icon">✓</span>
-            <span>${feature}</span>
-          </li>
-          `,
-            )
-            .join("")}
-        </ul>
-        <div class="highlight-box">
-          <p>
-            <strong>💡 Consejo:</strong> Comienza creando tu primer caso y sube tus documentos clave. 
-            Nuestro asistente de IA estará listo para ayudarte con análisis jurídicos, 
-            búsquedas de jurisprudencia y redacción de escritos.
-          </p>
+        <div class="features-section">
+          <div class="features-title">Características Incluidas:</div>
+          <ul class="features-list">
+            ${features
+              .map(
+                (feature) => `
+            <li class="feature-item">
+              <span class="feature-icon">✓</span>
+              <span>${feature}</span>
+            </li>
+            `,
+              )
+              .join("")}
+          </ul>
         </div>
         <p style="color: #4b5563; margin: 24px 0;">
-          Estamos aquí para ayudarte a transformar tu práctica legal. Si tienes alguna pregunta 
-          o necesitas asistencia, nuestro equipo está a tu disposición.
+          Puedes comenzar a utilizar todas las funcionalidades de tu plan de inmediato.
         </p>
         <div style="text-align: center;">
-          <a href="${process.env.VITE_APP_URL}/casos" class="button">Comenzar Ahora</a>
+          <a href="${process.env.VITE_APP_URL}" class="button">Acceder a iAlex</a>
         </div>
-        <p style="margin-top: 32px; color: #6b7280; font-size: 14px;">
-          Un cordial saludo,<br>
-          <strong style="color: #1f2937;">El Equipo de iAlex</strong>
-        </p>
       </div>
       <div class="footer">
         <div class="footer-brand">iAlex - Tu asistente legal inteligente</div>
-        <div>Gracias por confiar en nosotros para potenciar tu práctica legal.</div>
+        <div class="footer-note">Este es un mensaje automático, por favor no responder a este correo.</div>
       </div>
     </div>
   </div>
