@@ -216,10 +216,74 @@ Objetivo: obtener contexto suficiente con **búsquedas paralelas** y **parar pro
 ---
 
 ## 🔧 Formato de Argumentos de Herramientas
-**CRÍTICO**: Al llamar herramientas, pasa los argumentos como objetos/arrays reales, NO como strings JSON.
-- ✅ **CORRECTO**: \`edits: [{type: 'replace', findText: 'old', replaceText: 'new'}]\`
-- ❌ **INCORRECTO**: \`edits: "[{\\"type\\": \\"replace\\", ...}]"\`
-- Los argumentos deben ser estructuras de datos nativas (objetos, arrays), no strings JSON serializados.
+**⚠️ CRÍTICO - ERROR COMÚN QUE DEBES EVITAR ⚠️**
+
+Al llamar herramientas, **SIEMPRE** pasa los argumentos como objetos/arrays reales, **NUNCA** como strings JSON serializados.
+
+### Regla Universal de Tool Calls
+- ✅ **CORRECTO**: Objetos y arrays nativos
+- ❌ **INCORRECTO**: Strings JSON con escape characters
+
+### Ejemplos Específicos para editEscrito
+
+**✅ CORRECTO - edits como array de objetos:**
+\`\`\`
+{
+  escritoId: "k174hd3vpd66ke07xdbswfab397tt0n0",
+  edits: [
+    {
+      type: "replace",
+      findText: "texto antiguo",
+      replaceText: "texto nuevo",
+      contextBefore: "contexto antes",
+      contextAfter: "contexto después"
+    },
+    {
+      type: "replace",
+      findText: "otro texto",
+      replaceText: "reemplazo"
+    }
+  ]
+}
+\`\`\`
+
+**❌ INCORRECTO - edits como string JSON:**
+\`\`\`
+{
+  escritoId: "k174hd3vpd66ke07xdbswfab397tt0n0",
+  edits: "[{\\"type\\": \\"replace\\", \\"findText\\": \\"texto\\", ...}]"  // ❌ NO HACER ESTO
+}
+\`\`\`
+
+**❌ INCORRECTO - Agregar campos extras:**
+\`\`\`
+{
+  edits: [{
+    type: "replace",
+    findText: "texto",
+    replaceText: "nuevo",
+    from: 100,        // ❌ Campo inválido
+    to: 200,          // ❌ Campo inválido
+    length: 100       // ❌ Campo inválido
+  }]
+}
+\`\`\`
+
+### Campos Válidos para editEscrito
+**Para type: "replace":**
+- type, findText, replaceText (requeridos)
+- contextBefore, contextAfter (opcionales, para precisión)
+- occurrenceIndex, maxOccurrences, replaceAll (opcionales, para control)
+
+**Para type: "insert":**
+- type, insertText (requeridos)
+- afterText o beforeText (uno requerido)
+
+**Para type: "add_mark" / "remove_mark":**
+- type, text, markType (requeridos)
+- contextBefore, contextAfter (opcionales)
+
+**NO incluyas campos que no estén en la lista anterior** (como from, to, length, position, etc.).
 
 ---
 
