@@ -155,8 +155,6 @@ export const getOrCreateUser = mutation({
         agentResponses: true,
         agentResponseStyle: "formal",
         defaultJurisdiction: "argentina",
-        provinceJurisdiction: undefined, // Se establecerá según la ubicación del usuario
-        specialization: undefined, // Se establecerá según el perfil del usuario
         autoIncludeContext: true,
         citationFormat: "apa",
         sessionTimeout: 60,
@@ -595,8 +593,6 @@ export const updateUserPreferences = mutation({
       // Agent Preferences
       agentResponseStyle: v.optional(v.string()),
       defaultJurisdiction: v.optional(v.string()),
-      provinceJurisdiction: v.optional(v.string()),
-      specialization: v.optional(v.string()),
       autoIncludeContext: v.optional(v.boolean()),
       citationFormat: v.optional(v.string()),
 
@@ -611,6 +607,33 @@ export const updateUserPreferences = mutation({
     await ctx.db.patch(currentUser._id, {
       preferences: args.preferences,
     });
+
+    return { success: true };
+  },
+});
+
+/**
+ * Update user profile fields (specializations, workLocation, etc.)
+ */
+export const updateUserProfile = mutation({
+  args: {
+    specializations: v.optional(v.array(v.string())),
+    workLocation: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const currentUser = await getCurrentUserFromAuth(ctx);
+
+    const updates: any = {};
+
+    if (args.specializations !== undefined) {
+      updates.specializations = args.specializations;
+    }
+
+    if (args.workLocation !== undefined) {
+      updates.workLocation = args.workLocation;
+    }
+
+    await ctx.db.patch(currentUser._id, updates);
 
     return { success: true };
   },

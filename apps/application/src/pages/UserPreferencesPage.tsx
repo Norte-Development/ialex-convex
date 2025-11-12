@@ -26,8 +26,6 @@ const DEFAULT_PREFERENCES = {
   eventUpdates: true,
   agentResponseStyle: "formal",
   defaultJurisdiction: "argentina",
-  provinceJurisdiction: "nacional",
-  specialization: "general",
   autoIncludeContext: true,
   citationFormat: "apa",
   sessionTimeout: 60,
@@ -39,6 +37,7 @@ export default function UserPreferencesPage() {
   const updatePreferences = useMutation(
     api.functions.users.updateUserPreferences,
   );
+  const updateProfile = useMutation(api.functions.users.updateUserProfile);
   const [searchParams, setSearchParams] = useSearchParams();
   const section = searchParams.get("section");
   // State for all preferences and UI
@@ -59,6 +58,17 @@ export default function UserPreferencesPage() {
   // Update a single preference
   const updatePreference = (key: string, value: any) => {
     setPreferences((prev) => ({ ...prev, [key]: value }));
+  };
+
+  // Update profile field (specializations, workLocation)
+  const updateProfileField = async (key: string, value: any) => {
+    try {
+      await updateProfile({ [key]: value });
+      toast.success("Perfil actualizado exitosamente");
+    } catch (error) {
+      console.error("Error updating profile:", error);
+      toast.error("Error al actualizar perfil");
+    }
   };
 
   // Add a new handler for section changes that updates both state and URL
@@ -132,7 +142,9 @@ export default function UserPreferencesPage() {
           {activeSection === "agent" && (
             <AgentSection
               preferences={preferences}
+              user={currentUser}
               onUpdate={updatePreference}
+              onUpdateProfile={updateProfileField}
             />
           )}
 

@@ -120,7 +120,6 @@ import type * as functions_tutorial from "../functions/tutorial.js";
 import type * as functions_users from "../functions/users.js";
 import type * as http from "../http.js";
 import type * as migrations_addEventPreferences from "../migrations/addEventPreferences.js";
-import type * as migrations_addSpecializationAndProvincePreferences from "../migrations/addSpecializationAndProvincePreferences.js";
 import type * as migrations_bulkUserMigration from "../migrations/bulkUserMigration.js";
 import type * as migrations_clerkHelpers from "../migrations/clerkHelpers.js";
 import type * as migrations_constants from "../migrations/constants.js";
@@ -291,7 +290,6 @@ declare const fullApi: ApiFromModules<{
   "functions/users": typeof functions_users;
   http: typeof http;
   "migrations/addEventPreferences": typeof migrations_addEventPreferences;
-  "migrations/addSpecializationAndProvincePreferences": typeof migrations_addSpecializationAndProvincePreferences;
   "migrations/bulkUserMigration": typeof migrations_bulkUserMigration;
   "migrations/clerkHelpers": typeof migrations_clerkHelpers;
   "migrations/constants": typeof migrations_constants;

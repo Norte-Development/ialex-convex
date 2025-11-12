@@ -18,10 +18,17 @@ import { Separator } from "@/components/ui/separator";
 
 interface AgentSectionProps {
   preferences: any;
+  user: any; // Usuario completo para acceder a specializations y workLocation
   onUpdate: (key: string, value: any) => void;
+  onUpdateProfile: (key: string, value: any) => void; // Nueva función para actualizar el perfil
 }
 
-export function AgentSection({ preferences, onUpdate }: AgentSectionProps) {
+export function AgentSection({
+  preferences,
+  user,
+  onUpdate,
+  onUpdateProfile,
+}: AgentSectionProps) {
   return (
     <section id="agent" className="scroll-mt-8">
       <Card>
@@ -39,8 +46,12 @@ export function AgentSection({ preferences, onUpdate }: AgentSectionProps) {
               Especialización Legal
             </Label>
             <Select
-              value={preferences.specialization || "general"}
-              onValueChange={(value) => onUpdate("specialization", value)}
+              value={
+                (user?.specializations && user.specializations[0]) || "general"
+              }
+              onValueChange={(value) =>
+                onUpdateProfile("specializations", [value])
+              }
             >
               <SelectTrigger
                 id="specialization"
@@ -76,54 +87,48 @@ export function AgentSection({ preferences, onUpdate }: AgentSectionProps) {
           <Separator />
 
           <div className="space-y-3">
-            <Label
-              htmlFor="provinceJurisdiction"
-              className="text-sm font-medium"
-            >
+            <Label htmlFor="workLocation" className="text-sm font-medium">
               Provincia / Jurisdicción
             </Label>
             <Select
-              value={preferences.provinceJurisdiction || "nacional"}
-              onValueChange={(value) => onUpdate("provinceJurisdiction", value)}
+              value={user?.workLocation || "Nacional"}
+              onValueChange={(value) => onUpdateProfile("workLocation", value)}
             >
-              <SelectTrigger
-                id="provinceJurisdiction"
-                className="w-full sm:w-[280px]"
-              >
+              <SelectTrigger id="workLocation" className="w-full sm:w-[280px]">
                 <SelectValue placeholder="Seleccionar provincia" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="nacional">Nacional</SelectItem>
-                <SelectItem value="caba">
+                <SelectItem value="Nacional">Nacional</SelectItem>
+                <SelectItem value="Ciudad Autónoma de Buenos Aires">
                   Ciudad Autónoma de Buenos Aires
                 </SelectItem>
-                <SelectItem value="buenos_aires">Buenos Aires</SelectItem>
-                <SelectItem value="catamarca">Catamarca</SelectItem>
-                <SelectItem value="chaco">Chaco</SelectItem>
-                <SelectItem value="chubut">Chubut</SelectItem>
-                <SelectItem value="cordoba">Córdoba</SelectItem>
-                <SelectItem value="corrientes">Corrientes</SelectItem>
-                <SelectItem value="entre_rios">Entre Ríos</SelectItem>
-                <SelectItem value="formosa">Formosa</SelectItem>
-                <SelectItem value="jujuy">Jujuy</SelectItem>
-                <SelectItem value="la_pampa">La Pampa</SelectItem>
-                <SelectItem value="la_rioja">La Rioja</SelectItem>
-                <SelectItem value="mendoza">Mendoza</SelectItem>
-                <SelectItem value="misiones">Misiones</SelectItem>
-                <SelectItem value="neuquen">Neuquén</SelectItem>
-                <SelectItem value="rio_negro">Río Negro</SelectItem>
-                <SelectItem value="salta">Salta</SelectItem>
-                <SelectItem value="san_juan">San Juan</SelectItem>
-                <SelectItem value="san_luis">San Luis</SelectItem>
-                <SelectItem value="santa_cruz">Santa Cruz</SelectItem>
-                <SelectItem value="santa_fe">Santa Fe</SelectItem>
-                <SelectItem value="santiago_del_estero">
+                <SelectItem value="Buenos Aires">Buenos Aires</SelectItem>
+                <SelectItem value="Catamarca">Catamarca</SelectItem>
+                <SelectItem value="Chaco">Chaco</SelectItem>
+                <SelectItem value="Chubut">Chubut</SelectItem>
+                <SelectItem value="Córdoba">Córdoba</SelectItem>
+                <SelectItem value="Corrientes">Corrientes</SelectItem>
+                <SelectItem value="Entre Ríos">Entre Ríos</SelectItem>
+                <SelectItem value="Formosa">Formosa</SelectItem>
+                <SelectItem value="Jujuy">Jujuy</SelectItem>
+                <SelectItem value="La Pampa">La Pampa</SelectItem>
+                <SelectItem value="La Rioja">La Rioja</SelectItem>
+                <SelectItem value="Mendoza">Mendoza</SelectItem>
+                <SelectItem value="Misiones">Misiones</SelectItem>
+                <SelectItem value="Neuquén">Neuquén</SelectItem>
+                <SelectItem value="Río Negro">Río Negro</SelectItem>
+                <SelectItem value="Salta">Salta</SelectItem>
+                <SelectItem value="San Juan">San Juan</SelectItem>
+                <SelectItem value="San Luis">San Luis</SelectItem>
+                <SelectItem value="Santa Cruz">Santa Cruz</SelectItem>
+                <SelectItem value="Santa Fe">Santa Fe</SelectItem>
+                <SelectItem value="Santiago del Estero">
                   Santiago del Estero
                 </SelectItem>
-                <SelectItem value="tierra_del_fuego">
+                <SelectItem value="Tierra del Fuego">
                   Tierra del Fuego
                 </SelectItem>
-                <SelectItem value="tucuman">Tucumán</SelectItem>
+                <SelectItem value="Tucumán">Tucumán</SelectItem>
               </SelectContent>
             </Select>
             <p className="text-xs text-muted-foreground">

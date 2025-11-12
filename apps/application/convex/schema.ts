@@ -97,8 +97,6 @@ export default defineSchema({
         // Agent Preferences
         agentResponseStyle: v.optional(v.string()),
         defaultJurisdiction: v.optional(v.string()),
-        provinceJurisdiction: v.optional(v.string()),
-        specialization: v.optional(v.string()),
         autoIncludeContext: v.optional(v.boolean()),
         citationFormat: v.optional(v.string()),
 
