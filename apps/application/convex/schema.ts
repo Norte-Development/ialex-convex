@@ -923,4 +923,14 @@ export default defineSchema({
     .index("by_mp_subscription_id", ["mpSubscriptionId"])
     .index("by_next_billing", ["nextBillingDate"])
     .index("by_active_status", ["status", "nextBillingDate"]),
+
+  // Subscription thank you emails tracking - prevents duplicate emails
+  subscriptionEmailsSent: defineTable({
+    subscriptionId: v.string(), // Stripe subscription ID
+    userId: v.id("users"), // User who received the email
+    sentAt: v.number(), // Unix timestamp when email was sent
+  })
+    .index("by_subscription", ["subscriptionId"])
+    .index("by_user", ["userId"])
+    .index("by_sent_date", ["sentAt"]),
 });
