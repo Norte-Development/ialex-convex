@@ -10,6 +10,7 @@ import { ReferenceAutocomplete } from "./ReferenceAutocomplete";
 import type { Reference } from "./types/reference-types";
 import { chatSelectionBus } from "@/lib/chatSelectionBus";
 import { SelectionChip } from "./SelectionChip";
+import { useChatbot } from "@/context/ChatbotContext";
 
 /**
  * ChatInput Component
@@ -48,17 +49,23 @@ export function ChatInput({
   initialPrompt,
   onInitialPromptProcessed,
 }: ChatInputProps) {
-  const [prompt, setPrompt] = useState("");
+  const { currentPrompt: persistedPrompt, setCurrentPrompt } = useChatbot();
+  // Initialize with persisted prompt, but initialPrompt takes precedence
+  const [prompt, setPrompt] = useState(() => {
+    // If there's an initialPrompt, use it; otherwise use persisted prompt
+    return initialPrompt || persistedPrompt || "";
+  });
   const [cursorPosition, setCursorPosition] = useState(0);
   const [showAutocomplete, setShowAutocomplete] = useState(false);
   const [activeReferences, setActiveReferences] = useState<Reference[]>([]);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const initialPromptProcessedRef = useRef(false);
 
-  // Handle initialPrompt changes
+  // Handle initialPrompt changes (takes precedence over persisted prompt)
   useEffect(() => {
     if (initialPrompt && !initialPromptProcessedRef.current) {
       setPrompt(initialPrompt);
+      setCurrentPrompt(initialPrompt); // Also persist the initial prompt
       initialPromptProcessedRef.current = true;
 
       // Notify parent that prompt has been processed
@@ -75,7 +82,7 @@ export function ChatInput({
         }
       }, 0);
     }
-  }, [initialPrompt, onInitialPromptProcessed]);
+  }, [initialPrompt, onInitialPromptProcessed, setCurrentPrompt]);
 
   // Reset the processed flag when initialPrompt changes to a new value
   useEffect(() => {
@@ -125,13 +132,14 @@ export function ChatInput({
       const newCursorPos = e.target.selectionStart;
 
       setPrompt(newValue);
+      setCurrentPrompt(newValue); // Persist to context
       setCursorPosition(newCursorPos);
 
       const textBeforeCursor = newValue.slice(0, newCursorPos);
       const hasAtSymbol = /@[a-zA-Z]*:?[a-zA-Z]*$/.test(textBeforeCursor);
       setShowAutocomplete(hasAtSymbol);
     },
-    [],
+    [setCurrentPrompt],
   );
 
   const handleSelectionChange = useCallback(() => {
@@ -154,6 +162,7 @@ export function ChatInput({
         const newCursorPos = atPos;
 
         setPrompt(newText);
+        setCurrentPrompt(newText); // Persist to context
         setCursorPosition(newCursorPos);
         setShowAutocomplete(false);
 
@@ -169,6 +178,7 @@ export function ChatInput({
         const newCursorPos = startPos + reference.name.length;
 
         setPrompt(newText);
+        setCurrentPrompt(newText); // Persist to context
         setCursorPosition(newCursorPos);
 
         const textBeforeCursor = newText.slice(0, newCursorPos);
@@ -185,7 +195,7 @@ export function ChatInput({
         }, 0);
       }
     },
-    [prompt],
+    [prompt, setCurrentPrompt],
   );
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -204,6 +214,7 @@ export function ChatInput({
       : trimmedPrompt;
 
     setPrompt("");
+    setCurrentPrompt(""); // Clear persisted prompt when message is sent
     setActiveReferences([]);
     setShowAutocomplete(false);
     onSendMessage(fullMessage, activeReferences);

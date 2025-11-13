@@ -8,6 +8,8 @@ interface ChatbotContextType {
   pendingPrompt: string | null;
   setPendingPrompt: (prompt: string | null) => void;
   openChatbotWithPrompt: (prompt: string) => void;
+  currentPrompt: string;
+  setCurrentPrompt: (prompt: string) => void;
 }
 
 const ChatbotContext = createContext<ChatbotContextType | undefined>(undefined);
@@ -28,6 +30,7 @@ export function ChatbotProvider({ children }: { children: ReactNode }) {
   });
 
   const [pendingPrompt, setPendingPrompt] = useState<string | null>(null);
+  const [currentPrompt, setCurrentPrompt] = useState<string>("");
 
   const toggleChatbot = () => {
     setIsChatbotOpen((prev: boolean) => {
@@ -68,6 +71,8 @@ export function ChatbotProvider({ children }: { children: ReactNode }) {
         pendingPrompt,
         setPendingPrompt,
         openChatbotWithPrompt,
+        currentPrompt,
+        setCurrentPrompt,
       }}
     >
       {children}
