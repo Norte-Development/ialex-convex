@@ -1,8 +1,81 @@
 'use node'
 
 import { MongoClient, Filter, Sort, Document, ObjectId } from 'mongodb';
-import { NormativeDoc, NormativeFilters, ListNormativesParams, SortBy, SortOrder } from '../../types/legislation';
+import { NormativeDoc, NormativeFilters, ListNormativesParams, SortBy, SortOrder, Estado, Subestado } from '../../types/legislation';
 import { LEGISLATION_COLLECTION_NAME } from '../rag/qdrantUtils/legislationConfig';
+
+// Mapping table: Estado -> Subestados habilitados
+const estadoSubestadoMapping: Record<Estado, Subestado[]> = {
+  vigente: ["alcance_general", "individual_modificatoria_o_sin_eficacia"],
+  anulada: ["vetada"],
+  derogada: ["derogada"],
+  abrogada: ["abrogada_implicita"],
+  caduca: ["ley_caduca", "refundida_ley_caduca"],
+  sin_registro_oficial: ["sin_registro"],
+  suspendida: [], // No subestados específicos según la tabla
+};
+
+// Mapping table: Tipo General -> Tipo Detalle patterns
+// Since tipo_detalle values are dynamic from MongoDB, we use pattern matching
+const tipoGeneralDetalleMapping: Record<string, (detalle: string) => boolean> = {
+  Ley: (detalle: string) => {
+    const lowerDetalle = detalle.toLowerCase();
+    return (
+      lowerDetalle.includes("ley") ||
+      lowerDetalle.includes("decreto ley") ||
+      lowerDetalle.includes("tratado") ||
+      lowerDetalle.includes("código") ||
+      lowerDetalle.includes("codigo") ||
+      lowerDetalle.includes("constitución") ||
+      lowerDetalle.includes("constitucion") ||
+      lowerDetalle.includes("texto ordenado ley") ||
+      lowerDetalle.includes("ley de contrato de trabajo") ||
+      lowerDetalle.includes("ley de procedimientos administrativos") ||
+      lowerDetalle.includes("norma jurídica de hecho") ||
+      lowerDetalle.includes("norma juridica de hecho")
+    );
+  },
+  Decreto: (detalle: string) => {
+    const lowerDetalle = detalle.toLowerCase();
+    return (
+      lowerDetalle.includes("decreto") &&
+      !lowerDetalle.includes("decreto ley") &&
+      (lowerDetalle.includes("dnu") ||
+        lowerDetalle.includes("decreto de necesidad y urgencia") ||
+        lowerDetalle.includes("decreto ordenanza") ||
+        lowerDetalle.includes("texto ordenado decreto"))
+    );
+  },
+  Resolución: (detalle: string) => {
+    const lowerDetalle = detalle.toLowerCase();
+    return (
+      lowerDetalle.includes("resolución") ||
+      lowerDetalle.includes("resolucion") ||
+      lowerDetalle.includes("resol.")
+    );
+  },
+  Decisión: (detalle: string) => {
+    const lowerDetalle = detalle.toLowerCase();
+    return (
+      lowerDetalle.includes("decisión") ||
+      lowerDetalle.includes("decision") ||
+      lowerDetalle.includes("mercosur")
+    );
+  },
+  Disposición: (detalle: string) => {
+    const lowerDetalle = detalle.toLowerCase();
+    return (
+      lowerDetalle.includes("disposición") ||
+      lowerDetalle.includes("disposicion") ||
+      lowerDetalle.includes("técnico registral") ||
+      lowerDetalle.includes("tecnico registral")
+    );
+  },
+  Acordada: (detalle: string) => {
+    const lowerDetalle = detalle.toLowerCase();
+    return lowerDetalle.includes("acordada");
+  },
+};
 
 // External service clients - lazy initialization
 let mongoClient: MongoClient | null = null;
@@ -266,79 +339,112 @@ const buildMongoFilter = (filters: NormativeFilters): Filter<Document> => {
   const mongoFilter: Filter<Document> = {};
   const andConditions: any[] = [];
 
+  // Validate filter compatibility before applying filters
+  // Create a validated filters object
+  let validatedFilters = { ...filters };
+
+  // Validate estado + subestado compatibility
+  if (validatedFilters.estado && validatedFilters.subestado) {
+    const allowedSubestados = estadoSubestadoMapping[validatedFilters.estado] || [];
+    if (!allowedSubestados.includes(validatedFilters.subestado)) {
+      console.warn(
+        `Invalid filter combination: estado=${validatedFilters.estado}, subestado=${validatedFilters.subestado}. ` +
+        `Ignoring subestado filter. Allowed subestados for ${validatedFilters.estado}: ${allowedSubestados.join(", ")}`
+      );
+      // Remove incompatible subestado filter
+      const { subestado, ...restFilters } = validatedFilters;
+      validatedFilters = restFilters as NormativeFilters;
+    }
+  }
+
+  // Validate tipo_general + tipo_detalle compatibility
+  if (validatedFilters.tipo_general && validatedFilters.tipo_detalle) {
+    const matcher = tipoGeneralDetalleMapping[validatedFilters.tipo_general];
+    if (matcher && !matcher(validatedFilters.tipo_detalle)) {
+      console.warn(
+        `Invalid filter combination: tipo_general=${validatedFilters.tipo_general}, tipo_detalle=${validatedFilters.tipo_detalle}. ` +
+        `Ignoring tipo_detalle filter.`
+      );
+      // Remove incompatible tipo_detalle filter
+      const { tipo_detalle, ...restFilters } = validatedFilters;
+      validatedFilters = restFilters as NormativeFilters;
+    }
+  }
+
+  // Use validated filters for the rest of the function
   // Jurisdiccion filter
-  if (filters.jurisdiccion) {
-    mongoFilter.jurisdiccion = filters.jurisdiccion;
+  if (validatedFilters.jurisdiccion) {
+    mongoFilter.jurisdiccion = validatedFilters.jurisdiccion;
   }
 
   // Tipo norma filter - check both old and new field names (OR within type variations)
-  if (filters.type) {
+  if (validatedFilters.type) {
     andConditions.push({
       $or: [
-        { tipo_general: filters.type },
-        { tipo_norma: filters.type },
-        { type: filters.type }
+        { tipo_general: validatedFilters.type },
+        { tipo_norma: validatedFilters.type },
+        { type: validatedFilters.type }
       ]
     });
   }
 
   // New field filters
-  if (filters.tipo_general) {
-    mongoFilter.tipo_general = filters.tipo_general;
+  if (validatedFilters.tipo_general) {
+    mongoFilter.tipo_general = validatedFilters.tipo_general;
   }
-  if (filters.tipo_detalle) {
-    mongoFilter.tipo_detalle = filters.tipo_detalle;
+  if (validatedFilters.tipo_detalle) {
+    mongoFilter.tipo_detalle = validatedFilters.tipo_detalle;
   }
-  if (filters.tipo_contenido) {
-    mongoFilter.tipo_contenido = filters.tipo_contenido;
+  if (validatedFilters.tipo_contenido) {
+    mongoFilter.tipo_contenido = validatedFilters.tipo_contenido;
   }
-  if (filters.subestado) {
-    mongoFilter.subestado = filters.subestado;
+  if (validatedFilters.subestado) {
+    mongoFilter.subestado = validatedFilters.subestado;
   }
 
   // Estado filter
-  if (filters.estado) {
-    mongoFilter.estado = filters.estado;
+  if (validatedFilters.estado) {
+    mongoFilter.estado = validatedFilters.estado;
   }
 
   // Date range filters - using date string fields (sanction_date)
-  if (filters.sanction_date_from || filters.sanction_date_to) {
+  if (validatedFilters.sanction_date_from || validatedFilters.sanction_date_to) {
     mongoFilter.sanction_date = {};
-    if (filters.sanction_date_from) {
-      mongoFilter.sanction_date.$gte = filters.sanction_date_from;
+    if (validatedFilters.sanction_date_from) {
+      mongoFilter.sanction_date.$gte = validatedFilters.sanction_date_from;
     }
-    if (filters.sanction_date_to) {
-      mongoFilter.sanction_date.$lte = filters.sanction_date_to;
+    if (validatedFilters.sanction_date_to) {
+      mongoFilter.sanction_date.$lte = validatedFilters.sanction_date_to;
     }
   }
 
   // Publication date range - using date string fields (publication_date)
-  if (filters.publication_date_from || filters.publication_date_to) {
+  if (validatedFilters.publication_date_from || validatedFilters.publication_date_to) {
     mongoFilter.publication_date = {};
-    if (filters.publication_date_from) {
-      mongoFilter.publication_date.$gte = filters.publication_date_from;
+    if (validatedFilters.publication_date_from) {
+      mongoFilter.publication_date.$gte = validatedFilters.publication_date_from;
     }
-    if (filters.publication_date_to) {
-      mongoFilter.publication_date.$lte = filters.publication_date_to;
+    if (validatedFilters.publication_date_to) {
+      mongoFilter.publication_date.$lte = validatedFilters.publication_date_to;
     }
   }
 
   // Number filter - check both old and new field names (OR within number variations)
-  if (filters.number) {
+  if (validatedFilters.number) {
     andConditions.push({
       $or: [
-        { number: filters.number },
-        { numero: filters.number }
+        { number: validatedFilters.number },
+        { numero: validatedFilters.number }
       ]
     });
   }
 
   // Text search in title and content (OR between title and content)
-  if (filters.search) {
+  if (validatedFilters.search) {
     andConditions.push({
       $or: [
-        { title: { $regex: filters.search, $options: 'i' } },
-        { content: { $regex: filters.search, $options: 'i' } }
+        { title: { $regex: validatedFilters.search, $options: 'i' } },
+        { content: { $regex: validatedFilters.search, $options: 'i' } }
       ]
     });
   }
