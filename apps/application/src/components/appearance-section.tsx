@@ -42,25 +42,6 @@ export function GeneralSection({
         </CardHeader>
         <CardContent className="space-y-6">
           <div className="space-y-3">
-            <Label htmlFor="language" className="text-sm font-medium">
-              Idioma
-            </Label>
-            <Select
-              value={preferences.language}
-              onValueChange={(value) => onUpdate("language", value)}
-            >
-              <SelectTrigger id="language" className="w-full sm:w-[280px]">
-                <SelectValue placeholder="Seleccionar idioma" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="es-AR">Español (Argentina)</SelectItem>
-                <SelectItem value="es-MX">Español (México)</SelectItem>
-                <SelectItem value="es-ES">Español (España)</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="space-y-3">
             <Label htmlFor="timezone" className="text-sm font-medium">
               Zona Horaria
             </Label>
