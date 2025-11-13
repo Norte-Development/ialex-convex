@@ -60,13 +60,21 @@ export function ChatInput({
   const [activeReferences, setActiveReferences] = useState<Reference[]>([]);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const initialPromptProcessedRef = useRef(false);
+  const previousInitialPromptRef = useRef<string | undefined>(undefined);
 
   // Handle initialPrompt changes (takes precedence over persisted prompt)
   useEffect(() => {
-    if (initialPrompt && !initialPromptProcessedRef.current) {
+    // Only process if initialPrompt exists, hasn't been processed yet, and is different from previous
+    const isNewPrompt =
+      initialPrompt &&
+      initialPrompt !== previousInitialPromptRef.current &&
+      !initialPromptProcessedRef.current;
+
+    if (isNewPrompt) {
       setPrompt(initialPrompt);
       setCurrentPrompt(initialPrompt); // Also persist the initial prompt
       initialPromptProcessedRef.current = true;
+      previousInitialPromptRef.current = initialPrompt;
 
       // Notify parent that prompt has been processed
       onInitialPromptProcessed?.();
@@ -81,15 +89,13 @@ export function ChatInput({
           );
         }
       }, 0);
+    } else if (initialPrompt !== previousInitialPromptRef.current) {
+      // If initialPrompt changed to a different value, reset the processed flag
+      // This allows processing a new prompt even if the previous one was already processed
+      initialPromptProcessedRef.current = false;
+      previousInitialPromptRef.current = initialPrompt;
     }
   }, [initialPrompt, onInitialPromptProcessed, setCurrentPrompt]);
-
-  // Reset the processed flag when initialPrompt changes to a new value
-  useEffect(() => {
-    if (initialPrompt) {
-      initialPromptProcessedRef.current = false;
-    }
-  }, [initialPrompt]);
 
   // Subscribe to selection bus
   useEffect(() => {
