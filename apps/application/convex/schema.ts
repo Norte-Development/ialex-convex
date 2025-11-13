@@ -382,6 +382,30 @@ export default defineSchema({
       filterFields: ["category", "isPublic", "isActive"],
     }),
 
+  // Prompts Library - Prompt templates for AI agent interactions
+  prompts: defineTable({
+    titulo: v.string(),
+    category: v.string(), // e.g., "Civil", "Penal", "Laboral"
+    descripcion: v.string(), // Short description of what the prompt does
+    prompt: v.string(), // The actual prompt text with [placeholders]
+    isPublic: v.boolean(), // False = only team can access, True = anyone can access
+    createdBy: v.union(v.id("users"), v.literal("system")), // Allow system prompts
+    tags: v.optional(v.array(v.string())),
+    usageCount: v.number(), // Number of times this prompt has been used
+    isActive: v.boolean(),
+    // Metadata
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_category", ["category"])
+    .index("by_created_by", ["createdBy"])
+    .index("by_public_status", ["isPublic"])
+    .index("by_active_status", ["isActive"])
+    .searchIndex("search_prompts", {
+      searchField: "titulo",
+      filterFields: ["category", "isPublic", "isActive"],
+    }),
+
   // Teams - organizational teams/departments for firm management
   teams: defineTable({
     name: v.string(),
@@ -899,4 +923,14 @@ export default defineSchema({
     .index("by_mp_subscription_id", ["mpSubscriptionId"])
     .index("by_next_billing", ["nextBillingDate"])
     .index("by_active_status", ["status", "nextBillingDate"]),
+
+  // Subscription thank you emails tracking - prevents duplicate emails
+  subscriptionEmailsSent: defineTable({
+    subscriptionId: v.string(), // Stripe subscription ID
+    userId: v.id("users"), // User who received the email
+    sentAt: v.number(), // Unix timestamp when email was sent
+  })
+    .index("by_subscription", ["subscriptionId"])
+    .index("by_user", ["userId"])
+    .index("by_sent_date", ["sentAt"]),
 });

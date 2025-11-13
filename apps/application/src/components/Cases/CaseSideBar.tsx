@@ -6,6 +6,7 @@ import {
   ArrowRight,
   FileType2,
   Trash,
+  MessageCircle,
   BookCheck,
   ListChecks,
   Archive,
@@ -57,6 +58,7 @@ import { usePermissionAwareNavigation } from "@/hooks/usePermissionAwareNavigati
 import { usePermissions } from "@/context/CasePermissionsContext";
 import { useHighlight } from "@/context/HighlightContext";
 import { UpgradeModal, useBillingData } from "@/components/Billing";
+import { Message } from "../ai-elements/message";
 
 export default function CaseSidebar() {
   const {
@@ -127,9 +129,12 @@ export default function CaseSidebar() {
     const path = location.pathname;
     if (path.includes("/base-de-datos"))
       return { name: "Legales", icon: FileSearch2 };
+
     if (path.includes("/configuracion/reglas"))
       return { name: "Reglas del Agente", icon: ListChecks };
     if (path.includes("/modelos")) return { name: "Modelos", icon: BookCheck };
+    if (path.includes("/prompts"))
+      return { name: "Prompts", icon: MessageCircle };
     if (path.includes("/eventos")) return { name: "Eventos", icon: Calendar };
 
     // Buscar en navigationItems
@@ -380,6 +385,18 @@ export default function CaseSidebar() {
                   >
                     <BookCheck size={16} />
                     <span>Modelos</span>
+                  </Link>
+                </DropdownMenuItem>
+              )}
+              {can.viewCase && (
+                <DropdownMenuItem asChild>
+                  <Link
+                    to={`${basePath}/prompts`}
+                    onClick={handleNavigationFromCase}
+                    className="flex items-center gap-2 cursor-pointer"
+                  >
+                    <MessageCircle size={16} />
+                    <span>Prompts</span>
                   </Link>
                 </DropdownMenuItem>
               )}

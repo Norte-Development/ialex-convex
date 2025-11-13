@@ -244,7 +244,7 @@ export function DocumentCard({
   return (
     <div ref={cardRef} className="relative">
       <Card
-        className={`group relative flex flex-col items-center gap-3 p-4 transition-all hover:shadow-md hover:border-primary/50 cursor-pointer ${
+        className={`group relative flex flex-col items-center gap-3 p-4 transition-all hover:shadow-md hover:border-primary/50 cursor-pointer h-40 ${
           isDragging
             ? "bg-blue-100/80 border border-blue-300 opacity-80 shadow-lg rotate-3"
             : ""
@@ -263,9 +263,12 @@ export function DocumentCard({
           className="flex flex-col items-center gap-3 w-full"
         >
           {getIcon(document.mimeType, color)}
-          <div className="w-full text-center space-y-1">
+          <div className="w-full text-center space-y-1 px-2">
             <div className="flex items-center justify-center gap-1 mb-1">
-              <p className="text-sm font-medium text-balance line-clamp-2">
+              <p
+                className="text-sm font-medium truncate"
+                title={document.title}
+              >
                 {document.title}
               </p>
               <ProcessingStatusIcon status={document.processingStatus} />

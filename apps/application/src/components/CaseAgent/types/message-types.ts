@@ -49,6 +49,18 @@ export interface ChatInputProps {
   maxHeight?: number;
 
   /**
+   * Optional initial prompt to pre-fill the input
+   * Useful for passing prompts from prompt library
+   */
+  initialPrompt?: string;
+
+  /**
+   * Optional callback called when initialPrompt has been processed
+   * Used to safely clear the pending prompt without race conditions
+   */
+  onInitialPromptProcessed?: () => void;
+
+  /**
    * Optional disabled state for the entire input
    * @default false
    */

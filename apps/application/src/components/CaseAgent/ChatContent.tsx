@@ -2,23 +2,26 @@
 
 import { useMutation } from "convex/react";
 import { api } from "../../../convex/_generated/api";
-import { optimisticallySendMessage, useUIMessages } from "@convex-dev/agent/react";
+import {
+  optimisticallySendMessage,
+  useUIMessages,
+} from "@convex-dev/agent/react";
 import { MessageCircle, Copy, ThumbsUp, ThumbsDown } from "lucide-react";
 import { useThread } from "@/context/ThreadContext";
 import { useCase } from "@/context/CaseContext";
+import { useChatbot } from "@/context/ChatbotContext";
 import { ChatInput } from "./ChatInput";
 import { useEscrito } from "@/context/EscritoContext";
 import { useAuth } from "@/context/AuthContext";
 import { usePage } from "@/context/PageContext";
 import { ContextSummaryBar } from "./ContextSummaryBar";
 import type { Id } from "convex/_generated/dataModel";
-import {
-  useState,
-  useEffect,
-  useCallback,
-  useMemo,
-} from "react";
-import type { Reference, ReferenceWithOriginal, SelectionMeta } from "./types/reference-types";
+import { useState, useEffect, useCallback, useMemo } from "react";
+import type {
+  Reference,
+  ReferenceWithOriginal,
+  SelectionMeta,
+} from "./types/reference-types";
 import { Button } from "@/components/ui/button";
 import {
   Conversation,
@@ -28,7 +31,11 @@ import {
 } from "../ai-elements/conversation";
 import { tracking } from "@/lib/tracking";
 import { Message, MessageContent, MessageAvatar } from "../ai-elements/message";
-import { Reasoning, ReasoningContent, ReasoningTrigger } from "../ai-elements/reasoning";
+import {
+  Reasoning,
+  ReasoningContent,
+  ReasoningTrigger,
+} from "../ai-elements/reasoning";
 import { Sources, SourcesTrigger, SourcesContent } from "../ai-elements/source";
 import { Actions, Action } from "../ai-elements/actions";
 import { Tool } from "../ai-elements/tool";
@@ -58,14 +65,19 @@ export function ChatContent({ threadId }: { threadId: string | undefined }) {
   const { escritoId, cursorPosition } = useEscrito();
   const { user } = useAuth();
   const { pageState } = usePage();
-  
+  const { pendingPrompt, setPendingPrompt } = useChatbot();
+
   // State for resolved @-references to display in context bar
-  const [lastReferences, setLastReferences] = useState<ReferenceWithOriginal[]>([]);
+  const [lastReferences, setLastReferences] = useState<ReferenceWithOriginal[]>(
+    [],
+  );
   // State for current active references from input
   const [currentReferences, setCurrentReferences] = useState<Reference[]>([]);
   // State for local UI parts (selections) by messageId
-  const [messageLocalParts, setMessageLocalParts] = useState<Record<string, Array<{ type: "selection"; selection: SelectionMeta }>>>({});
-  
+  const [messageLocalParts, setMessageLocalParts] = useState<
+    Record<string, Array<{ type: "selection"; selection: SelectionMeta }>>
+  >({});
+
   // Citation modal state
   const [citationOpen, setCitationOpen] = useState(false);
   const [citationId, setCitationId] = useState("");
@@ -98,13 +110,17 @@ export function ChatContent({ threadId }: { threadId: string | undefined }) {
     { initialNumItems: 50, stream: true },
   );
 
-
   // Clear references when thread changes to prevent trailing state
   useEffect(() => {
     setLastReferences([]);
     setCurrentReferences([]);
     setMessageLocalParts({});
   }, [threadId]);
+
+  // Clear pending prompt when ChatInput confirms it has been processed
+  const handleInitialPromptProcessed = useCallback(() => {
+    setPendingPrompt(null);
+  }, [setPendingPrompt]);
 
   const initiateWorkflow = useMutation(
     api.agents.case.workflow.initiateWorkflowStreaming,
@@ -122,11 +138,15 @@ export function ChatContent({ threadId }: { threadId: string | undefined }) {
       if (!user?._id) return;
 
       // Separate selection references from regular references
-      const selectionRefs = (activeReferences || []).filter(ref => ref.type === "selection");
-      const regularRefs = (activeReferences || []).filter(ref => ref.type !== "selection");
+      const selectionRefs = (activeReferences || []).filter(
+        (ref) => ref.type === "selection",
+      );
+      const regularRefs = (activeReferences || []).filter(
+        (ref) => ref.type !== "selection",
+      );
 
       // Convert regular references to resolvedReferences format for backend
-      const resolvedReferences = regularRefs.map(ref => ({
+      const resolvedReferences = regularRefs.map((ref) => ({
         type: ref.type as "client" | "document" | "escrito" | "case",
         id: ref.id,
         name: ref.name,
@@ -135,8 +155,8 @@ export function ChatContent({ threadId }: { threadId: string | undefined }) {
 
       // Map selection references to escrito references with selection metadata
       const selectionResolvedRefs = selectionRefs
-        .filter(ref => ref.selection)
-        .map(ref => ({
+        .filter((ref) => ref.selection)
+        .map((ref) => ({
           type: "escrito" as const,
           id: ref.selection!.escritoId,
           name: ref.name,
@@ -145,7 +165,10 @@ export function ChatContent({ threadId }: { threadId: string | undefined }) {
         }));
 
       // Combine all resolved references
-      const allResolvedReferences = [...resolvedReferences, ...selectionResolvedRefs];
+      const allResolvedReferences = [
+        ...resolvedReferences,
+        ...selectionResolvedRefs,
+      ];
 
       // Parse @ references with resolved references from frontend (only regular refs, not selections)
       const { cleanMessage, references } = await parseAtReferences({
@@ -180,7 +203,7 @@ export function ChatContent({ threadId }: { threadId: string | undefined }) {
             truncatedTitle,
             caseId || undefined,
           );
-          
+
           // Track AI chat started
           tracking.aiChatStarted({
             threadId: activeThreadId,
@@ -215,11 +238,11 @@ export function ChatContent({ threadId }: { threadId: string | undefined }) {
 
         // Store local parts (selections) for this message
         if (selectionRefs.length > 0 && messageId) {
-          setMessageLocalParts(prev => ({
+          setMessageLocalParts((prev) => ({
             ...prev,
             [messageId]: selectionRefs
-              .filter(ref => ref.selection)
-              .map(ref => ({
+              .filter((ref) => ref.selection)
+              .map((ref) => ({
                 type: "selection" as const,
                 selection: ref.selection!,
               })),
@@ -261,7 +284,7 @@ export function ChatContent({ threadId }: { threadId: string | undefined }) {
     if (!threadId) return;
     const order = messages?.find((m) => m.status === "streaming")?.order ?? 0;
     void abortStreamByOrder({ threadId, order });
-    
+
     // Track chat abort
     tracking.aiChatAborted({ threadId });
   }, [threadId, messages, abortStreamByOrder]);
@@ -338,6 +361,8 @@ export function ChatContent({ threadId }: { threadId: string | undefined }) {
         isStreaming={isStreaming}
         onAbortStream={handleAbortStream}
         onReferencesChange={setCurrentReferences}
+        initialPrompt={pendingPrompt || undefined}
+        onInitialPromptProcessed={handleInitialPromptProcessed}
       />
 
       {/* Citation modal */}
@@ -359,18 +384,28 @@ type MessageItemProps = {
   onCitationClick: (id: string, type: string) => void;
 };
 
-function MessageItem({ message, user, localParts, onCitationClick }: MessageItemProps) {
+function MessageItem({
+  message,
+  user,
+  localParts,
+  onCitationClick,
+}: MessageItemProps) {
   const isUser = message.role === "user";
-  
+
   // Calculate messageText for the copy button and empty checks
-  const messageText = message.parts
-    ?.filter((part) => part.type === "text")
-    .map((part: any) => part.text)
-    .join("") || "";
+  const messageText =
+    message.parts
+      ?.filter((part) => part.type === "text")
+      .map((part: any) => part.text)
+      .join("") || "";
 
   // Tool call detection for thinking indicator
-  const toolCalls = message.parts?.filter((part) => (part as any).type?.startsWith("tool-")) || [];
-  const hasActiveTools = toolCalls.length > 0 && !toolCalls.every((part: any) => part.state === "output-available");
+  const toolCalls =
+    message.parts?.filter((part) => (part as any).type?.startsWith("tool-")) ||
+    [];
+  const hasActiveTools =
+    toolCalls.length > 0 &&
+    !toolCalls.every((part: any) => part.state === "output-available");
 
   return (
     <Message
@@ -382,7 +417,7 @@ function MessageItem({ message, user, localParts, onCitationClick }: MessageItem
     >
       <MessageAvatar
         src={isUser ? "" : "/logo.ico"}
-        name={isUser ? (user?.name || "Usuario") : "iAlex"}
+        name={isUser ? user?.name || "Usuario" : "iAlex"}
         className={cn("shrink-0", isUser ? "ml-2" : "mr-2")}
       />
 
@@ -391,31 +426,44 @@ function MessageItem({ message, user, localParts, onCitationClick }: MessageItem
           "group relative !rounded-lg !px-3 !py-2 !text-[12px] shadow-sm space-y-2 max-w-[85%]",
           isUser && "!bg-[#F3F4F6] !text-black",
           !isUser && "!bg-[#F3F4F6] !text-black",
-          message.status === "failed" && "!bg-red-100 !text-red-800 border-l-2 border-red-400",
+          message.status === "failed" &&
+            "!bg-red-100 !text-red-800 border-l-2 border-red-400",
         )}
       >
         {/* Thinking indicator */}
-        {!isUser && message.status === "streaming" && (!messageText || messageText.trim() === "") && (
-          <div className="flex items-center gap-2">
-            <div className="flex gap-1">
-              <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: "0ms" }} />
-              <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: "150ms" }} />
-              <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: "300ms" }} />
+        {!isUser &&
+          message.status === "streaming" &&
+          (!messageText || messageText.trim() === "") && (
+            <div className="flex items-center gap-2">
+              <div className="flex gap-1">
+                <div
+                  className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"
+                  style={{ animationDelay: "0ms" }}
+                />
+                <div
+                  className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"
+                  style={{ animationDelay: "150ms" }}
+                />
+                <div
+                  className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"
+                  style={{ animationDelay: "300ms" }}
+                />
+              </div>
+              <span className="text-xs text-gray-500 italic">
+                {hasActiveTools ? "Procesando herramientas..." : "Pensando..."}
+              </span>
             </div>
-            <span className="text-xs text-gray-500 italic">
-              {hasActiveTools ? "Procesando herramientas..." : "Pensando..."}
-            </span>
-          </div>
-        )}
+          )}
 
         {/* Selection chips for user messages */}
         {isUser && localParts && localParts.length > 0 && (
           <div className="flex flex-col gap-2">
-            {localParts.map((part, idx) => (
-              part.type === "selection" && (
-                <SelectionChip key={idx} selection={part.selection} />
-              )
-            ))}
+            {localParts.map(
+              (part, idx) =>
+                part.type === "selection" && (
+                  <SelectionChip key={idx} selection={part.selection} />
+                ),
+            )}
           </div>
         )}
 
@@ -423,10 +471,15 @@ function MessageItem({ message, user, localParts, onCitationClick }: MessageItem
         {message.parts?.map((part, index) => {
           if (part.type === "text") {
             const displayText = (part as any).text || "";
-            const textPreview = displayText.substring(0, 20).replace(/\s/g, '_');
+            const textPreview = displayText
+              .substring(0, 20)
+              .replace(/\s/g, "_");
 
             return (
-              <div key={`text-${index}-${textPreview}`} className="prose prose-sm max-w-none whitespace-pre-wrap">
+              <div
+                key={`text-${index}-${textPreview}`}
+                className="prose prose-sm max-w-none whitespace-pre-wrap"
+              >
                 <MessageText
                   text={displayText}
                   renderMarkdown={true}
@@ -439,7 +492,11 @@ function MessageItem({ message, user, localParts, onCitationClick }: MessageItem
           if (part.type === "reasoning") {
             const reasoningText = (part.text || "") as string & React.ReactNode;
             return (
-              <Reasoning key={`${message.id}-${index}`} defaultOpen={false} isStreaming={message.status === "streaming"}>
+              <Reasoning
+                key={`${message.id}-${index}`}
+                defaultOpen={false}
+                isStreaming={message.status === "streaming"}
+              >
                 <ReasoningTrigger className="!text-[10px]" />
                 <ReasoningContent className="group relative !px-3 !py-2 !text-[10px] space-y-2 max-w-[85%]">
                   {reasoningText}
@@ -449,7 +506,8 @@ function MessageItem({ message, user, localParts, onCitationClick }: MessageItem
           }
 
           if (part.type === "source-url") {
-            const sourceTitle = (part as any).title || (part as any).url || "Unknown source";
+            const sourceTitle =
+              (part as any).title || (part as any).url || "Unknown source";
             const sourceUrl = (part as any).url || "";
             return (
               <Sources key={`source-${index}-${sourceUrl.substring(0, 20)}`}>
@@ -478,14 +536,24 @@ function MessageItem({ message, user, localParts, onCitationClick }: MessageItem
 
             if (mediaType?.startsWith("image/")) {
               return (
-                <div key={`file-img-${index}-${filename.substring(0, 20)}`} className="mt-2">
-                  <img src={fileUrl} alt={filename || "Attached image"} className="max-w-full h-auto rounded" />
+                <div
+                  key={`file-img-${index}-${filename.substring(0, 20)}`}
+                  className="mt-2"
+                >
+                  <img
+                    src={fileUrl}
+                    alt={filename || "Attached image"}
+                    className="max-w-full h-auto rounded"
+                  />
                 </div>
               );
             }
 
             return (
-              <div key={`file-doc-${index}-${filename.substring(0, 20)}`} className="text-xs bg-gray-50 border border-gray-200 rounded p-2">
+              <div
+                key={`file-doc-${index}-${filename.substring(0, 20)}`}
+                className="text-xs bg-gray-50 border border-gray-200 rounded p-2"
+              >
                 <strong>File:</strong> {filename || "Unknown file"}
               </div>
             );
@@ -493,8 +561,12 @@ function MessageItem({ message, user, localParts, onCitationClick }: MessageItem
 
           if (part.type.startsWith("tool-")) {
             const aiSDKState = (part as any).state;
-            const outputType = (part as any)?.output?.type as string | undefined;
-            const isError = aiSDKState === "output-available" && (outputType?.startsWith("error-") ?? false);
+            const outputType = (part as any)?.output?.type as
+              | string
+              | undefined;
+            const isError =
+              aiSDKState === "output-available" &&
+              (outputType?.startsWith("error-") ?? false);
             const toolName = part.type.replace("tool-", "");
 
             const toolState = isError
@@ -549,4 +621,3 @@ function MessageItem({ message, user, localParts, onCitationClick }: MessageItem
     </Message>
   );
 }
-
