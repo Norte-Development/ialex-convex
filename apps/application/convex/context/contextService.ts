@@ -18,6 +18,18 @@ export interface ResolvedReference {
   id: string;
   name: string;
   originalText: string;
+  selection?: {
+    content: string;
+    position: {
+      line: number;
+      column: number;
+    };
+    range: {
+      from: number;
+      to: number;
+    };
+    escritoId: Id<"escritos">;
+  };
 }
 
 export interface UserContext {
@@ -123,7 +135,11 @@ export class ContextService {
     userId: Id<"users">,
     caseId?: Id<"cases">,
     viewContext?: ViewContext,
-    resolvedReferences?: ResolvedReference[]
+    resolvedReferences?: Array<Omit<ResolvedReference, "selection"> & {
+      selection?: Omit<ResolvedReference["selection"], "escritoId"> & {
+        escritoId: string | Id<"escritos">;
+      };
+    }>
   ): Promise<ContextBundle> {
     const startTime = Date.now();
 
@@ -146,6 +162,26 @@ export class ContextService {
       priority: caseId ? "high" : "medium",
     };
 
+    // Convert resolvedReferences to ensure escritoId is properly typed
+    const convertedReferences: ResolvedReference[] | undefined = resolvedReferences?.map((ref): ResolvedReference => {
+      if (ref.selection) {
+        const selection = ref.selection as {
+          content: string;
+          position: { line: number; column: number };
+          range: { from: number; to: number };
+          escritoId: string | Id<"escritos">;
+        };
+        return {
+          ...ref,
+          selection: {
+            ...selection,
+            escritoId: selection.escritoId as Id<"escritos">,
+          },
+        };
+      }
+      return ref as ResolvedReference;
+    });
+
     const contextBundle: ContextBundle = {
       user: userContext,
       case: caseContext,
@@ -155,7 +191,7 @@ export class ContextService {
       rules,
       metadata,
       caseDocuments,
-      resolvedReferences: resolvedReferences || [],
+      resolvedReferences: convertedReferences || [],
     };
 
     // Optimize for token limits
@@ -439,7 +475,16 @@ ${documentsText}`);
     // Resolved references from @-mentions
     if (contextBundle.resolvedReferences && contextBundle.resolvedReferences.length > 0) {
       const referencesText = contextBundle.resolvedReferences
-        .map(ref => `- @${ref.type}:${ref.name} (ID: ${ref.id})`)
+        .map(ref => {
+          let refText = `- @${ref.type}:${ref.name} (ID: ${ref.id})`;
+          if (ref.selection) {
+            const preview = ref.selection.content.length > 80
+              ? `${ref.selection.content.substring(0, 80)}...`
+              : ref.selection.content;
+            refText += `\n  [Escrito Selection] "${preview}" @ L${ref.selection.position.line}:C${ref.selection.position.column}, range ${ref.selection.range.from}-${ref.selection.range.to}`;
+          }
+          return refText;
+        })
         .join('\n');
       sections.push(`## Referencias mencionadas en el mensaje
 ${referencesText}`);

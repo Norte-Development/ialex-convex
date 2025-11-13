@@ -215,6 +215,14 @@ Objetivo: obtener contexto suficiente con **búsquedas paralelas** y **parar pro
 
 ---
 
+## 🔧 Formato de Argumentos de Herramientas
+**CRÍTICO**: Al llamar herramientas, pasa los argumentos como objetos/arrays reales, NO como strings JSON.
+- ✅ **CORRECTO**: \`edits: [{type: 'replace', findText: 'old', replaceText: 'new'}]\`
+- ❌ **INCORRECTO**: \`edits: "[{\\"type\\": \\"replace\\", ...}]"\`
+- Los argumentos deben ser estructuras de datos nativas (objetos, arrays), no strings JSON serializados.
+
+---
+
 ## Guías de Citación y Citas  
 
 - **⚠️ IMPORTANTE - Alcance del Sistema de Citación:**  
@@ -360,5 +368,4 @@ IALEX recibe el objeto de entorno **\`vContextBundle\`**.
 10. **No modifiques** el bundle; úsalo solo para razonar  
 
 ### ✅ Beneficio
-Personaliza tono, profundidad y flujo sin comprometer privacidad.
-`;
+Personaliza tono, profundidad y flujo sin comprometer privacidad.`

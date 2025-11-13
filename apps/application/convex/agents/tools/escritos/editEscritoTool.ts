@@ -162,44 +162,88 @@ import { Id } from "../../../_generated/dataModel";
  */
 export const editEscritoTool = createTool({
   description:
-    "Edit an Escrito by finding and replacing text content, adding/removing formatting marks, manipulating paragraph structure, and transforming document elements. Much easier than position-based editing - just provide the text to find and what to replace it with, or specify mark/paragraph operations. Includes precise targeting with contextBefore/contextAfter for accurate text location, occurrence control (e.g., 'change the 3rd occurrence'), and change limiting (e.g., 'change first 2 occurrences'). Context parameters help ensure edits target the correct text when multiple similar instances exist. Validation errors are logged but don't prevent valid edits. Any edit with a 'content' field is applied regardless of validation issues.",
+    "Edit an Escrito by finding and replacing text content, adding/removing formatting marks, manipulating paragraph structure, and transforming document elements. Much easier than position-based editing - just provide the text to find and what to replace it with, or specify mark/paragraph operations. Includes precise targeting with contextBefore/contextAfter for accurate text location, occurrence control (e.g., 'change the 3rd occurrence'), and change limiting (e.g., 'change first 2 occurrences'). Context parameters help ensure edits target the correct text when multiple similar instances exist. Validation errors are logged but don't prevent valid edits. Any edit with a 'content' field is applied regardless of validation issues. CRITICAL: The 'edits' parameter MUST be passed as an actual array object, NOT as a JSON string. Pass [{type: 'replace', findText: 'old', replaceText: 'new'}] not '{\"type\": \"replace\", ...}'",
   args: z
     .object({
       escritoId: z.string().describe("The Escrito ID (Convex doc id)"),
-      edits: z.array(
-        z.object({
-          type: z.string().optional().describe("Edit operation type: replace, insert, addMark, removeMark, replaceMark, addParagraph"),
-          // Replace operation fields
-          findText: z.string().optional().describe("EXACT text to find and replace. Must match EXACTLY (character-by-character, including ALL punctuation, spaces). CRITICAL: Do NOT include \\n (newlines) between paragraphs - paragraphs are separate nodes. Only include \\n for explicit line breaks WITHIN a paragraph. Be PRECISE - only the specific text requested. Example: to delete 'III. REMUNERACIÓN', use 'III. REMUNERACIÓN' (no \\n), NOT 'III. REMUNERACIÓN\\n\\n3.1...'"),
-          replaceText: z.string().optional().describe("Text to replace findText with. Use empty string \"\" to delete. Must be provided (use \"\" for deletion)."),
-          // Insert operation fields
-          insertText: z.string().optional().describe("Text to insert"),
-          // Common context fields
-          contextBefore: z.string().optional().describe("ACTUAL TEXT that appears IMMEDIATELY before the target (within 80 characters distance). Must be text from the SAME or ADJACENT paragraph, NOT distant section titles. If target is 'XII. RESCISIÓN', use text from the END of previous section like 'responsabilidad por ello.', NOT the previous section title 'XI. FUERZA MAYOR' which might be 500+ chars away. NO \\n characters."),
-          contextAfter: z.string().optional().describe("ACTUAL TEXT that appears IMMEDIATELY after the target (within 80 characters distance). Must be text from the SAME or NEXT paragraph, NOT distant titles. Use text like '12.1. Rescisión sin causa:' that's actually close. NO \\n characters."),
-          // Mark operation fields
-          text: z.string().optional().describe("Text to apply mark operation to"),
-          markType: z.string().optional().describe("Mark type: bold, italic, code, strike, underline"),
-          oldMarkType: z.string().optional().describe("Current mark type for replaceMark"),
-          newMarkType: z.string().optional().describe("New mark type for replaceMark"),
-          // Paragraph operation fields
-          content: z.string().optional().describe("Content for new paragraph (defaults to empty string)"),
-          paragraphType: z.string().optional().describe("Paragraph type: paragraph, heading, blockquote, bulletList, orderedList, codeBlock (defaults to 'paragraph')"),
-          headingLevel: z.number().optional().describe("Heading level (1-6, required for heading type)"),
-          afterText: z.string().optional().describe("Insert after this text"),
-          beforeText: z.string().optional().describe("Insert before this text"),
-          // Occurrence control options
-          occurrenceIndex: z.number().optional().describe("Target specific occurrence (1-based): 'change the 3rd occurrence'"),
-          maxOccurrences: z.number().optional().describe("Maximum number of occurrences to change: 'change first 2 occurrences'"),
-          // Other options
-          replaceAll: z.boolean().optional().describe("Replace all occurrences (for replace operations)")
-        })
-      ).min(1).describe("Array of edit operations to apply"),
+      edits: z.union([
+        z.array(
+          z.object({
+            type: z.string().optional().describe("Edit operation type: replace, insert, addMark, removeMark, replaceMark, addParagraph"),
+            // Replace operation fields
+            findText: z.string().optional().describe("EXACT text to find and replace. Must match EXACTLY (character-by-character, including ALL punctuation, spaces). CRITICAL: Do NOT include \\n (newlines) between paragraphs - paragraphs are separate nodes. Only include \\n for explicit line breaks WITHIN a paragraph. Be PRECISE - only the specific text requested. Example: to delete 'III. REMUNERACIÓN', use 'III. REMUNERACIÓN' (no \\n), NOT 'III. REMUNERACIÓN\\n\\n3.1...'"),
+            replaceText: z.string().optional().describe("Text to replace findText with. Use empty string \"\" to delete. Must be provided (use \"\" for deletion)."),
+            // Insert operation fields
+            insertText: z.string().optional().describe("Text to insert"),
+            // Common context fields
+            contextBefore: z.string().optional().describe("ACTUAL TEXT that appears IMMEDIATELY before the target (within 80 characters distance). Must be text from the SAME or ADJACENT paragraph, NOT distant section titles. If target is 'XII. RESCISIÓN', use text from the END of previous section like 'responsabilidad por ello.', NOT the previous section title 'XI. FUERZA MAYOR' which might be 500+ chars away. NO \\n characters."),
+            contextAfter: z.string().optional().describe("ACTUAL TEXT that appears IMMEDIATELY after the target (within 80 characters distance). Must be text from the SAME or NEXT paragraph, NOT distant titles. Use text like '12.1. Rescisión sin causa:' that's actually close. NO \\n characters."),
+            // Mark operation fields
+            text: z.string().optional().describe("Text to apply mark operation to"),
+            markType: z.string().optional().describe("Mark type: bold, italic, code, strike, underline"),
+            oldMarkType: z.string().optional().describe("Current mark type for replaceMark"),
+            newMarkType: z.string().optional().describe("New mark type for replaceMark"),
+            // Paragraph operation fields
+            content: z.string().optional().describe("Content for new paragraph (defaults to empty string)"),
+            paragraphType: z.string().optional().describe("Paragraph type: paragraph, heading, blockquote, bulletList, orderedList, codeBlock (defaults to 'paragraph')"),
+            headingLevel: z.number().optional().describe("Heading level (1-6, required for heading type)"),
+            afterText: z.string().optional().describe("Insert after this text"),
+            beforeText: z.string().optional().describe("Insert before this text"),
+            // Occurrence control options
+            occurrenceIndex: z.number().optional().describe("Target specific occurrence (1-based): 'change the 3rd occurrence'"),
+            maxOccurrences: z.number().optional().describe("Maximum number of occurrences to change: 'change first 2 occurrences'"),
+            // Other options
+            replaceAll: z.boolean().optional().describe("Replace all occurrences (for replace operations)")
+          })
+        ).min(1),
+        z.string().transform((str, ctx) => {
+          try {
+            const parsed = JSON.parse(str);
+            if (!Array.isArray(parsed)) {
+              ctx.addIssue({
+                code: z.ZodIssueCode.custom,
+                message: "Parsed JSON must be an array",
+              });
+              return z.NEVER;
+            }
+            return parsed;
+          } catch (error) {
+            ctx.addIssue({
+              code: z.ZodIssueCode.custom,
+              message: `Failed to parse JSON string: ${error instanceof Error ? error.message : 'Unknown error'}`,
+            });
+            return z.NEVER;
+          }
+        }).pipe(
+          z.array(
+            z.object({
+              type: z.string().optional(),
+              findText: z.string().optional(),
+              replaceText: z.string().optional(),
+              insertText: z.string().optional(),
+              contextBefore: z.string().optional(),
+              contextAfter: z.string().optional(),
+              text: z.string().optional(),
+              markType: z.string().optional(),
+              oldMarkType: z.string().optional(),
+              newMarkType: z.string().optional(),
+              content: z.string().optional(),
+              paragraphType: z.string().optional(),
+              headingLevel: z.number().optional(),
+              afterText: z.string().optional(),
+              beforeText: z.string().optional(),
+              occurrenceIndex: z.number().optional(),
+              maxOccurrences: z.number().optional(),
+              replaceAll: z.boolean().optional(),
+            })
+          ).min(1)
+        )
+       ]).describe("Array of edit operations to apply. CRITICAL: Pass as an actual array object, NOT as a JSON string. Example: [{type: 'replace', findText: 'old', replaceText: 'new'}]"),
     })
     .required({ escritoId: true, edits: true }),
   handler: async (
     ctx: ToolCtx,
-    { escritoId, edits }: { escritoId: string; edits: any[] }
+    { escritoId, edits }: { escritoId: string; edits: any[] | string }
   ) => {
     try {
       if (!ctx.userId) {
@@ -219,15 +263,43 @@ export const editEscritoTool = createTool({
       console.log("🔧 EDIT ESCRITO TOOL - RAW INPUT RECEIVED");
       console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
       console.log("📝 Escrito ID:", escritoId);
-      console.log("📊 Number of edits:", edits?.length ?? 0);
+      console.log("📊 Edits type:", typeof edits);
+      console.log("📊 Number of edits:", Array.isArray(edits) ? edits.length : typeof edits === 'string' ? 'string (will parse)' : 0);
       console.log("");
-      console.log("📋 RAW EDITS ARRAY (full detail):");
+      console.log("📋 RAW EDITS (full detail):");
       console.log(JSON.stringify(edits, null, 2));
       console.log("");
       
+      // Handle case where LLM passes edits as a JSON string instead of an array
+      let parsedEdits = edits;
+      if (typeof edits === 'string') {
+        console.log("⚠️  Edits received as string, attempting to parse JSON...");
+        try {
+          // Try parsing once
+          parsedEdits = JSON.parse(edits);
+          
+          // If result is still a string, it was double-encoded - parse again
+          if (typeof parsedEdits === 'string') {
+            console.log("⚠️  Detected double-encoding, parsing again...");
+            parsedEdits = JSON.parse(parsedEdits);
+          }
+          
+          if (!Array.isArray(parsedEdits)) {
+            console.error("❌ Parsed JSON is not an array");
+            return createErrorResponse("Ediciones deben ser un array");
+          }
+          
+          console.log("✅ Successfully parsed edits from JSON string");
+          console.log(`📊 Parsed edits count: ${parsedEdits.length}`);
+        } catch (parseError) {
+          console.error("❌ Failed to parse edits JSON string:", parseError);
+          return createErrorResponse(`Formato inválido para ediciones: no se pudo parsear el JSON. Error: ${parseError instanceof Error ? parseError.message : 'Error desconocido'}`);
+        }
+      }
+      
       // Log each edit with better formatting
-      if (Array.isArray(edits)) {
-        edits.forEach((edit, index) => {
+      if (Array.isArray(parsedEdits)) {
+        parsedEdits.forEach((edit, index) => {
           console.log(`\n--- Edit #${index + 1} ---`);
           console.log(`Type: ${edit?.type ?? 'MISSING'}`);
           
@@ -254,17 +326,112 @@ export const editEscritoTool = createTool({
         return escritoIdError;
       }
 
-    if (!Array.isArray(edits) || edits.length === 0) {
+    if (!Array.isArray(parsedEdits) || parsedEdits.length === 0) {
       console.log("Invalid edits: must be a non-empty array");
       return createErrorResponse("Ediciones inválidas: debe ser un array no vacío");
+    }
+
+    // Helper function to validate context text (must be actual text, not position markers)
+    function isValidContextText(context: string | undefined): { valid: boolean; reason?: string } {
+      if (!context) return { valid: true }; // Optional field
+      
+      // Reject position markers
+      if (/\[?Position:\s*\d+\]?/i.test(context)) {
+        return { 
+          valid: false, 
+          reason: "contextBefore/contextAfter must contain ACTUAL TEXT, not position markers like '[Position: 289]'. Extract the actual text that appears before/after the target." 
+        };
+      }
+      
+      // Reject strings that are just numbers or position-like
+      if (/^\s*\[?\s*\d+\s*\]?\s*$/.test(context)) {
+        return { 
+          valid: false, 
+          reason: "contextBefore/contextAfter must contain actual text content, not just numbers or position indicators." 
+        };
+      }
+      
+      // Ensure it contains actual text (at least a few letters)
+      if (!/[a-zA-Z]{3,}/.test(context)) {
+        return { 
+          valid: false, 
+          reason: "contextBefore/contextAfter must contain actual text (letters), not just numbers, symbols, or position markers." 
+        };
+      }
+      
+      return { valid: true };
+    }
+
+    // Sanitization function to remove extra fields based on operation type
+    // This ensures only valid fields for each operation type are sent to the mutation
+    function sanitizeEdit(edit: any): any {
+      const sanitized: any = { type: edit.type };
+      
+      switch (edit.type) {
+        case 'replace':
+          if (edit.findText !== undefined) sanitized.findText = edit.findText;
+          if (edit.replaceText !== undefined) sanitized.replaceText = edit.replaceText;
+          // Only include context fields if they have actual content (not empty strings)
+          if (edit.contextBefore !== undefined && edit.contextBefore !== '') sanitized.contextBefore = edit.contextBefore;
+          if (edit.contextAfter !== undefined && edit.contextAfter !== '') sanitized.contextAfter = edit.contextAfter;
+          if (edit.replaceAll !== undefined) sanitized.replaceAll = edit.replaceAll;
+          if (edit.occurrenceIndex !== undefined) sanitized.occurrenceIndex = edit.occurrenceIndex;
+          if (edit.maxOccurrences !== undefined) sanitized.maxOccurrences = edit.maxOccurrences;
+          break;
+          
+        case 'insert':
+          if (edit.insertText !== undefined) sanitized.insertText = edit.insertText;
+          if (edit.afterText !== undefined && edit.afterText !== '') sanitized.afterText = edit.afterText;
+          if (edit.beforeText !== undefined && edit.beforeText !== '') sanitized.beforeText = edit.beforeText;
+          break;
+          
+        case 'add_mark':
+          if (edit.text !== undefined) sanitized.text = edit.text;
+          if (edit.markType !== undefined && edit.markType !== '') sanitized.markType = edit.markType;
+          if (edit.contextBefore !== undefined && edit.contextBefore !== '') sanitized.contextBefore = edit.contextBefore;
+          if (edit.contextAfter !== undefined && edit.contextAfter !== '') sanitized.contextAfter = edit.contextAfter;
+          if (edit.occurrenceIndex !== undefined) sanitized.occurrenceIndex = edit.occurrenceIndex;
+          if (edit.maxOccurrences !== undefined) sanitized.maxOccurrences = edit.maxOccurrences;
+          break;
+          
+        case 'remove_mark':
+          if (edit.text !== undefined) sanitized.text = edit.text;
+          if (edit.markType !== undefined && edit.markType !== '') sanitized.markType = edit.markType;
+          if (edit.contextBefore !== undefined && edit.contextBefore !== '') sanitized.contextBefore = edit.contextBefore;
+          if (edit.contextAfter !== undefined && edit.contextAfter !== '') sanitized.contextAfter = edit.contextAfter;
+          if (edit.occurrenceIndex !== undefined) sanitized.occurrenceIndex = edit.occurrenceIndex;
+          if (edit.maxOccurrences !== undefined) sanitized.maxOccurrences = edit.maxOccurrences;
+          break;
+          
+        case 'replace_mark':
+          if (edit.text !== undefined) sanitized.text = edit.text;
+          if (edit.oldMarkType !== undefined && edit.oldMarkType !== '') sanitized.oldMarkType = edit.oldMarkType;
+          if (edit.newMarkType !== undefined && edit.newMarkType !== '') sanitized.newMarkType = edit.newMarkType;
+          if (edit.contextBefore !== undefined && edit.contextBefore !== '') sanitized.contextBefore = edit.contextBefore;
+          if (edit.contextAfter !== undefined && edit.contextAfter !== '') sanitized.contextAfter = edit.contextAfter;
+          if (edit.occurrenceIndex !== undefined) sanitized.occurrenceIndex = edit.occurrenceIndex;
+          if (edit.maxOccurrences !== undefined) sanitized.maxOccurrences = edit.maxOccurrences;
+          break;
+          
+        case 'add_paragraph':
+          if (edit.content !== undefined) sanitized.content = edit.content;
+          if (edit.paragraphType !== undefined) sanitized.paragraphType = edit.paragraphType;
+          if (edit.headingLevel !== undefined) sanitized.headingLevel = edit.headingLevel;
+          if (edit.afterText !== undefined && edit.afterText !== '') sanitized.afterText = edit.afterText;
+          if (edit.beforeText !== undefined && edit.beforeText !== '') sanitized.beforeText = edit.beforeText;
+          if (edit.occurrenceIndex !== undefined) sanitized.occurrenceIndex = edit.occurrenceIndex;
+          break;
+      }
+      
+      return sanitized;
     }
 
     // Validate each edit operation - log errors but don't throw
     const validEdits = [];
     const validationErrors = [];
 
-    for (let i = 0; i < edits.length; i++) {
-      const edit = { ...edits[i] };
+    for (let i = 0; i < parsedEdits.length; i++) {
+      const edit = { ...parsedEdits[i] };
 
       // Skip invalid edit objects
       if (!edit || typeof edit !== 'object') {
@@ -369,12 +536,11 @@ export const editEscritoTool = createTool({
         }
       }
 
-      // Validate occurrence control parameters
+      // Validate occurrence control parameters - default invalid values to 1
       if (edit.occurrenceIndex !== undefined) {
         if (typeof edit.occurrenceIndex !== 'number' || edit.occurrenceIndex < 1) {
-          console.log(`Skipping edit at index ${i}: occurrenceIndex must be a positive number (1-based)`);
-          validationErrors.push(`Edit ${i}: occurrenceIndex must be a positive number (1-based)`);
-          continue;
+          console.log(`Edit ${i}: occurrenceIndex is invalid (${edit.occurrenceIndex}), defaulting to 1`);
+          edit.occurrenceIndex = 1;
         }
       }
 
@@ -395,7 +561,8 @@ export const editEscritoTool = createTool({
       // This happens AFTER defaults are set for addParagraph operations, so paragraphType will be set to "paragraph" if missing
       if (edit.content !== undefined) {
         console.log(`Including edit ${i} with content field (bypassing remaining validation after defaults applied)`);
-        validEdits.push(edit);
+        const sanitizedEdit = sanitizeEdit(edit);
+        validEdits.push(sanitizedEdit);
         continue;
       }
 
@@ -431,7 +598,9 @@ export const editEscritoTool = createTool({
       // Note: delete operations are now handled by replace with empty string
 
       // If we get here, the edit passed validation
-      validEdits.push(edit);
+      // Sanitize the edit to remove extra fields before adding to validEdits
+      const sanitizedEdit = sanitizeEdit(edit);
+      validEdits.push(sanitizedEdit);
     }
 
     // Check if we have any valid edits
@@ -453,7 +622,7 @@ export const editEscritoTool = createTool({
     console.log("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
     console.log("✅ VALIDATION COMPLETE - SENDING TO MUTATION");
     console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-    console.log(`📊 Valid edits: ${validEdits.length}/${edits.length}`);
+    console.log(`📊 Valid edits: ${validEdits.length}/${parsedEdits.length}`);
     console.log(`❌ Validation errors: ${validationErrors.length}`);
     
     if (validationErrors.length > 0) {
@@ -487,7 +656,7 @@ export const editEscritoTool = createTool({
 
     // Return detailed response with validation information
     const message = validationErrors.length > 0
-      ? `Se aplicaron ${validEdits.length}/${edits.length} ediciones exitosamente. ${validationErrors.length} ediciones fueron omitidas debido a errores de validación.`
+      ? `Se aplicaron ${validEdits.length}/${parsedEdits.length} ediciones exitosamente. ${validationErrors.length} ediciones fueron omitidas debido a errores de validación.`
       : `Se aplicaron ${validEdits.length} ediciones exitosamente`;
 
     return `# ✅ Ediciones Aplicadas Exitosamente
@@ -498,7 +667,7 @@ export const editEscritoTool = createTool({
 
 ## Estadísticas de Edición
 - **Ediciones Aplicadas**: ${validEdits.length}
-- **Ediciones Intentadas**: ${edits.length}
+- **Ediciones Intentadas**: ${parsedEdits.length}
 - **Ediciones Omitidas**: ${validationErrors.length}
 
 ${validationErrors.length > 0 ? `## Errores de Validación

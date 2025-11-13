@@ -13,8 +13,39 @@ import { buildServerSchema } from "../../../../../packages/shared/src/tiptap/sch
 import { _getUserPlan, _getOrCreateUsageLimits, _getModelForUserInCase } from "../../billing/features";
 import { PLAN_LIMITS } from "../../billing/planLimits";
 import { openai } from "@ai-sdk/openai";
+import { createOpenRouter } from '@openrouter/ai-sdk-provider';
+
+const openrouter = createOpenRouter({
+  apiKey: process.env.OPENROUTER_API_KEY,
+});
 
 const workflow = new WorkflowManager(components.workflow);
+
+const vSelectionMeta = v.optional(v.object({
+  content: v.string(),
+  position: v.object({
+    line: v.number(),
+    column: v.number(),
+  }),
+  range: v.object({
+    from: v.number(),
+    to: v.number(),
+  }),
+  escritoId: v.id("escritos"),
+}));
+
+const vResolvedReference = v.object({
+  type: v.union(
+    v.literal("client"),
+    v.literal("document"), 
+    v.literal("escrito"),
+    v.literal("case")
+  ),
+  id: v.string(),
+  name: v.string(),
+  originalText: v.string(),
+  selection: vSelectionMeta,
+});
 
 const vContextBundle = v.object({
   user: v.object({
@@ -115,17 +146,7 @@ const vContextBundle = v.object({
       type: v.optional(v.string()),
     }),
   ),
-  resolvedReferences: v.optional(v.array(v.object({
-    type: v.union(
-      v.literal("client"),
-      v.literal("document"), 
-      v.literal("escrito"),
-      v.literal("case")
-    ),
-    id: v.string(),
-    name: v.string(),
-    originalText: v.string(),
-  }))),
+  resolvedReferences: v.optional(v.array(vResolvedReference)),
 });
 
 export const gatherContextForWorkflow = internalMutation({
@@ -138,17 +159,7 @@ export const gatherContextForWorkflow = internalMutation({
     cursorPosition: v.optional(v.number()),
     searchQuery: v.optional(v.string()),
     currentEscritoId: v.optional(v.id("escritos")),
-    resolvedReferences: v.optional(v.array(v.object({
-      type: v.union(
-        v.literal("client"),
-        v.literal("document"), 
-        v.literal("escrito"),
-        v.literal("case")
-      ),
-      id: v.string(),
-      name: v.string(),
-      originalText: v.string(),
-    }))),
+    resolvedReferences: v.optional(v.array(vResolvedReference)),
   },
   returns: v.any(),
   handler: async (ctx, args) => {
@@ -184,17 +195,7 @@ export const legalAgentWorkflow = workflow.define({
     cursorPosition: v.optional(v.number()),
     searchQuery: v.optional(v.string()),
     currentEscritoId: v.optional(v.id("escritos")),
-    resolvedReferences: v.optional(v.array(v.object({
-      type: v.union(
-        v.literal("client"),
-        v.literal("document"), 
-        v.literal("escrito"),
-        v.literal("case")
-      ),
-      id: v.string(),
-      name: v.string(),
-      originalText: v.string(),
-    }))),
+    resolvedReferences: v.optional(v.array(vResolvedReference)),
   },
   handler: async (step, args): Promise<void> => {
     console.log("Starting legal agent workflow");
@@ -287,20 +288,17 @@ export const streamWithContextAction = internalAction({
 
     const { thread } = await agent.continueThread(ctx, { threadId });
 
+    const openRouterModel = modelToUse === 'gpt-5' ? 'anthropic/claude-sonnet-4.5' : 'z-ai/glm-4.6';
+    const config = { reasoning: {enabled: true, effort: "low" as const, exclude: false }, provider: {order: modelToUse === 'gpt-5' ? ["amazon-bedrock", "anthropic", "google-vertex/global" ] : ["z-ai","fireworks", "together"]}};
+
+    console.log('openRouterModel', openRouterModel);
+
     try {
       await thread.streamText(
         {
           system: systemMessage,
           promptMessageId,
-          model: openai.responses(modelToUse),
-          ...(modelToUse === "gpt-5" && {
-            providerOptions: {
-              openai: {
-                reasoningEffort: "low",
-                reasoningSummary: "auto",
-              },
-            },
-          }),
+          model: openrouter(openRouterModel, config),
           onAbort: () => {
             console.log(`[Stream Abort Callback] Thread ${threadId}: Stream abort callback triggered`);
           },
@@ -409,17 +407,7 @@ export const initiateWorkflowStreaming = mutation({
     cursorPosition: v.optional(v.number()),
     searchQuery: v.optional(v.string()),
     currentEscritoId: v.optional(v.id("escritos")),
-    resolvedReferences: v.optional(v.array(v.object({
-      type: v.union(
-        v.literal("client"),
-        v.literal("document"), 
-        v.literal("escrito"),
-        v.literal("case")
-      ),
-      id: v.string(),
-      name: v.string(),
-      originalText: v.string(),
-    }))),
+    resolvedReferences: v.optional(v.array(vResolvedReference)),
   },
   returns: v.object({
     workflowId: v.string(),

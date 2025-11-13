@@ -44,6 +44,7 @@ import CaseModelPage from "./pages/CaseOpen/CaseModelPage";
 import CaseDataBasePage from "./pages/CaseOpen/CaseDataBase";
 import CaseSettingsRulesPage from "./pages/CaseOpen/CaseSettingsRulesPage";
 import CasePromptsPage from "./pages/CaseOpen/CasePromptsPage";
+import CaseEventsPage from "./pages/CaseOpen/CaseEventsPage";
 import ComponentsShowcasePage from "./pages/ComponentsShowcasePage";
 import LibraryPage from "./pages/LibraryPage";
 import UserPreferencesPage from "./pages/UserPreferencesPage";
@@ -75,6 +76,7 @@ const CaseRoutesWrapper: React.FC = () => {
                 <Route path="escritos" element={<EscritosPage />} />
                 <Route path="escritos/:escritoId" element={<EscritosPage />} />
                 <Route path="documentos" element={<CaseDocumentsPage />} />
+                <Route path="eventos" element={<CaseEventsPage />} />
 
                 <Route path="clientes" element={<CaseClientsPage />} />
                 <Route path="equipos" element={<CaseTeamsPage />} />

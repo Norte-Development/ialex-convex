@@ -2,13 +2,14 @@ import { useState, useRef, useCallback, useEffect } from "react";
 import {
   PromptInput,
   PromptInputTextarea,
-  PromptInputToolbar,
   PromptInputSubmit,
 } from "../ai-elements/prompt-input";
 import type { ChatInputProps } from "./types/message-types";
 import type { ChatStatus } from "ai";
 import { ReferenceAutocomplete } from "./ReferenceAutocomplete";
 import type { Reference } from "./types/reference-types";
+import { chatSelectionBus } from "@/lib/chatSelectionBus";
+import { SelectionChip } from "./SelectionChip";
 
 /**
  * ChatInput Component
@@ -41,7 +42,7 @@ export function ChatInput({
   onAbortStream,
   placeholder = "¿En qué trabajamos hoy?",
   minHeight = 40,
-  maxHeight = 400,
+  maxHeight = 250,
   disabled = false,
   onReferencesChange,
   initialPrompt,
@@ -52,33 +53,41 @@ export function ChatInput({
   const [activeReferences, setActiveReferences] = useState<Reference[]>([]);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  // Set initial prompt when provided
+  // Subscribe to selection bus
   useEffect(() => {
-    if (initialPrompt) {
-      setPrompt(initialPrompt);
-      // Focus the textarea after setting the prompt
-      setTimeout(() => {
-        if (textareaRef.current) {
-          textareaRef.current.focus();
-          // Set cursor at the end
-          const length = initialPrompt.length;
-          textareaRef.current.setSelectionRange(length, length);
-          setCursorPosition(length);
-        }
-      }, 100);
-    }
-  }, [initialPrompt]);
+    const unsubscribe = chatSelectionBus.subscribe((reference) => {
+      setActiveReferences((prev) => {
+        // Only one selection at a time: replace existing selection, keep other refs
+        const withoutSelection = prev.filter((r) => r.type !== "selection");
+        return [...withoutSelection, reference];
+      });
+    });
+    return unsubscribe;
+  }, []);
+
+  // Handle focus chat input event from hotkey
+  useEffect(() => {
+    const handleFocusChatInput = () => {
+      if (textareaRef.current) {
+        textareaRef.current.focus();
+      }
+    };
+
+    window.addEventListener("ialex:focusChatInput", handleFocusChatInput);
+    return () => {
+      window.removeEventListener("ialex:focusChatInput", handleFocusChatInput);
+    };
+  }, []);
 
   // Notify parent when references change
   useEffect(() => {
-    if (onReferencesChange) {
-      onReferencesChange(activeReferences);
-    }
+    onReferencesChange?.(activeReferences);
   }, [activeReferences, onReferencesChange]);
 
-  /**
-   * Handles input changes and manages autocomplete visibility
-   */
+  const handleRemoveSelection = useCallback(() => {
+    setActiveReferences((prev) => prev.filter((r) => r.type !== "selection"));
+  }, []);
+
   const handleInputChange = useCallback(
     (e: React.ChangeEvent<HTMLTextAreaElement>) => {
       const newValue = e.target.value;
@@ -87,7 +96,6 @@ export function ChatInput({
       setPrompt(newValue);
       setCursorPosition(newCursorPos);
 
-      // Show autocomplete if we're typing an @ reference
       const textBeforeCursor = newValue.slice(0, newCursorPos);
       const hasAtSymbol = /@[a-zA-Z]*:?[a-zA-Z]*$/.test(textBeforeCursor);
       setShowAutocomplete(hasAtSymbol);
@@ -95,34 +103,20 @@ export function ChatInput({
     [],
   );
 
-  /**
-   * Handles cursor position changes
-   */
   const handleSelectionChange = useCallback(() => {
-    if (textareaRef.current) {
-      setCursorPosition(textareaRef.current.selectionStart);
-    }
+    if (textareaRef.current) setCursorPosition(textareaRef.current.selectionStart);
   }, []);
 
-  /**
-   * Handles reference selection from autocomplete
-   */
   const handleSelectReference = useCallback(
     (reference: any, startPos: number, endPos: number) => {
       const isTypeSelection = reference.name.endsWith(":");
 
       if (!isTypeSelection) {
-        // Entity selection - add to context bar and remove from input
         setActiveReferences((prev) => [
           ...prev,
-          {
-            type: reference.type,
-            id: reference.id,
-            name: reference.name,
-          },
+          { type: reference.type, id: reference.id, name: reference.name },
         ]);
 
-        // Remove the entire @reference from input
         const atPos = prompt.lastIndexOf("@", endPos);
         const newText = prompt.slice(0, atPos) + prompt.slice(endPos);
         const newCursorPos = atPos;
@@ -131,84 +125,57 @@ export function ChatInput({
         setCursorPosition(newCursorPos);
         setShowAutocomplete(false);
 
-        // Focus back to textarea
         setTimeout(() => {
-          if (textareaRef.current) {
-            textareaRef.current.focus();
-            textareaRef.current.setSelectionRange(newCursorPos, newCursorPos);
-            setCursorPosition(newCursorPos);
-          }
+          if (!textareaRef.current) return;
+          textareaRef.current.focus();
+          textareaRef.current.setSelectionRange(newCursorPos, newCursorPos);
+          setCursorPosition(newCursorPos);
         }, 0);
       } else {
-        // Type selection - update input and keep autocomplete open
-        const newText =
-          prompt.slice(0, startPos) + reference.name + prompt.slice(endPos);
+        const newText = prompt.slice(0, startPos) + reference.name + prompt.slice(endPos);
         const newCursorPos = startPos + reference.name.length;
 
         setPrompt(newText);
         setCursorPosition(newCursorPos);
 
-        // For type selection, check if we should show entity suggestions
         const textBeforeCursor = newText.slice(0, newCursorPos);
-        const hasCompleteType = /@(client|document|escrito|case):$/.test(
-          textBeforeCursor,
-        );
+        const hasCompleteType = /@(client|document|escrito|case):$/.test(textBeforeCursor);
         setShowAutocomplete(hasCompleteType);
 
-        // Focus back to textarea and set cursor position
         setTimeout(() => {
-          if (textareaRef.current) {
-            textareaRef.current.focus();
-            textareaRef.current.setSelectionRange(newCursorPos, newCursorPos);
-            setCursorPosition(newCursorPos);
-          }
+          if (!textareaRef.current) return;
+          textareaRef.current.focus();
+          textareaRef.current.setSelectionRange(newCursorPos, newCursorPos);
+          setCursorPosition(newCursorPos);
         }, 0);
       }
     },
     [prompt],
   );
 
-  /**
-   * Handles form submission
-   * - Prevents default form behavior
-   * - Validates input (non-empty after trim)
-   * - Clears input after sending
-   * - Calls parent callback with trimmed message
-   * - Prevents submission when autocomplete is open
-   */
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-
-    // Don't submit if autocomplete is showing
     if (showAutocomplete) return;
-
     if (prompt.trim() === "" || disabled) return;
 
     const trimmedPrompt = prompt.trim();
 
-    // Build message with references
     const referencesText = activeReferences
+      .filter((ref) => ref.type !== "selection")
       .map((ref) => `@${ref.type}:${ref.name}`)
       .join(" ");
-    const fullMessage = referencesText
-      ? `${referencesText} ${trimmedPrompt}`
-      : trimmedPrompt;
+    const fullMessage = referencesText ? `${referencesText} ${trimmedPrompt}` : trimmedPrompt;
 
-    setPrompt(""); // Clear input immediately for better UX
-    setActiveReferences([]); // Clear references
+    setPrompt("");
+    setActiveReferences([]);
     setShowAutocomplete(false);
     onSendMessage(fullMessage, activeReferences);
   };
 
-  /**
-   * Maps internal streaming state to ai-sdk ChatStatus
-   * - 'streaming': Shows stop button and loading indicator
-   * - undefined: Shows send button
-   */
   const status: ChatStatus | undefined = isStreaming ? "streaming" : undefined;
-
-  // Combined disabled state: prop disabled OR streaming
   const isInputDisabled = disabled || isStreaming;
+
+  const activeSelection = activeReferences.find((r) => r.type === "selection" && r.selection);
 
   /**
    * Handles button click - either submit or abort based on streaming state
@@ -223,19 +190,23 @@ export function ChatInput({
 
   return (
     <div className=" p-4 bg-transparent">
-      {/* 
-        PromptInput: Main container component from ai-sdk
-        Provides form structure and styling
-      */}
+      {/* Selection chip on top */}
+      {activeSelection?.selection && (
+        <div className="mb-2">
+          <SelectionChip selection={activeSelection.selection} onRemove={handleRemoveSelection} />
+        </div>
+      )}
+
       <div className="relative">
         <PromptInput
           onSubmit={handleSubmit}
-          className="flex justify-between items-center px-2"
+          className="flex justify-between items-center px-2 overflow-auto"
         >
           {/* 
             PromptInputTextarea: Auto-resizing textarea with enhanced features
             - Supports Enter to submit, Shift+Enter for new line
             - Auto-resizes based on content within min/max bounds
+            - Scrollable when content exceeds max height
           */}
           <PromptInputTextarea
             ref={textareaRef}
@@ -251,15 +222,10 @@ export function ChatInput({
             style={{
               minHeight: `${minHeight}px`,
               maxHeight: `${maxHeight}px`,
-              height: `${minHeight}px`,
             }}
-            className={`resize-none min-h-0 bg-transparent placeholder:text-xs ${prompt.trim() ? "overflow-y-auto" : "overflow-y-hidden"}`}
+            className="resize-none min-h-0 bg-transparent placeholder:text-xs overflow-y-auto"
           />
 
-          {/* 
-            PromptInputToolbar: Container for action buttons and controls
-            Provides consistent spacing and alignment
-          */}
           <PromptInputSubmit
             status={status}
             disabled={!isStreaming && (!prompt.trim() || isInputDisabled)}
@@ -272,7 +238,6 @@ export function ChatInput({
           />
         </PromptInput>
 
-        {/* Reference Autocomplete */}
         <ReferenceAutocomplete
           input={prompt}
           cursorPosition={cursorPosition}

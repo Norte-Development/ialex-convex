@@ -16,8 +16,13 @@ import { useAuth } from "@/context/AuthContext";
 import { usePage } from "@/context/PageContext";
 import { ContextSummaryBar } from "./ContextSummaryBar";
 import type { Id } from "convex/_generated/dataModel";
-import { useState, useEffect, useCallback, useMemo } from "react";
-import type { Reference, ReferenceWithOriginal } from "./types/reference-types";
+import {
+  useState,
+  useEffect,
+  useCallback,
+  useMemo,
+} from "react";
+import type { Reference, ReferenceWithOriginal, SelectionMeta } from "./types/reference-types";
 import { Button } from "@/components/ui/button";
 import {
   Conversation,
@@ -37,6 +42,7 @@ import { Actions, Action } from "../ai-elements/actions";
 import { Tool } from "../ai-elements/tool";
 import { MessageText } from "../ai-elements/message-text";
 import { CitationModal } from "./citation-modal";
+import { SelectionChip } from "./SelectionChip";
 import { cn } from "@/lib/utils";
 import type { ToolUIPart } from "ai";
 
@@ -68,7 +74,9 @@ export function ChatContent({ threadId }: { threadId: string | undefined }) {
   );
   // State for current active references from input
   const [currentReferences, setCurrentReferences] = useState<Reference[]>([]);
-
+  // State for local UI parts (selections) by messageId
+  const [messageLocalParts, setMessageLocalParts] = useState<Record<string, Array<{ type: "selection"; selection: SelectionMeta }>>>({});
+  
   // Citation modal state
   const [citationOpen, setCitationOpen] = useState(false);
   const [citationId, setCitationId] = useState("");
@@ -101,12 +109,12 @@ export function ChatContent({ threadId }: { threadId: string | undefined }) {
     { initialNumItems: 50, stream: true },
   );
 
-  console.log("messages", messages);
 
   // Clear references when thread changes to prevent trailing state
   useEffect(() => {
     setLastReferences([]);
     setCurrentReferences([]);
+    setMessageLocalParts({});
   }, [threadId]);
 
   // Clear pending prompt after it's been set in the input
@@ -132,29 +140,40 @@ export function ChatContent({ threadId }: { threadId: string | undefined }) {
   const parseAtReferences = useMutation(api.context.context.parseAtReferences);
 
   const handleSendMessage = useCallback(
-    async (
-      prompt: string,
-      activeReferences?: Array<{
-        type: string;
-        id: string;
-        name: string;
-      }>,
-    ) => {
+    async (prompt: string, activeReferences?: Reference[]) => {
       if (!user?._id) return;
 
-      // Convert activeReferences to resolvedReferences format for backend
-      const resolvedReferences = (activeReferences || []).map((ref) => ({
+      // Separate selection references from regular references
+      const selectionRefs = (activeReferences || []).filter(ref => ref.type === "selection");
+      const regularRefs = (activeReferences || []).filter(ref => ref.type !== "selection");
+
+      // Convert regular references to resolvedReferences format for backend
+      const resolvedReferences = regularRefs.map(ref => ({
         type: ref.type as "client" | "document" | "escrito" | "case",
         id: ref.id,
         name: ref.name,
         originalText: `@${ref.type}:${ref.name}`,
       }));
 
-      // Parse @ references with resolved references from frontend
+      // Map selection references to escrito references with selection metadata
+      const selectionResolvedRefs = selectionRefs
+        .filter(ref => ref.selection)
+        .map(ref => ({
+          type: "escrito" as const,
+          id: ref.selection!.escritoId,
+          name: ref.name,
+          originalText: ref.name,
+          selection: ref.selection,
+        }));
+
+      // Combine all resolved references
+      const allResolvedReferences = [...resolvedReferences, ...selectionResolvedRefs];
+
+      // Parse @ references with resolved references from frontend (only regular refs, not selections)
       const { cleanMessage, references } = await parseAtReferences({
         userId: user._id as Id<"users">,
         message: prompt,
-        resolvedReferences,
+        resolvedReferences: resolvedReferences,
         caseId: caseId || undefined,
       });
 
@@ -213,8 +232,21 @@ export function ChatContent({ threadId }: { threadId: string | undefined }) {
           cursorPosition: currentViewContext.cursorPosition,
           searchQuery: currentViewContext.searchQuery,
           currentEscritoId: currentViewContext.currentEscritoId,
-          resolvedReferences: resolvedReferences,
+          resolvedReferences: allResolvedReferences,
         });
+
+        // Store local parts (selections) for this message
+        if (selectionRefs.length > 0 && messageId) {
+          setMessageLocalParts(prev => ({
+            ...prev,
+            [messageId]: selectionRefs
+              .filter(ref => ref.selection)
+              .map(ref => ({
+                type: "selection" as const,
+                selection: ref.selection!,
+              })),
+          }));
+        }
 
         if (!threadId) {
           setThreadId(newThreadId);
@@ -262,10 +294,12 @@ export function ChatContent({ threadId }: { threadId: string | undefined }) {
   const combinedReferences = useMemo(
     () => [
       ...lastReferences,
-      ...currentReferences.map((ref) => ({
-        ...ref,
-        originalText: `@${ref.type}:${ref.name}`,
-      })),
+      ...currentReferences
+        .filter((ref) => ref.type !== "selection")
+        .map((ref) => ({
+          ...ref,
+          originalText: `@${ref.type}:${ref.name}`,
+        })),
     ],
     [lastReferences, currentReferences],
   );
@@ -300,6 +334,7 @@ export function ChatContent({ threadId }: { threadId: string | undefined }) {
                   key={m.id}
                   message={m}
                   user={user}
+                  localParts={messageLocalParts[m.id]}
                   onCitationClick={(id, type) => {
                     setCitationOpen(true);
                     setCitationId(id);
@@ -343,10 +378,11 @@ export function ChatContent({ threadId }: { threadId: string | undefined }) {
 type MessageItemProps = {
   message: AgentMessage;
   user: { name: string } | null | undefined;
+  localParts?: Array<{ type: "selection"; selection: SelectionMeta }>;
   onCitationClick: (id: string, type: string) => void;
 };
 
-function MessageItem({ message, user, onCitationClick }: MessageItemProps) {
+function MessageItem({ message, user, localParts, onCitationClick }: MessageItemProps) {
   const isUser = message.role === "user";
 
   // Calculate messageText for the copy button and empty checks
@@ -411,6 +447,17 @@ function MessageItem({ message, user, onCitationClick }: MessageItemProps) {
               </span>
             </div>
           )}
+
+        {/* Selection chips for user messages */}
+        {isUser && localParts && localParts.length > 0 && (
+          <div className="flex flex-col gap-2">
+            {localParts.map((part, idx) => (
+              part.type === "selection" && (
+                <SelectionChip key={idx} selection={part.selection} />
+              )
+            ))}
+          </div>
+        )}
 
         {/* Message parts */}
         {message.parts?.map((part, index) => {

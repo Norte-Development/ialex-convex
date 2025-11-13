@@ -21,7 +21,9 @@ export default function AllEventsDialog({
 }) {
   const upcomingEvents = useQuery(
     api.functions.events.getUpcomingEvents,
-    open ? { days: 90, paginationOpts: { numItems: 100, cursor: null } } : "skip", // Solo cargar cuando el modal esté abierto
+    open
+      ? { days: 90, paginationOpts: { numItems: 100, cursor: null } }
+      : "skip", // Solo cargar cuando el modal esté abierto
   );
   const allEvents = useQuery(
     api.functions.events.getMyEvents,
@@ -53,13 +55,13 @@ export default function AllEventsDialog({
 
   const getEventTypeLabel = (type: string) => {
     const labels: Record<string, string> = {
-      audiencia: "🏛️ Audiencia",
-      plazo: "⏰ Plazo",
-      reunion_cliente: "👥 Reunión Cliente",
-      presentacion: "📄 Presentación",
-      reunion_equipo: "👨‍💼 Reunión Equipo",
-      personal: "🙋 Personal",
-      otro: "📌 Otro",
+      audiencia: "Audiencia",
+      plazo: "Plazo",
+      reunion_cliente: "Reunión Cliente",
+      presentacion: "Presentación",
+      reunion_equipo: "Reunión Equipo",
+      personal: "Personal",
+      otro: "Otro",
     };
     return labels[type] || type;
   };
