@@ -219,11 +219,13 @@ export const updatePrompt = mutation({
       throw new Error("Prompt not found");
     }
 
+    // Prevent updates to system prompts entirely
+    if (existingPrompt.createdBy === "system") {
+      throw new Error("System prompts cannot be modified");
+    }
+
     // Only creator can update
-    if (
-      existingPrompt.createdBy !== currentUser._id &&
-      existingPrompt.createdBy !== "system"
-    ) {
+    if (existingPrompt.createdBy !== currentUser._id) {
       throw new Error("Only the creator can update this prompt");
     }
 
@@ -288,8 +290,13 @@ export const deletePrompt = mutation({
       throw new Error("Prompt not found");
     }
 
+    // Prevent deletion of system prompts entirely
+    if (prompt.createdBy === "system") {
+      throw new Error("System prompts cannot be deleted");
+    }
+
     // Only creator can delete
-    if (prompt.createdBy !== currentUser._id && prompt.createdBy !== "system") {
+    if (prompt.createdBy !== currentUser._id) {
       throw new Error("Only the creator can delete this prompt");
     }
 
