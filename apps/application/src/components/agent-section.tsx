@@ -1,31 +1,133 @@
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Label } from "@/components/ui/label"
-import { Switch } from "@/components/ui/switch"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Separator } from "@/components/ui/separator";
 
 interface AgentSectionProps {
   preferences: any;
+  profileFields: {
+    workLocation?: string;
+    specializations?: string[];
+  };
   onUpdate: (key: string, value: any) => void;
+  onUpdateProfile: (key: string, value: any) => void;
 }
 
-export function AgentSection({ preferences, onUpdate }: AgentSectionProps) {
+export function AgentSection({
+  preferences,
+  profileFields,
+  onUpdate,
+  onUpdateProfile,
+}: AgentSectionProps) {
+  const legalSpecializations = [
+    "Derecho Civil",
+    "Derecho Penal",
+    "Derecho Mercantil",
+    "Derecho Laboral",
+    "Derecho de Familia",
+    "Derecho Tributario",
+    "Derecho Administrativo",
+    "Derecho Constitucional",
+    "Derecho Internacional",
+    "Propiedad Intelectual",
+    "Derecho Ambiental",
+    "Derecho de la Salud",
+  ];
+
+  const handleSpecializationToggle = (specialization: string) => {
+    const currentSpecializations = profileFields?.specializations || [];
+    const updated = currentSpecializations.includes(specialization)
+      ? currentSpecializations.filter((s: string) => s !== specialization)
+      : [...currentSpecializations, specialization];
+
+    onUpdateProfile("specializations", updated);
+  };
+
   return (
     <section id="agent" className="scroll-mt-8">
       <Card>
         <CardHeader>
-          <CardTitle className="text-balance">Preferencias del Agente IA</CardTitle>
-          <CardDescription className="text-pretty">Personaliza cómo el agente de IA interactúa contigo</CardDescription>
+          <CardTitle className="text-balance">
+            Preferencias del Agente IA
+          </CardTitle>
+          <CardDescription className="text-pretty">
+            Personaliza cómo el agente de IA interactúa contigo
+          </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
+          <div className="space-y-3">
+            <Label className="text-sm font-medium">Especialización Legal</Label>
+            <div className="grid grid-cols-2 lg:grid-cols-3 gap-2 w-full max-w-[550px]">
+              {legalSpecializations.map((specialization) => (
+                <label
+                  key={specialization}
+                  className={`flex items-center gap-2 px-2 py-1.5 text-xs rounded-md cursor-pointer transition-colors ${
+                    (profileFields?.specializations || []).includes(
+                      specialization,
+                    )
+                      ? "bg-[#E8F0FE] border-l-2 border-l-blue-600"
+                      : "bg-white hover:bg-[#E8F0FE] border border-gray-200"
+                  }`}
+                >
+                  <input
+                    type="checkbox"
+                    checked={(profileFields?.specializations || []).includes(
+                      specialization,
+                    )}
+                    onChange={() => handleSpecializationToggle(specialization)}
+                    className="sr-only"
+                  />
+                  {/* Radio button indicator */}
+                  <div className="flex items-center justify-center w-4 h-4 relative shrink-0">
+                    <div className="w-4 h-4 rounded-full border border-gray-200" />
+                    {(profileFields?.specializations || []).includes(
+                      specialization,
+                    ) && (
+                      <div className="absolute inset-0 flex items-center justify-center">
+                        <div className="w-4 h-4 rounded-full bg-blue-600 flex items-center justify-center">
+                          <div className="w-1.5 h-1.5 rounded-full bg-white" />
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                  <span className="text-left leading-tight">
+                    {specialization}
+                  </span>
+                </label>
+              ))}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              El agente priorizará contenido relacionado con tus
+              especializaciones
+            </p>
+          </div>
+
+          <Separator />
           <div className="space-y-3">
             <Label htmlFor="agentResponseStyle" className="text-sm font-medium">
               Estilo de Respuesta
             </Label>
-            <Select 
-              value={preferences.agentResponseStyle} 
+            <Select
+              value={preferences.agentResponseStyle}
               onValueChange={(value) => onUpdate("agentResponseStyle", value)}
             >
-              <SelectTrigger id="agentResponseStyle" className="w-full sm:w-[280px]">
+              <SelectTrigger
+                id="agentResponseStyle"
+                className="w-full sm:w-[280px]"
+              >
                 <SelectValue placeholder="Seleccionar estilo" />
               </SelectTrigger>
               <SelectContent>
@@ -41,21 +143,13 @@ export function AgentSection({ preferences, onUpdate }: AgentSectionProps) {
           </div>
 
           <div className="space-y-3">
-            <Label htmlFor="defaultJurisdiction" className="text-sm font-medium">
+            <Label
+              htmlFor="defaultJurisdiction"
+              className="text-sm font-medium"
+            >
               Jurisdicción por Defecto
             </Label>
-            {/* <Select 
-              value={preferences.defaultJurisdiction} 
-              onValueChange={(value) => onUpdate("defaultJurisdiction", value)}
-            > */}
-              {/* <SelectTrigger id="defaultJurisdiction" className="w-full sm:w-[280px]">
-                <SelectValue placeholder="Seleccionar jurisdicción" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="argentina">Argentina</SelectItem>
-                <SelectItem value="paraguay">Paraguay</SelectItem>
-              </SelectContent>
-            </Select> */}
+
             <p className="text-xs text-muted-foreground">
               Legislación aplicable por defecto
             </p>
@@ -65,18 +159,23 @@ export function AgentSection({ preferences, onUpdate }: AgentSectionProps) {
             <Label htmlFor="citationFormat" className="text-sm font-medium">
               Formato de Citas
             </Label>
-            <Select 
-              value={preferences.citationFormat} 
+            <Select
+              value={preferences.citationFormat}
               onValueChange={(value) => onUpdate("citationFormat", value)}
             >
-              <SelectTrigger id="citationFormat" className="w-full sm:w-[280px]">
+              <SelectTrigger
+                id="citationFormat"
+                className="w-full sm:w-[280px]"
+              >
                 <SelectValue placeholder="Seleccionar formato" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="apa">APA</SelectItem>
                 <SelectItem value="bluebook">Bluebook</SelectItem>
                 <SelectItem value="chicago">Chicago</SelectItem>
-                <SelectItem value="legal-arg">Estilo Legal Argentino</SelectItem>
+                <SelectItem value="legal-arg">
+                  Estilo Legal Argentino
+                </SelectItem>
               </SelectContent>
             </Select>
             <p className="text-xs text-muted-foreground">
@@ -86,15 +185,18 @@ export function AgentSection({ preferences, onUpdate }: AgentSectionProps) {
 
           <div className="flex items-start justify-between gap-4 pt-3">
             <div className="space-y-0.5 flex-1">
-              <Label htmlFor="autoIncludeContext" className="text-sm font-medium">
+              <Label
+                htmlFor="autoIncludeContext"
+                className="text-sm font-medium"
+              >
                 Incluir Contexto Automáticamente
               </Label>
               <p className="text-sm text-muted-foreground text-pretty">
                 El agente incluirá automáticamente información del caso actual
               </p>
             </div>
-            <Switch 
-              id="autoIncludeContext" 
+            <Switch
+              id="autoIncludeContext"
               checked={preferences.autoIncludeContext}
               onCheckedChange={(value) => onUpdate("autoIncludeContext", value)}
             />
@@ -102,6 +204,5 @@ export function AgentSection({ preferences, onUpdate }: AgentSectionProps) {
         </CardContent>
       </Card>
     </section>
-  )
+  );
 }
-
