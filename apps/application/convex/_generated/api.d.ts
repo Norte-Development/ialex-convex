@@ -40,6 +40,7 @@ import type * as agents_tools_documents_queryDocumentTool from "../agents/tools/
 import type * as agents_tools_documents_readDocumentTool from "../agents/tools/documents/readDocumentTool.js";
 import type * as agents_tools_documents_searchCaseDocumentsTool from "../agents/tools/documents/searchCaseDocumentsTool.js";
 import type * as agents_tools_documents_templates from "../agents/tools/documents/templates.js";
+import type * as agents_tools_escritos_applyDiffsTool from "../agents/tools/escritos/applyDiffsTool.js";
 import type * as agents_tools_escritos_editEscritoTool from "../agents/tools/escritos/editEscritoTool.js";
 import type * as agents_tools_escritos_getEscritoStatsTool from "../agents/tools/escritos/getEscritoStatsTool.js";
 import type * as agents_tools_escritos_index from "../agents/tools/escritos/index.js";
@@ -210,6 +211,7 @@ declare const fullApi: ApiFromModules<{
   "agents/tools/documents/readDocumentTool": typeof agents_tools_documents_readDocumentTool;
   "agents/tools/documents/searchCaseDocumentsTool": typeof agents_tools_documents_searchCaseDocumentsTool;
   "agents/tools/documents/templates": typeof agents_tools_documents_templates;
+  "agents/tools/escritos/applyDiffsTool": typeof agents_tools_escritos_applyDiffsTool;
   "agents/tools/escritos/editEscritoTool": typeof agents_tools_escritos_editEscritoTool;
   "agents/tools/escritos/getEscritoStatsTool": typeof agents_tools_escritos_getEscritoStatsTool;
   "agents/tools/escritos/index": typeof agents_tools_escritos_index;

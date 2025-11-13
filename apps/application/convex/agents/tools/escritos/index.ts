@@ -2,6 +2,7 @@
  * Escrito management tools
  */
 
+export { applyDiffsTool } from './applyDiffsTool';
 export { editEscritoTool } from './editEscritoTool';
 export { getEscritoStatsTool } from './getEscritoStatsTool';
 export { readEscritoTool } from './readEscritoTool';
