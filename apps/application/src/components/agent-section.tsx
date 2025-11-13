@@ -18,17 +18,44 @@ import { Separator } from "@/components/ui/separator";
 
 interface AgentSectionProps {
   preferences: any;
-  user: any;
+  profileFields: {
+    workLocation?: string;
+    specializations?: string[];
+  };
   onUpdate: (key: string, value: any) => void;
   onUpdateProfile: (key: string, value: any) => void;
 }
 
 export function AgentSection({
   preferences,
-  user,
+  profileFields,
   onUpdate,
   onUpdateProfile,
 }: AgentSectionProps) {
+  const legalSpecializations = [
+    "Derecho Civil",
+    "Derecho Penal",
+    "Derecho Mercantil",
+    "Derecho Laboral",
+    "Derecho de Familia",
+    "Derecho Tributario",
+    "Derecho Administrativo",
+    "Derecho Constitucional",
+    "Derecho Internacional",
+    "Propiedad Intelectual",
+    "Derecho Ambiental",
+    "Derecho de la Salud",
+  ];
+
+  const handleSpecializationToggle = (specialization: string) => {
+    const currentSpecializations = profileFields?.specializations || [];
+    const updated = currentSpecializations.includes(specialization)
+      ? currentSpecializations.filter((s: string) => s !== specialization)
+      : [...currentSpecializations, specialization];
+
+    onUpdateProfile("specializations", updated);
+  };
+
   return (
     <section id="agent" className="scroll-mt-8">
       <Card>
@@ -42,108 +69,49 @@ export function AgentSection({
         </CardHeader>
         <CardContent className="space-y-6">
           <div className="space-y-3">
-            <Label htmlFor="specialization" className="text-sm font-medium">
-              Especialización Legal
-            </Label>
-            <Select
-              value={(user?.specializations && user.specializations[0]) || ""}
-              onValueChange={(value) =>
-                onUpdateProfile("specializations", [value])
-              }
-            >
-              <SelectTrigger
-                id="specialization"
-                className="w-full sm:w-[280px]"
-              >
-                <SelectValue placeholder="Seleccionar especialización" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="Derecho Civil">Derecho Civil</SelectItem>
-                <SelectItem value="Derecho Penal">Derecho Penal</SelectItem>
-                <SelectItem value="Derecho Mercantil">
-                  Derecho Mercantil
-                </SelectItem>
-                <SelectItem value="Derecho Laboral">Derecho Laboral</SelectItem>
-                <SelectItem value="Derecho de Familia">
-                  Derecho de Familia
-                </SelectItem>
-                <SelectItem value="Derecho Tributario">
-                  Derecho Tributario
-                </SelectItem>
-                <SelectItem value="Derecho Administrativo">
-                  Derecho Administrativo
-                </SelectItem>
-                <SelectItem value="Derecho Constitucional">
-                  Derecho Constitucional
-                </SelectItem>
-                <SelectItem value="Derecho Internacional">
-                  Derecho Internacional
-                </SelectItem>
-                <SelectItem value="Propiedad Intelectual">
-                  Propiedad Intelectual
-                </SelectItem>
-                <SelectItem value="Derecho Ambiental">
-                  Derecho Ambiental
-                </SelectItem>
-                <SelectItem value="Derecho de la Salud">
-                  Derecho de la Salud
-                </SelectItem>
-              </SelectContent>
-            </Select>
+            <Label className="text-sm font-medium">Especialización Legal</Label>
+            <div className="grid grid-cols-2 lg:grid-cols-3 gap-2 w-full max-w-[550px]">
+              {legalSpecializations.map((specialization) => (
+                <label
+                  key={specialization}
+                  className={`flex items-center gap-2 px-2 py-1.5 text-xs rounded-md cursor-pointer transition-colors ${
+                    (profileFields?.specializations || []).includes(
+                      specialization,
+                    )
+                      ? "bg-[#E8F0FE] border-l-2 border-l-blue-600"
+                      : "bg-white hover:bg-[#E8F0FE] border border-gray-200"
+                  }`}
+                >
+                  <input
+                    type="checkbox"
+                    checked={(profileFields?.specializations || []).includes(
+                      specialization,
+                    )}
+                    onChange={() => handleSpecializationToggle(specialization)}
+                    className="sr-only"
+                  />
+                  {/* Radio button indicator */}
+                  <div className="flex items-center justify-center w-4 h-4 relative shrink-0">
+                    <div className="w-4 h-4 rounded-full border border-gray-200" />
+                    {(profileFields?.specializations || []).includes(
+                      specialization,
+                    ) && (
+                      <div className="absolute inset-0 flex items-center justify-center">
+                        <div className="w-4 h-4 rounded-full bg-blue-600 flex items-center justify-center">
+                          <div className="w-1.5 h-1.5 rounded-full bg-white" />
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                  <span className="text-left leading-tight">
+                    {specialization}
+                  </span>
+                </label>
+              ))}
+            </div>
             <p className="text-xs text-muted-foreground">
-              El agente priorizará contenido relacionado con tu especialización
-            </p>
-          </div>
-
-          <Separator />
-
-          <div className="space-y-3">
-            <Label htmlFor="workLocation" className="text-sm font-medium">
-              Provincia / Jurisdicción
-            </Label>
-            <Select
-              value={user?.workLocation || "Nacional"}
-              onValueChange={(value) => onUpdateProfile("workLocation", value)}
-            >
-              <SelectTrigger id="workLocation" className="w-full sm:w-[280px]">
-                <SelectValue placeholder="Seleccionar provincia" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="Nacional">Nacional</SelectItem>
-                <SelectItem value="Ciudad Autónoma de Buenos Aires">
-                  Ciudad Autónoma de Buenos Aires
-                </SelectItem>
-                <SelectItem value="Buenos Aires">Buenos Aires</SelectItem>
-                <SelectItem value="Catamarca">Catamarca</SelectItem>
-                <SelectItem value="Chaco">Chaco</SelectItem>
-                <SelectItem value="Chubut">Chubut</SelectItem>
-                <SelectItem value="Córdoba">Córdoba</SelectItem>
-                <SelectItem value="Corrientes">Corrientes</SelectItem>
-                <SelectItem value="Entre Ríos">Entre Ríos</SelectItem>
-                <SelectItem value="Formosa">Formosa</SelectItem>
-                <SelectItem value="Jujuy">Jujuy</SelectItem>
-                <SelectItem value="La Pampa">La Pampa</SelectItem>
-                <SelectItem value="La Rioja">La Rioja</SelectItem>
-                <SelectItem value="Mendoza">Mendoza</SelectItem>
-                <SelectItem value="Misiones">Misiones</SelectItem>
-                <SelectItem value="Neuquén">Neuquén</SelectItem>
-                <SelectItem value="Río Negro">Río Negro</SelectItem>
-                <SelectItem value="Salta">Salta</SelectItem>
-                <SelectItem value="San Juan">San Juan</SelectItem>
-                <SelectItem value="San Luis">San Luis</SelectItem>
-                <SelectItem value="Santa Cruz">Santa Cruz</SelectItem>
-                <SelectItem value="Santa Fe">Santa Fe</SelectItem>
-                <SelectItem value="Santiago del Estero">
-                  Santiago del Estero
-                </SelectItem>
-                <SelectItem value="Tierra del Fuego">
-                  Tierra del Fuego
-                </SelectItem>
-                <SelectItem value="Tucumán">Tucumán</SelectItem>
-              </SelectContent>
-            </Select>
-            <p className="text-xs text-muted-foreground">
-              Jurisprudencia provincial que utilizarás con más frecuencia
+              El agente priorizará contenido relacionado con tus
+              especializaciones
             </p>
           </div>
 

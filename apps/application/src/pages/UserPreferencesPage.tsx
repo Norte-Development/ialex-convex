@@ -43,6 +43,10 @@ export default function UserPreferencesPage() {
   // State for all preferences and UI
   const [isSaving, setIsSaving] = useState(false);
   const [preferences, setPreferences] = useState(DEFAULT_PREFERENCES);
+  const [profileFields, setProfileFields] = useState<{
+    workLocation?: string;
+    specializations?: string[];
+  }>({});
   const [activeSection, setActiveSection] = useState(section || "general");
 
   // Load preferences from user data
@@ -53,6 +57,12 @@ export default function UserPreferencesPage() {
         ...currentUser.preferences,
       });
     }
+    if (currentUser) {
+      setProfileFields({
+        workLocation: currentUser.workLocation || "",
+        specializations: currentUser.specializations || [],
+      });
+    }
   }, [currentUser]);
 
   // Update a single preference
@@ -60,15 +70,9 @@ export default function UserPreferencesPage() {
     setPreferences((prev) => ({ ...prev, [key]: value }));
   };
 
-  // Update profile field (specializations, workLocation)
-  const updateProfileField = async (key: string, value: any) => {
-    try {
-      await updateProfile({ [key]: value });
-      toast.success("Perfil actualizado exitosamente");
-    } catch (error) {
-      console.error("Error updating profile:", error);
-      toast.error("Error al actualizar perfil");
-    }
+  // Update profile field (specializations, workLocation) - now just updates local state
+  const updateProfileField = (key: string, value: any) => {
+    setProfileFields((prev) => ({ ...prev, [key]: value }));
   };
 
   // Add a new handler for section changes that updates both state and URL
@@ -81,7 +85,25 @@ export default function UserPreferencesPage() {
   const handleSavePreferences = async () => {
     setIsSaving(true);
     try {
+      // Save preferences
       await updatePreferences({ preferences });
+
+      // Save profile fields if they changed
+      const profileUpdates: any = {};
+      if (profileFields.workLocation !== currentUser?.workLocation) {
+        profileUpdates.workLocation = profileFields.workLocation;
+      }
+      if (
+        JSON.stringify(profileFields.specializations) !==
+        JSON.stringify(currentUser?.specializations)
+      ) {
+        profileUpdates.specializations = profileFields.specializations;
+      }
+
+      if (Object.keys(profileUpdates).length > 0) {
+        await updateProfile(profileUpdates);
+      }
+
       toast.success("Preferencias guardadas exitosamente");
     } catch (error) {
       console.error("Error saving preferences:", error);
@@ -128,7 +150,9 @@ export default function UserPreferencesPage() {
           {activeSection === "general" && (
             <GeneralSection
               preferences={preferences}
+              profileFields={profileFields}
               onUpdate={updatePreference}
+              onUpdateProfile={updateProfileField}
             />
           )}
 
@@ -142,7 +166,7 @@ export default function UserPreferencesPage() {
           {activeSection === "agent" && (
             <AgentSection
               preferences={preferences}
-              user={currentUser}
+              profileFields={profileFields}
               onUpdate={updatePreference}
               onUpdateProfile={updateProfileField}
             />
