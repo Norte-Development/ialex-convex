@@ -12,9 +12,19 @@ import { ErrorBoundary } from "./ErrorBoundary.tsx";
 import { Toaster } from "./components/ui/sonner.tsx";
 import { esUY } from "@clerk/localizations";
 import "./clarity.ts";
-import { PostHogProvider } from "posthog-js/react";
-import posthog from "posthog-js";
+import { PostHogProvider } from 'posthog-js/react'
+import posthog from 'posthog-js'
+import TagManager from 'react-gtm-module';
+
 const convex = new ConvexReactClient(import.meta.env.VITE_CONVEX_URL as string);
+
+// Initialize Google Tag Manager
+const gtmId = "GTM-5RQNM7X4";
+if (gtmId) {
+  TagManager.initialize({
+    gtmId: gtmId,
+  });
+}
 
 const options = {
   api_host: import.meta.env.VITE_PUBLIC_POSTHOG_HOST,

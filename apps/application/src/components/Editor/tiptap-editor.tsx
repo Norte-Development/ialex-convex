@@ -1,5 +1,5 @@
 // components/editor/Tiptap.tsx
-import { useEditor, EditorContent } from "@tiptap/react";
+import { useEditor, EditorContent, useEditorState } from "@tiptap/react";
 import { useEffect, forwardRef, useImperativeHandle, useRef } from "react";
 import { useTiptapSync } from "@convex-dev/prosemirror-sync/tiptap";
 // @ts-ignore - TypeScript cache issue with @tiptap/core types
@@ -430,6 +430,19 @@ export const Tiptap = forwardRef<TiptapRef, TiptapProps>(
       },
     }));
 
+    // Calculate word count and character count using useEditorState
+    const wordCount = useEditorState({
+      editor,
+      selector: (ctx) => {
+        if (!ctx.editor) return { words: 0, characters: 0 };
+        const { doc } = ctx.editor.state;
+        const text = doc.textContent;
+        const words = text.trim().split(/\s+/).filter(Boolean).length;
+        const characters = text.length;
+        return { words, characters };
+      },
+    });
+
     // Show loading state for sync or template loading
     if (sync.isLoading || templateLoading) return <EscritosLoadingState />;
     if (!editor) return <EscritosLoadingState />;
@@ -476,8 +489,7 @@ export const Tiptap = forwardRef<TiptapRef, TiptapProps>(
         </EditorContextMenu>
 
         <div className="border-t border-gray-200 bg-gray-50/50 px-4 py-2 text-xs text-gray-500">
-          Words: {editor.storage.characterCount?.words() ?? 0} | Characters:{" "}
-          {editor.storage.characterCount?.characters() ?? 0}
+          Palabras: {wordCount.words} | Caracteres: {wordCount.characters}
         </div>
       </div>
     );

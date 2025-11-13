@@ -288,8 +288,8 @@ export const streamWithContextAction = internalAction({
 
     const { thread } = await agent.continueThread(ctx, { threadId });
 
-    const openRouterModel = modelToUse === 'gpt-5' ? 'anthropic/claude-sonnet-4.5' : 'z-ai/glm-4.6';
-    const config = { reasoning: {enabled: true, effort: "low" as const, exclude: false }, provider: {order: modelToUse === 'gpt-5' ? ["amazon-bedrock", "anthropic", "google-vertex/global" ] : ["z-ai","fireworks", "together"]}};
+    const openRouterModel = modelToUse === 'gpt-5' ? 'openai/gpt-5' : 'openai/gpt-4o-mini';
+    const config = { reasoning: modelToUse === 'gpt-5' ? {enabled: true, effort: "low" as const, exclude: false } : undefined};
 
     console.log('openRouterModel', openRouterModel);
 

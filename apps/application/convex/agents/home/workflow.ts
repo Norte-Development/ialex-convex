@@ -69,14 +69,16 @@ export const streamWithContextAction = internalAction({
 
     const { thread } = await agent.continueThread(ctx, { threadId });
 
-    const openRouterModel = modelToUse === 'gpt-5' ? 'anthropic/claude-sonnet-4.5' : 'anthropic/claude-haiku-4.5';
-    const reasoning = modelToUse === 'gpt-5' ? { reasoning: {enabled: true, effort: "low" as const, exclude: false} } : undefined;
+    const openRouterModel = modelToUse === 'gpt-5' ? 'openai/gpt-5' : 'openai/gpt-5-mini';
+    const config = { reasoning: modelToUse === 'gpt-5' ? {enabled: true, effort: "low" as const, exclude: false } : undefined};
+
+
     try {
       await thread.streamText(
         {
           system: systemMessage,
           promptMessageId,
-          model: openrouter(openRouterModel, reasoning),
+          model: openrouter(openRouterModel, config),
           experimental_repairToolCall: async (...args: any[]) => {
             console.log("Tool call repair triggered:", args);
             return null;
