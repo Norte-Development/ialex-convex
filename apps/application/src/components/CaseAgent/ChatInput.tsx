@@ -46,12 +46,43 @@ export function ChatInput({
   disabled = false,
   onReferencesChange,
   initialPrompt,
+  onInitialPromptProcessed,
 }: ChatInputProps) {
   const [prompt, setPrompt] = useState("");
   const [cursorPosition, setCursorPosition] = useState(0);
   const [showAutocomplete, setShowAutocomplete] = useState(false);
   const [activeReferences, setActiveReferences] = useState<Reference[]>([]);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const initialPromptProcessedRef = useRef(false);
+
+  // Handle initialPrompt changes
+  useEffect(() => {
+    if (initialPrompt && !initialPromptProcessedRef.current) {
+      setPrompt(initialPrompt);
+      initialPromptProcessedRef.current = true;
+
+      // Notify parent that prompt has been processed
+      onInitialPromptProcessed?.();
+
+      // Focus the textarea after setting the prompt
+      setTimeout(() => {
+        if (textareaRef.current) {
+          textareaRef.current.focus();
+          textareaRef.current.setSelectionRange(
+            initialPrompt.length,
+            initialPrompt.length,
+          );
+        }
+      }, 0);
+    }
+  }, [initialPrompt, onInitialPromptProcessed]);
+
+  // Reset the processed flag when initialPrompt changes to a new value
+  useEffect(() => {
+    if (initialPrompt) {
+      initialPromptProcessedRef.current = false;
+    }
+  }, [initialPrompt]);
 
   // Subscribe to selection bus
   useEffect(() => {
@@ -104,7 +135,8 @@ export function ChatInput({
   );
 
   const handleSelectionChange = useCallback(() => {
-    if (textareaRef.current) setCursorPosition(textareaRef.current.selectionStart);
+    if (textareaRef.current)
+      setCursorPosition(textareaRef.current.selectionStart);
   }, []);
 
   const handleSelectReference = useCallback(
@@ -132,14 +164,17 @@ export function ChatInput({
           setCursorPosition(newCursorPos);
         }, 0);
       } else {
-        const newText = prompt.slice(0, startPos) + reference.name + prompt.slice(endPos);
+        const newText =
+          prompt.slice(0, startPos) + reference.name + prompt.slice(endPos);
         const newCursorPos = startPos + reference.name.length;
 
         setPrompt(newText);
         setCursorPosition(newCursorPos);
 
         const textBeforeCursor = newText.slice(0, newCursorPos);
-        const hasCompleteType = /@(client|document|escrito|case):$/.test(textBeforeCursor);
+        const hasCompleteType = /@(client|document|escrito|case):$/.test(
+          textBeforeCursor,
+        );
         setShowAutocomplete(hasCompleteType);
 
         setTimeout(() => {
@@ -164,7 +199,9 @@ export function ChatInput({
       .filter((ref) => ref.type !== "selection")
       .map((ref) => `@${ref.type}:${ref.name}`)
       .join(" ");
-    const fullMessage = referencesText ? `${referencesText} ${trimmedPrompt}` : trimmedPrompt;
+    const fullMessage = referencesText
+      ? `${referencesText} ${trimmedPrompt}`
+      : trimmedPrompt;
 
     setPrompt("");
     setActiveReferences([]);
@@ -175,7 +212,9 @@ export function ChatInput({
   const status: ChatStatus | undefined = isStreaming ? "streaming" : undefined;
   const isInputDisabled = disabled || isStreaming;
 
-  const activeSelection = activeReferences.find((r) => r.type === "selection" && r.selection);
+  const activeSelection = activeReferences.find(
+    (r) => r.type === "selection" && r.selection,
+  );
 
   /**
    * Handles button click - either submit or abort based on streaming state
@@ -193,7 +232,10 @@ export function ChatInput({
       {/* Selection chip on top */}
       {activeSelection?.selection && (
         <div className="mb-2">
-          <SelectionChip selection={activeSelection.selection} onRemove={handleRemoveSelection} />
+          <SelectionChip
+            selection={activeSelection.selection}
+            onRemove={handleRemoveSelection}
+          />
         </div>
       )}
 

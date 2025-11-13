@@ -55,6 +55,12 @@ export interface ChatInputProps {
   initialPrompt?: string;
 
   /**
+   * Optional callback called when initialPrompt has been processed
+   * Used to safely clear the pending prompt without race conditions
+   */
+  onInitialPromptProcessed?: () => void;
+
+  /**
    * Optional disabled state for the entire input
    * @default false
    */
