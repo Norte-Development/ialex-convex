@@ -543,4 +543,66 @@ http.route({
   }),
 });
 
+// Twilio WhatsApp webhook
+http.route({
+  path: "/webhooks/twilio/whatsapp",
+  method: "POST",
+  handler: httpAction(async (ctx, req) => {
+    try {
+      // Twilio sends form-encoded data
+      const formData = await req.formData();
+      
+      // Extract webhook parameters
+      const messageSid = formData.get("MessageSid") as string;
+      const from = formData.get("From") as string;
+      const to = formData.get("To") as string;
+      const body = formData.get("Body") as string;
+      const numMedia = formData.get("NumMedia") as string | null;
+      const accountSid = formData.get("AccountSid") as string;
+      const messageStatus = formData.get("MessageStatus") as string | null;
+
+      // Validate required fields
+      if (!messageSid || !from || !to || !body || !accountSid) {
+        console.error("[WhatsApp Webhook] Missing required fields");
+        return new Response("Missing required fields", { status: 400 });
+      }
+
+      // Optional: Verify Twilio signature
+      // For production, you should verify the X-Twilio-Signature header
+      // const signature = req.headers.get("X-Twilio-Signature");
+      // if (signature && !verifyTwilioSignature(url, params, signature)) {
+      //   return new Response("Invalid signature", { status: 401 });
+      // }
+
+      console.log(`[WhatsApp Webhook] Received message from ${from}`);
+
+      // Process the incoming message
+      await ctx.runMutation(internal.whatsapp.twilio.processIncomingMessage, {
+        messageSid,
+        from,
+        to,
+        body,
+        numMedia: numMedia || undefined,
+        accountSid,
+        messageStatus: messageStatus || undefined,
+      });
+
+      // Return TwiML response (optional - can be empty for one-way messaging)
+      // Twilio expects a response, even if empty
+      return new Response(
+        '<?xml version="1.0" encoding="UTF-8"?><Response></Response>',
+        {
+          status: 200,
+          headers: {
+            "Content-Type": "text/xml",
+          },
+        },
+      );
+    } catch (error: any) {
+      console.error(`[WhatsApp Webhook] Error: ${error.message}`, error);
+      return new Response(`Webhook Error: ${error.message}`, { status: 500 });
+    }
+  }),
+});
+
 export default http;

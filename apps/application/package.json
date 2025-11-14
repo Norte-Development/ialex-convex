@@ -107,6 +107,7 @@
     "tiptap-pagination-plus": "^1.2.2",
     "tsup": "^8.5.0",
     "tsx": "^4.20.6",
+    "twilio": "^5.10.5",
     "typescript": "^5.9.3",
     "unist-util-visit": "~5.0.0",
     "use-stick-to-bottom": "^1.1.1",
