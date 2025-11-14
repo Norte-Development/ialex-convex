@@ -9,6 +9,8 @@ import { useDropzone } from "react-dropzone";
 import { useAction, useMutation, useQuery } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import { useCase } from "@/context/CaseContext";
+import { useEscrito } from "@/context/EscritoContext";
+import { useLocation } from "react-router-dom";
 import { Shield, ArrowLeft } from "lucide-react";
 import { usePermissions } from "@/context/CasePermissionsContext";
 import { Button } from "@/components/ui/button";
@@ -40,10 +42,24 @@ function InnerCaseLayout({ children }: CaseDetailLayoutProps) {
   const { hasAccess, isLoading, can } = usePermissions();
   const { isChatbotOpen, toggleChatbot, chatbotWidth, setChatbotWidth } =
     useChatbot();
+  const { escritoId, setEscritoId, setCursorPosition, setTextAroundCursor } = useEscrito();
+  const location = useLocation();
   const [isResizing, setIsResizing] = useState(false);
   const { addUpload, updateUpload, removeUpload } = useUpload();
   const [isGlobalDragActive, setIsGlobalDragActive] = useState(false);
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+
+  // Clear escrito context when navigating away from escrito routes
+  useEffect(() => {
+    // Check if we're on any escrito route (detail or list)
+    const isOnEscritoRoute = location.pathname.includes("/escritos");
+    // If we're not on an escrito route and there's an escritoId in context, clear it and related state
+    if (!isOnEscritoRoute && escritoId) {
+      setEscritoId(undefined);
+      setCursorPosition(undefined);
+      setTextAroundCursor(undefined);
+    }
+  }, [location.pathname, escritoId, setEscritoId, setCursorPosition, setTextAroundCursor]);
 
   // Persistent dedupe tracking and drop guard
   const enqueuedUploadsRef = useRef<Set<string>>(new Set());

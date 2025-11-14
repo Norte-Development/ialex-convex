@@ -14,6 +14,7 @@ import { ChatInput } from "./ChatInput";
 import { useEscrito } from "@/context/EscritoContext";
 import { useAuth } from "@/context/AuthContext";
 import { usePage } from "@/context/PageContext";
+import { useParams } from "react-router-dom";
 import { ContextSummaryBar } from "./ContextSummaryBar";
 import type { Id } from "convex/_generated/dataModel";
 import { useState, useEffect, useCallback, useMemo } from "react";
@@ -66,6 +67,7 @@ export function ChatContent({ threadId }: { threadId: string | undefined }) {
   const { user } = useAuth();
   const { pageState } = usePage();
   const { pendingPrompt, setPendingPrompt } = useChatbot();
+  const { documentId } = useParams();
 
   // State for resolved @-references to display in context bar
   const [lastReferences, setLastReferences] = useState<ReferenceWithOriginal[]>(
@@ -187,6 +189,7 @@ export function ChatContent({ threadId }: { threadId: string | undefined }) {
         currentView: pageState.currentView,
         cursorPosition: cursorPosition?.line,
         ...(escritoId && { currentEscritoId: escritoId as Id<"escritos"> }), // Only include if escritoId exists and cast to proper type
+        ...(documentId && { currentDocumentId: documentId as Id<"documents"> }), // Only include if documentId exists and cast to proper type
         selectedItems: pageState.selectedItems,
         searchQuery: pageState.searchQuery,
       };

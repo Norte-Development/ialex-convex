@@ -90,6 +90,7 @@ export interface ViewContext {
   cursorPosition?: number;
   searchQuery?: string;
   currentEscritoId?: Id<"escritos">;
+  currentDocumentId?: Id<"documents">;
 }
 
 export interface ActivityContext {
@@ -448,6 +449,10 @@ ${clientInfo}`);
 
       if (view.currentEscritoId) {
         viewSection += `\n- Trabajando en Escrito: ${view.currentEscritoId}`;
+      }
+
+      if (view.currentDocumentId) {
+        viewSection += `\n- Viendo Documento: ${view.currentDocumentId}`;
       }
 
       sections.push(viewSection);
