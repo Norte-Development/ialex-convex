@@ -110,6 +110,7 @@ const vContextBundle = v.object({
     cursorPosition: v.optional(v.number()),
     searchQuery: v.optional(v.string()),
     currentEscritoId: v.optional(v.id("escritos")),
+    currentDocumentId: v.optional(v.id("documents")),
   }),
   recentActivity: v.array(
     v.object({
