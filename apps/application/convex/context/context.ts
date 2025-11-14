@@ -99,6 +99,7 @@ export const gatherContext = query({
       cursorPosition: v.optional(v.number()),
       searchQuery: v.optional(v.string()),
       currentEscritoId: v.optional(v.id("escritos")),
+      currentDocumentId: v.optional(v.id("documents")),
     }),
     recentActivity: v.array(v.object({
       action: v.string(),
@@ -204,6 +205,7 @@ export const formatContextForAgent = query({
         cursorPosition: v.optional(v.number()),
         searchQuery: v.optional(v.string()),
         currentEscritoId: v.optional(v.id("escritos")),
+        currentDocumentId: v.optional(v.id("documents")),
       }),
       recentActivity: v.array(v.object({
         action: v.string(),
@@ -231,6 +233,18 @@ export const formatContextForAgent = query({
         type: v.optional(v.string()),
       })),
       resolvedReferences: v.optional(v.array(vResolvedReference)),
+      openedEscrito: v.optional(v.object({
+        id: v.id("escritos"),
+        title: v.string(),
+        contentPreview: v.string(),
+        status: v.optional(v.string()),
+      })),
+      openedDocument: v.optional(v.object({
+        id: v.id("documents"),
+        title: v.string(),
+        contentPreview: v.string(),
+        type: v.optional(v.string()),
+      })),
     }),
   },
   returns: v.string(),

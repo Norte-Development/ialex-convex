@@ -2,6 +2,7 @@ import { useQuery } from "convex/react";
 import { useCase } from "@/context/CaseContext";
 import { useEscrito } from "@/context/EscritoContext";
 import { usePage } from "@/context/PageContext";
+import { useParams } from "react-router-dom";
 import { api } from "../../../convex/_generated/api";
 import { Id } from "../../../convex/_generated/dataModel";
 import type { PillProps } from "./types/ui-types";
@@ -34,11 +35,18 @@ export function ContextSummaryBar({
   const { caseTitle } = useCase();
   const { escritoId } = useEscrito();
   const { pageState } = usePage();
+  const { documentId } = useParams();
 
   // Fetch escrito details if we have an escritoId
   const escrito = useQuery(
     api.functions.documents.getEscrito,
     escritoId ? { escritoId: escritoId as Id<"escritos"> } : "skip",
+  );
+
+  // Fetch document details if we have a documentId
+  const document = useQuery(
+    api.functions.documents.getDocument,
+    documentId ? { documentId: documentId as Id<"documents"> } : "skip",
   );
 
   const page = pageState.currentPage || undefined;
@@ -60,7 +68,7 @@ export function ContextSummaryBar({
   };
 
   // Don't show if no meaningful context
-  if (!caseTitle && !escrito && !page && references.length === 0) {
+  if (!caseTitle && !escrito && !document && !page && references.length === 0) {
     return null;
   }
 
@@ -72,6 +80,9 @@ export function ContextSummaryBar({
         )}
         {escrito && (
           <Pill label="Escrito" value={escrito.title} icon={<span>📝</span>} />
+        )}
+        {document && (
+          <Pill label="Documento" value={document.title} icon={<span>📄</span>} />
         )}
         {page && page !== "unknown" && (
           <Pill

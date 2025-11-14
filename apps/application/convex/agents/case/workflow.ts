@@ -110,6 +110,7 @@ const vContextBundle = v.object({
     cursorPosition: v.optional(v.number()),
     searchQuery: v.optional(v.string()),
     currentEscritoId: v.optional(v.id("escritos")),
+    currentDocumentId: v.optional(v.id("documents")),
   }),
   recentActivity: v.array(
     v.object({
@@ -147,6 +148,18 @@ const vContextBundle = v.object({
     }),
   ),
   resolvedReferences: v.optional(v.array(vResolvedReference)),
+  openedEscrito: v.optional(v.object({
+    id: v.id("escritos"),
+    title: v.string(),
+    contentPreview: v.string(),
+    status: v.optional(v.string()),
+  })),
+  openedDocument: v.optional(v.object({
+    id: v.id("documents"),
+    title: v.string(),
+    contentPreview: v.string(),
+    type: v.optional(v.string()),
+  })),
 });
 
 export const gatherContextForWorkflow = internalMutation({
@@ -159,6 +172,7 @@ export const gatherContextForWorkflow = internalMutation({
     cursorPosition: v.optional(v.number()),
     searchQuery: v.optional(v.string()),
     currentEscritoId: v.optional(v.id("escritos")),
+    currentDocumentId: v.optional(v.id("documents")),
     resolvedReferences: v.optional(v.array(vResolvedReference)),
   },
   returns: v.any(),
@@ -170,6 +184,7 @@ export const gatherContextForWorkflow = internalMutation({
       cursorPosition: args.cursorPosition,
       searchQuery: args.searchQuery,
       currentEscritoId: args.currentEscritoId,
+      currentDocumentId: args.currentDocumentId,
     };
 
     return await ContextService.gatherAutoContext(
@@ -195,6 +210,7 @@ export const legalAgentWorkflow = workflow.define({
     cursorPosition: v.optional(v.number()),
     searchQuery: v.optional(v.string()),
     currentEscritoId: v.optional(v.id("escritos")),
+    currentDocumentId: v.optional(v.id("documents")),
     resolvedReferences: v.optional(v.array(vResolvedReference)),
   },
   handler: async (step, args): Promise<void> => {
@@ -213,6 +229,7 @@ export const legalAgentWorkflow = workflow.define({
         cursorPosition: args.cursorPosition,
         searchQuery: args.searchQuery,
         currentEscritoId: args.currentEscritoId,
+        currentDocumentId: args.currentDocumentId,
         resolvedReferences: args.resolvedReferences,
       },
     );
@@ -253,6 +270,8 @@ export const streamWithContextAction = internalAction({
     );
 
     const contextString = ContextService.formatContextForAgent(contextBundle);
+
+    console.log('contextString', contextString);
 
     const schema = buildServerSchema();
     const nodeSpecs: Array<string> = [];
@@ -407,6 +426,7 @@ export const initiateWorkflowStreaming = mutation({
     cursorPosition: v.optional(v.number()),
     searchQuery: v.optional(v.string()),
     currentEscritoId: v.optional(v.id("escritos")),
+    currentDocumentId: v.optional(v.id("documents")),
     resolvedReferences: v.optional(v.array(vResolvedReference)),
   },
   returns: v.object({
@@ -470,6 +490,7 @@ export const initiateWorkflowStreaming = mutation({
         cursorPosition: args.cursorPosition,
         searchQuery: args.searchQuery,
         currentEscritoId: args.currentEscritoId,
+        currentDocumentId: args.currentDocumentId,
         resolvedReferences: args.resolvedReferences,
       },
     );

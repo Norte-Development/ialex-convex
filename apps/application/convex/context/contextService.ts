@@ -1,6 +1,24 @@
 import { Id } from "../_generated/dataModel";
+import { internal } from "../_generated/api";
+import { prosemirrorSync } from "../prosemirror";
+import { buildServerSchema } from "../../../../packages/shared/src/tiptap/schema";
+import { extractTextWithMapping } from "../agents/case/escritosHelper";
 
 // Types for the Context Service
+export interface OpenedEscritoContext {
+  id: Id<"escritos">;
+  title: string;
+  contentPreview: string; // First 1000 characters of text
+  status?: string;
+}
+
+export interface OpenedDocumentContext {
+  id: Id<"documents">;
+  title: string;
+  contentPreview: string; // First 1000 characters of extracted text
+  type?: string;
+}
+
 export interface ContextBundle {
   user: UserContext;
   case: CaseContext | null;
@@ -11,6 +29,8 @@ export interface ContextBundle {
   metadata: ContextMetadata;
   caseDocuments: CaseDocumentContext[];
   resolvedReferences?: ResolvedReference[];
+  openedEscrito?: OpenedEscritoContext;
+  openedDocument?: OpenedDocumentContext;
 }
 
 export interface ResolvedReference {
@@ -90,6 +110,7 @@ export interface ViewContext {
   cursorPosition?: number;
   searchQuery?: string;
   currentEscritoId?: Id<"escritos">;
+  currentDocumentId?: Id<"documents">;
 }
 
 export interface ActivityContext {
@@ -144,7 +165,7 @@ export class ContextService {
     const startTime = Date.now();
 
     // Gather context components in parallel
-    const [userContext, caseContext, clientContexts, recentActivity, userRules, caseRules, caseDocuments] = await Promise.all([
+    const [userContext, caseContext, clientContexts, recentActivity, userRules, caseRules, caseDocuments, openedEscrito, openedDocument] = await Promise.all([
       this.getUserContext(ctx, userId),
       caseId ? this.getCaseContext(ctx, caseId) : Promise.resolve(null),
       caseId ? this.getClientContexts(ctx, caseId) : Promise.resolve([]),
@@ -152,6 +173,8 @@ export class ContextService {
       this.getUserRules(ctx, userId),
       caseId ? this.getCaseRules(ctx, caseId, userId) : Promise.resolve([]),
       caseId ? this.getCaseDocuments(ctx, caseId) : Promise.resolve([]),
+      viewContext?.currentEscritoId ? this.getOpenedEscrito(ctx, viewContext.currentEscritoId) : Promise.resolve(undefined),
+      viewContext?.currentDocumentId ? this.getOpenedDocument(ctx, viewContext.currentDocumentId) : Promise.resolve(undefined),
     ]);
 
     // Merge rules (user-level and case-level)
@@ -192,6 +215,8 @@ export class ContextService {
       metadata,
       caseDocuments,
       resolvedReferences: convertedReferences || [],
+      openedEscrito,
+      openedDocument,
     };
 
     // Optimize for token limits
@@ -379,6 +404,115 @@ export class ContextService {
   }
 
   /**
+   * Get opened escrito context with content preview
+   */
+  private static async getOpenedEscrito(
+    ctx: any,
+    escritoId: Id<"escritos">
+  ): Promise<OpenedEscritoContext | undefined> {
+    try {
+      const escrito = await ctx.runQuery(internal.functions.documents.internalGetEscrito, {
+        escritoId,
+      });
+
+      if (!escrito) {
+        return undefined;
+      }
+
+      // Get ProseMirror document content
+      const schema = buildServerSchema();
+      const doc = await prosemirrorSync.getDoc(ctx, escrito.prosemirrorId, schema);
+      
+      // Extract text from ProseMirror JSON
+      const { text } = extractTextWithMapping(doc.doc.toJSON());
+      
+      // Get preview (first 1000 characters)
+      const contentPreview = text.length > 1000 
+        ? text.substring(0, 1000) + "..."
+        : text;
+
+      return {
+        id: escrito._id,
+        title: escrito.title || "Sin título",
+        contentPreview,
+        status: escrito.status,
+      };
+    } catch (error) {
+      console.error("Error fetching opened escrito context:", error);
+      // Return basic info even if content fetch fails
+      try {
+        const escrito = await ctx.runQuery(internal.functions.documents.internalGetEscrito, {
+          escritoId,
+        });
+        if (escrito) {
+          return {
+            id: escrito._id,
+            title: escrito.title || "Sin título",
+            contentPreview: "[No se pudo cargar el contenido]",
+            status: escrito.status,
+          };
+        }
+      } catch {
+        // Ignore errors
+      }
+      return undefined;
+    }
+  }
+
+  /**
+   * Get opened document context with content preview
+   */
+  private static async getOpenedDocument(
+    ctx: any,
+    documentId: Id<"documents">
+  ): Promise<OpenedDocumentContext | undefined> {
+    try {
+      const document = await ctx.runQuery(internal.functions.documents.getDocumentForAgent, {
+        documentId,
+      });
+
+      if (!document) {
+        return undefined;
+      }
+
+      // Get content preview from extractedText if available
+      let contentPreview = "[Documento sin texto extraído]";
+      if (document.extractedText) {
+        const text = document.extractedText;
+        contentPreview = text.length > 1000 
+          ? text.substring(0, 1000) + "..."
+          : text;
+      }
+
+      return {
+        id: document._id,
+        title: document.title || document.name || "Sin título",
+        contentPreview,
+        type: document.type || document.category,
+      };
+    } catch (error) {
+      console.error("Error fetching opened document context:", error);
+      // Return basic info even if content fetch fails
+      try {
+        const document = await ctx.runQuery(internal.functions.documents.getDocumentForAgent, {
+          documentId,
+        });
+        if (document) {
+          return {
+            id: document._id,
+            title: document.title || document.name || "Sin título",
+            contentPreview: "[No se pudo cargar el contenido]",
+            type: document.type || document.category,
+          };
+        }
+      } catch {
+        // Ignore errors
+      }
+      return undefined;
+    }
+  }
+
+  /**
    * Optimize context bundle for token limits
    */
   private static optimizeForTokens(contextBundle: ContextBundle): ContextBundle {
@@ -450,7 +584,35 @@ ${clientInfo}`);
         viewSection += `\n- Trabajando en Escrito: ${view.currentEscritoId}`;
       }
 
+      if (view.currentDocumentId) {
+        viewSection += `\n- Viendo Documento: ${view.currentDocumentId}`;
+      }
+
       sections.push(viewSection);
+    }
+
+    // Opened Escrito context
+    if (contextBundle.openedEscrito) {
+      const escrito = contextBundle.openedEscrito;
+      let escritoSection = `## Escrito Abierto Actualmente
+- **Título**: ${escrito.title}
+- **ID**: ${escrito.id}
+${escrito.status ? `- **Estado**: ${escrito.status}` : ''}
+- **Vista previa del contenido** (primeros 1000 caracteres):
+${escrito.contentPreview}`;
+      sections.push(escritoSection);
+    }
+
+    // Opened Document context
+    if (contextBundle.openedDocument) {
+      const document = contextBundle.openedDocument;
+      let documentSection = `## Documento Abierto Actualmente
+- **Título**: ${document.title}
+- **ID**: ${document.id}
+${document.type ? `- **Tipo**: ${document.type}` : ''}
+- **Vista previa del contenido** (primeros 1000 caracteres):
+${document.contentPreview}`;
+      sections.push(documentSection);
     }
 
     // Recent activity

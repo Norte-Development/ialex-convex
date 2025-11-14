@@ -13,6 +13,8 @@ import { internal, api } from "../_generated/api";
 import { _checkLimit, _getBillingEntity } from "../billing/features";
 import { PLAN_LIMITS } from "../billing/planLimits";
 
+
+
 /**
  * Generates a Google Cloud Storage V4 signed URL for client-side uploads.
  *
@@ -923,6 +925,60 @@ export const createEscrito = mutation({
       prosemirrorId: args.prosemirrorId,
       alreadyExists: false,
     };
+  },
+});
+
+
+
+/**
+ * Internal mutation to create a new escrito with initial content.
+ * 
+ * This mutation creates a ProseMirror document with initial content and creates
+ * the corresponding escrito record.
+ *
+ * @param {Object} args - The function arguments
+ * @param {string} args.title - The escrito title
+ * @param {string} args.caseId - The ID of the case this escrito belongs to
+ * @param {string} args.userId - User ID for the escrito creator
+ * @param {string} args.initialContent - Initial text content for the escrito
+ * @returns {Promise<{escritoId: string}>} The created escrito's ID
+ */
+export const createEscritoWithContent = internalMutation({
+  args: {
+    title: v.string(),
+    caseId: v.id("cases"),
+    userId: v.id("users"),
+    initialContent: v.any(),
+  },
+  returns: v.object({
+    escritoId: v.id("escritos"),
+  }),
+  handler: async (ctx, args) => {
+    const userId = args.userId;
+
+    const prosemirrorId = crypto.randomUUID();
+    await prosemirrorSync.create(ctx, prosemirrorId, args.initialContent);
+
+    const now = Date.now();
+
+    const escritoId = await ctx.db.insert("escritos", {
+      title: args.title,
+      caseId: args.caseId,
+      prosemirrorId: prosemirrorId,
+      status: "borrador",
+      createdBy: userId,
+      lastModifiedBy: userId,
+      isArchived: false,
+      lastEditedAt: now,
+      // Reasonable defaults for optional metadata fields
+      expedientNumber: undefined,
+      presentationDate: undefined,
+      courtName: undefined,
+      wordCount: undefined,
+    });
+
+    console.log("Created escrito with content, id:", escritoId);
+    return { escritoId };
   },
 });
 

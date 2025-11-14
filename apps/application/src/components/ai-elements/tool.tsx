@@ -8,7 +8,9 @@ import {
   XCircleIcon,
 } from "lucide-react";
 import type { ComponentProps, ReactNode } from "react";
-import { CreateEscritoPreview } from "./CreateEscritoPreview";
+import { Link } from "react-router-dom";
+import { useCase } from "@/context/CaseContext";
+import type { Id } from "../../../convex/_generated/dataModel";
 
 export type ToolProps = ComponentProps<"div"> & {
   type: string;
@@ -229,17 +231,73 @@ function ToolInputDisplay({ type, input }: { type: string; input: any }): ReactN
   );
 }
 
+// Minimal component for createEscrito tool with hyperlink
+function CreateEscritoTool({ className, state, output, ...props }: ToolProps) {
+  const { caseId } = useCase();
+  const statusDisplay = getStatusDisplay(state);
+
+  // Extract escritoId from markdown output string
+  // Handle different output structures: string, {type: "text", value: string}, or {value: string}
+  let outputString = "";
+  if (typeof output === "string") {
+    outputString = output;
+  } else if (output && typeof output === "object") {
+    const outputObj = output as Record<string, unknown>;
+    if (outputObj.type === "text" && typeof outputObj.value === "string") {
+      outputString = outputObj.value;
+    } else if (typeof outputObj.value === "string") {
+      outputString = outputObj.value;
+    } else if (typeof outputObj.result === "string") {
+      outputString = outputObj.result;
+    }
+  }
+  
+  const idMatch = outputString.match(/- \*\*ID\*\*:\s+([a-z0-9_]{10,})/i);
+  const escritoId = idMatch?.[1] as Id<"escritos"> | undefined;
+
+  return (
+    <div
+      className={cn(
+        "flex flex-col gap-1 ml-4 pl-2 py-1.5 text-[11px] border-l-2 border-gray-200 bg-gray-50/50 rounded-r-md",
+        statusDisplay.textColor,
+        className,
+      )}
+      {...props}
+    >
+      <div className="flex items-center gap-2">
+        {statusDisplay.icon}
+        <span className="font-medium">Creando</span>
+      </div>
+      {state === "output-available" && escritoId && caseId && (
+        <div className="mt-1">
+          <Link
+            to={`/caso/${caseId}/escritos/${escritoId}`}
+            className="text-blue-600 hover:text-blue-800 hover:underline text-[11px]"
+          >
+            Abrir escrito
+          </Link>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export const Tool = ({ className, type, state, input, ...props }: ToolProps) => {
   const actionLabel = getActionLabel(type);
   const statusDisplay = getStatusDisplay(state);
 
-  // Check if this is a createEscrito action
-  const output = props.output as Record<string, unknown> | undefined;
-  const isCreateEscrito =
-    state === "output-available" && output?.action === "createEscrito";
-
-  if (isCreateEscrito) {
-    return <CreateEscritoPreview output={props.output} />;
+  // Check if this is a createEscrito tool
+  if (type === "createEscrito") {
+    return (
+      <CreateEscritoTool
+        className={className}
+        type={type}
+        state={state}
+        input={input}
+        output={props.output}
+        {...props}
+      />
+    );
   }
 
 
