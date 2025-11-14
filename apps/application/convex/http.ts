@@ -577,7 +577,7 @@ http.route({
       console.log(`[WhatsApp Webhook] Received message from ${from}`);
 
       // Process the incoming message
-      await ctx.runMutation(internal.whatsapp.twilio.processIncomingMessage, {
+      await ctx.runMutation(internal.whatsapp.whatsapp.processIncomingMessage, {
         messageSid,
         from,
         to,
