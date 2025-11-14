@@ -233,6 +233,18 @@ export const formatContextForAgent = query({
         type: v.optional(v.string()),
       })),
       resolvedReferences: v.optional(v.array(vResolvedReference)),
+      openedEscrito: v.optional(v.object({
+        id: v.id("escritos"),
+        title: v.string(),
+        contentPreview: v.string(),
+        status: v.optional(v.string()),
+      })),
+      openedDocument: v.optional(v.object({
+        id: v.id("documents"),
+        title: v.string(),
+        contentPreview: v.string(),
+        type: v.optional(v.string()),
+      })),
     }),
   },
   returns: v.string(),
