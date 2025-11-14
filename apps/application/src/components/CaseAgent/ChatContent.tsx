@@ -236,6 +236,7 @@ export function ChatContent({ threadId }: { threadId: string | undefined }) {
           cursorPosition: currentViewContext.cursorPosition,
           searchQuery: currentViewContext.searchQuery,
           currentEscritoId: currentViewContext.currentEscritoId,
+          currentDocumentId: currentViewContext.currentDocumentId, // Add this line
           resolvedReferences: allResolvedReferences,
         });
 

@@ -271,6 +271,8 @@ export const streamWithContextAction = internalAction({
 
     const contextString = ContextService.formatContextForAgent(contextBundle);
 
+    console.log('contextString', contextString);
+
     const schema = buildServerSchema();
     const nodeSpecs: Array<string> = [];
     (schema.spec.nodes as any).forEach((nodeSpec: any, nodeName: string) => {
