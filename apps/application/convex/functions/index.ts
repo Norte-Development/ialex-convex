@@ -69,6 +69,18 @@ export {
   internalGetModelos,
 } from "./templates";
 
+// Prompts Library Management
+export {
+  createPrompt,
+  getPrompts,
+  getPrompt,
+  searchPrompts,
+  updatePrompt,
+  incrementPromptUsage,
+  deletePrompt,
+  getPromptCategories,
+} from "./prompts";
+
 // Team Management
 export {
   createTeam,
@@ -135,3 +147,6 @@ export {
 
 // Global Search
 export { globalSearch } from "./search";
+
+// Seed Functions
+export { seedPrompts } from "./seedPrompts";

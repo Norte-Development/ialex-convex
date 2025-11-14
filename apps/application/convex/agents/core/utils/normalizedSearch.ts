@@ -20,6 +20,18 @@ export function buildDocIndex(doc: any, options?: SearchOptions): DocIndex {
   const rawChars: string[] = [];
   const rawPmPos: number[] = []; // parallel to rawChars
 
+  // Helper to check if a node is a block-level node
+  function isBlockNode(node: any): boolean {
+    if (!node.type) return false;
+    const blockTypes = ["paragraph", "heading", "blockquote", "listItem", "codeBlock"];
+    return blockTypes.includes(node.type.name);
+  }
+
+  // Track the last block node position and whether it had text
+  let lastBlockPos: number | null = null;
+  let lastBlockHadText = false;
+
+  // Process nodes and add separators between consecutive blocks
   doc.descendants((node: any, pos: number) => {
     // Handle change nodes - skip deleted ones, but process added ones
     if (node.type && (node.type.name === "inlineChange" || node.type.name === "blockChange" || node.type.name === "lineBreakChange")) {
@@ -31,16 +43,41 @@ export function buildDocIndex(doc: any, options?: SearchOptions): DocIndex {
       return true;
     }
 
+    // Check if this is a block node (at the start of a block)
+    if (isBlockNode(node)) {
+      // Add separator if previous block had text content
+      if (lastBlockPos !== null && lastBlockHadText && rawChars.length > 0) {
+        // Check if last char is not already a newline
+        if (rawChars[rawChars.length - 1] !== "\n") {
+          rawChars.push("\n");
+          rawPmPos.push(pos - 1);
+        }
+      }
+      // Reset tracking for this new block
+      lastBlockPos = pos;
+      lastBlockHadText = false;
+      // Continue to process children
+      return true;
+    }
+
     if (node.isText) {
       const text = node.text || "";
-      for (let i = 0; i < text.length; i++) {
-        rawChars.push(text[i]);
-        rawPmPos.push(pos + i);
+      if (text.length > 0) {
+        // Mark that current block has text
+        if (lastBlockPos !== null) {
+          lastBlockHadText = true;
+        }
+        for (let i = 0; i < text.length; i++) {
+          rawChars.push(text[i]);
+          rawPmPos.push(pos + i);
+        }
       }
     } else if (node.type && node.type.name === "hardBreak") {
       rawChars.push("\n");
       rawPmPos.push(pos);
     }
+    
+    return true; // Continue traversing
   });
 
   const raw = rawChars.join("");
@@ -77,14 +114,29 @@ export function findMatches(
   options?: SearchOptions,
 ): NormalizedMatch[] {
   const opts = { contextWindow: 50, ...options } as Required<SearchOptions>;
-  const q = normalizeQuery(query, opts);
+  
+  // Collapse whitespace in the document text (normalizeWhitespace: true)
+  // This allows matching regardless of \n vs \n\n differences
+  const collapsedDocMaps = normalizeAndBuildMaps(docIndex.normalizedText, {
+    ...opts,
+    normalizeWhitespace: true, // Collapse consecutive whitespace to single space
+  });
+  const text = collapsedDocMaps.normalizedText; // Collapsed document text
+  // Map: collapsed index -> original normalized index (in docIndex.normalizedText)
+  const collapsedToNorm = collapsedDocMaps.normToOrig;
+
+  // Collapse whitespace in the query the same way
+  const qMaps = normalizeAndBuildMaps(query, {
+    ...opts,
+    normalizeWhitespace: true, // Collapse consecutive whitespace to single space
+  });
+  const q = qMaps.normalizedText;
   if (!q) return [];
 
   const matches: NormalizedMatch[] = [];
-  const text = docIndex.normalizedText;
 
-  console.log(`  [findMatches] Searching for normalized query: "${q}"`);
-  console.log(`  [findMatches] Document length: ${text.length}, Query length: ${q.length}`);
+  console.log(`  [findMatches] Searching for normalized (collapsed) query: "${q}"`);
+  console.log(`  [findMatches] Collapsed document length: ${text.length}, Query length: ${q.length}`);
   
   let start = 0;
   let matchCount = 0;
@@ -93,7 +145,7 @@ export function findMatches(
     if (idx === -1) break;
 
     matchCount++;
-    console.log(`  [findMatches] Potential match #${matchCount} found at position ${idx}`);
+    console.log(`  [findMatches] Potential match #${matchCount} found at collapsed position ${idx}`);
     
     const end = idx + q.length;
 
@@ -104,13 +156,16 @@ export function findMatches(
     }
     console.log(`    ✅ Whole word check passed (or disabled)`);
 
-    // Context checks on normalized text
+    // Context checks on collapsed text
     if (opts.contextBefore) {
       const beforeSlice = text.slice(Math.max(0, idx - opts.contextWindow), idx);
-      const normalizedContextBefore = normalizeQuery(opts.contextBefore, opts);
+      const normalizedContextBefore = normalizeAndBuildMaps(opts.contextBefore, {
+        ...opts,
+        normalizeWhitespace: true,
+      }).normalizedText;
       console.log(`    [Context Before Check]`);
       console.log(`      Raw context: "${opts.contextBefore}"`);
-      console.log(`      Normalized context: "${normalizedContextBefore}"`);
+      console.log(`      Normalized (collapsed) context: "${normalizedContextBefore}"`);
       console.log(`      Before slice (${opts.contextWindow} chars): "${beforeSlice}"`);
       console.log(`      Contains? ${beforeSlice.includes(normalizedContextBefore)}`);
       if (!beforeSlice.includes(normalizedContextBefore)) {
@@ -122,10 +177,13 @@ export function findMatches(
     }
     if (opts.contextAfter) {
       const afterSlice = text.slice(end, Math.min(text.length, end + opts.contextWindow));
-      const normalizedContextAfter = normalizeQuery(opts.contextAfter, opts);
+      const normalizedContextAfter = normalizeAndBuildMaps(opts.contextAfter, {
+        ...opts,
+        normalizeWhitespace: true,
+      }).normalizedText;
       console.log(`    [Context After Check]`);
       console.log(`      Raw context: "${opts.contextAfter}"`);
-      console.log(`      Normalized context: "${normalizedContextAfter}"`);
+      console.log(`      Normalized (collapsed) context: "${normalizedContextAfter}"`);
       console.log(`      After slice (${opts.contextWindow} chars): "${afterSlice}"`);
       console.log(`      Contains? ${afterSlice.includes(normalizedContextAfter)}`);
       if (!afterSlice.includes(normalizedContextAfter)) {
@@ -136,12 +194,17 @@ export function findMatches(
       console.log(`      ✅ Context after check PASSED`);
     }
 
-    // Map to PM positions; to is exclusive, so add 1 char past last
-    const fromPos = docIndex.normToPmPos[idx];
-    const lastCharPos = docIndex.normToPmPos[Math.max(idx, end - 1)];
+    // Map collapsed indices -> original normalized indices -> PM positions
+    // Use the mapping from collapsed text back to original normalized text
+    const normStart = collapsedToNorm[idx];
+    const normEnd = collapsedToNorm[Math.max(idx, end - 1)] + 1; // +1 to make exclusive
+
+    // Map to PM positions using the original normalized indices
+    const fromPos = docIndex.normToPmPos[normStart];
+    const lastCharPos = docIndex.normToPmPos[Math.max(normStart, normEnd - 1)];
     const toPos = lastCharPos + 1;
     console.log(`    ✅✅ MATCH ACCEPTED - Adding to results (PM pos: ${fromPos} to ${toPos})`);
-    matches.push({ normStart: idx, normEnd: end, from: fromPos, to: toPos });
+    matches.push({ normStart, normEnd, from: fromPos, to: toPos });
 
     start = idx + 1;
   }

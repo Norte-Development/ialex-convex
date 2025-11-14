@@ -77,10 +77,6 @@ export default function ClientsTable({
       <Table className="w-full">
         <TableHeader className="">
           <TableRow className="">
-            <TableHead className="">
-              <Checkbox />
-            </TableHead>
-
             <TableHead className="">Nombre</TableHead>
             <TableHead className="">DNI/CUIT</TableHead>
             {!caseId && <TableHead className="">Casos vinculados</TableHead>}
@@ -92,9 +88,6 @@ export default function ClientsTable({
         <TableBody className="">
           {clients.map((client: any, index: number) => (
             <TableRow key={client._id || index} className="">
-              <TableCell className="">
-                <Checkbox />
-              </TableCell>
               <TableCell className="">
                 <div className="flex items-center gap-1">
                   <Avatar className="w-8 h-8">
@@ -251,7 +244,7 @@ export default function ClientsTable({
           ))}
         </TableBody>
       </Table>
-      
+
       {/* Pagination controls */}
       {clients && clients.length > 0 && onPageChange && (
         <div className="mt-4">

@@ -10,6 +10,7 @@ import { FileText, Calendar, Scale, Users } from "lucide-react";
 import { Collapsible, CollapsibleContent } from "../ui/collapsible";
 import { useAction } from "convex/react";
 import { useQuery } from "@tanstack/react-query";
+import { useEffect, useMemo } from "react";
 import { api } from "../../../convex/_generated/api";
 import type {
   NormativeFilters,
@@ -61,6 +62,79 @@ const subestadoOptions: Subestado[] = [
   "sin_registro",
 ];
 
+// Mapping table: Estado -> Subestados habilitados
+const estadoSubestadoMapping: Record<Estado, Subestado[]> = {
+  vigente: ["alcance_general", "individual_modificatoria_o_sin_eficacia"],
+  anulada: ["vetada"],
+  derogada: ["derogada"],
+  abrogada: ["abrogada_implicita"],
+  caduca: ["ley_caduca", "refundida_ley_caduca"],
+  sin_registro_oficial: ["sin_registro"],
+  suspendida: [], // No subestados específicos según la tabla
+};
+
+// Mapping table: Tipo General -> Tipo Detalle patterns
+// Since tipo_detalle values are dynamic from MongoDB, we use pattern matching
+const tipoGeneralDetalleMapping: Record<string, (detalle: string) => boolean> = {
+  Ley: (detalle: string) => {
+    const lowerDetalle = detalle.toLowerCase();
+    return (
+      lowerDetalle.includes("ley") ||
+      lowerDetalle.includes("decreto ley") ||
+      lowerDetalle.includes("tratado") ||
+      lowerDetalle.includes("código") ||
+      lowerDetalle.includes("codigo") ||
+      lowerDetalle.includes("constitución") ||
+      lowerDetalle.includes("constitucion") ||
+      lowerDetalle.includes("texto ordenado ley") ||
+      lowerDetalle.includes("ley de contrato de trabajo") ||
+      lowerDetalle.includes("ley de procedimientos administrativos") ||
+      lowerDetalle.includes("norma jurídica de hecho") ||
+      lowerDetalle.includes("norma juridica de hecho")
+    );
+  },
+  Decreto: (detalle: string) => {
+    const lowerDetalle = detalle.toLowerCase();
+    return (
+      lowerDetalle.includes("decreto") &&
+      !lowerDetalle.includes("decreto ley") &&
+      (lowerDetalle.includes("dnu") ||
+        lowerDetalle.includes("decreto de necesidad y urgencia") ||
+        lowerDetalle.includes("decreto ordenanza") ||
+        lowerDetalle.includes("texto ordenado decreto"))
+    );
+  },
+  Resolución: (detalle: string) => {
+    const lowerDetalle = detalle.toLowerCase();
+    return (
+      lowerDetalle.includes("resolución") ||
+      lowerDetalle.includes("resolucion") ||
+      lowerDetalle.includes("resol.")
+    );
+  },
+  Decisión: (detalle: string) => {
+    const lowerDetalle = detalle.toLowerCase();
+    return (
+      lowerDetalle.includes("decisión") ||
+      lowerDetalle.includes("decision") ||
+      lowerDetalle.includes("mercosur")
+    );
+  },
+  Disposición: (detalle: string) => {
+    const lowerDetalle = detalle.toLowerCase();
+    return (
+      lowerDetalle.includes("disposición") ||
+      lowerDetalle.includes("disposicion") ||
+      lowerDetalle.includes("técnico registral") ||
+      lowerDetalle.includes("tecnico registral")
+    );
+  },
+  Acordada: (detalle: string) => {
+    const lowerDetalle = detalle.toLowerCase();
+    return lowerDetalle.includes("acordada");
+  },
+};
+
 export function FiltersPanel({
   showFilters,
   onShowFiltersChange,
@@ -91,6 +165,65 @@ export function FiltersPanel({
     enabled: contentType === "legislation" || contentType === "all",
     staleTime: 24 * 60 * 60 * 1000, // 24 hours - same as backend cache
   });
+
+  // Filter subestado options based on selected estado
+  const filteredSubestadoOptions = useMemo(() => {
+    if (!filters.estado) {
+      return [];
+    }
+    const allowedSubestados = estadoSubestadoMapping[filters.estado] || [];
+    return subestadoOptions.filter((subestado) =>
+      allowedSubestados.includes(subestado),
+    );
+  }, [filters.estado]);
+
+  // Filter tipo_detalle options based on selected tipo_general
+  const filteredTipoDetalleOptions = useMemo(() => {
+    if (!filters.tipo_general || !tipoDetalleOptions.length) {
+      return [];
+    }
+    const matcher = tipoGeneralDetalleMapping[filters.tipo_general];
+    if (!matcher) {
+      // If no specific matcher, return all options (fallback)
+      return tipoDetalleOptions;
+    }
+    return tipoDetalleOptions.filter((detalle) => matcher(detalle));
+  }, [filters.tipo_general, tipoDetalleOptions]);
+
+  // Clear subestado when estado changes and current subestado is invalid
+  // Also set default sin_registro for sin_registro_oficial if no subestado selected
+  useEffect(() => {
+    if (filters.estado && filters.subestado) {
+      const allowedSubestados = estadoSubestadoMapping[filters.estado] || [];
+      if (!allowedSubestados.includes(filters.subestado)) {
+        // If estado is sin_registro_oficial, default to sin_registro
+        if (filters.estado === "sin_registro_oficial") {
+          onFilterChange("subestado", "sin_registro");
+        } else {
+          onFilterChange("subestado", undefined);
+        }
+      }
+    } else if (filters.estado === "sin_registro_oficial" && !filters.subestado) {
+      // Default to sin_registro when estado is sin_registro_oficial and no subestado selected
+      onFilterChange("subestado", "sin_registro");
+    } else if (!filters.estado && filters.subestado) {
+      // Clear subestado if estado is cleared
+      onFilterChange("subestado", undefined);
+    }
+  }, [filters.estado, filters.subestado, onFilterChange]);
+
+  // Clear tipo_detalle when tipo_general changes and current tipo_detalle is invalid
+  useEffect(() => {
+    if (filters.tipo_general && filters.tipo_detalle) {
+      const matcher = tipoGeneralDetalleMapping[filters.tipo_general];
+      if (matcher && !matcher(filters.tipo_detalle)) {
+        onFilterChange("tipo_detalle", undefined);
+      }
+    } else if (!filters.tipo_general && filters.tipo_detalle) {
+      // Clear tipo_detalle if tipo_general is cleared
+      onFilterChange("tipo_detalle", undefined);
+    }
+  }, [filters.tipo_general, filters.tipo_detalle, onFilterChange]);
   
   return (
     <Collapsible open={showFilters} onOpenChange={onShowFiltersChange}>
@@ -214,13 +347,20 @@ export function FiltersPanel({
                       value === "all" ? undefined : (value as TipoDetalle),
                     )
                   }
+                  disabled={!filters.tipo_general}
                 >
                   <SelectTrigger>
-                    <SelectValue placeholder="Todos los tipos detalle" />
+                    <SelectValue 
+                      placeholder={
+                        filters.tipo_general
+                          ? "Todos los tipos detalle"
+                          : "Seleccione Tipo General primero"
+                      }
+                    />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">Todos</SelectItem>
-                    {tipoDetalleOptions.map((tipo) => (
+                    {filteredTipoDetalleOptions.map((tipo) => (
                       <SelectItem key={tipo} value={tipo}>
                         {tipo}
                         {(() => {
@@ -278,32 +418,39 @@ export function FiltersPanel({
                       value === "all" ? undefined : (value as Subestado),
                     )
                   }
+                  disabled={!filters.estado}
                 >
                   <SelectTrigger>
-                    <SelectValue placeholder="Todos los subestados" />
+                    <SelectValue 
+                      placeholder={
+                        filters.estado
+                          ? "Todos los subestados"
+                          : "Seleccione Estado primero"
+                      }
+                    />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">Todos</SelectItem>
-                    {subestadoOptions.map((subestado) => (
-                      <SelectItem key={subestado} value={subestado}>
-                        {subestado
-                          .charAt(0)
-                          .toUpperCase() +
-                          subestado
-                            .slice(1)
-                            .replace(/_/g, " ")}
-                        {(() => {
-                          const facet = facets?.subestados?.find(
-                            (f) => f.name === subestado,
-                          );
-                          return facet ? (
+                    {filteredSubestadoOptions.map((subestado) => {
+                      const facet = facets?.subestados?.find(
+                        (f) => f.name === subestado,
+                      );
+                      return (
+                        <SelectItem key={subestado} value={subestado}>
+                          {subestado
+                            .charAt(0)
+                            .toUpperCase() +
+                            subestado
+                              .slice(1)
+                              .replace(/_/g, " ")}
+                          {facet && facet.count > 0 ? (
                             <span className="text-gray-500 ml-1">
                               ({facet.count})
                             </span>
-                          ) : null;
-                        })()}
-                      </SelectItem>
-                    ))}
+                          ) : null}
+                        </SelectItem>
+                      );
+                    })}
                   </SelectContent>
                 </Select>
               </div>

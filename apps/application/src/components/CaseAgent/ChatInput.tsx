@@ -10,6 +10,7 @@ import { ReferenceAutocomplete } from "./ReferenceAutocomplete";
 import type { Reference } from "./types/reference-types";
 import { chatSelectionBus } from "@/lib/chatSelectionBus";
 import { SelectionChip } from "./SelectionChip";
+import { useChatbot } from "@/context/ChatbotContext";
 
 /**
  * ChatInput Component
@@ -45,12 +46,56 @@ export function ChatInput({
   maxHeight = 250,
   disabled = false,
   onReferencesChange,
+  initialPrompt,
+  onInitialPromptProcessed,
 }: ChatInputProps) {
-  const [prompt, setPrompt] = useState("");
+  const { currentPrompt: persistedPrompt, setCurrentPrompt } = useChatbot();
+  // Initialize with persisted prompt, but initialPrompt takes precedence
+  const [prompt, setPrompt] = useState(() => {
+    // If there's an initialPrompt, use it; otherwise use persisted prompt
+    return initialPrompt || persistedPrompt || "";
+  });
   const [cursorPosition, setCursorPosition] = useState(0);
   const [showAutocomplete, setShowAutocomplete] = useState(false);
   const [activeReferences, setActiveReferences] = useState<Reference[]>([]);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const initialPromptProcessedRef = useRef(false);
+  const previousInitialPromptRef = useRef<string | undefined>(undefined);
+
+  // Handle initialPrompt changes (takes precedence over persisted prompt)
+  useEffect(() => {
+    // Only process if initialPrompt exists, hasn't been processed yet, and is different from previous
+    const isNewPrompt =
+      initialPrompt &&
+      initialPrompt !== previousInitialPromptRef.current &&
+      !initialPromptProcessedRef.current;
+
+    if (isNewPrompt) {
+      setPrompt(initialPrompt);
+      setCurrentPrompt(initialPrompt); // Also persist the initial prompt
+      initialPromptProcessedRef.current = true;
+      previousInitialPromptRef.current = initialPrompt;
+
+      // Notify parent that prompt has been processed
+      onInitialPromptProcessed?.();
+
+      // Focus the textarea after setting the prompt
+      setTimeout(() => {
+        if (textareaRef.current) {
+          textareaRef.current.focus();
+          textareaRef.current.setSelectionRange(
+            initialPrompt.length,
+            initialPrompt.length,
+          );
+        }
+      }, 0);
+    } else if (initialPrompt !== previousInitialPromptRef.current) {
+      // If initialPrompt changed to a different value, reset the processed flag
+      // This allows processing a new prompt even if the previous one was already processed
+      initialPromptProcessedRef.current = false;
+      previousInitialPromptRef.current = initialPrompt;
+    }
+  }, [initialPrompt, onInitialPromptProcessed, setCurrentPrompt]);
 
   // Subscribe to selection bus
   useEffect(() => {
@@ -93,17 +138,19 @@ export function ChatInput({
       const newCursorPos = e.target.selectionStart;
 
       setPrompt(newValue);
+      setCurrentPrompt(newValue); // Persist to context
       setCursorPosition(newCursorPos);
 
       const textBeforeCursor = newValue.slice(0, newCursorPos);
       const hasAtSymbol = /@[a-zA-Z]*:?[a-zA-Z]*$/.test(textBeforeCursor);
       setShowAutocomplete(hasAtSymbol);
     },
-    [],
+    [setCurrentPrompt],
   );
 
   const handleSelectionChange = useCallback(() => {
-    if (textareaRef.current) setCursorPosition(textareaRef.current.selectionStart);
+    if (textareaRef.current)
+      setCursorPosition(textareaRef.current.selectionStart);
   }, []);
 
   const handleSelectReference = useCallback(
@@ -121,6 +168,7 @@ export function ChatInput({
         const newCursorPos = atPos;
 
         setPrompt(newText);
+        setCurrentPrompt(newText); // Persist to context
         setCursorPosition(newCursorPos);
         setShowAutocomplete(false);
 
@@ -131,14 +179,18 @@ export function ChatInput({
           setCursorPosition(newCursorPos);
         }, 0);
       } else {
-        const newText = prompt.slice(0, startPos) + reference.name + prompt.slice(endPos);
+        const newText =
+          prompt.slice(0, startPos) + reference.name + prompt.slice(endPos);
         const newCursorPos = startPos + reference.name.length;
 
         setPrompt(newText);
+        setCurrentPrompt(newText); // Persist to context
         setCursorPosition(newCursorPos);
 
         const textBeforeCursor = newText.slice(0, newCursorPos);
-        const hasCompleteType = /@(client|document|escrito|case):$/.test(textBeforeCursor);
+        const hasCompleteType = /@(client|document|escrito|case):$/.test(
+          textBeforeCursor,
+        );
         setShowAutocomplete(hasCompleteType);
 
         setTimeout(() => {
@@ -149,7 +201,7 @@ export function ChatInput({
         }, 0);
       }
     },
-    [prompt],
+    [prompt, setCurrentPrompt],
   );
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -163,9 +215,12 @@ export function ChatInput({
       .filter((ref) => ref.type !== "selection")
       .map((ref) => `@${ref.type}:${ref.name}`)
       .join(" ");
-    const fullMessage = referencesText ? `${referencesText} ${trimmedPrompt}` : trimmedPrompt;
+    const fullMessage = referencesText
+      ? `${referencesText} ${trimmedPrompt}`
+      : trimmedPrompt;
 
     setPrompt("");
+    setCurrentPrompt(""); // Clear persisted prompt when message is sent
     setActiveReferences([]);
     setShowAutocomplete(false);
     onSendMessage(fullMessage, activeReferences);
@@ -174,7 +229,9 @@ export function ChatInput({
   const status: ChatStatus | undefined = isStreaming ? "streaming" : undefined;
   const isInputDisabled = disabled || isStreaming;
 
-  const activeSelection = activeReferences.find((r) => r.type === "selection" && r.selection);
+  const activeSelection = activeReferences.find(
+    (r) => r.type === "selection" && r.selection,
+  );
 
   /**
    * Handles button click - either submit or abort based on streaming state
@@ -192,7 +249,10 @@ export function ChatInput({
       {/* Selection chip on top */}
       {activeSelection?.selection && (
         <div className="mb-2">
-          <SelectionChip selection={activeSelection.selection} onRemove={handleRemoveSelection} />
+          <SelectionChip
+            selection={activeSelection.selection}
+            onRemove={handleRemoveSelection}
+          />
         </div>
       )}
 

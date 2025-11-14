@@ -3,10 +3,91 @@ import { httpRouter } from "convex/server";
 import { internal } from "./_generated/api";
 import { Id } from "./_generated/dataModel";
 import { stripe } from "./stripe";
+import Stripe from "stripe";
 
 const http = httpRouter();
 
+// Stripe webhooks manejados automáticamente por @raideno/convex-stripe
 stripe.addHttpRoutes(http);
+
+// Webhook personalizado para enviar emails cuando se activa una suscripción
+http.route({
+  path: "/webhooks/stripe-subscription-emails",
+  method: "POST",
+  handler: httpAction(async (ctx, request) => {
+    const stripeSignature = request.headers.get("stripe-signature");
+    const webhookSecret = process.env.STRIPE_WEBHOOK_KEY_EMAILS;
+
+    if (!stripeSignature || !webhookSecret) {
+      console.error("Missing stripe signature or webhook secret");
+      return new Response("Webhook Error: Missing signature", { status: 400 });
+    }
+
+    let event: Stripe.Event;
+    const body = await request.text();
+
+    try {
+      // Verificar la firma del webhook de Stripe
+      const stripeSDK = new Stripe(process.env.STRIPE_SECRET_KEY!);
+      event = await stripeSDK.webhooks.constructEventAsync(
+        body,
+        stripeSignature,
+        webhookSecret,
+      );
+    } catch (err: any) {
+      console.error(
+        `⚠️  Webhook signature verification failed: ${err.message}`,
+      );
+      return new Response(`Webhook Error: ${err.message}`, { status: 400 });
+    }
+
+    console.log(`✅ Stripe webhook received: ${event.type}`);
+
+    // Manejar eventos de suscripción
+    try {
+      if (
+        event.type === "customer.subscription.created" ||
+        event.type === "customer.subscription.updated"
+      ) {
+        const subscription = event.data.object as Stripe.Subscription;
+
+        // Solo procesar si la suscripción está activa
+        if (subscription.status === "active") {
+          console.log(
+            `📧 Processing subscription activation for: ${subscription.id}`,
+          );
+
+          await ctx.scheduler.runAfter(
+            5000, // 5 segundos
+            internal.billing.webhookHandlers.handleSubscriptionActivated,
+            {
+              subscriptionId: subscription.id,
+              customerId:
+                typeof subscription.customer === "string"
+                  ? subscription.customer
+                  : subscription.customer.id,
+              status: subscription.status,
+            },
+          );
+
+          console.log(
+            `⏰ Scheduled email send for subscription: ${subscription.id}`,
+          );
+        }
+      }
+
+      return new Response(JSON.stringify({ received: true }), {
+        status: 200,
+        headers: {
+          "Content-Type": "application/json",
+        },
+      });
+    } catch (error: any) {
+      console.error(`❌ Error processing webhook: ${error.message}`);
+      return new Response(`Webhook Error: ${error.message}`, { status: 500 });
+    }
+  }),
+});
 
 // HMAC verification using Web Crypto API (available in HTTP actions)
 async function verifyHmac(

@@ -43,6 +43,7 @@ import CaseTeamsPage from "./pages/CaseOpen/CaseTeamsPage";
 import CaseModelPage from "./pages/CaseOpen/CaseModelPage";
 import CaseDataBasePage from "./pages/CaseOpen/CaseDataBase";
 import CaseSettingsRulesPage from "./pages/CaseOpen/CaseSettingsRulesPage";
+import CasePromptsPage from "./pages/CaseOpen/CasePromptsPage";
 import CaseEventsPage from "./pages/CaseOpen/CaseEventsPage";
 import ComponentsShowcasePage from "./pages/ComponentsShowcasePage";
 import LibraryPage from "./pages/LibraryPage";
@@ -80,6 +81,7 @@ const CaseRoutesWrapper: React.FC = () => {
                 <Route path="clientes" element={<CaseClientsPage />} />
                 <Route path="equipos" element={<CaseTeamsPage />} />
                 <Route path="modelos" element={<CaseModelPage />} />
+                <Route path="prompts" element={<CasePromptsPage />} />
                 <Route path="base-de-datos" element={<CaseDataBasePage />} />
                 <Route
                   path="documentos/:documentId"

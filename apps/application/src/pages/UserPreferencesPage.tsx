@@ -34,12 +34,19 @@ const DEFAULT_PREFERENCES = {
 
 export default function UserPreferencesPage() {
   const currentUser = useQuery(api.functions.users.getCurrentUser, {});
-  const updatePreferences = useMutation(api.functions.users.updateUserPreferences);
+  const updatePreferences = useMutation(
+    api.functions.users.updateUserPreferences,
+  );
+  const updateProfile = useMutation(api.functions.users.updateUserProfile);
   const [searchParams, setSearchParams] = useSearchParams();
   const section = searchParams.get("section");
   // State for all preferences and UI
   const [isSaving, setIsSaving] = useState(false);
   const [preferences, setPreferences] = useState(DEFAULT_PREFERENCES);
+  const [profileFields, setProfileFields] = useState<{
+    workLocation?: string;
+    specializations?: string[];
+  }>({});
   const [activeSection, setActiveSection] = useState(section || "general");
 
   // Load preferences from user data
@@ -50,11 +57,22 @@ export default function UserPreferencesPage() {
         ...currentUser.preferences,
       });
     }
+    if (currentUser) {
+      setProfileFields({
+        workLocation: currentUser.workLocation || "",
+        specializations: currentUser.specializations || [],
+      });
+    }
   }, [currentUser]);
 
   // Update a single preference
   const updatePreference = (key: string, value: any) => {
     setPreferences((prev) => ({ ...prev, [key]: value }));
+  };
+
+  // Update profile field (specializations, workLocation) - now just updates local state
+  const updateProfileField = (key: string, value: any) => {
+    setProfileFields((prev) => ({ ...prev, [key]: value }));
   };
 
   // Add a new handler for section changes that updates both state and URL
@@ -67,7 +85,25 @@ export default function UserPreferencesPage() {
   const handleSavePreferences = async () => {
     setIsSaving(true);
     try {
+      // Save preferences
       await updatePreferences({ preferences });
+
+      // Save profile fields if they changed
+      const profileUpdates: any = {};
+      if (profileFields.workLocation !== currentUser?.workLocation) {
+        profileUpdates.workLocation = profileFields.workLocation;
+      }
+      if (
+        JSON.stringify(profileFields.specializations) !==
+        JSON.stringify(currentUser?.specializations)
+      ) {
+        profileUpdates.specializations = profileFields.specializations;
+      }
+
+      if (Object.keys(profileUpdates).length > 0) {
+        await updateProfile(profileUpdates);
+      }
+
       toast.success("Preferencias guardadas exitosamente");
     } catch (error) {
       console.error("Error saving preferences:", error);
@@ -103,41 +139,43 @@ export default function UserPreferencesPage() {
       <div className="grid gap-8 lg:grid-cols-[240px_1fr]">
         {/* Navigation Sidebar */}
         <aside className="lg:sticky lg:top-24 lg:self-start">
-          <PreferencesNav 
-            activeSection={activeSection} 
-            onSectionChange={handleSectionChange} 
+          <PreferencesNav
+            activeSection={activeSection}
+            onSectionChange={handleSectionChange}
           />
         </aside>
 
         {/* Content Area */}
         <main className="min-w-0 pb-10">
           {activeSection === "general" && (
-            <GeneralSection 
+            <GeneralSection
               preferences={preferences}
+              profileFields={profileFields}
               onUpdate={updatePreference}
+              onUpdateProfile={updateProfileField}
             />
           )}
 
           {activeSection === "notifications" && (
-            <NotificationsSection 
+            <NotificationsSection
               preferences={preferences}
               onUpdate={updatePreference}
             />
           )}
 
           {activeSection === "agent" && (
-            <AgentSection 
+            <AgentSection
               preferences={preferences}
+              profileFields={profileFields}
               onUpdate={updatePreference}
+              onUpdateProfile={updateProfileField}
             />
           )}
 
-          {activeSection === "billing" && (
-            <BillingSection />
-          )}
+          {activeSection === "billing" && <BillingSection />}
 
           {activeSection === "privacy" && (
-            <PrivacySection 
+            <PrivacySection
               preferences={preferences}
               onUpdate={updatePreference}
             />
