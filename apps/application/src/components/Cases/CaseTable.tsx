@@ -168,12 +168,12 @@ function getStatusText(status: Case["status"]) {
   }
 }
 
-export default function CaseTable({ 
-  casesResult, 
-  currentPage, 
-  pageSize, 
-  onPageChange, 
-  searchQuery 
+export default function CaseTable({
+  casesResult,
+  currentPage,
+  pageSize,
+  onPageChange,
+  searchQuery,
 }: CaseTableProps) {
   const navigate = useNavigate();
   const [selectedCases, setSelectedCases] = useState<Set<string>>(new Set());
@@ -234,12 +234,15 @@ export default function CaseTable({
 
   const handleDeleteSelected = async () => {
     // Filtrar solo casos donde el usuario es admin
-    const casesToDelete = cases?.filter(
-      (c) => selectedCases.has(c._id) && c.accessLevel === "admin"
-    ) || [];
+    const casesToDelete =
+      cases?.filter(
+        (c) => selectedCases.has(c._id) && c.accessLevel === "admin",
+      ) || [];
 
     if (casesToDelete.length === 0) {
-      toast.error("No tienes permisos de administrador en los casos seleccionados");
+      toast.error(
+        "No tienes permisos de administrador en los casos seleccionados",
+      );
       return;
     }
 
@@ -264,20 +267,20 @@ export default function CaseTable({
     cases && cases.length > 0 && selectedCases.size === cases.length;
   const someSelected =
     selectedCases.size > 0 && selectedCases.size < (cases?.length ?? 0);
-  
+
   // Contar cuántos casos seleccionados tienen permiso admin
-  const selectedAdminCases = cases?.filter(
-    (c) => selectedCases.has(c._id) && c.accessLevel === "admin"
-  ).length || 0;
+  const selectedAdminCases =
+    cases?.filter((c) => selectedCases.has(c._id) && c.accessLevel === "admin")
+      .length || 0;
 
   return (
     <div className="flex flex-col h-[calc(100vh-200px)] w-full">
       {/* Barra de acciones masivas */}
       {selectedCases.size > 0 && (
-        <div className="flex items-center justify-between p-4 bg-blue-50 border border-blue-200 rounded-lg mb-4">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-3 sm:p-4 bg-blue-50 border border-blue-200 rounded-lg mb-4 gap-3">
           <div className="flex items-center gap-3">
             <div className="flex flex-col">
-              <span className="font-medium text-blue-900">
+              <span className="font-medium text-blue-900 text-sm sm:text-base">
                 {selectedCases.size} caso{selectedCases.size > 1 ? "s" : ""}{" "}
                 seleccionado{selectedCases.size > 1 ? "s" : ""}
               </span>
@@ -293,16 +296,17 @@ export default function CaseTable({
               onClick={() => setSelectedCases(new Set())}
               className="h-8"
             >
-              <X className="h-4 w-4 mr-1" />
-              Limpiar selección
+              <X className="h-4 w-4 sm:mr-1" />
+              <span className="hidden sm:inline">Limpiar selección</span>
             </Button>
           </div>
           <AlertDialog>
             <AlertDialogTrigger asChild>
-              <Button 
-                variant="destructive" 
-                size="sm" 
+              <Button
+                variant="destructive"
+                size="sm"
                 disabled={isDeleting || selectedAdminCases === 0}
+                className="w-full sm:w-auto"
               >
                 <Trash2 className="h-4 w-4 mr-2" />
                 Eliminar seleccionados
@@ -311,20 +315,23 @@ export default function CaseTable({
             <AlertDialogContent>
               <AlertDialogHeader>
                 <AlertDialogTitle>
-                  ¿Eliminar {selectedAdminCases} caso{selectedAdminCases > 1 ? "s" : ""}?
+                  ¿Eliminar {selectedAdminCases} caso
+                  {selectedAdminCases > 1 ? "s" : ""}?
                 </AlertDialogTitle>
                 <AlertDialogDescription>
-                  Esta acción no se puede deshacer. {selectedAdminCases === selectedCases.size 
+                  Esta acción no se puede deshacer.{" "}
+                  {selectedAdminCases === selectedCases.size
                     ? "Los casos seleccionados serán eliminados permanentemente."
-                    : `Solo se eliminarán los ${selectedAdminCases} casos donde tienes permisos de administrador.`
-                  }
+                    : `Solo se eliminarán los ${selectedAdminCases} casos donde tienes permisos de administrador.`}
                 </AlertDialogDescription>
               </AlertDialogHeader>
               <AlertDialogFooter>
-                <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                <AlertDialogCancel className="w-full sm:w-auto">
+                  Cancelar
+                </AlertDialogCancel>
                 <AlertDialogAction
                   onClick={handleDeleteSelected}
-                  className="bg-red-600 hover:bg-red-700"
+                  className="bg-red-600 hover:bg-red-700 w-full sm:w-auto"
                 >
                   Eliminar
                 </AlertDialogAction>
@@ -337,121 +344,126 @@ export default function CaseTable({
       {/* Scrollable table container */}
       <div className="flex-1 overflow-auto border rounded-lg">
         <Table>
-        <TableHeader className="bg-gray-100 py-[16px] px-[8px] text-black ">
-          <TableRow>
-            <TableCell className="w-12">
-              <Checkbox
-                checked={allSelected}
-                onCheckedChange={handleSelectAll}
-                aria-label="Seleccionar todos"
-                className="h-5 w-5"
-                ref={(el) => {
-                  if (el) {
-                    (el as any).indeterminate = someSelected;
-                  }
-                }}
-              />
-            </TableCell>
-            <TableCell className="text-center">Casos</TableCell>
-            <TableCell className="text-center">Estado</TableCell>
-            <TableCell className="text-center">Equipos</TableCell>
-            <TableCell className="text-center">Miembros</TableCell>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {!cases || cases.length === 0 ? (
+          <TableHeader className="bg-gray-100 py-4 px-2 text-black">
             <TableRow>
-              <TableCell colSpan={5} className="text-center py-8 text-gray-500">
-                No hay casos disponibles
+              <TableCell className="w-12">
+                <Checkbox
+                  checked={allSelected}
+                  onCheckedChange={handleSelectAll}
+                  aria-label="Seleccionar todos"
+                  className="h-5 w-5"
+                  ref={(el) => {
+                    if (el) {
+                      (el as any).indeterminate = someSelected;
+                    }
+                  }}
+                />
+              </TableCell>
+              <TableCell className="text-center">Casos</TableCell>
+              <TableCell className="text-center">Estado</TableCell>
+              <TableCell className="text-center">Equipos</TableCell>
+              <TableCell className="text-center hidden md:table-cell">
+                Miembros
               </TableCell>
             </TableRow>
-          ) : (
-            cases.map((case_) => (
-              <TableRow
-                key={case_._id}
-                onClick={() => handleRowClick(case_._id)}
-                className={`group relative cursor-pointer hover:bg-gray-50 transition-colors ${
-                  selectedCases.has(case_._id) ? "bg-blue-50" : ""
-                }`}
-              >
-                <TableCell onClick={(e) => e.stopPropagation()}>
-                  <Checkbox
-                    checked={selectedCases.has(case_._id)}
-                    onCheckedChange={(checked) =>
-                      handleSelectCase(case_._id, checked as boolean)
-                    }
-                    className="h-5 w-5"
-                  />
+          </TableHeader>
+          <TableBody>
+            {!cases || cases.length === 0 ? (
+              <TableRow>
+                <TableCell
+                  colSpan={4}
+                  className="text-center py-8 text-gray-500"
+                >
+                  No hay casos disponibles
                 </TableCell>
-                <TableCell className="text-center">
-                  <span className="font-medium">{case_.title}</span>
-                </TableCell>
-                <TableCell className="text-center">
-                  <Badge variant={"basic"}>{getStatusText(case_.status)}</Badge>
-                </TableCell>
-                <TableCell className="text-center">
-                  <CaseTeams caseId={case_._id} />
-                </TableCell>
-                <TableCell className="text-center">
-                  <CaseUsers caseId={case_._id} />
-                </TableCell>
-                {/* Menú de acciones debe estar dentro de una celda para HTML válido */}
-                {(
-                  case_.accessLevel === "advanced" || case_.accessLevel === "admin"
-                ) && (
-                  <TableCell className="!p-0">
-                    <div
-                      className="absolute right-2 top-1/2 -translate-y-1/2 z-10"
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-8 w-8 p-0 opacity-0 group-hover:opacity-100 hover:!opacity-100 transition-opacity bg-white shadow-sm"
-                          >
-                            <MoreVertical className="h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          {(case_.accessLevel === "advanced" ||
-                            case_.accessLevel === "admin") && (
-                            <DropdownMenuItem
-                              onClick={() => handleEdit(case_)}
-                              className="cursor-pointer"
-                            >
-                              <Pencil className="mr-2 h-4 w-4" />
-                              <span>Editar</span>
-                            </DropdownMenuItem>
-                          )}
-                          {case_.accessLevel === "admin" && (
-                            <>
-                              <DropdownMenuSeparator />
-                              <DropdownMenuItem
-                                onClick={() => setCaseToDelete(case_)}
-                                className="cursor-pointer text-red-600 focus:text-red-600"
-                              >
-                                <Trash2 className="mr-2 h-4 w-4" />
-                                <span>Eliminar</span>
-                              </DropdownMenuItem>
-                            </>
-                          )}
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </div>
-                  </TableCell>
-                )}
               </TableRow>
-            ))
-          )}
-        </TableBody>
+            ) : (
+              cases.map((case_) => (
+                <TableRow
+                  key={case_._id}
+                  onClick={() => handleRowClick(case_._id)}
+                  className={`group relative cursor-pointer hover:bg-gray-50 transition-colors ${
+                    selectedCases.has(case_._id) ? "bg-blue-50" : ""
+                  }`}
+                >
+                  <TableCell onClick={(e) => e.stopPropagation()}>
+                    <Checkbox
+                      checked={selectedCases.has(case_._id)}
+                      onCheckedChange={(checked) =>
+                        handleSelectCase(case_._id, checked as boolean)
+                      }
+                      className="h-5 w-5"
+                    />
+                  </TableCell>
+                  <TableCell className="text-center">
+                    <span className="font-medium">{case_.title}</span>
+                  </TableCell>
+                  <TableCell className="text-center">
+                    <Badge variant={"basic"}>
+                      {getStatusText(case_.status)}
+                    </Badge>
+                  </TableCell>
+                  <TableCell className="text-center">
+                    <CaseTeams caseId={case_._id} />
+                  </TableCell>
+                  <TableCell className="text-center hidden md:table-cell">
+                    <CaseUsers caseId={case_._id} />
+                  </TableCell>
+                  {(case_.accessLevel === "advanced" ||
+                    case_.accessLevel === "admin") && (
+                    <TableCell className="p-0!">
+                      <div
+                        className="absolute right-2 top-1/2 -translate-y-1/2 z-10"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-8 w-8 p-0 opacity-0 group-hover:opacity-100 hover:opacity-100! transition-opacity bg-white shadow-sm"
+                            >
+                              <MoreVertical className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            {(case_.accessLevel === "advanced" ||
+                              case_.accessLevel === "admin") && (
+                              <DropdownMenuItem
+                                onClick={() => handleEdit(case_)}
+                                className="cursor-pointer"
+                              >
+                                <Pencil className="mr-2 h-4 w-4" />
+                                <span>Editar</span>
+                              </DropdownMenuItem>
+                            )}
+                            {case_.accessLevel === "admin" && (
+                              <>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem
+                                  onClick={() => setCaseToDelete(case_)}
+                                  className="cursor-pointer text-red-600 focus:text-red-600"
+                                >
+                                  <Trash2 className="mr-2 h-4 w-4" />
+                                  <span>Eliminar</span>
+                                </DropdownMenuItem>
+                              </>
+                            )}
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>
+                    </TableCell>
+                  )}
+                </TableRow>
+              ))
+            )}
+          </TableBody>
         </Table>
       </div>
 
       {/* Fixed pagination controls at bottom */}
       {cases && cases.length > 0 && (
-        <div className="mt-4 flex-shrink-0">
+        <div className="mt-4 shrink-0">
           <PaginationControls
             totalResults={casesResult?.totalCount || 0}
             currentPage={currentPage}
@@ -478,13 +490,16 @@ export default function CaseTable({
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={isDeleting}>
+            <AlertDialogCancel
+              disabled={isDeleting}
+              className="w-full sm:w-auto"
+            >
               Cancelar
             </AlertDialogCancel>
             <AlertDialogAction
               onClick={handleDeleteSingle}
               disabled={isDeleting}
-              className="bg-red-600 hover:bg-red-700"
+              className="bg-red-600 hover:bg-red-700 w-full sm:w-auto"
             >
               {isDeleting ? "Eliminando..." : "Eliminar"}
             </AlertDialogAction>
