@@ -67,7 +67,7 @@ export const streamAction = internalAction({
             onStepFinish: async (event) => {
               for (const content of event.content) {
                 if (content.type === 'text') {
-                  const { messageSid } = await ctx.runAction(internal.whatsapp.twilio.sendMessage, {
+                   await ctx.runAction(internal.whatsapp.twilio.sendMessage, {
                     to: 'whatsapp:+5493624139565',
                     from: 'whatsapp:+13528064864',
                     body: content.text,
