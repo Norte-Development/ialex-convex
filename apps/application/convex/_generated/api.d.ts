@@ -71,6 +71,10 @@ import type * as agents_tools_shared_index from "../agents/tools/shared/index.js
 import type * as agents_tools_shared_sanitizeContent from "../agents/tools/shared/sanitizeContent.js";
 import type * as agents_tools_shared_utils from "../agents/tools/shared/utils.js";
 import type * as agents_tools_shared_validation from "../agents/tools/shared/validation.js";
+import type * as agents_whatsapp_agent from "../agents/whatsapp/agent.js";
+import type * as agents_whatsapp_prompt from "../agents/whatsapp/prompt.js";
+import type * as agents_whatsapp_threads from "../agents/whatsapp/threads.js";
+import type * as agents_whatsapp_workflow from "../agents/whatsapp/workflow.js";
 import type * as auth_utils from "../auth_utils.js";
 import type * as billing_analytics from "../billing/analytics.js";
 import type * as billing_features from "../billing/features.js";
@@ -166,6 +170,8 @@ import type * as utils_fallosService from "../utils/fallosService.js";
 import type * as utils_gcs from "../utils/gcs.js";
 import type * as utils_legislationService from "../utils/legislationService.js";
 import type * as utils_resend from "../utils/resend.js";
+import type * as whatsapp_twilio from "../whatsapp/twilio.js";
+import type * as whatsapp_whatsapp from "../whatsapp/whatsapp.js";
 
 import type {
   ApiFromModules,
@@ -245,6 +251,10 @@ declare const fullApi: ApiFromModules<{
   "agents/tools/shared/sanitizeContent": typeof agents_tools_shared_sanitizeContent;
   "agents/tools/shared/utils": typeof agents_tools_shared_utils;
   "agents/tools/shared/validation": typeof agents_tools_shared_validation;
+  "agents/whatsapp/agent": typeof agents_whatsapp_agent;
+  "agents/whatsapp/prompt": typeof agents_whatsapp_prompt;
+  "agents/whatsapp/threads": typeof agents_whatsapp_threads;
+  "agents/whatsapp/workflow": typeof agents_whatsapp_workflow;
   auth_utils: typeof auth_utils;
   "billing/analytics": typeof billing_analytics;
   "billing/features": typeof billing_features;
@@ -340,6 +350,8 @@ declare const fullApi: ApiFromModules<{
   "utils/gcs": typeof utils_gcs;
   "utils/legislationService": typeof utils_legislationService;
   "utils/resend": typeof utils_resend;
+  "whatsapp/twilio": typeof whatsapp_twilio;
+  "whatsapp/whatsapp": typeof whatsapp_whatsapp;
 }>;
 declare const fullApiWithMounts: typeof fullApi;
 

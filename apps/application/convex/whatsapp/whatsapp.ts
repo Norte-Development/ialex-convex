@@ -1,14 +1,16 @@
-import { internalMutation } from '../_generated/server';
+import { internal } from '../_generated/api';
+import { internalAction } from '../_generated/server';
 import { v } from 'convex/values';
+import { agent } from '../agents/whatsapp/agent';
 
 /**
  * Processes incoming WhatsApp messages from Twilio webhook
- * This internal mutation is called by the HTTP webhook handler
+ * This internal action is called by the HTTP webhook handler
  * 
  * Note: This function doesn't use the Twilio SDK, so it doesn't need Node runtime.
  * For Twilio SDK calls, see whatsapp/twilio.ts
  */
-export const processIncomingMessage = internalMutation({
+export const processIncomingMessage = internalAction({
   args: {
     messageSid: v.string(),
     from: v.string(), // WhatsApp number (e.g., whatsapp:+1234567890)
@@ -38,16 +40,20 @@ export const processIncomingMessage = internalMutation({
       // - Route message to appropriate case/conversation
       // - Trigger AI agent response
       // - Send notifications
-
-      // Placeholder: Log the message
-      // You can replace this with actual storage/processing logic
-      console.log('[WhatsApp] Message received:', {
-        from: phoneNumber,
-        content: args.body,
-        timestamp: Date.now(),
+      const threadId = await ctx.runAction(internal.agents.whatsapp.threads.getOrCreateWhatsappThread, {
+        phoneNumber: phoneNumber,
       });
 
-      return null;
+      const { messageId } = await agent.saveMessage(ctx, {
+        threadId,
+        prompt: args.body,
+      });
+
+      await ctx.scheduler.runAfter(0, internal.agents.whatsapp.workflow.startWorkflow, {
+        threadId,
+        promptMessageId: messageId,
+        twilioMessageId: args.messageSid,
+      });
     } catch (error) {
       console.error('[WhatsApp] Error processing message:', error);
       throw error;

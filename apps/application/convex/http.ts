@@ -551,6 +551,7 @@ http.route({
     try {
       // Twilio sends form-encoded data
       const formData = await req.formData();
+      console.log('formData', formData);
       
       // Extract webhook parameters
       const messageSid = formData.get("MessageSid") as string;
@@ -577,7 +578,7 @@ http.route({
       console.log(`[WhatsApp Webhook] Received message from ${from}`);
 
       // Process the incoming message
-      await ctx.runMutation(internal.whatsapp.whatsapp.processIncomingMessage, {
+      await ctx.runAction(internal.whatsapp.whatsapp.processIncomingMessage, {
         messageSid,
         from,
         to,
