@@ -19,7 +19,6 @@ import {
   Trash2,
   Loader2,
 } from "lucide-react";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   AlertDialog,
   AlertDialogTrigger,
@@ -32,7 +31,6 @@ import {
   AlertDialogAction,
 } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
-import { Scrollbar } from "@radix-ui/react-scroll-area";
 
 interface HomeAgentSidebarProps {
   currentThreadId?: string;
