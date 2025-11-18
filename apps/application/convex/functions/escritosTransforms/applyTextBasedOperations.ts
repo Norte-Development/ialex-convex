@@ -9,6 +9,7 @@ import {
   findMatches,
   selectByOccurrence,
   findAnchorPosition,
+  findLargeBlockMatches,
 } from "../../agents/core/utils/normalizedSearch";
 import { textBasedEditValidator } from "./types";
 import {
@@ -204,15 +205,53 @@ export const applyTextBasedOperations = mutation({
             console.log(
               `  Document index text preview (first 200 chars): "${docIndex.normalizedText.substring(0, 200)}..."`
             );
-            console.log(`  Searching for findText in normalized text...`);
-
-            const found = findMatches(docIndex, op.findText, {
+            
+            // 1. Try EXACT match WITHOUT context first (Optimistic Uniqueness)
+            // This avoids issues where context is slightly off
+            console.log(`  Attempting context-free match first...`);
+            let found = findMatches(docIndex, op.findText, {
               ...getContextualSearchOptions(isWholeWordLikely(op.findText)),
-              contextBefore: op.contextBefore,
-              contextAfter: op.contextAfter,
+              contextBefore: undefined,
+              contextAfter: undefined,
             });
 
-            console.log(`  ✅ Found ${found.length} matches`);
+            if (found.length === 1) {
+               console.log(`  ✅ Unique match found without context! Ignoring context parameters.`);
+            } else if (found.length > 1) {
+               console.log(`  ⚠️ Multiple matches (${found.length}) found without context.`);
+               
+               // If we have context, try to filter/refine the search
+               if (op.contextBefore || op.contextAfter) {
+                 console.log(`  🔄 Refining search WITH context...`);
+                 const foundWithContext = findMatches(docIndex, op.findText, {
+                    ...getContextualSearchOptions(isWholeWordLikely(op.findText)),
+                    contextBefore: op.contextBefore,
+                    contextAfter: op.contextAfter,
+                 });
+                 
+                 if (foundWithContext.length > 0) {
+                    console.log(`  ✅ Found ${foundWithContext.length} matches with context.`);
+                    found = foundWithContext;
+                 } else {
+                    console.log(`  ⚠️ Context filter returned 0 matches. Falling back to context-free matches.`);
+                    // We keep the original `found` list and let selectByOccurrence handle the index
+                 }
+               }
+            } else {
+               console.log(`  ⚠️ No matches found without context.`);
+               // 2. Fallback to fuzzy block matching if exact match fails and text is large
+               if (op.findText.length > 100) {
+                  console.log(`  ⚠️ Exact match failed for large block. Attempting fuzzy block match...`);
+                  // For fuzzy match, we DO want to use context if available because head/tail are short
+                  found = findLargeBlockMatches(docIndex, op.findText, {
+                    ...getContextualSearchOptions(isWholeWordLikely(op.findText)),
+                    contextBefore: op.contextBefore,
+                    contextAfter: op.contextAfter,
+                  });
+               }
+            }
+
+            console.log(`  ✅ Final result: ${found.length} matches`);
             if (found.length > 0) {
               found.forEach((match, idx) => {
                 console.log(

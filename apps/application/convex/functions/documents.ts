@@ -11,6 +11,7 @@ import { getCurrentUserFromAuth, requireNewCaseAccess } from "../auth_utils";
 import { prosemirrorSync } from "../prosemirror";
 import { internal, api } from "../_generated/api";
 import { _checkLimit, _getBillingEntity } from "../billing/features";
+import { Id } from "../_generated/dataModel";
 import { PLAN_LIMITS } from "../billing/planLimits";
 
 
@@ -1440,6 +1441,49 @@ export const getRecentEscritos = query({
       .take(limit);
 
     return escritos;
+  },
+});
+
+export const resolveEscritoId = internalQuery({
+  args: {
+    escritoId: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const raw = args.escritoId?.trim();
+    if (!raw) {
+      return null;
+    }
+
+    try {
+      const direct = await ctx.db.get(raw as Id<"escritos">);
+      if (direct) {
+        return direct._id;
+      }
+    } catch {
+      // ignore and fall back to prefix matching
+    }
+
+    if (raw.length < 32) {
+      const matches: Array<{ _id: Id<"escritos">; score: number }> = [];
+      let scanned = 0;
+      for await (const doc of ctx.db.query("escritos")) {
+        scanned += 1;
+        if ((doc._id as string).startsWith(raw)) {
+          const score = doc.lastEditedAt ?? doc._creationTime ?? 0;
+          matches.push({ _id: doc._id, score });
+        }
+        if (matches.length >= 5 || scanned >= 1000) {
+          break;
+        }
+      }
+
+      if (matches.length > 0) {
+        matches.sort((a, b) => b.score - a.score);
+        return matches[0]._id;
+      }
+    }
+
+    return null;
   },
 });
 
