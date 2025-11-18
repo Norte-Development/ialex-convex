@@ -32,6 +32,7 @@ import {
   AlertDialogAction,
 } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
+import { Scrollbar } from "@radix-ui/react-scroll-area";
 
 interface HomeAgentSidebarProps {
   currentThreadId?: string;
@@ -128,7 +129,13 @@ export function HomeAgentSidebar({ currentThreadId }: HomeAgentSidebarProps) {
         </div>
 
         {/* Lista de threads */}
-        <ScrollArea className="flex-1">
+        <div
+          className="flex-1 overflow-y-scroll [&::-webkit-scrollbar]:hidden"
+          style={{
+            scrollbarWidth: "none",
+            msOverflowStyle: "none",
+          }}
+        >
           {isLoading ? (
             <div className="p-4 text-center text-sm text-muted-foreground">
               Cargando...
@@ -140,7 +147,7 @@ export function HomeAgentSidebar({ currentThreadId }: HomeAgentSidebarProps) {
                 : "No hay conversaciones"}
             </div>
           ) : (
-            <div className="p-2 space-y-1 overflow-hidden">
+            <div className="p-2 space-y-1">
               {filteredThreads.map((thread) => {
                 const isActive = currentThreadId === thread._id;
                 const isDeleting = deletingThreadId === thread._id;
@@ -148,7 +155,7 @@ export function HomeAgentSidebar({ currentThreadId }: HomeAgentSidebarProps) {
                 return (
                   <div
                     key={thread._id}
-                    className={`group flex w-full max-w-full items-center gap-1 rounded-md transition-colors ${
+                    className={`group flex items-center gap-1 rounded-md transition-colors ${
                       isActive
                         ? "bg-accent border-l-2 border-primary"
                         : "hover:bg-accent"
@@ -157,10 +164,10 @@ export function HomeAgentSidebar({ currentThreadId }: HomeAgentSidebarProps) {
                     <button
                       type="button"
                       onClick={() => handleThreadSelect(thread._id)}
-                      className="flex-1 text-left p-3 min-w-0 overflow-hidden"
+                      className="flex-1 text-left p-3 min-w-0"
                       style={{ width: 0 }}
                     >
-                      <div className="flex flex-col gap-1 w-full">
+                      <div className="flex flex-col gap-1">
                         <span className="text-sm font-medium truncate">
                           {thread.title || "Sin título"}
                         </span>
@@ -222,7 +229,7 @@ export function HomeAgentSidebar({ currentThreadId }: HomeAgentSidebarProps) {
               })}
             </div>
           )}
-        </ScrollArea>
+        </div>
 
         {/* Footer - Ver todas */}
         <div className="p-3 border-t border-border">
