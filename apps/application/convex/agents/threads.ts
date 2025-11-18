@@ -293,6 +293,30 @@ export const getThreadMessages = query({
 });
 
 /**
+ * Deletes a thread and all its associated data.
+ *
+ * @param threadId - The ID of the thread to delete
+ * @returns Promise resolving when the deletion finishes
+ * @throws {Error} When the user is not authorized
+ */
+export const deleteThread = mutation({
+  args: { threadId: v.string() },
+  handler: async (ctx, { threadId }) => {
+    await authorizeThreadAccess(ctx, threadId, true);
+
+    await ctx.scheduler.runAfter(
+      0,
+      components.agent.threads.deleteAllForThreadIdSync,
+      {
+        threadId,
+      },
+    );
+
+    return { threadId };
+  },
+});
+
+/**
  * Updates the title and summary of a thread using AI generation.
  *
  * NOTE: This function is currently commented out and not in use.
