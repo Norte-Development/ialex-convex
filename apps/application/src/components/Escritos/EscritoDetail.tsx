@@ -193,31 +193,11 @@ export default function EscritoDetail({
             tags: escrito.tags,
           }}
         />
-        {/* {can.escritos.write && (
-          <div className="flex gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setShowToolsTester(!showToolsTester)}
-            >
-              <FileText className="h-4 w-4 mr-2" />
-              {showToolsTester ? "Hide" : "Show"} Tools
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setShowReadHelpersTester(!showReadHelpersTester)}
-            >
-              <FileText className="h-4 w-4 mr-2" />
-              {showReadHelpersTester ? "Hide" : "Show"} Helpers
-            </Button>
-          </div>
-        )} */}
       </div>
 
-      <div className="p-3 sm:p-6">
-        <div className="flex gap-6">
-          <div className="flex-1">
+      <div className="p-3 sm:p-6 overflow-x-hidden">
+        <div className="flex flex-col lg:flex-row gap-6">
+          <div className="flex-1 min-w-0">
             <Tiptap
               documentId={escrito?.prosemirrorId}
               templateId={templateId}
@@ -225,18 +205,6 @@ export default function EscritoDetail({
               ref={editorRef}
             />
           </div>
-
-          {/* {showToolsTester && (
-            <div className="w-80 flex-shrink-0">
-              <EscritoToolsTester />
-            </div>
-          )}
-          
-          {showReadHelpersTester && (
-            <div className="w-80 flex-shrink-0">
-              <ReadEscritoHelpersTester />
-            </div>
-          )} */}
         </div>
       </div>
     </>
