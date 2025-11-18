@@ -76,7 +76,6 @@ export const agent = new Agent(components.agent, {
     listCaseDocuments: listCaseDocumentsTool,
     queryDocumento: queryDocumentTool,
     createEscrito: createEscritoTool,
-    editEscrito: editEscritoTool,
     applyDiffs: applyDiffsTool,
     getEscritoStats: getEscritoStatsTool,
     readEscrito: readEscritoTool,
