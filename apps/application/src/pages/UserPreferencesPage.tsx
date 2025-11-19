@@ -10,6 +10,7 @@ import { NotificationsSection } from "@/components/notifications-section";
 import { AgentSection } from "@/components/agent-section";
 import { PrivacySection } from "@/components/privacy-section";
 import { BillingSection } from "@/components/Billing";
+import { WhatsAppSection } from "@/components/UserSettings/WhatsAppSection";
 import { Loader2 } from "lucide-react";
 import { useSearchParams } from "react-router-dom";
 
@@ -170,6 +171,10 @@ export default function UserPreferencesPage() {
               onUpdate={updatePreference}
               onUpdateProfile={updateProfileField}
             />
+          )}
+
+          {activeSection === "whatsapp" && (
+            <WhatsAppSection />
           )}
 
           {activeSection === "billing" && <BillingSection />}

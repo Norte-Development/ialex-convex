@@ -1,4 +1,4 @@
-import { internal } from '../_generated/api';
+import { internal, api } from '../_generated/api';
 import { internalAction } from '../_generated/server';
 import { v } from 'convex/values';
 import { agent } from '../agents/whatsapp/agent';
@@ -33,15 +33,29 @@ export const processIncomingMessage = internalAction({
       // Extract phone number from WhatsApp format (whatsapp:+1234567890)
       const phoneNumber = args.from.replace('whatsapp:', '');
 
-      // TODO: Implement your message processing logic here
-      // Examples:
-      // - Store message in database
-      // - Look up user by phone number
-      // - Route message to appropriate case/conversation
-      // - Trigger AI agent response
-      // - Send notifications
-      const threadId = await ctx.runAction(internal.agents.whatsapp.threads.getOrCreateWhatsappThread, {
+      // Look up user by WhatsApp number
+      const userResult = await ctx.runQuery(api.functions.users.getUserByWhatsappNumber, {
         phoneNumber: phoneNumber,
+      });
+
+      if (!userResult) {
+        // User not found - send error message asking them to connect their account
+        console.log('[WhatsApp] Message from unlinked number:', phoneNumber);
+        
+        await ctx.runAction(internal.whatsapp.twilio.sendMessage, {
+          to: args.from,
+          body: 'Por favor, conecta tu cuenta de WhatsApp en tus preferencias de usuario en iAlex.',
+        });
+
+        return null;
+      }
+
+      // User found - process message normally
+      const userId = userResult._id;
+      
+      // Create or get thread for this user (using user ID instead of phone number)
+      const threadId = await ctx.runAction(internal.agents.whatsapp.threads.getOrCreateWhatsappThread, {
+        userId: userId,
       });
 
       const { messageId } = await agent.saveMessage(ctx, {

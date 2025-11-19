@@ -28,22 +28,25 @@ function chunkMessage(text: string, maxLength: number): string[] {
     
     // If we found a space within reasonable distance (within 50 chars), use it
     if (lastSpaceIndex > maxLength - 50) {
-      splitIndex = lastSpaceIndex;
+      splitIndex = lastSpaceIndex + 1; // Include the space in the chunk
     }
     // If no space found or too far, try to find a newline
     else {
       const lastNewlineIndex = remaining.lastIndexOf('\n', maxLength);
       if (lastNewlineIndex > maxLength - 50) {
-        splitIndex = lastNewlineIndex;
+        splitIndex = lastNewlineIndex + 1; // Include the newline in the chunk
       }
     }
 
-    // Extract chunk and remove leading whitespace from remaining
-    chunks.push(remaining.substring(0, splitIndex).trim());
-    remaining = remaining.substring(splitIndex).trim();
+    // Extract chunk (trim only trailing whitespace to preserve content)
+    const chunk = remaining.substring(0, splitIndex);
+    chunks.push(chunk);
+    
+    // Remove the chunk from remaining (preserve leading whitespace)
+    remaining = remaining.substring(splitIndex);
   }
 
-  // Add the remaining text as the last chunk
+  // Add the remaining text as the last chunk (preserve all content)
   if (remaining.length > 0) {
     chunks.push(remaining);
   }
@@ -88,7 +91,7 @@ export const sendMessage = internalAction({
     const chunks = chunkMessage(args.body, MAX_MESSAGE_LENGTH);
 
     try {
-      // Send all chunks sequentially
+      // Send all chunks sequentially to ensure order
       let lastMessageSid = '';
       let lastStatus = '';
 
@@ -111,6 +114,12 @@ export const sendMessage = internalAction({
           status: message.status,
           chunkLength: chunk.length,
         });
+
+        // Add a small delay between chunks to ensure Twilio processes them in order
+        // Only delay if there are more chunks to send
+        if (i < chunks.length - 1) {
+          await new Promise(resolve => setTimeout(resolve, 100));
+        }
       }
 
       return {
@@ -194,6 +203,111 @@ export const setTypingIndicator = internalAction({
       return null;
     } catch (error) {
       console.error('[WhatsApp] Error sending typing indicator:', error);
+      throw error;
+    }
+  },
+});
+
+/**
+ * Sends a verification code via Twilio Verify service
+ * Uses Twilio's Verify API to send verification codes via WhatsApp
+ */
+export const sendVerificationCode = internalAction({
+  args: {
+    to: v.string(), // Phone number (e.g., +1234567890 or whatsapp:+1234567890)
+  },
+  returns: v.object({
+    sid: v.string(),
+    status: v.string(),
+  }),
+  handler: async (ctx, args) => {
+    if (!accountSid || !authToken) {
+      throw new Error('Twilio credentials not configured');
+    }
+
+    const serviceId = process.env.TWILIO_VERIFY_SERVICE_ID;
+    if (!serviceId) {
+      throw new Error('Twilio Verify Service ID not configured');
+    }
+
+    // Remove whatsapp: prefix if present, Twilio Verify handles the channel
+    const phoneNumber = args.to.replace('whatsapp:', '');
+
+    try {
+      const verification = await client.verify.v2
+        .services(serviceId)
+        .verifications.create({
+          to: phoneNumber,
+          channel: 'whatsapp',
+        });
+
+      console.log('[WhatsApp] Verification code sent:', {
+        sid: verification.sid,
+        status: verification.status,
+        to: phoneNumber,
+      });
+
+      return {
+        sid: verification.sid,
+        status: verification.status,
+      };
+    } catch (error) {
+      console.error('[WhatsApp] Error sending verification code:', error);
+      throw error;
+    }
+  },
+});
+
+/**
+ * Verifies a verification code using Twilio Verify service
+ */
+export const checkVerificationCode = internalAction({
+  args: {
+    to: v.string(), // Phone number (e.g., +1234567890 or whatsapp:+1234567890)
+    code: v.string(), // Verification code entered by user
+  },
+  returns: v.object({
+    sid: v.string(),
+    status: v.string(),
+    valid: v.boolean(),
+  }),
+  handler: async (ctx, args) => {
+    if (!accountSid || !authToken) {
+      throw new Error('Twilio credentials not configured');
+    }
+
+    const serviceId = process.env.TWILIO_VERIFY_SERVICE_ID;
+    if (!serviceId) {
+      throw new Error('Twilio Verify Service ID not configured');
+    }
+
+    // Remove whatsapp: prefix if present
+    const phoneNumber = args.to.replace('whatsapp:', '');
+
+    try {
+      const verificationCheck = await client.verify.v2
+        .services(serviceId)
+        .verificationChecks.create({
+          to: phoneNumber,
+          code: args.code,
+        });
+
+      const isValid = verificationCheck.status === 'approved';
+
+      console.log('[WhatsApp] Verification check result:', {
+        sid: verificationCheck.sid,
+        status: verificationCheck.status,
+        valid: isValid,
+        to: phoneNumber,
+      });
+
+      return {
+        sid: verificationCheck.sid,
+        status: verificationCheck.status,
+        valid: isValid,
+      };
+    } catch (error) {
+      console.error('[WhatsApp] Error checking verification code:', error);
       throw error;
     }
   },

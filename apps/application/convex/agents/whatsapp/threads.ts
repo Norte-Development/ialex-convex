@@ -2,19 +2,21 @@ import { internalAction, internalMutation, internalQuery } from "../../_generate
 import { v } from "convex/values";
 import { agent } from "./agent";
 import { components, internal as internalApi } from "../../_generated/api";
+import { Id } from "../../_generated/dataModel";
 
 /**
- * Internal query to check if a thread exists for a phone number.
+ * Internal query to check if a thread exists for a user ID.
  */
-export const getWhatsappThreadByPhoneNumber = internalQuery({
+export const getWhatsappThreadByUserId = internalQuery({
   args: {
-    phoneNumber: v.string(),
+    userId: v.id("users"),
   },
   handler: async (ctx, args): Promise<string | null> => {
+    const threadUserId = `whatsapp:${args.userId}`;
     const existingThreads = await ctx.runQuery(
       components.agent.threads.listThreadsByUserId,
       {
-        userId: args.phoneNumber,
+        userId: threadUserId,
         paginationOpts: { numItems: 1, cursor: null },
       },
     );
@@ -24,16 +26,17 @@ export const getWhatsappThreadByPhoneNumber = internalQuery({
 });
 
 /**
- * Internal mutation to create a WhatsApp thread for a phone number.
+ * Internal mutation to create a WhatsApp thread for a user ID.
  */
 export const createWhatsappThread = internalMutation({
   args: {
-    phoneNumber: v.string(),
+    userId: v.id("users"),
   },
   handler: async (ctx, args): Promise<string> => {
+    const threadUserId = `whatsapp:${args.userId}`;
     const thread = await agent.createThread(ctx, {
-      userId: args.phoneNumber,
-      title: args.phoneNumber,
+      userId: threadUserId,
+      title: `WhatsApp: ${args.userId}`,
     });
 
     return thread.threadId;
@@ -41,22 +44,22 @@ export const createWhatsappThread = internalMutation({
 });
 
 /**
- * Gets or creates a WhatsApp thread for a phone number.
- * Each phone number should have exactly one persistent thread.
+ * Gets or creates a WhatsApp thread for a user ID.
+ * Each user should have exactly one persistent WhatsApp thread.
  *
- * @param phoneNumber - The phone number to get or create a thread for
+ * @param userId - The user ID to get or create a thread for
  * @returns Promise resolving to the thread ID
  */
 export const getOrCreateWhatsappThread = internalAction({
   args: {
-    phoneNumber: v.string(),
+    userId: v.id("users"),
   },
   handler: async (ctx, args): Promise<string> => {
-    // Check if a thread already exists for this phone number
+    // Check if a thread already exists for this user
     const existingThreadId: string | null = await ctx.runQuery(
-      internalApi.agents.whatsapp.threads.getWhatsappThreadByPhoneNumber,
+      internalApi.agents.whatsapp.threads.getWhatsappThreadByUserId,
       {
-        phoneNumber: args.phoneNumber,
+        userId: args.userId,
       },
     );
 
@@ -69,7 +72,7 @@ export const getOrCreateWhatsappThread = internalAction({
     const threadId: string = await ctx.runMutation(
       internalApi.agents.whatsapp.threads.createWhatsappThread as any,
       {
-        phoneNumber: args.phoneNumber,
+        userId: args.userId,
       },
     );
 

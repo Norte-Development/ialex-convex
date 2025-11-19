@@ -2,7 +2,8 @@ import { v } from "convex/values";
 import { query, mutation, action } from "../_generated/server";
 import { getCurrentUserFromAuth } from "../auth_utils";
 import { requireNewCaseAccess } from "../auth_utils";
-import { internal } from "../_generated/api";
+import { internal, api } from "../_generated/api";
+import { Id } from "../_generated/dataModel";
 
 // ========================================
 // CLERK USER SYNC FUNCTIONS
@@ -567,6 +568,7 @@ export const getUserById = query({
       role: user.role,
       firmName: user.firmName,
       specializations: user.specializations,
+      preferences: user.preferences,
     };
   },
 });
@@ -642,3 +644,207 @@ export const updateUserProfile = mutation({
 /**
  * Search for users by name or email
  */
+
+// ========================================
+// WHATSAPP CONNECTION FUNCTIONS
+// ========================================
+
+/**
+ * Request WhatsApp verification code
+ * Sends a verification code via Twilio Verify service
+ */
+export const requestWhatsappVerification = action({
+  args: {
+    phoneNumber: v.string(), // Phone number in E.164 format (e.g., +1234567890)
+  },
+  handler: async (ctx, args) => {
+    // Get current user - need to use mutation context for auth
+    const userId = await ctx.runMutation(api.functions.users.getCurrentUserIdForAction, {});
+    
+    if (!userId) {
+      throw new Error('Not authenticated');
+    }
+
+    // Validate phone number format (basic E.164 format check)
+    if (!args.phoneNumber.match(/^\+[1-9]\d{1,14}$/)) {
+      throw new Error('Formato de número inválido. Debe estar en formato E.164 (ej: +1234567890)');
+    }
+
+    // Send verification code via Twilio Verify
+    await ctx.runAction(internal.whatsapp.twilio.sendVerificationCode, {
+      to: args.phoneNumber,
+    });
+
+    return { success: true };
+  },
+});
+
+/**
+ * Internal mutation to get user ID for action context
+ */
+export const getCurrentUserIdForAction = mutation({
+  args: {},
+  handler: async (ctx) => {
+    const user = await getCurrentUserFromAuth(ctx);
+    return user._id;
+  },
+});
+
+/**
+ * Verify WhatsApp code and connect account
+ * Verifies the code entered by user and connects their WhatsApp number
+ */
+export const verifyWhatsappCode = action({
+  args: {
+    phoneNumber: v.string(), // Phone number in E.164 format
+    code: v.string(), // Verification code entered by user
+  },
+  handler: async (ctx, args) => {
+    // Get current user ID
+    const userId = await ctx.runMutation(api.functions.users.getCurrentUserIdForAction, {});
+    
+    if (!userId) {
+      throw new Error('Not authenticated');
+    }
+
+    // Get current user to access preferences
+    const currentUser = await ctx.runQuery(api.functions.users.getCurrentUser, {});
+
+    // Validate phone number format
+    if (!args.phoneNumber.match(/^\+[1-9]\d{1,14}$/)) {
+      throw new Error('Formato de número inválido');
+    }
+
+    // Check verification code via Twilio Verify
+    const result = await ctx.runAction(internal.whatsapp.twilio.checkVerificationCode, {
+      to: args.phoneNumber,
+      code: args.code,
+    });
+
+    if (!result.valid) {
+      throw new Error('Código de verificación inválido o expirado');
+    }
+
+    // Update user preferences with verified WhatsApp number
+    const currentPreferences = currentUser?.preferences || {
+      language: 'es-AR',
+      timezone: 'America/Argentina/Buenos_Aires',
+      emailNotifications: true,
+    };
+
+    await ctx.runMutation(api.functions.users.updateWhatsappPreferences, {
+      userId,
+      preferences: {
+        ...currentPreferences,
+        whatsappNumber: args.phoneNumber,
+        whatsappVerified: true,
+      },
+    });
+
+    return { success: true };
+  },
+});
+
+/**
+ * Internal mutation to update WhatsApp preferences
+ */
+export const updateWhatsappPreferences = mutation({
+  args: {
+    userId: v.id("users"),
+    preferences: v.any(),
+  },
+  handler: async (ctx, args) => {
+    await ctx.db.patch(args.userId, {
+      preferences: args.preferences,
+    });
+  },
+});
+
+/**
+ * Disconnect WhatsApp account
+ * Removes the connected WhatsApp number from user preferences
+ */
+export const disconnectWhatsapp = mutation({
+  args: {},
+  handler: async (ctx) => {
+    const currentUser = await getCurrentUserFromAuth(ctx);
+
+    const currentPreferences = currentUser.preferences || {
+      language: 'es-AR',
+      timezone: 'America/Argentina/Buenos_Aires',
+      emailNotifications: true,
+    };
+
+    await ctx.db.patch(currentUser._id, {
+      preferences: {
+        ...currentPreferences,
+        whatsappNumber: undefined,
+        whatsappVerified: undefined,
+      },
+    });
+
+    return { success: true };
+  },
+});
+
+/**
+ * Get user by WhatsApp number (internal query)
+ * Used for routing incoming WhatsApp messages to the correct user
+ */
+export const getUserByWhatsappNumber = query({
+  args: {
+    phoneNumber: v.string(), // Phone number in E.164 format
+  },
+  handler: async (ctx, args) => {
+    // Query all users and filter by WhatsApp number
+    // Note: Convex doesn't support indexing nested fields, so we scan
+    // This should be fine for reasonable user counts
+    const users = await ctx.db.query('users').collect();
+    
+    const user = users.find(
+      (u) => u.preferences?.whatsappNumber === args.phoneNumber && u.preferences?.whatsappVerified === true
+    );
+
+    return user ? { _id: user._id } : null;
+  },
+});
+
+/**
+ * Internal query version for use in actions
+ */
+export const getUserByWhatsappNumberInternal = query({
+  args: {
+    phoneNumber: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const users = await ctx.db.query('users').collect();
+    
+    const user = users.find(
+      (u) => u.preferences?.whatsappNumber === args.phoneNumber && u.preferences?.whatsappVerified === true
+    );
+
+    return user ? { _id: user._id } : null;
+  },
+});
+
+/**
+ * Get Twilio WhatsApp number for QR code generation
+ * Returns the WhatsApp number that users can message to start chatting
+ */
+export const getWhatsappNumber = action({
+  args: {},
+  handler: async (ctx) => {
+    // Get the WhatsApp number from environment variable
+    // This is the number users will message to start chatting
+    const whatsappNumber = process.env.TWILIO_WHATSAPP_NUMBER;
+    
+    if (!whatsappNumber) {
+      throw new Error('WhatsApp number not configured');
+    }
+
+    // Remove whatsapp: prefix if present and return clean number
+    return { 
+      number: whatsappNumber.replace('whatsapp:', '').replace(/^\+/, '')
+    };
+  },
+});

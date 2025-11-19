@@ -1,10 +1,11 @@
 import { cn } from "@/lib/utils"
-import { Globe, Bell, Shield, Bot, BookOpen, CreditCard } from "lucide-react"
+import { Globe, Bell, Shield, Bot, BookOpen, CreditCard, MessageCircle } from "lucide-react"
 
 const navItems = [
   { id: "general", label: "General", icon: Globe },
   { id: "notifications", label: "Notificaciones", icon: Bell },
   { id: "agent", label: "Agente IA", icon: Bot },
+  { id: "whatsapp", label: "WhatsApp", icon: MessageCircle },
   { id: "billing", label: "Facturación", icon: CreditCard },
   { id: "privacy", label: "Privacidad y Seguridad", icon: Shield },
   { id: "agentRules", label: "Reglas del Agente", icon: BookOpen },
