@@ -7,6 +7,7 @@ import { EditorState } from "@tiptap/pm/state";
 import { buildDocIndex, findMatches } from "../../agents/core/utils/normalizedSearch";
 import { getStandardSearchOptions } from "./helpers/searchHelpers";
 import { applyDiffMerge } from "./helpers/diffHelpers";
+import { Id } from "../../_generated/dataModel";
 
 /**
  * Insert HTML content into an Escrito at various positions.
@@ -18,7 +19,7 @@ import { applyDiffMerge } from "./helpers/diffHelpers";
  */
 export const insertHtmlContent = action({
   args: {
-    escritoId: v.id("escritos"),
+    escritoId: v.union(v.id("escritos"), v.string()),
     html: v.string(),
     placement: v.union(
       v.object({ type: v.literal("documentStart") }),
@@ -32,9 +33,26 @@ export const insertHtmlContent = action({
     ),
   },
   handler: async (ctx, { escritoId, html, placement }) => {
+    const rawEscritoId = (typeof escritoId === "string" ? escritoId : (escritoId as string))?.trim();
+    if (!rawEscritoId) {
+      throw new Error("escritoId is required");
+    }
+
+    const resolvedEscritoId =
+      (await ctx.runQuery(internal.functions.documents.resolveEscritoId, {
+        escritoId: rawEscritoId,
+      })) ?? null;
+
+    if (!resolvedEscritoId) {
+      throw new Error(`Escrito not found for ID: ${rawEscritoId}`);
+    }
+    if (resolvedEscritoId !== rawEscritoId) {
+      console.log(`Resolved escritoId: ${rawEscritoId} -> ${resolvedEscritoId}`);
+    }
+
     const escrito = await ctx.runQuery(
       internal.functions.documents.internalGetEscrito,
-      { escritoId }
+      { escritoId: resolvedEscritoId as Id<"escritos"> }
     );
     if (!escrito) throw new Error("Escrito not found");
 
