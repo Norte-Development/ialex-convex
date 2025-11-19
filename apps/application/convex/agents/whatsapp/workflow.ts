@@ -14,6 +14,54 @@ const openrouter = createOpenRouter({
 
 const workflow = new WorkflowManager(components.workflow);
 
+type ImageContentPart = {
+  type: "image";
+  image: string;
+  mimeType: string;
+};
+
+type ImageContentPartOrNull = ImageContentPart | null;
+
+export const processImageMedia = internalAction({
+  args: {
+    threadId: v.string(),
+    mediaItems: v.optional(v.array(v.object({
+      gcsBucket: v.string(),
+      gcsObject: v.string(),
+      contentType: v.string(),
+      size: v.number(),
+    }))),
+  },
+  handler: async (ctx, { threadId, mediaItems }): Promise<Array<ImageContentPart>> => {
+    // Filter to only include image media types (LLM can only process images)
+    const imageMediaItems =
+      mediaItems?.filter((m) => m.contentType.startsWith("image/")) ?? [];
+
+    // Strip out size field since generateSignedImageUrls doesn't need it
+    const imageMediaItemsForSigning = imageMediaItems.map(({ gcsBucket, gcsObject, contentType }) => ({
+      gcsBucket,
+      gcsObject,
+      contentType,
+    }));
+
+    // For image media, generate short-lived signed URLs so the model
+    // receives a fetchable URL instead of an internal GCS object path.
+    const signedImageParts: Array<ImageContentPartOrNull> = await ctx.runAction(
+      internal.agents.whatsapp.mediaUtils.generateSignedImageUrls,
+      {
+        threadId,
+        imageMediaItems: imageMediaItemsForSigning,
+      },
+    );
+
+    const imageContentParts: Array<ImageContentPart> = signedImageParts.filter(
+      (imagePart: ImageContentPartOrNull): imagePart is ImageContentPart =>
+        imagePart !== null,
+    );
+
+    return imageContentParts;
+  },
+});
 
 export const whatsappWorkflow = workflow.define({
     args: {
@@ -28,11 +76,20 @@ export const whatsappWorkflow = workflow.define({
       }))),
     },
     handler: async (step, args) => {
+      // Process image media items and generate signed URLs
+      const imageContentParts: Array<ImageContentPart> = await step.runAction(
+        internal.agents.whatsapp.workflow.processImageMedia,
+        {
+          threadId: args.threadId,
+          mediaItems: args.mediaItems,
+        },
+      );
+
       await step.runAction(internal.agents.whatsapp.workflow.streamAction, { 
         threadId: args.threadId, 
         prompt: args.prompt, 
         twilioMessageId: args.twilioMessageId,
-        mediaItems: args.mediaItems,
+        imageContentParts,
       });
     },
   });
@@ -65,79 +122,13 @@ export const streamAction = internalAction({
       threadId: v.string(),
       prompt: v.string(),
       twilioMessageId: v.string(),
-      mediaItems: v.optional(v.array(v.object({
-        gcsBucket: v.string(),
-        gcsObject: v.string(),
-        contentType: v.string(),
-        size: v.number(),
-      }))),
+      imageContentParts: v.array(v.object({
+        type: v.literal("image"),
+        image: v.string(),
+        mimeType: v.string(),
+      })),
     },
-    returns: v.null(),
-    handler: async (ctx, { threadId, prompt, twilioMessageId, mediaItems }) => {
-      // Filter to only include image media types (LLM can only process images)
-      const imageMediaItems =
-        mediaItems?.filter((m) => m.contentType.startsWith("image/")) ?? [];
-
-      // Log media items if present
-      if (mediaItems && mediaItems.length > 0) {
-        const nonImageCount = mediaItems.length - imageMediaItems.length;
-        console.log(
-          `[WhatsApp Workflow] Processing message with ${mediaItems.length} media item(s) (${imageMediaItems.length} images, ${nonImageCount} non-images filtered out):`,
-          {
-            threadId,
-            mediaItems: mediaItems.map((m) => ({
-              gcsBucket: m.gcsBucket,
-              gcsObject: m.gcsObject,
-              contentType: m.contentType,
-              size: m.size,
-            })),
-          },
-        );
-      }
-
-      // For image media, generate short-lived signed URLs so the model
-      // receives a fetchable URL instead of an internal GCS object path.
-      const signedImageParts = await Promise.all(
-        imageMediaItems.map(async (m) => {
-          try {
-            const expiresSeconds = Number(
-              process.env.GCS_DOWNLOAD_URL_TTL_SECONDS || 900,
-            );
-            const { url } = await ctx.runAction(
-              internal.utils.gcs.generateGcsV4SignedUrlAction,
-              {
-                bucket: m.gcsBucket,
-                object: m.gcsObject,
-                expiresSeconds,
-                method: "GET",
-              },
-            );
-            return {
-              type: "image" as const,
-              image: url,
-              mimeType: m.contentType,
-            };
-          } catch (error) {
-            console.error(
-              "[WhatsApp Workflow] Failed to generate signed URL for image",
-              {
-                threadId,
-                gcsBucket: m.gcsBucket,
-                gcsObject: m.gcsObject,
-                contentType: m.contentType,
-                error,
-              },
-            );
-            // If signing fails, skip this image so the rest of the message still flows.
-            return null;
-          }
-        }),
-      );
-
-      const imageContentParts = signedImageParts.filter(
-        (p): p is { type: "image"; image: string; mimeType: string } =>
-          p !== null,
-      );
+    handler: async (ctx, { threadId, prompt, twilioMessageId, imageContentParts }): Promise<null> => {
 
       // Persist the incoming WhatsApp message as part of the agent thread,
       // including only image media items as image parts with signed URLs
@@ -237,8 +228,7 @@ export const handleUnlinkedWhatsapp = internalAction({
   args: {
     to: v.string(), // the raw "whatsapp:+..." from Twilio
   },
-  returns: v.null(),
-  handler: async (ctx, { to }) => {
+  handler: async (ctx, { to }): Promise<null> => {
     await ctx.runAction(internal.whatsapp.twilio.sendMessage, {
       to,
       body:

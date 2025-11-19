@@ -48,7 +48,7 @@ export const processIncomingMessage = internalAction({
           for (const mediaItem of args.mediaItems) {
             try {
               const stored = await ctx.runAction(
-                internal.agents.whatsapp.transcription.downloadAndStoreTwilioMedia,
+                internal.agents.whatsapp.mediaUtils.downloadAndStoreTwilioMedia,
                 {
                   mediaUrl: mediaItem.url,
                   contentType: mediaItem.contentType,

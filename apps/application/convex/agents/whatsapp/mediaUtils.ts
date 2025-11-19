@@ -19,18 +19,34 @@ const gcsStorage = new Storage({
 
 export const transcribeAction = internalAction({
     args: {
-        threadId: v.string(),
-        prompt: v.string(),
+        gcsBucket: v.string(),
+        gcsObject: v.string(),
     },
-    handler: async (ctx, { threadId, prompt }) => {
-        return null;
+    handler: async (ctx, { gcsBucket, gcsObject }) => {
+        const { url } = await ctx.runAction(
+            internal.utils.gcs.generateGcsV4SignedUrlAction,
+            {
+              bucket: gcsBucket,
+              object: gcsObject,
+              expiresSeconds: 900,
+              method: "GET",
+            },
+          );
+
+
+        const { result, error } = await deepgram.listen.prerecorded.transcribeUrl({url: url}, {
+            model: 'nova-2',
+            language: 'es',    
+        });
+
+        if (error) {
+            throw new Error(`Failed to transcribe media: ${error.message}`);
+        }
+
+        return result.results?.channels[0]?.alternatives[0]?.transcript || '';
     },
 });
 
-/**
- * Downloads media from Twilio and stores it in GCS
- * Returns the GCS bucket, object path, and metadata for the stored media
- */
 export const downloadAndStoreTwilioMedia = internalAction({
     args: {
         mediaUrl: v.string(),
@@ -107,5 +123,68 @@ export const downloadAndStoreTwilioMedia = internalAction({
             contentType,
             size,
         };
+    },
+});
+
+type ImageContentPart = {
+  type: "image";
+  image: string;
+  mimeType: string;
+};
+
+type ImageContentPartOrNull = ImageContentPart | null;
+
+/**
+ * Generates signed URLs for image media items to be used by the LLM.
+ * Returns an array of image content parts, with null entries for failed images.
+ */
+export const generateSignedImageUrls = internalAction({
+    args: {
+        threadId: v.string(),
+        imageMediaItems: v.array(v.object({
+            gcsBucket: v.string(),
+            gcsObject: v.string(),
+            contentType: v.string(),
+        })),
+    },
+    handler: async (ctx, { threadId, imageMediaItems }): Promise<Array<ImageContentPartOrNull>> => {
+        const signedImageParts: Array<ImageContentPartOrNull> = await Promise.all(
+            imageMediaItems.map(async (m): Promise<ImageContentPartOrNull> => {
+                try {
+                    const expiresSeconds = Number(
+                        process.env.GCS_DOWNLOAD_URL_TTL_SECONDS || 900,
+                    );
+                    const { url }: { url: string } = await ctx.runAction(
+                        internal.utils.gcs.generateGcsV4SignedUrlAction,
+                        {
+                            bucket: m.gcsBucket,
+                            object: m.gcsObject,
+                            expiresSeconds,
+                            method: "GET",
+                        },
+                    );
+                    return {
+                        type: "image" as const,
+                        image: url,
+                        mimeType: m.contentType,
+                    };
+                } catch (error) {
+                    console.error(
+                        "[WhatsApp Workflow] Failed to generate signed URL for image",
+                        {
+                            threadId,
+                            gcsBucket: m.gcsBucket,
+                            gcsObject: m.gcsObject,
+                            contentType: m.contentType,
+                            error,
+                        },
+                    );
+                    // If signing fails, skip this image so the rest of the message still flows.
+                    return null;
+                }
+            }),
+        );
+
+        return signedImageParts;
     },
 });
