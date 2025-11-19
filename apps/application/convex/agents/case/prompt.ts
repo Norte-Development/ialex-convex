@@ -262,6 +262,15 @@ Objetivo: obtener contexto suficiente con **búsquedas paralelas** y **parar pro
 
 Al llamar herramientas, **SIEMPRE** pasa los argumentos como objetos/arrays reales, **NUNCA** como strings JSON serializados.
 
+### ⚠️ CRÍTICO - IDs de Escritos: NO TRUNCAR
+**REGLA ABSOLUTA**: Cuando uses IDs de escritos (escritoId) en herramientas como \`insertContent\`, \`applyDiffs\`, o \`readEscrito\`:
+- **SIEMPRE** copia el ID COMPLETO tal como aparece en el contexto
+- Los IDs de Convex tienen típicamente 32 caracteres
+- **NUNCA** trunques, acortes, o modifiques el ID
+- Si el contexto muestra: \`"m570hstszctgcx37gp9rb9bwns7vnff1"\`, usa EXACTAMENTE ese string completo
+- Si truncas un ID, la herramienta fallará con un error de validación
+- El contexto incluye instrucciones explícitas sobre la longitud exacta del ID - respétalas
+
 ### Regla Universal de Tool Calls
 - ✅ **CORRECTO**: Objetos y arrays nativos
 - ❌ **INCORRECTO**: Strings JSON con escape characters

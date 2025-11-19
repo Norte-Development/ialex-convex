@@ -4,7 +4,12 @@ import { z } from "zod";
 import { prosemirrorSync } from "../../../prosemirror";
 import { buildServerSchema } from "../../../../../../packages/shared/src/tiptap/schema";
 import { Node } from "@tiptap/pm/model";
-import { getUserAndCaseIds, createErrorResponse, validateStringParam } from "../shared/utils";
+import {
+  getUserAndCaseIds,
+  createErrorResponse,
+  validateStringParam,
+  validateAndCorrectEscritoId,
+} from "../shared/utils";
 import { Id } from "../../../_generated/dataModel";
 import { createEscritoStatsTemplate, createEscritoNotFoundTemplate } from "./templates";
 
@@ -59,13 +64,25 @@ export const getEscritoStatsTool = createTool({
         requiredLevel: "basic"
       } )
 
-      const escritoIdError = validateStringParam(args.escritoId, "escritoId");
+      const rawEscritoId = typeof args.escritoId === "string" ? args.escritoId.trim() : args.escritoId;
+      const escritoIdError = validateStringParam(rawEscritoId, "escritoId");
       if (escritoIdError) return escritoIdError;
 
-      const escrito = await ctx.runQuery(internal.functions.documents.internalGetEscrito, { escritoId: args.escritoId as any });
+      const { id: correctedEscritoId, wasCorrected } = await validateAndCorrectEscritoId(
+        ctx,
+        rawEscritoId,
+        caseId
+      );
+      if (wasCorrected) {
+        console.log(`✅ Auto-corrected escritoId in getEscritoStats: ${rawEscritoId} -> ${correctedEscritoId}`);
+      }
+
+      const escrito = await ctx.runQuery(internal.functions.documents.internalGetEscrito, {
+        escritoId: correctedEscritoId as any,
+      });
       
       if (!escrito) {
-        return createErrorResponse(createEscritoNotFoundTemplate(args.escritoId));
+        return createErrorResponse(createEscritoNotFoundTemplate(correctedEscritoId));
       }
       
       const doc = await prosemirrorSync.getDoc(ctx, escrito.prosemirrorId, buildServerSchema());
