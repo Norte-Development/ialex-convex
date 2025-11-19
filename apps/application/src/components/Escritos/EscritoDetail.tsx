@@ -220,6 +220,8 @@ export default function EscritoDetail({
               documentId={escrito?.prosemirrorId}
               templateId={templateId}
               readOnly={!can.escritos.write}
+              escritoId={escrito?._id}
+              caseId={escrito?.caseId}
               ref={editorRef}
             />
           </div>
