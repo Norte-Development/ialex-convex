@@ -74,6 +74,7 @@ import type * as agents_tools_shared_validation from "../agents/tools/shared/val
 import type * as agents_whatsapp_agent from "../agents/whatsapp/agent.js";
 import type * as agents_whatsapp_prompt from "../agents/whatsapp/prompt.js";
 import type * as agents_whatsapp_threads from "../agents/whatsapp/threads.js";
+import type * as agents_whatsapp_transcription from "../agents/whatsapp/transcription.js";
 import type * as agents_whatsapp_workflow from "../agents/whatsapp/workflow.js";
 import type * as auth_utils from "../auth_utils.js";
 import type * as billing_analytics from "../billing/analytics.js";
@@ -254,6 +255,7 @@ declare const fullApi: ApiFromModules<{
   "agents/whatsapp/agent": typeof agents_whatsapp_agent;
   "agents/whatsapp/prompt": typeof agents_whatsapp_prompt;
   "agents/whatsapp/threads": typeof agents_whatsapp_threads;
+  "agents/whatsapp/transcription": typeof agents_whatsapp_transcription;
   "agents/whatsapp/workflow": typeof agents_whatsapp_workflow;
   auth_utils: typeof auth_utils;
   "billing/analytics": typeof billing_analytics;

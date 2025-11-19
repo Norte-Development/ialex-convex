@@ -558,12 +558,33 @@ http.route({
       const from = formData.get("From") as string;
       const to = formData.get("To") as string;
       const body = formData.get("Body") as string;
-      const numMedia = formData.get("NumMedia") as string | null;
+      const numMediaStr = formData.get("NumMedia") as string | null;
+      const numMedia = numMediaStr ? parseInt(numMediaStr, 10) : 0;
       const accountSid = formData.get("AccountSid") as string;
       const messageStatus = formData.get("MessageStatus") as string | null;
 
+      // Extract all media items
+      const mediaItems: Array<{
+        url: string;
+        contentType: string;
+      }> = [];
+      
+      for (let i = 0; i < numMedia; i++) {
+        const mediaUrl = formData.get(`MediaUrl${i}`) as string | null;
+        const mediaContentType = formData.get(`MediaContentType${i}`) as string | null;
+        
+        if (mediaUrl && mediaContentType) {
+          mediaItems.push({
+            url: mediaUrl,
+            contentType: mediaContentType,
+          });
+        }
+      }
+
+      console.log(`[WhatsApp Webhook] Found ${mediaItems.length} media item(s)`);
+
       // Validate required fields
-      if (!messageSid || !from || !to || !body || !accountSid) {
+      if (!messageSid || !from || !to || !accountSid) {
         console.error("[WhatsApp Webhook] Missing required fields");
         return new Response("Missing required fields", { status: 400 });
       }
@@ -582,8 +603,8 @@ http.route({
         messageSid,
         from,
         to,
-        body,
-        numMedia: numMedia || undefined,
+        body: body || "",
+        mediaItems: mediaItems.length > 0 ? mediaItems : undefined,
         accountSid,
         messageStatus: messageStatus || undefined,
       });

@@ -18,11 +18,22 @@ const workflow = new WorkflowManager(components.workflow);
 export const whatsappWorkflow = workflow.define({
     args: {
       threadId: v.string(),
-      promptMessageId: v.string(),
+      prompt: v.string(),
       twilioMessageId: v.string(),
+      mediaItems: v.optional(v.array(v.object({
+        gcsBucket: v.string(),
+        gcsObject: v.string(),
+        contentType: v.string(),
+        size: v.number(),
+      }))),
     },
     handler: async (step, args) => {
-      await step.runAction(internal.agents.whatsapp.workflow.streamAction, { threadId: args.threadId, promptMessageId: args.promptMessageId, twilioMessageId: args.twilioMessageId });
+      await step.runAction(internal.agents.whatsapp.workflow.streamAction, { 
+        threadId: args.threadId, 
+        prompt: args.prompt, 
+        twilioMessageId: args.twilioMessageId,
+        mediaItems: args.mediaItems,
+      });
     },
   });
 
@@ -30,25 +41,121 @@ export const whatsappWorkflow = workflow.define({
 export const startWorkflow = internalAction({
     args: {
       threadId: v.string(),
-      promptMessageId: v.string(),
+      prompt: v.string(),
       twilioMessageId: v.string(),
+      mediaItems: v.optional(v.array(v.object({
+        gcsBucket: v.string(),
+        gcsObject: v.string(),
+        contentType: v.string(),
+        size: v.number(),
+      }))),
     },
     handler: async (ctx, args) => {
-      await workflow.start(ctx, internal.agents.whatsapp.workflow.whatsappWorkflow, { threadId: args.threadId, promptMessageId: args.promptMessageId, twilioMessageId: args.twilioMessageId });
+      await workflow.start(ctx, internal.agents.whatsapp.workflow.whatsappWorkflow, { 
+        threadId: args.threadId, 
+        prompt: args.prompt, 
+        twilioMessageId: args.twilioMessageId,
+        mediaItems: args.mediaItems,
+      });
     },
   });
 
 export const streamAction = internalAction({
     args: {
       threadId: v.string(),
-      promptMessageId: v.string(),
+      prompt: v.string(),
       twilioMessageId: v.string(),
+      mediaItems: v.optional(v.array(v.object({
+        gcsBucket: v.string(),
+        gcsObject: v.string(),
+        contentType: v.string(),
+        size: v.number(),
+      }))),
     },
     returns: v.null(),
-    handler: async (ctx, { threadId, promptMessageId, twilioMessageId }) => {
+    handler: async (ctx, { threadId, prompt, twilioMessageId, mediaItems }) => {
+      // Filter to only include image media types (LLM can only process images)
+      const imageMediaItems =
+        mediaItems?.filter((m) => m.contentType.startsWith("image/")) ?? [];
+
+      // Log media items if present
+      if (mediaItems && mediaItems.length > 0) {
+        const nonImageCount = mediaItems.length - imageMediaItems.length;
+        console.log(
+          `[WhatsApp Workflow] Processing message with ${mediaItems.length} media item(s) (${imageMediaItems.length} images, ${nonImageCount} non-images filtered out):`,
+          {
+            threadId,
+            mediaItems: mediaItems.map((m) => ({
+              gcsBucket: m.gcsBucket,
+              gcsObject: m.gcsObject,
+              contentType: m.contentType,
+              size: m.size,
+            })),
+          },
+        );
+      }
+
+      // For image media, generate short-lived signed URLs so the model
+      // receives a fetchable URL instead of an internal GCS object path.
+      const signedImageParts = await Promise.all(
+        imageMediaItems.map(async (m) => {
+          try {
+            const expiresSeconds = Number(
+              process.env.GCS_DOWNLOAD_URL_TTL_SECONDS || 900,
+            );
+            const { url } = await ctx.runAction(
+              internal.utils.gcs.generateGcsV4SignedUrlAction,
+              {
+                bucket: m.gcsBucket,
+                object: m.gcsObject,
+                expiresSeconds,
+                method: "GET",
+              },
+            );
+            return {
+              type: "image" as const,
+              image: url,
+              mimeType: m.contentType,
+            };
+          } catch (error) {
+            console.error(
+              "[WhatsApp Workflow] Failed to generate signed URL for image",
+              {
+                threadId,
+                gcsBucket: m.gcsBucket,
+                gcsObject: m.gcsObject,
+                contentType: m.contentType,
+                error,
+              },
+            );
+            // If signing fails, skip this image so the rest of the message still flows.
+            return null;
+          }
+        }),
+      );
+
+      const imageContentParts = signedImageParts.filter(
+        (p): p is { type: "image"; image: string; mimeType: string } =>
+          p !== null,
+      );
+
+      // Persist the incoming WhatsApp message as part of the agent thread,
+      // including only image media items as image parts with signed URLs
+      const { messageId: promptMessageId } = await agent.saveMessage(ctx, {
+        threadId,
+        message: {
+          role: "user",
+          content: [{ type: "text", text: prompt }, ...imageContentParts],
+        },
+      });
+
       // Get thread metadata to extract user ID
-      const { userId: threadUserId } = await getThreadMetadata(ctx, components.agent, { threadId });
-      
+      const { userId: threadUserId } = await getThreadMetadata(
+        ctx,
+        components.agent,
+        { threadId },
+      );
+
       if (!threadUserId || !threadUserId.startsWith('whatsapp:')) {
         throw new Error(`Invalid WhatsApp thread userId format: ${threadUserId}`);
       }
@@ -58,47 +165,44 @@ export const streamAction = internalAction({
 
       // Get user record to retrieve WhatsApp number
       const user = await ctx.runQuery(api.functions.users.getUserById, { userId });
-      
+
       if (!user) {
         throw new Error('User not found');
       }
 
       // Validate WhatsApp connection
       if (!user.preferences?.whatsappNumber || !user.preferences?.whatsappVerified) {
-        // Send error message to the incoming number (we need to get it from the message)
-        // For now, we'll throw an error - in production, we might want to handle this more gracefully
+        // Optionally: you could also send a WhatsApp error message here
         throw new Error('WhatsApp account not connected or verified');
       }
 
       const whatsappNumber = user.preferences.whatsappNumber;
-      const whatsappTo = whatsappNumber.startsWith('whatsapp:') 
-        ? whatsappNumber 
+      const whatsappTo = whatsappNumber.startsWith('whatsapp:')
+        ? whatsappNumber
         : `whatsapp:${whatsappNumber}`;
 
-      // Determine which model to use based on user's billing plan and case context
+      // Load thread context after saving the incoming message
       const { thread } = await agent.continueThread(ctx, { threadId });
+
       try {
-        
-        // Keep the incoming message ID for typing indicators (can't use sent message IDs)
         const incomingMessageId = twilioMessageId;
-        
+
         await thread.streamText(
           {
             system: systemPrompt,
             promptMessageId,
             model: openrouter('openai/gpt-5-nano'),
             prepareStep: async (step) => {
-                // Always use the incoming message ID for typing indicators
-                await ctx.runAction(internal.whatsapp.twilio.setTypingIndicator, {
-                    messageId: incomingMessageId,
-                    active: true,
-                });
-                return step;
+              await ctx.runAction(internal.whatsapp.twilio.setTypingIndicator, {
+                messageId: incomingMessageId,
+                active: true,
+              });
+              return step;
             },
             onStepFinish: async (event) => {
               for (const content of event.content) {
                 if (content.type === 'text') {
-                   await ctx.runAction(internal.whatsapp.twilio.sendMessage, {
+                  await ctx.runAction(internal.whatsapp.twilio.sendMessage, {
                     to: whatsappTo,
                     body: content.text,
                   });
@@ -110,25 +214,38 @@ export const streamAction = internalAction({
             saveStreamDeltas: true,
           },
         );
-        
-        console.log(`[Stream Complete] Thread ${threadId}: Stream completed successfully`);
+
+        console.log(
+          `[Stream Complete] Thread ${threadId}: Stream completed successfully`,
+        );
       } catch (error) {
         const err = error as Error;
-        const errorName = err?.name || 'Unknown';
-        const errorMessage = err?.message || 'No message';
-        const errorString = String(error).toLowerCase();
-        
-        // For all other errors, log and re-throw
         console.error(`[Stream Fatal Error] Thread ${threadId}:`, {
-          name: errorName,
-          message: errorMessage,
+          name: err?.name || 'Unknown',
+          message: err?.message || 'No message',
           stack: err?.stack,
         });
         throw error;
       }
-  
+
       return null;
     },
+});
+
+// New helper to centralize the "unlinked number" message
+export const handleUnlinkedWhatsapp = internalAction({
+  args: {
+    to: v.string(), // the raw "whatsapp:+..." from Twilio
+  },
+  returns: v.null(),
+  handler: async (ctx, { to }) => {
+    await ctx.runAction(internal.whatsapp.twilio.sendMessage, {
+      to,
+      body:
+        'Por favor, conecta tu cuenta de WhatsApp en tus preferencias de usuario en iAlex.',
+    });
+    return null;
+  },
 });
 
 

@@ -1,7 +1,6 @@
 import { internal, api } from '../_generated/api';
 import { internalAction } from '../_generated/server';
 import { v } from 'convex/values';
-import { agent } from '../agents/whatsapp/agent';
 
 /**
  * Processes incoming WhatsApp messages from Twilio webhook
@@ -16,7 +15,10 @@ export const processIncomingMessage = internalAction({
     from: v.string(), // WhatsApp number (e.g., whatsapp:+1234567890)
     to: v.string(), // Your Twilio WhatsApp number
     body: v.string(), // Message content
-    numMedia: v.optional(v.string()), // Number of media attachments
+    mediaItems: v.optional(v.array(v.object({
+      url: v.string(),
+      contentType: v.string(),
+    }))), // Array of media items with URL and content type
     accountSid: v.string(),
     messageStatus: v.optional(v.string()),
   },
@@ -27,8 +29,52 @@ export const processIncomingMessage = internalAction({
         messageSid: args.messageSid,
         from: args.from,
         body: args.body?.substring(0, 100), // Log first 100 chars
-        numMedia: args.numMedia,
+        numMedia: args.mediaItems?.length || 0,
       });
+
+      // Download and store media items if present
+      const storedMedia: Array<{
+        gcsBucket: string;
+        gcsObject: string;
+        contentType: string;
+        size: number;
+      }> = [];
+      
+      if (args.mediaItems && args.mediaItems.length > 0) {
+        const authToken = process.env.TWILIO_AUTH_TOKEN;
+        if (!authToken) {
+          console.error('[WhatsApp] Twilio auth token not configured, skipping media download');
+        } else {
+          for (const mediaItem of args.mediaItems) {
+            try {
+              const stored = await ctx.runAction(
+                internal.agents.whatsapp.transcription.downloadAndStoreTwilioMedia,
+                {
+                  mediaUrl: mediaItem.url,
+                  contentType: mediaItem.contentType,
+                  accountSid: args.accountSid,
+                  authToken,
+                },
+              );
+              storedMedia.push({
+                gcsBucket: stored.gcsBucket,
+                gcsObject: stored.gcsObject,
+                contentType: stored.contentType,
+                size: stored.size,
+              });
+              console.log('[WhatsApp] Media downloaded and stored in GCS:', {
+                gcsBucket: stored.gcsBucket,
+                gcsObject: stored.gcsObject,
+                contentType: stored.contentType,
+                size: stored.size,
+              });
+            } catch (error) {
+              console.error('[WhatsApp] Error downloading media:', error);
+              // Continue processing other media items even if one fails
+            }
+          }
+        }
+      }
 
       // Extract phone number from WhatsApp format (whatsapp:+1234567890)
       const phoneNumber = args.from.replace('whatsapp:', '');
@@ -39,35 +85,41 @@ export const processIncomingMessage = internalAction({
       });
 
       if (!userResult) {
-        // User not found - send error message asking them to connect their account
-        console.log('[WhatsApp] Message from unlinked number:', phoneNumber);
-        
-        await ctx.runAction(internal.whatsapp.twilio.sendMessage, {
-          to: args.from,
-          body: 'Por favor, conecta tu cuenta de WhatsApp en tus preferencias de usuario en iAlex.',
-        });
-
+        // Move message sending into workflow
+        await ctx.scheduler.runAfter(
+          0,
+          internal.agents.whatsapp.workflow.handleUnlinkedWhatsapp,
+          {
+            to: args.from,
+          },
+        );
         return null;
       }
 
-      // User found - process message normally
       const userId = userResult._id;
-      
+
       // Create or get thread for this user (using user ID instead of phone number)
-      const threadId = await ctx.runAction(internal.agents.whatsapp.threads.getOrCreateWhatsappThread, {
-        userId: userId,
-      });
+      const threadId =
+        await ctx.runAction(
+          internal.agents.whatsapp.threads.getOrCreateWhatsappThread,
+          {
+            userId,
+          },
+        );
 
-      const { messageId } = await agent.saveMessage(ctx, {
-        threadId,
-        prompt: args.body,
-      });
+      // Do NOT save message or send anything here; let workflow own it
+      await ctx.scheduler.runAfter(
+        0,
+        internal.agents.whatsapp.workflow.startWorkflow,
+        {
+          threadId,
+          prompt: args.body,
+          twilioMessageId: args.messageSid,
+          mediaItems: storedMedia.length > 0 ? storedMedia : undefined,
+        },
+      );
 
-      await ctx.scheduler.runAfter(0, internal.agents.whatsapp.workflow.startWorkflow, {
-        threadId,
-        promptMessageId: messageId,
-        twilioMessageId: args.messageSid,
-      });
+      return null;
     } catch (error) {
       console.error('[WhatsApp] Error processing message:', error);
       throw error;
