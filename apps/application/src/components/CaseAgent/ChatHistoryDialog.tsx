@@ -103,7 +103,7 @@ export function ChatHistoryDialog({
       console.error("Error deleting thread", error);
       toast.error("No se pudo eliminar la conversación");
     } finally {
-      setDeletingThreadId((current) => (current === threadId ? null : current));
+      setDeletingThreadId(null);
     }
   };
 
