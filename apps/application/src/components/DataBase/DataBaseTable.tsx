@@ -57,7 +57,7 @@ const initialState: TableState = {
   isDetailsOpen: false,
   jurisdiction: "all",
   totalResults: 0,
-  contentType: "all",
+  contentType: "legislation",
 };
 
 export default function DataBaseTable({
@@ -65,24 +65,23 @@ export default function DataBaseTable({
 }: DataBaseTableProps) {
   const [state, setState] = useState<TableState>(initialState);
   const [searchParams, setSearchParams] = useSearchParams();
-  
+
   const actions = {
     getNormativesFacets: useAction(
       api.functions.legislation.getNormativesFacets,
     ),
-    getFallosFacets: useAction(
-      api.functions.fallos.getFallosFacets,
-    ),
+    getFallosFacets: useAction(api.functions.fallos.getFallosFacets),
     getNormativeById: useAction(api.functions.legislation.getNormativeById),
     getFallo: useAction(api.functions.fallos.getFallo),
   };
 
   // Initialize state from URL params
   useEffect(() => {
-    const contentType = (searchParams.get("contentType") as ContentType) || "all";
+    const contentType =
+      (searchParams.get("contentType") as ContentType) || "legislation";
     const jurisdiction = searchParams.get("jurisdiction") || "all";
-    
-    setState(prev => ({
+
+    setState((prev) => ({
       ...prev,
       contentType,
       jurisdiction,
@@ -102,7 +101,12 @@ export default function DataBaseTable({
   // Fetch facets for filter options (types, estados, years)
   // This updates based on current filters to show relevant counts
   const { data: normativesFacets } = useQuery({
-    queryKey: ["normatives-facets", state.jurisdiction, state.filters, state.contentType],
+    queryKey: [
+      "normatives-facets",
+      state.jurisdiction,
+      state.filters,
+      state.contentType,
+    ],
     queryFn: () => {
       const facetFilters = { ...state.filters };
       // Only add jurisdiction filter if not "all"
@@ -118,7 +122,12 @@ export default function DataBaseTable({
   });
 
   const { data: fallosFacets } = useQuery({
-    queryKey: ["fallos-facets", state.jurisdiction, state.filters, state.contentType],
+    queryKey: [
+      "fallos-facets",
+      state.jurisdiction,
+      state.filters,
+      state.contentType,
+    ],
     queryFn: () => {
       const facetFilters: any = { ...state.filters };
       // Only add jurisdiction filter if not "all"
@@ -143,36 +152,38 @@ export default function DataBaseTable({
       // "all" - combine facets
       const combinedJurisdicciones = [
         ...(normativesFacets?.jurisdicciones || []),
-        ...(fallosFacets?.jurisdicciones || [])
+        ...(fallosFacets?.jurisdicciones || []),
       ];
 
       const combinedEstados = [
         ...(normativesFacets?.estados || []),
-        ...(fallosFacets?.estados || [])
+        ...(fallosFacets?.estados || []),
       ];
 
       // Combine arrays and aggregate counts by name
       const jurisdiccionesMap = new Map<string, number>();
       const estadosMap = new Map<string, number>();
 
-      combinedJurisdicciones.forEach(facet => {
+      combinedJurisdicciones.forEach((facet) => {
         const current = jurisdiccionesMap.get(facet.name) || 0;
         jurisdiccionesMap.set(facet.name, current + facet.count);
       });
 
-      combinedEstados.forEach(facet => {
+      combinedEstados.forEach((facet) => {
         const current = estadosMap.get(facet.name) || 0;
         estadosMap.set(facet.name, current + facet.count);
       });
 
       return {
-        jurisdicciones: Array.from(jurisdiccionesMap.entries()).map(([name, count]) => ({
-          name,
-          count
-        })),
+        jurisdicciones: Array.from(jurisdiccionesMap.entries()).map(
+          ([name, count]) => ({
+            name,
+            count,
+          }),
+        ),
         estados: Array.from(estadosMap.entries()).map(([name, count]) => ({
           name,
-          count
+          count,
         })),
         types: normativesFacets?.tipos || [],
         subestados: normativesFacets?.subestados || [],
@@ -183,7 +194,6 @@ export default function DataBaseTable({
       };
     }
   }, [normativesFacets, fallosFacets, state.contentType]);
-
 
   const handleFilterChange = useCallback(
     (key: keyof NormativeFilters, value: string | boolean | undefined) => {
@@ -200,38 +210,44 @@ export default function DataBaseTable({
     [],
   );
 
-  const handleContentTypeChange = useCallback((contentType: ContentType) => {
-    setState((prev) => ({
-      ...prev,
-      contentType,
-      page: 1,
-      filters: {},
-      searchQuery: "",
-      debouncedQuery: "",
-      // Keep jurisdiction when switching content types
-    }));
-    
-    // Update URL
-    const newSearchParams = new URLSearchParams(searchParams);
-    newSearchParams.set("contentType", contentType);
-    setSearchParams(newSearchParams);
-  }, [searchParams, setSearchParams]);
+  const handleContentTypeChange = useCallback(
+    (contentType: ContentType) => {
+      setState((prev) => ({
+        ...prev,
+        contentType,
+        page: 1,
+        filters: {},
+        searchQuery: "",
+        debouncedQuery: "",
+        // Keep jurisdiction when switching content types
+      }));
 
-  const handleJurisdictionChange = useCallback((jurisdiction: string) => {
-    setState((prev) => ({
-      ...prev,
-      jurisdiction,
-      page: 1,
-      filters: {},
-      searchQuery: "",
-      debouncedQuery: "",
-    }));
-    
-    // Update URL
-    const newSearchParams = new URLSearchParams(searchParams);
-    newSearchParams.set("jurisdiction", jurisdiction);
-    setSearchParams(newSearchParams);
-  }, [searchParams, setSearchParams]);
+      // Update URL
+      const newSearchParams = new URLSearchParams(searchParams);
+      newSearchParams.set("contentType", contentType);
+      setSearchParams(newSearchParams);
+    },
+    [searchParams, setSearchParams],
+  );
+
+  const handleJurisdictionChange = useCallback(
+    (jurisdiction: string) => {
+      setState((prev) => ({
+        ...prev,
+        jurisdiction,
+        page: 1,
+        filters: {},
+        searchQuery: "",
+        debouncedQuery: "",
+      }));
+
+      // Update URL
+      const newSearchParams = new URLSearchParams(searchParams);
+      newSearchParams.set("jurisdiction", jurisdiction);
+      setSearchParams(newSearchParams);
+    },
+    [searchParams, setSearchParams],
+  );
 
   const clearFilters = useCallback(() => {
     setState(initialState);
@@ -277,8 +293,7 @@ export default function DataBaseTable({
             Base de Datos Legislativa
           </h1>
           <p className="text-sm text-gray-600 mt-1">
-            {getJurisdictionName(state.jurisdiction)}{" "}
-            • {state.totalResults}{" "}
+            {getJurisdictionName(state.jurisdiction)} • {state.totalResults}{" "}
             {state.totalResults === 1 ? "resultado" : "resultados"}
             {state.debouncedQuery && (
               <span className="ml-2 px-2 py-1 bg-yellow-100 text-yellow-800 text-xs rounded-full font-medium">
@@ -372,11 +387,11 @@ export default function DataBaseTable({
         <SheetContent className="w-full sm:max-w-2xl border-l border-gray-200 bg-white rounded-l-lg transition-all duration-300 ease-in-out">
           <SheetHeader>
             <SheetTitle>
-              {state.contentType === "fallos" 
-                ? "Detalle del fallo" 
+              {state.contentType === "fallos"
+                ? "Detalle del fallo"
                 : state.contentType === "legislation"
-                ? "Detalle de normativa"
-                : "Detalle del documento"}
+                  ? "Detalle de normativa"
+                  : "Detalle del documento"}
             </SheetTitle>
           </SheetHeader>
           <div className="mt-6">

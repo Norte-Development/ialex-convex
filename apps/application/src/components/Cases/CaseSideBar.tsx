@@ -128,7 +128,7 @@ export default function CaseSidebar() {
   const getCurrentSection = () => {
     const path = location.pathname;
     if (path.includes("/base-de-datos"))
-      return { name: "Legales", icon: FileSearch2 };
+      return { name: "Base Legal", icon: FileSearch2 };
 
     if (path.includes("/configuracion/reglas"))
       return { name: "Reglas del Agente", icon: ListChecks };
