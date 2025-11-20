@@ -19,6 +19,7 @@ import { HighlightProvider } from "./context/HighlightContext";
 import { EscritoProvider } from "./context/EscritoContext";
 import { PageProvider } from "./context/PageContext";
 import { CasePermissionsProvider } from "./context/CasePermissionsContext";
+import { AgentReviewSessionProvider } from "./context/AgentReviewSessionContext";
 import { ChatbotProvider } from "./context/ChatbotContext";
 import { LayoutProvider } from "./context/LayoutContext";
 import { TutorialProvider } from "./context/TutorialContext";
@@ -70,8 +71,9 @@ const CaseRoutesWrapper: React.FC = () => {
       <CaseProvider>
         <CasePermissionsWrapper>
           <EscritoProvider>
-            <HighlightProvider>
-              <Routes>
+            <AgentReviewSessionProvider>
+              <HighlightProvider>
+                <Routes>
                 <Route index element={<CaseDetailPage />} />
                 <Route path="escritos" element={<EscritosPage />} />
                 <Route path="escritos/:escritoId" element={<EscritosPage />} />
@@ -95,8 +97,9 @@ const CaseRoutesWrapper: React.FC = () => {
                   path="configuracion/reglas"
                   element={<CaseSettingsRulesPage />}
                 />
-              </Routes>
-            </HighlightProvider>
+                </Routes>
+              </HighlightProvider>
+            </AgentReviewSessionProvider>
           </EscritoProvider>
         </CasePermissionsWrapper>
       </CaseProvider>

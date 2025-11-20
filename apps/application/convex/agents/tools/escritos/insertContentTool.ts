@@ -1,7 +1,7 @@
 import { createTool, ToolCtx } from "@convex-dev/agent";
 import { z } from "zod";
 import { api, internal } from "../../../_generated/api";
-import { getUserAndCaseIds, validateStringParam, createErrorResponse } from "../shared/utils";
+import { getUserAndCaseIds, validateStringParam, createErrorResponse, validateAndCorrectEscritoId } from "../shared/utils";
 import { Id } from "../../../_generated/dataModel";
 
 export const insertContentTool = createTool({
@@ -27,6 +27,17 @@ export const insertContentTool = createTool({
 
     const idErr = validateStringParam(args.escritoId, "escritoId");
     if (idErr) return idErr;
+
+    // Auto-correct truncated IDs
+    const { id: correctedEscritoId, wasCorrected } = await validateAndCorrectEscritoId(
+      ctx,
+      args.escritoId.trim(),
+      caseId
+    );
+    
+    if (wasCorrected) {
+      console.log(`✅ Auto-corrected escritoId in insertContent: ${args.escritoId} -> ${correctedEscritoId}`);
+    }
     const htmlErr = validateStringParam(args.html, "html");
     if (htmlErr) return htmlErr;
     if (!args.placement || typeof args.placement !== 'object') {
@@ -48,7 +59,7 @@ export const insertContentTool = createTool({
     }
 
     const result = await ctx.runAction(api.functions.escritosTransforms.index.insertHtmlContent, {
-      escritoId: args.escritoId as any,
+      escritoId: correctedEscritoId as any,
       html: args.html as string,
       placement,
     });

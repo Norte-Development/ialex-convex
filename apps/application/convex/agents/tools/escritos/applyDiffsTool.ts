@@ -2,7 +2,7 @@ import { createTool, ToolCtx } from "@convex-dev/agent";
 import { api, internal } from "../../../_generated/api";
 import { z } from "zod";
 import { validateMarkType } from "../shared/validation";
-import { getUserAndCaseIds, createErrorResponse, validateStringParam } from "../shared/utils";
+import { getUserAndCaseIds, createErrorResponse, validateStringParam, validateAndCorrectEscritoId } from "../shared/utils";
 import { Id } from "../../../_generated/dataModel";
 
 /**
@@ -254,6 +254,17 @@ export const applyDiffsTool = createTool({
       const escritoIdError = validateStringParam(escritoId, "escritoId");
       if (escritoIdError) {
         return escritoIdError;
+      }
+
+      // Auto-correct truncated IDs
+      const { id: correctedEscritoId, wasCorrected } = await validateAndCorrectEscritoId(
+        ctx,
+        escritoId.trim(),
+        caseId
+      );
+      
+      if (wasCorrected) {
+        console.log(`✅ Auto-corrected escritoId in applyDiffs: ${escritoId} -> ${correctedEscritoId}`);
       }
 
       // Handle case where LLM passes diffs as a JSON string instead of an array
@@ -509,15 +520,15 @@ export const applyDiffsTool = createTool({
 
       // Load Escrito to verify it exists
       const escrito = await ctx.runQuery(internal.functions.documents.internalGetEscrito, {
-        escritoId: escritoId as any,
+        escritoId: correctedEscritoId as any,
       });
       if (!escrito) {
-        return createErrorResponse(`Escrito no encontrado con ID: ${escritoId}`);
+        return createErrorResponse(`Escrito no encontrado con ID: ${correctedEscritoId}`);
       }
 
       // Apply text-based operations using the mutation
       const result = await ctx.runMutation(api.functions.escritosTransforms.index.applyTextBasedOperations, {
-        escritoId: escritoId as any,
+        escritoId: correctedEscritoId as any,
         edits: validEdits,
       });
 

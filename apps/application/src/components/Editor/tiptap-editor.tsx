@@ -22,6 +22,7 @@ import { AlertTriangle } from "lucide-react";
 import { Button } from "../ui/button";
 import { EditorContextMenu } from "./EditorContextMenu";
 import { chatSelectionBus } from "@/lib/chatSelectionBus";
+import { SuggestionsMenu } from "./suggestions-menu";
 
 const EMPTY_DOC = {
   type: "doc",
@@ -34,6 +35,8 @@ interface TiptapProps {
   onDestroy?: () => void;
   readOnly?: boolean;
   templateId?: Id<"modelos"> | null;
+  escritoId?: Id<"escritos">; // Convex ID for navigation
+  caseId?: Id<"cases">; // Case ID for navigation
 }
 
 export interface TiptapRef {
@@ -49,11 +52,13 @@ export const Tiptap = forwardRef<TiptapRef, TiptapProps>(
       onReady,
       onDestroy,
       readOnly = false,
+      escritoId,
+      caseId,
     },
     ref,
   ) => {
     const sync = useTiptapSync(api.prosemirror, documentId);
-    const { setEscritoId, setCursorPosition, setTextAroundCursor, escritoId } =
+    const { setEscritoId, setCursorPosition, setTextAroundCursor, escritoId: escritoIdFromContext } =
       useEscrito();
     const incrementModeloUsage = useMutation(
       api.functions.templates.incrementModeloUsage,
@@ -68,7 +73,7 @@ export const Tiptap = forwardRef<TiptapRef, TiptapProps>(
         ? { escritoId: escritoId as Id<"escritos"> }
         : "skip",
     );
-    const activeProsemirrorId = escrito?.prosemirrorId || escritoId;
+    const activeProsemirrorId = escrito?.prosemirrorId || escritoIdFromContext;
 
     // Track if template has been applied to prevent reapplying on reload
     const templateAppliedRef = useRef(false);
@@ -542,6 +547,13 @@ export const Tiptap = forwardRef<TiptapRef, TiptapProps>(
         <EditorContextMenu editor={editor} readOnly={readOnly}>
           <div className="legal-editor-content-wrapper w-full min-h-[600px]">
             <EditorContent editor={editor} className="w-full min-h-[600px]" />
+            {!readOnly && (
+              <SuggestionsMenu
+                editor={editor}
+                escritoId={escritoId || escrito?._id}
+                caseId={caseId || escrito?.caseId}
+              />
+            )}
           </div>
         </EditorContextMenu>
 
