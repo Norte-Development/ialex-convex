@@ -300,12 +300,14 @@ export default function CaseSidebar() {
           isCaseSidebarOpen ? "translate-x-0" : "-translate-x-full"
         }`}
       >
-        <button
-          className="absolute top-16 right-2 cursor-pointer z-10 p-1 hover:bg-gray-100 rounded-md transition-colors md:block max-md:top-1/2 max-md:-translate-y-1/2 max-md:-right-10 max-md:p-3 max-md:bg-white max-md:shadow-lg max-md:border max-md:border-gray-200 max-md:rounded-lg"
-          onClick={toggleCaseSidebar}
-        >
-          <ArrowLeft size={15} className="max-md:w-6 max-md:h-6" />
-        </button>
+        {isCaseSidebarOpen && (
+          <button
+            className="absolute top-16 right-2 cursor-pointer z-10 p-1 hover:bg-gray-100 rounded-md transition-colors md:block max-md:top-1/2 max-md:-translate-y-1/2 max-md:-right-10 max-md:p-3 max-md:bg-white max-md:shadow-lg max-md:border max-md:border-gray-200 max-md:rounded-lg"
+            onClick={toggleCaseSidebar}
+          >
+            <ArrowLeft size={15} className="max-md:w-6 max-md:h-6" />
+          </button>
+        )}
 
         {/* Dropdown de navegación - Fixed */}
         <div className="pl-1 py-2 border-b border-gray-200 flex-shrink-0">
