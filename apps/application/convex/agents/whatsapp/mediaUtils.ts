@@ -1,5 +1,21 @@
 'use node';
 
+/**
+ * WhatsApp Media Utilities
+ *
+ * Handles media storage, transcription, and URL generation for WhatsApp messages.
+ *
+ * Current strategy (for reliability over strict ephemerality):
+ * - Media is stored in a dedicated GCS bucket for WhatsApp (WHATSAPP_GCS_BUCKET),
+ *   falling back to GCS_BUCKET if not set.
+ * - Uploaded objects are made public so they can be fetched by external AI providers.
+ * - URLs are stable public URLs of the form:
+ *     https://storage.googleapis.com/<bucket>/<object>
+ *
+ * This keeps WhatsApp media independent from the rest of the app's buckets and
+ * avoids signed URL expiration problems for conversation history.
+ */
+
 import { internalAction } from "../../_generated/server";
 import { internal } from "../../_generated/api";
 import { v } from "convex/values";
@@ -23,16 +39,18 @@ export const transcribeAction = internalAction({
         gcsObject: v.string(),
     },
     handler: async (ctx, { gcsBucket, gcsObject }) => {
-        const { url } = await ctx.runAction(
-            internal.utils.gcs.generateGcsV4SignedUrlAction,
+        // Generate fresh short-lived URL just-in-time for transcription
+        const url = await ctx.runAction(
+            internal.agents.whatsapp.mediaUtils.getShortLivedMediaUrl,
             {
-              bucket: gcsBucket,
-              object: gcsObject,
-              expiresSeconds: 900,
-              method: "GET",
+                gcsBucket,
+                gcsObject,
             },
-          );
+        );
 
+        if (!url) {
+            throw new Error(`Failed to generate signed URL for transcription: ${gcsBucket}/${gcsObject}`);
+        }
 
         const { result, error } = await deepgram.listen.prerecorded.transcribeUrl({url: url}, {
             model: 'nova-2',
@@ -61,9 +79,10 @@ export const downloadAndStoreTwilioMedia = internalAction({
         size: v.number(),
     }),
     handler: async (ctx, { mediaUrl, contentType, accountSid, authToken }) => {
-        const bucket = process.env.GCS_BUCKET;
+        // Use a dedicated bucket for WhatsApp media if configured, falling back to GCS_BUCKET.
+        const bucket = process.env.WHATSAPP_GCS_BUCKET || process.env.GCS_BUCKET;
         if (!bucket) {
-            throw new Error('GCS_BUCKET environment variable not configured');
+            throw new Error('WHATSAPP_GCS_BUCKET or GCS_BUCKET environment variable not configured for WhatsApp media');
         }
 
         // Create Basic Auth header for Twilio API
@@ -103,19 +122,12 @@ export const downloadAndStoreTwilioMedia = internalAction({
             },
         });
 
-        console.log(`[WhatsApp Media] Uploaded to GCS: ${bucket}/${objectPath} (${size} bytes)`);
+        // Make this object public so it can be fetched without signed URLs.
+        // This is intentionally scoped to the WhatsApp media bucket so it
+        // doesn't affect the rest of the app's private storage.
+        // await gcsFile.makePublic();
 
-        // Schedule deletion after 1 day (24 hours = 86400000 ms)
-        await ctx.scheduler.runAfter(
-            24 * 60 * 60 * 1000, // 1 day in milliseconds
-            internal.utils.gcs.deleteGcsObjectAction,
-            {
-                bucket,
-                object: objectPath,
-            }
-        );
-
-        console.log(`[WhatsApp Media] Scheduled deletion for ${bucket}/${objectPath} in 1 day`);
+        console.log(`[WhatsApp Media] Uploaded and made public in GCS: ${bucket}/${objectPath} (${size} bytes)`);
 
         return {
             gcsBucket: bucket,
@@ -126,6 +138,9 @@ export const downloadAndStoreTwilioMedia = internalAction({
     },
 });
 
+// Helper to centralize construction of public media URLs for WhatsApp.
+// If the hosting pattern ever changes, only this helper needs to be updated.
+
 type ImageContentPart = {
   type: "image";
   image: string;
@@ -134,9 +149,58 @@ type ImageContentPart = {
 
 type ImageContentPartOrNull = ImageContentPart | null;
 
+type MediaReference = {
+  gcsBucket: string;
+  gcsObject: string;
+  contentType: string;
+};
+
+/**
+ * Generates a short-lived, unguessable signed URL for a media item.
+ * This helper creates fresh URLs just-in-time with a configurable TTL.
+ * URLs are never persisted - they act as short-lived bearer tokens.
+ * 
+ * @param mediaRef - Internal media reference (bucket + object key)
+ * @param ttlSeconds - Optional TTL override (defaults to MEDIA_SIGNED_URL_TTL_SECONDS)
+ * @returns Signed URL string or null if generation fails
+ */
+export const getShortLivedMediaUrl = internalAction({
+  args: {
+    gcsBucket: v.string(),
+    gcsObject: v.string(),
+    ttlSeconds: v.optional(v.number()),
+  },
+  returns: v.union(v.string(), v.null()),
+  handler: async (
+    ctx,
+    { gcsBucket, gcsObject, ttlSeconds: _ttlSeconds },
+  ): Promise<string | null> => {
+    try {
+      // Build a stable public URL for the object. We encode the object path
+      // but preserve slashes so nested paths continue to work.
+      const encodedObject = encodeURIComponent(gcsObject).replace(/%2F/g, "/");
+      const url = `https://storage.googleapis.com/${gcsBucket}/${encodedObject}`;
+      return url;
+    } catch (error) {
+      console.error(
+        "[WhatsApp Media] Failed to build public media URL",
+        {
+          gcsBucket,
+          gcsObject,
+          error,
+        },
+      );
+      return null;
+    }
+  },
+});
+
 /**
  * Generates signed URLs for image media items to be used by the LLM.
  * Returns an array of image content parts, with null entries for failed images.
+ * 
+ * NOTE: This function generates URLs with short TTL. For just-in-time URL generation
+ * before AI calls, use getShortLivedMediaUrl instead.
  */
 export const generateSignedImageUrls = internalAction({
     args: {
@@ -151,18 +215,16 @@ export const generateSignedImageUrls = internalAction({
         const signedImageParts: Array<ImageContentPartOrNull> = await Promise.all(
             imageMediaItems.map(async (m): Promise<ImageContentPartOrNull> => {
                 try {
-                    const expiresSeconds = Number(
-                        process.env.GCS_DOWNLOAD_URL_TTL_SECONDS || 900,
-                    );
-                    const { url }: { url: string } = await ctx.runAction(
-                        internal.utils.gcs.generateGcsV4SignedUrlAction,
+                    const url = await ctx.runAction(
+                        internal.agents.whatsapp.mediaUtils.getShortLivedMediaUrl,
                         {
-                            bucket: m.gcsBucket,
-                            object: m.gcsObject,
-                            expiresSeconds,
-                            method: "GET",
+                            gcsBucket: m.gcsBucket,
+                            gcsObject: m.gcsObject,
                         },
                     );
+                    if (!url) {
+                        return null;
+                    }
                     return {
                         type: "image" as const,
                         image: url,

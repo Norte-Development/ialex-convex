@@ -36,7 +36,7 @@ export const createWhatsappThread = internalMutation({
     const threadUserId = `whatsapp:${args.userId}`;
     const thread = await agent.createThread(ctx, {
       userId: threadUserId,
-      title: `WhatsApp: ${args.userId}`,
+      title: `WhatsApp:${args.userId}`,
     });
 
     return thread.threadId;

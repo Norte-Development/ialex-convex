@@ -33,6 +33,7 @@ export const getUserAndCaseIds = (
     }
   
     const CASE_PREFIX = "case:";
+    const WHATSAPP_PREFIX = "whatsapp:";
   
     if (threadUserId.startsWith(CASE_PREFIX)) {
       // Extract substring after "case:"
@@ -46,6 +47,20 @@ export const getUserAndCaseIds = (
       }
   
       return { caseId, userId };
+    }
+
+    if (threadUserId.startsWith(WHATSAPP_PREFIX)) {
+      // Extract substring after "whatsapp:"
+      const payload = threadUserId.slice(WHATSAPP_PREFIX.length);
+      const userId = payload.replace("whatsapp:", "");
+
+      if (!userId) {
+        throw new Error(
+          `Invalid threadUserId format. Expected "whatsapp:{userId}", got "${threadUserId}"`
+        );
+      }
+
+      return { caseId: null, userId };
     }
   
     // Fallback: treat as just userId
