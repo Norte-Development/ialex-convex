@@ -1,25 +1,25 @@
-import { useState, useEffect, useMemo } from "react"
-import { useQuery } from "convex/react"
-import { api } from "../../../convex/_generated/api"
+import { useState, useEffect, useMemo } from "react";
+import { useQuery } from "convex/react";
+import { api } from "../../../convex/_generated/api";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
-} from "@/components/ui/dialog"
-import { Input } from "@/components/ui/input"
-import { Search, MessageCircle, Clock } from "lucide-react"
-import { formatDistanceToNow } from "date-fns"
-import { es } from "date-fns/locale"
-import { Button } from "@/components/ui/button"
-import { ScrollArea } from "@/components/ui/scroll-area"
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Search, MessageCircle, Clock } from "lucide-react";
+import { formatDistanceToNow } from "date-fns";
+import { es } from "date-fns/locale";
+import { Button } from "@/components/ui/button";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 interface ChatHistoryDialogProps {
-  open: boolean
-  onOpenChange: (open: boolean) => void
-  caseId?: string
-  currentThreadId?: string
-  onThreadSelect: (threadId: string) => void
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  caseId?: string;
+  currentThreadId?: string;
+  onThreadSelect: (threadId: string) => void;
 }
 
 export function ChatHistoryDialog({
@@ -29,17 +29,17 @@ export function ChatHistoryDialog({
   currentThreadId,
   onThreadSelect,
 }: ChatHistoryDialogProps) {
-  const [searchQuery, setSearchQuery] = useState("")
-  const [debouncedQuery, setDebouncedQuery] = useState("")
+  const [searchQuery, setSearchQuery] = useState("");
+  const [debouncedQuery, setDebouncedQuery] = useState("");
 
   // Debounce search query
   useEffect(() => {
     const timer = setTimeout(() => {
-      setDebouncedQuery(searchQuery)
-    }, 300)
+      setDebouncedQuery(searchQuery);
+    }, 300);
 
-    return () => clearTimeout(timer)
-  }, [searchQuery])
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
 
   // Use search query if provided, otherwise list all threads
   const searchResults = useQuery(
@@ -47,38 +47,38 @@ export function ChatHistoryDialog({
     debouncedQuery.trim().length > 0
       ? { searchTerm: debouncedQuery, caseId }
       : "skip",
-  )
+  );
 
   const allThreads = useQuery(
     api.agents.threads.listThreads,
     debouncedQuery.trim().length === 0
       ? { paginationOpts: { numItems: 50, cursor: null }, caseId }
       : "skip",
-  )
+  );
 
   const threads = useMemo(() => {
     if (debouncedQuery.trim().length > 0) {
-      return searchResults?.page ?? []
+      return searchResults?.page ?? [];
     }
-    return allThreads?.page ?? []
-  }, [debouncedQuery, searchResults, allThreads])
+    return allThreads?.page ?? [];
+  }, [debouncedQuery, searchResults, allThreads]);
 
   const handleThreadClick = (threadId: string) => {
-    onThreadSelect(threadId)
-    onOpenChange(false)
-    setSearchQuery("") // Clear search on selection
-  }
+    onThreadSelect(threadId);
+    onOpenChange(false);
+    setSearchQuery(""); // Clear search on selection
+  };
 
   const formatTimestamp = (timestamp: number) => {
     return formatDistanceToNow(new Date(timestamp), {
       addSuffix: true,
       locale: es,
-    })
-  }
+    });
+  };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[80vh] overflow-hidden flex flex-col">
+      <DialogContent className="max-w-[85vw] md:max-w-2xl max-h-[80vh] overflow-hidden flex flex-col">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <MessageCircle className="w-5 h-5" />
@@ -115,9 +115,9 @@ export function ChatHistoryDialog({
             ) : (
               <div className="space-y-2">
                 {threads.map((thread: any) => {
-                  const isActive = thread._id === currentThreadId
-                  const matchType = thread.matchType
-                  const snippet = thread.searchSnippet
+                  const isActive = thread._id === currentThreadId;
+                  const matchType = thread.matchType;
+                  const snippet = thread.searchSnippet;
 
                   return (
                     <Button
@@ -159,7 +159,7 @@ export function ChatHistoryDialog({
                         </div>
                       </div>
                     </Button>
-                  )
+                  );
                 })}
               </div>
             )}
@@ -167,6 +167,5 @@ export function ChatHistoryDialog({
         </div>
       </DialogContent>
     </Dialog>
-  )
+  );
 }
-
