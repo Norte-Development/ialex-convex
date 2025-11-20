@@ -99,6 +99,40 @@
   margin: 0 4px;
 }
 
+@media (max-width: 768px) {
+  .ribbon-tabs {
+    overflow-x: auto;
+  }
+
+  .ribbon-content {
+    padding: 12px 16px;
+    overflow-x: auto;
+  }
+
+  .ribbon-tab-content {
+    flex-wrap: wrap;
+    column-gap: 24px;
+    row-gap: 16px;
+  }
+
+  .ribbon-group {
+    gap: 6px;
+    flex: 1 1 100%;
+    min-width: 100%;
+  }
+
+  .ribbon-group-content {
+    gap: 4px;
+    padding: 6px;
+    border-radius: 6px;
+    border: 1px solid var(--office-border);
+  }
+
+  .ribbon-separator {
+    display: none;
+  }
+}
+
 /* Office Button Styles */
 .hover\:bg-office-hover:hover {
   background-color: var(--office-hover) !important;
@@ -145,7 +179,7 @@
 }
 
 .legal-editor-content {
-  width: 800px;
+  width: 100%;
   max-width: 800px;
   margin: 0 auto;
   overflow-wrap: break-word;
@@ -353,7 +387,7 @@
 .legal-editor-content-wrapper .ProseMirror {
   outline: none;
   min-height: 600px;
-  width: 800px;
+  width: 100%;
   max-width: 800px;
   margin: 0 auto;
   overflow-wrap: break-word;
