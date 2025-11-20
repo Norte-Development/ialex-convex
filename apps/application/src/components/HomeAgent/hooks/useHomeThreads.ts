@@ -31,13 +31,16 @@ export interface UseHomeThreadsReturn {
   threadsLoading: boolean;
   hasMoreThreads: boolean;
   startNewConversation: () => Promise<string>;
+  deleteThread: (threadId: string) => Promise<void>;
 
   // Current Thread
   currentThread: HomeThread | null;
   currentThreadLoading: boolean;
   messages: HomeMessage[];
   messagesLoading: boolean;
-  sendMessage: (content: string) => Promise<{ workflowId: string; threadId: string }>;
+  sendMessage: (
+    content: string,
+  ) => Promise<{ workflowId: string; threadId: string }>;
 
   // Combined state
   isLoading: boolean;
@@ -46,12 +49,10 @@ export interface UseHomeThreadsReturn {
 /**
  * Unified hook for home agent threads
  */
-export function useHomeThreads(options: UseHomeThreadsOptions = {}): UseHomeThreadsReturn {
-  const {
-    threadId,
-    threadsLimit = 50,
-    messagesLimit = 100,
-  } = options;
+export function useHomeThreads(
+  options: UseHomeThreadsOptions = {},
+): UseHomeThreadsReturn {
+  const { threadId, threadsLimit = 50, messagesLimit = 100 } = options;
 
   // ========================================
   // THREAD LIST QUERIES
@@ -88,6 +89,7 @@ export function useHomeThreads(options: UseHomeThreadsOptions = {}): UseHomeThre
   const workflowMutation = useMutation(
     api.agents.home.workflow.initiateWorkflowStreaming,
   );
+  const deleteThreadMutation = useMutation(api.agents.threads.deleteThread);
 
   // ========================================
   // HANDLERS
@@ -96,14 +98,11 @@ export function useHomeThreads(options: UseHomeThreadsOptions = {}): UseHomeThre
   /**
    * Start a new conversation (just clears the current thread)
    */
-  const startNewConversation = useCallback(
-    () => {
-      // Don't create a thread - just return empty string to clear current thread
-      // Thread will be created when user sends first message
-      return Promise.resolve("");
-    },
-    [],
-  );
+  const startNewConversation = useCallback(() => {
+    // Don't create a thread - just return empty string to clear current thread
+    // Thread will be created when user sends first message
+    return Promise.resolve("");
+  }, []);
 
   /**
    * Send a message to the current thread or create a new one if none exists
@@ -117,6 +116,13 @@ export function useHomeThreads(options: UseHomeThreadsOptions = {}): UseHomeThre
       });
     },
     [threadId, workflowMutation],
+  );
+
+  const deleteThread = useCallback(
+    async (threadIdToDelete: string) => {
+      await deleteThreadMutation({ threadId: threadIdToDelete });
+    },
+    [deleteThreadMutation],
   );
 
   // ========================================
@@ -134,10 +140,10 @@ export function useHomeThreads(options: UseHomeThreadsOptions = {}): UseHomeThre
 
   const currentThread = useMemo(() => {
     if (!threadId) return null;
-    
+
     // First try to get from metadata query
     if (threadMetadata) return threadMetadata as HomeThread;
-    
+
     // Fallback to finding in threads list
     return threads.find((t) => t._id === threadId) || null;
   }, [threadId, threadMetadata, threads]);
@@ -152,6 +158,7 @@ export function useHomeThreads(options: UseHomeThreadsOptions = {}): UseHomeThre
     threadsLoading,
     hasMoreThreads: threadsResult?.isDone === false,
     startNewConversation,
+    deleteThread,
 
     // Current Thread
     currentThread,

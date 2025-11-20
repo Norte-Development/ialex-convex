@@ -103,6 +103,8 @@ export default defineSchema({
         // Privacy & Security
         sessionTimeout: v.optional(v.number()),
         activityLogVisible: v.optional(v.boolean()),
+        whatsappNumber: v.optional(v.string()),
+        whatsappVerified: v.optional(v.boolean())
       }),
     ),
     migration: v.optional(
