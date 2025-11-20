@@ -371,7 +371,7 @@ export default function CaseTable({
             {!cases || cases.length === 0 ? (
               <TableRow>
                 <TableCell
-                  colSpan={4}
+                  colSpan={5}
                   className="text-center py-8 text-gray-500"
                 >
                   No hay casos disponibles
@@ -411,7 +411,7 @@ export default function CaseTable({
                   </TableCell>
                   {(case_.accessLevel === "advanced" ||
                     case_.accessLevel === "admin") && (
-                    <TableCell className="p-0!">
+                    <TableCell className="!p-0">
                       <div
                         className="absolute right-2 top-1/2 -translate-y-1/2 z-10"
                         onClick={(e) => e.stopPropagation()}
@@ -421,7 +421,7 @@ export default function CaseTable({
                             <Button
                               variant="ghost"
                               size="sm"
-                              className="h-8 w-8 p-0 opacity-0 group-hover:opacity-100 hover:opacity-100! transition-opacity bg-white shadow-sm"
+                              className="h-8 w-8 p-0 opacity-0 group-hover:opacity-100 !hover:opacity-100 transition-opacity bg-white shadow-sm"
                             >
                               <MoreVertical className="h-4 w-4" />
                             </Button>
