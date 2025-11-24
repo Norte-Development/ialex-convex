@@ -581,7 +581,8 @@ ${clientInfo}`);
       }
 
       if (view.currentEscritoId) {
-        viewSection += `\n- Trabajando en Escrito: ${view.currentEscritoId}`;
+        const id = view.currentEscritoId;
+        viewSection += `\n- Trabajando en Escrito ID: "${id}" (CRITICAL: Use this EXACT ${id.length}-character ID, do not truncate)`;
       }
 
       if (view.currentDocumentId) {
@@ -594,9 +595,11 @@ ${clientInfo}`);
     // Opened Escrito context
     if (contextBundle.openedEscrito) {
       const escrito = contextBundle.openedEscrito;
+      const id = escrito.id;
       let escritoSection = `## Escrito Abierto Actualmente
 - **Título**: ${escrito.title}
-- **ID**: ${escrito.id}
+- **ID (REQUIRED - USE EXACTLY)**: "${id}"
+- **⚠️ IMPORTANTE**: El ID debe tener exactamente ${id.length} caracteres. NO lo trunques. Copia el ID completo tal como aparece aquí.
 ${escrito.status ? `- **Estado**: ${escrito.status}` : ''}
 - **Vista previa del contenido** (primeros 1000 caracteres):
 ${escrito.contentPreview}`;

@@ -8,10 +8,10 @@ import {
 } from "../_generated/server";
 import { paginationOptsValidator } from "convex/server";
 import { getCurrentUserFromAuth, requireNewCaseAccess } from "../auth_utils";
-import { prosemirrorSync } from "../prosemirror";
-import { internal, api } from "../_generated/api";
+import { internal, api, components } from "../_generated/api";
 import { _checkLimit, _getBillingEntity } from "../billing/features";
 import { PLAN_LIMITS } from "../billing/planLimits";
+import type { Id } from "../_generated/dataModel";
 
 
 
@@ -957,7 +957,11 @@ export const createEscritoWithContent = internalMutation({
     const userId = args.userId;
 
     const prosemirrorId = crypto.randomUUID();
-    await prosemirrorSync.create(ctx, prosemirrorId, args.initialContent);
+    await ctx.runMutation(components.prosemirrorSync.lib.submitSnapshot, {
+      id: prosemirrorId,
+      content: JSON.stringify(args.initialContent),
+      version: 0,
+    });
 
     const now = Date.now();
 
@@ -1440,6 +1444,101 @@ export const getRecentEscritos = query({
       .take(limit);
 
     return escritos;
+  },
+});
+
+/**
+ * Gets all escritos in a case that have pending changes (change nodes in their prosemirror documents).
+ *
+ * @param {Object} args - The function arguments
+ * @param {string} args.caseId - The ID of the case
+ * @returns {Promise<Array<{escritoId: Id<"escritos">, prosemirrorId: string, title: string, pendingChangesCount: number}>>} Array of escritos with pending changes
+ * @throws {Error} When not authenticated or lacking case access
+ */
+export const getEscritosWithPendingChanges = query({
+  args: {
+    caseId: v.id("cases"),
+  },
+  returns: v.array(
+    v.object({
+      escritoId: v.id("escritos"),
+      prosemirrorId: v.string(),
+      title: v.string(),
+      pendingChangesCount: v.number(),
+    }),
+  ),
+  handler: async (ctx, args) => {
+    const currentUser = await getCurrentUserFromAuth(ctx);
+    await requireNewCaseAccess(ctx, currentUser._id, args.caseId, "basic");
+
+    // Get all escritos for the case
+    const escritos = await ctx.db
+      .query("escritos")
+      .withIndex("by_case", (q) => q.eq("caseId", args.caseId))
+      .filter((q) => q.eq(q.field("isArchived"), false))
+      .collect();
+
+    const resultados: Array<{
+      escritoId: Id<"escritos">;
+      prosemirrorId: string;
+      title: string;
+      pendingChangesCount: number;
+    }> = [];
+
+    // Check each escrito for pending changes
+    for (const escrito of escritos) {
+      try {
+        // Use getSnapshot to get the document JSON
+        const snapshotResult = await ctx.runQuery(
+          components.prosemirrorSync.lib.getSnapshot,
+          {
+            id: escrito.prosemirrorId,
+          },
+        );
+        
+        // Check if snapshot has content (it can be null or have content property)
+        if (!snapshotResult || snapshotResult.content === null) continue;
+        
+        // Type guard: check if content exists
+        if (!("content" in snapshotResult)) continue;
+
+        // Parse the snapshot JSON to check for change nodes
+        const content = (snapshotResult as { content: string }).content;
+        const docJson = typeof content === "string" 
+          ? JSON.parse(content) 
+          : content;
+        let changeCount = 0;
+
+        // Recursively count change nodes in the JSON structure
+        function countChangesInNode(node: any): void {
+          if (!node || typeof node !== "object") return;
+
+          if (node.type === "inlineChange" || node.type === "blockChange" || node.type === "lineBreakChange") {
+            changeCount++;
+          }
+
+          if (node.content && Array.isArray(node.content)) {
+            node.content.forEach((child: any) => countChangesInNode(child));
+          }
+        }
+
+        countChangesInNode(docJson);
+
+        if (changeCount > 0) {
+          resultados.push({
+            escritoId: escrito._id,
+            prosemirrorId: escrito.prosemirrorId,
+            title: escrito.title,
+            pendingChangesCount: changeCount,
+          });
+        }
+      } catch (error) {
+        // Skip escritos that can't be loaded
+        console.error(`Error checking escrito ${escrito._id} for changes:`, error);
+      }
+    }
+
+    return resultados;
   },
 });
 

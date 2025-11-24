@@ -1,10 +1,15 @@
 "use client"
 
 import { useCallback, useEffect, useState } from "react"
+// @ts-ignore - TypeScript cache issue with @tiptap/core types
 import type { Editor } from "@tiptap/core"
+import { useNavigate } from "react-router-dom"
+import { useQuery } from "convex/react"
+import { api } from "../../../convex/_generated/api"
 import { Button } from "@/components/ui/button"
-import { CheckCircle, XCircle, ChevronUp, ChevronDown } from "lucide-react"
+import { CheckCircle, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, RotateCcw } from "lucide-react"
 import { cn } from "@/lib/utils"
+import type { Id } from "../../../convex/_generated/dataModel"
 
 /**
  * Menú flotante minimalista para aceptar o rechazar todas las sugerencias de diferencias en el editor.
@@ -16,10 +21,13 @@ import { cn } from "@/lib/utils"
  * - Muestra la posición actual del cambio (ej., "1/5")
  * - Proporciona botones para aceptar o rechazar todos los cambios de una vez
  * - Incluye atajos de teclado: ⌘⇧Y (Aceptar Todo), ⌘⇧N (Rechazar Todo)
+ * - Soporte multi-documento: permite cambiar entre documentos editados por el agente
  */
 interface SuggestionsMenuProps {
   editor: Editor
   className?: string
+  escritoId?: Id<"escritos"> // Convex ID for navigation (if escrito)
+  caseId?: Id<"cases"> // Case ID for navigation
 }
 
 interface ChangeStats {
@@ -29,8 +37,54 @@ interface ChangeStats {
   uniqueChangeIds: string[]
 }
 
-export function SuggestionsMenu({ editor, className }: SuggestionsMenuProps) {
+export function SuggestionsMenu({
+  editor,
+  className,
+  escritoId,
+  caseId,
+}: SuggestionsMenuProps) {
   const [currentChangeIndex, setCurrentChangeIndex] = useState(0)
+  const [currentDocumentIndex, setCurrentDocumentIndex] = useState(0)
+  const navigate = useNavigate()
+
+  // Query all escritos with pending changes in the case
+  const escritosWithChanges = useQuery(
+    api.functions.documents.getEscritosWithPendingChanges,
+    caseId ? { caseId } : "skip",
+  )
+
+  // Find current document index in the list
+  useEffect(() => {
+    if (escritoId && escritosWithChanges && escritosWithChanges.length > 0) {
+      const index = escritosWithChanges.findIndex((doc) => doc.escritoId === escritoId)
+      if (index >= 0) {
+        setCurrentDocumentIndex(index)
+      }
+    }
+  }, [escritoId, escritosWithChanges])
+
+  // Navigate to previous document
+  const goToPreviousDocument = useCallback(() => {
+    if (!escritosWithChanges || escritosWithChanges.length === 0) return
+    const prevIndex =
+      currentDocumentIndex === 0
+        ? escritosWithChanges.length - 1
+        : currentDocumentIndex - 1
+    const prevDoc = escritosWithChanges[prevIndex]
+    if (prevDoc && caseId) {
+      navigate(`/caso/${caseId}/escritos/${prevDoc.escritoId}`)
+    }
+  }, [escritosWithChanges, currentDocumentIndex, navigate, caseId])
+
+  // Navigate to next document
+  const goToNextDocument = useCallback(() => {
+    if (!escritosWithChanges || escritosWithChanges.length === 0) return
+    const nextIndex = (currentDocumentIndex + 1) % escritosWithChanges.length
+    const nextDoc = escritosWithChanges[nextIndex]
+    if (nextDoc && caseId) {
+      navigate(`/caso/${caseId}/escritos/${nextDoc.escritoId}`)
+    }
+  }, [escritosWithChanges, currentDocumentIndex, navigate, caseId])
 
   // Function to count all change nodes in the document
   const countChanges = useCallback((): ChangeStats => {
@@ -43,7 +97,7 @@ export function SuggestionsMenu({ editor, className }: SuggestionsMenuProps) {
     let deletedChanges = 0
     const uniqueChangeIds = new Set<string>()
 
-    editor.state.doc.descendants((node, pos) => {
+    editor.state.doc.descendants((node: any, pos: number) => {
       if (
         node.type.name === "inlineChange" ||
         node.type.name === "blockChange" ||
@@ -68,9 +122,16 @@ export function SuggestionsMenu({ editor, className }: SuggestionsMenuProps) {
     }
   }, [editor])
 
+
   // Get current change stats directly
   const changeStats = countChanges()
-  const isVisible = changeStats.totalChanges > 0
+  
+  // Determine if we should show multi-document UI
+  const showMultiDocument = escritosWithChanges && escritosWithChanges.length > 1
+  
+  // Show menu if there are changes OR if there are multiple documents with changes
+  const isVisible = changeStats.totalChanges > 0 || showMultiDocument
+
 
   // Function to get all change positions
   const getAllChangePositions = useCallback((): number[] => {
@@ -79,7 +140,7 @@ export function SuggestionsMenu({ editor, className }: SuggestionsMenuProps) {
     }
 
     const positions: number[] = []
-    editor.state.doc.descendants((node, pos) => {
+    editor.state.doc.descendants((node: any, pos: number) => {
       if (
         node.type.name === "inlineChange" ||
         node.type.name === "blockChange" ||
@@ -151,7 +212,7 @@ export function SuggestionsMenu({ editor, className }: SuggestionsMenuProps) {
     const nodesToProcess: Array<{ node: any; pos: number }> = []
 
     // Collect all change nodes
-    editor.state.doc.descendants((node, pos) => {
+    editor.state.doc.descendants((node: any, pos: number) => {
       if (
         node.type.name === "inlineChange" ||
         node.type.name === "blockChange" ||
@@ -172,7 +233,11 @@ export function SuggestionsMenu({ editor, className }: SuggestionsMenuProps) {
       }
     })
 
-    editor.view.dispatch(tr)
+    if (tr.steps.length > 0) {
+      editor.view.dispatch(tr)
+      // Reset change index after accepting
+      setCurrentChangeIndex(0)
+    }
   }, [editor])
 
   // Function to reject all changes
@@ -183,7 +248,7 @@ export function SuggestionsMenu({ editor, className }: SuggestionsMenuProps) {
     const nodesToProcess: Array<{ node: any; pos: number }> = []
 
     // Collect all change nodes
-    editor.state.doc.descendants((node, pos) => {
+    editor.state.doc.descendants((node: any, pos: number) => {
       if (
         node.type.name === "inlineChange" ||
         node.type.name === "blockChange" ||
@@ -200,11 +265,21 @@ export function SuggestionsMenu({ editor, className }: SuggestionsMenuProps) {
         tr.delete(pos, pos + node.nodeSize)
       } else if (node.attrs.changeType === "deleted") {
         // Restore the deleted content (reject the deletion)
-        tr.replaceWith(pos, pos + node.nodeSize, node.content)
+        // For deleted changes, we need to restore the original content
+        if (node.content && node.content.size > 0) {
+          tr.replaceWith(pos, pos + node.nodeSize, node.content)
+        } else {
+          // If no content, just remove the change marker
+          tr.delete(pos, pos + node.nodeSize)
+        }
       }
     })
 
-    editor.view.dispatch(tr)
+    if (tr.steps.length > 0) {
+      editor.view.dispatch(tr)
+      // Reset change index after rejecting
+      setCurrentChangeIndex(0)
+    }
   }, [editor])
 
   // Handle keyboard shortcuts with a single useEffect
@@ -255,65 +330,99 @@ export function SuggestionsMenu({ editor, className }: SuggestionsMenuProps) {
     }
   }, [editor, acceptAllChanges, rejectAllChanges])
 
-  // Don't render if no changes
-  if (!isVisible || changeStats.totalChanges === 0) {
+  // Always show if we're in multi-document mode or if there are changes
+  if (!isVisible) {
     return null
   }
 
   return (
     <div
       className={cn(
-        "absolute bottom-6 left-1/2 transform -translate-x-1/2 z-50 bg-white rounded-md shadow-md border border-gray-200 p-1.5 flex items-center gap-1",
+        "fixed bottom-8 left-1/2 transform -translate-x-1/2 z-[9999] flex items-center gap-2 bg-white shadow-2xl border-2 border-gray-300 rounded-lg px-3 py-2",
         className,
       )}
+      style={{
+        position: "fixed",
+      }}
     >
-      {/* Navigation buttons */}
-      <Button
-        onClick={goToPreviousChange}
-        size="sm"
-        variant="ghost"
-        className="h-7 w-7 p-0 hover:bg-gray-100"
-        title="Cambio anterior"
-      >
-        <ChevronUp className="h-4 w-4" />
-      </Button>
-      <Button
-        onClick={goToNextChange}
-        size="sm"
-        variant="ghost"
-        className="h-7 w-7 p-0 hover:bg-gray-100"
-        title="Siguiente cambio"
-      >
-        <ChevronDown className="h-4 w-4" />
-      </Button>
-      
-      {/* Change counter */}
-      <div className="px-2 text-xs font-medium text-gray-600">
-        {currentChangeIndex + 1}/{changeStats.totalChanges}
-      </div>
-      
-      <div className="h-4 w-px bg-gray-200" />
-      
-      {/* Accept/Reject all buttons */}
-      <Button
-        onClick={acceptAllChanges}
-        size="sm"
-        variant="ghost"
-        className="h-7 w-7 p-0 hover:bg-green-50 hover:text-green-700"
-        title={`Aceptar todo (${changeStats.totalChanges})`}
-      >
-        <CheckCircle className="h-4 w-4" />
-      </Button>
-      <div className="h-4 w-px bg-gray-200" />
-      <Button
-        onClick={rejectAllChanges}
-        size="sm"
-        variant="ghost"
-        className="h-7 w-7 p-0 hover:bg-red-50 hover:text-red-700"
-        title={`Rechazar todo (${changeStats.totalChanges})`}
-      >
-        <XCircle className="h-4 w-4" />
-      </Button>
+      {/* Left Section: Change Navigation (1/17) */}
+      {changeStats.totalChanges > 0 && (
+        <div className="bg-gray-100 rounded-md px-2 py-1 flex items-center gap-1">
+          <Button
+            onClick={goToPreviousChange}
+            size="sm"
+            variant="ghost"
+            className="h-6 w-6 p-0 hover:bg-gray-200"
+            title="Cambio anterior"
+          >
+            <ChevronUp className="h-3.5 w-3.5" />
+          </Button>
+          <div className="px-2 text-xs font-medium text-gray-700 min-w-12 text-center">
+            {currentChangeIndex + 1}/{changeStats.totalChanges}
+          </div>
+          <Button
+            onClick={goToNextChange}
+            size="sm"
+            variant="ghost"
+            className="h-6 w-6 p-0 hover:bg-gray-200"
+            title="Siguiente cambio"
+          >
+            <ChevronDown className="h-3.5 w-3.5" />
+          </Button>
+        </div>
+      )}
+
+      {/* Middle Section: Action Buttons */}
+      {changeStats.totalChanges > 0 && (
+        <div className="flex items-center gap-1">
+          <Button
+            onClick={rejectAllChanges}
+            size="sm"
+            variant="ghost"
+            className="h-8 px-3 text-xs text-gray-600 hover:bg-gray-100"
+            title="Rechazar todos los cambios"
+          >
+            <RotateCcw className="h-3.5 w-3.5 mr-1.5" />
+            Deshacer
+          </Button>
+          <Button
+            onClick={acceptAllChanges}
+            size="sm"
+            className="h-8 px-3 text-xs bg-blue-600 text-white hover:bg-blue-700"
+            title="Aceptar todos los cambios"
+          >
+            <CheckCircle className="h-3.5 w-3.5 mr-1.5" />
+            Mantener
+          </Button>
+        </div>
+      )}
+
+      {/* Right Section: Document Navigation (5/5) */}
+      {showMultiDocument && escritosWithChanges && (
+        <div className="bg-gray-100 rounded-md px-2 py-1 flex items-center gap-1">
+          <Button
+            onClick={goToPreviousDocument}
+            size="sm"
+            variant="ghost"
+            className="h-6 w-6 p-0 hover:bg-gray-200"
+            title="Documento anterior"
+          >
+            <ChevronLeft className="h-3.5 w-3.5" />
+          </Button>
+          <div className="px-2 text-xs font-medium text-gray-700 min-w-12 text-center">
+            {currentDocumentIndex + 1}/{escritosWithChanges.length}
+          </div>
+          <Button
+            onClick={goToNextDocument}
+            size="sm"
+            variant="ghost"
+            className="h-6 w-6 p-0 hover:bg-gray-200"
+            title="Siguiente documento"
+          >
+            <ChevronRight className="h-3.5 w-3.5" />
+          </Button>
+        </div>
+      )}
     </div>
   )
 }
