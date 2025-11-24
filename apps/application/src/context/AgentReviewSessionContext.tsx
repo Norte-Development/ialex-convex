@@ -131,11 +131,6 @@ export function AgentReviewSessionProvider({
   }, []);
 
   // Clear session when component unmounts or when explicitly cleared
-  useEffect(() => {
-    return () => {
-      // Optional: clear on unmount if needed
-    };
-  }, []);
 
   const value: AgentReviewSessionContextType = {
     documents,
