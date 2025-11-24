@@ -19,7 +19,11 @@ import { toast } from "sonner";
 import { useCase } from "@/context/CaseContext";
 import { usePermissions } from "@/context/CasePermissionsContext";
 import { PermissionToasts } from "@/lib/permissionToasts";
-import { useBillingLimit, UpgradeModal, LimitWarningBanner } from "@/components/Billing";
+import {
+  useBillingLimit,
+  UpgradeModal,
+  LimitWarningBanner,
+} from "@/components/Billing";
 import { tracking } from "@/lib/tracking";
 
 interface CreateEscritoDialogProps {
@@ -43,20 +47,26 @@ export function CreateEscritoDialog({
   // Get current escritos for the case
   const escritos = useQuery(
     api.functions.documents.getEscritos,
-    currentCase?._id ? { caseId: currentCase._id as Id<"cases">, paginationOpts: { numItems: 100, cursor: null } } : "skip"
+    currentCase?._id
+      ? {
+          caseId: currentCase._id as Id<"cases">,
+          paginationOpts: { numItems: 100, cursor: null },
+        }
+      : "skip",
   );
   const currentEscritoCount = escritos?.page?.length || 0;
 
   // Check escrito limit
-  const { allowed, isWarning, percentage, reason, currentCount, limit } = useBillingLimit("escritosPerCase", {
-    currentCount: currentEscritoCount,
-  });
+  const { allowed, isWarning, percentage, reason, currentCount, limit } =
+    useBillingLimit("escritosPerCase", {
+      currentCount: currentEscritoCount,
+    });
 
   // Get user plan for upgrade modal
   const currentUser = useQuery(api.functions.users.getCurrentUser, {});
   const userPlan = useQuery(
     api.billing.features.getUserPlan,
-    currentUser?._id ? { userId: currentUser._id } : "skip"
+    currentUser?._id ? { userId: currentUser._id } : "skip",
   );
 
   const [formData, setFormData] = useState({
@@ -115,7 +125,7 @@ export function CreateEscritoDialog({
     try {
       // Generate a unique ID for the ProseMirror document
       const prosemirrorId = crypto.randomUUID();
-      
+
       const escritoData = {
         title: formData.title.trim(),
         caseId: currentCase._id as Id<"cases">,
@@ -128,7 +138,7 @@ export function CreateEscritoDialog({
       };
 
       const result = await createEscrito(escritoData);
-      
+
       // Extract the escritoId from the result object
       const escritoId = result.escritoId;
 
@@ -158,18 +168,20 @@ export function CreateEscritoDialog({
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogContent className="sm:max-w-[500px]">
+      <DialogContent className="sm:max-w-[500px] max-h-[90vh] overflow-y-auto h-fit flex flex-col ">
         <DialogHeader>
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col sm:flex-row sm:items-center  sm:justify-between gap-2">
             <div className="flex items-center gap-2">
-              <FileText className="w-5 h-5" />
-              <DialogTitle>Crear Nuevo Escrito</DialogTitle>
+              <FileText className="w-5 h-5 shrink-0" />
+              <DialogTitle className="text-base sm:text-lg">
+                Crear Nuevo Escrito
+              </DialogTitle>
             </div>
-            <span className="text-sm text-gray-500 whitespace-nowrap ml-4">
+            <span className="text-sm text-gray-500 whitespace-nowrap">
               {currentCount}/{limit === Infinity ? "∞" : limit}
             </span>
           </div>
-          <DialogDescription>
+          <DialogDescription className="text-sm  ">
             Crea un nuevo escrito legal para el caso actual. Los campos marcados
             con * son obligatorios.
           </DialogDescription>
@@ -186,31 +198,39 @@ export function CreateEscritoDialog({
           />
         )}
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-4 ">
           <div className="space-y-2">
-            <Label htmlFor="title">Título *</Label>
+            <Label htmlFor="title" className="text-sm">
+              Título *
+            </Label>
             <Input
               id="title"
               placeholder="Ej: Demanda por Daños y Perjuicios"
               value={formData.title}
               onChange={(e) => handleInputChange("title", e.target.value)}
               required
+              className="text-sm"
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="courtName">Tribunal</Label>
+              <Label htmlFor="courtName" className="text-sm">
+                Tribunal
+              </Label>
               <Input
                 id="courtName"
                 placeholder="Ej: Juzgado Civil N° 1"
                 value={formData.courtName}
                 onChange={(e) => handleInputChange("courtName", e.target.value)}
+                className="text-sm"
               />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="expedientNumber">N° Expediente</Label>
+              <Label htmlFor="expedientNumber" className="text-sm">
+                N° Expediente
+              </Label>
               <Input
                 id="expedientNumber"
                 placeholder="Ej: EXP-2024-001"
@@ -218,12 +238,15 @@ export function CreateEscritoDialog({
                 onChange={(e) =>
                   handleInputChange("expedientNumber", e.target.value)
                 }
+                className="text-sm"
               />
             </div>
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="presentationDate">Fecha de Presentación</Label>
+            <Label htmlFor="presentationDate" className="text-sm">
+              Fecha de Presentación
+            </Label>
             <Input
               id="presentationDate"
               type="date"
@@ -231,19 +254,25 @@ export function CreateEscritoDialog({
               onChange={(e) =>
                 handleInputChange("presentationDate", e.target.value)
               }
+              className="text-sm"
             />
           </div>
 
-          <DialogFooter>
+          <DialogFooter className="flex-col sm:flex-row gap-2 sm:gap-0">
             <Button
               type="button"
               variant="outline"
               onClick={() => setOpen(false)}
               disabled={isLoading}
+              className="w-full sm:w-auto"
             >
               Cancelar
             </Button>
-            <Button type="submit" disabled={isLoading}>
+            <Button
+              type="submit"
+              disabled={isLoading}
+              className="w-full sm:w-auto"
+            >
               {isLoading ? "Creando..." : "Crear Escrito"}
             </Button>
           </DialogFooter>

@@ -42,7 +42,8 @@ function InnerCaseLayout({ children }: CaseDetailLayoutProps) {
   const { hasAccess, isLoading, can } = usePermissions();
   const { isChatbotOpen, toggleChatbot, chatbotWidth, setChatbotWidth } =
     useChatbot();
-  const { escritoId, setEscritoId, setCursorPosition, setTextAroundCursor } = useEscrito();
+  const { escritoId, setEscritoId, setCursorPosition, setTextAroundCursor } =
+    useEscrito();
   const location = useLocation();
   const [isResizing, setIsResizing] = useState(false);
   const { addUpload, updateUpload, removeUpload } = useUpload();
@@ -59,7 +60,13 @@ function InnerCaseLayout({ children }: CaseDetailLayoutProps) {
       setCursorPosition(undefined);
       setTextAroundCursor(undefined);
     }
-  }, [location.pathname, escritoId, setEscritoId, setCursorPosition, setTextAroundCursor]);
+  }, [
+    location.pathname,
+    escritoId,
+    setEscritoId,
+    setCursorPosition,
+    setTextAroundCursor,
+  ]);
 
   // Persistent dedupe tracking and drop guard
   const enqueuedUploadsRef = useRef<Set<string>>(new Set());
@@ -415,7 +422,7 @@ function InnerCaseLayout({ children }: CaseDetailLayoutProps) {
 
   return (
     <div className="relative h-screen w-screen flex overflow-hidden">
-      {/* Left Sidebar - full height, fixed position */}
+      {/* Left Sidebar - full height, fixed position, floating on mobile */}
       <div
         className={`fixed top-0 left-0 h-screen z-20 ${
           isResizing
@@ -429,9 +436,20 @@ function InnerCaseLayout({ children }: CaseDetailLayoutProps) {
         <CaseSidebar />
       </div>
 
-      {/* Main container - pushed by sidebars */}
+      {/* Backdrop for mobile when sidebar is open */}
+      {isCaseSidebarOpen && (
+        <div
+          className="fixed inset-0 bg-black/50 z-10 md:hidden"
+          onClick={() => {
+            const event = new CustomEvent("toggle-case-sidebar");
+            window.dispatchEvent(event);
+          }}
+        />
+      )}
+
+      {/* Main container - pushed by sidebars on desktop, full width on mobile */}
       <div
-        className={`flex-1 flex flex-col h-screen overflow-hidden ${
+        className={`flex-1 flex flex-col h-screen overflow-hidden max-md:!ml-0 ${
           isResizing
             ? "transition-none"
             : "transition-all duration-300 ease-in-out"

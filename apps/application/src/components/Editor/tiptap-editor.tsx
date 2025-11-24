@@ -4,7 +4,7 @@ import { useEffect, forwardRef, useImperativeHandle, useRef } from "react";
 import { useTiptapSync } from "@convex-dev/prosemirror-sync/tiptap";
 // @ts-ignore - TypeScript cache issue with @tiptap/core types
 import type { Editor } from "@tiptap/core";
-// @ts-ignore - TypeScript cache issue with @tiptap/core types  
+// @ts-ignore - TypeScript cache issue with @tiptap/core types
 import type { JSONContent } from "@tiptap/core";
 import { RibbonBar } from "./Ribbon";
 import { extensions } from "./extensions";
@@ -64,12 +64,14 @@ export const Tiptap = forwardRef<TiptapRef, TiptapProps>(
       api.functions.templates.incrementModeloUsage,
     );
     const [searchParams, setSearchParams] = useSearchParams();
-    
+
     // Query escrito if escritoId is a Convex ID (starts with letter) to get prosemirrorId
     // escritoId can be either Convex ID (from URL) or prosemirrorId (set by Tiptap)
     const escrito = useQuery(
       api.functions.documents.getEscrito,
-      escritoIdFromContext && /^[a-z]/.test(escritoIdFromContext) ? { escritoId: escritoIdFromContext as Id<"escritos"> } : "skip",
+      escritoId && /^[a-z]/.test(escritoId)
+        ? { escritoId: escritoId as Id<"escritos"> }
+        : "skip",
     );
     const activeProsemirrorId = escrito?.prosemirrorId || escritoIdFromContext;
 
@@ -78,7 +80,12 @@ export const Tiptap = forwardRef<TiptapRef, TiptapProps>(
 
     // Always call useTemplate hook to maintain hook order (passes null to skip when no template)
     const templateResult = useTemplate({ templateId });
-    const { content: initialContent, isLoading: templateLoading, error: templateError, templateNotFound } = templateResult;
+    const {
+      content: initialContent,
+      isLoading: templateLoading,
+      error: templateError,
+      templateNotFound,
+    } = templateResult;
 
     const editor = useEditor(
       {
@@ -90,7 +97,7 @@ export const Tiptap = forwardRef<TiptapRef, TiptapProps>(
         editable: !readOnly,
         editorProps: {
           attributes: {
-            class: `legal-editor-content prose prose-lg focus:outline-none px-12 py-8 min-h-screen ${
+            class: `legal-editor-content prose prose-lg focus:outline-none px-4 sm:px-8 lg:px-12 py-8 min-h-screen ${
               readOnly ? "cursor-default select-text" : ""
             }`,
             "data-placeholder": readOnly
@@ -214,28 +221,38 @@ export const Tiptap = forwardRef<TiptapRef, TiptapProps>(
     useEffect(() => {
       if (!editor) return;
 
-      const handleScrollToRange = (e: CustomEvent<{ escritoId: string; from: number; to: number }>) => {
+      const handleScrollToRange = (
+        e: CustomEvent<{ escritoId: string; from: number; to: number }>,
+      ) => {
         const { escritoId: eventEscritoId, from, to } = e.detail;
-        
+
         // eventEscritoId is a Convex ID, so compare against escrito?._id (Convex ID)
         // Don't compare against documentId which is the prosemirrorId
         const currentEscritoConvexId = escrito?._id;
-        if (!currentEscritoConvexId || eventEscritoId !== currentEscritoConvexId) {
+        if (
+          !currentEscritoConvexId ||
+          eventEscritoId !== currentEscritoConvexId
+        ) {
           return;
         }
 
         try {
           // Set selection and scroll into view
           editor.chain().focus().setTextSelection({ from, to }).run();
-          
+
           // Scroll into view
           const domPos = editor.view.domAtPos(from);
           if (domPos.node && domPos.node.nodeType === Node.TEXT_NODE) {
-            (domPos.node.parentElement || domPos.node as Element)?.scrollIntoView({
+            (
+              domPos.node.parentElement || (domPos.node as Element)
+            )?.scrollIntoView({
               behavior: "smooth",
               block: "center",
             });
-          } else if (domPos.node && domPos.node.nodeType === Node.ELEMENT_NODE) {
+          } else if (
+            domPos.node &&
+            domPos.node.nodeType === Node.ELEMENT_NODE
+          ) {
             (domPos.node as Element).scrollIntoView({
               behavior: "smooth",
               block: "center",
@@ -246,9 +263,15 @@ export const Tiptap = forwardRef<TiptapRef, TiptapProps>(
         }
       };
 
-      window.addEventListener("ialex:scrollToEscritoRange", handleScrollToRange as EventListener);
+      window.addEventListener(
+        "ialex:scrollToEscritoRange",
+        handleScrollToRange as EventListener,
+      );
       return () => {
-        window.removeEventListener("ialex:scrollToEscritoRange", handleScrollToRange as EventListener);
+        window.removeEventListener(
+          "ialex:scrollToEscritoRange",
+          handleScrollToRange as EventListener,
+        );
       };
     }, [editor, escrito]);
 
@@ -262,14 +285,14 @@ export const Tiptap = forwardRef<TiptapRef, TiptapProps>(
         // documentId is always the prosemirrorId
         // activeProsemirrorId is the prosemirrorId (either from escrito query or directly from escritoId)
         const shouldHandle = activeProsemirrorId === documentId;
-        
+
         if (!shouldHandle) {
-          console.debug("[ChatHotkey] Skipping - not the active editor", { 
-            escritoId, 
+          console.debug("[ChatHotkey] Skipping - not the active editor", {
+            escritoId,
             documentId,
             activeProsemirrorId,
             escritoProsemirrorId: escrito?.prosemirrorId,
-            note: "activeProsemirrorId should match documentId when this editor is active"
+            note: "activeProsemirrorId should match documentId when this editor is active",
           });
           return;
         }
@@ -278,55 +301,76 @@ export const Tiptap = forwardRef<TiptapRef, TiptapProps>(
         const selection = editor.state.selection;
         const { from, to } = selection;
         let hasSelection = !selection.empty && from !== to;
-        
+
         // Also check DOM selection as fallback (in case TipTap state was cleared)
         const domSelection = window.getSelection();
-        const hasDomSelection = domSelection && domSelection.rangeCount > 0 && domSelection.toString().trim().length > 0;
-        
+        const hasDomSelection =
+          domSelection &&
+          domSelection.rangeCount > 0 &&
+          domSelection.toString().trim().length > 0;
+
         // If TipTap selection is empty but DOM has selection, try to restore it
         if (!hasSelection && hasDomSelection && domSelection) {
           const range = domSelection.getRangeAt(0);
           const editorElement = editor.view.dom;
-          
+
           // Check if the selection is within this editor
           if (editorElement.contains(range.commonAncestorContainer)) {
             try {
               // Try to get the ProseMirror positions from the DOM range
-              const startPos = editor.view.posAtDOM(range.startContainer, range.startOffset);
-              const endPos = editor.view.posAtDOM(range.endContainer, range.endOffset);
-              
+              const startPos = editor.view.posAtDOM(
+                range.startContainer,
+                range.startOffset,
+              );
+              const endPos = editor.view.posAtDOM(
+                range.endContainer,
+                range.endOffset,
+              );
+
               if (startPos !== null && endPos !== null && startPos !== endPos) {
                 // Update TipTap selection
-                editor.chain().setTextSelection({ from: startPos, to: endPos }).run();
+                editor
+                  .chain()
+                  .setTextSelection({ from: startPos, to: endPos })
+                  .run();
                 hasSelection = true;
                 // Update local variables
                 const updatedSelection = editor.state.selection;
                 const updatedFrom = updatedSelection.from;
                 const updatedTo = updatedSelection.to;
-                
-                console.debug("[ChatHotkey] Restored selection from DOM", { 
-                  from: updatedFrom, 
-                  to: updatedTo 
+
+                console.debug("[ChatHotkey] Restored selection from DOM", {
+                  from: updatedFrom,
+                  to: updatedTo,
                 });
-                
+
                 // Use the updated selection
-                const content = editor.state.doc.textBetween(updatedFrom, updatedTo);
-                
+                const content = editor.state.doc.textBetween(
+                  updatedFrom,
+                  updatedTo,
+                );
+
                 if (content && content.trim().length > 0) {
-                  const textBeforeSelection = editor.state.doc.textBetween(0, updatedFrom);
-                  const lines = textBeforeSelection.split('\n');
+                  const textBeforeSelection = editor.state.doc.textBetween(
+                    0,
+                    updatedFrom,
+                  );
+                  const lines = textBeforeSelection.split("\n");
                   const line = lines.length;
                   const column = lines[lines.length - 1].length + 1;
-                  const preview = content.length > 50 
-                    ? `${content.substring(0, 50)}...` 
-                    : content;
+                  const preview =
+                    content.length > 50
+                      ? `${content.substring(0, 50)}...`
+                      : content;
 
                   const referenceEscritoId = escrito?._id || escritoId;
                   if (!referenceEscritoId) {
-                    console.debug("[ChatHotkey] No escritoId available for selection");
+                    console.debug(
+                      "[ChatHotkey] No escritoId available for selection",
+                    );
                     return;
                   }
-                  
+
                   // TypeScript now knows referenceEscritoId is string
                   const escritoIdString: string = referenceEscritoId;
                   chatSelectionBus.publish({
@@ -344,43 +388,50 @@ export const Tiptap = forwardRef<TiptapRef, TiptapProps>(
                 }
               }
             } catch (error) {
-              console.debug("[ChatHotkey] Failed to restore selection from DOM", error);
+              console.debug(
+                "[ChatHotkey] Failed to restore selection from DOM",
+                error,
+              );
             }
           }
         }
 
-        console.debug("[ChatHotkey] Selection check", { 
-          hasSelection, 
-          from, 
-          to, 
+        console.debug("[ChatHotkey] Selection check", {
+          hasSelection,
+          from,
+          to,
           empty: selection.empty,
           hasDomSelection,
-          escritoId 
+          escritoId,
         });
 
         // Use the Convex escritoId for references (not prosemirrorId)
         const referenceEscritoId = escrito?._id || escritoId;
-        
+
         if (hasSelection && referenceEscritoId) {
           // Publish selection reference (reuse logic from EditorContextMenu)
           const content = editor.state.doc.textBetween(from, to);
-          
+
           if (!content || content.trim().length === 0) {
-            console.debug("[ChatHotkey] Selection has no content, falling back to escrito");
+            console.debug(
+              "[ChatHotkey] Selection has no content, falling back to escrito",
+            );
             // Fall through to escrito reference
           } else {
             // Calculate line and column from position
             const textBeforeSelection = editor.state.doc.textBetween(0, from);
-            const lines = textBeforeSelection.split('\n');
+            const lines = textBeforeSelection.split("\n");
             const line = lines.length;
             const column = lines[lines.length - 1].length + 1;
 
             // Create preview (truncate if too long)
-            const preview = content.length > 50 
-              ? `${content.substring(0, 50)}...` 
-              : content;
+            const preview =
+              content.length > 50 ? `${content.substring(0, 50)}...` : content;
 
-            console.debug("[ChatHotkey] Publishing selection", { preview, contentLength: content.length });
+            console.debug("[ChatHotkey] Publishing selection", {
+              preview,
+              contentLength: content.length,
+            });
 
             // Publish selection to chat bus
             chatSelectionBus.publish({
@@ -400,7 +451,9 @@ export const Tiptap = forwardRef<TiptapRef, TiptapProps>(
 
         // Fallback: publish active escrito reference
         if (referenceEscritoId) {
-          console.debug("[ChatHotkey] Publishing escrito reference", { escritoId: referenceEscritoId });
+          console.debug("[ChatHotkey] Publishing escrito reference", {
+            escritoId: referenceEscritoId,
+          });
           chatSelectionBus.publish({
             type: "escrito",
             id: referenceEscritoId,
@@ -409,13 +462,17 @@ export const Tiptap = forwardRef<TiptapRef, TiptapProps>(
         }
       };
 
-      window.addEventListener("ialex:chatHotkey", handleChatHotkey as EventListener);
+      window.addEventListener(
+        "ialex:chatHotkey",
+        handleChatHotkey as EventListener,
+      );
       return () => {
-        window.removeEventListener("ialex:chatHotkey", handleChatHotkey as EventListener);
+        window.removeEventListener(
+          "ialex:chatHotkey",
+          handleChatHotkey as EventListener,
+        );
       };
     }, [editor, documentId, escritoId, escrito, activeProsemirrorId]);
-
-    console.log("editor", editor?.getJSON());
 
     useImperativeHandle(ref, () => ({
       getContent: () => editor?.getJSON() ?? null,
@@ -488,7 +545,7 @@ export const Tiptap = forwardRef<TiptapRef, TiptapProps>(
         )}
 
         <EditorContextMenu editor={editor} readOnly={readOnly}>
-          <div className="w-full min-h-[600px] relative">
+          <div className="legal-editor-content-wrapper w-full min-h-[600px]">
             <EditorContent editor={editor} className="w-full min-h-[600px]" />
             {!readOnly && (
               <SuggestionsMenu

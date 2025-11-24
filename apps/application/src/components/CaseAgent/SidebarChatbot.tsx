@@ -77,16 +77,23 @@ export default function SidebarChatbot({
         data-tutorial="case-chat"
         ref={sidebarRef}
         className={cn(
-          "fixed top-10 right-0 h-[calc(100vh-41px)]  bg-[#E2EFF7] border-l border-gray-200 shadow-lg z-20 transform flex flex-col",
+          "fixed bg-[#E2EFF7] border-l border-gray-200 shadow-lg transform flex flex-col",
+          // Desktop: normal sidebar behavior below navbar
+          "md:top-10 md:right-0 md:h-[calc(100vh-41px)] md:z-20",
+          // Mobile: fullscreen above everything with dynamic viewport and safe areas
+          "max-md:inset-0 max-md:w-full max-md:h-dvh max-md:z-50",
+          "max-md:pt-[env(safe-area-inset-top)] max-md:pb-[env(safe-area-inset-bottom)]",
           isOpen ? "translate-x-0" : "translate-x-full",
           isResizing
             ? "transition-none"
             : "transition-transform duration-300 ease-in-out",
         )}
-        style={{ width: `${width}px` }}
+        style={{ width: window.innerWidth < 768 ? "100%" : `${width}px` }}
       >
-        {/* Resize Handle */}
-        <ResizeHandle onMouseDown={handleMouseDown} />
+        {/* Resize Handle - only on desktop */}
+        <div className="hidden md:block">
+          <ResizeHandle onMouseDown={handleMouseDown} />
+        </div>
 
         {/* Header */}
         <SidebarHeader

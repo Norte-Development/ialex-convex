@@ -81,9 +81,19 @@ const setFolderOpenStates = (states: Record<string, boolean>): void => {
 
 export const LayoutProvider: React.FC<LayoutProviderProps> = ({ children }) => {
   // const [isSidebarOpen, setSidebarOpen] = useState(true);
-  const [isCaseSidebarOpen, setCaseSidebarOpen] = useState(() =>
-    getStoredBoolean("case-sidebar-open", true),
-  );
+  const [isCaseSidebarOpen, setCaseSidebarOpen] = useState(() => {
+    // Check if there's a stored preference
+    const stored = localStorage.getItem("case-sidebar-open");
+    if (stored !== null) {
+      try {
+        return JSON.parse(stored);
+      } catch {
+        // If parsing fails, continue to default logic
+      }
+    }
+    // Default: open on desktop (>= 768px), closed on mobile (< 768px)
+    return window.innerWidth >= 768;
+  });
   const [isHomeAgentSidebarOpen, setHomeAgentSidebarOpen] = useState(() =>
     getStoredBoolean("home-agent-sidebar-open", true),
   );
