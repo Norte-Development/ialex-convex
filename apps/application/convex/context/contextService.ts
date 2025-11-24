@@ -589,10 +589,6 @@ ${clientInfo}`);
         viewSection += `\n- Viendo Documento: ${view.currentDocumentId}`;
       }
 
-      if (view.currentDocumentId) {
-        viewSection += `\n- Viendo Documento: ${view.currentDocumentId}`;
-      }
-
       sections.push(viewSection);
     }
 
