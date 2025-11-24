@@ -88,14 +88,14 @@ export function MigrationProgressDialog({
       case "pending":
         return {
           color: "text-yellow-500",
-          bgColor: "bg-yellow-50 dark:bg-yellow-950/20",
+          bgColor: "bg-yellow-50",
           icon: AlertCircle,
           text: "Esperando inicio",
         };
       case "in_progress":
         return {
           color: "text-blue-500",
-          bgColor: "bg-blue-50 dark:bg-blue-950/20",
+          bgColor: "bg-blue-50",
           icon: Loader2,
           text: "Migrando datos...",
           spin: true,
@@ -103,21 +103,21 @@ export function MigrationProgressDialog({
       case "completed":
         return {
           color: "text-green-500",
-          bgColor: "bg-green-50 dark:bg-green-950/20",
+          bgColor: "bg-green-50",
           icon: CheckCircle2,
           text: "Migración completada",
         };
       case "failed":
         return {
           color: "text-red-500",
-          bgColor: "bg-red-50 dark:bg-red-950/20",
+          bgColor: "bg-red-50",
           icon: AlertCircle,
           text: "Error en la migración",
         };
       default:
         return {
           color: "text-gray-500",
-          bgColor: "bg-gray-50 dark:bg-gray-950/20",
+          bgColor: "bg-gray-50",
           icon: AlertCircle,
           text: "Estado desconocido",
         };
