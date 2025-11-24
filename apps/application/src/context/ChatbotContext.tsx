@@ -16,12 +16,17 @@ const ChatbotContext = createContext<ChatbotContextType | undefined>(undefined);
 
 export function ChatbotProvider({ children }: { children: ReactNode }) {
   const [isChatbotOpen, setIsChatbotOpen] = useState(() => {
-    try {
-      const stored = localStorage.getItem("chatbot-open");
-      return stored !== null ? JSON.parse(stored) : true;
-    } catch {
-      return true;
+    // Check if there's a stored preference
+    const stored = localStorage.getItem("chatbot-open");
+    if (stored !== null) {
+      try {
+        return JSON.parse(stored);
+      } catch {
+        // If parsing fails, continue to default logic
+      }
     }
+    // Default: open on desktop (>= 768px), closed on mobile (< 768px)
+    return window.innerWidth >= 768;
   });
 
   const [chatbotWidth, setChatbotWidth] = useState(() => {

@@ -1,4 +1,4 @@
-import { CirclePlus, MessageCircleReply } from "lucide-react";
+import { CirclePlus, MessageCircleReply, X } from "lucide-react";
 import { useState } from "react";
 import { ChatHistoryDialog } from "./ChatHistoryDialog";
 import { Button } from "../ui/button";
@@ -38,6 +38,13 @@ export function SidebarHeader({
             title="Historial de conversaciones"
           >
             <MessageCircleReply className="w-5 h-5 text-[#3946D7]" />
+          </button>
+          <button
+            onClick={onToggle}
+            className="p-1 cursor-pointer md:hidden"
+            title="Cerrar chat"
+          >
+            <X className="w-5 h-5 text-[#3946D7]" />
           </button>
         </div>
       </div>

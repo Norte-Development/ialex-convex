@@ -16,8 +16,21 @@ import {
   Search,
   ChevronLeft,
   ChevronRight,
+  Trash2,
+  Loader2,
 } from "lucide-react";
-import { ScrollArea } from "@/components/ui/scroll-area";
+import {
+  AlertDialog,
+  AlertDialogTrigger,
+  AlertDialogContent,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogCancel,
+  AlertDialogAction,
+} from "@/components/ui/alert-dialog";
+import { toast } from "sonner";
 
 interface HomeAgentSidebarProps {
   currentThreadId?: string;
@@ -25,9 +38,10 @@ interface HomeAgentSidebarProps {
 
 export function HomeAgentSidebar({ currentThreadId }: HomeAgentSidebarProps) {
   const navigate = useNavigate();
-  const { threads, isLoading } = useHomeThreads();
+  const { threads, isLoading, deleteThread } = useHomeThreads();
   const { isHomeAgentSidebarOpen, toggleHomeAgentSidebar } = useLayout();
   const [searchTerm, setSearchTerm] = useState("");
+  const [deletingThreadId, setDeletingThreadId] = useState<string | null>(null);
 
   const handleThreadSelect = (threadId: string) => {
     navigate(`/ai/${threadId}`);
@@ -40,6 +54,22 @@ export function HomeAgentSidebar({ currentThreadId }: HomeAgentSidebarProps) {
 
   const handleGoHome = () => {
     navigate("/ai");
+  };
+
+  const handleDeleteThread = async (threadId: string) => {
+    try {
+      setDeletingThreadId(threadId);
+      await deleteThread(threadId);
+      toast.success("Conversación eliminada");
+      if (currentThreadId === threadId) {
+        navigate("/ai");
+      }
+    } catch (error) {
+      console.error("Error deleting thread", error);
+      toast.error("No se pudo eliminar la conversación");
+    } finally {
+      setDeletingThreadId(null);
+    }
   };
 
   // Filtrar threads por búsqueda
@@ -97,7 +127,13 @@ export function HomeAgentSidebar({ currentThreadId }: HomeAgentSidebarProps) {
         </div>
 
         {/* Lista de threads */}
-        <ScrollArea className="flex-1">
+        <div
+          className="flex-1 overflow-y-scroll [&::-webkit-scrollbar]:hidden"
+          style={{
+            scrollbarWidth: "none",
+            msOverflowStyle: "none",
+          }}
+        >
           {isLoading ? (
             <div className="p-4 text-center text-sm text-muted-foreground">
               Cargando...
@@ -109,37 +145,89 @@ export function HomeAgentSidebar({ currentThreadId }: HomeAgentSidebarProps) {
                 : "No hay conversaciones"}
             </div>
           ) : (
-            <div className="p-2">
-              {filteredThreads.map((thread) => (
-                <button
-                  key={thread._id}
-                  onClick={() => handleThreadSelect(thread._id)}
-                  className={`w-full text-left p-3 rounded-md hover:bg-accent transition-colors mb-1 ${
-                    currentThreadId === thread._id
-                      ? "bg-accent border-l-2 border-primary"
-                      : ""
-                  }`}
-                >
-                  <div className="flex flex-col gap-1">
-                    <span className="text-sm font-medium truncate">
-                      {thread.title || "Sin título"}
-                    </span>
-                    <span className="text-xs text-muted-foreground">
-                      {new Date(thread._creationTime).toLocaleDateString(
-                        "es-AR",
-                        {
-                          day: "numeric",
-                          month: "short",
-                          year: "numeric",
-                        },
-                      )}
-                    </span>
+            <div className="p-2 space-y-1">
+              {filteredThreads.map((thread) => {
+                const isActive = currentThreadId === thread._id;
+                const isDeleting = deletingThreadId === thread._id;
+
+                return (
+                  <div
+                    key={thread._id}
+                    className={`group flex items-center gap-1 rounded-md transition-colors ${
+                      isActive
+                        ? "bg-accent border-l-2 border-primary"
+                        : "hover:bg-accent"
+                    }`}
+                  >
+                    <button
+                      type="button"
+                      onClick={() => handleThreadSelect(thread._id)}
+                      className="flex-1 text-left p-3 min-w-0"
+                      style={{ width: 0 }}
+                    >
+                      <div className="flex flex-col gap-1">
+                        <span className="text-sm font-medium truncate">
+                          {thread.title || "Sin título"}
+                        </span>
+                        <span className="text-xs text-muted-foreground truncate">
+                          {new Date(thread._creationTime).toLocaleDateString(
+                            "es-AR",
+                            {
+                              day: "numeric",
+                              month: "short",
+                              year: "numeric",
+                            },
+                          )}
+                        </span>
+                      </div>
+                    </button>
+
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 shrink-0 mr-1 text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity"
+                          aria-label="Eliminar conversación"
+                          disabled={isDeleting}
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          {isDeleting ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <Trash2 className="h-4 w-4" />
+                          )}
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>
+                            ¿Eliminar esta conversación?
+                          </AlertDialogTitle>
+                          <AlertDialogDescription>
+                            Esta acción borrará "{thread.title || "Sin título"}"
+                            y no se puede deshacer.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                          <AlertDialogAction
+                            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                            onClick={() => handleDeleteThread(thread._id)}
+                            disabled={isDeleting}
+                          >
+                            {isDeleting ? "Eliminando..." : "Eliminar"}
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
                   </div>
-                </button>
-              ))}
+                );
+              })}
             </div>
           )}
-        </ScrollArea>
+        </div>
 
         {/* Footer - Ver todas */}
         <div className="p-3 border-t border-border">

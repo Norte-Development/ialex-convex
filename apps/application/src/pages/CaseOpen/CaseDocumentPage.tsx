@@ -327,13 +327,16 @@ export default function CaseDocumentPage() {
   return (
     <CaseLayout>
       {/* Document Header */}
-      <div className="bg-white border-b border-gray-200 px-6 py-4">
+      <div className="bg-white border-b border-gray-200 px-4 md:px-6 py-4">
         <div className="w-full">
-          <div className="flex items-center justify-between mb-2">
-            <h1 className="text-2xl font-semibold text-gray-900">
+          {/* Title and Actions - Responsive Layout */}
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-2">
+            <h1 className="text-xl md:text-2xl font-semibold text-gray-900 wrap-break-word">
               {document.title}
             </h1>
-            <div className="flex items-center gap-2">
+
+            {/* Badges and Buttons - Stack on mobile, horizontal on desktop */}
+            <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:flex-wrap md:shrink-0">
               {/* Processing Status Badge - Prominent Display */}
               {document.processingStatus && (
                 <div className="flex items-center gap-2">
@@ -345,7 +348,7 @@ export default function CaseDocumentPage() {
                     return (
                       <Badge
                         variant="outline"
-                        className={`${statusConfig.color} flex items-center gap-2 px-3 py-1 text-sm font-medium ${
+                        className={`${statusConfig.color} flex items-center gap-2 px-3 py-1 text-sm font-medium w-fit ${
                           statusConfig.animate ? "animate-pulse" : ""
                         }`}
                       >
@@ -362,9 +365,9 @@ export default function CaseDocumentPage() {
 
               <Badge
                 variant="secondary"
-                className={getDocumentTypeColor(
+                className={`${getDocumentTypeColor(
                   document.documentType || "other",
-                )}
+                )} w-fit`}
               >
                 {getDocumentTypeText(document.documentType || "other")}
               </Badge>
@@ -380,6 +383,7 @@ export default function CaseDocumentPage() {
                       ? "Documento no disponible"
                       : "Descargar documento"
                   }
+                  className="w-fit"
                 >
                   <Download className="h-4 w-4 mr-2" />
                   Descargar
@@ -396,6 +400,7 @@ export default function CaseDocumentPage() {
                     onClick={handleCreateEscrito}
                     disabled={!documentUrl || isConverting}
                     title="Convertir DOCX a escrito editable"
+                    className="w-fit"
                   >
                     {isConverting ? (
                       <Loader2 className="h-4 w-4 mr-2 animate-spin" />

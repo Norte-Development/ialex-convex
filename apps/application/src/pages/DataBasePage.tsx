@@ -1,6 +1,4 @@
-import { useState } from "react";
 import DataBaseTable from "@/components/DataBase/DataBaseTable";
-import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useAction } from "convex/react";
 import { api } from "../../convex/_generated/api";
@@ -8,28 +6,18 @@ import { useQuery } from "@tanstack/react-query";
 import { DataBasePageSkeleton } from "@/components/DataBase/Skeletons/DataBasePageSkeleton";
 
 export default function DataBasePage() {
-  const [activeView, setActiveView] = useState<"simple" | "advanced">("simple");
-
   const getNormativesFacets = useAction(
     api.functions.legislation.getNormativesFacets,
   );
-  const getFallosFacets = useAction(
-    api.functions.fallos.getFallosFacets,
-  );
   const getNormatives = useAction(api.functions.legislation.getNormatives);
-  const getFallos = useAction(api.functions.fallos.listFallos);
 
-  // Fetch jurisdictions from both legislation and fallos
-  const { data: normativesJurisdictionsData, isLoading: isNormativesJurisdictionsLoading } = useQuery({
+  // Fetch jurisdictions from legislation
+  const {
+    data: normativesJurisdictionsData,
+    isLoading: isNormativesJurisdictionsLoading,
+  } = useQuery({
     queryKey: ["normatives-jurisdictions"],
     queryFn: () => getNormativesFacets({ filters: {} }),
-    staleTime: 60 * 60 * 1000, // Cache for 1 hour
-    gcTime: 24 * 60 * 60 * 1000, // Keep in cache for 24 hours
-  });
-
-  const { data: fallosJurisdictionsData, isLoading: isFallosJurisdictionsLoading } = useQuery({
-    queryKey: ["fallos-jurisdictions"],
-    queryFn: () => getFallosFacets({ filters: {} }),
     staleTime: 60 * 60 * 1000, // Cache for 1 hour
     gcTime: 24 * 60 * 60 * 1000, // Keep in cache for 24 hours
   });
@@ -70,8 +58,6 @@ export default function DataBasePage() {
   if (
     isNormativesJurisdictionsLoading ||
     !normativesJurisdictionsData ||
-    isFallosJurisdictionsLoading ||
-    !fallosJurisdictionsData ||
     isInitialFacetsLoading ||
     !initialFacets ||
     isInitialTableLoading ||
@@ -80,17 +66,14 @@ export default function DataBasePage() {
     return <DataBasePageSkeleton />;
   }
 
-  // Extract jurisdictions from both data sources and combine them
+  // Extract jurisdictions from normatives data
   const normativesJurisdictions = normativesJurisdictionsData.jurisdicciones
-    ? normativesJurisdictionsData.jurisdicciones.map((j: { name: string; count: number }) => j.name)
+    ? normativesJurisdictionsData.jurisdicciones.map(
+        (j: { name: string; count: number }) => j.name,
+      )
     : [];
-  const fallosJurisdictions = fallosJurisdictionsData.jurisdicciones
-    ? fallosJurisdictionsData.jurisdicciones.map((j: { name: string; count: number }) => j.name)
-    : [];
-  
-  // Combine and deduplicate jurisdictions
-  const allJurisdictions = Array.from(new Set([...normativesJurisdictions, ...fallosJurisdictions]));
-  const availableJurisdictions = ["all", ...allJurisdictions];
+
+  const availableJurisdictions = ["all", ...normativesJurisdictions];
 
   return (
     <section
