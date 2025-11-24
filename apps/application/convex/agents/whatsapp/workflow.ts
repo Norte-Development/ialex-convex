@@ -1,4 +1,4 @@
-import { internalAction } from "../../_generated/server";
+import { internalAction, ActionCtx } from "../../_generated/server";
 import { v } from "convex/values";
 import { agent } from "./agent";
 import { createOpenRouter } from '@openrouter/ai-sdk-provider';
@@ -151,7 +151,20 @@ export const whatsappWorkflow = workflow.define({
       }))),
     },
     handler: async (step, args) => {
-      // Process image media items to get references (not URLs yet)
+      if (args.mediaItems && args.mediaItems.length > 0) {
+        const unsupportedMedia = args.mediaItems.filter(
+          (m) => !m.contentType.startsWith("image/") && !m.contentType.startsWith("audio/")
+        );
+
+        if (unsupportedMedia.length > 0) {
+          await step.runAction(
+            internal.agents.whatsapp.workflow.sendUnsupportedMediaMessage,
+            { threadId: args.threadId },
+          );
+          return;
+        }
+      }
+
       const imageMediaRefs: Array<MediaReference> = await step.runAction(
         internal.agents.whatsapp.workflow.processImageMedia,
         {
@@ -163,7 +176,6 @@ export const whatsappWorkflow = workflow.define({
         }
       );
 
-      // Process voice notes and generate transcriptions
       const transcription: string = await step.runAction(
         internal.agents.whatsapp.workflow.processVoiceMedia,
         {
@@ -175,7 +187,6 @@ export const whatsappWorkflow = workflow.define({
         }
       );
 
-      // Combine original prompt with transcription if present
       const combinedPrompt = transcription
         ? `${args.prompt}\n\nTranscripción del audio: ${transcription}`
         : args.prompt;
@@ -191,6 +202,57 @@ export const whatsappWorkflow = workflow.define({
     },
   });
 
+
+async function getWhatsappNumberFromThread(
+  ctx: ActionCtx,
+  threadId: string,
+): Promise<string | null> {
+  const { userId: threadUserId } = await getThreadMetadata(
+    ctx,
+    components.agent,
+    { threadId },
+  );
+
+  if (!threadUserId || !threadUserId.startsWith('whatsapp:')) {
+    return null;
+  }
+
+  const userId = threadUserId.replace('whatsapp:', '') as Id<"users">;
+
+  const user = await ctx.runQuery(api.functions.users.getUserById, { userId });
+
+  if (!user) {
+    return null;
+  }
+
+  if (!user.preferences?.whatsappNumber || !user.preferences?.whatsappVerified) {
+    return null;
+  }
+
+  const whatsappNumber = user.preferences.whatsappNumber;
+  const whatsappTo = whatsappNumber.startsWith('whatsapp:')
+    ? whatsappNumber
+    : `whatsapp:${whatsappNumber}`;
+
+  return whatsappTo;
+}
+
+export const sendUnsupportedMediaMessage = internalAction({
+  args: {
+    threadId: v.string(),
+  },
+  returns: v.null(),
+  handler: async (ctx, { threadId }) => {
+    const whatsappTo = await getWhatsappNumberFromThread(ctx, threadId);
+    if (whatsappTo) {
+      await ctx.runAction(internal.whatsapp.twilio.sendMessage, {
+        to: whatsappTo,
+        body: "Lo siento, solo se admiten imágenes y audio. Otros tipos de archivos no son compatibles.",
+      });
+    }
+    return null;
+  },
+});
 
 export const startWorkflow = internalAction({
     args: {
@@ -279,37 +341,12 @@ export const streamAction = internalAction({
         },
       });
 
-      // Get thread metadata to extract user ID
-      const { userId: threadUserId } = await getThreadMetadata(
-        ctx,
-        components.agent,
-        { threadId },
-      );
+      // Get WhatsApp number from thread using helper function
+      const whatsappTo = await getWhatsappNumberFromThread(ctx, threadId);
 
-      if (!threadUserId || !threadUserId.startsWith('whatsapp:')) {
-        throw new Error(`Invalid WhatsApp thread userId format: ${threadUserId}`);
-      }
-
-      // Extract user ID from thread userId format: "whatsapp:${userId}"
-      const userId = threadUserId.replace('whatsapp:', '') as Id<"users">;
-
-      // Get user record to retrieve WhatsApp number
-      const user = await ctx.runQuery(api.functions.users.getUserById, { userId });
-
-      if (!user) {
-        throw new Error('User not found');
-      }
-
-      // Validate WhatsApp connection
-      if (!user.preferences?.whatsappNumber || !user.preferences?.whatsappVerified) {
-        // Optionally: you could also send a WhatsApp error message here
+      if (!whatsappTo) {
         throw new Error('WhatsApp account not connected or verified');
       }
-
-      const whatsappNumber = user.preferences.whatsappNumber;
-      const whatsappTo = whatsappNumber.startsWith('whatsapp:')
-        ? whatsappNumber
-        : `whatsapp:${whatsappNumber}`;
 
       // Load thread context after saving the incoming message
       const { thread } = await agent.continueThread(ctx, { threadId });
