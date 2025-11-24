@@ -35,26 +35,6 @@ export async function authorizeThreadAccess(
   if (requireUser && !userId) {
     throw new Error("Unauthorized: user is required");
   }
-
-  if (userId) {
-    const thread = await ctx.runQuery(components.agent.threads.getThread, {
-      threadId,
-    });
-
-    if (!thread) {
-      throw new Error("Thread not found");
-    }
-
-    // Check if the user owns the thread
-    // Thread userId format is either "user:<userId>" or "case:<caseId>_<userId>"
-    const isOwner =
-      thread.userId === `user:${userId}` ||
-      (thread.userId && thread.userId.endsWith(`_${userId}`));
-
-    if (!isOwner) {
-      throw new Error("Unauthorized: You do not have access to this thread");
-    }
-  }
 }
 
 /**

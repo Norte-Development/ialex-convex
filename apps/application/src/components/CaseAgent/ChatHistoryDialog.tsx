@@ -8,12 +8,23 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { Search, MessageCircle, Clock } from "lucide-react";
+import { Search, MessageCircle, Clock, Loader2, Trash2 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { es } from "date-fns/locale";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { toast } from "sonner";
+import {
+  AlertDialog,
+  AlertDialogTrigger,
+  AlertDialogContent,
+  AlertDialogHeader,
+  AlertDialogFooter,
+  AlertDialogTitle,
+  AlertDialogDescription,
+  AlertDialogAction,
+  AlertDialogCancel,
+} from "../ui/alert-dialog";
 
 interface ChatHistoryDialogProps {
   open: boolean;
@@ -192,7 +203,7 @@ export function ChatHistoryDialog({
                           <Button
                             variant="ghost"
                             size="icon"
-                            className="h-8 w-8 shrink-0 mt-2 text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity"
+                            className="h-8 w-8 shrink-0 mt-2 text-muted-foreground hover:text-destructive"
                             disabled={isDeleting}
                             onClick={(e) => e.stopPropagation()}
                           >
