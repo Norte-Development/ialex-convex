@@ -35,6 +35,26 @@ export async function authorizeThreadAccess(
   if (requireUser && !userId) {
     throw new Error("Unauthorized: user is required");
   }
+
+  if (userId) {
+    const thread = await ctx.runQuery(components.agent.threads.getThread, {
+      threadId,
+    });
+
+    if (!thread) {
+      throw new Error("Thread not found");
+    }
+
+    // Check if the user owns the thread
+    // Thread userId format is either "user:<userId>" or "case:<caseId>_<userId>"
+    const isOwner =
+      thread.userId === `user:${userId}` ||
+      (thread.userId && thread.userId.endsWith(`_${userId}`));
+
+    if (!isOwner) {
+      throw new Error("Unauthorized: You do not have access to this thread");
+    }
+  }
 }
 
 /**
@@ -289,6 +309,30 @@ export const getThreadMessages = query({
       paginationOpts,
     });
     return messages;
+  },
+});
+
+/**
+ * Deletes a thread and all its associated data.
+ *
+ * @param threadId - The ID of the thread to delete
+ * @returns Promise resolving when the deletion finishes
+ * @throws {Error} When the user is not authorized
+ */
+export const deleteThread = mutation({
+  args: { threadId: v.string() },
+  handler: async (ctx, { threadId }) => {
+    await authorizeThreadAccess(ctx, threadId, true);
+
+    await ctx.scheduler.runAfter(
+      0,
+      components.agent.threads.deleteAllForThreadIdSync,
+      {
+        threadId,
+      },
+    );
+
+    return { threadId };
   },
 });
 
