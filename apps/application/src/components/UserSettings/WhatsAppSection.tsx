@@ -10,10 +10,12 @@ import {
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { MessageCircle, XCircle, Loader2, QrCode, ShieldCheck, Scale, Lock, FileText, Smartphone, AlertCircle } from 'lucide-react';
+import { MessageCircle, XCircle, Loader2, QrCode, ShieldCheck, Scale, Lock, FileText, Smartphone, AlertCircle, Crown } from 'lucide-react';
 import { toast } from "sonner";
 import { QRCodeSVG } from "qrcode.react";
 import { Badge } from "@/components/ui/badge";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { useNavigate } from "react-router-dom";
 
 type VerificationState = "idle" | "sending" | "code-sent" | "verifying" | "success" | "error";
 
@@ -22,12 +24,19 @@ export function WhatsAppSection() {
   const [verificationCode, setVerificationCode] = useState("");
   const [verificationState, setVerificationState] = useState<VerificationState>("idle");
   const [errorMessage, setErrorMessage] = useState("");
+  const navigate = useNavigate();
 
   const currentUser = useQuery(api.functions.users.getCurrentUser, {});
   const requestVerification = useAction(api.functions.users.requestWhatsappVerification);
   const verifyCode = useAction(api.functions.users.verifyWhatsappCode);
   const disconnectWhatsapp = useMutation(api.functions.users.disconnectWhatsapp);
   const getWhatsappNumberAction = useAction(api.functions.users.getWhatsappNumber);
+  
+  // Check if user has premium access to WhatsApp agent
+  const whatsappAccess = useQuery(
+    api.billing.features.canAccessWhatsapp,
+    currentUser?._id ? { userId: currentUser._id } : "skip"
+  );
 
   const isConnected: boolean = 
     currentUser?.preferences?.whatsappVerified === true && 
@@ -112,6 +121,9 @@ export function WhatsAppSection() {
     }
   };
 
+  const hasAccess = whatsappAccess?.allowed ?? false;
+  const isLoadingAccess = whatsappAccess === undefined;
+
   return (
     <section id="whatsapp-legal" className="scroll-mt-8 max-w-3xl mx-auto">
       <Card className="border-slate-200 shadow-sm overflow-hidden">
@@ -120,6 +132,12 @@ export function WhatsAppSection() {
             <div className="flex items-center gap-2 text-slate-800">
               <Scale className="h-5 w-5" />
               <h3 className="font-serif text-lg font-medium tracking-tight">Canal de Comunicación Legal</h3>
+              {hasAccess && (
+                <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200 gap-1.5 py-1">
+                  <Crown className="h-3 w-3" />
+                  Premium
+                </Badge>
+              )}
             </div>
             <p className="text-sm text-slate-500 max-w-md">
               Establece una conexión verificada y encriptada para conversar directamente con el asistente legal por IA mediante WhatsApp.
@@ -132,7 +150,36 @@ export function WhatsAppSection() {
         </div>
 
         <CardContent className="p-6 space-y-8">
-          {isConnected ? (
+          {!isLoadingAccess && !hasAccess && (
+            <Alert className="border-amber-300 bg-amber-50">
+              <Crown className="size-4 text-amber-600" />
+              <AlertTitle className="text-amber-900">
+                Función Premium
+              </AlertTitle>
+              <AlertDescription className="space-y-3">
+                <p className="text-amber-800">
+                  {whatsappAccess?.reason || "El agente de WhatsApp solo está disponible para usuarios Premium."}
+                </p>
+                <div className="flex gap-2">
+                  <Button
+                    size="sm"
+                    onClick={() => navigate("/preferencias?section=billing")}
+                    className="bg-amber-600 hover:bg-amber-700"
+                  >
+                    Actualizar Plan
+                  </Button>
+                </div>
+              </AlertDescription>
+            </Alert>
+          )}
+
+          {isLoadingAccess && (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="h-6 w-6 animate-spin text-slate-400" />
+            </div>
+          )}
+
+          {!isLoadingAccess && hasAccess && isConnected && (
             <div className="space-y-6">
               <div className="bg-emerald-50/50 border border-emerald-100 rounded-lg p-4 flex items-start gap-4">
                 <div className="bg-emerald-100 p-2 rounded-full">
@@ -195,7 +242,9 @@ export function WhatsAppSection() {
                 </div>
               )}
             </div>
-          ) : (
+          )}
+
+          {!isLoadingAccess && hasAccess && !isConnected && (
             <div className="space-y-6">
               <div className="grid gap-6 md:grid-cols-[1fr_200px]">
                 <div className="space-y-4">

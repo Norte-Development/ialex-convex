@@ -476,3 +476,20 @@ export const handleUnlinkedWhatsapp = internalAction({
     return null;
   },
 });
+
+export const handlePremiumRequired = internalAction({
+  args: {
+    to: v.string(), // the raw "whatsapp:+..." from Twilio
+    reason: v.optional(v.string()),
+  },
+  handler: async (ctx, { to, reason }): Promise<null> => {
+    const message = reason || 
+      'Lo siento, el agente de WhatsApp solo está disponible para usuarios Premium. Actualiza tu plan para acceder a esta funcionalidad.';
+    
+    await ctx.runAction(internal.whatsapp.twilio.sendMessage, {
+      to,
+      body: message,
+    });
+    return null;
+  },
+});

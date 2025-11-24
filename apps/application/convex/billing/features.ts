@@ -625,6 +625,55 @@ export async function _canAccessLibrary(
 }
 
 /**
+ * Check if a user can access WhatsApp agent
+ * EXPORTED for use in other files
+ * 
+ * Access rules:
+ * - User has premium_individual or premium_team plan → allowed
+ * - User is a member of any team with premium_team plan → allowed
+ * - Free users not in premium teams → denied
+ */
+export async function _canAccessWhatsapp(
+  ctx: QueryCtx | MutationCtx,
+  userId: Id<"users">
+): Promise<{
+  allowed: boolean;
+  reason?: string;
+}> {
+  // Allow access in dev mode
+  if (isDevMode()) {
+    return { allowed: true };
+  }
+
+  // 1. Check user's personal plan first
+  const userPlan = await _getUserPlan(ctx, userId);
+  if (userPlan === "premium_individual" || userPlan === "premium_team") {
+    return { allowed: true };
+  }
+
+  // 2. User is free - check if they're a member of any team with premium_team plan
+  const memberships = await ctx.db
+    .query("teamMemberships")
+    .withIndex("by_user", (q) => q.eq("userId", userId))
+    .filter((q) => q.eq(q.field("isActive"), true))
+    .collect();
+
+  // Check each team's plan
+  for (const membership of memberships) {
+    const teamPlan = await _getTeamPlan(ctx, membership.teamId);
+    if (teamPlan === "premium_team") {
+      return { allowed: true };
+    }
+  }
+
+  // 3. User doesn't have premium access
+  return {
+    allowed: false,
+    reason: "El agente de WhatsApp solo está disponible para usuarios Premium. Actualiza tu plan para acceder a esta funcionalidad.",
+  };
+}
+
+/**
  * Check if dev mode is currently enabled
  * Used by frontend to show unlimited limits in UI
  */
@@ -648,6 +697,34 @@ export const getUserPlan = query({
   ),
   handler: async (ctx, args): Promise<PlanType> => {
     return await _getUserPlan(ctx, args.userId);
+  },
+});
+
+/**
+ * Check if a user can access WhatsApp agent
+ */
+export const canAccessWhatsapp = query({
+  args: { userId: v.id("users") },
+  returns: v.object({
+    allowed: v.boolean(),
+    reason: v.optional(v.string()),
+  }),
+  handler: async (ctx, args) => {
+    return await _canAccessWhatsapp(ctx, args.userId);
+  },
+});
+
+/**
+ * Internal query to check if a user can access WhatsApp agent
+ */
+export const canAccessWhatsappInternal = internalQuery({
+  args: { userId: v.id("users") },
+  returns: v.object({
+    allowed: v.boolean(),
+    reason: v.optional(v.string()),
+  }),
+  handler: async (ctx, args) => {
+    return await _canAccessWhatsapp(ctx, args.userId);
   },
 });
 

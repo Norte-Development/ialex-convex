@@ -98,6 +98,24 @@ export const processIncomingMessage = internalAction({
 
       const userId = userResult._id;
 
+      // Check if user has premium access to WhatsApp agent
+      const accessCheck = await ctx.runQuery(internal.billing.features.canAccessWhatsappInternal, {
+        userId,
+      });
+
+      if (!accessCheck.allowed) {
+        // User doesn't have premium access - send upgrade message
+        await ctx.scheduler.runAfter(
+          0,
+          internal.agents.whatsapp.workflow.handlePremiumRequired,
+          {
+            to: args.from,
+            reason: accessCheck.reason,
+          },
+        );
+        return null;
+      }
+
       // Create or get thread for this user (using user ID instead of phone number)
       const threadId =
         await ctx.runAction(
