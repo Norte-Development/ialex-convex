@@ -42,6 +42,12 @@ export function useEscritosWithPendingChanges(): EscritoWithPendingChanges[] {
   // Filter escritos that have pending changes
   // This will be enhanced to actually check prosemirror documents
   // For now, return empty array - the context will track changes as they're detected
-  return [];
+  return escritosResult.page.map(escrito => ({
+    escritoId: escrito._id,
+    prosemirrorId: escrito.prosemirrorId,
+    title: escrito.title,
+    caseId: escrito.caseId,
+    pendingChangesCount: 0, // Placeholder until real logic is implemented
+  }));
 }
 
