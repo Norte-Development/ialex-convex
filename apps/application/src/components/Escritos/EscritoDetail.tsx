@@ -141,29 +141,31 @@ export default function EscritoDetail({
 
   return (
     <>
-      <div className="bg-white border-b px-6 py-4 flex justify-between items-center">
-        <div className="flex items-center gap-3">
-          <h1 className="text-2xl font-semibold">{escrito?.title}</h1>
+      <div className="bg-white border-b px-3 sm:px-6 py-3 sm:py-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+        <div className="flex items-center gap-2 sm:gap-3 w-full sm:w-auto">
+          <h1 className="text-lg sm:text-2xl font-semibold truncate">
+            {escrito?.title}
+          </h1>
           <EscritoStatusBadge
             escritoId={escrito._id}
             currentStatus={escrito.status}
           />
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2  justify-end   w-full">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button
                 variant="outline"
                 size="sm"
-                className="flex items-center"
+                className="flex items-center  sm:flex-initial"
                 disabled={isExporting}
               >
-                <Save className="h-4 w-4 mr-2" />
-                Exportar
-                <ChevronDown className="ml-2 h-4 w-4" />
+                <Save className="h-4 w-4 sm:mr-2" />
+                <span className="">Exportar</span>
+                <ChevronDown className="ml-auto sm:ml-2 h-4 w-4" />
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent>
+            <DropdownMenuContent align="end">
               <DropdownMenuItem onClick={handleExportToWord}>
                 <FileText className="h-4 w-4 mr-2" />
                 Word
@@ -191,50 +193,20 @@ export default function EscritoDetail({
             tags: escrito.tags,
           }}
         />
-        {/* {can.escritos.write && (
-          <div className="flex gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setShowToolsTester(!showToolsTester)}
-            >
-              <FileText className="h-4 w-4 mr-2" />
-              {showToolsTester ? "Hide" : "Show"} Tools
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setShowReadHelpersTester(!showReadHelpersTester)}
-            >
-              <FileText className="h-4 w-4 mr-2" />
-              {showReadHelpersTester ? "Hide" : "Show"} Helpers
-            </Button>
-          </div>
-        )} */}
       </div>
 
-      <div className="p-6">
-        <div className="flex gap-6">
-          <div className="flex-1">
+      <div className="p-3 sm:p-6 overflow-x-hidden">
+        <div className="flex flex-col lg:flex-row gap-6">
+          <div className="flex-1 min-w-0">
             <Tiptap
               documentId={escrito?.prosemirrorId}
               templateId={templateId}
               readOnly={!can.escritos.write}
+              escritoId={escrito?._id}
+              caseId={escrito?.caseId}
               ref={editorRef}
             />
           </div>
-
-          {/* {showToolsTester && (
-            <div className="w-80 flex-shrink-0">
-              <EscritoToolsTester />
-            </div>
-          )}
-          
-          {showReadHelpersTester && (
-            <div className="w-80 flex-shrink-0">
-              <ReadEscritoHelpersTester />
-            </div>
-          )} */}
         </div>
       </div>
     </>

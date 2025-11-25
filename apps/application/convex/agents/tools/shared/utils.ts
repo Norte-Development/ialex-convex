@@ -1,3 +1,6 @@
+import { internal } from "../../../_generated/api";
+import { Id } from "../../../_generated/dataModel";
+
 /**
  * Extracts the `caseId` and `userId` from a thread user identifier.
  *
@@ -141,3 +144,83 @@ export const validateNumberParam = (
   }
   return null;
 };
+
+/**
+ * Validates and potentially corrects a truncated Convex ID
+ * by searching for matching IDs in the case.
+ * 
+ * Convex IDs are typically 32 characters long. If an ID is shorter than 30 characters,
+ * it's likely truncated and we attempt to find the correct ID by searching escritos
+ * in the case that start with the provided prefix.
+ * 
+ * @param ctx - The tool context
+ * @param escritoId - The potentially truncated escrito ID
+ * @param caseId - The case ID to search within
+ * @returns Object with the corrected ID and whether it was corrected
+ * 
+ * @example
+ * ```ts
+ * const { id, wasCorrected } = await validateAndCorrectEscritoId(ctx, "m570hstszctgcx37gp9b", caseId);
+ * if (wasCorrected) {
+ *   console.log(`Auto-corrected ID: ${id}`);
+ * }
+ * ```
+ */
+export async function validateAndCorrectEscritoId(
+  ctx: any,
+  escritoId: string,
+  caseId: string | null
+): Promise<{ id: string; wasCorrected: boolean }> {
+  // Convex IDs are typically 32 characters
+  // If the ID is 30+ characters, it's likely complete
+  if (escritoId.length >= 30) {
+    return { id: escritoId, wasCorrected: false };
+  }
+  
+  // ID appears truncated, try to find the correct one
+  console.log(`⚠️ Potentially truncated escritoId detected: "${escritoId}" (length: ${escritoId.length})`);
+  
+  if (!caseId) {
+    console.log("⚠️ No caseId available for auto-correction");
+    return { id: escritoId, wasCorrected: false };
+  }
+  
+  try {
+    // Query escritos in the case that start with this prefix
+    const escritos = await ctx.runQuery(
+      internal.functions.documents.getEscritosForAgent,
+      { caseId: caseId as Id<"cases"> }
+    );
+    
+    // Find exact match first (in case it's actually complete but just short)
+    const exactMatch = escritos.find((e: any) => e._id === escritoId);
+    if (exactMatch) {
+      return { id: escritoId, wasCorrected: false };
+    }
+    
+    // Find escritos that start with the truncated ID
+    const matches = escritos.filter((e: any) => e._id.startsWith(escritoId));
+    
+    if (matches.length === 1) {
+      // Perfect! Only one match, use it
+      const correctedId = matches[0]._id;
+      console.log(`✅ Auto-corrected truncated ID: "${escritoId}" -> "${correctedId}"`);
+      return { id: correctedId, wasCorrected: true };
+    } else if (matches.length > 1) {
+      // Multiple matches - prefer the most recently edited one
+      const sortedMatches = matches.sort((a: any, b: any) => 
+        (b.lastEditedAt || b._creationTime) - (a.lastEditedAt || a._creationTime)
+      );
+      const correctedId = sortedMatches[0]._id;
+      console.log(`✅ Auto-corrected truncated ID (${matches.length} matches, using most recent): "${escritoId}" -> "${correctedId}"`);
+      return { id: correctedId, wasCorrected: true };
+    } else {
+      // No matches found
+      console.log(`⚠️ No matching escrito found for truncated ID: "${escritoId}"`);
+      return { id: escritoId, wasCorrected: false };
+    }
+  } catch (error) {
+    console.error("Error during ID auto-correction:", error);
+    return { id: escritoId, wasCorrected: false };
+  }
+}
