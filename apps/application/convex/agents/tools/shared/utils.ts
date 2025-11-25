@@ -131,12 +131,42 @@ export const validateNumberParam = (
 };
 
 /**
+ * Calculates the Levenshtein distance between two strings.
+ * Used for fuzzy matching truncated IDs where characters might be missing from the middle.
+ * 
+ * @param a - First string
+ * @param b - Second string
+ * @returns The edit distance (number of insertions, deletions, or substitutions)
+ */
+function levenshteinDistance(a: string, b: string): number {
+  if (a.length === 0) return b.length;
+  if (b.length === 0) return a.length;
+
+  const matrix = Array(b.length + 1).fill(null).map(() => Array(a.length + 1).fill(null));
+
+  for (let i = 0; i <= a.length; i++) matrix[0][i] = i;
+  for (let j = 0; j <= b.length; j++) matrix[j][0] = j;
+
+  for (let j = 1; j <= b.length; j++) {
+    for (let i = 1; i <= a.length; i++) {
+      const indicator = a[i - 1] === b[j - 1] ? 0 : 1;
+      matrix[j][i] = Math.min(
+        matrix[j][i - 1] + 1, // deletion
+        matrix[j - 1][i] + 1, // insertion
+        matrix[j - 1][i - 1] + indicator // substitution
+      );
+    }
+  }
+  return matrix[b.length][a.length];
+}
+
+/**
  * Validates and potentially corrects a truncated Convex ID
  * by searching for matching IDs in the case.
  * 
  * Convex IDs are typically 32 characters long. If an ID is shorter than 30 characters,
  * it's likely truncated and we attempt to find the correct ID by searching escritos
- * in the case that start with the provided prefix.
+ * in the case that start with the provided prefix or fuzzy match the string.
  * 
  * @param ctx - The tool context
  * @param escritoId - The potentially truncated escrito ID
@@ -171,20 +201,43 @@ export async function validateAndCorrectEscritoId(
   }
   
   try {
-    // Query escritos in the case that start with this prefix
+    // Query escritos in the case
+    // We fetch all IDs for the case to perform in-memory fuzzy matching
+    // This is efficient because the number of escritos per case is typically small (<100)
     const escritos = await ctx.runQuery(
       internal.functions.documents.getEscritosForAgent,
       { caseId: caseId as Id<"cases"> }
     );
     
-    // Find exact match first (in case it's actually complete but just short)
+    // 1. Exact match check (just in case)
     const exactMatch = escritos.find((e: any) => e._id === escritoId);
     if (exactMatch) {
       return { id: escritoId, wasCorrected: false };
     }
     
-    // Find escritos that start with the truncated ID
-    const matches = escritos.filter((e: any) => e._id.startsWith(escritoId));
+    // 2. Prefix match check (fastest fallback)
+    let matches = escritos.filter((e: any) => e._id.startsWith(escritoId));
+    
+    // 3. Fuzzy match check (Levenshtein) if prefix fails
+    // This handles "middle-out" truncation (e.g. "abcdef...xyz") which simple prefix/suffix checks miss
+    if (matches.length === 0) {
+      // Only attempt fuzzy match if we have a substantial part of the ID (>20 chars)
+      // to avoid false positives with very short strings
+      if (escritoId.length > 20) {
+        // Allow up to 5 edits (deletions/substitutions)
+        // e.g. 29 chars vs 32 chars = 3 deletions -> allowed
+        const MAX_DISTANCE = 5;
+        
+        matches = escritos.filter((e: any) => {
+          const dist = levenshteinDistance(escritoId, e._id);
+          return dist <= MAX_DISTANCE;
+        });
+        
+        if (matches.length > 0) {
+          console.log(`⚠️ Fuzzy match found using Levenshtein distance`);
+        }
+      }
+    }
     
     if (matches.length === 1) {
       // Perfect! Only one match, use it

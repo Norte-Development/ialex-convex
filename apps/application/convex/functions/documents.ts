@@ -10,6 +10,7 @@ import { paginationOptsValidator } from "convex/server";
 import { getCurrentUserFromAuth, requireNewCaseAccess } from "../auth_utils";
 import { internal, api, components } from "../_generated/api";
 import { _checkLimit, _getBillingEntity } from "../billing/features";
+import { Id } from "../_generated/dataModel";
 import { PLAN_LIMITS } from "../billing/planLimits";
 import type { Id } from "../_generated/dataModel";
 
@@ -1444,6 +1445,144 @@ export const getRecentEscritos = query({
       .take(limit);
 
     return escritos;
+  },
+});
+
+export const resolveEscritoId = internalQuery({
+  args: {
+    escritoId: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const raw = args.escritoId?.trim();
+    if (!raw) {
+      return null;
+    }
+
+    try {
+      const direct = await ctx.db.get(raw as Id<"escritos">);
+      if (direct) {
+        return direct._id;
+      }
+    } catch {
+      // ignore and fall back to prefix matching
+    }
+
+    if (raw.length < 32) {
+      const matches: Array<{ _id: Id<"escritos">; score: number }> = [];
+      let scanned = 0;
+      for await (const doc of ctx.db.query("escritos")) {
+        scanned += 1;
+        if ((doc._id as string).startsWith(raw)) {
+          const score = doc.lastEditedAt ?? doc._creationTime ?? 0;
+          matches.push({ _id: doc._id, score });
+        }
+        if (matches.length >= 5 || scanned >= 1000) {
+          break;
+        }
+      }
+
+      if (matches.length > 0) {
+        matches.sort((a, b) => b.score - a.score);
+        return matches[0]._id;
+      }
+    }
+
+    return null;
+  },
+});
+
+/**
+ * Gets all escritos in a case that have pending changes (change nodes in their prosemirror documents).
+ *
+ * @param {Object} args - The function arguments
+ * @param {string} args.caseId - The ID of the case
+ * @returns {Promise<Array<{escritoId: Id<"escritos">, prosemirrorId: string, title: string, pendingChangesCount: number}>>} Array of escritos with pending changes
+ * @throws {Error} When not authenticated or lacking case access
+ */
+export const getEscritosWithPendingChanges = query({
+  args: {
+    caseId: v.id("cases"),
+  },
+  returns: v.array(
+    v.object({
+      escritoId: v.id("escritos"),
+      prosemirrorId: v.string(),
+      title: v.string(),
+      pendingChangesCount: v.number(),
+    }),
+  ),
+  handler: async (ctx, args) => {
+    const currentUser = await getCurrentUserFromAuth(ctx);
+    await requireNewCaseAccess(ctx, currentUser._id, args.caseId, "basic");
+
+    // Get all escritos for the case
+    const escritos = await ctx.db
+      .query("escritos")
+      .withIndex("by_case", (q) => q.eq("caseId", args.caseId))
+      .filter((q) => q.eq(q.field("isArchived"), false))
+      .collect();
+
+    const resultados: Array<{
+      escritoId: Id<"escritos">;
+      prosemirrorId: string;
+      title: string;
+      pendingChangesCount: number;
+    }> = [];
+
+    // Check each escrito for pending changes
+    for (const escrito of escritos) {
+      try {
+        // Use getSnapshot to get the document JSON
+        const snapshotResult = await ctx.runQuery(
+          components.prosemirrorSync.lib.getSnapshot,
+          {
+            id: escrito.prosemirrorId,
+          },
+        );
+        
+        // Check if snapshot has content (it can be null or have content property)
+        if (!snapshotResult || snapshotResult.content === null) continue;
+        
+        // Type guard: check if content exists
+        if (!("content" in snapshotResult)) continue;
+
+        // Parse the snapshot JSON to check for change nodes
+        const content = (snapshotResult as { content: string }).content;
+        const docJson = typeof content === "string" 
+          ? JSON.parse(content) 
+          : content;
+        let changeCount = 0;
+
+        // Recursively count change nodes in the JSON structure
+        function countChangesInNode(node: any): void {
+          if (!node || typeof node !== "object") return;
+
+          if (node.type === "inlineChange" || node.type === "blockChange" || node.type === "lineBreakChange") {
+            changeCount++;
+          }
+
+          if (node.content && Array.isArray(node.content)) {
+            node.content.forEach((child: any) => countChangesInNode(child));
+          }
+        }
+
+        countChangesInNode(docJson);
+
+        if (changeCount > 0) {
+          resultados.push({
+            escritoId: escrito._id,
+            prosemirrorId: escrito.prosemirrorId,
+            title: escrito.title,
+            pendingChangesCount: changeCount,
+          });
+        }
+      } catch (error) {
+        // Skip escritos that can't be loaded
+        console.error(`Error checking escrito ${escrito._id} for changes:`, error);
+      }
+    }
+
+    return resultados;
   },
 });
 

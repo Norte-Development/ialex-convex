@@ -135,8 +135,8 @@ export function findMatches(
 
   const matches: NormalizedMatch[] = [];
 
-  console.log(`  [findMatches] Searching for normalized (collapsed) query: "${q}"`);
-  console.log(`  [findMatches] Collapsed document length: ${text.length}, Query length: ${q.length}`);
+  console.log(`  [findMatches] Searching for normalized (collapsed) query: "${q.substring(0, 50)}..." (len: ${q.length})`);
+  // console.log(`  [findMatches] Collapsed document length: ${text.length}, Query length: ${q.length}`);
   
   let start = 0;
   let matchCount = 0;
@@ -145,16 +145,16 @@ export function findMatches(
     if (idx === -1) break;
 
     matchCount++;
-    console.log(`  [findMatches] Potential match #${matchCount} found at collapsed position ${idx}`);
+    // console.log(`  [findMatches] Potential match #${matchCount} found at collapsed position ${idx}`);
     
     const end = idx + q.length;
 
     if (opts.wholeWord && !isWholeWord(text, idx, end)) {
-      console.log(`    ❌ Whole word check FAILED - rejecting match`);
+      // console.log(`    ❌ Whole word check FAILED - rejecting match`);
       start = idx + 1;
       continue;
     }
-    console.log(`    ✅ Whole word check passed (or disabled)`);
+    // console.log(`    ✅ Whole word check passed (or disabled)`);
 
     // Context checks on collapsed text
     if (opts.contextBefore) {
@@ -163,17 +163,17 @@ export function findMatches(
         ...opts,
         normalizeWhitespace: true,
       }).normalizedText;
-      console.log(`    [Context Before Check]`);
-      console.log(`      Raw context: "${opts.contextBefore}"`);
-      console.log(`      Normalized (collapsed) context: "${normalizedContextBefore}"`);
-      console.log(`      Before slice (${opts.contextWindow} chars): "${beforeSlice}"`);
-      console.log(`      Contains? ${beforeSlice.includes(normalizedContextBefore)}`);
+      // console.log(`    [Context Before Check]`);
+      // console.log(`      Raw context: "${opts.contextBefore}"`);
+      // console.log(`      Normalized (collapsed) context: "${normalizedContextBefore}"`);
+      // console.log(`      Before slice (${opts.contextWindow} chars): "${beforeSlice}"`);
+      // console.log(`      Contains? ${beforeSlice.includes(normalizedContextBefore)}`);
       if (!beforeSlice.includes(normalizedContextBefore)) {
-        console.log(`      ❌ Context before check FAILED - rejecting match`);
+        // console.log(`      ❌ Context before check FAILED - rejecting match`);
         start = idx + 1;
         continue;
       }
-      console.log(`      ✅ Context before check PASSED`);
+      // console.log(`      ✅ Context before check PASSED`);
     }
     if (opts.contextAfter) {
       const afterSlice = text.slice(end, Math.min(text.length, end + opts.contextWindow));
@@ -181,17 +181,17 @@ export function findMatches(
         ...opts,
         normalizeWhitespace: true,
       }).normalizedText;
-      console.log(`    [Context After Check]`);
-      console.log(`      Raw context: "${opts.contextAfter}"`);
-      console.log(`      Normalized (collapsed) context: "${normalizedContextAfter}"`);
-      console.log(`      After slice (${opts.contextWindow} chars): "${afterSlice}"`);
-      console.log(`      Contains? ${afterSlice.includes(normalizedContextAfter)}`);
+      // console.log(`    [Context After Check]`);
+      // console.log(`      Raw context: "${opts.contextAfter}"`);
+      // console.log(`      Normalized (collapsed) context: "${normalizedContextAfter}"`);
+      // console.log(`      After slice (${opts.contextWindow} chars): "${afterSlice}"`);
+      // console.log(`      Contains? ${afterSlice.includes(normalizedContextAfter)}`);
       if (!afterSlice.includes(normalizedContextAfter)) {
-        console.log(`      ❌ Context after check FAILED - rejecting match`);
+        // console.log(`      ❌ Context after check FAILED - rejecting match`);
         start = idx + 1;
         continue;
       }
-      console.log(`      ✅ Context after check PASSED`);
+      // console.log(`      ✅ Context after check PASSED`);
     }
 
     // Map collapsed indices -> original normalized indices -> PM positions
@@ -203,13 +203,94 @@ export function findMatches(
     const fromPos = docIndex.normToPmPos[normStart];
     const lastCharPos = docIndex.normToPmPos[Math.max(normStart, normEnd - 1)];
     const toPos = lastCharPos + 1;
-    console.log(`    ✅✅ MATCH ACCEPTED - Adding to results (PM pos: ${fromPos} to ${toPos})`);
+    // console.log(`    ✅✅ MATCH ACCEPTED - Adding to results (PM pos: ${fromPos} to ${toPos})`);
     matches.push({ normStart, normEnd, from: fromPos, to: toPos });
 
     start = idx + 1;
   }
 
-  console.log(`  [findMatches] Total matches found: ${matches.length}`);
+  // console.log(`  [findMatches] Total matches found: ${matches.length}`);
+  return matches;
+}
+
+/**
+ * Finds matches for large text blocks by matching start and end segments (fuzzy matching).
+ * Used when exact matching fails for large blocks (> 100 chars).
+ */
+export function findLargeBlockMatches(
+  docIndex: DocIndex,
+  query: string,
+  options?: SearchOptions
+): NormalizedMatch[] {
+  // Only use this for large queries
+  if (query.length < 100) return [];
+
+  const HEAD_TAIL_LENGTH = 60; // Characters to match at start/end
+  
+  const opts = { contextWindow: 50, ...options } as Required<SearchOptions>;
+  
+  // Normalize the full query to get the head and tail
+  // We need normalized text to slice properly
+  const qMaps = normalizeAndBuildMaps(query, {
+    ...opts,
+    normalizeWhitespace: true,
+  });
+  const q = qMaps.normalizedText;
+  
+  if (q.length < HEAD_TAIL_LENGTH * 2) return [];
+
+  const head = q.slice(0, HEAD_TAIL_LENGTH);
+  const tail = q.slice(-HEAD_TAIL_LENGTH);
+
+  console.log(`  [findLargeBlockMatches] Attempting fuzzy block match`);
+  console.log(`    Head: "${head}..."`);
+  console.log(`    Tail: "...${tail}"`);
+
+  // Find matches for head and tail
+  // Pass contexts to head/tail searches appropriately
+  // Head gets contextBefore
+  const headMatches = findMatches(docIndex, head, { 
+    ...opts, 
+    contextBefore: opts.contextBefore, 
+    contextAfter: undefined 
+  });
+  
+  // Tail gets contextAfter
+  const tailMatches = findMatches(docIndex, tail, { 
+    ...opts, 
+    contextBefore: undefined, 
+    contextAfter: opts.contextAfter 
+  });
+
+  console.log(`    Head matches: ${headMatches.length}, Tail matches: ${tailMatches.length}`);
+
+  const matches: NormalizedMatch[] = [];
+
+  // Look for valid pairs
+  for (const h of headMatches) {
+    for (const t of tailMatches) {
+      // Tail must start after head starts
+      if (t.normStart > h.normStart) {
+        // Calculate distance
+        const dist = t.normEnd - h.normStart;
+        const expectedLen = q.length;
+        const diff = Math.abs(dist - expectedLen);
+        
+        // Allow 30% length variation for edits in the middle
+        // This handles cases where the AI modified the content significantly but kept start/end
+        if (diff < expectedLen * 0.3) {
+             console.log(`    ✅ Fuzzy Match Pair Found: Head(${h.from}) -> Tail(${t.to})`);
+             matches.push({
+               normStart: h.normStart,
+               normEnd: t.normEnd,
+               from: h.from,
+               to: t.to
+             });
+        }
+      }
+    }
+  }
+
   return matches;
 }
 
@@ -251,5 +332,3 @@ export function findAnchorPosition(
   }
   return null;
 }
-
-
