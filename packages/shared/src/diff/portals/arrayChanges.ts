@@ -408,6 +408,9 @@ export function buildArrayWithChanges(
   const { additions, deletions, nestedChanges, formattingChanges } = changesByType;
   const resultArray: any[] = [];
   const processedIndices = new Set<number>();
+  const processedDeletions = new Set<number>();
+  
+  // First, handle items that exist in the new array
   for (let i = 0; i < newArray.length; i++) {
     if (processedIndices.has(i)) {
       continue;
@@ -445,7 +448,9 @@ export function buildArrayWithChanges(
         }
       }
     } else if (addition && deletion) {
+      // Replacement: both addition and deletion at same index
       const changeId = `${baseChangeId}-replace-${i}`;
+      processedDeletions.add(i);
       if (deletion.type === 'text' && addition.type === 'text' && 
           deletion.text && addition.text &&
           (deletion.text.length >= 60 || addition.text.length >= 60)) {
@@ -464,18 +469,36 @@ export function buildArrayWithChanges(
       const changeId = `${baseChangeId}-add-${i}`;
       resultArray.push(createChangeNode(addition, CHANGE_TYPES.ADDED, changeId));
     } else if (deletion && !newArray[i]) {
+      // Deletion at end of array where no new item exists
       const changeId = `${baseChangeId}-del-${i}`;
+      processedDeletions.add(i);
       resultArray.push(createChangeNode(deletion, CHANGE_TYPES.DELETED, changeId));
     } else {
       resultArray.push(newArray[i]);
     }
   }
-  for (const [index, deletion] of deletions) {
-    if (index >= newArray.length) {
-      const changeId = `${baseChangeId}-del-${index}`;
+  
+  // Now handle all remaining deletions that weren't processed
+  // This includes deletions in the middle of the array where indices shifted
+  // Sort deletions by index to insert them in order
+  const remainingDeletions = Array.from(deletions.entries())
+    .filter(([index]) => !processedDeletions.has(index))
+    .sort((a, b) => a[0] - b[0]);
+  
+  for (const [index, deletion] of remainingDeletions) {
+    const changeId = `${baseChangeId}-del-${index}`;
+    // For deletions that were in the middle of the original array,
+    // we need to insert the deletion marker at the appropriate position
+    // The deletion should appear where the item used to be
+    if (index < resultArray.length) {
+      // Insert the deletion at its original position (or as close as possible)
+      resultArray.splice(index, 0, createChangeNode(deletion, CHANGE_TYPES.DELETED, changeId));
+    } else {
+      // Append deletions that were at the end
       resultArray.push(createChangeNode(deletion, CHANGE_TYPES.DELETED, changeId));
     }
   }
+  
   return resultArray;
 }
 
