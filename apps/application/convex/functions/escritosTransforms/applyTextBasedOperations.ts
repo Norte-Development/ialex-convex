@@ -24,6 +24,7 @@ import {
   getContextualSearchOptions,
 } from "./helpers/searchHelpers";
 import { applyDiffMerge } from "./helpers/diffHelpers";
+import { diffLog, truncateForLog } from "../../../../../packages/shared/src/diff/constants";
 
 /**
  * Apply text-based operations to an Escrito.
@@ -57,21 +58,21 @@ export const applyTextBasedOperations = mutation({
     let appliedOperationsCount = 0;
 
     // Process each edit using the existing ProseMirror sync system
-    console.log("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-    console.log("🔄 PROCESSING EDITS IN MUTATION");
-    console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-    console.log(`Total edits to process: ${edits.length}`);
-    console.log("Raw edits received:", JSON.stringify(edits, null, 2));
-    console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n");
+    diffLog("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+    diffLog("🔄 PROCESSING EDITS IN MUTATION");
+    diffLog("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+    diffLog(`Total edits to process: ${edits.length}`);
+    diffLog("Raw edits received:", JSON.stringify(edits, null, 2));
+    diffLog("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n");
 
     for (const edit of edits) {
-      console.log(`\n📝 Processing edit type: ${edit.type}`);
+      diffLog(`\n📝 Processing edit type: ${edit.type}`);
 
       if (edit.type === "replace") {
-        console.log(`  findText: "${edit.findText}"`);
-        console.log(`  replaceText: "${edit.replaceText}"`);
-        console.log(`  contextBefore: "${edit.contextBefore}"`);
-        console.log(`  contextAfter: "${edit.contextAfter}"`);
+        diffLog(`  findText: "${truncateForLog(edit.findText || '')}"`);
+        diffLog(`  replaceText: "${truncateForLog(edit.replaceText || '')}"`);
+        diffLog(`  contextBefore: "${truncateForLog(edit.contextBefore || '')}"`);
+        diffLog(`  contextAfter: "${truncateForLog(edit.contextAfter || '')}"`);
 
         operations.push({
           type: "replace_range",
@@ -86,7 +87,7 @@ export const applyTextBasedOperations = mutation({
           maxOccurrences: edit.maxOccurrences,
         });
 
-        console.log(`  Created operation:`, JSON.stringify(operations[operations.length - 1], null, 2));
+        diffLog(`  Created replace operation for: "${truncateForLog(edit.findText || '')}"`);
       } else if (edit.type === "insert") {
         operations.push({
           type: "insert_text",
@@ -185,13 +186,9 @@ export const applyTextBasedOperations = mutation({
 
           // Handle text-based operations with normalized, cross-node matching
           if (op.type === "replace_range" && op.findText) {
-            console.log(`\n🔍 SEARCHING FOR TEXT: "${op.findText}"`);
-            console.log(
-              `  Context before: "${op.contextBefore || "none"}"`
-            );
-            console.log(
-              `  Context after: "${op.contextAfter || "none"}"`
-            );
+            diffLog(`\n🔍 SEARCHING FOR TEXT: "${truncateForLog(op.findText)}"`);
+            diffLog(`  Context before: "${truncateForLog(op.contextBefore || 'none')}"`);
+            diffLog(`  Context after: "${truncateForLog(op.contextAfter || 'none')}"`);
 
             const docIndex = buildDocIndex(tr.doc, {
               ...getContextualSearchOptions(isWholeWordLikely(op.findText)),
@@ -199,16 +196,11 @@ export const applyTextBasedOperations = mutation({
               contextAfter: op.contextAfter,
             });
 
-            console.log(
-              `  Document index normalized text length: ${docIndex.normalizedText.length}`
-            );
-            console.log(
-              `  Document index text preview (first 200 chars): "${docIndex.normalizedText.substring(0, 200)}..."`
-            );
+            diffLog(`  Document index normalized text length: ${docIndex.normalizedText.length}`);
             
             // 1. Try EXACT match WITHOUT context first (Optimistic Uniqueness)
             // This avoids issues where context is slightly off
-            console.log(`  Attempting context-free match first...`);
+            diffLog(`  Attempting context-free match first...`);
             let found = findMatches(docIndex, op.findText, {
               ...getContextualSearchOptions(isWholeWordLikely(op.findText)),
               contextBefore: undefined,
@@ -216,13 +208,13 @@ export const applyTextBasedOperations = mutation({
             });
 
             if (found.length === 1) {
-               console.log(`  ✅ Unique match found without context! Ignoring context parameters.`);
+               diffLog(`  ✅ Unique match found without context! Ignoring context parameters.`);
             } else if (found.length > 1) {
-               console.log(`  ⚠️ Multiple matches (${found.length}) found without context.`);
+               diffLog(`  ⚠️ Multiple matches (${found.length}) found without context.`);
                
                // If we have context, try to filter/refine the search
                if (op.contextBefore || op.contextAfter) {
-                 console.log(`  🔄 Refining search WITH context...`);
+                 diffLog(`  🔄 Refining search WITH context...`);
                  const foundWithContext = findMatches(docIndex, op.findText, {
                     ...getContextualSearchOptions(isWholeWordLikely(op.findText)),
                     contextBefore: op.contextBefore,
@@ -230,18 +222,18 @@ export const applyTextBasedOperations = mutation({
                  });
                  
                  if (foundWithContext.length > 0) {
-                    console.log(`  ✅ Found ${foundWithContext.length} matches with context.`);
+                    diffLog(`  ✅ Found ${foundWithContext.length} matches with context.`);
                     found = foundWithContext;
                  } else {
-                    console.log(`  ⚠️ Context filter returned 0 matches. Falling back to context-free matches.`);
+                    diffLog(`  ⚠️ Context filter returned 0 matches. Falling back to context-free matches.`);
                     // We keep the original `found` list and let selectByOccurrence handle the index
                  }
                }
             } else {
-               console.log(`  ⚠️ No matches found without context.`);
+               diffLog(`  ⚠️ No matches found without context.`);
                // 2. Fallback to fuzzy block matching if exact match fails and text is large
                if (op.findText.length > 100) {
-                  console.log(`  ⚠️ Exact match failed for large block. Attempting fuzzy block match...`);
+                  diffLog(`  ⚠️ Exact match failed for large block. Attempting fuzzy block match...`);
                   // For fuzzy match, we DO want to use context if available because head/tail are short
                   found = findLargeBlockMatches(docIndex, op.findText, {
                     ...getContextualSearchOptions(isWholeWordLikely(op.findText)),
@@ -251,17 +243,15 @@ export const applyTextBasedOperations = mutation({
                }
             }
 
-            console.log(`  ✅ Final result: ${found.length} matches`);
+            diffLog(`  ✅ Final result: ${found.length} matches`);
             if (found.length > 0) {
               found.forEach((match, idx) => {
-                console.log(
-                  `    Match ${idx + 1}: from=${match.from}, to=${match.to}`
-                );
+                diffLog(`    Match ${idx + 1}: from=${match.from}, to=${match.to}`);
               });
             }
 
             if (!found.length) {
-              console.log(`  ⚠️  NO MATCHES FOUND - Skipping this operation`);
+              diffLog(`  ⚠️  NO MATCHES FOUND - Skipping this operation`);
               continue;
             }
 

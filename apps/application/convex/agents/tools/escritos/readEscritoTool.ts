@@ -138,6 +138,15 @@ const MAX_WORDS_PER_CHUNK = 300;
 function buildTextRuns(doc: Node): Array<{ text: string; from: number; to: number }> {
   const runs: Array<{ text: string; from: number; to: number }> = [];
   doc.descendants((node, pos) => {
+    // Handle custom change nodes - skip deleted ones
+    if (node.type.name === "inlineChange" || node.type.name === "blockChange" || node.type.name === "lineBreakChange") {
+      const changeType = (node as any).attrs?.changeType;
+      if (changeType === "deleted") {
+        return false; // Skip deleted changes entirely (and their children)
+      }
+      return true; // Continue traversing for added/modified changes
+    }
+    
     if (node.type.name === "text") {
       const text = (node as any).text || "";
       const size = (node as any).nodeSize ?? text.length;
@@ -211,7 +220,10 @@ function safeBounds(doc: Node, from?: number, to?: number): { from: number; to: 
 }
 
 function getTextBetween(doc: Node, from: number, to: number): string {
-  return (doc as any).textBetween(from, to, "\n\n");
+  // Use extractVisibleTextFromNode to properly exclude deleted changeNodes
+  // Slice the document to the requested range and extract visible text
+  const sliced = (doc as any).cut(from, to);
+  return extractVisibleTextFromNode(sliced);
 }
 
 function getJsonSlice(doc: Node, from: number, to: number): any {

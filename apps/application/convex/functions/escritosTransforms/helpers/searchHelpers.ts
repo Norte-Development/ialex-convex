@@ -2,13 +2,15 @@
  * Helpers for text search configuration
  */
 
+import { DIFF_CONFIG } from "../../../../../../packages/shared/src/diff/constants";
+
 /**
  * Decide whether to use whole-word matching based on search text characteristics
  */
 export function isWholeWordLikely(searchText: string): boolean {
   if (!searchText) return false;
   if (searchText.includes(" ")) return false;
-  if (searchText.length > 20) return false;
+  if (searchText.length > DIFF_CONFIG.WHOLE_WORD_MAX_LENGTH) return false;
   if (/[.,;:]/.test(searchText)) return false;
   return true;
 }
@@ -34,7 +36,7 @@ export function getStandardSearchOptions(wholeWord = false) {
  */
 export function getContextualSearchOptions(
   wholeWord = false,
-  contextWindow = 80
+  contextWindow = DIFF_CONFIG.CONTEXT_WINDOW_DEFAULT
 ) {
   return {
     ...getStandardSearchOptions(wholeWord),
