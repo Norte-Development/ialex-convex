@@ -27,6 +27,9 @@ import type * as agents_home_streaming from "../agents/home/streaming.js";
 import type * as agents_home_workflow from "../agents/home/workflow.js";
 import type * as agents_index from "../agents/index.js";
 import type * as agents_threads from "../agents/threads.js";
+import type * as agents_tools_cases_index from "../agents/tools/cases/index.js";
+import type * as agents_tools_cases_searchCasesTool from "../agents/tools/cases/searchCasesTool.js";
+import type * as agents_tools_cases_templates from "../agents/tools/cases/templates.js";
 import type * as agents_tools_clients_index from "../agents/tools/clients/index.js";
 import type * as agents_tools_clients_searchClientsTool from "../agents/tools/clients/searchClientsTool.js";
 import type * as agents_tools_clients_templates from "../agents/tools/clients/templates.js";
@@ -49,6 +52,7 @@ import type * as agents_tools_escritos_insertContentTool from "../agents/tools/e
 import type * as agents_tools_escritos_manageEscritoTool from "../agents/tools/escritos/manageEscritoTool.js";
 import type * as agents_tools_escritos_readEscritoTool from "../agents/tools/escritos/readEscritoTool.js";
 import type * as agents_tools_escritos_rewriteEscritoSectionTool from "../agents/tools/escritos/rewriteEscritoSectionTool.js";
+import type * as agents_tools_escritos_searchEscritosTool from "../agents/tools/escritos/searchEscritosTool.js";
 import type * as agents_tools_escritos_templates from "../agents/tools/escritos/templates.js";
 import type * as agents_tools_fallos_index from "../agents/tools/fallos/index.js";
 import type * as agents_tools_fallos_readFallosTool from "../agents/tools/fallos/readFallosTool.js";
@@ -208,6 +212,9 @@ declare const fullApi: ApiFromModules<{
   "agents/home/workflow": typeof agents_home_workflow;
   "agents/index": typeof agents_index;
   "agents/threads": typeof agents_threads;
+  "agents/tools/cases/index": typeof agents_tools_cases_index;
+  "agents/tools/cases/searchCasesTool": typeof agents_tools_cases_searchCasesTool;
+  "agents/tools/cases/templates": typeof agents_tools_cases_templates;
   "agents/tools/clients/index": typeof agents_tools_clients_index;
   "agents/tools/clients/searchClientsTool": typeof agents_tools_clients_searchClientsTool;
   "agents/tools/clients/templates": typeof agents_tools_clients_templates;
@@ -230,6 +237,7 @@ declare const fullApi: ApiFromModules<{
   "agents/tools/escritos/manageEscritoTool": typeof agents_tools_escritos_manageEscritoTool;
   "agents/tools/escritos/readEscritoTool": typeof agents_tools_escritos_readEscritoTool;
   "agents/tools/escritos/rewriteEscritoSectionTool": typeof agents_tools_escritos_rewriteEscritoSectionTool;
+  "agents/tools/escritos/searchEscritosTool": typeof agents_tools_escritos_searchEscritosTool;
   "agents/tools/escritos/templates": typeof agents_tools_escritos_templates;
   "agents/tools/fallos/index": typeof agents_tools_fallos_index;
   "agents/tools/fallos/readFallosTool": typeof agents_tools_fallos_readFallosTool;
