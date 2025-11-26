@@ -2,6 +2,7 @@ import * as jsondiffpatch from 'jsondiffpatch';
 import { diff_match_patch } from '@dmsnell/diff-match-patch';
 import { processJsonDiffDelta } from './jsonDelta';
 import { convertMetadataToVisualChanges } from './visualize';
+import { DIFF_CONFIG } from './constants';
 
 function normalizeTextForHashing(text: string): string {
   return text.replace(/\s+/g, ' ').trim();
@@ -72,7 +73,7 @@ function createStableNodeHash(node: any, context: { index?: number } = {}): stri
 
 const prosemirrorDiffer = jsondiffpatch.create({
   objectHash: (obj: any) => createStableNodeHash(obj),
-  textDiff: { diffMatchPatch: diff_match_patch, minLength: 10 },
+  textDiff: { diffMatchPatch: diff_match_patch, minLength: DIFF_CONFIG.JSON_DIFF_TEXT_MIN_LENGTH },
   arrays: { detectMove: true, includeValueOnMove: true },
 });
 

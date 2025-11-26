@@ -1,4 +1,9 @@
 import { isWholeWord, normalizeAndBuildMaps, NormalizationOptions, normalizeQuery } from "./textNormalization";
+import { 
+  DIFF_CONFIG, 
+  searchLog, 
+  truncateForLog 
+} from "../../../../../../packages/shared/src/diff/constants";
 
 export type SearchOptions = NormalizationOptions & {
   wholeWord?: boolean;
@@ -14,7 +19,7 @@ type DocIndex = {
 
 // Build a normalized text index from a ProseMirror doc with mapping back to PM positions
 export function buildDocIndex(doc: any, options?: SearchOptions): DocIndex {
-  const opts = { contextWindow: 50, ...options } as Required<SearchOptions>;
+  const opts = { contextWindow: DIFF_CONFIG.CONTEXT_WINDOW_DEFAULT, ...options } as Required<SearchOptions>;
 
   // Collect raw text and PM positions for each raw character
   const rawChars: string[] = [];
@@ -113,7 +118,7 @@ export function findMatches(
   query: string,
   options?: SearchOptions,
 ): NormalizedMatch[] {
-  const opts = { contextWindow: 50, ...options } as Required<SearchOptions>;
+  const opts = { contextWindow: DIFF_CONFIG.CONTEXT_WINDOW_DEFAULT, ...options } as Required<SearchOptions>;
   
   // Collapse whitespace in the document text (normalizeWhitespace: true)
   // This allows matching regardless of \n vs \n\n differences
@@ -135,7 +140,7 @@ export function findMatches(
 
   const matches: NormalizedMatch[] = [];
 
-  console.log(`  [findMatches] Searching for normalized (collapsed) query: "${q.substring(0, 50)}..." (len: ${q.length})`);
+  searchLog(`  [findMatches] Searching for: "${truncateForLog(q)}" (len: ${q.length})`);
   // console.log(`  [findMatches] Collapsed document length: ${text.length}, Query length: ${q.length}`);
   
   let start = 0;
@@ -146,14 +151,17 @@ export function findMatches(
 
     matchCount++;
     // console.log(`  [findMatches] Potential match #${matchCount} found at collapsed position ${idx}`);
+    // console.log(`  [findMatches] Potential match #${matchCount} found at collapsed position ${idx}`);
     
     const end = idx + q.length;
 
     if (opts.wholeWord && !isWholeWord(text, idx, end)) {
       // console.log(`    ❌ Whole word check FAILED - rejecting match`);
+      // console.log(`    ❌ Whole word check FAILED - rejecting match`);
       start = idx + 1;
       continue;
     }
+    // console.log(`    ✅ Whole word check passed (or disabled)`);
     // console.log(`    ✅ Whole word check passed (or disabled)`);
 
     // Context checks on collapsed text
@@ -168,11 +176,18 @@ export function findMatches(
       // console.log(`      Normalized (collapsed) context: "${normalizedContextBefore}"`);
       // console.log(`      Before slice (${opts.contextWindow} chars): "${beforeSlice}"`);
       // console.log(`      Contains? ${beforeSlice.includes(normalizedContextBefore)}`);
+      // console.log(`    [Context Before Check]`);
+      // console.log(`      Raw context: "${opts.contextBefore}"`);
+      // console.log(`      Normalized (collapsed) context: "${normalizedContextBefore}"`);
+      // console.log(`      Before slice (${opts.contextWindow} chars): "${beforeSlice}"`);
+      // console.log(`      Contains? ${beforeSlice.includes(normalizedContextBefore)}`);
       if (!beforeSlice.includes(normalizedContextBefore)) {
+        // console.log(`      ❌ Context before check FAILED - rejecting match`);
         // console.log(`      ❌ Context before check FAILED - rejecting match`);
         start = idx + 1;
         continue;
       }
+      // console.log(`      ✅ Context before check PASSED`);
       // console.log(`      ✅ Context before check PASSED`);
     }
     if (opts.contextAfter) {
@@ -186,7 +201,13 @@ export function findMatches(
       // console.log(`      Normalized (collapsed) context: "${normalizedContextAfter}"`);
       // console.log(`      After slice (${opts.contextWindow} chars): "${afterSlice}"`);
       // console.log(`      Contains? ${afterSlice.includes(normalizedContextAfter)}`);
+      // console.log(`    [Context After Check]`);
+      // console.log(`      Raw context: "${opts.contextAfter}"`);
+      // console.log(`      Normalized (collapsed) context: "${normalizedContextAfter}"`);
+      // console.log(`      After slice (${opts.contextWindow} chars): "${afterSlice}"`);
+      // console.log(`      Contains? ${afterSlice.includes(normalizedContextAfter)}`);
       if (!afterSlice.includes(normalizedContextAfter)) {
+        // console.log(`      ❌ Context after check FAILED - rejecting match`);
         // console.log(`      ❌ Context after check FAILED - rejecting match`);
         start = idx + 1;
         continue;
@@ -215,7 +236,7 @@ export function findMatches(
 
 /**
  * Finds matches for large text blocks by matching start and end segments (fuzzy matching).
- * Used when exact matching fails for large blocks (> 100 chars).
+ * Used when exact matching fails for large blocks.
  */
 export function findLargeBlockMatches(
   docIndex: DocIndex,
@@ -223,11 +244,11 @@ export function findLargeBlockMatches(
   options?: SearchOptions
 ): NormalizedMatch[] {
   // Only use this for large queries
-  if (query.length < 100) return [];
+  if (query.length < DIFF_CONFIG.FUZZY_MIN_QUERY_LENGTH) return [];
 
-  const HEAD_TAIL_LENGTH = 60; // Characters to match at start/end
+  const HEAD_TAIL_LENGTH = DIFF_CONFIG.FUZZY_HEAD_TAIL_LENGTH;
   
-  const opts = { contextWindow: 50, ...options } as Required<SearchOptions>;
+  const opts = { contextWindow: DIFF_CONFIG.CONTEXT_WINDOW_DEFAULT, ...options } as Required<SearchOptions>;
   
   // Normalize the full query to get the head and tail
   // We need normalized text to slice properly
@@ -242,9 +263,9 @@ export function findLargeBlockMatches(
   const head = q.slice(0, HEAD_TAIL_LENGTH);
   const tail = q.slice(-HEAD_TAIL_LENGTH);
 
-  console.log(`  [findLargeBlockMatches] Attempting fuzzy block match`);
-  console.log(`    Head: "${head}..."`);
-  console.log(`    Tail: "...${tail}"`);
+  searchLog(`  [findLargeBlockMatches] Attempting fuzzy block match`);
+  searchLog(`    Head: "${truncateForLog(head)}..."`);
+  searchLog(`    Tail: "...${truncateForLog(tail)}"`);
 
   // Find matches for head and tail
   // Pass contexts to head/tail searches appropriately
@@ -262,7 +283,7 @@ export function findLargeBlockMatches(
     contextAfter: opts.contextAfter 
   });
 
-  console.log(`    Head matches: ${headMatches.length}, Tail matches: ${tailMatches.length}`);
+  searchLog(`    Head matches: ${headMatches.length}, Tail matches: ${tailMatches.length}`);
 
   const matches: NormalizedMatch[] = [];
 
@@ -276,10 +297,10 @@ export function findLargeBlockMatches(
         const expectedLen = q.length;
         const diff = Math.abs(dist - expectedLen);
         
-        // Allow 30% length variation for edits in the middle
+        // Allow configurable length variation for edits in the middle
         // This handles cases where the AI modified the content significantly but kept start/end
-        if (diff < expectedLen * 0.3) {
-             console.log(`    ✅ Fuzzy Match Pair Found: Head(${h.from}) -> Tail(${t.to})`);
+        if (diff < expectedLen * DIFF_CONFIG.FUZZY_TOLERANCE_PERCENT) {
+             searchLog(`    ✅ Fuzzy Match Pair Found: Head(${h.from}) -> Tail(${t.to})`);
              matches.push({
                normStart: h.normStart,
                normEnd: t.normEnd,

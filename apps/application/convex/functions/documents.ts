@@ -1498,6 +1498,7 @@ export const resolveEscritoId = internalQuery({
  * @returns {Promise<Array<{escritoId: Id<"escritos">, prosemirrorId: string, title: string, pendingChangesCount: number}>>} Array of escritos with pending changes
  * @throws {Error} When not authenticated or lacking case access
  */
+
 export const getEscritosWithPendingChanges = query({
   args: {
     caseId: v.id("cases"),
