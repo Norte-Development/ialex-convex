@@ -3,6 +3,7 @@
 import FireCrawl from "@mendable/firecrawl-js";
 import { internalAction } from "../../../_generated/server";
 import { v } from "convex/values";
+import { internal } from "../../../_generated/api";
 
 /**
  * FireCrawl client instance for web scraping and search operations.
@@ -12,14 +13,6 @@ const firecrawl = new FireCrawl({
   apiKey: process.env.FIRECRAWL_API_KEY,
 });
 
-/**
- * List of authorized doctrine source sites.
- * Only these sites will be searched when querying for doctrine.
- */
-const SITES_ENABLED = [
-    "https://www.saij.gob.ar/",
-    "https://www.pensamientopenal.com.ar/doctrina/",
-]
 
 /**
  * Searches for doctrine across enabled legal database sites.
@@ -44,6 +37,7 @@ const SITES_ENABLED = [
 export const searchDoctrine = internalAction({
     args: {
         query: v.string(),
+        userId: v.id("users"),
     },
     returns: v.array(v.any()),
     handler: async (ctx, args) => {
@@ -60,8 +54,12 @@ export const searchDoctrine = internalAction({
 
             const searchQuery = args.query.trim();
 
+            const doctrineSearchSites: string[] = await ctx.runQuery(internal.functions.users.getDoctrineSearchSites, {
+                userId: args.userId
+            });
+
             // Execute parallel searches with error handling for each
-            const searchPromises = SITES_ENABLED.map(async (site) => {
+            const searchPromises = doctrineSearchSites.map(async (site) => {
                 try {
                     const result = await firecrawl.search(`site:${site} ${searchQuery}`);
                     return result;
