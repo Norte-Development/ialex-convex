@@ -480,23 +480,20 @@ export function buildArrayWithChanges(
   
   // Now handle all remaining deletions that weren't processed
   // This includes deletions in the middle of the array where indices shifted
-  // Sort deletions by index to insert them in order
+  // Process from highest index to lowest so earlier splices don't affect later positions
   const remainingDeletions = Array.from(deletions.entries())
     .filter(([index]) => !processedDeletions.has(index))
-    .sort((a, b) => a[0] - b[0]);
+    .sort((a, b) => b[0] - a[0]);
   
   for (const [index, deletion] of remainingDeletions) {
     const changeId = `${baseChangeId}-del-${index}`;
-    // For deletions that were in the middle of the original array,
-    // we need to insert the deletion marker at the appropriate position
-    // The deletion should appear where the item used to be
-    if (index < resultArray.length) {
-      // Insert the deletion at its original position (or as close as possible)
-      resultArray.splice(index, 0, createChangeNode(deletion, CHANGE_TYPES.DELETED, changeId));
-    } else {
-      // Append deletions that were at the end
-      resultArray.push(createChangeNode(deletion, CHANGE_TYPES.DELETED, changeId));
-    }
+    // Clamp to current resultArray length; index is in oldArray coordinates
+    const insertIndex = Math.min(index, resultArray.length);
+    resultArray.splice(
+      insertIndex,
+      0,
+      createChangeNode(deletion, CHANGE_TYPES.DELETED, changeId),
+    );
   }
   
   return resultArray;
