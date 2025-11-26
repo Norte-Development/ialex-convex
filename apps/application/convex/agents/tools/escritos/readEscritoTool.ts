@@ -123,6 +123,44 @@ function extractVisibleTextFromNode(node: Node): string {
   return (node as any).textContent ?? "";
 }
 
+// NEW: helper that preserves block separators (similar to textBetween with "\n\n")
+function extractVisibleTextWithBlockSeparators(
+  node: Node,
+  blockSeparator = "\n\n",
+): string {
+  // Document root: join block children with separators
+  if (node.type.name === "doc") {
+    const parts: string[] = [];
+    for (let i = 0; i < node.childCount; i++) {
+      const child = node.child(i);
+      const childText = extractVisibleTextWithBlockSeparators(child, blockSeparator).trimEnd();
+      if (childText.length > 0) {
+        parts.push(childText);
+      }
+    }
+    return parts.join(blockSeparator);
+  }
+
+  // Treat blockChange as a block container but still respect deleted changes
+  if (node.type.name === "blockChange") {
+    const changeType = (node as any).attrs?.changeType;
+    if (changeType === "deleted") {
+      return "";
+    }
+    const parts: string[] = [];
+    for (let i = 0; i < node.childCount; i++) {
+      const childText = extractVisibleTextWithBlockSeparators(node.child(i), blockSeparator).trimEnd();
+      if (childText.length > 0) {
+        parts.push(childText);
+      }
+    }
+    return parts.join(blockSeparator);
+  }
+
+  // For all other nodes, reuse existing visibility + line-break logic
+  return extractVisibleTextFromNode(node);
+}
+
 /**
  * Maximum number of words allowed per chunk to maintain manageable chunk sizes.
  * 
@@ -220,10 +258,10 @@ function safeBounds(doc: Node, from?: number, to?: number): { from: number; to: 
 }
 
 function getTextBetween(doc: Node, from: number, to: number): string {
-  // Use extractVisibleTextFromNode to properly exclude deleted changeNodes
-  // Slice the document to the requested range and extract visible text
+  // Slice the document to the requested range and extract visible text,
+  // preserving "\n\n" separators between block nodes like the original textBetween call.
   const sliced = (doc as any).cut(from, to);
-  return extractVisibleTextFromNode(sliced);
+  return extractVisibleTextWithBlockSeparators(sliced);
 }
 
 function getJsonSlice(doc: Node, from: number, to: number): any {
