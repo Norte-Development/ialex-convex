@@ -15,6 +15,11 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { X, Plus } from "lucide-react";
+import { useState } from "react";
 
 interface AgentSectionProps {
   preferences: any;
@@ -32,6 +37,8 @@ export function AgentSection({
   onUpdate,
   onUpdateProfile,
 }: AgentSectionProps) {
+  const [newSiteUrl, setNewSiteUrl] = useState("");
+
   const legalSpecializations = [
     "Derecho Civil",
     "Derecho Penal",
@@ -54,6 +61,45 @@ export function AgentSection({
       : [...currentSpecializations, specialization];
 
     onUpdateProfile("specializations", updated);
+  };
+
+  const doctrineSearchSites = preferences?.doctrineSearchSites || [];
+
+  const handleAddSite = () => {
+    if (!newSiteUrl.trim()) return;
+
+    // Basic URL validation
+    try {
+      const url = new URL(newSiteUrl.trim());
+      const urlString = url.toString();
+
+      // Check if site already exists
+      if (doctrineSearchSites.includes(urlString)) {
+        return;
+      }
+
+      // Add the site
+      const updated = [...doctrineSearchSites, urlString];
+      onUpdate("doctrineSearchSites", updated);
+      setNewSiteUrl("");
+    } catch (error) {
+      // Invalid URL, don't add
+      return;
+    }
+  };
+
+  const handleRemoveSite = (siteToRemove: string) => {
+    const updated = doctrineSearchSites.filter(
+      (site: string) => site !== siteToRemove,
+    );
+    onUpdate("doctrineSearchSites", updated);
+  };
+
+  const handleKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      handleAddSite();
+    }
   };
 
   return (
@@ -200,6 +246,73 @@ export function AgentSection({
               checked={preferences.autoIncludeContext}
               onCheckedChange={(value) => onUpdate("autoIncludeContext", value)}
             />
+          </div>
+
+          <Separator />
+
+          <div className="space-y-3">
+            <div>
+              <Label className="text-sm font-medium">
+                Sitios de Búsqueda de Doctrina
+              </Label>
+              <p className="text-xs text-muted-foreground mt-1">
+                Sitios web donde el agente buscará doctrina legal. El agente
+                buscará en estos sitios cuando necesite información doctrinal.
+              </p>
+            </div>
+
+            {/* Display current sites */}
+            {doctrineSearchSites.length > 0 && (
+              <div className="flex flex-wrap gap-2">
+                {doctrineSearchSites.map((site: string) => (
+                  <Badge
+                    key={site}
+                    variant="outline"
+                    className="flex items-center gap-1.5 pr-1 py-1.5"
+                  >
+                    <span className="text-xs max-w-[300px] truncate">
+                      {site}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveSite(site)}
+                      className="ml-1 rounded-full hover:bg-gray-200 p-0.5 transition-colors"
+                      aria-label={`Eliminar ${site}`}
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </Badge>
+                ))}
+              </div>
+            )}
+
+            {/* Add new site */}
+            <div className="flex gap-2">
+              <Input
+                type="url"
+                placeholder="https://ejemplo.com"
+                value={newSiteUrl}
+                onChange={(e) => setNewSiteUrl(e.target.value)}
+                onKeyPress={handleKeyPress}
+                className="flex-1"
+              />
+              <Button
+                type="button"
+                onClick={handleAddSite}
+                size="sm"
+                variant="outline"
+                disabled={!newSiteUrl.trim()}
+              >
+                <Plus className="h-4 w-4 mr-1" />
+                Agregar
+              </Button>
+            </div>
+            {doctrineSearchSites.length === 0 && (
+              <p className="text-xs text-muted-foreground">
+                No hay sitios configurados. Agrega al menos uno para habilitar
+                la búsqueda de doctrina.
+              </p>
+            )}
           </div>
         </CardContent>
       </Card>

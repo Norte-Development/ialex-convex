@@ -1,5 +1,5 @@
 import { v } from "convex/values";
-import { query, mutation, action } from "../_generated/server";
+import { query, mutation, action, internalQuery } from "../_generated/server";
 import { getCurrentUserFromAuth } from "../auth_utils";
 import { requireNewCaseAccess } from "../auth_utils";
 import { internal } from "../_generated/api";
@@ -157,6 +157,7 @@ export const getOrCreateUser = mutation({
         defaultJurisdiction: "argentina",
         autoIncludeContext: true,
         citationFormat: "apa",
+        doctrineSearchSites: ["https://www.saij.gob.ar/", "https://www.pensamientopenal.com.ar/doctrina/"],
         sessionTimeout: 60,
         activityLogVisible: true,
       },
@@ -264,6 +265,14 @@ export const getUserByEmail = query({
       .withIndex("by_email", (q) => q.eq("email", args.email))
       .unique();
     return user;
+  },
+});
+
+export const getDoctrineSearchSites = internalQuery({
+  args: { userId: v.id("users") },
+  handler: async (ctx, args) : Promise<string[]> => {
+    const user = await ctx.db.get(args.userId);
+    return user?.preferences?.doctrineSearchSites || [];
   },
 });
 
@@ -595,10 +604,15 @@ export const updateUserPreferences = mutation({
       defaultJurisdiction: v.optional(v.string()),
       autoIncludeContext: v.optional(v.boolean()),
       citationFormat: v.optional(v.string()),
+      doctrineSearchSites: v.optional(v.array(v.string())),
 
       // Privacy & Security
       sessionTimeout: v.optional(v.number()),
       activityLogVisible: v.optional(v.boolean()),
+
+      // WhatsApp
+      whatsappNumber: v.optional(v.string()),
+      whatsappVerified: v.optional(v.boolean()),
     }),
   },
   handler: async (ctx, args) => {

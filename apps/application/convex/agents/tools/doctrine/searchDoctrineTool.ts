@@ -1,7 +1,8 @@
 import { createTool } from "@convex-dev/agent";
 import { internal } from "../../../_generated/api";
 import { z } from "zod";
-import { createErrorResponse } from "../shared/utils";
+import { createErrorResponse, getUserAndCaseIds } from "../shared/utils";
+import { Id } from "../../../_generated/dataModel";
 
 /**
  * Tool for searching legal doctrine across authorized legal databases.
@@ -45,11 +46,17 @@ export const searchDoctrineTool = createTool({
                 return createErrorResponse("El término de búsqueda no puede estar vacío. Por favor proporciona un término para buscar doctrina.");
             }
 
+            const { userId } = getUserAndCaseIds(ctx.userId as string);
+            if (!userId) {
+                return createErrorResponse("No autenticado");
+            }
+
             const searchQuery = args.searchTerm.trim();
 
             // Execute search across all enabled sites
             const results = await ctx.runAction(internal.agents.tools.doctrine.utils.searchDoctrine, {
-                query: searchQuery
+                query: searchQuery,
+                userId: userId as Id<"users">,
             });
 
             // Validate results

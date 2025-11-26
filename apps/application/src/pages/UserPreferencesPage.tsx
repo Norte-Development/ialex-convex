@@ -28,6 +28,10 @@ const DEFAULT_PREFERENCES = {
   defaultJurisdiction: "argentina",
   autoIncludeContext: true,
   citationFormat: "apa",
+  doctrineSearchSites: [
+    "https://www.saij.gob.ar/",
+    "https://www.pensamientopenal.com.ar/doctrina/",
+  ],
   sessionTimeout: 60,
   activityLogVisible: true,
 };

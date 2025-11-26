@@ -99,6 +99,7 @@ export default defineSchema({
         defaultJurisdiction: v.optional(v.string()),
         autoIncludeContext: v.optional(v.boolean()),
         citationFormat: v.optional(v.string()),
+        doctrineSearchSites: v.optional(v.array(v.string())),
 
         // Privacy & Security
         sessionTimeout: v.optional(v.number()),
