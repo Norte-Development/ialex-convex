@@ -63,7 +63,7 @@
     "@tiptap/extension-text-align": "^3.10.1",
     "@tiptap/extension-text-style": "^3.10.1",
     "@tiptap/extension-underline": "^3.10.1",
-    "@tiptap/html": "^3.10.1",
+    "@tiptap/html": "^3.11.0",
     "@tiptap/pm": "^3.10.1",
     "@tiptap/react": "^3.10.1",
     "@tiptap/starter-kit": "^3.10.1",
@@ -72,11 +72,13 @@
     "ai": "^5.0.86",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
-    "convex": "^1.28.2",
+    "convex": "^1.29.3",
     "date-fns": "^4.1.0",
     "docx": "^9.5.1",
     "embla-carousel-react": "^8.6.0",
     "file-saver": "^2.0.5",
+    "glob": "^13.0.0",
+    "happy-dom": "^20.0.10",
     "html2canvas-pro": "^1.5.12",
     "i": "^0.3.7",
     "jspdf": "^3.0.3",
@@ -127,5 +129,14 @@
     "unified": "^11.0.5",
     "vite-plugin-remove-console": "^2.2.0",
     "vitest": "^4.0.6"
+  },
+  "pnpm": {
+    "overrides": {
+      "happy-dom@<20.0.0": ">=20.0.0",
+      "happy-dom@<20.0.2": ">=20.0.2",
+      "js-yaml@>=4.0.0 <4.1.1": ">=4.1.1",
+      "glob@>=10.2.0 <10.5.0": ">=10.5.0",
+      "body-parser@>=2.2.0 <2.2.1": ">=2.2.1"
+    }
   }
 }
