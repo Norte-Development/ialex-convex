@@ -151,14 +151,17 @@ export function findMatches(
 
     matchCount++;
     // console.log(`  [findMatches] Potential match #${matchCount} found at collapsed position ${idx}`);
+    // console.log(`  [findMatches] Potential match #${matchCount} found at collapsed position ${idx}`);
     
     const end = idx + q.length;
 
     if (opts.wholeWord && !isWholeWord(text, idx, end)) {
       // console.log(`    ❌ Whole word check FAILED - rejecting match`);
+      // console.log(`    ❌ Whole word check FAILED - rejecting match`);
       start = idx + 1;
       continue;
     }
+    // console.log(`    ✅ Whole word check passed (or disabled)`);
     // console.log(`    ✅ Whole word check passed (or disabled)`);
 
     // Context checks on collapsed text
@@ -173,11 +176,18 @@ export function findMatches(
       // console.log(`      Normalized (collapsed) context: "${normalizedContextBefore}"`);
       // console.log(`      Before slice (${opts.contextWindow} chars): "${beforeSlice}"`);
       // console.log(`      Contains? ${beforeSlice.includes(normalizedContextBefore)}`);
+      // console.log(`    [Context Before Check]`);
+      // console.log(`      Raw context: "${opts.contextBefore}"`);
+      // console.log(`      Normalized (collapsed) context: "${normalizedContextBefore}"`);
+      // console.log(`      Before slice (${opts.contextWindow} chars): "${beforeSlice}"`);
+      // console.log(`      Contains? ${beforeSlice.includes(normalizedContextBefore)}`);
       if (!beforeSlice.includes(normalizedContextBefore)) {
+        // console.log(`      ❌ Context before check FAILED - rejecting match`);
         // console.log(`      ❌ Context before check FAILED - rejecting match`);
         start = idx + 1;
         continue;
       }
+      // console.log(`      ✅ Context before check PASSED`);
       // console.log(`      ✅ Context before check PASSED`);
     }
     if (opts.contextAfter) {
@@ -191,7 +201,13 @@ export function findMatches(
       // console.log(`      Normalized (collapsed) context: "${normalizedContextAfter}"`);
       // console.log(`      After slice (${opts.contextWindow} chars): "${afterSlice}"`);
       // console.log(`      Contains? ${afterSlice.includes(normalizedContextAfter)}`);
+      // console.log(`    [Context After Check]`);
+      // console.log(`      Raw context: "${opts.contextAfter}"`);
+      // console.log(`      Normalized (collapsed) context: "${normalizedContextAfter}"`);
+      // console.log(`      After slice (${opts.contextWindow} chars): "${afterSlice}"`);
+      // console.log(`      Contains? ${afterSlice.includes(normalizedContextAfter)}`);
       if (!afterSlice.includes(normalizedContextAfter)) {
+        // console.log(`      ❌ Context after check FAILED - rejecting match`);
         // console.log(`      ❌ Context after check FAILED - rejecting match`);
         start = idx + 1;
         continue;
