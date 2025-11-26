@@ -408,6 +408,9 @@ export function buildArrayWithChanges(
   const { additions, deletions, nestedChanges, formattingChanges } = changesByType;
   const resultArray: any[] = [];
   const processedIndices = new Set<number>();
+  const processedDeletions = new Set<number>();
+  
+  // First, handle items that exist in the new array
   for (let i = 0; i < newArray.length; i++) {
     if (processedIndices.has(i)) {
       continue;
@@ -445,7 +448,9 @@ export function buildArrayWithChanges(
         }
       }
     } else if (addition && deletion) {
+      // Replacement: both addition and deletion at same index
       const changeId = `${baseChangeId}-replace-${i}`;
+      processedDeletions.add(i);
       if (deletion.type === 'text' && addition.type === 'text' && 
           deletion.text && addition.text &&
           (deletion.text.length >= 60 || addition.text.length >= 60)) {
@@ -464,18 +469,33 @@ export function buildArrayWithChanges(
       const changeId = `${baseChangeId}-add-${i}`;
       resultArray.push(createChangeNode(addition, CHANGE_TYPES.ADDED, changeId));
     } else if (deletion && !newArray[i]) {
+      // Deletion at end of array where no new item exists
       const changeId = `${baseChangeId}-del-${i}`;
+      processedDeletions.add(i);
       resultArray.push(createChangeNode(deletion, CHANGE_TYPES.DELETED, changeId));
     } else {
       resultArray.push(newArray[i]);
     }
   }
-  for (const [index, deletion] of deletions) {
-    if (index >= newArray.length) {
-      const changeId = `${baseChangeId}-del-${index}`;
-      resultArray.push(createChangeNode(deletion, CHANGE_TYPES.DELETED, changeId));
-    }
+  
+  // Now handle all remaining deletions that weren't processed
+  // This includes deletions in the middle of the array where indices shifted
+  // Process from highest index to lowest so earlier splices don't affect later positions
+  const remainingDeletions = Array.from(deletions.entries())
+    .filter(([index]) => !processedDeletions.has(index))
+    .sort((a, b) => b[0] - a[0]);
+  
+  for (const [index, deletion] of remainingDeletions) {
+    const changeId = `${baseChangeId}-del-${index}`;
+    // Clamp to current resultArray length; index is in oldArray coordinates
+    const insertIndex = Math.min(index, resultArray.length);
+    resultArray.splice(
+      insertIndex,
+      0,
+      createChangeNode(deletion, CHANGE_TYPES.DELETED, changeId),
+    );
   }
+  
   return resultArray;
 }
 

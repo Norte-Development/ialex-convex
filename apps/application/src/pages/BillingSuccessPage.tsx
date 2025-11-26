@@ -43,11 +43,11 @@ export default function BillingSuccessPage() {
   const isPremiumTeam = plan === "premium_team";
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-green-50 via-white to-blue-50 dark:from-gray-950 dark:via-gray-900 dark:to-gray-950 p-4 w-full">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-green-50 via-white to-blue-50 p-4 w-full">
       <Card className="max-w-2xl w-full shadow-xl">
         <CardHeader className="text-center space-y-4 pb-8">
-          <div className="mx-auto w-20 h-20 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center">
-            <CheckCircle2 className="w-12 h-12 text-green-600 dark:text-green-400" />
+          <div className="mx-auto w-20 h-20 bg-green-100 rounded-full flex items-center justify-center">
+            <CheckCircle2 className="w-12 h-12 text-green-600" />
           </div>
           
           <div className="space-y-2">
@@ -61,12 +61,12 @@ export default function BillingSuccessPage() {
         </CardHeader>
 
         <CardContent className="space-y-6">
-          <div className="bg-muted/50 dark:bg-muted/30 rounded-lg p-6 space-y-2">
+          <div className="bg-muted/50 rounded-lg p-6 space-y-2">
             <div className="flex items-center gap-2">
               {isPremiumTeam ? (
-                <Users className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                <Users className="w-5 h-5 text-blue-600" />
               ) : (
-                <Sparkles className="w-5 h-5 text-purple-600 dark:text-purple-400" />
+                <Sparkles className="w-5 h-5 text-purple-600" />
               )}
               <h3 className="font-semibold text-lg">{planInfo.title}</h3>
             </div>
@@ -81,20 +81,20 @@ export default function BillingSuccessPage() {
             </h4>
             <ul className="space-y-2">
               <li className="flex items-start gap-2">
-                <CheckCircle2 className="w-5 h-5 text-green-600 dark:text-green-400 mt-0.5 flex-shrink-0" />
+                <CheckCircle2 className="w-5 h-5 text-green-600 mt-0.5 flex-shrink-0" />
                 <span className="text-sm">
                   Tu suscripción está activa y lista para usar
                 </span>
               </li>
               <li className="flex items-start gap-2">
-                <CheckCircle2 className="w-5 h-5 text-green-600 dark:text-green-400 mt-0.5 flex-shrink-0" />
+                <CheckCircle2 className="w-5 h-5 text-green-600 mt-0.5 flex-shrink-0" />
                 <span className="text-sm">
                   Puedes gestionar tu facturación desde Preferencias
                 </span>
               </li>
               {isPremiumTeam && (
                 <li className="flex items-start gap-2">
-                  <CheckCircle2 className="w-5 h-5 text-green-600 dark:text-green-400 mt-0.5 flex-shrink-0" />
+                  <CheckCircle2 className="w-5 h-5 text-green-600 mt-0.5 flex-shrink-0" />
                   <span className="text-sm">
                     Ahora puedes crear equipos e invitar a colaboradores
                   </span>

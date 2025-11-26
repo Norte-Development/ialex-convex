@@ -120,7 +120,7 @@ export function MigrationConsentDialog({
           </Alert>
 
           {/* Consent checkbox */}
-          <div className="flex items-start space-x-3 p-4 rounded-lg border bg-blue-50 dark:bg-blue-950/20">
+          <div className="flex items-start space-x-3 p-4 rounded-lg border bg-blue-50">
             <Checkbox
               id="migration-consent"
               checked={consentChecked}
