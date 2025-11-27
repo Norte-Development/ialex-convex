@@ -370,6 +370,7 @@ export const createCheckoutSession = action({
     entityId: v.id("users"),
     priceId: v.string(),
     allowPromotionCodes: v.optional(v.boolean()), // Add optional parameter
+    couponId: v.optional(v.string()),
   },
   returns: v.object({
     url: v.string(),
@@ -426,7 +427,15 @@ export const createCheckoutSession = action({
           quantity: 1,
         },
       ],
-      allow_promotion_codes: args.allowPromotionCodes ?? true, // Enable coupon input
+      // Stripe does not allow combining allow_promotion_codes with discounts.
+      // If we pass a specific coupon (e.g. Black Friday), we disable generic promotion codes.
+      ...(args.couponId
+        ? {
+            discounts: [{ coupon: args.couponId }],
+          }
+        : {
+            allow_promotion_codes: args.allowPromotionCodes ?? true,
+          }),
       success_url: `${baseUrl}/billing/success?plan=premium_individual&session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${baseUrl}/preferencias?section=billing`,
       metadata: {
@@ -471,6 +480,7 @@ export const purchaseAICredits = action({
     entityId: v.id("users"),
     priceId: v.string(),
     allowPromotionCodes: v.optional(v.boolean()),
+    couponId: v.optional(v.string()),
   },
   returns: v.object({
     url: v.string(),
@@ -527,7 +537,13 @@ export const purchaseAICredits = action({
           quantity: 1,
         },
       ],
-      allow_promotion_codes: args.allowPromotionCodes ?? true,
+      ...(args.couponId
+        ? {
+            discounts: [{ coupon: args.couponId }],
+          }
+        : {
+            allow_promotion_codes: args.allowPromotionCodes ?? true,
+          }),
       success_url: `${baseUrl}/billing/success?plan=ai_credits&session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${baseUrl}/billing/credits`,
       metadata: {
@@ -576,6 +592,7 @@ export const upgradeToTeamFromFree = action({
     userId: v.id("users"),
     teamPriceId: v.string(),
     allowPromotionCodes: v.optional(v.boolean()),
+    couponId: v.optional(v.string()),
   },
   returns: v.object({
     url: v.string(),
@@ -638,7 +655,13 @@ export const upgradeToTeamFromFree = action({
           quantity: 1,
         },
       ],
-      allow_promotion_codes: args.allowPromotionCodes ?? true,
+      ...(args.couponId
+        ? {
+            discounts: [{ coupon: args.couponId }],
+          }
+        : {
+            allow_promotion_codes: args.allowPromotionCodes ?? true,
+          }),
       success_url: `${baseUrl}/billing/success?plan=premium_team&session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${baseUrl}/preferencias?section=billing`,
       metadata: {
