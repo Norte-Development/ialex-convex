@@ -27,7 +27,7 @@ export function BlackFridayPopup() {
                 <div className="absolute top-0 left-0 w-full h-full opacity-20 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-indigo-500 via-transparent to-transparent" />
                 
                 <div className="relative z-10 text-center space-y-4">
-                    <div className="inline-block px-3 py-1 rounded-full bg-indigo-600/20 border border-indigo-500/30 backdrop-blur-sm text-sm font-bold tracking-wider text-indigo-300 mb-2">
+                    <div className="inline-block px-6 py-2 rounded-full bg-indigo-600/25 border-2 border-indigo-400/50 backdrop-blur-md text-2xl font-black tracking-wider text-indigo-200 mb-4 shadow-lg drop-shadow-lg">
                         30% OFF
                     </div>
                     <h2 className="text-4xl md:text-5xl font-black tracking-tighter text-white leading-none">
@@ -35,7 +35,7 @@ export function BlackFridayPopup() {
                     </h2>
                     <div className="w-16 h-1 bg-indigo-500 mx-auto rounded-full" />
                     <p className="text-indigo-200 text-lg font-medium">
-                        Potencia tu estudio<br/>con Inteligencia Artificial
+                        Accedé Todas <br/> las Herramientas IA <br/> de Manera Ilimitada
                     </p>
                 </div>
             </div>
@@ -49,7 +49,7 @@ export function BlackFridayPopup() {
                 </div>
 
                 {/* Features List */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-8">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-6 mb-8 py-2">
                     {[
                         "Consultas ilimitadas con IA",
                         "Análisis de documentos",
@@ -58,9 +58,9 @@ export function BlackFridayPopup() {
                         "Acceso a modelos exclusivos",
                         "Soporte prioritario"
                     ].map((feature, i) => (
-                        <div key={i} className="flex items-center gap-2">
-                            <Check className="w-4 h-4 text-indigo-400 shrink-0" />
-                            <span className="text-sm text-gray-300">{feature}</span>
+                        <div key={i} className="flex items-center gap-3">
+                            <Check className="w-5 h-5 text-indigo-400 shrink-0" />
+                            <span className="text-gray-300">{feature}</span>
                         </div>
                     ))}
                 </div>
