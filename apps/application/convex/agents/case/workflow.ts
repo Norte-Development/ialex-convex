@@ -307,7 +307,7 @@ export const streamWithContextAction = internalAction({
 
     const { thread } = await agent.continueThread(ctx, { threadId });
 
-    const openRouterModel = modelToUse === 'gpt-5' ? 'openai/gpt-5.1' : 'openai/gpt-4o-mini';
+    const openRouterModel = modelToUse === 'gpt-5' ? 'openai/gpt-5.1' : 'openai/gpt-5-mini';
     const config = { reasoning: modelToUse === 'gpt-5' ? {enabled: true, effort: "low" as const, exclude: false } : undefined};
 
     console.log('openRouterModel', openRouterModel);

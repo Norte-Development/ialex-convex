@@ -47,7 +47,7 @@ export function useUpgrade(options: UseUpgradeOptions = {}) {
    * Upgrade current user to a specific plan with billing period
    * SIMPLIFIED: All upgrades are user-level (no separate team subscriptions)
    */
-  const upgradeToPlan = async (selection: PlanSelection | PlanType) => {
+  const upgradeToPlan = async (selection: PlanSelection | PlanType, couponId?: string) => {
     if (!user?._id) {
       const error = new Error("Usuario no autenticado");
       toast.error("Debes iniciar sesión para actualizar tu plan");
@@ -83,6 +83,7 @@ export function useUpgrade(options: UseUpgradeOptions = {}) {
       const result = await createCheckoutSession({
         entityId: user._id,
         priceId: priceId,
+        couponId,
       });
 
       if (result.url) {
