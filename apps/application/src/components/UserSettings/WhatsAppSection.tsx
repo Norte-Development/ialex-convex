@@ -222,7 +222,7 @@ export function WhatsAppSection() {
                         Enlace Directo
                       </h4>
                       <p className="text-sm text-slate-500 leading-relaxed">
-                        Alternativamente, haz clic en el botón de abajo para abrir el chat con el asistente legal por IA directamente.
+                        Alternativamente, hacé click en el botón de abajo para abrir el chat con el asistente legal por IA directamente.
                       </p>
                     </div>
                     <Button 
