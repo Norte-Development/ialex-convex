@@ -31,11 +31,45 @@ export const searchCaseDocumentsTool = createTool({
   args: z.object({
     query: z.any().describe("The search query text to find relevant case documents"),
     limit: z.any().optional().describe("Maximum number of initial results to return (default: 10)"),
-    contextWindow: z.any().optional().describe("Number of adjacent chunks to include for context expansion (default: 4)")
+    contextWindow: z.any().optional().describe("Number of adjacent chunks to include for context expansion (default: 4)"),
+    caseId: z.any().optional().describe("Optional case ID. If provided, will use this case instead of extracting from context. Used for WhatsApp agent.")
   }).required({query: true}),
   handler: async (ctx: ToolCtx, args: any) => {
     try {
-      const {caseId, userId} = getUserAndCaseIds(ctx.userId as string);
+      // Get userId first
+      const userAndCase = getUserAndCaseIds(ctx.userId as string);
+      let userId = userAndCase.userId;
+      let caseId: string | null = null;
+
+      // Use userId directly from ctx instead of getCurrentUserFromAuth
+      if (!ctx.userId) {
+        return createErrorResponse("No autenticado");
+      }
+
+      // First, try to extract caseId from thread metadata (takes precedence)
+      if (ctx.threadId) {
+        try {
+          const { userId: threadUserId } = await getThreadMetadata(ctx, components.agent, { threadId: ctx.threadId });
+          
+          // Extract caseId from threadUserId format: "case:${caseId}_${userId}"
+          if (threadUserId?.startsWith("case:")) {
+            const threadUserAndCase = getUserAndCaseIds(threadUserId);
+            caseId = threadUserAndCase.caseId;
+          }
+        } catch (error) {
+          // If thread metadata extraction fails, continue to fallback
+        }
+      }
+
+      // If no caseId from context, use the one from args (for WhatsApp agent)
+      if (!caseId && args.caseId) {
+        caseId = args.caseId;
+      }
+
+      // If still no caseId, try to get it from ctx.userId
+      if (!caseId) {
+        caseId = userAndCase.caseId;
+      }
 
       if (!caseId || !userId){
         return createErrorResponse("Contexto de usuario inválido");
@@ -59,23 +93,6 @@ export const searchCaseDocumentsTool = createTool({
 
       const limit = args.limit !== undefined ? args.limit : 10;
       const contextWindow = args.contextWindow !== undefined ? args.contextWindow : 4;
-
-      // Use userId directly from ctx instead of getCurrentUserFromAuth
-      if (!ctx.userId) {
-        return createErrorResponse("No autenticado");
-      }
-
-      // Extract caseId from thread metadata
-      if (!ctx.threadId) {
-        return createErrorResponse("No hay contexto de hilo disponible");
-      }
-
-      const { userId: threadUserId } = await getThreadMetadata(ctx, components.agent, { threadId: ctx.threadId });
-
-      // Extract caseId from threadUserId format: "case:${caseId}_${userId}"
-      if (!threadUserId?.startsWith("case:")) {
-        return createErrorResponse("Esta herramienta solo puede usarse dentro de un contexto de caso");
-      }
 
       // Call the action to perform the search with clustering
       const results = await ctx.runAction(api.rag.qdrantUtils.caseDocuments.searchCaseDocumentsWithClustering, {

@@ -543,4 +543,88 @@ http.route({
   }),
 });
 
+// Twilio WhatsApp webhook
+http.route({
+  path: "/webhooks/twilio/whatsapp",
+  method: "POST",
+  handler: httpAction(async (ctx, req) => {
+    try {
+      // Twilio sends form-encoded data
+      const formData = await req.formData();
+      console.log('formData', formData);
+      
+      // Extract webhook parameters
+      const messageSid = formData.get("MessageSid") as string;
+      const from = formData.get("From") as string;
+      const to = formData.get("To") as string;
+      const body = formData.get("Body") as string;
+      const numMediaStr = formData.get("NumMedia") as string | null;
+      const numMedia = numMediaStr ? parseInt(numMediaStr, 10) : 0;
+      const accountSid = formData.get("AccountSid") as string;
+      const messageStatus = formData.get("MessageStatus") as string | null;
+
+      // Extract all media items
+      const mediaItems: Array<{
+        url: string;
+        contentType: string;
+      }> = [];
+      
+      for (let i = 0; i < numMedia; i++) {
+        const mediaUrl = formData.get(`MediaUrl${i}`) as string | null;
+        const mediaContentType = formData.get(`MediaContentType${i}`) as string | null;
+        
+        if (mediaUrl && mediaContentType) {
+          mediaItems.push({
+            url: mediaUrl,
+            contentType: mediaContentType,
+          });
+        }
+      }
+
+      console.log(`[WhatsApp Webhook] Found ${mediaItems.length} media item(s)`);
+
+      // Validate required fields
+      if (!messageSid || !from || !to || !accountSid) {
+        console.error("[WhatsApp Webhook] Missing required fields");
+        return new Response("Missing required fields", { status: 400 });
+      }
+
+      // Optional: Verify Twilio signature
+      // For production, you should verify the X-Twilio-Signature header
+      // const signature = req.headers.get("X-Twilio-Signature");
+      // if (signature && !verifyTwilioSignature(url, params, signature)) {
+      //   return new Response("Invalid signature", { status: 401 });
+      // }
+
+      console.log(`[WhatsApp Webhook] Received message from ${from}`);
+
+      // Process the incoming message
+      await ctx.runAction(internal.whatsapp.whatsapp.processIncomingMessage, {
+        messageSid,
+        from,
+        to,
+        body: body || "",
+        mediaItems: mediaItems.length > 0 ? mediaItems : undefined,
+        accountSid,
+        messageStatus: messageStatus || undefined,
+      });
+
+      // Return TwiML response (optional - can be empty for one-way messaging)
+      // Twilio expects a response, even if empty
+      return new Response(
+        '<?xml version="1.0" encoding="UTF-8"?><Response></Response>',
+        {
+          status: 200,
+          headers: {
+            "Content-Type": "text/xml",
+          },
+        },
+      );
+    } catch (error: any) {
+      console.error(`[WhatsApp Webhook] Error: ${error.message}`, error);
+      return new Response(`Webhook Error: ${error.message}`, { status: 500 });
+    }
+  }),
+});
+
 export default http;
