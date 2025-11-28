@@ -10,4 +10,5 @@ export { readEscritoTool } from './readEscritoTool';
 export { insertContentTool } from './insertContentTool';
 export { manageEscritoTool } from './manageEscritoTool';
 export { rewriteEscritoSectionTool } from './rewriteEscritoSectionTool';
+export { searchEscritosTool } from './searchEscritosTool';
 

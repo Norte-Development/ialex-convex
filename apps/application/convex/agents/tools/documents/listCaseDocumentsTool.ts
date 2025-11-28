@@ -43,28 +43,50 @@ import { Id } from "../../../_generated/dataModel";
  */
 export const listCaseDocumentsTool = createTool({
   description: "List all documents in the current case with their processing status and chunk counts. Use this to see what documents are available for reading.",
-  args: z.object({}),
+  args: z.object({
+    caseId: z.any().optional().describe("Optional case ID. If provided, will use this case instead of extracting from context. Used for WhatsApp agent.")
+  }),
   handler: async (ctx: ToolCtx, args: any) => {
     try {
-      const {caseId, userId} = getUserAndCaseIds(ctx.userId as string);
+      // Get userId first
+      const userAndCase = getUserAndCaseIds(ctx.userId as string);
+      let userId = userAndCase.userId;
+      let caseId: string | null = null;
+
+      // First, try to extract caseId from thread metadata (takes precedence)
+      if (ctx.threadId) {
+        try {
+          const { userId: threadUserId } = await getThreadMetadata(ctx, components.agent, { threadId: ctx.threadId });
+          
+          // Extract caseId from threadUserId format: "case:${caseId}_${userId}"
+          if (threadUserId?.startsWith("case:")) {
+            const threadUserAndCase = getUserAndCaseIds(threadUserId);
+            caseId = threadUserAndCase.caseId;
+          }
+        } catch (error) {
+          // If thread metadata extraction fails, continue to fallback
+        }
+      }
+
+      // If no caseId from context, use the one from args (for WhatsApp agent)
+      if (!caseId && args.caseId) {
+        caseId = args.caseId;
+      }
+
+      // If still no caseId, try to get it from ctx.userId
+      if (!caseId) {
+        caseId = userAndCase.caseId;
+      }
+      
+      if (!caseId || !userId){
+        return createErrorResponse("Contexto de usuario inválido");
+      }
       
       await ctx.runQuery(internal.auth_utils.internalCheckNewCaseAccess,{
         userId: userId as Id<"users">,
         caseId: caseId as Id<"cases">,
         requiredLevel: "basic"
       } )
-
-      // Extract caseId from thread metadata
-      if (!ctx.threadId) {
-        return createErrorResponse("No hay contexto de hilo disponible");
-      }
-
-      const { userId: threadUserId } = await getThreadMetadata(ctx, components.agent, { threadId: ctx.threadId });
-
-      // Extract caseId from threadUserId format: "case:${caseId}_${userId}"
-      if (!threadUserId?.startsWith("case:")) {
-        return createErrorResponse("Esta herramienta solo puede usarse dentro de un contexto de caso");
-      }
 
       // Get all documents for this case using internal helper (bypasses permission checks)
       const documents = await ctx.runQuery(internal.functions.documents.getDocumentsForAgent, {

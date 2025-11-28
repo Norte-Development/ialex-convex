@@ -32,6 +32,9 @@ export * from './doctrine';
 // Fallos tools
 export * from './fallos';
 
+// Cases tools
+export * from './cases';
+
 // Shared utilities
 export * from './shared';
 

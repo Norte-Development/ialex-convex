@@ -435,6 +435,59 @@ export const getCases = query({
   },
 });
 
+
+export const searchCases = internalQuery({
+  args: {
+    userId: v.id("users"),
+    query: v.string(),
+    limit: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    // Get all non-archived cases
+    const cases = await ctx.db
+      .query("cases")
+      .filter((q) => q.eq(q.field("isArchived"), false))
+      .collect();
+
+    // Filter cases based on user access (direct or team-based)
+    const accessibleCases = [];
+    for (const caseData of cases) {
+      // Check direct access
+      const access = await checkNewCaseAccess(
+        ctx,
+        args.userId,
+        caseData._id,
+        "basic",
+      );
+      if (access.hasAccess) {
+        accessibleCases.push({
+          ...caseData,
+          accessLevel: access.userLevel,
+          source: access.source,
+        });
+      }
+    }
+
+    // Apply search filter if provided
+    let filteredCases = accessibleCases;
+    if (args.query && args.query.trim()) {
+      const searchTerm = args.query.toLowerCase().trim();
+      filteredCases = accessibleCases.filter((caseData) =>
+        caseData.title.toLowerCase().includes(searchTerm) ||
+        (caseData.description && caseData.description.toLowerCase().includes(searchTerm)) ||
+        (caseData.expedientNumber && caseData.expedientNumber.toLowerCase().includes(searchTerm))
+      );
+    }
+
+    // Apply limit if provided
+    if (args.limit && args.limit > 0) {
+      filteredCases = filteredCases.slice(0, args.limit);
+    }
+
+    return filteredCases;
+  },
+});
+
 /**
  * Get a specific case by ID with access validation
  */

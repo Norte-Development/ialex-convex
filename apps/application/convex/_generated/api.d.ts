@@ -27,6 +27,9 @@ import type * as agents_home_streaming from "../agents/home/streaming.js";
 import type * as agents_home_workflow from "../agents/home/workflow.js";
 import type * as agents_index from "../agents/index.js";
 import type * as agents_threads from "../agents/threads.js";
+import type * as agents_tools_cases_index from "../agents/tools/cases/index.js";
+import type * as agents_tools_cases_searchCasesTool from "../agents/tools/cases/searchCasesTool.js";
+import type * as agents_tools_cases_templates from "../agents/tools/cases/templates.js";
 import type * as agents_tools_clients_index from "../agents/tools/clients/index.js";
 import type * as agents_tools_clients_searchClientsTool from "../agents/tools/clients/searchClientsTool.js";
 import type * as agents_tools_clients_templates from "../agents/tools/clients/templates.js";
@@ -49,6 +52,7 @@ import type * as agents_tools_escritos_insertContentTool from "../agents/tools/e
 import type * as agents_tools_escritos_manageEscritoTool from "../agents/tools/escritos/manageEscritoTool.js";
 import type * as agents_tools_escritos_readEscritoTool from "../agents/tools/escritos/readEscritoTool.js";
 import type * as agents_tools_escritos_rewriteEscritoSectionTool from "../agents/tools/escritos/rewriteEscritoSectionTool.js";
+import type * as agents_tools_escritos_searchEscritosTool from "../agents/tools/escritos/searchEscritosTool.js";
 import type * as agents_tools_escritos_templates from "../agents/tools/escritos/templates.js";
 import type * as agents_tools_fallos_index from "../agents/tools/fallos/index.js";
 import type * as agents_tools_fallos_readFallosTool from "../agents/tools/fallos/readFallosTool.js";
@@ -71,6 +75,11 @@ import type * as agents_tools_shared_index from "../agents/tools/shared/index.js
 import type * as agents_tools_shared_sanitizeContent from "../agents/tools/shared/sanitizeContent.js";
 import type * as agents_tools_shared_utils from "../agents/tools/shared/utils.js";
 import type * as agents_tools_shared_validation from "../agents/tools/shared/validation.js";
+import type * as agents_whatsapp_agent from "../agents/whatsapp/agent.js";
+import type * as agents_whatsapp_mediaUtils from "../agents/whatsapp/mediaUtils.js";
+import type * as agents_whatsapp_prompt from "../agents/whatsapp/prompt.js";
+import type * as agents_whatsapp_threads from "../agents/whatsapp/threads.js";
+import type * as agents_whatsapp_workflow from "../agents/whatsapp/workflow.js";
 import type * as auth_utils from "../auth_utils.js";
 import type * as billing_analytics from "../billing/analytics.js";
 import type * as billing_features from "../billing/features.js";
@@ -166,6 +175,8 @@ import type * as utils_fallosService from "../utils/fallosService.js";
 import type * as utils_gcs from "../utils/gcs.js";
 import type * as utils_legislationService from "../utils/legislationService.js";
 import type * as utils_resend from "../utils/resend.js";
+import type * as whatsapp_twilio from "../whatsapp/twilio.js";
+import type * as whatsapp_whatsapp from "../whatsapp/whatsapp.js";
 
 import type {
   ApiFromModules,
@@ -193,6 +204,9 @@ declare const fullApi: ApiFromModules<{
   "agents/home/workflow": typeof agents_home_workflow;
   "agents/index": typeof agents_index;
   "agents/threads": typeof agents_threads;
+  "agents/tools/cases/index": typeof agents_tools_cases_index;
+  "agents/tools/cases/searchCasesTool": typeof agents_tools_cases_searchCasesTool;
+  "agents/tools/cases/templates": typeof agents_tools_cases_templates;
   "agents/tools/clients/index": typeof agents_tools_clients_index;
   "agents/tools/clients/searchClientsTool": typeof agents_tools_clients_searchClientsTool;
   "agents/tools/clients/templates": typeof agents_tools_clients_templates;
@@ -215,6 +229,7 @@ declare const fullApi: ApiFromModules<{
   "agents/tools/escritos/manageEscritoTool": typeof agents_tools_escritos_manageEscritoTool;
   "agents/tools/escritos/readEscritoTool": typeof agents_tools_escritos_readEscritoTool;
   "agents/tools/escritos/rewriteEscritoSectionTool": typeof agents_tools_escritos_rewriteEscritoSectionTool;
+  "agents/tools/escritos/searchEscritosTool": typeof agents_tools_escritos_searchEscritosTool;
   "agents/tools/escritos/templates": typeof agents_tools_escritos_templates;
   "agents/tools/fallos/index": typeof agents_tools_fallos_index;
   "agents/tools/fallos/readFallosTool": typeof agents_tools_fallos_readFallosTool;
@@ -237,6 +252,11 @@ declare const fullApi: ApiFromModules<{
   "agents/tools/shared/sanitizeContent": typeof agents_tools_shared_sanitizeContent;
   "agents/tools/shared/utils": typeof agents_tools_shared_utils;
   "agents/tools/shared/validation": typeof agents_tools_shared_validation;
+  "agents/whatsapp/agent": typeof agents_whatsapp_agent;
+  "agents/whatsapp/mediaUtils": typeof agents_whatsapp_mediaUtils;
+  "agents/whatsapp/prompt": typeof agents_whatsapp_prompt;
+  "agents/whatsapp/threads": typeof agents_whatsapp_threads;
+  "agents/whatsapp/workflow": typeof agents_whatsapp_workflow;
   auth_utils: typeof auth_utils;
   "billing/analytics": typeof billing_analytics;
   "billing/features": typeof billing_features;
@@ -332,6 +352,8 @@ declare const fullApi: ApiFromModules<{
   "utils/gcs": typeof utils_gcs;
   "utils/legislationService": typeof utils_legislationService;
   "utils/resend": typeof utils_resend;
+  "whatsapp/twilio": typeof whatsapp_twilio;
+  "whatsapp/whatsapp": typeof whatsapp_whatsapp;
 }>;
 
 /**
