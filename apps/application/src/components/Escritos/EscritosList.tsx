@@ -15,6 +15,7 @@ import {
   FileText,
   FileDown,
   Save,
+  Archive,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import EscritosLoadingState from "./EscritosLoadingState";
@@ -52,6 +53,9 @@ export default function EscritosList({
 }) {
   const { can, hasAccessLevel } = usePermissions();
   const navigate = useNavigate();
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [isArchiving, setIsArchiving] = useState(false);
+  const archiveEscrito = useMutation(api.functions.documents.archiveEscrito);
 
   if (all_escritos === undefined) return <EscritosLoadingState />;
   if (all_escritos?.length === 0) return <EscritosEmptyState />;
@@ -73,12 +77,89 @@ export default function EscritosList({
       ? formatDistanceToNow(new Date(ts), { addSuffix: true, locale: es })
       : "-";
 
+  // Selection handlers
+  const handleSelectAll = (checked: boolean) => {
+
+    if (!all_escritos) return;
+    if (checked) {
+      setSelectedIds(new Set(all_escritos.map((e) => e._id)));
+    } else {
+      setSelectedIds(new Set());
+    }
+  };
+
+  const handleToggleSelect = (id: string) => {
+    const newSelected = new Set(selectedIds);
+    if (newSelected.has(id)) {
+      newSelected.delete(id);
+    } else {
+      newSelected.add(id);
+    }
+    setSelectedIds(newSelected);
+  };
+
+  const handleBulkArchive = async () => {
+    if (!all_escritos) return;
+    const count = selectedIds.size;
+    const confirmed = window.confirm(
+      `¿Archivar ${count} escrito${count > 1 ? "s" : ""}? Podrás restaurarlos desde la vista de archivados.`,
+    );
+    if (!confirmed) return;
+
+    setIsArchiving(true);
+    try {
+      await Promise.all(
+        Array.from(selectedIds).map((id) =>
+          archiveEscrito({ escritoId: id as Id<"escritos">, isArchived: true }),
+        ),
+      );
+      toast.success(`${count} escrito${count > 1 ? "s archivados" : " archivado"} correctamente`);
+      setSelectedIds(new Set());
+    } catch (error) {
+      console.error("Error archiving escritos:", error);
+      toast.error("Error al archivar los escritos");
+    } finally {
+      setIsArchiving(false);
+    }
+  };
+
+  const allSelected = (all_escritos?.length ?? 0) > 0 && selectedIds.size === (all_escritos?.length ?? 0);
+  const someSelected = selectedIds.size > 0 && selectedIds.size < (all_escritos?.length ?? 0);
+
   return (
     <div className="space-y-6 p-6">
       <div className="space-y-1">
         <h1 className="text-2xl font-semibold text-gray-900">Escritos</h1>
         <p className="text-gray-600">Lista de escritos del caso</p>
       </div>
+
+      {/* Bulk actions bar */}
+      {selectedIds.size > 0 && (
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-medium text-blue-900">
+              {selectedIds.size} escrito{selectedIds.size > 1 ? "s" : ""} seleccionado{selectedIds.size > 1 ? "s" : ""}
+            </span>
+          </div>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setSelectedIds(new Set())}
+            >
+              Cancelar
+            </Button>
+            <Button
+              variant="destructive"
+              size="sm"
+              onClick={handleBulkArchive}
+              disabled={isArchiving}
+            >
+              {isArchiving ? "Archivando..." : "Archivar seleccionados"}
+            </Button>
+          </div>
+        </div>
+      )}
 
       {/* Hidden container for PDF generation - positioned off-screen but visible for html2canvas */}
       <div
@@ -91,7 +172,16 @@ export default function EscritosList({
         <TableHeader>
           <TableRow>
             <TableHead className="w-8">
-              <Checkbox aria-label="Seleccionar todos" />
+              <Checkbox 
+                aria-label="Seleccionar todos"
+                checked={allSelected}
+                onCheckedChange={handleSelectAll}
+                ref={(el) => {
+                  if (el) {
+                    (el as any).indeterminate = someSelected;
+                  }
+                }}
+              />
             </TableHead>
             <TableHead>Nombre</TableHead>
             <TableHead>Subido por</TableHead>
@@ -117,6 +207,8 @@ export default function EscritosList({
               formatDate={formatDate}
               formatAgo={formatAgo}
               showActions={hasAccessLevel(ACCESS_LEVELS.ADMIN)}
+              isSelected={selectedIds.has(escrito._id)}
+              onToggleSelect={() => handleToggleSelect(escrito._id)}
             />
           ))}
         </TableBody>
@@ -131,12 +223,16 @@ function EscritoRow({
   formatDate,
   formatAgo,
   showActions,
+  isSelected,
+  onToggleSelect,
 }: {
   escrito: any;
   onOpen: () => void;
   formatDate: (ts?: number) => string;
   formatAgo: (ts?: number) => string;
   showActions: boolean;
+  isSelected: boolean;
+  onToggleSelect: () => void;
 }) {
   const convex = useConvex();
   const [isExporting, setIsExporting] = useState(false);
@@ -257,7 +353,11 @@ function EscritoRow({
   return (
     <TableRow className="cursor-pointer" onClick={onOpen}>
       <TableCell onClick={(e) => e.stopPropagation()}>
-        <Checkbox aria-label="Seleccionar" />
+        <Checkbox 
+          aria-label="Seleccionar"
+          checked={isSelected}
+          onCheckedChange={onToggleSelect}
+        />
       </TableCell>
       <TableCell>
         <div className="flex items-center gap-2">
