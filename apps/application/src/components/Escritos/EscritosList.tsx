@@ -15,7 +15,6 @@ import {
   FileText,
   FileDown,
   Save,
-  Archive,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import EscritosLoadingState from "./EscritosLoadingState";
