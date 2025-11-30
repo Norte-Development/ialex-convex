@@ -42,6 +42,16 @@ import { extensions } from "@/components/Editor/extensions";
 import { toast } from "sonner";
 import { useState } from "react";
 import { Button } from "../ui/button";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 export default function EscritosList({
   all_escritos,
@@ -55,6 +65,7 @@ export default function EscritosList({
   const navigate = useNavigate();
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [isArchiving, setIsArchiving] = useState(false);
+  const [showBulkArchiveDialog, setShowBulkArchiveDialog] = useState(false);
   const archiveEscrito = useMutation(api.functions.documents.archiveEscrito);
 
   if (all_escritos === undefined) return <EscritosLoadingState />;
@@ -100,12 +111,11 @@ export default function EscritosList({
 
   const handleBulkArchive = async () => {
     if (!all_escritos) return;
-    const count = selectedIds.size;
-    const confirmed = window.confirm(
-      `¿Archivar ${count} escrito${count > 1 ? "s" : ""}? Podrás restaurarlos desde la vista de archivados.`,
-    );
-    if (!confirmed) return;
+    setShowBulkArchiveDialog(true);
+  };
 
+  const confirmBulkArchive = async () => {
+    setShowBulkArchiveDialog(false);
     setIsArchiving(true);
     try {
       await Promise.all(
@@ -113,7 +123,7 @@ export default function EscritosList({
           archiveEscrito({ escritoId: id as Id<"escritos">, isArchived: true }),
         ),
       );
-      toast.success(`${count} escrito${count > 1 ? "s archivados" : " archivado"} correctamente`);
+      toast.success(`${selectedIds.size} escrito${selectedIds.size > 1 ? "s archivados" : " archivado"} correctamente`);
       setSelectedIds(new Set());
     } catch (error) {
       console.error("Error archiving escritos:", error);
@@ -213,6 +223,24 @@ export default function EscritosList({
           ))}
         </TableBody>
       </Table>
+
+      {/* Bulk Archive Confirmation Dialog */}
+      <AlertDialog open={showBulkArchiveDialog} onOpenChange={setShowBulkArchiveDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>¿Archivar escritos seleccionados?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Se archivarán {selectedIds.size} escrito{selectedIds.size > 1 ? "s" : ""}. Podrás restaurarlos desde la vista de archivados.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmBulkArchive}>
+              Archivar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
@@ -236,6 +264,7 @@ function EscritoRow({
 }) {
   const convex = useConvex();
   const [isExporting, setIsExporting] = useState(false);
+  const [showArchiveDialog, setShowArchiveDialog] = useState(false);
 
   // Fetch uploader name
   const user = useQuery(api.functions.users.getUserById, {
@@ -245,16 +274,18 @@ function EscritoRow({
   // Mutations (admin-only actions are protected server-side too)
   const archiveEscrito = useMutation(api.functions.documents.archiveEscrito);
 
-  const handleArchive = async () => {
-    const confirmed = window.confirm(
-      "¿Archivar este escrito? Podrás restaurarlo desde la vista de archivados.",
-    );
-    if (!confirmed) return;
+  const handleArchive = () => {
+    setShowArchiveDialog(true);
+  };
+
+  const confirmArchive = async () => {
+    setShowArchiveDialog(false);
     try {
       await archiveEscrito({ escritoId: escrito._id, isArchived: true });
+      toast.success("Escrito archivado correctamente");
     } catch (err) {
       console.error("Error archiving escrito", err);
-      alert("No se pudo archivar el escrito.");
+      toast.error("No se pudo archivar el escrito.");
     }
   };
 
@@ -436,6 +467,24 @@ function EscritoRow({
           </div>
         </TableCell>
       )}
+
+      {/* Archive Confirmation Dialog */}
+      <AlertDialog open={showArchiveDialog} onOpenChange={setShowArchiveDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>¿Archivar este escrito?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Podrás restaurarlo desde la vista de archivados.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmArchive}>
+              Archivar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </TableRow>
   );
 }
