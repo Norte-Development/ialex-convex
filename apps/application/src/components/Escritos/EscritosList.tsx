@@ -7,7 +7,15 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Link2, Download, Pencil, MoreVertical, ChevronUp } from "lucide-react";
+import {
+  Link2,
+  Pencil,
+  MoreVertical,
+  ChevronUp,
+  FileText,
+  FileDown,
+  Save,
+} from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import EscritosLoadingState from "./EscritosLoadingState";
 import EscritosEmptyState from "./EscritosEmptyState";
@@ -15,7 +23,7 @@ import { usePermissions } from "@/context/CasePermissionsContext";
 import { ACCESS_LEVELS } from "@/permissions/types";
 import type { Id } from "../../../convex/_generated/dataModel";
 import { api } from "../../../convex/_generated/api";
-import { useQuery, useMutation } from "convex/react";
+import { useQuery, useMutation, useConvex } from "convex/react";
 import { format } from "date-fns";
 import { formatDistanceToNow } from "date-fns";
 import { es } from "date-fns/locale";
@@ -26,6 +34,13 @@ import {
   DropdownMenuTrigger,
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
+import { exportToWord } from "@/components/Editor/utils/exportWord";
+import { exportElementToPdf } from "@/components/Editor/utils/exportPdf";
+import { generateHTML } from "@tiptap/html";
+import { extensions } from "@/components/Editor/extensions";
+import { toast } from "sonner";
+import { useState } from "react";
+import { Button } from "../ui/button";
 
 export default function EscritosList({
   all_escritos,
@@ -65,9 +80,12 @@ export default function EscritosList({
         <p className="text-gray-600">Lista de escritos del caso</p>
       </div>
 
-      {/** Mostrar acciones solo para ADMIN */}
-      {/** Determina si se renderiza la columna de acciones */}
-      {/** Admin = ADVANCED+? No, estrictamente ADMIN según guía */}
+      {/* Hidden container for PDF generation - positioned off-screen but visible for html2canvas */}
+      <div
+        id="pdf-export-container"
+        className="fixed -left-[9999px] top-0 w-[210mm] bg-white p-[10mm]"
+        style={{ zIndex: -1 }}
+      />
 
       <Table className="min-w-[720px]">
         <TableHeader>
@@ -120,6 +138,9 @@ function EscritoRow({
   formatAgo: (ts?: number) => string;
   showActions: boolean;
 }) {
+  const convex = useConvex();
+  const [isExporting, setIsExporting] = useState(false);
+
   // Fetch uploader name
   const user = useQuery(api.functions.users.getUserById, {
     userId: escrito.createdBy,
@@ -138,6 +159,94 @@ function EscritoRow({
     } catch (err) {
       console.error("Error archiving escrito", err);
       alert("No se pudo archivar el escrito.");
+    }
+  };
+
+  const fetchContent = async () => {
+    try {
+      const snapshot = await convex.query(api.prosemirror.getSnapshot, {
+        id: escrito.prosemirrorId,
+      });
+
+      if (!snapshot || !snapshot.content) {
+        throw new Error("No content found");
+      }
+      
+      return JSON.parse(snapshot.content);
+    } catch (error) {
+      console.error("Error fetching content:", error);
+      toast.error("Error al obtener el contenido del escrito");
+      return null;
+    }
+  };
+
+  const handleExportToWord = async () => {
+    setIsExporting(true);
+    try {
+      const content = await fetchContent();
+      if (!content) return;
+
+      await exportToWord(content, {
+        title: escrito.title,
+        courtName: escrito.courtName,
+        expedientNumber: escrito.expedientNumber,
+        presentationDate: escrito.presentationDate,
+      });
+      toast.success("Documento Word descargado correctamente");
+    } catch (error) {
+      console.error("❌ Error al exportar:", error);
+      toast.error("Error al exportar el documento");
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+  const handleExportToPdf = async () => {
+    setIsExporting(true);
+    try {
+      const content = await fetchContent();
+      if (!content) return;
+
+      // Generate HTML from Tiptap JSON
+      const html = generateHTML(content, extensions);
+      
+      // Remove xmlns attributes that can cause rendering issues
+      const cleanHtml = html.replace(/\s*xmlns="[^"]*"/g, '');
+
+      // Render into hidden container
+      const container = document.getElementById("pdf-export-container");
+      if (!container) {
+        throw new Error("PDF container not found");
+      }
+
+      // Add some basic styling for the PDF content
+      container.innerHTML = `
+        <div class="legal-editor-content prose prose-lg max-w-none">
+          ${cleanHtml}
+        </div>
+      `;
+
+      // Wait a bit for DOM to render
+      await new Promise(resolve => setTimeout(resolve, 100));
+
+      const filename = `${(escrito?.title || "escrito").replace(/\s+/g, "_")}.pdf`;
+      await exportElementToPdf({
+        element: container,
+        filename,
+        format: "a4",
+        orientation: "p",
+        marginMm: 10,
+        scale: 2,
+      });
+
+      // Cleanup
+      container.innerHTML = "";
+      toast.success("PDF descargado correctamente");
+    } catch (error) {
+      console.error("❌ Error al exportar PDF:", error);
+      toast.error("Error al exportar el PDF");
+    } finally {
+      setIsExporting(false);
     }
   };
 
@@ -174,13 +283,29 @@ function EscritoRow({
       {showActions && (
         <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
           <div className="flex items-center justify-end gap-2 text-gray-500">
-            <button
-              type="button"
-              className="p-1 hover:text-gray-900"
-              aria-label="Descargar"
-            >
-              <Download className="h-4 w-4" />
-            </button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8"
+                  disabled={isExporting}
+                >
+                  <Save className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={handleExportToWord}>
+                  <FileText className="h-4 w-4 mr-2" />
+                  Word
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={handleExportToPdf}>
+                  <FileDown className="h-4 w-4 mr-2" />
+                  PDF
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+
             <button
               type="button"
               className="p-1 hover:text-gray-900"
