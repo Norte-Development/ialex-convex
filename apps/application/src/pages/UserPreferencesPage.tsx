@@ -11,6 +11,7 @@ import { AgentSection } from "@/components/agent-section";
 import { PrivacySection } from "@/components/privacy-section";
 import { BillingSection } from "@/components/Billing";
 import { WhatsAppSection } from "@/components/UserSettings/WhatsAppSection";
+import { PjnAccountSection } from "@/components/UserSettings/PjnAccountSection";
 import { Loader2 } from "lucide-react";
 import { useSearchParams } from "react-router-dom";
 
@@ -177,9 +178,9 @@ export default function UserPreferencesPage() {
             />
           )}
 
-          {activeSection === "whatsapp" && (
-            <WhatsAppSection />
-          )}
+          {activeSection === "whatsapp" && <WhatsAppSection />}
+
+          {activeSection === "pjn" && <PjnAccountSection />}
 
           {activeSection === "billing" && <BillingSection />}
 

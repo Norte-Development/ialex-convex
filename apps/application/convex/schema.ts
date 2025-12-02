@@ -184,6 +184,7 @@ export default defineSchema({
     title: v.string(),
     description: v.optional(v.string()),
     expedientNumber: v.optional(v.string()), // Número de expediente judicial
+    fre: v.optional(v.string()), // FRE (expediente) from PJN for linking
     status: v.union(
       v.literal("pendiente"),
       v.literal("en progreso"),
@@ -202,6 +203,7 @@ export default defineSchema({
     estimatedHours: v.optional(v.number()),
     actualHours: v.optional(v.number()),
     lastActivityAt: v.optional(v.number()),
+    lastPjnNotificationSync: v.optional(v.number()), // Last sync timestamp for PJN notifications
   })
     .index("by_status", ["status"])
     .index("by_assigned_lawyer", ["assignedLawyer"])
@@ -209,6 +211,7 @@ export default defineSchema({
     .index("by_archived_status", ["isArchived"])
     .index("by_priority", ["priority"])
     .index("by_last_activity", ["lastActivityAt"])
+    .index("by_fre", ["fre"])
     .searchIndex("search_cases", {
       searchField: "title",
       filterFields: ["isArchived"],
@@ -938,4 +941,49 @@ export default defineSchema({
     .index("by_subscription", ["subscriptionId"])
     .index("by_user", ["userId"])
     .index("by_sent_date", ["sentAt"]),
+
+  // PJN Account - stores encrypted PJN credentials
+  pjnAccounts: defineTable({
+    userId: v.id("users"),
+    username: v.string(),
+    encryptedPassword: v.string(), // AES-256-GCM encrypted password
+    iv: v.string(), // Initialization vector for decryption
+    lastAuthAt: v.optional(v.number()), // Last successful authentication timestamp
+    lastSyncedAt: v.optional(v.number()), // Last successful sync timestamp
+    lastEventId: v.optional(v.string()), // Last processed PJN event ID
+    sessionValid: v.optional(v.boolean()), // Whether session is currently valid
+    needsReauth: v.optional(v.boolean()), // Flag if re-authentication is required
+    syncErrors: v.optional(
+      v.object({
+        lastErrorAt: v.number(),
+        lastErrorReason: v.string(),
+        errorCount: v.number(),
+      })
+    ),
+    isActive: v.boolean(),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_user", ["userId"])
+    .index("by_active", ["isActive"])
+    .index("by_needs_reauth", ["needsReauth"]),
+
+  // PJN Activity Log - tracks PJN-specific activities and notifications
+  pjnActivityLog: defineTable({
+    userId: v.id("users"),
+    caseId: v.optional(v.id("cases")),
+    action: v.string(), // e.g., "pjn_notification_received", "pjn_docket_movement", etc.
+    source: v.optional(v.string()), // e.g., "PJN-Portal", "internal", etc.
+    pjnEventId: v.optional(v.string()), // PJN event ID if from PJN
+    pjnMovementId: v.optional(v.string()), // PJN movement ID if from docket sync
+    metadata: v.optional(v.any()), // Flexible metadata object
+    timestamp: v.number(),
+  })
+    .index("by_user", ["userId"])
+    .index("by_case", ["caseId"])
+    .index("by_action", ["action"])
+    .index("by_source", ["source"])
+    .index("by_timestamp", ["timestamp"])
+    .index("by_user_and_timestamp", ["userId", "timestamp"])
+    .index("by_case_and_timestamp", ["caseId", "timestamp"]),
 });
