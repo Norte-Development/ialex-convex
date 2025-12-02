@@ -4,6 +4,7 @@ import {
   Text,
   View,
   Link,
+  Image,
   StyleSheet,
   pdf,
 } from '@react-pdf/renderer';
@@ -157,6 +158,14 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#000000',
   },
+  // Image
+  image: {
+    marginTop: 12,
+    marginBottom: 12,
+    maxWidth: '100%',
+    maxHeight: 400,
+    objectFit: 'contain',
+  },
 });
 
 /**
@@ -241,6 +250,9 @@ function ConvertNode({ node }: { node: JSONContent }) {
     case 'table':
       return <ConvertTable node={node} />;
 
+    case 'image':
+      return <ConvertImage node={node} />;
+
     case 'horizontalRule':
       return <View style={styles.horizontalRule} />;
 
@@ -255,17 +267,73 @@ function ConvertNode({ node }: { node: JSONContent }) {
 
 /**
  * Convierte un párrafo con su contenido inline
+ * Maneja imágenes dividiendo el párrafo en segmentos
  */
 function ConvertParagraph({ node }: { node: JSONContent }) {
   const alignment = getAlignment(node.attrs?.textAlign);
   const content = node.content || [];
 
+  // Verificar si hay imágenes en el contenido
+  const hasImage = content.some((n: JSONContent) => n.type === 'image');
+
+  // Si no hay imágenes, renderizar normalmente
+  if (!hasImage) {
+    return (
+      <Text style={[styles.paragraph, { textAlign: alignment }]}>
+        {content.map((child: JSONContent, index: number) => (
+          <ConvertInlineNode key={index} node={child} />
+        ))}
+      </Text>
+    );
+  }
+
+  // Si hay imágenes, dividir en segmentos
+  const elements: any[] = [];
+  let textSegment: JSONContent[] = [];
+
+  const flushTextSegment = () => {
+    if (textSegment.length > 0) {
+      elements.push(
+        <Text key={`text-${elements.length}`} style={[styles.paragraph, { textAlign: alignment }]}>
+          {textSegment.map((child: JSONContent, index: number) => (
+            <ConvertInlineNode key={index} node={child} />
+          ))}
+        </Text>
+      );
+      textSegment = [];
+    }
+  };
+
+  content.forEach((child: JSONContent) => {
+    if (child.type === 'image') {
+      // Vaciar el segmento de texto actual
+      flushTextSegment();
+      
+      // Agregar la imagen
+      const src = child.attrs?.src;
+      if (src) {
+        elements.push(
+          <Image
+            key={`image-${elements.length}`}
+            src={src}
+            style={styles.image}
+          />
+        );
+      }
+    } else {
+      // Acumular nodos de texto
+      textSegment.push(child);
+    }
+  });
+
+  // Vaciar cualquier texto restante
+  flushTextSegment();
+
+  // Retornar todos los elementos (puede ser una mezcla de Text e Image)
   return (
-    <Text style={[styles.paragraph, { textAlign: alignment }]}>
-      {content.map((child: JSONContent, index: number) => (
-        <ConvertInlineNode key={index} node={child} />
-      ))}
-    </Text>
+    <>
+      {elements}
+    </>
   );
 }
 
@@ -289,6 +357,12 @@ function ConvertHeading({ node }: { node: JSONContent }) {
  * Convierte contenido inline (texto con formato)
  */
 function ConvertInlineNode({ node }: { node: JSONContent }) {
+  // Las imágenes inline se manejan en ConvertParagraph
+  if (node.type === 'image') {
+    // No debería llegar aca si ConvertParagraph hace su trabajo
+    return null;
+  }
+
   if (node.type === 'text') {
     const text = node.text || '';
     const marks = node.marks || [];
@@ -483,5 +557,39 @@ function ConvertTable({ node }: { node: JSONContent }) {
       })}
     </View>
   );
+}
+
+/**
+ * Convierte una imagen
+ */
+function ConvertImage({ node }: { node: JSONContent }) {
+  const src = node.attrs?.src;
+  const alt = node.attrs?.alt || 'Imagen';
+  
+  if (!src) {
+    console.warn('⚠️ Imagen sin src, creando texto placeholder');
+    return (
+      <Text style={{ textAlign: 'center', marginTop: 8, marginBottom: 8 }}>
+        [Imagen: {alt}]
+      </Text>
+    );
+  }
+
+  try {
+    // react-pdf soporta directamente base64 y URLs
+    return (
+      <Image
+        src={src}
+        style={styles.image}
+      />
+    );
+  } catch (error) {
+    console.error('❌ Error al procesar imagen:', error);
+    return (
+      <Text style={{ textAlign: 'center', marginTop: 8, marginBottom: 8 }}>
+        [Error cargando imagen: {alt}]
+      </Text>
+    );
+  }
 }
 
