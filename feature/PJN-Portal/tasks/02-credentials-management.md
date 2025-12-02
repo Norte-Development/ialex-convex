@@ -13,34 +13,36 @@ Implementar una **UI y backend robustos para gestionar credenciales PJN y el est
 
 ## Backend – Convex
 
-- [ ] **Almacenamiento de credenciales**
-  - [ ] Definir tabla/colección para credenciales PJN por usuario.
-  - [ ] Encriptar contraseña usando AES‑256‑GCM (o esquema estándar existente).
-  - [ ] Guardar `username`, `encryptedPassword`, `iv`, `lastAuthAt`, `sessionValid`, `syncErrors`.
-- [ ] **Mutaciones / actions**
-  - [ ] `pjn.saveCredentials`:
-    - [ ] Recibe `{ username, password }`.
-    - [ ] Encripta y persiste.
-    - [ ] Dispara un “probar conexión” contra Cloud Run.
+- [x] **Almacenamiento de credenciales**
+  - [x] Definir tabla/colección para credenciales PJN por usuario (tabla `pjnAccounts` en schema).
+  - [x] Encriptar contraseña usando AES‑256‑GCM (implementado en `pjn/accounts.ts` con Web Crypto API).
+  - [x] Guardar `username`, `encryptedPassword`, `iv`, `lastAuthAt`, `sessionValid`, `syncErrors` (todos los campos implementados en schema).
+- [x] **Mutaciones / actions**
+  - [x] `pjn.saveCredentials`:
+    - [x] Recibe `{ username, password }`.
+    - [x] Encripta y persiste (usando AES-256-GCM con IV aleatorio).
+    - [x] Dispara un "probar conexión" contra Cloud Run (implementado en `connectAccount` action que valida con `/reauth` antes de guardar).
   - [ ] `pjn.removeCredentials`:
-    - [ ] Revoca credenciales, limpia flags de sync.
-  - [ ] `pjn.getAccountStatus`:
-    - [ ] Retorna estado actual para la UI de configuración.
-- [ ] **Integración con re‑auth automática**
-  - [ ] Endpoint interno para Cloud Run:
-    - [ ] Permite que Convex desencripte password y envíe `{ username, password }` cuando se detecta sesión expirada.
+    - [ ] Revoca credenciales, limpia flags de sync (pendiente de implementar).
+  - [x] `pjn.getAccountStatus`:
+    - [x] Retorna estado actual para la UI de configuración (implementado como query).
+- [x] **Integración con re‑auth automática**
+  - [x] Endpoint interno para Cloud Run:
+    - [x] Permite que Convex desencripte password y envíe `{ username, password }` cuando se detecta sesión expirada (implementado `getDecryptedPassword` como internal query).
 
 ## Backend – Cloud Run
 
-- [ ] **Prueba de conexión inicial**
-  - [ ] Endpoint `/pjn/test-login`:
-    - [ ] Recibe `{ username, password }`.
-    - [ ] Intenta login contra PJN SSO.
-    - [ ] En caso de éxito, genera y guarda `session_state.json` en bucket `pjn-sessions`.
-    - [ ] Devuelve `{ status: "OK" }` o `{ status: "AUTH_FAILED", reason }`.
-- [ ] **Re‑autenticación**
-  - [ ] Endpoint `/pjn/reauth`:
-    - [ ] Similar a test-login pero pensado para flujos automáticos de re‑login.
+- [x] **Prueba de conexión inicial**
+  - [x] Endpoint `/reauth` (implementado como `/reauth` en lugar de `/pjn/test-login`):
+    - [x] Recibe `{ username, password }` (vía `userId`, `username`, `password`).
+    - [x] Intenta login contra PJN SSO usando Playwright (refactorizado desde Crawlee para garantizar aislamiento entre llamadas).
+    - [x] En caso de éxito, genera y guarda `session_state.json` en bucket `pjn-sessions` (GCS).
+    - [x] Devuelve `{ status: "OK" }` o `{ status: "AUTH_FAILED", reason }` o `{ status: "ERROR", error }`.
+- [x] **Re‑autenticación**
+  - [x] Endpoint `/reauth`:
+    - [x] Similar a test-login pero pensado para flujos automáticos de re‑login.
+    - [x] Implementado con navegador Playwright fresco por cada llamada (sin estado compartido).
+    - [x] Manejo robusto de errores: distingue entre errores de autenticación (`AUTH_FAILED`) y errores de infraestructura (`ERROR`).
 
 ## DB / Modelo de Datos
 
@@ -73,16 +75,16 @@ Implementar una **UI y backend robustos para gestionar credenciales PJN y el est
 - [ ] El cron de notificaciones debe:
   - [ ] Ignorar cuentas marcadas como `needs_reauth`.
   - [ ] Registrar errores de autenticación y actualizar `syncErrors`.
-- [ ] Flujos de scraping (notificaciones, expediente, etc.) deben:
-  - [ ] Usar el mismo bucket `pjn-sessions` para `session_state.json`.
-  - [ ] Notificar a Convex en caso de `AUTH_FAILED`.
+- [x] Flujos de scraping (notificaciones, expediente, etc.) deben:
+  - [x] Usar el mismo bucket `pjn-sessions` para `session_state.json` (implementado en `SessionStore` con configuración `gcsSessionsBucket`).
+  - [ ] Notificar a Convex en caso de `AUTH_FAILED` (pendiente de integración con Convex).
 
 ## Seguridad y Cumplimiento
 
-- [ ] Revisar que:
-  - [ ] No se logueen contraseñas en texto plano.
-  - [ ] Los tokens/sesiones PJN solo se almacenen en GCS en un bucket aislado.
-  - [ ] Las llamadas de Convex a Cloud Run usen canales autenticados (por ejemplo, service accounts).
+- [x] Revisar que:
+  - [x] No se logueen contraseñas en texto plano (verificado: solo se loguea `username`, nunca `password`).
+  - [x] Los tokens/sesiones PJN solo se almacenan en GCS en un bucket aislado (implementado en `SessionStore` con `gcsSessionsBucket`).
+  - [x] Las llamadas de Convex a Cloud Run usen canales autenticados (implementado `serviceAuthMiddleware` con header `x-service-auth` y secret compartido; podría mejorarse a service accounts en el futuro).
 
 ## Criterios de Aceptación
 

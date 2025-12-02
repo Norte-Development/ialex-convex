@@ -46,9 +46,9 @@ Implementar un **pipeline de ingesta automática de notificaciones PJN** hacia i
   - [ ] Por cada evento nuevo, llamar `GET /eventos/{eventId}/pdf`.
   - [ ] Subir el PDF a bucket GCS `pjn-documents` con una convención de path (`pjn/{userId}/{eventId}.pdf`).
   - [ ] Notificar a `document-processor` con `{ gcsPath, metadata }`.
-- [ ] **Manejo de sesión**
-  - [ ] Detectar redirecciones a login SSO → marcar `AUTH_REQUIRED`.
-  - [ ] Para re‑auth, aceptar credenciales desde Convex y guardar nuevo `session_state.json`.
+- [x] **Manejo de sesión**
+  - [x] Detectar redirecciones a login SSO → marcar `AUTH_REQUIRED` (implementado en `httpClient.ts`).
+  - [x] Para re‑auth, aceptar credenciales desde Convex y guardar nuevo `session_state.json` (endpoint `/reauth` implementado con Playwright).
 
 ## Backend – document-processor
 
