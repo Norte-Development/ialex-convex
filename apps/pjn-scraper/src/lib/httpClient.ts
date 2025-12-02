@@ -164,24 +164,35 @@ export class PjnHttpClient {
       throw new Error(`Failed to fetch events: ${response.status}`);
     }
 
-    // Parse PJN response structure (adjust based on actual API response)
+    // Parse PJN response structure based on actual API response
+    // {
+    //   "items": [...],
+    //   "hasNext": true,
+    //   "numberOfItems": 20,
+    //   "pageSize": 20,
+    //   "page": 0
+    // }
     const data = response.data as {
-      eventos?: unknown[];
-      total?: number;
-      pagina?: number;
-      totalPaginas?: number;
+      items?: unknown[];
+      hasNext?: boolean;
+      numberOfItems?: number;
+      pageSize?: number;
+      page?: number;
       [key: string]: unknown;
     };
 
-    const events = data.eventos || [];
-    const totalPages = data.totalPaginas;
+    const events = data.items ?? [];
+    const pageSizeUsed = data.pageSize ?? pageSize;
+
     const hasMore =
-      totalPages !== undefined ? page + 1 < totalPages : events.length === pageSize;
+      typeof data.hasNext === "boolean"
+        ? data.hasNext
+        : events.length === pageSizeUsed;
 
     return {
       events,
       hasMore,
-      totalPages,
+      totalPages: undefined,
     };
   }
 

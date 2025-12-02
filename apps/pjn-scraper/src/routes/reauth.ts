@@ -1,15 +1,11 @@
 import { Router, Request, Response } from "express";
-import { z } from "zod";
 import { SessionStore } from "../lib/sessionStore";
-import { PjnHttpClient } from "../lib/httpClient";
 import { reauthRequestSchema } from "../types/api";
 import { performPjnLogin } from "../lib/pjnAuth";
 import { logger } from "../middleware/logging";
-import { config } from "../config";
 
 const router: Router = Router();
 const sessionStore = new SessionStore();
-const httpClient = new PjnHttpClient();
 
 export interface ReauthDependencies {
   sessionStore: SessionStore;
@@ -54,6 +50,7 @@ export async function reauthHandler(
     });
 
     // Perform real PJN SSO login using Playwright and capture session cookies
+    // and tokens (performPjnLogin now also attempts to fetch and attach tokens).
     const sessionState = await performLogin({ username, password });
 
     const saved = await depSessionStore.saveSession(userId, sessionState);

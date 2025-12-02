@@ -1,4 +1,4 @@
-import { chromium, Browser, BrowserContext, Page } from "playwright";
+import { chromium, Browser, BrowserContext, Page, Request } from "playwright";
 import { config } from "../config";
 import { logger } from "../middleware/logging";
 import type { SessionState } from "./sessionStore";
@@ -26,6 +26,15 @@ export async function performPjnLogin(
   let context: BrowserContext | null = null;
   let page: Page | null = null;
   let lastUrl: string | undefined;
+  let tokenPayload:
+    | (Record<string, unknown> & {
+        access_token: string;
+        refresh_token: string;
+        expires_in: number;
+        refresh_expires_in?: number;
+        token_type: string;
+      })
+    | null = null;
 
   logger.info("Starting PJN SSO login", { username });
 
@@ -34,6 +43,58 @@ export async function performPjnLogin(
     browser = await chromium.launch({ headless: true });
     context = await browser.newContext();
     page = await context.newPage();
+
+    // Capture token responses from the SSO server
+    context.on("requestfinished", async (request: Request) => {
+      try {
+        const url = request.url();
+        if (
+          !url.startsWith(config.pjnSsoBaseUrl) ||
+          !url.includes("/protocol/openid-connect/token")
+        ) {
+          return;
+        }
+
+        const response = await request.response();
+        if (!response) {
+          return;
+        }
+
+        const headers = response.headers();
+        const contentType =
+          headers["content-type"] || headers["Content-Type"] || "";
+        if (!contentType.includes("application/json")) {
+          return;
+        }
+
+        const json = (await response.json()) as unknown;
+        if (
+          json &&
+          typeof json === "object" &&
+          "access_token" in json &&
+          "refresh_token" in json
+        ) {
+          const typed = json as {
+            access_token: string;
+            refresh_token: string;
+            expires_in: number;
+            refresh_expires_in?: number;
+            token_type: string;
+          };
+
+          tokenPayload = typed;
+          logger.info("Captured PJN token response from SSO", {
+            hasAccessToken: Boolean(typed.access_token),
+            hasRefreshToken: Boolean(typed.refresh_token),
+            expiresIn: typed.expires_in,
+          });
+        }
+      } catch (err) {
+        logger.warn("Failed to capture PJN token response", {
+          error: err instanceof Error ? err.message : String(err),
+        });
+      }
+    });
 
     logger.debug("Browser launched, navigating to SSO URL", {
       url: config.pjnSsoAuthUrl,
@@ -158,6 +219,35 @@ export async function performPjnLogin(
     logger.info("PJN SSO cookies captured", {
       cookieCount: cookieHeaderValues.length,
     });
+
+    // Attach tokens to the session if we captured them during login
+    if (tokenPayload) {
+      const {
+        access_token: accessToken,
+        refresh_token: refreshToken,
+        expires_in: expiresIn,
+      } = tokenPayload;
+
+      sessionState.accessToken = accessToken;
+      sessionState.refreshToken = refreshToken;
+      sessionState.accessTokenExpiresAt = new Date(
+        Date.now() + expiresIn * 1000
+      ).toISOString();
+
+      sessionState.headers = {
+        ...(sessionState.headers ?? {}),
+        Authorization: `Bearer ${accessToken}`,
+      };
+
+      logger.info("PJN tokens obtained from SSO flow and added to session", {
+        expiresIn,
+        accessTokenExpiresAt: sessionState.accessTokenExpiresAt,
+      });
+    } else {
+      logger.warn("PJN SSO login completed but no token response was captured", {
+        finalUrl: lastUrl,
+      });
+    }
 
     return sessionState;
   } catch (error) {

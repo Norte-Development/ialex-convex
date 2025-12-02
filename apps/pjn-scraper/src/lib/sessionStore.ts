@@ -11,6 +11,16 @@ export interface SessionState {
   cookies?: string[];
   headers?: Record<string, string>;
   lastUpdated?: string;
+  /** Username used for authentication */
+  username?: string;
+  /** Timestamp when the session was authenticated */
+  authenticatedAt?: string;
+  /** PJN access token (Bearer token for API calls) */
+  accessToken?: string;
+  /** PJN refresh token (used to obtain new access tokens) */
+  refreshToken?: string;
+  /** ISO timestamp when the access token expires */
+  accessTokenExpiresAt?: string;
   [key: string]: unknown;
 }
 

@@ -1,9 +1,9 @@
 import { Router, Request, Response } from "express";
-import { z } from "zod";
-import { SessionStore } from "../lib/sessionStore";
+import { SessionStore, SessionState } from "../lib/sessionStore";
 import { PjnHttpClient } from "../lib/httpClient";
 import { GcsStorage } from "../lib/storage";
 import { scrapeEventsRequestSchema, type NormalizedEvent } from "../types/api";
+import { refreshPjnTokens, isTokenExpired } from "../lib/pjnTokens";
 import { logger } from "../middleware/logging";
 import { config } from "../config";
 
@@ -13,33 +13,153 @@ const httpClient = new PjnHttpClient();
 const gcsStorage = new GcsStorage();
 
 /**
+ * Ensure the session has a valid (non-expired) access token.
+ * If the token is expired, attempt to refresh it using the refresh token.
+ * Returns the updated session or null if refresh fails.
+ */
+async function ensureValidToken(
+  userId: string,
+  session: SessionState
+): Promise<SessionState | null> {
+  // If no access token or no expiry info, we can't validate
+  if (!session.accessToken || !session.accessTokenExpiresAt) {
+    logger.warn("Session missing access token or expiry info", { userId });
+    return null;
+  }
+
+  // Check if token is expired (with 60 second buffer)
+  if (!isTokenExpired(session.accessTokenExpiresAt, 60)) {
+    // Token is still valid
+    return session;
+  }
+
+  // Token is expired, try to refresh
+  if (!session.refreshToken) {
+    logger.warn("Session has expired token but no refresh token", { userId });
+    return null;
+  }
+
+  logger.info("Access token expired, attempting refresh", {
+    userId,
+    accessTokenExpiresAt: session.accessTokenExpiresAt,
+  });
+
+  try {
+    const tokens = await refreshPjnTokens({
+      refreshToken: session.refreshToken,
+      cookies: session.cookies,
+    });
+
+    // Update session with new tokens
+    session.accessToken = tokens.accessToken;
+    session.refreshToken = tokens.refreshToken;
+    session.accessTokenExpiresAt = new Date(
+      Date.now() + tokens.expiresIn * 1000
+    ).toISOString();
+
+    // Update Authorization header
+    session.headers = {
+      ...(session.headers ?? {}),
+      Authorization: `Bearer ${tokens.accessToken}`,
+    };
+
+    // Save updated session
+    const saved = await sessionStore.saveSession(userId, session);
+    if (!saved) {
+      logger.error("Failed to save refreshed session", { userId });
+    } else {
+      logger.info("Session refreshed successfully", {
+        userId,
+        newExpiresAt: session.accessTokenExpiresAt,
+      });
+    }
+
+    return session;
+  } catch (error) {
+    logger.error("Failed to refresh token", {
+      userId,
+      error: error instanceof Error ? error.message : String(error),
+    });
+    return null;
+  }
+}
+
+/**
  * Normalize a PJN event to our internal format
+ *
+ * Actual PJN response example:
+ * {
+ *   "id": 299230997,
+ *   "fechaCreacion": 1764671464770,
+ *   "fechaAccion": 1764671464767,
+ *   "tipo": "cedula",
+ *   "categoria": "judicial",
+ *   "link": { "app": "pjn-scw", "url": "/consultaNovedad.seam?..." },
+ *   "hasDocument": true,
+ *   "payload": {
+ *     "id": 128865748,
+ *     "caratulaExpediente": "...",
+ *     "claveExpediente": "FRE 3852/2020/TO2",
+ *     "tipoEvento": "cedula",
+ *     "fechaEnvio": 1764671464767,
+ *     ...
+ *   }
+ * }
  */
 function normalizeEvent(event: unknown): NormalizedEvent | null {
   try {
     const e = event as Record<string, unknown>;
-    const eventId = String(e.id || e.eventId || "");
+    const payload = (e.payload ?? {}) as Record<string, unknown>;
+
+    // Event ID: use top-level id, fall back to payload.id if needed
+    const eventIdRaw = e.id ?? payload.id;
+    const eventId = eventIdRaw != null ? String(eventIdRaw) : "";
     if (!eventId) {
       return null;
     }
 
-    // Extract FRE from description or a dedicated field
+    // FRE from payload.claveExpediente (e.g. "FRE 8380/2023/TO1/27")
     let fre: string | null = null;
-    const description = String(e.descripcion || e.description || "");
-    const freMatch = description.match(/FRE\s+(\d+\/\d+\/\d+\/[A-Z0-9]+)/i);
-    if (freMatch) {
-      fre = freMatch[1];
-    } else if (e.fre) {
-      fre = String(e.fre);
+    const claveExpediente =
+      typeof payload.claveExpediente === "string"
+        ? payload.claveExpediente.trim()
+        : "";
+
+    if (claveExpediente) {
+      const freMatch = claveExpediente.match(/FRE\s+(.+)/i);
+      fre = freMatch ? freMatch[1].trim() : claveExpediente;
+    }
+
+    // Description from payload.caratulaExpediente
+    const description =
+      typeof payload.caratulaExpediente === "string"
+        ? payload.caratulaExpediente.trim()
+        : "";
+
+    // Timestamp from fechaAccion / fechaCreacion / payload.fechaEnvio
+    const rawTs =
+      (e.fechaAccion as number | string | undefined) ??
+      (e.fechaCreacion as number | string | undefined) ??
+      (payload.fechaEnvio as number | string | undefined);
+
+    let timestamp: string;
+    if (typeof rawTs === "number") {
+      timestamp = new Date(rawTs).toISOString();
+    } else if (typeof rawTs === "string" && /^\d+$/.test(rawTs)) {
+      timestamp = new Date(Number(rawTs)).toISOString();
+    } else if (typeof rawTs === "string" && rawTs) {
+      timestamp = rawTs;
+    } else {
+      timestamp = new Date().toISOString();
     }
 
     return {
       pjnEventId: eventId,
       fre,
-      timestamp: String(e.fecha || e.timestamp || new Date().toISOString()),
+      timestamp,
       category: String(e.categoria || e.category || "judicial"),
       description,
-      pdfUrl: e.pdfUrl ? String(e.pdfUrl) : undefined,
+      pdfUrl: undefined,
       rawPayload: e,
     };
   } catch (error) {
@@ -105,12 +225,22 @@ router.post("/scrape/events", async (req: Request, res: Response) => {
     });
 
     // Load session
-    const session = await sessionStore.loadSession(userId);
+    let session = await sessionStore.loadSession(userId);
     if (!session) {
       logger.warn("No session found for user", { requestId, userId });
       return res.json({
         status: "AUTH_REQUIRED",
         reason: "No session found. Please authenticate first.",
+      });
+    }
+
+    // Ensure we have a valid access token (refresh if expired)
+    session = await ensureValidToken(userId, session);
+    if (!session) {
+      logger.warn("Failed to ensure valid token for user", { requestId, userId });
+      return res.json({
+        status: "AUTH_REQUIRED",
+        reason: "Session expired and could not be refreshed. Please re-authenticate.",
       });
     }
 
@@ -123,10 +253,16 @@ router.post("/scrape/events", async (req: Request, res: Response) => {
 
     while (hasMore && fetchedPages < config.maxPagesPerSync) {
       try {
-        const result = await httpClient.fetchEvents(page, config.eventsPageSize, session, {
-          categoria: "judicial",
-          fechaHasta: since ? undefined : new Date().toISOString(),
-        });
+        const result = await httpClient.fetchEvents(
+          page,
+          config.eventsPageSize,
+          session,
+          {
+            categoria: "judicial",
+            // Remove fechaHasta for now to match the portal's own calls
+            // fechaHasta: since ? undefined : new Date().toISOString(),
+          },
+        );
 
         // Normalize events
         for (const event of result.events) {
@@ -169,7 +305,12 @@ router.post("/scrape/events", async (req: Request, res: Response) => {
     const pdfResults: Array<{ eventId: string; gcsPath?: string; error?: string }> = [];
 
     for (const event of normalizedEvents) {
-      if (!event.pdfUrl && !event.pjnEventId) {
+      // Respect hasDocument flag from raw payload when available
+      const raw = event.rawPayload as Record<string, unknown>;
+      const hasDocumentFlag =
+        typeof raw.hasDocument === "boolean" ? raw.hasDocument : true;
+
+      if (!hasDocumentFlag || !event.pjnEventId) {
         continue;
       }
 
