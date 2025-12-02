@@ -1,0 +1,290 @@
+import {
+  Document,
+  Page,
+  Text,
+  StyleSheet,
+  pdf,
+} from '@react-pdf/renderer';
+import { saveAs } from 'file-saver';
+// @ts-ignore - TypeScript cache issue with @tiptap/core types
+import type { JSONContent } from '@tiptap/react';
+
+interface PdfExportOptions {
+  title: string;
+  courtName?: string;
+  expedientNumber?: string;
+  presentationDate?: number;
+}
+
+/**
+ * Estilos globales para el documento PDF
+ * Basados en el formato estándar de documentos legales
+ */
+const styles = StyleSheet.create({
+  page: {
+    padding: '10mm',
+    fontSize: 11,
+    fontFamily: 'Times-Roman',
+    lineHeight: 1.5,
+  },
+  // Header metadata
+  courtName: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  expedientNumber: {
+    fontSize: 11,
+    textAlign: 'center',
+    marginBottom: 12,
+  },
+  documentTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    textAlign: 'center',
+    marginBottom: 20,
+  },
+  // Párrafos
+  paragraph: {
+    marginBottom: 8,
+    textAlign: 'left',
+  },
+  // Headings
+  heading1: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    marginBottom: 12,
+    marginTop: 16,
+  },
+  heading2: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    marginBottom: 10,
+    marginTop: 14,
+  },
+  heading3: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    marginBottom: 8,
+    marginTop: 12,
+  },
+  heading4: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    marginBottom: 6,
+    marginTop: 10,
+  },
+  heading5: {
+    fontSize: 12,
+    fontWeight: 'bold',
+    marginBottom: 4,
+    marginTop: 8,
+  },
+  heading6: {
+    fontSize: 11,
+    fontWeight: 'bold',
+    marginBottom: 4,
+    marginTop: 6,
+  },
+});
+
+/**
+ * Convierte contenido de TipTap JSON a un documento PDF usando @react-pdf/renderer
+ * Genera PDFs con texto seleccionable, archivos más livianos y mejor accesibilidad
+ */
+export async function exportToPdfReact(
+  content: JSONContent,
+  options: PdfExportOptions,
+): Promise<void> {
+  console.log('🔍 Contenido a exportar (React-PDF):', content);
+
+  // Generar el documento PDF como blob
+  const blob = await pdf(<EscritoDocument content={content} options={options} />).toBlob();
+
+  // Descargar el archivo
+  const filename = `${options.title.replace(/\s+/g, '_')}.pdf`;
+  saveAs(blob, filename);
+
+  console.log('✅ PDF generado con React-PDF:', filename);
+}
+
+/**
+ * Componente principal del documento PDF
+ */
+function EscritoDocument({
+  content,
+  options,
+}: {
+  content: JSONContent;
+  options: PdfExportOptions;
+}) {
+  return (
+    <Document>
+      <Page size="A4" style={styles.page}>
+        {/* Header con metadata */}
+        {options.courtName && (
+          <Text style={styles.courtName}>{options.courtName}</Text>
+        )}
+
+        {options.expedientNumber && (
+          <Text style={styles.expedientNumber}>
+            Expediente: {options.expedientNumber}
+          </Text>
+        )}
+
+        {/* Título del documento */}
+        <Text style={styles.documentTitle}>{options.title}</Text>
+
+        {/* Contenido del documento */}
+        {content.content?.map((node: JSONContent, index: number) => (
+          <ConvertNode key={index} node={node} />
+        ))}
+      </Page>
+    </Document>
+  );
+}
+
+/**
+ * Convierte un nodo individual de TipTap a componentes React-PDF
+ */
+function ConvertNode({ node }: { node: JSONContent }) {
+  console.log('📝 Convirtiendo nodo:', node.type, node.attrs);
+
+  switch (node.type) {
+    case 'paragraph':
+      return <ConvertParagraph node={node} />;
+
+    case 'heading':
+      return <ConvertHeading node={node} />;
+
+    case 'hardBreak':
+      return <Text style={{ marginBottom: 4 }}>{'\n'}</Text>;
+
+    default:
+      console.warn(`⚠️ Tipo de nodo no soportado aún: ${node.type}`);
+      return null;
+  }
+}
+
+/**
+ * Convierte un párrafo con su contenido inline
+ */
+function ConvertParagraph({ node }: { node: JSONContent }) {
+  const alignment = getAlignment(node.attrs?.textAlign);
+  const content = node.content || [];
+
+  return (
+    <Text style={[styles.paragraph, { textAlign: alignment }]}>
+      {content.map((child: JSONContent, index: number) => (
+        <ConvertInlineNode key={index} node={child} />
+      ))}
+    </Text>
+  );
+}
+
+/**
+ * Convierte un heading según su nivel
+ */
+function ConvertHeading({ node }: { node: JSONContent }) {
+  const level = node.attrs?.level || 1;
+  const alignment = getAlignment(node.attrs?.textAlign);
+  const headingStyle = getHeadingStyle(level);
+  const text = extractText(node.content || []);
+
+  return (
+    <Text style={[headingStyle, { textAlign: alignment }]}>
+      {text}
+    </Text>
+  );
+}
+
+/**
+ * Convierte contenido inline (texto con formato)
+ */
+function ConvertInlineNode({ node }: { node: JSONContent }) {
+  if (node.type === 'text') {
+    const text = node.text || '';
+    const marks = node.marks || [];
+
+    // Construir el objeto de estilo basado en las marks
+    const textStyle: any = {};
+
+    // Bold
+    if (marks.some((m: any) => m.type === 'bold')) {
+      textStyle.fontWeight = 'bold';
+    }
+
+    // Italic
+    if (marks.some((m: any) => m.type === 'italic')) {
+      textStyle.fontStyle = 'italic';
+    }
+
+    // Underline
+    if (marks.some((m: any) => m.type === 'underline')) {
+      textStyle.textDecoration = 'underline';
+    }
+
+    // Color (desde textStyle mark)
+    const colorMark = marks.find((m: any) => m.type === 'textStyle');
+    if (colorMark?.attrs?.color) {
+      textStyle.color = colorMark.attrs.color;
+    }
+
+    // Strike through
+    if (marks.some((m: any) => m.type === 'strike')) {
+      textStyle.textDecoration = 'line-through';
+    }
+
+    return <Text style={textStyle}>{text}</Text>;
+  }
+
+  if (node.type === 'hardBreak') {
+    return <Text>{'\n'}</Text>;
+  }
+
+  return null;
+}
+
+/**
+ * Extrae texto plano de contenido inline
+ */
+function extractText(content: JSONContent[]): string {
+  return content
+    .filter((node) => node.type === 'text')
+    .map((node) => node.text || '')
+    .join('');
+}
+
+/**
+ * Obtiene la alineación de texto
+ */
+function getAlignment(align?: string): 'left' | 'center' | 'right' | 'justify' {
+  switch (align) {
+    case 'left':
+      return 'left';
+    case 'center':
+      return 'center';
+    case 'right':
+      return 'right';
+    case 'justify':
+      return 'justify';
+    default:
+      return 'left';
+  }
+}
+
+/**
+ * Obtiene el estilo de heading según el nivel
+ */
+function getHeadingStyle(level: number) {
+  const headingStyles: { [key: number]: any } = {
+    1: styles.heading1,
+    2: styles.heading2,
+    3: styles.heading3,
+    4: styles.heading4,
+    5: styles.heading5,
+    6: styles.heading6,
+  };
+  return headingStyles[level] || styles.heading1;
+}
