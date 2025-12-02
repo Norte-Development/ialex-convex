@@ -16,9 +16,6 @@ import {
 } from "@/components/ui/select";
 import { toast } from "sonner";
 import { tracking } from "@/lib/tracking";
-import { PlanComparison } from "../Billing/PlanComparison";
-import { useUpgrade } from "../Billing/useUpgrade";
-import { PlanSelection } from "../Billing/types";
 
 interface OnboardingData {
   // Paso 2: Nombre
@@ -54,7 +51,6 @@ interface OnboardingFlowProps {
 
 export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ user }) => {
   const updateOnboardingInfo = useMutation(api.functions.users.updateOnboardingInfo);
-  const { upgradeToPlan, isUpgrading } = useUpgrade();
 
   // Cargar datos persistidos al iniciar
   const loadPersistedData = () => {
@@ -84,7 +80,6 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ user }) => {
   const [currentStep, setCurrentStep] = useState(persisted.step);
   const [formData, setFormData] = useState<OnboardingData>(persisted.data);
   const [isLoading, setIsLoading] = useState(false);
-  const [selectedPlan, setSelectedPlan] = useState<PlanSelection | null>(null);
 
   // Track onboarding start
   useEffect(() => {
@@ -163,7 +158,7 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ user }) => {
     }
 
     // Navegación normal para otros pasos
-    if (currentStep < 10) {
+    if (currentStep < 9) {
       setCurrentStep(currentStep + 1);
     }
   }, [currentStep, formData.hasDespacho, formData.role]);
@@ -201,14 +196,9 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ user }) => {
   const handleComplete = useCallback(async () => {
     setIsLoading(true);
     try {
-      // If user selected a plan, upgrade first
-      if (selectedPlan && selectedPlan.plan !== "free") {
-        await upgradeToPlan(selectedPlan);
-      }
-
       // Construir objeto solo con campos que tienen valores válidos (no null, no undefined, no strings vacíos)
       const onboardingData: any = {
-        onboardingStep: 10,
+        onboardingStep: 9,
         isOnboardingComplete: true,
       };
 
@@ -247,7 +237,7 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ user }) => {
     } finally {
       setIsLoading(false);
     }
-  }, [formData, updateOnboardingInfo, user.clerkId, selectedPlan, upgradeToPlan]);
+  }, [formData, updateOnboardingInfo, user.clerkId]);
 
   // Validar si el botón "Siguiente" debe estar deshabilitado
   const isNextDisabled = useCallback(() => {
@@ -263,7 +253,7 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ user }) => {
       if (e.key === "Enter") {
         e.preventDefault();
 
-        if (currentStep === 10) {
+        if (currentStep === 9) {
           if (!isLoading) {
             handleComplete();
           }
@@ -507,24 +497,6 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ user }) => {
           </div>
         );
 
-      // Paso 10: Selección de plan
-      case 10:
-        return (
-          <div className="w-full max-w-4xl px-4 overflow-y-auto h-fit">
-            <h2 className="text-[24px] 2xl:text-3xl font-[400] mb-6 text-tertiary text-center">
-              Seleccione su plan
-            </h2>
-            <PlanComparison 
-              currentPlan="free"
-              onSelectPlan={(selection: PlanSelection) => {
-                setSelectedPlan(selection);
-                toast.success(`Plan ${selection.plan} seleccionado`);
-              }}
-              isUpgrading={isUpgrading}
-            />
-          </div>
-        );
-
       default:
         return null;
     }
@@ -532,7 +504,7 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ user }) => {
 
   return (
     <div className="h-screen flex items-center justify-center p-4">
-      <div className={`w-[70%] h-[60%] 2xl:w-[50%] 2xl:h-[45%] bg-[#F4F7FC] rounded-[8px] flex flex-col ${currentStep === 10 ? "overflow-y-auto h-fit mt-60" : ""}`}>
+      <div className="w-[70%] h-[60%] 2xl:w-[50%] 2xl:h-[45%] bg-[#F4F7FC] rounded-[8px] flex flex-col">
         {/* Header con Progress indicator - siempre arriba */}
         <div className="flex-shrink-0 w-full px-8 pt-2 pb-4 relative">
           <Button
@@ -544,16 +516,16 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ user }) => {
           </Button>
           <div className="flex justify-between items-center mb-2">
             <span className="text-xs text-gray-600">
-              Paso {currentStep} de 10
+              Paso {currentStep} de 9
             </span>
             <span className="text-xs text-gray-600">
-              {Math.round((currentStep / 10) * 100)}%
+              {Math.round((currentStep / 9) * 100)}%
             </span>
           </div>
           <div className="w-full bg-gray-200 rounded-full h-2">
             <div
               className="bg-tertiary h-2 rounded-full transition-all duration-300"
-              style={{ width: `${(currentStep / 10) * 100}%` }}
+              style={{ width: `${(currentStep / 9) * 100}%` }}
             />
           </div>
         </div>
@@ -564,8 +536,8 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ user }) => {
         </div>
 
         {/* Navigation buttons - siempre abajo */}
-        <div className="flex-shrink-0 flex flex-col items-center pb-8 px-4 mt-10">
-          {currentStep === 10 ? (
+        <div className="flex-shrink-0 flex flex-col items-center pb-8 px-4">
+          {currentStep === 9 ? (
             <Button
               onClick={handleComplete}
               disabled={isLoading}
