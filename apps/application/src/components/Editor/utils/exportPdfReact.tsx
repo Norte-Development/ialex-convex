@@ -2,6 +2,8 @@ import {
   Document,
   Page,
   Text,
+  View,
+  Link,
   StyleSheet,
   pdf,
 } from '@react-pdf/renderer';
@@ -87,6 +89,74 @@ const styles = StyleSheet.create({
     marginBottom: 4,
     marginTop: 6,
   },
+  // Listas
+  listItem: {
+    marginBottom: 4,
+    marginLeft: 20,
+    flexDirection: 'row',
+  },
+  listBullet: {
+    width: 15,
+  },
+  listContent: {
+    flex: 1,
+  },
+  // Blockquote
+  blockquote: {
+    marginLeft: 20,
+    marginRight: 20,
+    marginTop: 8,
+    marginBottom: 8,
+    paddingLeft: 12,
+    borderLeftWidth: 3,
+    borderLeftColor: '#cccccc',
+    fontStyle: 'italic',
+  },
+  // Code block
+  codeBlock: {
+    backgroundColor: '#f5f5f5',
+    padding: 8,
+    marginTop: 8,
+    marginBottom: 8,
+    fontFamily: 'Courier',
+    fontSize: 10,
+  },
+  // Tabla
+  table: {
+    marginTop: 8,
+    marginBottom: 8,
+  },
+  tableRow: {
+    flexDirection: 'row',
+    borderBottomWidth: 1,
+    borderBottomColor: '#cccccc',
+  },
+  tableCell: {
+    flex: 1,
+    padding: 4,
+    borderRightWidth: 1,
+    borderRightColor: '#cccccc',
+  },
+  tableHeader: {
+    flex: 1,
+    padding: 4,
+    backgroundColor: '#e0e0e0',
+    fontWeight: 'bold',
+    borderRightWidth: 1,
+    borderRightColor: '#000000',
+  },
+  // Link
+  link: {
+    color: '#0563C1',
+    textDecoration: 'underline',
+  },
+  // Horizontal rule
+  horizontalRule: {
+    marginTop: 12,
+    marginBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#000000',
+  },
 });
 
 /**
@@ -158,6 +228,22 @@ function ConvertNode({ node }: { node: JSONContent }) {
     case 'heading':
       return <ConvertHeading node={node} />;
 
+    case 'bulletList':
+    case 'orderedList':
+      return <ConvertList node={node} numbered={node.type === 'orderedList'} />;
+
+    case 'blockquote':
+      return <ConvertBlockquote node={node} />;
+
+    case 'codeBlock':
+      return <ConvertCodeBlock node={node} />;
+
+    case 'table':
+      return <ConvertTable node={node} />;
+
+    case 'horizontalRule':
+      return <View style={styles.horizontalRule} />;
+
     case 'hardBreak':
       return <Text style={{ marginBottom: 4 }}>{'\n'}</Text>;
 
@@ -209,6 +295,16 @@ function ConvertInlineNode({ node }: { node: JSONContent }) {
 
     // Construir el objeto de estilo basado en las marks
     const textStyle: any = {};
+
+    // Check if there's a link mark
+    const linkMark = marks.find((m: any) => m.type === 'link');
+    if (linkMark?.attrs?.href) {
+      return (
+        <Link src={linkMark.attrs.href} style={styles.link}>
+          {text}
+        </Link>
+      );
+    }
 
     // Bold
     if (marks.some((m: any) => m.type === 'bold')) {
@@ -288,3 +384,104 @@ function getHeadingStyle(level: number) {
   };
   return headingStyles[level] || styles.heading1;
 }
+
+/**
+ * Convierte una lista (ordenada  o no ordenada)
+ */
+function ConvertList({ node, numbered }: { node: JSONContent; numbered: boolean }) {
+  const items = node.content || [];
+  
+  return (
+    <>
+      {items.map((item: JSONContent, index: number) => {
+        const itemContent = item.content || [];
+        const firstParagraph = itemContent[0];
+        const text = firstParagraph ? extractText(firstParagraph.content || []) : '';
+        const bullet = numbered ? `${index + 1}. ` : '• ';
+        
+        return (
+          <View key={index} style={styles.listItem}>
+            <Text style={styles.listBullet}>{bullet}</Text>
+            <Text style={styles.listContent}>{text}</Text>
+          </View>
+        );
+      })}
+    </>
+  );
+}
+
+/**
+ * Convierte un blockquote
+ */
+function ConvertBlockquote({ node }: { node: JSONContent }) {
+  const content = node.content || [];
+  
+  return (
+    <View style={styles.blockquote}>
+      {content.map((childNode: JSONContent, index: number) => {
+        if (childNode.type === 'paragraph') {
+          const text = extractText(childNode.content || []);
+          return <Text key={index}>{text}</Text>;
+        }
+        return null;
+      })}
+    </View>
+  );
+}
+
+/**
+ * Convierte un bloque de código
+ */
+function ConvertCodeBlock({ node }: { node: JSONContent }) {
+  const text = extractText(node.content || []);
+  
+  return (
+    <View style={styles.codeBlock}>
+      <Text>{text}</Text>
+    </View>
+  );
+}
+
+/**
+ * Convierte una tabla
+ */
+function ConvertTable({ node }: { node: JSONContent }) {
+  const rows = node.content || [];
+  
+  return (
+    <View style={styles.table}>
+      {rows.map((rowNode: JSONContent, rowIndex: number) => {
+        if (rowNode.type === 'tableRow') {
+          const cells = rowNode.content || [];
+          
+          return (
+            <View key={rowIndex} style={styles.tableRow}>
+              {cells.map((cellNode: JSONContent, cellIndex: number) => {
+                const isHeader = cellNode.type === 'tableHeader';
+                const cellContent = cellNode.content || [];
+                
+                // Extraer texto de los párrafos dentro de la celda
+                const text = cellContent
+                  .map((content: JSONContent) => {
+                    if (content.type === 'paragraph') {
+                      return extractText(content.content || []);
+                    }
+                    return '';
+                  })
+                  .join(' ');
+                
+                return (
+                  <View key={cellIndex} style={isHeader ? styles.tableHeader : styles.tableCell}>
+                    <Text>{text}</Text>
+                  </View>
+                );
+              })}
+            </View>
+          );
+        }
+        return null;
+      })}
+    </View>
+  );
+}
+
