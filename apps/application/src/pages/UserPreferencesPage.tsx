@@ -54,6 +54,13 @@ export default function UserPreferencesPage() {
   }>({});
   const [activeSection, setActiveSection] = useState(section || "general");
 
+  // Sync activeSection with URL parameter changes
+  useEffect(() => {
+    if (section) {
+      setActiveSection(section);
+    }
+  }, [section]);
+
   // Load preferences from user data
   useEffect(() => {
     if (currentUser?.preferences) {
