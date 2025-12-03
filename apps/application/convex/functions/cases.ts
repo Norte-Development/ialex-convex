@@ -367,6 +367,7 @@ export const getCases = query({
       ),
     ),
     assignedLawyer: v.optional(v.id("users")),
+    clientId: v.optional(v.id("clients")),
     search: v.optional(v.string()),
     sortBy: v.optional(v.string()),
     sortOrder: v.optional(v.union(v.literal("asc"), v.literal("desc"))),
@@ -422,8 +423,25 @@ export const getCases = query({
       }
     }
 
+    // Filter by client if specified
+    let filteredByClient = accessibleCases;
+    if (args.clientId) {
+      const clientCaseRelations = await ctx.db
+        .query("clientCases")
+        .withIndex("by_client", (q) => q.eq("clientId", args.clientId!))
+        .filter((q) => q.eq(q.field("isActive"), true))
+        .collect();
+
+      const caseIdsForClient = new Set(
+        clientCaseRelations.map((rel) => rel.caseId),
+      );
+      filteredByClient = accessibleCases.filter((c) =>
+        caseIdsForClient.has(c._id),
+      );
+    }
+
     // Apply fuzzy search filter if provided
-    let filteredCases = accessibleCases;
+    let filteredCases = filteredByClient;
     if (args.search && args.search.trim()) {
       const searchTerm = args.search.trim();
 
@@ -449,7 +467,7 @@ export const getCases = query({
         }
       }
 
-      filteredCases = accessibleCases.filter((caseData) => {
+      filteredCases = filteredByClient.filter((caseData) => {
         // Search in case title
         if (fuzzyMatch(caseData.title, searchTerm)) return true;
 
