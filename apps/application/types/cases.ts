@@ -22,6 +22,7 @@ export interface Case {
   isArchived: boolean;
   tags?: string[];
   expedientNumber?: string;
+  fre?: string;
   // Access control fields (added by getCases query)
   accessLevel?: "basic" | "advanced" | "admin";
   source?: "user" | "team";

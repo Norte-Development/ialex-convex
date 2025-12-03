@@ -986,4 +986,27 @@ export default defineSchema({
     .index("by_timestamp", ["timestamp"])
     .index("by_user_and_timestamp", ["userId", "timestamp"])
     .index("by_case_and_timestamp", ["caseId", "timestamp"]),
+
+  // Notifications - user-facing notifications from PJN and system events
+  notifications: defineTable({
+    userId: v.id("users"),
+    kind: v.string(),
+    title: v.string(),
+    bodyPreview: v.string(), // Short preview text for the notification
+    source: v.string(),
+    readAt: v.optional(v.number()), // Timestamp when notification was read
+    // Optional references to related entities
+    caseId: v.optional(v.id("cases")),
+    documentId: v.optional(v.id("documents")),
+    pjnEventId: v.optional(v.string()), // For PJN notifications
+    // Link target for navigation (e.g., "/cases/123" or "/documents/456")
+    linkTarget: v.optional(v.string()),
+    createdAt: v.number(),
+  })
+    .index("by_user", ["userId"])
+    .index("by_user_and_createdAt", ["userId", "createdAt"])
+    .index("by_user_and_readAt", ["userId", "readAt"])
+    .index("by_user_and_kind", ["userId", "kind"])
+    .index("by_case", ["caseId"])
+    .index("by_pjnEventId", ["pjnEventId"]), // For idempotency checks
 });

@@ -10,8 +10,15 @@ export class GcsStorage {
   private documentsBucket: string;
 
   constructor() {
+    const credentials = config.gcsSignerClientEmail && config.gcsSignerPrivateKey
+      ? {
+          client_email: config.gcsSignerClientEmail,
+          private_key: config.gcsSignerPrivateKey.replace(/\\n/g, "\n"),
+        }
+      : undefined;
+
     this.storage = new Storage({
-      projectId: config.gcsProjectId || undefined,
+      credentials,
     });
     this.documentsBucket = config.gcsDocumentsBucket;
   }

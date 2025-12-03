@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useMutation, useQuery } from "convex/react";
+import { useMutation } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import { Id } from "../../../convex/_generated/dataModel";
 import {
@@ -51,6 +51,7 @@ export default function EditCaseDialog({
       | "archivado"
       | "cancelado",
     priority: "medium" as "low" | "medium" | "high",
+    fre: "",
     category: "",
   });
 
@@ -64,6 +65,7 @@ export default function EditCaseDialog({
         status: case_.status || "pendiente",
         priority: case_.priority || "medium",
         category: case_.category || "",
+        fre: case_.fre || "",
       });
     }
   }, [case_]);
@@ -96,6 +98,7 @@ export default function EditCaseDialog({
         status: formData.status,
         priority: formData.priority,
         category: formData.category || undefined,
+        fre: formData.fre || undefined,
       });
 
       toast.success("Caso actualizado exitosamente");
@@ -165,6 +168,15 @@ export default function EditCaseDialog({
                 onChange={(e) =>
                   handleInputChange("expedientNumber", e.target.value)
                 }
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="fre">FRE</Label>
+              <Input
+                id="fre"
+                placeholder="Ej: 12345/2024"
+                value={formData.fre}
+                onChange={(e) => handleInputChange("fre", e.target.value)}
               />
             </div>
 

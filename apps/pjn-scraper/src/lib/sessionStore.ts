@@ -40,8 +40,15 @@ export class SessionStore {
     this.localBaseDir = path.resolve(process.cwd(), "storage");
 
     // Only initialize GCS client when not using local storage
+    const credentials = config.gcsSignerClientEmail && config.gcsSignerPrivateKey
+      ? {
+          client_email: config.gcsSignerClientEmail,
+          private_key: config.gcsSignerPrivateKey.replace(/\\n/g, "\n"),
+        }
+      : undefined;
+
     this.storage = new Storage({
-      projectId: config.gcsProjectId || undefined,
+      credentials,
     });
     this.sessionsBucket = config.gcsSessionsBucket;
   }

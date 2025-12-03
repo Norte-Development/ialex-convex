@@ -3,9 +3,16 @@ import { Storage } from "@google-cloud/storage";
 import { config } from "../config";
 import { logger } from "../middleware/logging";
 
-const router = Router();
+const router: Router = Router();
+const credentials = config.gcsSignerClientEmail && config.gcsSignerPrivateKey
+  ? {
+      client_email: config.gcsSignerClientEmail,
+      private_key: config.gcsSignerPrivateKey.replace(/\\n/g, "\n"),
+    }
+  : undefined;
+
 const storage = new Storage({
-  projectId: config.gcsProjectId || undefined,
+  credentials,
 });
 
 /**

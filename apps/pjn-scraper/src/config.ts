@@ -32,8 +32,9 @@ export const config = {
 
   // GCS Configuration
   gcsSessionsBucket: process.env.GCS_PJN_SESSIONS_BUCKET || "ialex-pjn-sessions",
-  gcsDocumentsBucket: process.env.GCS_PJN_DOCUMENTS_BUCKET || "ialex-pjn-documents",
-  gcsProjectId: process.env.GOOGLE_CLOUD_PROJECT_ID || process.env.GCLOUD_PROJECT || "",
+  gcsDocumentsBucket: process.env.GCS_PJN_DOCUMENTS_BUCKET || process.env.GCS_BUCKET || "ialex-pjn-documents",
+  gcsSignerClientEmail: process.env.GCS_SIGNER_CLIENT_EMAIL || "",
+  gcsSignerPrivateKey: process.env.GCS_SIGNER_PRIVATE_KEY || "",
 
   // Document Processor
   documentProcessorUrl:
@@ -60,8 +61,16 @@ export const config = {
 export function validateConfig(): void {
   const required = [
     { key: "GCS_PJN_SESSIONS_BUCKET", value: config.gcsSessionsBucket },
-    { key: "GCS_PJN_DOCUMENTS_BUCKET", value: config.gcsDocumentsBucket },
+    { key: "GCS_PJN_DOCUMENTS_BUCKET or GCS_BUCKET", value: config.gcsDocumentsBucket },
   ];
+
+  // Only require GCS credentials when not using local session store
+  if (!config.useLocalSessionStore) {
+    required.push(
+      { key: "GCS_SIGNER_CLIENT_EMAIL", value: config.gcsSignerClientEmail },
+      { key: "GCS_SIGNER_PRIVATE_KEY", value: config.gcsSignerPrivateKey }
+    );
+  }
 
   const missing = required.filter(({ value }) => !value);
   if (missing.length > 0) {

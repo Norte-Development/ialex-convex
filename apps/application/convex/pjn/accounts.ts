@@ -427,6 +427,32 @@ export const updateSyncStatus = internalMutation({
 });
 
 /**
+ * Internal: Clear needsReauth flag after successful reauth
+ */
+export const clearNeedsReauth = internalMutation({
+  args: {
+    userId: v.id("users"),
+  },
+  handler: async (ctx, args): Promise<void> => {
+    const account = await ctx.db
+      .query("pjnAccounts")
+      .withIndex("by_user", (q) => q.eq("userId", args.userId))
+      .first();
+
+    if (!account) {
+      return;
+    }
+
+    await ctx.db.patch(account._id, {
+      needsReauth: false,
+      sessionValid: true,
+      lastAuthAt: Date.now(),
+      updatedAt: Date.now(),
+    });
+  },
+});
+
+/**
  * Internal: Mark account as needing reauth
  */
 export const markNeedsReauth = internalMutation({

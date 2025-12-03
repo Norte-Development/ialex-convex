@@ -24,6 +24,112 @@ export const syncNotificationsForUser = internalAction({
       throw new Error("SERVICE_AUTH_SECRET environment variable is not set");
     }
 
+    const attemptAutomaticReauth = async (): Promise<
+      "ok" | "auth_failed" | "error" | "no_credentials"
+    > => {
+      // Get decrypted credentials
+      const credentials = await ctx.runQuery(internal.pjn.accounts.getDecryptedPassword, {
+        userId: args.userId,
+      });
+
+      if (!credentials) {
+        console.log(
+          `No stored credentials found for user ${args.userId}, manual reauth required`,
+        );
+        return "no_credentials";
+      }
+
+      try {
+        const reauthResponse = await fetch(`${scraperUrl}/reauth`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "X-Service-Auth": serviceAuthSecret,
+          },
+          body: JSON.stringify({
+            userId: args.userId as string,
+            username: credentials.username,
+            password: credentials.password,
+          }),
+        });
+
+        if (!reauthResponse.ok) {
+          const errorText = await reauthResponse.text();
+          console.error(
+            `Reauth failed for user ${args.userId}: ${reauthResponse.status} - ${errorText}`,
+          );
+          await ctx.runMutation(internal.pjn.accounts.markNeedsReauth, {
+            userId: args.userId,
+            reason: `Scraper returned ${reauthResponse.status}`,
+          });
+          return "error";
+        }
+
+        const reauthResult = (await reauthResponse.json()) as {
+          status: string;
+          reason?: string;
+          error?: string;
+        };
+
+        if (reauthResult.status === "AUTH_FAILED") {
+          const reason =
+            reauthResult.reason && typeof reauthResult.reason === "string"
+              ? reauthResult.reason
+              : "Invalid credentials";
+
+          console.log(
+            `Automatic reauth failed for user ${args.userId}: ${reason}`,
+          );
+          await ctx.runMutation(internal.pjn.accounts.markNeedsReauth, {
+            userId: args.userId,
+            reason,
+          });
+          return "auth_failed";
+        }
+
+        if (reauthResult.status === "ERROR") {
+          const errorMessage =
+            reauthResult.error && typeof reauthResult.error === "string"
+              ? reauthResult.error
+              : "Unknown error";
+
+          console.error(
+            `Reauth error for user ${args.userId}: ${errorMessage}`,
+          );
+          await ctx.runMutation(internal.pjn.accounts.markNeedsReauth, {
+            userId: args.userId,
+            reason: errorMessage,
+          });
+          return "error";
+        }
+
+        if (reauthResult.status === "OK") {
+          console.log(`Automatic reauth succeeded for user ${args.userId}`);
+          await ctx.runMutation(internal.pjn.accounts.clearNeedsReauth, {
+            userId: args.userId,
+          });
+          return "ok";
+        }
+
+        console.warn(
+          `Unexpected reauth status for user ${args.userId}: ${reauthResult.status}`,
+        );
+        await ctx.runMutation(internal.pjn.accounts.markNeedsReauth, {
+          userId: args.userId,
+          reason: `Unexpected reauth status: ${reauthResult.status}`,
+        });
+        return "error";
+      } catch (error) {
+        console.error(`Reauth request failed for user ${args.userId}:`, error);
+        await ctx.runMutation(internal.pjn.accounts.markNeedsReauth, {
+          userId: args.userId,
+          reason:
+            error instanceof Error ? error.message : "Automatic reauth failed",
+        });
+        return "error";
+      }
+    };
+
     // Get account info
     const account: Array<{
       accountId: string;
@@ -34,9 +140,20 @@ export const syncNotificationsForUser = internalAction({
       needsReauth: boolean | undefined;
     }> = await ctx.runQuery(internal.pjn.accounts.listActiveAccounts);
     const userAccount = account.find((a) => a.userId === args.userId);
-    if (!userAccount || userAccount.needsReauth) {
-      console.log(`Skipping sync for user ${args.userId}: no account or needs reauth`);
-      return { skipped: true, reason: userAccount?.needsReauth ? "needs_reauth" : "no_account" };
+    
+    if (!userAccount) {
+      console.log(`Skipping sync for user ${args.userId}: no account`);
+      return { skipped: true, reason: "no_account" };
+    }
+
+    // If account is already marked as needing reauth, attempt automatic reauth using stored credentials
+    if (userAccount.needsReauth) {
+      console.log(`Attempting automatic reauth for user ${args.userId}`);
+      const reauthResult = await attemptAutomaticReauth();
+      if (reauthResult !== "ok") {
+        // Reauth with stored credentials failed or is not possible, require manual reauth
+        return { skipped: true, reason: "needs_reauth" };
+      }
     }
 
     // Prepare request
@@ -57,74 +174,132 @@ export const syncNotificationsForUser = internalAction({
     }
 
     try {
-      // Call scraper service
-      const response = await fetch(`${scraperUrl}/scrape/events`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "X-Service-Auth": serviceAuthSecret,
-        },
-        body: JSON.stringify(requestBody),
-      });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`Scraper returned ${response.status}: ${errorText}`);
-      }
-
-      const result = await response.json();
-
-      if (result.status === "AUTH_REQUIRED") {
-        // Mark account as needing reauth
-        await ctx.runMutation(internal.pjn.accounts.markNeedsReauth, {
-          userId: args.userId,
-          reason: result.reason || "Session expired",
+      const fetchAndProcessEvents = async (): Promise<{
+        kind: "ok" | "auth_required";
+        eventsProcessed?: number;
+        stats?: { fetchedPages: number; newEvents: number };
+      }> => {
+        const response = await fetch(`${scraperUrl}/scrape/events`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "X-Service-Auth": serviceAuthSecret,
+          },
+          body: JSON.stringify(requestBody),
         });
-        return { skipped: true, reason: "auth_required" };
-      }
 
-      if (result.status === "ERROR") {
-        throw new Error(result.error || "Unknown error from scraper");
-      }
-
-      if (result.status === "OK") {
-        // Process events
-        const events = result.events || [];
-        let lastEventId: string | undefined;
-
-        for (const event of events) {
-          // Create activity log entry
-          await ctx.runMutation(internal.pjn.sync.createActivityLogEntry, {
-            userId: args.userId,
-            event,
-          });
-
-          // Create or update document entry
-          if (event.gcsPath) {
-            await ctx.runMutation(internal.pjn.sync.createDocumentEntry, {
-              userId: args.userId,
-              event,
-            });
-          }
-
-          lastEventId = event.pjnEventId;
+        if (!response.ok) {
+          const errorText = await response.text();
+          throw new Error(`Scraper returned ${response.status}: ${errorText}`);
         }
 
-        // Update sync status
-        await ctx.runMutation(internal.pjn.accounts.updateSyncStatus, {
-          userId: args.userId,
-          lastEventId,
-          lastSyncedAt: Date.now(),
-        });
+        const result = await response.json();
 
-        return {
-          success: true,
-          eventsProcessed: events.length,
-          stats: result.stats,
-        };
+        if (result.status === "AUTH_REQUIRED") {
+          return { kind: "auth_required" };
+        }
+
+        if (result.status === "ERROR") {
+          throw new Error(result.error || "Unknown error from scraper");
+        }
+
+        if (result.status === "OK") {
+          // Process events
+          const events = result.events || [];
+          let lastEventId: string | undefined;
+
+          for (const event of events) {
+            // Create activity log entry
+            const activityLogResult = await ctx.runMutation(
+              internal.pjn.sync.createActivityLogEntry,
+              {
+                userId: args.userId,
+                event,
+              },
+            );
+
+            // Create or update document entry
+            if (event.gcsPath) {
+              await ctx.runMutation(internal.pjn.sync.createDocumentEntry, {
+                userId: args.userId,
+                event,
+              });
+            }
+
+            // Create user-facing notification for this PJN event
+            await ctx.runMutation(internal.notifications.createForUser, {
+              userId: args.userId,
+              kind: "pjn_notification",
+              title: event.fre
+                ? `Nueva notificación PJN - ${event.fre}`
+                : "Nueva notificación PJN",
+              bodyPreview:
+                event.description ||
+                event.category ||
+                "Nueva notificación del portal PJN",
+              source: "PJN-Portal",
+              caseId: activityLogResult?.caseId,
+              pjnEventId: event.pjnEventId,
+              linkTarget: activityLogResult?.caseId
+                ? `/cases/${activityLogResult.caseId}`
+                : undefined,
+            });
+
+            lastEventId = event.pjnEventId;
+          }
+
+          // Update sync status
+          await ctx.runMutation(internal.pjn.accounts.updateSyncStatus, {
+            userId: args.userId,
+            lastEventId,
+            lastSyncedAt: Date.now(),
+          });
+
+          return {
+            kind: "ok",
+            eventsProcessed: events.length,
+            stats: result.stats,
+          };
+        }
+
+        throw new Error(`Unexpected response status: ${result.status}`);
+      };
+
+      // First attempt to fetch and process events with the current session
+      let eventsResult = await fetchAndProcessEvents();
+
+      if (eventsResult.kind === "auth_required") {
+        // Session is expired or invalid. Attempt automatic reauth using stored credentials.
+        console.log(
+          `Session expired or invalid for user ${args.userId}, attempting automatic reauth before skipping`,
+        );
+
+        const reauthResult = await attemptAutomaticReauth();
+
+        if (reauthResult !== "ok") {
+          // Automatic reauth failed (invalid credentials, error, or missing credentials).
+          // At this point the account is already marked as needsReauth inside attemptAutomaticReauth.
+          return { skipped: true, reason: "auth_required" };
+        }
+
+        // Reauth succeeded; retry fetching and processing events once
+        eventsResult = await fetchAndProcessEvents();
+
+        if (eventsResult.kind === "auth_required") {
+          // Still auth required after a successful reauth; treat as needsReauth and skip.
+          await ctx.runMutation(internal.pjn.accounts.markNeedsReauth, {
+            userId: args.userId,
+            reason: "Session still invalid after automatic reauth",
+          });
+          return { skipped: true, reason: "auth_required" };
+        }
       }
 
-      throw new Error(`Unexpected response status: ${result.status}`);
+      return {
+        success: true,
+        eventsProcessed: eventsResult.eventsProcessed ?? 0,
+        stats: eventsResult.stats ?? { fetchedPages: 0, newEvents: 0 },
+      };
     } catch (error) {
       console.error(`Sync failed for user ${args.userId}:`, error);
       await ctx.runMutation(internal.pjn.accounts.markNeedsReauth, {
@@ -138,6 +313,7 @@ export const syncNotificationsForUser = internalAction({
 
 /**
  * Create activity log entry for a PJN event
+ * Returns the caseId if found, for use in notification creation
  */
 export const createActivityLogEntry = internalMutation({
   args: {
@@ -152,9 +328,9 @@ export const createActivityLogEntry = internalMutation({
       rawPayload: v.any(),
     }),
   },
-  handler: async (ctx, args): Promise<void> => {
+  handler: async (ctx, args): Promise<{ caseId: Id<"cases"> | undefined }> => {
     // Try to find case by FRE
-    let caseId: string | undefined;
+    let caseId: Id<"cases"> | undefined;
     if (args.event.fre) {
       const caseMatch = await ctx.db
         .query("cases")
@@ -180,6 +356,8 @@ export const createActivityLogEntry = internalMutation({
       },
       timestamp: new Date(args.event.timestamp).getTime() || Date.now(),
     });
+
+    return { caseId };
   },
 });
 
@@ -225,8 +403,17 @@ export const createDocumentEntry = internalMutation({
       }
     }
 
-    // If no case found, we still create the document but without caseId
-    // It can be linked later when the case is created
+    if (!caseId) {
+      console.log(
+        "Skipping PJN document creation because no matching case was found for event",
+        {
+          userId: args.userId,
+          pjnEventId: args.event.pjnEventId,
+          fre: args.event.fre,
+        },
+      );
+      return;
+    }
 
     // Check if document already exists
     const existing = await ctx.db

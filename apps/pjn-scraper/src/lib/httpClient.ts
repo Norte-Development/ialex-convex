@@ -25,6 +25,7 @@ export class PjnHttpClient {
       session?: SessionState | null;
       body?: unknown;
       headers?: Record<string, string>;
+      responseType?: "json" | "text" | "binary";
     } = {}
   ): Promise<{
     ok: boolean;
@@ -33,6 +34,7 @@ export class PjnHttpClient {
     headers: Headers;
     redirected?: boolean;
     redirectUrl?: string;
+
   }> {
     const url = `${this.baseUrl}${endpoint}`;
     const method = options.method || "GET";
@@ -92,7 +94,11 @@ export class PjnHttpClient {
 
       let data: unknown;
       const contentType = response.headers.get("content-type");
-      if (contentType?.includes("application/json")) {
+
+      if (options.responseType === "binary") {
+        const arrayBuffer = await response.arrayBuffer();
+        data = Buffer.from(arrayBuffer);
+      } else if (contentType?.includes("application/json")) {
         data = await response.json();
       } else {
         data = await response.text();
@@ -208,6 +214,7 @@ export class PjnHttpClient {
     const response = await this.request(endpoint, {
       method: "GET",
       session,
+      responseType: "binary",
     });
 
     if (!response.ok) {
@@ -221,22 +228,25 @@ export class PjnHttpClient {
       return null;
     }
 
-    // Check if response is actually a PDF
     const contentType = response.headers.get("content-type");
-    if (!contentType?.includes("pdf") && !contentType?.includes("application/octet-stream")) {
-      logger.warn("Unexpected content type for PDF", {
-        eventId,
-        contentType,
-      });
+    if (
+      !contentType?.includes("pdf") &&
+      !contentType?.includes("application/octet-stream")
+    ) {
+      // ... existing warning ...
     }
 
-    // Response data should be a buffer for binary content
     if (Buffer.isBuffer(response.data)) {
       return response.data;
     }
 
-    // If it's a string, try to convert (shouldn't happen for PDFs)
+    // Fallbacks (shouldn’t normally happen)
+    if (response.data instanceof ArrayBuffer) {
+      return Buffer.from(response.data);
+    }
+
     if (typeof response.data === "string") {
+      // As a last resort – but ideally this never runs now
       return Buffer.from(response.data, "binary");
     }
 

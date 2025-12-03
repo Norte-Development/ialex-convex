@@ -72,6 +72,7 @@ export const createCase = mutation({
     priority: v.union(v.literal("low"), v.literal("medium"), v.literal("high")),
     category: v.optional(v.string()),
     estimatedHours: v.optional(v.number()),
+    fre: v.optional(v.string()),
     teamId: v.optional(v.id("teams")), // Optional team context
   },
   handler: async (ctx, args) => {
@@ -97,6 +98,7 @@ export const createCase = mutation({
       priority: args.priority,
       category: args.category,
       estimatedHours: args.estimatedHours,
+      fre: args.fre,
       startDate: Date.now(),
       isArchived: false,
     });
@@ -161,6 +163,7 @@ export const updateCase = mutation({
     title: v.optional(v.string()),
     description: v.optional(v.string()),
     expedientNumber: v.optional(v.string()),
+    fre: v.optional(v.string()),
     status: v.optional(
       v.union(
         v.literal("pendiente"),
@@ -192,7 +195,7 @@ export const updateCase = mutation({
     if (args.priority !== undefined) updates.priority = args.priority;
     if (args.category !== undefined) updates.category = args.category;
     if (args.assignedLawyer !== undefined) updates.assignedLawyer = args.assignedLawyer;
-
+    if (args.fre !== undefined) updates.fre = args.fre;
     await ctx.db.patch(args.caseId, updates);
 
     // Send notification if status changed
