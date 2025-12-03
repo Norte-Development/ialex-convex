@@ -29,6 +29,16 @@ import {
 import { toast } from "sonner";
 import { useState } from "react";
 import { exportToPdfReact } from "@/components/Editor/utils/exportPdfReact";
+// @ts-ignore - TypeScript cache issue with @tiptap/core types
+import type { JSONContent } from "@tiptap/react";
+
+// Interfaz para el snapshot que viene de Convex
+interface SnapshotData {
+  content?: string | JSONContent;
+  snapshot?: {
+    content?: string | JSONContent;
+  };
+}
 
 export default function EscritosList({
   all_escritos,
@@ -161,15 +171,15 @@ function EscritoRow({
         return;
       }
 
-      // Cast to any to handle dynamic snapshot structure
-      const snapshotData: any = snapshot;
-      
+      // Tipado del snapshot usando la interfaz SnapshotData
+      const snapshotData = snapshot as SnapshotData;
+
       // Parse content from snapshot (same pattern as fetchContent)
       let content;
-      if (typeof snapshotData.content === 'string') {
+      if (typeof snapshotData.content === "string") {
         content = JSON.parse(snapshotData.content);
       } else if (snapshotData.snapshot?.content) {
-        if (typeof snapshotData.snapshot.content === 'string') {
+        if (typeof snapshotData.snapshot.content === "string") {
           content = JSON.parse(snapshotData.snapshot.content);
         } else {
           content = snapshotData.snapshot.content;
