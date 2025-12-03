@@ -32,7 +32,7 @@ export default function PlanCard({
   };
 
   return (
-    <div className="h-[75%] w-[300px] bg-white/90 flex flex-col justify-start items-center p-4 rounded-lg">
+    <div className="h-[80%] w-[45%] bg-white/90 flex flex-col justify-start items-center p-4 rounded-lg">
       <div className="w-full h-[30%] gap-1  flex flex-col justify-between items-start px-2 pb-4 border-b border-dashed border-gray-500">
         <p
           className={`text-[15px] font-bold ${isFeatured ? "text-[#1559EA]" : "text-gray-600"}`}
@@ -45,12 +45,12 @@ export default function PlanCard({
         </div>
         <p className="text-xs text-gray-500">{description}</p>
       </div>
-      <div className="w-full h-full flex flex-col justify-start items-start px-2 pt-4 ">
+      <div className="w-full h-full flex flex-col justify-start items-start px-2 pt-5 ">
         <div className="flex flex-col gap-6  ">
           {points.map((point, index) => (
             <p
               key={index}
-              className="text-black text-[14px] flex items-center gap-2"
+              className="text-black text-[12px] flex items-center gap-2"
             >
               <div className="bg-white p-0.5 rounded-full">
                 <Check className="w-4 h-4" color="green" />{" "}
@@ -61,7 +61,7 @@ export default function PlanCard({
         </div>
       </div>
       <Button
-        className={`w-full h-[15%] text-white text-2xl font-bold ${isFeatured ? "" : "bg-black hover:bg-black/80"}`}
+        className={`w-full h-[12%] text-white text-2xl font-bold ${isFeatured ? "" : "bg-black hover:bg-black/80"}`}
         onClick={() => handleUpgrade(plan)}
         disabled={isUpgrading}
       >
