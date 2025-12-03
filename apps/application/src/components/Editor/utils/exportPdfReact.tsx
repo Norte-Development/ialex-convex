@@ -7,10 +7,10 @@ import {
   Image,
   StyleSheet,
   pdf,
-} from '@react-pdf/renderer';
-import { saveAs } from 'file-saver';
+} from "@react-pdf/renderer";
+import { saveAs } from "file-saver";
 // @ts-ignore - TypeScript cache issue with @tiptap/core types
-import type { JSONContent } from '@tiptap/react';
+import type { JSONContent } from "@tiptap/react";
 
 interface PdfExportOptions {
   title: string;
@@ -25,68 +25,68 @@ interface PdfExportOptions {
  */
 const styles = StyleSheet.create({
   page: {
-    padding: '10mm',
+    padding: "10mm",
     fontSize: 11,
-    fontFamily: 'Times-Roman',
+    fontFamily: "Times-Roman",
     lineHeight: 1.5,
   },
   // Header metadata
   courtName: {
     fontSize: 14,
-    fontWeight: 'bold',
-    textAlign: 'center',
+    fontWeight: "bold",
+    textAlign: "center",
     marginBottom: 8,
   },
   expedientNumber: {
     fontSize: 11,
-    textAlign: 'center',
+    textAlign: "center",
     marginBottom: 12,
   },
   documentTitle: {
     fontSize: 18,
-    fontWeight: 'bold',
-    textAlign: 'center',
+    fontWeight: "bold",
+    textAlign: "center",
     marginBottom: 20,
   },
   // Párrafos
   paragraph: {
     marginBottom: 8,
-    textAlign: 'left',
+    textAlign: "left",
   },
   // Headings
   heading1: {
     fontSize: 24,
-    fontWeight: 'bold',
+    fontWeight: "bold",
     marginBottom: 12,
     marginTop: 16,
   },
   heading2: {
     fontSize: 20,
-    fontWeight: 'bold',
+    fontWeight: "bold",
     marginBottom: 10,
     marginTop: 14,
   },
   heading3: {
     fontSize: 16,
-    fontWeight: 'bold',
+    fontWeight: "bold",
     marginBottom: 8,
     marginTop: 12,
   },
   heading4: {
     fontSize: 14,
-    fontWeight: 'bold',
+    fontWeight: "bold",
     marginBottom: 6,
     marginTop: 10,
   },
   heading5: {
     fontSize: 12,
-    fontWeight: 'bold',
+    fontWeight: "bold",
     marginBottom: 4,
     marginTop: 8,
   },
   heading6: {
     fontSize: 11,
-    fontWeight: 'bold',
+    fontWeight: "bold",
     marginBottom: 4,
     marginTop: 6,
   },
@@ -94,7 +94,7 @@ const styles = StyleSheet.create({
   listItem: {
     marginBottom: 4,
     marginLeft: 20,
-    flexDirection: 'row',
+    flexDirection: "row",
   },
   listBullet: {
     width: 15,
@@ -110,16 +110,16 @@ const styles = StyleSheet.create({
     marginBottom: 8,
     paddingLeft: 12,
     borderLeftWidth: 3,
-    borderLeftColor: '#cccccc',
-    fontStyle: 'italic',
+    borderLeftColor: "#cccccc",
+    fontStyle: "italic",
   },
   // Code block
   codeBlock: {
-    backgroundColor: '#f5f5f5',
+    backgroundColor: "#f5f5f5",
     padding: 8,
     marginTop: 8,
     marginBottom: 8,
-    fontFamily: 'Courier',
+    fontFamily: "Courier",
     fontSize: 10,
   },
   // Tabla
@@ -128,43 +128,43 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   tableRow: {
-    flexDirection: 'row',
+    flexDirection: "row",
     borderBottomWidth: 1,
-    borderBottomColor: '#cccccc',
+    borderBottomColor: "#cccccc",
   },
   tableCell: {
     flex: 1,
     padding: 4,
     borderRightWidth: 1,
-    borderRightColor: '#cccccc',
+    borderRightColor: "#cccccc",
   },
   tableHeader: {
     flex: 1,
     padding: 4,
-    backgroundColor: '#e0e0e0',
-    fontWeight: 'bold',
+    backgroundColor: "#e0e0e0",
+    fontWeight: "bold",
     borderRightWidth: 1,
-    borderRightColor: '#000000',
+    borderRightColor: "#000000",
   },
   // Link
   link: {
-    color: '#0563C1',
-    textDecoration: 'underline',
+    color: "#0563C1",
+    textDecoration: "underline",
   },
   // Horizontal rule
   horizontalRule: {
     marginTop: 12,
     marginBottom: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#000000',
+    borderBottomColor: "#000000",
   },
   // Image
   image: {
     marginTop: 12,
     marginBottom: 12,
-    maxWidth: '100%',
+    maxWidth: "100%",
     maxHeight: 400,
-    objectFit: 'contain',
+    objectFit: "contain",
   },
 });
 
@@ -176,16 +176,14 @@ export async function exportToPdfReact(
   content: JSONContent,
   options: PdfExportOptions,
 ): Promise<void> {
-  console.log('🔍 Contenido a exportar (React-PDF):', content);
-
   // Generar el documento PDF como blob
-  const blob = await pdf(<EscritoDocument content={content} options={options} />).toBlob();
+  const blob = await pdf(
+    <EscritoDocument content={content} options={options} />,
+  ).toBlob();
 
   // Descargar el archivo
-  const filename = `${options.title.replace(/\s+/g, '_')}.pdf`;
+  const filename = `${options.title.replace(/\s+/g, "_")}.pdf`;
   saveAs(blob, filename);
-
-  console.log('✅ PDF generado con React-PDF:', filename);
 }
 
 /**
@@ -228,36 +226,34 @@ function EscritoDocument({
  * Convierte un nodo individual de TipTap a componentes React-PDF
  */
 function ConvertNode({ node }: { node: JSONContent }) {
-  console.log('📝 Convirtiendo nodo:', node.type, node.attrs);
-
   switch (node.type) {
-    case 'paragraph':
+    case "paragraph":
       return <ConvertParagraph node={node} />;
 
-    case 'heading':
+    case "heading":
       return <ConvertHeading node={node} />;
 
-    case 'bulletList':
-    case 'orderedList':
-      return <ConvertList node={node} numbered={node.type === 'orderedList'} />;
+    case "bulletList":
+    case "orderedList":
+      return <ConvertList node={node} numbered={node.type === "orderedList"} />;
 
-    case 'blockquote':
+    case "blockquote":
       return <ConvertBlockquote node={node} />;
 
-    case 'codeBlock':
+    case "codeBlock":
       return <ConvertCodeBlock node={node} />;
 
-    case 'table':
+    case "table":
       return <ConvertTable node={node} />;
 
-    case 'image':
+    case "image":
       return <ConvertImage node={node} />;
 
-    case 'horizontalRule':
+    case "horizontalRule":
       return <View style={styles.horizontalRule} />;
 
-    case 'hardBreak':
-      return <Text style={{ marginBottom: 4 }}>{'\n'}</Text>;
+    case "hardBreak":
+      return <Text style={{ marginBottom: 4 }}>{"\n"}</Text>;
 
     default:
       console.warn(`⚠️ Tipo de nodo no soportado aún: ${node.type}`);
@@ -273,13 +269,22 @@ function ConvertParagraph({ node }: { node: JSONContent }) {
   const alignment = getAlignment(node.attrs?.textAlign);
   const content = node.content || [];
 
+  // Extraer lineHeight de las marcas textStyle en el contenido inline
+  const lineHeight = extractLineHeight(content);
+
   // Verificar si hay imágenes en el contenido
-  const hasImage = content.some((n: JSONContent) => n.type === 'image');
+  const hasImage = content.some((n: JSONContent) => n.type === "image");
+
+  // Construir estilos dinámicos
+  const paragraphStyle: any = { textAlign: alignment };
+  if (lineHeight) {
+    paragraphStyle.lineHeight = parseFloat(lineHeight);
+  }
 
   // Si no hay imágenes, renderizar normalmente
   if (!hasImage) {
     return (
-      <Text style={[styles.paragraph, { textAlign: alignment }]}>
+      <Text style={[styles.paragraph, paragraphStyle]}>
         {content.map((child: JSONContent, index: number) => (
           <ConvertInlineNode key={index} node={child} />
         ))}
@@ -294,21 +299,24 @@ function ConvertParagraph({ node }: { node: JSONContent }) {
   const flushTextSegment = () => {
     if (textSegment.length > 0) {
       elements.push(
-        <Text key={`text-${elements.length}`} style={[styles.paragraph, { textAlign: alignment }]}>
+        <Text
+          key={`text-${elements.length}`}
+          style={[styles.paragraph, paragraphStyle]}
+        >
           {textSegment.map((child: JSONContent, index: number) => (
             <ConvertInlineNode key={index} node={child} />
           ))}
-        </Text>
+        </Text>,
       );
       textSegment = [];
     }
   };
 
   content.forEach((child: JSONContent) => {
-    if (child.type === 'image') {
+    if (child.type === "image") {
       // Vaciar el segmento de texto actual
       flushTextSegment();
-      
+
       // Agregar la imagen
       const src = child.attrs?.src;
       if (src) {
@@ -317,7 +325,7 @@ function ConvertParagraph({ node }: { node: JSONContent }) {
             key={`image-${elements.length}`}
             src={src}
             style={styles.image}
-          />
+          />,
         );
       }
     } else {
@@ -330,11 +338,7 @@ function ConvertParagraph({ node }: { node: JSONContent }) {
   flushTextSegment();
 
   // Retornar todos los elementos (puede ser una mezcla de Text e Image)
-  return (
-    <>
-      {elements}
-    </>
-  );
+  return <>{elements}</>;
 }
 
 /**
@@ -344,11 +348,22 @@ function ConvertHeading({ node }: { node: JSONContent }) {
   const level = node.attrs?.level || 1;
   const alignment = getAlignment(node.attrs?.textAlign);
   const headingStyle = getHeadingStyle(level);
-  const text = extractText(node.content || []);
+  const content = node.content || [];
+
+  // Extraer lineHeight de las marcas textStyle en el contenido inline
+  const lineHeight = extractLineHeight(content);
+
+  // Construir estilos dinámicos
+  const dynamicStyle: any = { textAlign: alignment };
+  if (lineHeight) {
+    dynamicStyle.lineHeight = parseFloat(lineHeight);
+  }
 
   return (
-    <Text style={[headingStyle, { textAlign: alignment }]}>
-      {text}
+    <Text style={[headingStyle, dynamicStyle]}>
+      {content.map((child: JSONContent, index: number) => (
+        <ConvertInlineNode key={index} node={child} />
+      ))}
     </Text>
   );
 }
@@ -358,20 +373,20 @@ function ConvertHeading({ node }: { node: JSONContent }) {
  */
 function ConvertInlineNode({ node }: { node: JSONContent }) {
   // Las imágenes inline se manejan en ConvertParagraph
-  if (node.type === 'image') {
+  if (node.type === "image") {
     // No debería llegar aca si ConvertParagraph hace su trabajo
     return null;
   }
 
-  if (node.type === 'text') {
-    const text = node.text || '';
+  if (node.type === "text") {
+    const text = node.text || "";
     const marks = node.marks || [];
 
     // Construir el objeto de estilo basado en las marks
     const textStyle: any = {};
 
     // Check if there's a link mark
-    const linkMark = marks.find((m: any) => m.type === 'link');
+    const linkMark = marks.find((m: any) => m.type === "link");
     if (linkMark?.attrs?.href) {
       return (
         <Link src={linkMark.attrs.href} style={styles.link}>
@@ -381,36 +396,36 @@ function ConvertInlineNode({ node }: { node: JSONContent }) {
     }
 
     // Bold
-    if (marks.some((m: any) => m.type === 'bold')) {
-      textStyle.fontWeight = 'bold';
+    if (marks.some((m: any) => m.type === "bold")) {
+      textStyle.fontWeight = "bold";
     }
 
     // Italic
-    if (marks.some((m: any) => m.type === 'italic')) {
-      textStyle.fontStyle = 'italic';
+    if (marks.some((m: any) => m.type === "italic")) {
+      textStyle.fontStyle = "italic";
     }
 
     // Underline
-    if (marks.some((m: any) => m.type === 'underline')) {
-      textStyle.textDecoration = 'underline';
+    if (marks.some((m: any) => m.type === "underline")) {
+      textStyle.textDecoration = "underline";
     }
 
     // Color (desde textStyle mark)
-    const colorMark = marks.find((m: any) => m.type === 'textStyle');
+    const colorMark = marks.find((m: any) => m.type === "textStyle");
     if (colorMark?.attrs?.color) {
       textStyle.color = colorMark.attrs.color;
     }
 
     // Strike through
-    if (marks.some((m: any) => m.type === 'strike')) {
-      textStyle.textDecoration = 'line-through';
+    if (marks.some((m: any) => m.type === "strike")) {
+      textStyle.textDecoration = "line-through";
     }
 
     return <Text style={textStyle}>{text}</Text>;
   }
 
-  if (node.type === 'hardBreak') {
-    return <Text>{'\n'}</Text>;
+  if (node.type === "hardBreak") {
+    return <Text>{"\n"}</Text>;
   }
 
   return null;
@@ -421,26 +436,42 @@ function ConvertInlineNode({ node }: { node: JSONContent }) {
  */
 function extractText(content: JSONContent[]): string {
   return content
-    .filter((node) => node.type === 'text')
-    .map((node) => node.text || '')
-    .join('');
+    .filter((node) => node.type === "text")
+    .map((node) => node.text || "")
+    .join("");
+}
+
+/**
+ * Extrae el lineHeight de las marcas textStyle en el contenido inline
+ */
+function extractLineHeight(content: JSONContent[]): string | undefined {
+  // Buscar en el primer nodo de texto que tenga la marca textStyle con lineHeight
+  for (const node of content) {
+    if (node.type === "text" && node.marks) {
+      const textStyleMark = node.marks.find((m: any) => m.type === "textStyle");
+      if (textStyleMark?.attrs?.lineHeight) {
+        return textStyleMark.attrs.lineHeight;
+      }
+    }
+  }
+  return undefined;
 }
 
 /**
  * Obtiene la alineación de texto
  */
-function getAlignment(align?: string): 'left' | 'center' | 'right' | 'justify' {
+function getAlignment(align?: string): "left" | "center" | "right" | "justify" {
   switch (align) {
-    case 'left':
-      return 'left';
-    case 'center':
-      return 'center';
-    case 'right':
-      return 'right';
-    case 'justify':
-      return 'justify';
+    case "left":
+      return "left";
+    case "center":
+      return "center";
+    case "right":
+      return "right";
+    case "justify":
+      return "justify";
     default:
-      return 'left';
+      return "left";
   }
 }
 
@@ -462,17 +493,25 @@ function getHeadingStyle(level: number) {
 /**
  * Convierte una lista (ordenada  o no ordenada)
  */
-function ConvertList({ node, numbered }: { node: JSONContent; numbered: boolean }) {
+function ConvertList({
+  node,
+  numbered,
+}: {
+  node: JSONContent;
+  numbered: boolean;
+}) {
   const items = node.content || [];
-  
+
   return (
     <>
       {items.map((item: JSONContent, index: number) => {
         const itemContent = item.content || [];
         const firstParagraph = itemContent[0];
-        const text = firstParagraph ? extractText(firstParagraph.content || []) : '';
-        const bullet = numbered ? `${index + 1}. ` : '• ';
-        
+        const text = firstParagraph
+          ? extractText(firstParagraph.content || [])
+          : "";
+        const bullet = numbered ? `${index + 1}. ` : "• ";
+
         return (
           <View key={index} style={styles.listItem}>
             <Text style={styles.listBullet}>{bullet}</Text>
@@ -489,11 +528,11 @@ function ConvertList({ node, numbered }: { node: JSONContent; numbered: boolean 
  */
 function ConvertBlockquote({ node }: { node: JSONContent }) {
   const content = node.content || [];
-  
+
   return (
     <View style={styles.blockquote}>
       {content.map((childNode: JSONContent, index: number) => {
-        if (childNode.type === 'paragraph') {
+        if (childNode.type === "paragraph") {
           const text = extractText(childNode.content || []);
           return <Text key={index}>{text}</Text>;
         }
@@ -508,7 +547,7 @@ function ConvertBlockquote({ node }: { node: JSONContent }) {
  */
 function ConvertCodeBlock({ node }: { node: JSONContent }) {
   const text = extractText(node.content || []);
-  
+
   return (
     <View style={styles.codeBlock}>
       <Text>{text}</Text>
@@ -521,31 +560,34 @@ function ConvertCodeBlock({ node }: { node: JSONContent }) {
  */
 function ConvertTable({ node }: { node: JSONContent }) {
   const rows = node.content || [];
-  
+
   return (
     <View style={styles.table}>
       {rows.map((rowNode: JSONContent, rowIndex: number) => {
-        if (rowNode.type === 'tableRow') {
+        if (rowNode.type === "tableRow") {
           const cells = rowNode.content || [];
-          
+
           return (
             <View key={rowIndex} style={styles.tableRow}>
               {cells.map((cellNode: JSONContent, cellIndex: number) => {
-                const isHeader = cellNode.type === 'tableHeader';
+                const isHeader = cellNode.type === "tableHeader";
                 const cellContent = cellNode.content || [];
-                
+
                 // Extraer texto de los párrafos dentro de la celda
                 const text = cellContent
                   .map((content: JSONContent) => {
-                    if (content.type === 'paragraph') {
+                    if (content.type === "paragraph") {
                       return extractText(content.content || []);
                     }
-                    return '';
+                    return "";
                   })
-                  .join(' ');
-                
+                  .join(" ");
+
                 return (
-                  <View key={cellIndex} style={isHeader ? styles.tableHeader : styles.tableCell}>
+                  <View
+                    key={cellIndex}
+                    style={isHeader ? styles.tableHeader : styles.tableCell}
+                  >
                     <Text>{text}</Text>
                   </View>
                 );
@@ -564,12 +606,12 @@ function ConvertTable({ node }: { node: JSONContent }) {
  */
 function ConvertImage({ node }: { node: JSONContent }) {
   const src = node.attrs?.src;
-  const alt = node.attrs?.alt || 'Imagen';
-  
+  const alt = node.attrs?.alt || "Imagen";
+
   if (!src) {
-    console.warn('⚠️ Imagen sin src, creando texto placeholder');
+    console.warn("⚠️ Imagen sin src, creando texto placeholder");
     return (
-      <Text style={{ textAlign: 'center', marginTop: 8, marginBottom: 8 }}>
+      <Text style={{ textAlign: "center", marginTop: 8, marginBottom: 8 }}>
         [Imagen: {alt}]
       </Text>
     );
@@ -577,19 +619,13 @@ function ConvertImage({ node }: { node: JSONContent }) {
 
   try {
     // react-pdf soporta directamente base64 y URLs
-    return (
-      <Image
-        src={src}
-        style={styles.image}
-      />
-    );
+    return <Image src={src} style={styles.image} />;
   } catch (error) {
-    console.error('❌ Error al procesar imagen:', error);
+    console.error("❌ Error al procesar imagen:", error);
     return (
-      <Text style={{ textAlign: 'center', marginTop: 8, marginBottom: 8 }}>
+      <Text style={{ textAlign: "center", marginTop: 8, marginBottom: 8 }}>
         [Error cargando imagen: {alt}]
       </Text>
     );
   }
 }
-
