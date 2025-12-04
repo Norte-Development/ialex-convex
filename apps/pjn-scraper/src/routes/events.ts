@@ -6,6 +6,7 @@ import { scrapeEventsRequestSchema, type NormalizedEvent } from "../types/api";
 import { refreshPjnTokens, isTokenExpired } from "../lib/pjnTokens";
 import { logger } from "../middleware/logging";
 import { config } from "../config";
+import { parseClaveExpediente } from "../constants";
 
 const router: Router = Router();
 const sessionStore = new SessionStore();
@@ -119,6 +120,7 @@ function normalizeEvent(event: unknown): NormalizedEvent | null {
     }
 
     // FRE from payload.claveExpediente (e.g. "FRE 8380/2023/TO1/27")
+    // Now supports all PJN jurisdictions (CSJ, CIV, CAF, FRE, etc.)
     let fre: string | null = null;
     const claveExpediente =
       typeof payload.claveExpediente === "string"
@@ -126,8 +128,14 @@ function normalizeEvent(event: unknown): NormalizedEvent | null {
         : "";
 
     if (claveExpediente) {
-      const freMatch = claveExpediente.match(/FRE\s+(.+)/i);
-      fre = freMatch ? freMatch[1].trim() : claveExpediente;
+      const parsed = parseClaveExpediente(claveExpediente);
+      if (parsed) {
+        // Use the full identifier format: "FRE-3852/2020/TO2"
+        fre = parsed.fullIdentifier;
+      } else {
+        // Fallback: use raw claveExpediente if parsing fails
+        fre = claveExpediente;
+      }
     }
 
     // Description from payload.caratulaExpediente

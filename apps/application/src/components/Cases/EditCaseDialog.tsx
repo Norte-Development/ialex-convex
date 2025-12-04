@@ -25,6 +25,7 @@ import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { Case } from "types/cases";
 import { closeFloatingLayers } from "@/lib/closeFloatingLayers";
+import { JURISDICTIONS } from "./constants";
 
 interface EditCaseDialogProps {
   case_: Case | null;
@@ -51,13 +52,27 @@ export default function EditCaseDialog({
       | "archivado"
       | "cancelado",
     priority: "medium" as "low" | "medium" | "high",
-    fre: "",
+    pjnJurisdiction: "FRE",
+    pjnNumber: "",
     category: "",
   });
 
   // Actualizar formulario cuando cambia el caso
   useEffect(() => {
     if (case_) {
+      let jurisdiction = "FRE";
+      let number = "";
+
+      if (case_.fre) {
+        const parts = case_.fre.split("-");
+        if (parts.length > 1 && JURISDICTIONS.some((j) => j.code === parts[0])) {
+          jurisdiction = parts[0];
+          number = parts.slice(1).join("-");
+        } else {
+          number = case_.fre;
+        }
+      }
+
       setFormData({
         title: case_.title || "",
         description: case_.description || "",
@@ -65,7 +80,8 @@ export default function EditCaseDialog({
         status: case_.status || "pendiente",
         priority: case_.priority || "medium",
         category: case_.category || "",
-        fre: case_.fre || "",
+        pjnJurisdiction: jurisdiction,
+        pjnNumber: number,
       });
     }
   }, [case_]);
@@ -98,7 +114,9 @@ export default function EditCaseDialog({
         status: formData.status,
         priority: formData.priority,
         category: formData.category || undefined,
-        fre: formData.fre || undefined,
+        fre: formData.pjnNumber.trim()
+          ? `${formData.pjnJurisdiction}-${formData.pjnNumber.trim()}`
+          : undefined,
       });
 
       toast.success("Caso actualizado exitosamente");
@@ -158,26 +176,52 @@ export default function EditCaseDialog({
               />
             </div>
 
-            {/* Número de Expediente */}
-            <div className="space-y-2">
-              <Label htmlFor="expedientNumber">Número de Expediente</Label>
-              <Input
-                id="expedientNumber"
-                placeholder="Ej: EXP-2024-12345"
-                value={formData.expedientNumber}
-                onChange={(e) =>
-                  handleInputChange("expedientNumber", e.target.value)
-                }
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="fre">FRE</Label>
-              <Input
-                id="fre"
-                placeholder="Ej: 12345/2024"
-                value={formData.fre}
-                onChange={(e) => handleInputChange("fre", e.target.value)}
-              />
+            {/* Número de Expediente y FRE */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="expedientNumber">Número de Expediente</Label>
+                <Input
+                  id="expedientNumber"
+                  placeholder="Ej: EXP-2024-12345"
+                  value={formData.expedientNumber}
+                  onChange={(e) =>
+                    handleInputChange("expedientNumber", e.target.value)
+                  }
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="pjnNumber">Identificación PJN</Label>
+                <div className="flex gap-2">
+                  <Select
+                    value={formData.pjnJurisdiction}
+                    onValueChange={(value) =>
+                      handleInputChange("pjnJurisdiction", value)
+                    }
+                  >
+                    <SelectTrigger className="w-[140px]">
+                      <SelectValue placeholder="Jurisdicción" />
+                    </SelectTrigger>
+                    <SelectContent className="max-h-[300px]">
+                      {JURISDICTIONS.map((jurisdiction) => (
+                        <SelectItem key={jurisdiction.code} value={jurisdiction.code}>
+                          <span className="font-medium mr-2">{jurisdiction.code}</span>
+                          <span className="text-muted-foreground truncate max-w-[200px]">
+                            - {jurisdiction.name}
+                          </span>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Input
+                    id="pjnNumber"
+                    placeholder="Ej: 4715/2025"
+                    value={formData.pjnNumber}
+                    onChange={(e) => handleInputChange("pjnNumber", e.target.value)}
+                    className="flex-1"
+                  />
+                </div>
+              </div>
             </div>
 
             {/* Estado y Prioridad */}

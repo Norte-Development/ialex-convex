@@ -37,6 +37,8 @@ import { tracking } from "@/lib/tracking";
 import { closeFloatingLayers } from "@/lib/closeFloatingLayers";
 import { LocalErrorBoundary } from "../LocalErrorBoundary";
 
+import { JURISDICTIONS } from "./constants";
+
 export default function CreateCaseDialog() {
   // Hooks
   const navigate = useNavigate();
@@ -60,6 +62,8 @@ export default function CreateCaseDialog() {
     priority: "medium" as "low" | "medium" | "high",
     category: "",
     estimatedHours: "",
+    pjnJurisdiction: "FRE",
+    pjnNumber: "",
   });
   const [deadlines, setDeadlines] = useState<
     Array<{
@@ -190,6 +194,9 @@ export default function CreateCaseDialog() {
         estimatedHours: formData.estimatedHours
           ? Number(formData.estimatedHours)
           : undefined,
+        fre: formData.pjnNumber.trim()
+          ? `${formData.pjnJurisdiction}-${formData.pjnNumber.trim()}`
+          : undefined,
       };
 
       const caseId = await createCase(caseData);
@@ -258,6 +265,8 @@ export default function CreateCaseDialog() {
         priority: "medium",
         category: "",
         estimatedHours: "",
+        pjnJurisdiction: "FRE",
+        pjnNumber: "",
       });
       setSelectedClients([]);
       setDeadlines([]);
@@ -373,16 +382,52 @@ export default function CreateCaseDialog() {
             </div>
 
             {/* Número de Expediente */}
-            <div className="space-y-2">
-              <Label htmlFor="expedientNumber">Número de Expediente</Label>
-              <Input
-                id="expedientNumber"
-                placeholder="Ej: EXP-2024-12345 o 12345/2024"
-                value={formData.expedientNumber}
-                onChange={(e) =>
-                  handleInputChange("expedientNumber", e.target.value)
-                }
-              />
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="expedientNumber">Número de Expediente</Label>
+                <Input
+                  id="expedientNumber"
+                  placeholder="Ej: EXP-2024-12345 o 12345/2024"
+                  value={formData.expedientNumber}
+                  onChange={(e) =>
+                    handleInputChange("expedientNumber", e.target.value)
+                  }
+                />
+              </div>
+
+              {/* Identificación PJN (FRE) */}
+              <div className="space-y-2">
+                <Label htmlFor="pjnNumber">Identificación PJN</Label>
+                <div className="flex gap-2">
+                  <Select
+                    value={formData.pjnJurisdiction}
+                    onValueChange={(value) =>
+                      handleInputChange("pjnJurisdiction", value)
+                    }
+                  >
+                    <SelectTrigger className="w-[140px]">
+                      <SelectValue placeholder="Jurisdicción" />
+                    </SelectTrigger>
+                    <SelectContent className="max-h-[300px]">
+                      {JURISDICTIONS.map((jurisdiction) => (
+                        <SelectItem key={jurisdiction.code} value={jurisdiction.code}>
+                          <span className="font-medium mr-2">{jurisdiction.code}</span>
+                          <span className="text-muted-foreground truncate max-w-[200px]">
+                             - {jurisdiction.name}
+                          </span>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Input
+                    id="pjnNumber"
+                    placeholder="Ej: 4715/2025"
+                    value={formData.pjnNumber}
+                    onChange={(e) => handleInputChange("pjnNumber", e.target.value)}
+                    className="flex-1"
+                  />
+                </div>
+              </div>
             </div>
 
             {/* Prioridad y Categoría */}

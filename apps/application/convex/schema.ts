@@ -184,7 +184,10 @@ export default defineSchema({
     title: v.string(),
     description: v.optional(v.string()),
     expedientNumber: v.optional(v.string()), // Número de expediente judicial
-    fre: v.optional(v.string()), // FRE (expediente) from PJN for linking
+    // PJN identifier for linking cases to portal notifications.
+    // Format: "JURISDICTION-NUMBER" (e.g., "FRE-3852/2020/TO2", "CSJ-1234/2021")
+    // Note: Portal uses space separator, we normalize to hyphen for storage.
+    fre: v.optional(v.string()),
     status: v.union(
       v.literal("pendiente"),
       v.literal("en progreso"),

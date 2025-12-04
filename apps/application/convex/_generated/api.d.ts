@@ -179,6 +179,7 @@ import type * as stripe from "../stripe.js";
 import type * as utils_fallosService from "../utils/fallosService.js";
 import type * as utils_gcs from "../utils/gcs.js";
 import type * as utils_legislationService from "../utils/legislationService.js";
+import type * as utils_pjnConstants from "../utils/pjnConstants.js";
 import type * as utils_resend from "../utils/resend.js";
 import type * as whatsapp_twilio from "../whatsapp/twilio.js";
 import type * as whatsapp_whatsapp from "../whatsapp/whatsapp.js";
@@ -361,6 +362,7 @@ declare const fullApi: ApiFromModules<{
   "utils/fallosService": typeof utils_fallosService;
   "utils/gcs": typeof utils_gcs;
   "utils/legislationService": typeof utils_legislationService;
+  "utils/pjnConstants": typeof utils_pjnConstants;
   "utils/resend": typeof utils_resend;
   "whatsapp/twilio": typeof whatsapp_twilio;
   "whatsapp/whatsapp": typeof whatsapp_whatsapp;
