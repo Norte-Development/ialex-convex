@@ -19,9 +19,18 @@ export function serviceAuthMiddleware(
   const authHeader = req.headers["x-service-auth"];
   const expectedSecret = config.serviceAuthSecret;
 
-  // In development, allow requests if no secret is configured
-  if (config.nodeEnv === "development" && !expectedSecret) {
-    logger.warn("Service auth disabled in development mode");
+  // Require secret in all non-test environments
+  if (config.nodeEnv !== "test" && !expectedSecret) {
+    logger.error("Service auth secret is not configured");
+    res.status(500).json({
+      error: "Server misconfigured",
+      message: "Service authentication is not properly configured",
+    });
+    return;
+  }
+
+  // In test mode, skip auth if no secret is configured
+  if (config.nodeEnv === "test" && !expectedSecret) {
     return next();
   }
 

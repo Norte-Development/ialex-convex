@@ -42,7 +42,7 @@ export const config = {
   documentProcessorEndpoint: "/process-document",
 
   // Service-to-service auth
-  serviceAuthSecret: process.env.SERVICE_AUTH_SECRET || "secret",
+  serviceAuthSecret: process.env.EXPEDIENTES_SCRAPER_SECRET || "",
 
   // Scraping settings
   maxRetries: parseInt(process.env.MAX_RETRIES || "3", 10),
@@ -70,6 +70,14 @@ export function validateConfig(): void {
       { key: "GCS_SIGNER_CLIENT_EMAIL", value: config.gcsSignerClientEmail },
       { key: "GCS_SIGNER_PRIVATE_KEY", value: config.gcsSignerPrivateKey }
     );
+  }
+
+  // Require service auth secret in all non-test environments
+  if (config.nodeEnv !== "test") {
+    required.push({
+      key: "EXPEDIENTES_SCRAPER_SECRET",
+      value: config.serviceAuthSecret,
+    });
   }
 
   const missing = required.filter(({ value }) => !value);

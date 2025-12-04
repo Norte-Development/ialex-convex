@@ -19,9 +19,9 @@ export const syncNotificationsForUser = internalAction({
       throw new Error("PJN_SCRAPER_URL environment variable is not set");
     }
 
-    const serviceAuthSecret = process.env.SERVICE_AUTH_SECRET;
+    const serviceAuthSecret = process.env.EXPEDIENTES_SCRAPER_SECRET;
     if (!serviceAuthSecret) {
-      throw new Error("SERVICE_AUTH_SECRET environment variable is not set");
+      throw new Error("EXPEDIENTES_SCRAPER_SECRET environment variable is not set");
     }
 
     const attemptAutomaticReauth = async (): Promise<
