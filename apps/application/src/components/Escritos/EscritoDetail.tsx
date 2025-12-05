@@ -23,7 +23,7 @@ import {
 } from "../ui/dropdown-menu";
 import { ChevronDown, Save } from "lucide-react";
 import { exportToWord } from "@/components/Editor/utils/exportWord";
-import { exportElementToPdf } from "@/components/Editor/utils/exportPdf";
+import { exportToPdfReact } from "@/components/Editor/utils/exportPdfReact";
 import { EscritoStatusBadge } from "./EscritoStatusBadge";
 export default function EscritoDetail({
   escrito,
@@ -83,15 +83,21 @@ export default function EscritoDetail({
 
     setIsExporting(true);
     try {
-      const filename = `${(escrito?.title || "escrito").replace(/\s+/g, "_")}.pdf`;
-      await exportElementToPdf({
-        element: ".legal-editor-content",
-        filename,
-        format: "a4",
-        orientation: "p",
-        marginMm: 10,
-        scale: 2,
+      const content = editorRef.current?.getContent();
+      
+      if (!content) {
+        toast.error("No hay contenido para exportar");
+        return;
+      }
+
+      
+      await exportToPdfReact(content, {
+        title: escrito.title,
+        courtName: escrito.courtName,
+        expedientNumber: escrito.expedientNumber,
+        presentationDate: escrito.presentationDate,
       });
+      
       toast.success("PDF descargado correctamente");
     } catch (error) {
       console.error("❌ Error al exportar PDF:", error);
