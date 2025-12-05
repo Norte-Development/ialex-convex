@@ -269,17 +269,11 @@ function ConvertParagraph({ node }: { node: JSONContent }) {
   const alignment = getAlignment(node.attrs?.textAlign);
   const content = node.content || [];
 
-  // Extraer lineHeight de las marcas textStyle en el contenido inline
-  const lineHeight = extractLineHeight(content);
-
   // Verificar si hay imágenes en el contenido
   const hasImage = content.some((n: JSONContent) => n.type === "image");
 
   // Construir estilos dinámicos
   const paragraphStyle: any = { textAlign: alignment };
-  if (lineHeight) {
-    paragraphStyle.lineHeight = parseFloat(lineHeight);
-  }
 
   // Si no hay imágenes, renderizar normalmente
   if (!hasImage) {
@@ -350,14 +344,8 @@ function ConvertHeading({ node }: { node: JSONContent }) {
   const headingStyle = getHeadingStyle(level);
   const content = node.content || [];
 
-  // Extraer lineHeight de las marcas textStyle en el contenido inline
-  const lineHeight = extractLineHeight(content);
-
   // Construir estilos dinámicos
   const dynamicStyle: any = { textAlign: alignment };
-  if (lineHeight) {
-    dynamicStyle.lineHeight = parseFloat(lineHeight);
-  }
 
   return (
     <Text style={[headingStyle, dynamicStyle]}>
@@ -388,8 +376,13 @@ function ConvertInlineNode({ node }: { node: JSONContent }) {
     // Check if there's a link mark
     const linkMark = marks.find((m: any) => m.type === "link");
     if (linkMark?.attrs?.href) {
+      // Aplicar lineHeight también en links
+      const textStyleMark = marks.find((m: any) => m.type === "textStyle");
+      if (textStyleMark?.attrs?.lineHeight) {
+        textStyle.lineHeight = parseFloat(textStyleMark.attrs.lineHeight);
+      }
       return (
-        <Link src={linkMark.attrs.href} style={styles.link}>
+        <Link src={linkMark.attrs.href} style={[styles.link, textStyle]}>
           {text}
         </Link>
       );
@@ -410,10 +403,13 @@ function ConvertInlineNode({ node }: { node: JSONContent }) {
       textStyle.textDecoration = "underline";
     }
 
-    // Color (desde textStyle mark)
-    const colorMark = marks.find((m: any) => m.type === "textStyle");
-    if (colorMark?.attrs?.color) {
-      textStyle.color = colorMark.attrs.color;
+    // Color y lineHeight (desde textStyle mark)
+    const textStyleMark = marks.find((m: any) => m.type === "textStyle");
+    if (textStyleMark?.attrs?.color) {
+      textStyle.color = textStyleMark.attrs.color;
+    }
+    if (textStyleMark?.attrs?.lineHeight) {
+      textStyle.lineHeight = parseFloat(textStyleMark.attrs.lineHeight);
     }
 
     // Strike through
@@ -439,22 +435,6 @@ function extractText(content: JSONContent[]): string {
     .filter((node) => node.type === "text")
     .map((node) => node.text || "")
     .join("");
-}
-
-/**
- * Extrae el lineHeight de las marcas textStyle en el contenido inline
- */
-function extractLineHeight(content: JSONContent[]): string | undefined {
-  // Buscar en el primer nodo de texto que tenga la marca textStyle con lineHeight
-  for (const node of content) {
-    if (node.type === "text" && node.marks) {
-      const textStyleMark = node.marks.find((m: any) => m.type === "textStyle");
-      if (textStyleMark?.attrs?.lineHeight) {
-        return textStyleMark.attrs.lineHeight;
-      }
-    }
-  }
-  return undefined;
 }
 
 /**
