@@ -57,7 +57,6 @@ export default function NavBar() {
     { label: "Modelos", path: "/modelos", icon: FilePen },
     { label: "Biblioteca", path: "/biblioteca", icon: FolderOpen },
     { label: "Base Legal", path: "/base-de-datos", icon: Database },
-    { label: "Asistente IA", path: "/ai", icon: MessageCircle },
     { label: "Preferencias", path: "/preferencias", icon: Settings },
   ];
 
