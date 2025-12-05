@@ -23,6 +23,7 @@ import SearchDropdown from "@/components/Search/SearchDropdown";
 import SearchPopup from "./SearchPopup";
 import { useChatbot } from "@/context/ChatbotContext";
 import { useTutorial } from "@/context/TutorialContext";
+import { NotificationsDropdown } from "@/components/Notifications";
 
 export default function NavBar() {
   const location = useLocation();
@@ -57,6 +58,7 @@ export default function NavBar() {
     { label: "Modelos", path: "/modelos", icon: FilePen },
     { label: "Biblioteca", path: "/biblioteca", icon: FolderOpen },
     { label: "Base Legal", path: "/base-de-datos", icon: Database },
+    { label: "Asistente IA", path: "/ai", icon: MessageCircle },
     { label: "Preferencias", path: "/preferencias", icon: Settings },
   ];
 
@@ -75,6 +77,11 @@ export default function NavBar() {
               >
                 <Search size={20} className="text-gray-600" />
               </button>
+              
+              <div className="mr-1">
+                <NotificationsDropdown />
+              </div>
+
               <UserButton
                 appearance={{
                   elements: {
