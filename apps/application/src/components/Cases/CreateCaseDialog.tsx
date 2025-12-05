@@ -36,6 +36,7 @@ import { toast } from "sonner";
 import { tracking } from "@/lib/tracking";
 import { closeFloatingLayers } from "@/lib/closeFloatingLayers";
 import { LocalErrorBoundary } from "../LocalErrorBoundary";
+import { NewClientSection } from "./NewClientSection";
 
 export default function CreateCaseDialog() {
   // Hooks
@@ -72,18 +73,6 @@ export default function CreateCaseDialog() {
   >([]);
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [showDeadlineForm, setShowDeadlineForm] = useState(false);
-  const [showNewClientForm, setShowNewClientForm] = useState(false);
-  const [isCreatingClient, setIsCreatingClient] = useState(false);
-  const [newClientData, setNewClientData] = useState({
-    name: "",
-    email: "",
-    phone: "",
-    dni: "",
-    cuit: "",
-    address: "",
-    clientType: "individual" as "individual" | "company",
-    notes: "",
-  });
 
   // Prevent dialog closing while submitting
   const handleOpenChange = (newOpen: boolean) => {
@@ -94,7 +83,6 @@ export default function CreateCaseDialog() {
   const createCase = useMutation(api.functions.cases.createCase);
   const addClientToCase = useMutation(api.functions.cases.addClientToCase);
   const createEvent = useMutation(api.functions.events.createEvent);
-  const createClient = useMutation(api.functions.clients.createClient);
 
   // Then all queries
   const clientsResult = useQuery(api.functions.clients.getClients, {});
@@ -174,82 +162,12 @@ export default function CreateCaseDialog() {
     setDeadlines((prev) => prev.filter((d) => d.id !== id));
   };
 
-  const handleNewClientInputChange = (field: string, value: string) => {
-    setNewClientData((prev) => ({
-      ...prev,
-      [field]: value,
-    }));
-  };
-
-  const handleCreateNewClient = async (e: React.FormEvent) => {
-    e.preventDefault();
-
-    if (!newClientData.name.trim()) {
-      toast.error("El nombre es requerido");
-      return;
-    }
-
-    if (
-      newClientData.clientType === "individual" &&
-      !newClientData.dni.trim()
-    ) {
-      toast.error("El DNI es requerido para personas físicas");
-      return;
-    }
-
-    if (newClientData.clientType === "company" && !newClientData.cuit.trim()) {
-      toast.error("El CUIT es requerido para empresas");
-      return;
-    }
-
-    setIsCreatingClient(true);
-
-    try {
-      const clientData = {
-        name: newClientData.name,
-        email: newClientData.email || undefined,
-        phone: newClientData.phone || undefined,
-        dni: newClientData.dni || undefined,
-        cuit: newClientData.cuit || undefined,
-        address: newClientData.address || undefined,
-        clientType: newClientData.clientType,
-        notes: newClientData.notes || undefined,
-      };
-
-      const clientId = await createClient(clientData);
-
-      // Track client creation
-      tracking.clientCreated({
-        clientId,
-        clientType: newClientData.clientType,
-      });
-
-      // Agregar el cliente a la lista de seleccionados
-      setSelectedClients((prev) => [
-        ...prev,
-        { id: clientId, name: newClientData.name, role: "" },
-      ]);
-
-      toast.success("Cliente creado y agregado exitosamente");
-
-      // Reset form
-      setNewClientData({
-        name: "",
-        email: "",
-        phone: "",
-        dni: "",
-        cuit: "",
-        address: "",
-        clientType: "individual",
-        notes: "",
-      });
-      setShowNewClientForm(false);
-    } catch (error) {
-      console.error("Error creating client:", error);
-      toast.error("Error al crear el cliente: " + (error as Error).message);
-    } finally {
-      setIsCreatingClient(false);
-    }
+  const handleClientCreated = (client: {
+    id: Id<"clients">;
+    name: string;
+    role?: string;
+  }) => {
+    setSelectedClients((prev) => [...prev, client]);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -535,150 +453,17 @@ export default function CreateCaseDialog() {
               </div>
 
               {/* Clientes */}
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
+              <div className="space-y-3 ">
+                <div className="flex flex-col items-center justify-between w-full">
+                  <div className="flex items-center gap-2 w-full">
                     <Users className="h-4 w-4" />
                     <Label>Clientes Vinculados</Label>
                     <span className="text-sm text-muted-foreground">
                       ({selectedClients.length} seleccionados)
                     </span>
                   </div>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setShowNewClientForm(!showNewClientForm)}
-                    className="h-8 text-xs"
-                  >
-                    <Plus className="h-3 w-3 mr-1" />
-                    {showNewClientForm ? "Cancelar" : "Nuevo Cliente"}
-                  </Button>
+                  <NewClientSection onClientCreated={handleClientCreated} />
                 </div>
-
-                {/* Formulario de nuevo cliente */}
-                {showNewClientForm && (
-                  <div className="p-4 border rounded-md bg-muted/30 space-y-3">
-                    <div className="flex items-center justify-between">
-                      <Label className="text-sm font-semibold">
-                        Crear Nuevo Cliente
-                      </Label>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => setShowNewClientForm(false)}
-                        className="h-6 w-6 p-0"
-                      >
-                        <X className="h-3 w-3" />
-                      </Button>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-3">
-                      {/* Nombre */}
-                      <div className="col-span-2 space-y-1">
-                        <Label className="text-xs">
-                          Nombre / Razón Social *
-                        </Label>
-                        <Input
-                          placeholder="Ej: Juan Pérez"
-                          value={newClientData.name}
-                          onChange={(e) =>
-                            handleNewClientInputChange("name", e.target.value)
-                          }
-                          className="h-8 text-sm"
-                        />
-                      </div>
-
-                      {/* Tipo */}
-                      <div className="space-y-1">
-                        <Label className="text-xs">Tipo *</Label>
-                        <Select
-                          value={newClientData.clientType}
-                          onValueChange={(value) =>
-                            handleNewClientInputChange("clientType", value)
-                          }
-                        >
-                          <SelectTrigger className="h-8 text-sm">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="individual">
-                              Persona Física
-                            </SelectItem>
-                            <SelectItem value="company">Empresa</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-
-                      {/* DNI/CUIT */}
-                      {newClientData.clientType === "individual" ? (
-                        <div className="space-y-1">
-                          <Label className="text-xs">DNI *</Label>
-                          <Input
-                            placeholder="12345678"
-                            value={newClientData.dni}
-                            onChange={(e) =>
-                              handleNewClientInputChange("dni", e.target.value)
-                            }
-                            className="h-8 text-sm"
-                          />
-                        </div>
-                      ) : (
-                        <div className="space-y-1">
-                          <Label className="text-xs">CUIT *</Label>
-                          <Input
-                            placeholder="20-12345678-9"
-                            value={newClientData.cuit}
-                            onChange={(e) =>
-                              handleNewClientInputChange("cuit", e.target.value)
-                            }
-                            className="h-8 text-sm"
-                          />
-                        </div>
-                      )}
-
-                      {/* Email */}
-                      <div className="space-y-1">
-                        <Label className="text-xs">Email</Label>
-                        <Input
-                          type="email"
-                          placeholder="cliente@email.com"
-                          value={newClientData.email}
-                          onChange={(e) =>
-                            handleNewClientInputChange("email", e.target.value)
-                          }
-                          className="h-8 text-sm"
-                        />
-                      </div>
-
-                      {/* Teléfono */}
-                      <div className="space-y-1">
-                        <Label className="text-xs">Teléfono</Label>
-                        <Input
-                          placeholder="+54 11 1234-5678"
-                          value={newClientData.phone}
-                          onChange={(e) =>
-                            handleNewClientInputChange("phone", e.target.value)
-                          }
-                          className="h-8 text-sm"
-                        />
-                      </div>
-                    </div>
-
-                    <Button
-                      type="button"
-                      onClick={handleCreateNewClient}
-                      disabled={isCreatingClient}
-                      className="w-full h-8 text-sm"
-                      size="sm"
-                    >
-                      {isCreatingClient
-                        ? "Creando..."
-                        : "Crear y Agregar Cliente"}
-                    </Button>
-                  </div>
-                )}
 
                 {/* Clientes seleccionados */}
                 {selectedClients.length > 0 && (
