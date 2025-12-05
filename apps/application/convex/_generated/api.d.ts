@@ -157,6 +157,7 @@ import type * as migrations_tutorial_init from "../migrations/tutorial_init.js";
 import type * as migrations_types from "../migrations/types.js";
 import type * as notifications from "../notifications.js";
 import type * as pjn_accounts from "../pjn/accounts.js";
+import type * as pjn_caseHistory from "../pjn/caseHistory.js";
 import type * as pjn_cron from "../pjn/cron.js";
 import type * as pjn_cronHandlers from "../pjn/cronHandlers.js";
 import type * as pjn_sync from "../pjn/sync.js";
@@ -340,6 +341,7 @@ declare const fullApi: ApiFromModules<{
   "migrations/types": typeof migrations_types;
   notifications: typeof notifications;
   "pjn/accounts": typeof pjn_accounts;
+  "pjn/caseHistory": typeof pjn_caseHistory;
   "pjn/cron": typeof pjn_cron;
   "pjn/cronHandlers": typeof pjn_cronHandlers;
   "pjn/sync": typeof pjn_sync;

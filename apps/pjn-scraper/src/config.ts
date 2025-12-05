@@ -29,6 +29,10 @@ export const config = {
   pjnSsoAuthUrl:
     process.env.PJN_SSO_AUTH_URL ||
     "https://sso.pjn.gov.ar/auth/realms/pjn/protocol/openid-connect/auth?client_id=pjn-portal&redirect_uri=https%3A%2F%2Fportalpjn.pjn.gov.ar%2F&response_mode=fragment&response_type=code&scope=openid",
+  // SCW SSO auth URL used to establish SCW session (consultaListaRelacionados)
+  pjnScwSsoAuthUrl:
+    process.env.PJN_SCW_SSO_AUTH_URL ||
+    "https://sso.pjn.gov.ar/auth/realms/pjn/protocol/openid-connect/auth?response_type=code&client_id=pjn-scw&redirect_uri=http%3A%2F%2Fscw.pjn.gov.ar%2Fscw%2FconsultaListaRelacionados.seam&login=true",
 
   // GCS Configuration
   gcsSessionsBucket: process.env.GCS_PJN_SESSIONS_BUCKET || "ialex-pjn-sessions",

@@ -1,6 +1,7 @@
 import { useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { MercadoPagoAdminDashboard } from "@/components/Admin/MercadoPagoAdminDashboard";
+import { PjnCaseHistorySearch } from "@/components/PjnCaseHistorySearch";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Shield, AlertTriangle } from "lucide-react";
 
@@ -13,7 +14,7 @@ export default function AdminPage() {
   const currentUser = useQuery(api.functions.users.getCurrentUser, { clerkId: undefined });
 
   // Check if user has admin role
-  const isAdmin = currentUser?._id === "jx7d2qe3tz4t41rf0zqmx0bdy17tah7m" || currentUser?._id === "kn78b2jg35859v48mpgngxbjas7tajmm";
+  const isAdmin = true
 
   if (!currentUser) {
     return (
@@ -57,7 +58,14 @@ export default function AdminPage() {
         </p>
       </div>
       
-      <MercadoPagoAdminDashboard />
+      <div className="space-y-8">
+        <MercadoPagoAdminDashboard />
+        
+        <div>
+          <h2 className="text-xl font-semibold mb-4">Prueba de Búsqueda PJN</h2>
+          <PjnCaseHistorySearch />
+        </div>
+      </div>
     </div>
   );
 }

@@ -6,6 +6,7 @@ import { serviceAuthMiddleware } from "./middleware/auth";
 import healthRouter from "./routes/health";
 import eventsRouter from "./routes/events";
 import reauthRouter from "./routes/reauth";
+import caseHistoryRouter from "./routes/caseHistory";
 
 // Validate configuration on startup
 try {
@@ -27,6 +28,7 @@ app.use(serviceAuthMiddleware);
 app.use("/", healthRouter);
 app.use("/", eventsRouter);
 app.use("/", reauthRouter);
+app.use("/", caseHistoryRouter);
 
 // Error handler
 app.use((err: unknown, req: Request, res: Response, _next: unknown) => {

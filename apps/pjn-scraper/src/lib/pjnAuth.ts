@@ -198,7 +198,22 @@ export async function performPjnLogin(
       });
     }
 
-    // Capture cookies from the browser context
+    logger.info("Establishing SCW session by navigating to consultaListaRelacionados.seam");
+    try {
+      await page.goto(
+        "https://scw.pjn.gov.ar/scw/consultaListaRelacionados.seam",
+        { waitUntil: "networkidle", timeout: 30000 }
+      );
+      const scwUrl = page.url();
+      logger.info("SCW session established", { scwUrl });
+    } catch (scwError) {
+      // Log but don't fail the entire login if SCW navigation has issues
+      logger.warn("Failed to navigate to SCW portal for JSESSIONID, continuing anyway", {
+        error: scwError instanceof Error ? scwError.message : String(scwError),
+      });
+    }
+
+    // Capture cookies from the browser context (now includes SCW JSESSIONID)
     const cookies = await context.cookies();
     const cookieHeaderValues = cookies.map(
       (cookie) => `${cookie.name}=${cookie.value}`
