@@ -72,6 +72,18 @@ export default function CreateCaseDialog() {
   >([]);
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [showDeadlineForm, setShowDeadlineForm] = useState(false);
+  const [showNewClientForm, setShowNewClientForm] = useState(false);
+  const [isCreatingClient, setIsCreatingClient] = useState(false);
+  const [newClientData, setNewClientData] = useState({
+    name: "",
+    email: "",
+    phone: "",
+    dni: "",
+    cuit: "",
+    address: "",
+    clientType: "individual" as "individual" | "company",
+    notes: "",
+  });
 
   // Prevent dialog closing while submitting
   const handleOpenChange = (newOpen: boolean) => {
@@ -82,6 +94,7 @@ export default function CreateCaseDialog() {
   const createCase = useMutation(api.functions.cases.createCase);
   const addClientToCase = useMutation(api.functions.cases.addClientToCase);
   const createEvent = useMutation(api.functions.events.createEvent);
+  const createClient = useMutation(api.functions.clients.createClient);
 
   // Then all queries
   const clientsResult = useQuery(api.functions.clients.getClients, {});
@@ -159,6 +172,84 @@ export default function CreateCaseDialog() {
 
   const removeDeadline = (id: string) => {
     setDeadlines((prev) => prev.filter((d) => d.id !== id));
+  };
+
+  const handleNewClientInputChange = (field: string, value: string) => {
+    setNewClientData((prev) => ({
+      ...prev,
+      [field]: value,
+    }));
+  };
+
+  const handleCreateNewClient = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (!newClientData.name.trim()) {
+      toast.error("El nombre es requerido");
+      return;
+    }
+
+    if (
+      newClientData.clientType === "individual" &&
+      !newClientData.dni.trim()
+    ) {
+      toast.error("El DNI es requerido para personas físicas");
+      return;
+    }
+
+    if (newClientData.clientType === "company" && !newClientData.cuit.trim()) {
+      toast.error("El CUIT es requerido para empresas");
+      return;
+    }
+
+    setIsCreatingClient(true);
+
+    try {
+      const clientData = {
+        name: newClientData.name,
+        email: newClientData.email || undefined,
+        phone: newClientData.phone || undefined,
+        dni: newClientData.dni || undefined,
+        cuit: newClientData.cuit || undefined,
+        address: newClientData.address || undefined,
+        clientType: newClientData.clientType,
+        notes: newClientData.notes || undefined,
+      };
+
+      const clientId = await createClient(clientData);
+
+      // Track client creation
+      tracking.clientCreated({
+        clientId,
+        clientType: newClientData.clientType,
+      });
+
+      // Agregar el cliente a la lista de seleccionados
+      setSelectedClients((prev) => [
+        ...prev,
+        { id: clientId, name: newClientData.name, role: "" },
+      ]);
+
+      toast.success("Cliente creado y agregado exitosamente");
+
+      // Reset form
+      setNewClientData({
+        name: "",
+        email: "",
+        phone: "",
+        dni: "",
+        cuit: "",
+        address: "",
+        clientType: "individual",
+        notes: "",
+      });
+      setShowNewClientForm(false);
+    } catch (error) {
+      console.error("Error creating client:", error);
+      toast.error("Error al crear el cliente: " + (error as Error).message);
+    } finally {
+      setIsCreatingClient(false);
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -322,8 +413,8 @@ export default function CreateCaseDialog() {
               <div>
                 <DialogTitle>Crear Nuevo Caso</DialogTitle>
                 <DialogDescription>
-                  Complete la información para crear un nuevo caso legal y vincule
-                  los clientes correspondientes.
+                  Complete la información para crear un nuevo caso legal y
+                  vincule los clientes correspondientes.
                 </DialogDescription>
               </div>
               <span className="text-sm text-gray-500 whitespace-nowrap ml-4">
@@ -344,371 +435,511 @@ export default function CreateCaseDialog() {
           )}
 
           <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="grid grid-cols-1 gap-4">
-            {/* Título */}
-            <div className="space-y-2">
-              <Label htmlFor="title">Título del Caso *</Label>
-              <Input
-                id="title"
-                data-tutorial="case-form-title"
-                placeholder="Ej: Divorcio Consensuado - García vs García"
-                value={formData.title}
-                onChange={(e) => handleInputChange("title", e.target.value)}
-                required
-              />
-            </div>
-
-            {/* Descripción */}
-            <div className="space-y-2">
-              <Label htmlFor="description">Descripción</Label>
-              <Textarea
-                id="description"
-                placeholder="Descripción detallada del caso..."
-                value={formData.description}
-                onChange={(e) =>
-                  handleInputChange("description", e.target.value)
-                }
-                rows={3}
-              />
-            </div>
-
-            {/* Número de Expediente */}
-            <div className="space-y-2">
-              <Label htmlFor="expedientNumber">Número de Expediente</Label>
-              <Input
-                id="expedientNumber"
-                placeholder="Ej: EXP-2024-12345 o 12345/2024"
-                value={formData.expedientNumber}
-                onChange={(e) =>
-                  handleInputChange("expedientNumber", e.target.value)
-                }
-              />
-            </div>
-
-            {/* Prioridad y Categoría */}
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4">
+              {/* Título */}
               <div className="space-y-2">
-                <Label>Prioridad</Label>
-                <Select
-                  value={formData.priority}
-                  onValueChange={(value) =>
-                    handleInputChange("priority", value)
-                  }
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Seleccionar prioridad" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="low">Baja</SelectItem>
-                    <SelectItem value="medium">Media</SelectItem>
-                    <SelectItem value="high">Alta</SelectItem>
-                  </SelectContent>
-                </Select>
+                <Label htmlFor="title">Título del Caso *</Label>
+                <Input
+                  id="title"
+                  data-tutorial="case-form-title"
+                  placeholder="Ej: Divorcio Consensuado - García vs García"
+                  value={formData.title}
+                  onChange={(e) => handleInputChange("title", e.target.value)}
+                  required
+                />
               </div>
 
+              {/* Descripción */}
               <div className="space-y-2">
-                <Label>Categoría</Label>
-                <Select
-                  value={formData.category}
-                  onValueChange={(value) =>
-                    handleInputChange("category", value)
+                <Label htmlFor="description">Descripción</Label>
+                <Textarea
+                  id="description"
+                  placeholder="Descripción detallada del caso..."
+                  value={formData.description}
+                  onChange={(e) =>
+                    handleInputChange("description", e.target.value)
                   }
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Seleccionar categoría" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {categories.map((category) => (
-                      <SelectItem key={category} value={category}>
-                        {category}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-
-            {/* Horas estimadas */}
-            <div className="space-y-2">
-              <Label htmlFor="estimatedHours">Horas Estimadas</Label>
-              <Input
-                id="estimatedHours"
-                type="number"
-                placeholder="Ej: 40"
-                value={formData.estimatedHours}
-                onChange={(e) =>
-                  handleInputChange("estimatedHours", e.target.value)
-                }
-                min="1"
-              />
-            </div>
-
-            {/* Clientes */}
-            <div className="space-y-3">
-              <div className="flex items-center gap-2">
-                <Users className="h-4 w-4" />
-                <Label>Clientes Vinculados</Label>
-                <span className="text-sm text-muted-foreground">
-                  ({selectedClients.length} seleccionados)
-                </span>
+                  rows={3}
+                />
               </div>
 
-              {/* Clientes seleccionados */}
-              {selectedClients.length > 0 && (
+              {/* Número de Expediente */}
+              <div className="space-y-2">
+                <Label htmlFor="expedientNumber">Número de Expediente</Label>
+                <Input
+                  id="expedientNumber"
+                  placeholder="Ej: EXP-2024-12345 o 12345/2024"
+                  value={formData.expedientNumber}
+                  onChange={(e) =>
+                    handleInputChange("expedientNumber", e.target.value)
+                  }
+                />
+              </div>
+
+              {/* Prioridad y Categoría */}
+              <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label className="text-sm font-medium">
-                    Clientes Seleccionados:
-                  </Label>
-                  <div className="space-y-2">
-                    {selectedClients.map((client) => (
-                      <div
-                        key={client.id}
-                        className="flex items-center gap-2 p-2 border rounded-md bg-muted/50"
+                  <Label>Prioridad</Label>
+                  <Select
+                    value={formData.priority}
+                    onValueChange={(value) =>
+                      handleInputChange("priority", value)
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Seleccionar prioridad" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="low">Baja</SelectItem>
+                      <SelectItem value="medium">Media</SelectItem>
+                      <SelectItem value="high">Alta</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Categoría</Label>
+                  <Select
+                    value={formData.category}
+                    onValueChange={(value) =>
+                      handleInputChange("category", value)
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Seleccionar categoría" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {categories.map((category) => (
+                        <SelectItem key={category} value={category}>
+                          {category}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              {/* Horas estimadas */}
+              <div className="space-y-2">
+                <Label htmlFor="estimatedHours">Horas Estimadas</Label>
+                <Input
+                  id="estimatedHours"
+                  type="number"
+                  placeholder="Ej: 40"
+                  value={formData.estimatedHours}
+                  onChange={(e) =>
+                    handleInputChange("estimatedHours", e.target.value)
+                  }
+                  min="1"
+                />
+              </div>
+
+              {/* Clientes */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Users className="h-4 w-4" />
+                    <Label>Clientes Vinculados</Label>
+                    <span className="text-sm text-muted-foreground">
+                      ({selectedClients.length} seleccionados)
+                    </span>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setShowNewClientForm(!showNewClientForm)}
+                    className="h-8 text-xs"
+                  >
+                    <Plus className="h-3 w-3 mr-1" />
+                    {showNewClientForm ? "Cancelar" : "Nuevo Cliente"}
+                  </Button>
+                </div>
+
+                {/* Formulario de nuevo cliente */}
+                {showNewClientForm && (
+                  <div className="p-4 border rounded-md bg-muted/30 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <Label className="text-sm font-semibold">
+                        Crear Nuevo Cliente
+                      </Label>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setShowNewClientForm(false)}
+                        className="h-6 w-6 p-0"
                       >
-                        <Badge variant="secondary" className="flex-shrink-0">
-                          {client.name}
-                        </Badge>
-                        <Select
-                          value={client.role || ""}
-                          onValueChange={(value) =>
-                            handleClientRoleChange(client.id, value)
-                          }
-                        >
-                          <SelectTrigger className="h-8 text-xs">
-                            <SelectValue placeholder="Rol" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {clientRoles.map((role) => (
-                              <SelectItem key={role} value={role}>
-                                {role}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => removeClient(client.id)}
-                          className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive"
-                        >
-                          <X className="h-3 w-3" />
-                        </Button>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
+                        <X className="h-3 w-3" />
+                      </Button>
+                    </div>
 
-              {/* Lista de clientes disponibles */}
-              {clients && clients.length > 0 && (
-                <div className="space-y-2">
-                  <Input
-                    placeholder="Buscar cliente"
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                  />
-
-                  <Label className="text-sm font-medium">
-                    Seleccionar Clientes:
-                  </Label>
-                  <div className="max-h-32 overflow-y-auto border rounded-md p-2 space-y-1">
-                    {filteredClients.map((client) => {
-                      const isSelected = selectedClients.some(
-                        (c) => c.id === client._id,
-                      );
-                      return (
-                        <div
-                          key={client._id}
-                          className="flex items-center space-x-2 p-1 hover:bg-muted/50 rounded"
-                        >
-                          <Checkbox
-                            id={client._id}
-                            checked={isSelected}
-                            onCheckedChange={() => handleClientToggle(client)}
-                          />
-                          <Label
-                            htmlFor={client._id}
-                            className="text-sm cursor-pointer flex-1"
-                          >
-                            {client.name}
-                            {client.dni && (
-                              <span className="text-muted-foreground ml-2">
-                                DNI: {client.dni}
-                              </span>
-                            )}
-                            {client.cuit && (
-                              <span className="text-muted-foreground ml-2">
-                                CUIT: {client.cuit}
-                              </span>
-                            )}
-                          </Label>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-
-              {clients && clients.length === 0 && (
-                <p className="text-sm text-muted-foreground">
-                  No hay clientes disponibles. Cree clientes primero para
-                  vincularlos al caso.
-                </p>
-              )}
-            </div>
-
-            {/* Separador */}
-            <Separator className="my-4" />
-
-            {/* Fechas Límite / Eventos */}
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Calendar className="h-4 w-4" />
-                  <Label>Fechas Límite (Opcional)</Label>
-                  <span className="text-sm text-muted-foreground">
-                    ({deadlines.length} fecha{deadlines.length !== 1 ? "s" : ""}
-                    )
-                  </span>
-                </div>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={addDeadline}
-                >
-                  <Plus className="h-3 w-3 mr-1" />
-                  Agregar Fecha
-                </Button>
-              </div>
-
-              <p className="text-xs text-muted-foreground">
-                Las fechas límite se crearán automáticamente como eventos
-                vinculados al caso
-              </p>
-
-              {/* Lista de fechas límite */}
-              {deadlines.length > 0 && (
-                <div className="space-y-3">
-                  {deadlines.map((deadline) => (
-                    <div
-                      key={deadline.id}
-                      className="p-3 border rounded-md bg-muted/30 space-y-2"
-                    >
-                      <div className="flex items-center justify-between">
-                        <Label className="text-sm font-medium">Evento</Label>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => removeDeadline(deadline.id)}
-                          className="h-6 w-6 p-0 text-muted-foreground hover:text-destructive"
-                        >
-                          <X className="h-3 w-3" />
-                        </Button>
-                      </div>
-
-                      <div className="grid grid-cols-1 gap-2">
-                        {/* Título del evento */}
+                    <div className="grid grid-cols-2 gap-3">
+                      {/* Nombre */}
+                      <div className="col-span-2 space-y-1">
+                        <Label className="text-xs">
+                          Nombre / Razón Social *
+                        </Label>
                         <Input
-                          placeholder="Ej: Presentación de demanda"
-                          value={deadline.title}
+                          placeholder="Ej: Juan Pérez"
+                          value={newClientData.name}
                           onChange={(e) =>
-                            updateDeadline(deadline.id, "title", e.target.value)
+                            handleNewClientInputChange("name", e.target.value)
                           }
-                          className="text-sm"
+                          className="h-8 text-sm"
                         />
+                      </div>
 
-                        {/* Tipo de evento */}
+                      {/* Tipo */}
+                      <div className="space-y-1">
+                        <Label className="text-xs">Tipo *</Label>
                         <Select
-                          value={deadline.type}
+                          value={newClientData.clientType}
                           onValueChange={(value) =>
-                            updateDeadline(deadline.id, "type", value)
+                            handleNewClientInputChange("clientType", value)
                           }
                         >
-                          <SelectTrigger className="text-sm">
+                          <SelectTrigger className="h-8 text-sm">
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="audiencia">
-                              🏛️ Audiencia
+                            <SelectItem value="individual">
+                              Persona Física
                             </SelectItem>
-                            <SelectItem value="plazo">
-                              ⏰ Plazo Legal
-                            </SelectItem>
-                            <SelectItem value="presentacion">
-                              📄 Presentación
-                            </SelectItem>
-                            <SelectItem value="otro">📌 Otro</SelectItem>
+                            <SelectItem value="company">Empresa</SelectItem>
                           </SelectContent>
                         </Select>
+                      </div>
 
-                        {/* Fecha y hora */}
-                        <div className="grid grid-cols-2 gap-2">
+                      {/* DNI/CUIT */}
+                      {newClientData.clientType === "individual" ? (
+                        <div className="space-y-1">
+                          <Label className="text-xs">DNI *</Label>
                           <Input
-                            type="date"
-                            value={deadline.date}
+                            placeholder="12345678"
+                            value={newClientData.dni}
                             onChange={(e) =>
-                              updateDeadline(
-                                deadline.id,
-                                "date",
-                                e.target.value,
-                              )
+                              handleNewClientInputChange("dni", e.target.value)
                             }
-                            className="text-sm"
-                          />
-                          <Input
-                            type="time"
-                            value={deadline.time}
-                            onChange={(e) =>
-                              updateDeadline(
-                                deadline.id,
-                                "time",
-                                e.target.value,
-                              )
-                            }
-                            className="text-sm"
+                            className="h-8 text-sm"
                           />
                         </div>
+                      ) : (
+                        <div className="space-y-1">
+                          <Label className="text-xs">CUIT *</Label>
+                          <Input
+                            placeholder="20-12345678-9"
+                            value={newClientData.cuit}
+                            onChange={(e) =>
+                              handleNewClientInputChange("cuit", e.target.value)
+                            }
+                            className="h-8 text-sm"
+                          />
+                        </div>
+                      )}
+
+                      {/* Email */}
+                      <div className="space-y-1">
+                        <Label className="text-xs">Email</Label>
+                        <Input
+                          type="email"
+                          placeholder="cliente@email.com"
+                          value={newClientData.email}
+                          onChange={(e) =>
+                            handleNewClientInputChange("email", e.target.value)
+                          }
+                          className="h-8 text-sm"
+                        />
+                      </div>
+
+                      {/* Teléfono */}
+                      <div className="space-y-1">
+                        <Label className="text-xs">Teléfono</Label>
+                        <Input
+                          placeholder="+54 11 1234-5678"
+                          value={newClientData.phone}
+                          onChange={(e) =>
+                            handleNewClientInputChange("phone", e.target.value)
+                          }
+                          className="h-8 text-sm"
+                        />
                       </div>
                     </div>
-                  ))}
+
+                    <Button
+                      type="button"
+                      onClick={handleCreateNewClient}
+                      disabled={isCreatingClient}
+                      className="w-full h-8 text-sm"
+                      size="sm"
+                    >
+                      {isCreatingClient
+                        ? "Creando..."
+                        : "Crear y Agregar Cliente"}
+                    </Button>
+                  </div>
+                )}
+
+                {/* Clientes seleccionados */}
+                {selectedClients.length > 0 && (
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium">
+                      Clientes Seleccionados:
+                    </Label>
+                    <div className="space-y-2">
+                      {selectedClients.map((client) => (
+                        <div
+                          key={client.id}
+                          className="flex items-center gap-2 p-2 border rounded-md bg-muted/50"
+                        >
+                          <Badge variant="secondary" className="flex-shrink-0">
+                            {client.name}
+                          </Badge>
+                          <Select
+                            value={client.role || ""}
+                            onValueChange={(value) =>
+                              handleClientRoleChange(client.id, value)
+                            }
+                          >
+                            <SelectTrigger className="h-8 text-xs">
+                              <SelectValue placeholder="Rol" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {clientRoles.map((role) => (
+                                <SelectItem key={role} value={role}>
+                                  {role}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => removeClient(client.id)}
+                            className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive"
+                          >
+                            <X className="h-3 w-3" />
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Lista de clientes disponibles */}
+                {clients && clients.length > 0 && (
+                  <div className="space-y-2">
+                    <Input
+                      placeholder="Buscar cliente"
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                    />
+
+                    <Label className="text-sm font-medium">
+                      Seleccionar Clientes:
+                    </Label>
+                    <div className="max-h-32 overflow-y-auto border rounded-md p-2 space-y-1">
+                      {filteredClients.map((client) => {
+                        const isSelected = selectedClients.some(
+                          (c) => c.id === client._id,
+                        );
+                        return (
+                          <div
+                            key={client._id}
+                            className="flex items-center space-x-2 p-1 hover:bg-muted/50 rounded"
+                          >
+                            <Checkbox
+                              id={client._id}
+                              checked={isSelected}
+                              onCheckedChange={() => handleClientToggle(client)}
+                            />
+                            <Label
+                              htmlFor={client._id}
+                              className="text-sm cursor-pointer flex-1"
+                            >
+                              {client.name}
+                              {client.dni && (
+                                <span className="text-muted-foreground ml-2">
+                                  DNI: {client.dni}
+                                </span>
+                              )}
+                              {client.cuit && (
+                                <span className="text-muted-foreground ml-2">
+                                  CUIT: {client.cuit}
+                                </span>
+                              )}
+                            </Label>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {clients && clients.length === 0 && (
+                  <p className="text-sm text-muted-foreground">
+                    No hay clientes disponibles. Cree clientes primero para
+                    vincularlos al caso.
+                  </p>
+                )}
+              </div>
+
+              {/* Separador */}
+              <Separator className="my-4" />
+
+              {/* Fechas Límite / Eventos */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Calendar className="h-4 w-4" />
+                    <Label>Fechas Límite (Opcional)</Label>
+                    <span className="text-sm text-muted-foreground">
+                      ({deadlines.length} fecha
+                      {deadlines.length !== 1 ? "s" : ""})
+                    </span>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={addDeadline}
+                  >
+                    <Plus className="h-3 w-3 mr-1" />
+                    Agregar Fecha
+                  </Button>
                 </div>
-              )}
+
+                <p className="text-xs text-muted-foreground">
+                  Las fechas límite se crearán automáticamente como eventos
+                  vinculados al caso
+                </p>
+
+                {/* Lista de fechas límite */}
+                {deadlines.length > 0 && (
+                  <div className="space-y-3">
+                    {deadlines.map((deadline) => (
+                      <div
+                        key={deadline.id}
+                        className="p-3 border rounded-md bg-muted/30 space-y-2"
+                      >
+                        <div className="flex items-center justify-between">
+                          <Label className="text-sm font-medium">Evento</Label>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => removeDeadline(deadline.id)}
+                            className="h-6 w-6 p-0 text-muted-foreground hover:text-destructive"
+                          >
+                            <X className="h-3 w-3" />
+                          </Button>
+                        </div>
+
+                        <div className="grid grid-cols-1 gap-2">
+                          {/* Título del evento */}
+                          <Input
+                            placeholder="Ej: Presentación de demanda"
+                            value={deadline.title}
+                            onChange={(e) =>
+                              updateDeadline(
+                                deadline.id,
+                                "title",
+                                e.target.value,
+                              )
+                            }
+                            className="text-sm"
+                          />
+
+                          {/* Tipo de evento */}
+                          <Select
+                            value={deadline.type}
+                            onValueChange={(value) =>
+                              updateDeadline(deadline.id, "type", value)
+                            }
+                          >
+                            <SelectTrigger className="text-sm">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="audiencia">
+                                🏛️ Audiencia
+                              </SelectItem>
+                              <SelectItem value="plazo">
+                                ⏰ Plazo Legal
+                              </SelectItem>
+                              <SelectItem value="presentacion">
+                                📄 Presentación
+                              </SelectItem>
+                              <SelectItem value="otro">📌 Otro</SelectItem>
+                            </SelectContent>
+                          </Select>
+
+                          {/* Fecha y hora */}
+                          <div className="grid grid-cols-2 gap-2">
+                            <Input
+                              type="date"
+                              value={deadline.date}
+                              onChange={(e) =>
+                                updateDeadline(
+                                  deadline.id,
+                                  "date",
+                                  e.target.value,
+                                )
+                              }
+                              className="text-sm"
+                            />
+                            <Input
+                              type="time"
+                              value={deadline.time}
+                              onChange={(e) =>
+                                updateDeadline(
+                                  deadline.id,
+                                  "time",
+                                  e.target.value,
+                                )
+                              }
+                              className="text-sm"
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
-          </div>
 
-          <DialogFooter>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => {
-                closeFloatingLayers();
-                setOpen(false);
-              }}
-              disabled={isLoading}
-            >
-              Cancelar
-            </Button>
-            <Button
-              type="submit"
-              disabled={isLoading}
-              data-tutorial="case-form-submit"
-            >
-              {isLoading ? "Creando..." : "Crear Caso"}
-            </Button>
-          </DialogFooter>
-        </form>
+            <DialogFooter>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  closeFloatingLayers();
+                  setOpen(false);
+                }}
+                disabled={isLoading}
+              >
+                Cancelar
+              </Button>
+              <Button
+                type="submit"
+                disabled={isLoading}
+                data-tutorial="case-form-submit"
+              >
+                {isLoading ? "Creando..." : "Crear Caso"}
+              </Button>
+            </DialogFooter>
+          </form>
 
-        {/* Upgrade Modal */}
-        <UpgradeModal
-          open={showUpgradeModal}
-          onOpenChange={setShowUpgradeModal}
-          reason={reason}
-          currentPlan={userPlan || "free"}
-          recommendedPlan="premium_individual"
-        />
+          {/* Upgrade Modal */}
+          <UpgradeModal
+            open={showUpgradeModal}
+            onOpenChange={setShowUpgradeModal}
+            reason={reason}
+            currentPlan={userPlan || "free"}
+            recommendedPlan="premium_individual"
+          />
         </LocalErrorBoundary>
       </DialogContent>
     </Dialog>
