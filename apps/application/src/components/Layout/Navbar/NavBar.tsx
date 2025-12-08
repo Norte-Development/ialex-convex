@@ -23,7 +23,6 @@ import SearchDropdown from "@/components/Search/SearchDropdown";
 import SearchPopup from "./SearchPopup";
 import { useChatbot } from "@/context/ChatbotContext";
 import { useTutorial } from "@/context/TutorialContext";
-import { NotificationsDropdown } from "@/components/Notifications";
 
 export default function NavBar() {
   const location = useLocation();
@@ -77,10 +76,10 @@ export default function NavBar() {
               >
                 <Search size={20} className="text-gray-600" />
               </button>
-              
+{/*               
               <div className="mr-1">
                 <NotificationsDropdown />
-              </div>
+              </div> */}
 
               <UserButton
                 appearance={{
