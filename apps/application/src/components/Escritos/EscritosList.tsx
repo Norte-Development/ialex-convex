@@ -26,6 +26,19 @@ import {
   DropdownMenuTrigger,
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
+import { toast } from "sonner";
+import { useState } from "react";
+import { exportToPdfReact } from "@/components/Editor/utils/exportPdfReact";
+// @ts-ignore - TypeScript cache issue with @tiptap/core types
+import type { JSONContent } from "@tiptap/react";
+
+// Interfaz para el snapshot que viene de Convex
+interface SnapshotData {
+  content?: string | JSONContent;
+  snapshot?: {
+    content?: string | JSONContent;
+  };
+}
 
 export default function EscritosList({
   all_escritos,
@@ -125,6 +138,14 @@ function EscritoRow({
     userId: escrito.createdBy,
   });
 
+  // Fetch the prosemirror snapshot for PDF export
+  const snapshot = useQuery(
+    api.prosemirror.getSnapshot,
+    escrito.prosemirrorId ? { id: escrito.prosemirrorId } : "skip",
+  );
+
+  const [isExporting, setIsExporting] = useState(false);
+
   // Mutations (admin-only actions are protected server-side too)
   const archiveEscrito = useMutation(api.functions.documents.archiveEscrito);
 
@@ -138,6 +159,53 @@ function EscritoRow({
     } catch (err) {
       console.error("Error archiving escrito", err);
       alert("No se pudo archivar el escrito.");
+    }
+  };
+
+  const handleExportToPdf = async () => {
+    setIsExporting(true);
+    try {
+      // Validate snapshot exists
+      if (!snapshot) {
+        toast.error("No hay contenido para exportar");
+        return;
+      }
+
+      // Tipado del snapshot usando la interfaz SnapshotData
+      const snapshotData = snapshot as SnapshotData;
+
+      // Parse content from snapshot (same pattern as fetchContent)
+      let content;
+      if (typeof snapshotData.content === "string") {
+        content = JSON.parse(snapshotData.content);
+      } else if (snapshotData.snapshot?.content) {
+        if (typeof snapshotData.snapshot.content === "string") {
+          content = JSON.parse(snapshotData.snapshot.content);
+        } else {
+          content = snapshotData.snapshot.content;
+        }
+      } else {
+        toast.error("No hay contenido para exportar");
+        return;
+      }
+
+      if (!content) {
+        toast.error("No hay contenido para exportar");
+        return;
+      }
+
+      await exportToPdfReact(content, {
+        title: escrito.title,
+        courtName: escrito.courtName,
+        expedientNumber: escrito.expedientNumber,
+        presentationDate: escrito.presentationDate,
+      });
+
+      toast.success("PDF descargado correctamente");
+    } catch (error) {
+      toast.error("Error al exportar el PDF");
+    } finally {
+      setIsExporting(false);
     }
   };
 
@@ -176,8 +244,10 @@ function EscritoRow({
           <div className="flex items-center justify-end gap-2 text-gray-500">
             <button
               type="button"
-              className="p-1 hover:text-gray-900"
+              className="p-1 hover:text-gray-900 disabled:opacity-50 disabled:cursor-not-allowed"
               aria-label="Descargar"
+              onClick={handleExportToPdf}
+              disabled={isExporting}
             >
               <Download className="h-4 w-4" />
             </button>
