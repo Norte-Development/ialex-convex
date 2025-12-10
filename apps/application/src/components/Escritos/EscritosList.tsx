@@ -27,6 +27,7 @@ import { useQuery, useMutation, useConvex } from "convex/react";
 import { format } from "date-fns";
 import { formatDistanceToNow } from "date-fns";
 import { es } from "date-fns/locale";
+import { useState } from "react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -38,8 +39,6 @@ import { exportToWord } from "@/components/Editor/utils/exportWord";
 import { exportElementToPdf } from "@/components/Editor/utils/exportPdf";
 import { generateHTML } from "@tiptap/html";
 import { extensions } from "@/components/Editor/extensions";
-import { toast } from "sonner";
-import { useState } from "react";
 import { Button } from "../ui/button";
 import {
   AlertDialog,
@@ -51,6 +50,18 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { toast } from "sonner";
+import { exportToPdfReact } from "@/components/Editor/utils/exportPdfReact";
+// @ts-ignore - TypeScript cache issue with @tiptap/core types
+import type { JSONContent } from "@tiptap/react";
+
+// Interfaz para el snapshot que viene de Convex
+interface SnapshotData {
+  content?: string | JSONContent;
+  snapshot?: {
+    content?: string | JSONContent;
+  };
+}
 
 export default function EscritosList({
   all_escritos,
@@ -89,7 +100,6 @@ export default function EscritosList({
 
   // Selection handlers
   const handleSelectAll = (checked: boolean) => {
-
     if (!all_escritos) return;
     if (checked) {
       setSelectedIds(new Set(all_escritos.map((e) => e._id)));
@@ -122,7 +132,9 @@ export default function EscritosList({
           archiveEscrito({ escritoId: id as Id<"escritos">, isArchived: true }),
         ),
       );
-      toast.success(`${selectedIds.size} escrito${selectedIds.size > 1 ? "s archivados" : " archivado"} correctamente`);
+      toast.success(
+        `${selectedIds.size} escrito${selectedIds.size > 1 ? "s archivados" : " archivado"} correctamente`,
+      );
       setSelectedIds(new Set());
     } catch (error) {
       console.error("Error archiving escritos:", error);
@@ -132,8 +144,11 @@ export default function EscritosList({
     }
   };
 
-  const allSelected = (all_escritos?.length ?? 0) > 0 && selectedIds.size === (all_escritos?.length ?? 0);
-  const someSelected = selectedIds.size > 0 && selectedIds.size < (all_escritos?.length ?? 0);
+  const allSelected =
+    (all_escritos?.length ?? 0) > 0 &&
+    selectedIds.size === (all_escritos?.length ?? 0);
+  const someSelected =
+    selectedIds.size > 0 && selectedIds.size < (all_escritos?.length ?? 0);
 
   return (
     <div className="space-y-6 p-6">
@@ -147,7 +162,8 @@ export default function EscritosList({
         <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <span className="text-sm font-medium text-blue-900">
-              {selectedIds.size} escrito{selectedIds.size > 1 ? "s" : ""} seleccionado{selectedIds.size > 1 ? "s" : ""}
+              {selectedIds.size} escrito{selectedIds.size > 1 ? "s" : ""}{" "}
+              seleccionado{selectedIds.size > 1 ? "s" : ""}
             </span>
           </div>
           <div className="flex items-center gap-2">
@@ -181,7 +197,7 @@ export default function EscritosList({
         <TableHeader>
           <TableRow>
             <TableHead className="w-8">
-              <Checkbox 
+              <Checkbox
                 aria-label="Seleccionar todos"
                 checked={allSelected}
                 onCheckedChange={handleSelectAll}
@@ -224,12 +240,19 @@ export default function EscritosList({
       </Table>
 
       {/* Bulk Archive Confirmation Dialog */}
-      <AlertDialog open={showBulkArchiveDialog} onOpenChange={setShowBulkArchiveDialog}>
+      <AlertDialog
+        open={showBulkArchiveDialog}
+        onOpenChange={setShowBulkArchiveDialog}
+      >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>¿Archivar escritos seleccionados?</AlertDialogTitle>
+            <AlertDialogTitle>
+              ¿Archivar escritos seleccionados?
+            </AlertDialogTitle>
             <AlertDialogDescription>
-              Se archivarán {selectedIds.size} escrito{selectedIds.size > 1 ? "s" : ""}. Podrás restaurarlos desde la vista de archivados.
+              Se archivarán {selectedIds.size} escrito
+              {selectedIds.size > 1 ? "s" : ""}. Podrás restaurarlos desde la
+              vista de archivados.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -270,6 +293,12 @@ function EscritoRow({
     userId: escrito.createdBy,
   });
 
+  // Fetch the prosemirror snapshot for PDF export
+  const snapshot = useQuery(
+    api.prosemirror.getSnapshot,
+    escrito.prosemirrorId ? { id: escrito.prosemirrorId } : "skip",
+  );
+
   // Mutations (admin-only actions are protected server-side too)
   const archiveEscrito = useMutation(api.functions.documents.archiveEscrito);
 
@@ -297,7 +326,7 @@ function EscritoRow({
       if (!snapshot || !snapshot.content) {
         throw new Error("No content found");
       }
-      
+
       return JSON.parse(snapshot.content);
     } catch (error) {
       console.error("Error fetching content:", error);
@@ -330,46 +359,44 @@ function EscritoRow({
   const handleExportToPdf = async () => {
     setIsExporting(true);
     try {
-      const content = await fetchContent();
-      if (!content) return;
-
-      // Generate HTML from Tiptap JSON
-      const html = generateHTML(content, extensions);
-      
-      // Remove xmlns attributes that can cause rendering issues
-      const cleanHtml = html.replace(/\s*xmlns="[^"]*"/g, '');
-
-      // Render into hidden container
-      const container = document.getElementById("pdf-export-container");
-      if (!container) {
-        throw new Error("PDF container not found");
+      // Validate snapshot exists
+      if (!snapshot) {
+        toast.error("No hay contenido para exportar");
+        return;
       }
 
-      // Add some basic styling for the PDF content
-      container.innerHTML = `
-        <div class="legal-editor-content prose prose-lg max-w-none">
-          ${cleanHtml}
-        </div>
-      `;
+      // Tipado del snapshot usando la interfaz SnapshotData
+      const snapshotData = snapshot as SnapshotData;
 
-      // Wait a bit for DOM to render
-      await new Promise(resolve => setTimeout(resolve, 100));
+      // Parse content from snapshot (same pattern as fetchContent)
+      let content;
+      if (typeof snapshotData.content === "string") {
+        content = JSON.parse(snapshotData.content);
+      } else if (snapshotData.snapshot?.content) {
+        if (typeof snapshotData.snapshot.content === "string") {
+          content = JSON.parse(snapshotData.snapshot.content);
+        } else {
+          content = snapshotData.snapshot.content;
+        }
+      } else {
+        toast.error("No hay contenido para exportar");
+        return;
+      }
 
-      const filename = `${(escrito?.title || "escrito").replace(/\s+/g, "_")}.pdf`;
-      await exportElementToPdf({
-        element: container,
-        filename,
-        format: "a4",
-        orientation: "p",
-        marginMm: 10,
-        scale: 2,
+      if (!content) {
+        toast.error("No hay contenido para exportar");
+        return;
+      }
+
+      await exportToPdfReact(content, {
+        title: escrito.title,
+        courtName: escrito.courtName,
+        expedientNumber: escrito.expedientNumber,
+        presentationDate: escrito.presentationDate,
       });
 
-      // Cleanup
-      container.innerHTML = "";
       toast.success("PDF descargado correctamente");
     } catch (error) {
-      console.error("❌ Error al exportar PDF:", error);
       toast.error("Error al exportar el PDF");
     } finally {
       setIsExporting(false);
@@ -383,7 +410,7 @@ function EscritoRow({
   return (
     <TableRow className="cursor-pointer" onClick={onOpen}>
       <TableCell onClick={(e) => e.stopPropagation()}>
-        <Checkbox 
+        <Checkbox
           aria-label="Seleccionar"
           checked={isSelected}
           onCheckedChange={onToggleSelect}

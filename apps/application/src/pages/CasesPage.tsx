@@ -14,6 +14,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "../components/ui/select";
+import ClientFilterDialog from "../components/Cases/ClientFilterDialog";
+import { Id } from "../../convex/_generated/dataModel";
 
 function CasesContent() {
   const { currentCase } = useCase();
@@ -28,6 +30,10 @@ function CasesContent() {
     | "cancelado"
     | undefined
   >();
+  const [selectedClient, setSelectedClient] = useState<{
+    id: Id<"clients">;
+    name: string;
+  } | null>(null);
   const [sortBy, setSortBy] = useState("createdAt");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
   const [showFilters, setShowFilters] = useState(false);
@@ -63,11 +69,12 @@ function CasesContent() {
   const clearFilters = useCallback(() => {
     setSearchQuery("");
     setStatusFilter(undefined);
+    setSelectedClient(null);
   }, []);
 
   const hasActiveFilters = useMemo(
-    () => searchQuery.trim() || statusFilter,
-    [searchQuery, statusFilter],
+    () => searchQuery.trim() || statusFilter || selectedClient,
+    [searchQuery, statusFilter, selectedClient],
   );
 
   return (
@@ -117,6 +124,10 @@ function CasesContent() {
               </span>
             )}
           </Button>
+          <ClientFilterDialog
+            selectedClient={selectedClient}
+            onSelectClient={setSelectedClient}
+          />
           {hasActiveFilters && (
             <Button
               variant="ghost"
@@ -191,6 +202,7 @@ function CasesContent() {
         <CasesTableContainer
           searchQuery={searchQuery}
           statusFilter={statusFilter}
+          clientId={selectedClient?.id}
           sortBy={sortBy}
           sortOrder={sortOrder}
           pageSize={20}
