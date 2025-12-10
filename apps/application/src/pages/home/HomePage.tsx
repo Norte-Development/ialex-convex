@@ -9,6 +9,7 @@ import EmptyState from "@/components/Home/EmptyState";
 import { api } from "../../../convex/_generated/api";
 import { Loader } from "@/components/ai-elements/loader";
 import { BlackFridayPopup } from "@/components/BlackFriday/BlackFridayPopup";
+import { FreemiumUpgradePopup } from "@/components/Freemium/FreemiumUpgradePopup";
 
 export default function HomePage() {
   const { user } = useAuth();
@@ -43,6 +44,7 @@ export default function HomePage() {
     <>
       <TutorialManager />
       <BlackFridayPopup />
+      <FreemiumUpgradePopup />
 
       <div className="w-full bg-background px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
         <div className="max-w-[1600px] mx-auto space-y-6 sm:space-y-8">
