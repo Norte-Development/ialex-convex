@@ -1,5 +1,11 @@
 import { v } from "convex/values";
-import { query, mutation, internalQuery, QueryCtx, MutationCtx } from "../_generated/server";
+import {
+  query,
+  mutation,
+  internalQuery,
+  QueryCtx,
+  MutationCtx,
+} from "../_generated/server";
 import { paginationOptsValidator } from "convex/server";
 import {
   getCurrentUserFromAuth,
@@ -16,11 +22,45 @@ import { caseUpdateTemplate } from "../services/emailTemplates";
 // ========================================
 
 /**
+ * Normalizes text for flexible searching by:
+ * - Removing accents/diacritics
+ * - Converting to lowercase
+ * - Trimming and normalizing whitespace
+ */
+function normalizeText(text: string | undefined | null): string {
+  if (!text) return "";
+  return text
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "") // Remove accents
+    .toLowerCase()
+    .trim()
+    .replace(/\s+/g, " "); // Normalize whitespace
+}
+
+/**
+ * Checks if a normalized search term matches within a normalized target string.
+ * Performs a fuzzy search that allows partial matches.
+ */
+function fuzzyMatch(
+  target: string | undefined | null,
+  search: string,
+): boolean {
+  if (!search) return true;
+  if (!target) return false;
+
+  const normalizedTarget = normalizeText(target);
+  const normalizedSearch = normalizeText(search);
+
+  // Simple partial match - contains the search term
+  return normalizedTarget.includes(normalizedSearch);
+}
+
+/**
  * Determines team context for a case based on team access
  */
 async function getCaseTeamContextHelper(
   ctx: QueryCtx | MutationCtx,
-  caseId: Id<"cases">
+  caseId: Id<"cases">,
 ): Promise<Id<"teams"> | undefined> {
   // Check if any team has access to this case
   const teamAccess = await ctx.db
@@ -29,7 +69,7 @@ async function getCaseTeamContextHelper(
     .filter((q) => q.neq(q.field("teamId"), undefined))
     .filter((q) => q.eq(q.field("isActive"), true))
     .first();
-  
+
   return teamAccess?.teamId;
 }
 
@@ -127,7 +167,7 @@ export const createCase = mutation({
       userId: currentUser._id,
       teamId: args.teamId,
     });
-    
+
     await ctx.scheduler.runAfter(0, internal.billing.features.incrementUsage, {
       entityId: billing.entityId,
       entityType: billing.entityType,
@@ -170,7 +210,9 @@ export const updateCase = mutation({
         v.literal("cancelado"),
       ),
     ),
-    priority: v.optional(v.union(v.literal("low"), v.literal("medium"), v.literal("high"))),
+    priority: v.optional(
+      v.union(v.literal("low"), v.literal("medium"), v.literal("high")),
+    ),
     category: v.optional(v.string()),
     assignedLawyer: v.optional(v.id("users")),
   },
@@ -187,28 +229,34 @@ export const updateCase = mutation({
     const updates: any = {};
     if (args.title !== undefined) updates.title = args.title;
     if (args.description !== undefined) updates.description = args.description;
-    if (args.expedientNumber !== undefined) updates.expedientNumber = args.expedientNumber;
+    if (args.expedientNumber !== undefined)
+      updates.expedientNumber = args.expedientNumber;
     if (args.status !== undefined) updates.status = args.status;
     if (args.priority !== undefined) updates.priority = args.priority;
     if (args.category !== undefined) updates.category = args.category;
-    if (args.assignedLawyer !== undefined) updates.assignedLawyer = args.assignedLawyer;
+    if (args.assignedLawyer !== undefined)
+      updates.assignedLawyer = args.assignedLawyer;
 
     await ctx.db.patch(args.caseId, updates);
 
     // Send notification if status changed
     if (args.status !== undefined && args.status !== existingCase.status) {
       const assignedUser = await ctx.db.get(existingCase.assignedLawyer);
-      
-      await ctx.scheduler.runAfter(0, internal.services.notificationService.sendNotificationIfEnabled, {
-        userId: existingCase.assignedLawyer,
-        notificationType: "caseUpdate" as const,
-        subject: `Caso actualizado: ${existingCase.title}`,
-        htmlBody: caseUpdateTemplate(
-          String(existingCase.title),
-          String(args.status),
-          String(assignedUser?.name || "Usuario")
-        ),
-      });
+
+      await ctx.scheduler.runAfter(
+        0,
+        internal.services.notificationService.sendNotificationIfEnabled,
+        {
+          userId: existingCase.assignedLawyer,
+          notificationType: "caseUpdate" as const,
+          subject: `Caso actualizado: ${existingCase.title}`,
+          htmlBody: caseUpdateTemplate(
+            String(existingCase.title),
+            String(args.status),
+            String(assignedUser?.name || "Usuario"),
+          ),
+        },
+      );
     }
 
     console.log("Updated case:", args.caseId);
@@ -239,7 +287,7 @@ export const deleteCase = mutation({
       .query("caseAccess")
       .withIndex("by_case", (q) => q.eq("caseId", args.caseId))
       .collect();
-    
+
     for (const record of caseAccessRecords) {
       await ctx.db.delete(record._id);
     }
@@ -249,7 +297,7 @@ export const deleteCase = mutation({
       .query("clientCases")
       .withIndex("by_case", (q) => q.eq("caseId", args.caseId))
       .collect();
-    
+
     for (const record of clientCaseRecords) {
       await ctx.db.delete(record._id);
     }
@@ -273,7 +321,7 @@ export const getCase = query({
     const caseData = await ctx.db.get(args.caseId);
     return caseData;
   },
-})
+});
 
 /**
  * Retrieves cases accessible to the current user with optional filtering.
@@ -319,6 +367,7 @@ export const getCases = query({
       ),
     ),
     assignedLawyer: v.optional(v.id("users")),
+    clientId: v.optional(v.id("clients")),
     search: v.optional(v.string()),
     sortBy: v.optional(v.string()),
     sortOrder: v.optional(v.union(v.literal("asc"), v.literal("desc"))),
@@ -374,22 +423,100 @@ export const getCases = query({
       }
     }
 
-    // Apply search filter if provided
-    let filteredCases = accessibleCases;
-    if (args.search && args.search.trim()) {
-      const searchTerm = args.search.toLowerCase().trim();
-      filteredCases = accessibleCases.filter((caseData) =>
-        caseData.title.toLowerCase().includes(searchTerm) ||
-        (caseData.description && caseData.description.toLowerCase().includes(searchTerm)) ||
-        (caseData.expedientNumber && caseData.expedientNumber.toLowerCase().includes(searchTerm))
+    // Filter by client if specified
+    let filteredByClient = accessibleCases;
+    if (args.clientId) {
+      const clientCaseRelations = await ctx.db
+        .query("clientCases")
+        .withIndex("by_client", (q) => q.eq("clientId", args.clientId!))
+        .filter((q) => q.eq(q.field("isActive"), true))
+        .collect();
+
+      const caseIdsForClient = new Set(
+        clientCaseRelations.map((rel) => rel.caseId),
       );
+      filteredByClient = accessibleCases.filter((c) =>
+        caseIdsForClient.has(c._id),
+      );
+    }
+
+    // Apply fuzzy search filter if provided
+    let filteredCases = filteredByClient;
+    if (args.search && args.search.trim()) {
+      const searchTerm = args.search.trim();
+
+      // Get all clients for searching by client names
+      const allClients = await ctx.db.query("clients").collect();
+      const clientsMap = new Map(allClients.map((c) => [c._id, c]));
+
+      // Get all client-case relations to match cases by their clients
+      const allClientCaseRelations = await ctx.db
+        .query("clientCases")
+        .filter((q) => q.eq(q.field("isActive"), true))
+        .collect();
+
+      // Create a map of caseId -> array of client objects
+      const caseClientsMap = new Map<string, typeof allClients>();
+      for (const relation of allClientCaseRelations) {
+        const clientData = clientsMap.get(relation.clientId);
+        if (clientData) {
+          if (!caseClientsMap.has(relation.caseId)) {
+            caseClientsMap.set(relation.caseId, []);
+          }
+          caseClientsMap.get(relation.caseId)!.push(clientData);
+        }
+      }
+
+      filteredCases = filteredByClient.filter((caseData) => {
+        // Search in case title
+        if (fuzzyMatch(caseData.title, searchTerm)) return true;
+
+        // Search in description
+        if (fuzzyMatch(caseData.description, searchTerm)) return true;
+
+        // Search in expedient number
+        if (caseData.expedientNumber) {
+          const normalizedExpedient = caseData.expedientNumber.replace(
+            /[-.\/\s]/g,
+            "",
+          );
+          const normalizedSearchExp = searchTerm.replace(/[-.\/\s]/g, "");
+          if (normalizedExpedient.includes(normalizedSearchExp)) return true;
+        }
+
+        // Search in category
+        if (fuzzyMatch(caseData.category, searchTerm)) return true;
+
+        // Search in associated client names, DNI, and CUIT
+        const caseClients = caseClientsMap.get(caseData._id) || [];
+        for (const client of caseClients) {
+          // Client name
+          if (fuzzyMatch(client.name, searchTerm)) return true;
+
+          // Client DNI (normalize)
+          if (client.dni) {
+            const normalizedDni = client.dni.replace(/[-.\/\s]/g, "");
+            const normalizedSearchDni = searchTerm.replace(/[-.\/\s]/g, "");
+            if (normalizedDni.includes(normalizedSearchDni)) return true;
+          }
+
+          // Client CUIT (normalize)
+          if (client.cuit) {
+            const normalizedCuit = client.cuit.replace(/[-.\/\s]/g, "");
+            const normalizedSearchCuit = searchTerm.replace(/[-.\/\s]/g, "");
+            if (normalizedCuit.includes(normalizedSearchCuit)) return true;
+          }
+        }
+
+        return false;
+      });
     }
 
     // Apply sorting
     if (args.sortBy && args.sortOrder) {
       filteredCases.sort((a, b) => {
         let aValue, bValue;
-        
+
         switch (args.sortBy) {
           case "title":
             aValue = a.title.toLowerCase();
@@ -401,8 +528,10 @@ export const getCases = query({
             break;
           case "priority":
             const priorityOrder = { high: 3, medium: 2, low: 1 };
-            aValue = priorityOrder[a.priority as keyof typeof priorityOrder] || 0;
-            bValue = priorityOrder[b.priority as keyof typeof priorityOrder] || 0;
+            aValue =
+              priorityOrder[a.priority as keyof typeof priorityOrder] || 0;
+            bValue =
+              priorityOrder[b.priority as keyof typeof priorityOrder] || 0;
             break;
           case "createdAt":
           default:
@@ -418,10 +547,12 @@ export const getCases = query({
     }
 
     // Apply pagination - calculate offset based on cursor
-    const offset = args.paginationOpts.cursor ? parseInt(args.paginationOpts.cursor) : 0;
+    const offset = args.paginationOpts.cursor
+      ? parseInt(args.paginationOpts.cursor)
+      : 0;
     const startIndex = offset;
     const endIndex = offset + args.paginationOpts.numItems;
-    
+
     const paginatedCases = filteredCases.slice(startIndex, endIndex);
     const isDone = endIndex >= filteredCases.length;
     const continueCursor = isDone ? null : endIndex.toString();
@@ -434,7 +565,6 @@ export const getCases = query({
     };
   },
 });
-
 
 export const searchCases = internalQuery({
   args: {
@@ -468,15 +598,76 @@ export const searchCases = internalQuery({
       }
     }
 
-    // Apply search filter if provided
+    // Apply fuzzy search filter if provided
     let filteredCases = accessibleCases;
     if (args.query && args.query.trim()) {
-      const searchTerm = args.query.toLowerCase().trim();
-      filteredCases = accessibleCases.filter((caseData) =>
-        caseData.title.toLowerCase().includes(searchTerm) ||
-        (caseData.description && caseData.description.toLowerCase().includes(searchTerm)) ||
-        (caseData.expedientNumber && caseData.expedientNumber.toLowerCase().includes(searchTerm))
-      );
+      const searchTerm = args.query.trim();
+
+      // Get all clients for searching by client names
+      const allClients = await ctx.db.query("clients").collect();
+      const clientsMap = new Map(allClients.map((c) => [c._id, c]));
+
+      // Get all client-case relations to match cases by their clients
+      const allClientCaseRelations = await ctx.db
+        .query("clientCases")
+        .filter((q) => q.eq(q.field("isActive"), true))
+        .collect();
+
+      // Create a map of caseId -> array of client objects
+      const caseClientsMap = new Map<string, typeof allClients>();
+      for (const relation of allClientCaseRelations) {
+        const clientData = clientsMap.get(relation.clientId);
+        if (clientData) {
+          if (!caseClientsMap.has(relation.caseId)) {
+            caseClientsMap.set(relation.caseId, []);
+          }
+          caseClientsMap.get(relation.caseId)!.push(clientData);
+        }
+      }
+
+      filteredCases = accessibleCases.filter((caseData) => {
+        // Search in case title
+        if (fuzzyMatch(caseData.title, searchTerm)) return true;
+
+        // Search in description
+        if (fuzzyMatch(caseData.description, searchTerm)) return true;
+
+        // Search in expedient number
+        if (caseData.expedientNumber) {
+          const normalizedExpedient = caseData.expedientNumber.replace(
+            /[-.\/\s]/g,
+            "",
+          );
+          const normalizedSearchExp = searchTerm.replace(/[-.\/\s]/g, "");
+          if (normalizedExpedient.includes(normalizedSearchExp)) return true;
+        }
+
+        // Search in category
+        if (fuzzyMatch(caseData.category, searchTerm)) return true;
+
+        // Search in associated client names, DNI, and CUIT
+        const caseClients = caseClientsMap.get(caseData._id) || [];
+        for (const client of caseClients) {
+          // Client name
+          if (fuzzyMatch(client.name, searchTerm)) return true;
+
+          // Client DNI (normalize)
+          if (client.dni) {
+            const normalizedDni = client.dni.replace(/[-.\/\s]/g, "");
+            const normalizedSearchDni = searchTerm.replace(/[-.\/\s]/g, "");
+            if (normalizedDni.includes(normalizedSearchDni)) return true;
+          }
+
+          // Client CUIT (normalize)
+          if (client.cuit) {
+            const normalizedCuit = client.cuit.replace(/[-.\/\s]/g, "");
+            const normalizedSearchCuit = searchTerm.replace(/[-.\/\s]/g, "");
+            if (normalizedCuit.includes(normalizedSearchCuit)) return true;
+          }
+        }
+
+        return false;
+      });
     }
 
     // Apply limit if provided

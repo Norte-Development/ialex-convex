@@ -10,6 +10,40 @@ import type { Doc } from "../_generated/dataModel";
 // ========================================
 
 /**
+ * Normalizes text for flexible searching by:
+ * - Removing accents/diacritics
+ * - Converting to lowercase
+ * - Trimming and normalizing whitespace
+ */
+function normalizeText(text: string | undefined | null): string {
+  if (!text) return "";
+  return text
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "") // Remove accents
+    .toLowerCase()
+    .trim()
+    .replace(/\s+/g, " "); // Normalize whitespace
+}
+
+/**
+ * Checks if a normalized search term matches within a normalized target string.
+ * Performs a fuzzy search that allows partial matches.
+ */
+function fuzzyMatch(
+  target: string | undefined | null,
+  search: string,
+): boolean {
+  if (!search) return true;
+  if (!target) return false;
+
+  const normalizedTarget = normalizeText(target);
+  const normalizedSearch = normalizeText(search);
+
+  // Simple partial match - contains the search term
+  return normalizedTarget.includes(normalizedSearch);
+}
+
+/**
  * Helper function to get all case IDs that a user has access to.
  * Includes cases the user created, is assigned to, has team access to, or has explicit user permissions for.
  */
@@ -94,16 +128,14 @@ async function batchFetchClientCases(
   const casesMap = new Map<string, Doc<"cases"> | null>();
   await Promise.all(
     Array.from(caseIdsSet).map(async (caseId) => {
-      const caseData = await ctx.db.get(caseId as any) as Doc<"cases"> | null;
+      const caseData = (await ctx.db.get(caseId as any)) as Doc<"cases"> | null;
       casesMap.set(caseId, caseData);
     }),
   );
 
   // Assemble the result
   return clients.map((client) => {
-    const clientRelations = allRelations.find(
-      (r) => r.clientId === client._id,
-    );
+    const clientRelations = allRelations.find((r) => r.clientId === client._id);
     const cases = (clientRelations?.relations || [])
       .map((relation) => ({
         case: casesMap.get(relation.caseId) || null,
@@ -239,7 +271,9 @@ export const getClients = query({
   args: {
     paginationOpts: v.optional(paginationOptsValidator),
     search: v.optional(v.string()),
-    clientType: v.optional(v.union(v.literal("individual"), v.literal("company"))),
+    clientType: v.optional(
+      v.union(v.literal("individual"), v.literal("company")),
+    ),
     sortBy: v.optional(v.string()),
     sortOrder: v.optional(v.union(v.literal("asc"), v.literal("desc"))),
   },
@@ -333,44 +367,80 @@ export const getClients = query({
       accessibleClientIds.add(client._id),
     );
 
-    let allClients: Doc<"clients">[] = [];
+    // Get all active clients
+    let allClients = await ctx.db
+      .query("clients")
+      .withIndex("by_active_status", (q) => q.eq("isActive", true))
+      .collect();
 
-    if (args.search) {
-      // Use search index for better performance
-      const searchResults = await ctx.db
-        .query("clients")
-        .withSearchIndex("search_clients", (q) =>
-          q.search("name", args.search!).eq("isActive", true),
-        )
-        .take(100);
+    // If searching, apply fuzzy search filter
+    if (args.search && args.search.trim() !== "") {
+      const searchTerm = args.search.trim();
 
-      // Also search by DNI/CUIT manually (since search index only covers name)
-      const dniCuitResults = await ctx.db
-        .query("clients")
-        .withIndex("by_active_status", (q) => q.eq("isActive", true))
-        .filter(
-          (q) =>
-            q.or(
-              q.eq(q.field("dni"), args.search!),
-              q.eq(q.field("cuit"), args.search!),
-            ),
-        )
+      // Get all cases for searching in case titles and expedient numbers
+      const allCases = await ctx.db.query("cases").collect();
+      const casesMap = new Map(allCases.map((c) => [c._id, c]));
+
+      // Get all client-case relations to match clients by their cases
+      const allClientCaseRelations = await ctx.db
+        .query("clientCases")
+        .filter((q) => q.eq(q.field("isActive"), true))
         .collect();
 
-      // Merge and deduplicate results
-      allClients = [...searchResults];
-      const existingIds = new Set(searchResults.map((c) => c._id));
-      for (const result of dniCuitResults) {
-        if (!existingIds.has(result._id)) {
-          allClients.push(result);
+      // Create a map of clientId -> array of case objects
+      const clientCasesMap = new Map<string, Doc<"cases">[]>();
+      for (const relation of allClientCaseRelations) {
+        const caseData = casesMap.get(relation.caseId);
+        if (caseData) {
+          if (!clientCasesMap.has(relation.clientId)) {
+            clientCasesMap.set(relation.clientId, []);
+          }
+          clientCasesMap.get(relation.clientId)!.push(caseData);
         }
       }
-    } else {
-      // Get all active clients
-      allClients = await ctx.db
-        .query("clients")
-        .withIndex("by_active_status", (q) => q.eq("isActive", true))
-        .collect();
+
+      // Apply fuzzy matching filter
+      allClients = allClients.filter((client) => {
+        // Search in client name
+        if (fuzzyMatch(client.name, searchTerm)) return true;
+
+        // Search in DNI (normalize by removing common separators)
+        if (client.dni) {
+          const normalizedDni = client.dni.replace(/[-.\s]/g, "");
+          const normalizedSearchDni = searchTerm.replace(/[-.\s]/g, "");
+          if (normalizedDni.includes(normalizedSearchDni)) return true;
+        }
+
+        // Search in CUIT (normalize by removing common separators)
+        if (client.cuit) {
+          const normalizedCuit = client.cuit.replace(/[-.\s]/g, "");
+          const normalizedSearchCuit = searchTerm.replace(/[-.\s]/g, "");
+          if (normalizedCuit.includes(normalizedSearchCuit)) return true;
+        }
+
+        // Search in email
+        if (fuzzyMatch(client.email, searchTerm)) return true;
+
+        // Search in phone (normalize by removing common separators)
+        if (client.phone) {
+          const normalizedPhone = client.phone.replace(/[-.()\s]/g, "");
+          const normalizedSearchPhone = searchTerm.replace(/[-.()\s]/g, "");
+          if (normalizedPhone.includes(normalizedSearchPhone)) return true;
+        }
+
+        // Search in associated case titles and expedient numbers
+        const clientCases = clientCasesMap.get(client._id) || [];
+        for (const caseData of clientCases) {
+          if (fuzzyMatch(caseData.title, searchTerm)) return true;
+          if (
+            caseData.expedientNumber &&
+            fuzzyMatch(caseData.expedientNumber, searchTerm)
+          )
+            return true;
+        }
+
+        return false;
+      });
     }
 
     // Filter by accessible clients
@@ -380,14 +450,16 @@ export const getClients = query({
 
     // Apply client type filter
     if (args.clientType) {
-      filteredClients = filteredClients.filter((c) => c.clientType === args.clientType);
+      filteredClients = filteredClients.filter(
+        (c) => c.clientType === args.clientType,
+      );
     }
 
     // Apply sorting
     if (args.sortBy && args.sortOrder) {
       filteredClients.sort((a, b) => {
         let aValue, bValue;
-        
+
         switch (args.sortBy) {
           case "name":
             aValue = a.name.toLowerCase();
@@ -412,10 +484,12 @@ export const getClients = query({
 
     // Apply pagination
     const numItems = args.paginationOpts?.numItems ?? 10;
-    const offset = args.paginationOpts?.cursor ? parseInt(args.paginationOpts.cursor) : 0;
+    const offset = args.paginationOpts?.cursor
+      ? parseInt(args.paginationOpts.cursor)
+      : 0;
     const startIndex = offset;
     const endIndex = offset + numItems;
-    
+
     const paginatedClients = filteredClients.slice(startIndex, endIndex);
     const isDone = endIndex >= filteredClients.length;
     const continueCursor = isDone ? null : endIndex.toString();
@@ -802,12 +876,11 @@ export const searchClientsForAgent = internalQuery({
       const dniCuitResults = await ctx.db
         .query("clients")
         .withIndex("by_active_status", (q) => q.eq("isActive", true))
-        .filter(
-          (q) =>
-            q.or(
-              q.eq(q.field("dni"), args.searchTerm!),
-              q.eq(q.field("cuit"), args.searchTerm!),
-            ),
+        .filter((q) =>
+          q.or(
+            q.eq(q.field("dni"), args.searchTerm!),
+            q.eq(q.field("cuit"), args.searchTerm!),
+          ),
         )
         .take(limit);
 
