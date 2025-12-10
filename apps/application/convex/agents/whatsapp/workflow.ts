@@ -358,7 +358,7 @@ export const streamAction = internalAction({
           {
             system: systemPrompt,
             promptMessageId,
-            model: openrouter('openai/gpt-5-nano'),
+            model: openrouter('openai/gpt-5-mini'),
             prepareStep: async (step) => {
               await ctx.runAction(internal.whatsapp.twilio.setTypingIndicator, {
                 messageId: incomingMessageId,

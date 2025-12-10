@@ -76,6 +76,11 @@ export default function NavBar() {
               >
                 <Search size={20} className="text-gray-600" />
               </button>
+{/*               
+              <div className="mr-1">
+                <NotificationsDropdown />
+              </div> */}
+
               <UserButton
                 appearance={{
                   elements: {
