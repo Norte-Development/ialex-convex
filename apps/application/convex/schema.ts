@@ -882,6 +882,53 @@ export default defineSchema({
     .index("by_attendance_status", ["attendanceStatus"])
     .index("by_active_status", ["isActive"]),
 
+  // Marketing / Informational Popups - configurable popups shown in the app
+  popups: defineTable({
+    key: v.string(), // Stable identifier (e.g. "blackfriday-2025")
+    title: v.string(),
+    body: v.string(),
+    enabled: v.boolean(),
+    template: v.union(v.literal("simple")),
+    audience: v.union(
+      v.literal("all"),
+      v.literal("free"),
+      v.literal("trial"),
+      v.literal("free_or_trial"),
+    ),
+
+    // Scheduling window (Unix timestamps ms)
+    startAt: v.optional(v.number()),
+    endAt: v.optional(v.number()),
+
+    // Frequency controls
+    showAfterDays: v.optional(v.number()),
+    frequencyDays: v.optional(v.number()),
+    maxImpressions: v.optional(v.number()),
+
+    // Ordering
+    priority: v.optional(v.number()),
+
+    // Audit
+    createdBy: v.optional(v.id("users")),
+    updatedBy: v.optional(v.id("users")),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_key", ["key"])
+    .index("by_enabled", ["enabled"])
+    .index("by_enabled_and_priority", ["enabled", "priority"]),
+
+  // Per-user popup view tracking (replaces localStorage gating)
+  popupViews: defineTable({
+    popupId: v.id("popups"),
+    userId: v.id("users"),
+    impressions: v.number(),
+    firstShownAt: v.number(),
+    lastShownAt: v.number(),
+  })
+    .index("by_popup_and_user", ["popupId", "userId"])
+    .index("by_user", ["userId"]),
+
   // MercadoPago subscriptions - for manual management
   mercadopagoSubscriptions: defineTable({
     // User reference
