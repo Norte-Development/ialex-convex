@@ -6,7 +6,7 @@ import {
   ReasoningContent,
   ReasoningTrigger,
 } from "../ai-elements/reasoning";
-import { Sources, SourcesTrigger, SourcesContent } from "../ai-elements/source";
+import { Sources, SourcesTrigger, SourcesContent, Source } from "../ai-elements/source";
 import { Actions, Action } from "../ai-elements/actions";
 import { Copy, ThumbsUp, ThumbsDown } from "lucide-react";
 import { Tool } from "../ai-elements/tool";
@@ -45,6 +45,9 @@ export function SidebarMessage({
   
   // Check if there are active tools (not completed yet)
   const hasActiveTools = toolCalls.length > 0 && !allToolsCompleted;
+
+  // Extract source parts
+  const sourceParts = message.parts?.filter((part) => part.type === "source-url") || [];
 
   // Simple streaming logic - just trust the backend status like HomeAgentPage
   const shouldStream =
@@ -229,33 +232,7 @@ export function SidebarMessage({
           }
 
           if (part.type === "source-url") {
-            return (
-              <Sources
-                key={index}
-                onToggle={() => {
-                  // Trigger content change when sources are expanded/collapsed
-                  if (onContentChange) {
-                    setTimeout(onContentChange, 100); // Small delay to allow DOM update
-                  }
-                }}
-              >
-                <SourcesTrigger count={1}>
-                  Source:{" "}
-                  {(part as any).title || (part as any).url || "Unknown source"}
-                </SourcesTrigger>
-                <SourcesContent>
-                  <div className="text-xs bg-blue-50 border border-blue-200 rounded p-2">
-                    <strong>URL:</strong> {(part as any).url}
-                    {(part as any).title && (
-                      <>
-                        <br />
-                        <strong>Title:</strong> {(part as any).title}
-                      </>
-                    )}
-                  </div>
-                </SourcesContent>
-              </Sources>
-            );
+            return null;
           }
 
           if (part.type === "file") {
@@ -315,6 +292,30 @@ export function SidebarMessage({
 
         return null;
       })}
+
+      {/* Sources */}
+      {sourceParts.length > 0 && (
+        <Sources
+          className="mt-2"
+          onOpenChange={(open: boolean) => {
+            if (open && onContentChange) {
+              setTimeout(onContentChange, 100);
+            }
+          }}
+        >
+          <SourcesTrigger count={sourceParts.length} />
+          <SourcesContent>
+            {sourceParts.map((part: any, i) => (
+              <Source
+                key={i}
+                href={part.url}
+                title={part.title}
+                index={i + 1}
+              />
+            ))}
+          </SourcesContent>
+        </Sources>
+      )}
 
       {/* Status and Actions */}
       {!isUser && message.status === "failed" && (

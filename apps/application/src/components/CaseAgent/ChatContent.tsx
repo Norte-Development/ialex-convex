@@ -6,7 +6,7 @@ import {
   optimisticallySendMessage,
   useUIMessages,
 } from "@convex-dev/agent/react";
-import { MessageCircle, Copy, ThumbsUp, ThumbsDown } from "lucide-react";
+import { MessageCircle, Copy, ThumbsUp, ThumbsDown, AlertTriangle } from "lucide-react";
 import { useThread } from "@/context/ThreadContext";
 import { useCase } from "@/context/CaseContext";
 import { useChatbot } from "@/context/ChatbotContext";
@@ -45,6 +45,7 @@ import { CitationModal } from "./citation-modal";
 import { SelectionChip } from "./SelectionChip";
 import { cn } from "@/lib/utils";
 import type { ToolUIPart } from "ai";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 // Extended message type that includes status property from Convex agent
 type AgentMessage = {
@@ -79,6 +80,9 @@ export function ChatContent({ threadId }: { threadId: string | undefined }) {
   const [messageLocalParts, setMessageLocalParts] = useState<
     Record<string, Array<{ type: "selection"; selection: SelectionMeta }>>
   >({});
+
+  // Web search toggle state
+  const [webSearchEnabled, setWebSearchEnabled] = useState(false);
 
   // Citation modal state
   const [citationOpen, setCitationOpen] = useState(false);
@@ -117,6 +121,11 @@ export function ChatContent({ threadId }: { threadId: string | undefined }) {
     setLastReferences([]);
     setCurrentReferences([]);
     setMessageLocalParts({});
+    // Keep webSearchEnabled as a user-controlled preference, but reset
+    // thread-scoped UI like citation modal to avoid leaking state between threads.
+    setCitationOpen(false);
+    setCitationId("");
+    setCitationType("");
   }, [threadId]);
 
   // Clear pending prompt when ChatInput confirms it has been processed
@@ -238,6 +247,7 @@ export function ChatContent({ threadId }: { threadId: string | undefined }) {
           currentEscritoId: currentViewContext.currentEscritoId,
           currentDocumentId: currentViewContext.currentDocumentId, // Add this line
           resolvedReferences: allResolvedReferences,
+          webSearch: webSearchEnabled,
         });
 
         // Store local parts (selections) for this message
@@ -311,6 +321,21 @@ export function ChatContent({ threadId }: { threadId: string | undefined }) {
 
   return (
     <>
+      {/* Web search hallucination warning */}
+      {webSearchEnabled && (
+        <div className="mb-2">
+          <Alert className="border-amber-400 bg-amber-50">
+            <AlertTriangle className="size-4 text-amber-600" />
+            <AlertTitle className="text-amber-900 text-xs">
+              Búsqueda web activada
+            </AlertTitle>
+            <AlertDescription className="text-[11px] text-amber-800">
+              Las respuestas con búsqueda web son más propensas a alucinaciones. Verifica siempre la información con fuentes confiables antes de usarla en tu caso.
+            </AlertDescription>
+          </Alert>
+        </div>
+      )}
+
       {/* Messages area with auto-scroll */}
       <Conversation className="flex-1">
         <ConversationContent className="space-y-3">
@@ -367,6 +392,8 @@ export function ChatContent({ threadId }: { threadId: string | undefined }) {
         onReferencesChange={setCurrentReferences}
         initialPrompt={pendingPrompt || undefined}
         onInitialPromptProcessed={handleInitialPromptProcessed}
+        webSearchEnabled={webSearchEnabled}
+        onWebSearchToggle={setWebSearchEnabled}
       />
 
       {/* Citation modal */}
