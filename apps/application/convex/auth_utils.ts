@@ -1,4 +1,9 @@
-import { QueryCtx, MutationCtx, internalQuery, internalMutation } from "./_generated/server";
+import {
+  QueryCtx,
+  MutationCtx,
+  internalQuery,
+  internalMutation,
+} from "./_generated/server";
 import { ToolCtx } from "@convex-dev/agent";
 import { ConvexError, v } from "convex/values";
 import { Id } from "./_generated/dataModel";
@@ -58,6 +63,41 @@ export async function requireAuth(ctx: QueryCtx | MutationCtx) {
 }
 
 // ========================================
+// Admin organization guard (Clerk)
+// ========================================
+
+export const ADMINS_ORG_SLUG = "admins" as const;
+
+/**
+ * Requires that the authenticated Clerk session has the active organization set
+ * to the `admins` org (by slug).
+ *
+ * Note: This relies on Clerk JWT template claims including `org_slug`.
+ */
+export async function requireAdminsOrg(ctx: QueryCtx | MutationCtx) {
+  const identity = await requireAuth(ctx);
+  const claims = (identity as any).claims ?? {};
+
+  const orgSlug: string | undefined =
+    claims.org_slug ??
+    claims.orgSlug ??
+    claims.organization_slug ??
+    claims.organizationSlug ??
+    claims.org?.slug ??
+    claims.organization?.slug;
+
+  if (orgSlug !== ADMINS_ORG_SLUG) {
+    throw new ConvexError({
+      code: "ADMIN_ORG_REQUIRED",
+      message: `This operation requires the '${ADMINS_ORG_SLUG}' organization.`,
+      orgSlug: orgSlug ?? null,
+    });
+  }
+
+  return identity;
+}
+
+// ========================================
 // NEW UNIFIED PERMISSIONS SYSTEM
 // ========================================
 
@@ -72,7 +112,9 @@ export type AccessLevel = (typeof ACCESS_LEVELS)[keyof typeof ACCESS_LEVELS];
 // ----------------------------------------
 // Runtime type guards for context features
 // ----------------------------------------
-function hasDb(ctx: QueryCtx | MutationCtx | ToolCtx): ctx is QueryCtx | MutationCtx {
+function hasDb(
+  ctx: QueryCtx | MutationCtx | ToolCtx,
+): ctx is QueryCtx | MutationCtx {
   return (ctx as any).db !== undefined;
 }
 
@@ -99,11 +141,14 @@ export async function checkNewCaseAccess(
 }> {
   if (!hasDb(ctx)) {
     if (hasRunQuery(ctx)) {
-      return await ctx.runQuery(internal.auth_utils.internalCheckNewCaseAccess, {
-        userId,
-        caseId,
-        requiredLevel,
-      });
+      return await ctx.runQuery(
+        internal.auth_utils.internalCheckNewCaseAccess,
+        {
+          userId,
+          caseId,
+          requiredLevel,
+        },
+      );
     }
     throw new Error("checkNewCaseAccess requires database or runQuery context");
   }
@@ -194,13 +239,18 @@ export async function requireNewCaseAccess(
 ): Promise<{ userLevel: AccessLevel; source: "user" | "team" }> {
   if (!hasDb(ctx)) {
     if (hasRunQuery(ctx)) {
-      return await ctx.runQuery(internal.auth_utils.internalRequireNewCaseAccess, {
-        userId,
-        caseId,
-        requiredLevel,
-      });
+      return await ctx.runQuery(
+        internal.auth_utils.internalRequireNewCaseAccess,
+        {
+          userId,
+          caseId,
+          requiredLevel,
+        },
+      );
     }
-    throw new Error("requireNewCaseAccess requires database or runQuery context");
+    throw new Error(
+      "requireNewCaseAccess requires database or runQuery context",
+    );
   }
 
   const accessCheck = await checkNewCaseAccess(
@@ -391,8 +441,14 @@ export const internalRequireNewCaseAccess = internalQuery({
     ctx,
     args,
   ): Promise<{ userLevel: AccessLevel; source: "user" | "team" }> => {
-    const res: { hasAccess: boolean; userLevel?: AccessLevel; source?: "user" | "team" } =
-      await ctx.runQuery(internal.auth_utils.internalCheckNewCaseAccess, args);
+    const res: {
+      hasAccess: boolean;
+      userLevel?: AccessLevel;
+      source?: "user" | "team";
+    } = await ctx.runQuery(
+      internal.auth_utils.internalCheckNewCaseAccess,
+      args,
+    );
     if (!res.hasAccess || !res.userLevel || !res.source) {
       throw new ConvexError({
         code: "INSUFFICIENT_PERMISSIONS",
@@ -411,15 +467,23 @@ export const internalGetNewAccessLevel = internalQuery({
     caseId: v.id("cases"),
   },
   returns: v.object({
-    level: v.union(v.literal("basic"), v.literal("advanced"), v.literal("admin"), v.null()),
+    level: v.union(
+      v.literal("basic"),
+      v.literal("advanced"),
+      v.literal("admin"),
+      v.null(),
+    ),
     source: v.optional(v.union(v.literal("user"), v.literal("team"))),
   }),
   handler: async (
     ctx,
     args,
   ): Promise<{ level: AccessLevel | null; source?: "user" | "team" }> => {
-    const res: { hasAccess: boolean; userLevel?: AccessLevel; source?: "user" | "team" } =
-      await ctx.runQuery(internal.auth_utils.internalCheckNewCaseAccess, {
+    const res: {
+      hasAccess: boolean;
+      userLevel?: AccessLevel;
+      source?: "user" | "team";
+    } = await ctx.runQuery(internal.auth_utils.internalCheckNewCaseAccess, {
       ...args,
       requiredLevel: "basic",
     });
@@ -452,13 +516,19 @@ export const internalGrantNewCaseAccess = internalMutation({
   handler: async (ctx, args) => {
     const { grantedBy, caseId, accessLevel, target, options } = args;
 
-    const res = await ctx.runQuery(internal.auth_utils.internalRequireNewCaseAccess, {
-      userId: grantedBy,
-      caseId,
-      requiredLevel: "admin",
-    });
+    const res = await ctx.runQuery(
+      internal.auth_utils.internalRequireNewCaseAccess,
+      {
+        userId: grantedBy,
+        caseId,
+        requiredLevel: "admin",
+      },
+    );
     if (!res?.userLevel) {
-      throw new ConvexError({ code: "INSUFFICIENT_PERMISSIONS", message: "Admin access required" });
+      throw new ConvexError({
+        code: "INSUFFICIENT_PERMISSIONS",
+        message: "Admin access required",
+      });
     }
 
     const accessRecord = {
@@ -495,7 +565,9 @@ export async function grantNewCaseAccess(
   // In action contexts, call the internal mutation from the action instead of this helper.
   // This helper requires a real MutationCtx and a database.
   if (!hasDb(ctx)) {
-    throw new Error("grantNewCaseAccess requires a MutationCtx with database access");
+    throw new Error(
+      "grantNewCaseAccess requires a MutationCtx with database access",
+    );
   }
 
   // Verify granter has admin access

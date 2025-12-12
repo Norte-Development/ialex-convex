@@ -925,6 +925,7 @@ export default defineSchema({
     impressions: v.number(),
     firstShownAt: v.number(),
     lastShownAt: v.number(),
+    dismissedAt: v.optional(v.number()),
   })
     .index("by_popup_and_user", ["popupId", "userId"])
     .index("by_user", ["userId"]),
