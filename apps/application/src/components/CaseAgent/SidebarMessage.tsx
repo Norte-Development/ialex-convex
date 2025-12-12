@@ -16,6 +16,73 @@ import { CitationModal } from "./citation-modal";
 import { useState, useEffect } from "react";
 import { ToolUIPart } from "ai";
 
+/** Citation extracted from tool outputs */
+interface ToolCitation {
+  id: string;
+  type: string;
+  title: string;
+  url?: string;
+}
+
+/**
+ * Extracts citations from tool outputs in message parts.
+ * Looks for tool parts with output.type === 'json' and output.value.citations
+ */
+function extractCitationsFromToolOutputs(parts: unknown[]): ToolCitation[] {
+  const citations: ToolCitation[] = [];
+  
+  console.group("🔍 [Citations] Extracting citations from tool outputs (SidebarMessage)");
+  console.log("Total parts to check:", parts.length);
+  
+  for (const part of parts) {
+    const p = part as { type?: string; state?: string; output?: { type?: string; value?: { citations?: unknown[] } } };
+    if (!p.type?.startsWith("tool-")) continue;
+    if (p.state !== "output-available") continue;
+      
+    const output = p.output;
+    if (!output) {
+      console.log(`  ⏭️  Skipping ${p.type}: no output`);
+      continue;
+    }
+    
+    console.log(`  🔧 Checking ${p.type}:`, {
+      outputType: output.type,
+      hasValue: !!output.value,
+      hasCitations: !!output.value?.citations,
+    });
+    
+    // Check for JSON output with citations array
+    if (output.type === "json" && output.value?.citations) {
+      const citationsArray = output.value.citations;
+      if (Array.isArray(citationsArray)) {
+        console.log(`  ✅ Found ${citationsArray.length} citations in ${p.type}`);
+        for (const cit of citationsArray) {
+          const c = cit as { id?: unknown; type?: unknown; title?: unknown; url?: unknown };
+          if (c.id && c.type) {
+            const citation = {
+              id: String(c.id),
+              type: String(c.type),
+              title: String(c.title || "Fuente"),
+              url: c.url ? String(c.url) : undefined,
+            };
+            citations.push(citation);
+            console.log(`    📚 Citation:`, citation);
+          } else {
+            console.warn(`    ⚠️  Invalid citation (missing id or type):`, cit);
+          }
+        }
+      } else {
+        console.warn(`  ⚠️  Citations is not an array:`, typeof citationsArray);
+      }
+    }
+  }
+  
+  console.log(`📊 Total citations extracted: ${citations.length}`);
+  console.groupEnd();
+  
+  return citations;
+}
+
 export function SidebarMessage({
   message,
   userAvatar,
@@ -46,8 +113,11 @@ export function SidebarMessage({
   // Check if there are active tools (not completed yet)
   const hasActiveTools = toolCalls.length > 0 && !allToolsCompleted;
 
-  // Extract source parts
+  // Extract source parts (from web search etc.)
   const sourceParts = message.parts?.filter((part) => part.type === "source-url") || [];
+  
+  // Extract citations from tool outputs (legislation search, fallos, etc.)
+  const toolCitations = message.parts ? extractCitationsFromToolOutputs(message.parts) : [];
 
   // Simple streaming logic - just trust the backend status like HomeAgentPage
   const shouldStream =
@@ -195,7 +265,7 @@ export function SidebarMessage({
                   onCitationClick={
                     !isUser
                       ? (id, type) => {
-                          console.log("Citation clicked:", { id, type });
+                          console.log("🔗 [Citations] Citation clicked in message text:", { id, type });
                           setOpen(true);
                           setCitationId(id);
                           setCitationType(type);
@@ -293,8 +363,8 @@ export function SidebarMessage({
         return null;
       })}
 
-      {/* Sources */}
-      {sourceParts.length > 0 && (
+      {/* Sources - from source-url parts and tool output citations */}
+      {(sourceParts.length > 0 || toolCitations.length > 0) && (
         <Sources
           className="mt-2"
           onOpenChange={(open: boolean) => {
@@ -303,15 +373,41 @@ export function SidebarMessage({
             }
           }}
         >
-          <SourcesTrigger count={sourceParts.length} />
+          <SourcesTrigger count={sourceParts.length + toolCitations.length} />
           <SourcesContent>
-            {sourceParts.map((part: any, i) => (
+            {/* Render source-url parts (web search) */}
+            {sourceParts.map((part: { url?: string; title?: string }, i) => (
               <Source
-                key={i}
+                key={`source-${i}`}
                 href={part.url}
                 title={part.title}
                 index={i + 1}
               />
+            ))}
+            {/* Render tool citations (legislation, fallos, etc.) */}
+            {toolCitations.map((cit, i) => (
+              <button
+                key={`cit-${cit.id}-${i}`}
+                onClick={() => {
+                  console.log("🔗 [Citations] Citation clicked from sources list:", cit);
+                  setOpen(true);
+                  setCitationId(cit.id);
+                  setCitationType(cit.type);
+                }}
+                className="flex items-center gap-2.5 p-2 rounded-md hover:bg-muted/80 transition-all duration-200 no-underline group/source w-full text-left"
+              >
+                <div className="flex items-center justify-center h-5 w-5 shrink-0 rounded-full bg-background border text-[10px] font-medium text-muted-foreground group-hover/source:text-foreground group-hover/source:border-primary/20">
+                  {sourceParts.length + i + 1}
+                </div>
+                <div className="flex flex-col gap-0.5 min-w-0 flex-1">
+                  <span className="text-xs font-medium truncate text-foreground/90 group-hover/source:text-primary">
+                    {cit.title}
+                  </span>
+                  <span className="text-[10px] text-muted-foreground truncate opacity-70">
+                    {cit.type === "leg" ? "Legislación" : cit.type === "fallo" ? "Jurisprudencia" : cit.type}
+                  </span>
+                </div>
+              </button>
             ))}
           </SourcesContent>
         </Sources>

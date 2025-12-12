@@ -13,7 +13,7 @@
  * ```
  */
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useUIMessages } from "@convex-dev/agent/react";
 import { api } from "../../../convex/_generated/api";
@@ -33,6 +33,7 @@ import {
   PromptInputTextarea,
   PromptInputToolbar,
   PromptInputSubmit,
+  PromptInputButton,
 } from "@/components/ai-elements/prompt-input";
 import { Response } from "@/components/ai-elements/response";
 import { Actions, Action } from "@/components/ai-elements/actions";
@@ -41,7 +42,8 @@ import {
   ReasoningContent,
   ReasoningTrigger,
 } from "@/components/ai-elements/reasoning";
-import { Copy, RotateCw, Check, AlertCircle } from "lucide-react";
+import { Sources, SourcesTrigger, SourcesContent, Source } from "@/components/ai-elements/source";
+import { Copy, RotateCw, Check, AlertCircle, Globe, AlertTriangle } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { es } from "date-fns/locale";
 import { Tool } from "@/components/ai-elements/tool";
@@ -49,6 +51,7 @@ import type { ToolUIPart } from "ai";
 import { toast } from "sonner";
 import { CitationModal } from "@/components/CaseAgent/citation-modal";
 import { Button } from "@/components/ui/button";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 export interface HomeAgentChatProps {
   /** ID del thread de conversación */
@@ -67,6 +70,71 @@ interface HomeAgentMessageProps {
   onCopyMessage: (messageId: string, text: string) => void;
   onCitationClick: (id: string, type: string) => void;
   onRetry?: (userMessage: string) => void;
+}
+
+/** Citation extracted from tool outputs */
+interface ToolCitation {
+  id: string;
+  type: string;
+  title: string;
+  url?: string;
+}
+
+/**
+ * Extracts citations from tool outputs in message parts.
+ * Looks for tool parts with output.type === 'json' and output.value.citations
+ */
+function extractCitationsFromToolOutputs(parts: any[]): ToolCitation[] {
+  const citations: ToolCitation[] = [];
+  
+  console.group("🔍 [Citations] Extracting citations from tool outputs");
+  console.log("Total parts to check:", parts.length);
+  
+  for (const part of parts) {
+    if (!part.type?.startsWith("tool-")) continue;
+    if (part.state !== "output-available") continue;
+    
+    const output = part.output;
+    if (!output) {
+      console.log(`  ⏭️  Skipping ${part.type}: no output`);
+      continue;
+    }
+    
+    console.log(`  🔧 Checking ${part.type}:`, {
+      outputType: output.type,
+      hasValue: !!output.value,
+      hasCitations: !!output.value?.citations,
+    });
+    
+    // Check for JSON output with citations array
+    if (output.type === "json" && output.value?.citations) {
+      const citationsArray = output.value.citations;
+      if (Array.isArray(citationsArray)) {
+        console.log(`  ✅ Found ${citationsArray.length} citations in ${part.type}`);
+        for (const cit of citationsArray) {
+          if (cit.id && cit.type) {
+            const citation = {
+              id: String(cit.id),
+              type: String(cit.type),
+              title: String(cit.title || "Fuente"),
+              url: cit.url ? String(cit.url) : undefined,
+            };
+            citations.push(citation);
+            console.log(`    📚 Citation:`, citation);
+          } else {
+            console.warn(`    ⚠️  Invalid citation (missing id or type):`, cit);
+          }
+        }
+      } else {
+        console.warn(`  ⚠️  Citations is not an array:`, typeof citationsArray);
+      }
+    }
+  }
+  
+  console.log(`📊 Total citations extracted: ${citations.length}`);
+  console.groupEnd();
+  
+  return citations;
 }
 
 /**
@@ -95,6 +163,12 @@ const HomeAgentMessage = ({
   const toolCalls = msg.parts?.filter((p: any) => p.type?.startsWith("tool-")) || [];
   const allToolsCompleted = toolCalls.length > 0 && toolCalls.every((p: any) => p.state === "output-available");
   const hasActiveTools = toolCalls.length > 0 && !allToolsCompleted;
+
+  // Extract source parts (from web search etc.)
+  const sourceParts = msg.parts?.filter((part: any) => part.type === "source-url") || [];
+  
+  // Extract citations from tool outputs (legislation search, fallos, etc.)
+  const toolCitations = msg.parts ? extractCitationsFromToolOutputs(msg.parts) : [];
 
   return (
     <Message key={messageId} from={msg.role}>
@@ -146,6 +220,7 @@ const HomeAgentMessage = ({
                     key={partIndex}
                     className="text-sm"
                     onCitationClick={(id, type) => {
+                      console.log("🔗 [Citations] Citation clicked in message text:", { id, type });
                       onCitationClick(id, type);
                     }}
                   >
@@ -202,6 +277,10 @@ const HomeAgentMessage = ({
               );
             }
 
+            if (part.type === "source-url") {
+              return null;
+            }
+
             return null;
           })
         ) : isUser ? (
@@ -212,12 +291,54 @@ const HomeAgentMessage = ({
           <Response
             className="text-sm"
             onCitationClick={(id, type) => {
+              console.log("🔗 [Citations] Citation clicked in message text (fallback):", { id, type });
               onCitationClick(id, type);
             }}
           >
             {messageText || "..."}
           </Response>
         )}
+        {/* Sources - from source-url parts and tool output citations */}
+        {(sourceParts.length > 0 || toolCitations.length > 0) && (
+          <Sources className="mt-2">
+            <SourcesTrigger count={sourceParts.length + toolCitations.length} />
+            <SourcesContent>
+              {/* Render source-url parts (web search) */}
+              {sourceParts.map((part: any, i: number) => (
+                <Source
+                  key={`source-${i}`}
+                  href={part.url}
+                  title={part.title}
+                  index={i + 1}
+                />
+              ))}
+              {/* Render tool citations (legislation, fallos, etc.) */}
+              {toolCitations.map((cit, i: number) => (
+                <button
+                  key={`cit-${cit.id}-${i}`}
+                  onClick={() => {
+                    console.log("🔗 [Citations] Citation clicked from sources list:", cit);
+                    onCitationClick(cit.id, cit.type);
+                  }}
+                  className="flex items-center gap-2.5 p-2 rounded-md hover:bg-muted/80 transition-all duration-200 no-underline group/source w-full text-left"
+                >
+                  <div className="flex items-center justify-center h-5 w-5 shrink-0 rounded-full bg-background border text-[10px] font-medium text-muted-foreground group-hover/source:text-foreground group-hover/source:border-primary/20">
+                    {sourceParts.length + i + 1}
+                  </div>
+                  <div className="flex flex-col gap-0.5 min-w-0 flex-1">
+                    <span className="text-xs font-medium truncate text-foreground/90 group-hover/source:text-primary">
+                      {cit.title}
+                    </span>
+                    <span className="text-[10px] text-muted-foreground truncate opacity-70">
+                      {cit.type === "leg" ? "Legislación" : cit.type === "fallo" ? "Jurisprudencia" : cit.type}
+                    </span>
+                  </div>
+                </button>
+              ))}
+            </SourcesContent>
+          </Sources>
+        )}
+
         <div className="flex items-center justify-between mt-2">
           <div className="text-[10px] opacity-70">
             {msg._creationTime
@@ -275,8 +396,19 @@ export function HomeAgentChat({
 }: HomeAgentChatProps) {
   const navigate = useNavigate();
   const [inputValue, setInputValue] = useState("");
+  const [webSearchEnabled, setWebSearchEnabled] = useState(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("homeAgentWebSearchEnabled");
+      return saved === "true";
+    }
+    return false;
+  });
   const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null);
   const [sendError, setSendError] = useState<string | null>(null);
+
+  useEffect(() => {
+    localStorage.setItem("homeAgentWebSearchEnabled", String(webSearchEnabled));
+  }, [webSearchEnabled]);
 
   // Estado para el modal de citas
   const [citationModalOpen, setCitationModalOpen] = useState(false);
@@ -325,7 +457,7 @@ export function HomeAgentChat({
     setSendError(null);
 
     try {
-      const result = await sendMessage(message);
+      const result = await sendMessage(message, webSearchEnabled);
       // If no thread was set, navigate to the new thread
       if (!threadId && result.threadId) {
         navigate(`/ai/${result.threadId}`);
@@ -364,7 +496,7 @@ export function HomeAgentChat({
 
     setSendError(null);
     try {
-      await sendMessage(messageText);
+      await sendMessage(messageText, webSearchEnabled);
     } catch (error) {
       console.error("Error regenerating message:", error);
       const errorMessage =
@@ -429,6 +561,7 @@ export function HomeAgentChat({
                   copiedMessageId={copiedMessageId}
                   onCopyMessage={handleCopyMessage}
                   onCitationClick={(id, type) => {
+                    console.log("🔗 [Citations] Opening citation modal:", { id, type });
                     setCitationModalOpen(true);
                     setSelectedCitationId(id);
                     setSelectedCitationType(type);
@@ -444,6 +577,21 @@ export function HomeAgentChat({
 
       {/* Prompt Input */}
       <div className="m-4">
+        {/* Web search hallucination warning */}
+        {webSearchEnabled && (
+          <div className="mb-2">
+            <Alert className="border-amber-400 bg-amber-50">
+              <AlertTriangle className="size-4 text-amber-600" />
+              <AlertTitle className="text-amber-900 text-xs">
+                Búsqueda web activada
+              </AlertTitle>
+              <AlertDescription className="text-[11px] text-amber-800">
+                Las respuestas con búsqueda web son más propensas a alucinaciones. Verifica siempre la información con fuentes confiables antes de usarla en tu caso.
+              </AlertDescription>
+            </Alert>
+          </div>
+        )}
+
         {sendError && (
           <div className="mb-2 flex items-center gap-2 rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
             <AlertCircle className="h-4 w-4" />
@@ -458,6 +606,16 @@ export function HomeAgentChat({
             disabled={isInputDisabled}
           />
           <PromptInputToolbar>
+            <div className="flex items-center gap-2">
+              <PromptInputButton
+                onClick={() => setWebSearchEnabled(!webSearchEnabled)}
+                className={webSearchEnabled ? "text-blue-500 bg-blue-50" : ""}
+                title={webSearchEnabled ? "Búsqueda web activada" : "Activar búsqueda web"}
+              >
+                <Globe className="size-4" />
+                <span className="text-xs">{webSearchEnabled ? "Web" : ""}</span>
+              </PromptInputButton>
+            </div>
             <div className="flex-1" />
             <PromptInputSubmit
               disabled={isStreaming ? false : (!inputValue.trim() || messagesLoading)}

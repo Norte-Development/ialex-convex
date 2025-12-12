@@ -37,7 +37,7 @@ import {
   ReasoningContent,
   ReasoningTrigger,
 } from "../ai-elements/reasoning";
-import { Sources, SourcesTrigger, SourcesContent } from "../ai-elements/source";
+import { Sources, SourcesTrigger, SourcesContent, Source } from "../ai-elements/source";
 import { Actions, Action } from "../ai-elements/actions";
 import { Tool } from "../ai-elements/tool";
 import { MessageText } from "../ai-elements/message-text";
@@ -60,6 +60,90 @@ type AgentMessage = {
     [key: string]: unknown;
   }>;
 };
+
+/** Citation extracted from tool outputs */
+interface ToolCitation {
+  id: string;
+  type: string;
+  title: string;
+  url?: string;
+}
+
+/**
+ * Extracts citations from tool outputs in message parts.
+ * Supports multiple output shapes depending on the underlying tool/runtime:
+ * - output.type === "json" with output.value.citations
+ * - output.citations directly (some tool adapters)
+ * - output.value being a JSON string containing { citations: [...] }
+ */
+function extractCitationsFromToolOutputs(parts: unknown[]): ToolCitation[] {
+  const citations: ToolCitation[] = [];
+  const seen = new Set<string>();
+
+  const addCitation = (raw: unknown) => {
+    const c = raw as { id?: unknown; type?: unknown; title?: unknown; url?: unknown };
+    if (!c?.id || !c?.type) return;
+    const id = String(c.id);
+    const type = String(c.type);
+    const key = `${type}:${id}`;
+    if (seen.has(key)) return;
+    seen.add(key);
+    citations.push({
+      id,
+      type,
+      title: String(c.title || "Fuente"),
+      url: c.url ? String(c.url) : undefined,
+    });
+  };
+
+  const tryExtractFromContainer = (container: unknown) => {
+    if (!container) return;
+    const obj = container as { citations?: unknown };
+    const arr = obj.citations;
+    if (!Array.isArray(arr)) return;
+    for (const raw of arr) addCitation(raw);
+  };
+
+  const tryParseJsonString = (value: unknown): unknown => {
+    if (typeof value !== "string") return null;
+    const trimmed = value.trim();
+    if (!trimmed) return null;
+    // Fast check to avoid parsing arbitrary strings.
+    if (!(trimmed.startsWith("{") || trimmed.startsWith("["))) return null;
+    try {
+      return JSON.parse(trimmed) as unknown;
+    } catch {
+      return null;
+    }
+  };
+
+  for (const part of parts) {
+    const p = part as {
+      type?: string;
+      state?: string;
+      output?: unknown;
+    };
+
+    if (!p.type?.startsWith("tool-")) continue;
+    if (p.state !== "output-available") continue;
+
+    const output = p.output as any;
+    if (!output) continue;
+
+    // Common case: ai-sdk ToolUIPart output wrapper { type, value }
+    tryExtractFromContainer(output?.value);
+    // Some adapters: citations directly on output
+    tryExtractFromContainer(output);
+
+    // Handle stringified JSON in output.value (or output itself)
+    const parsedFromValue = tryParseJsonString(output?.value);
+    if (parsedFromValue) tryExtractFromContainer(parsedFromValue);
+    const parsedFromOutput = tryParseJsonString(output);
+    if (parsedFromOutput) tryExtractFromContainer(parsedFromOutput);
+  }
+
+  return citations;
+}
 
 export function ChatContent({ threadId }: { threadId: string | undefined }) {
   const { createThreadWithTitle, setThreadId } = useThread();
@@ -115,6 +199,10 @@ export function ChatContent({ threadId }: { threadId: string | undefined }) {
     !threadId ? "skip" : ({ threadId } as any),
     { initialNumItems: 50, stream: true },
   );
+
+  // Only show messages when there is an active thread
+  // This ensures the UI clears immediately when starting a new conversation
+  const visibleMessages = threadId ? messages : [];
 
   // Clear references when thread changes to prevent trailing state
   useEffect(() => {
@@ -296,15 +384,18 @@ export function ChatContent({ threadId }: { threadId: string | undefined }) {
 
   const handleAbortStream = useCallback(() => {
     if (!threadId) return;
-    const order = messages?.find((m) => m.status === "streaming")?.order ?? 0;
+    const order =
+      visibleMessages?.find((m) => m.status === "streaming")?.order ?? 0;
     void abortStreamByOrder({ threadId, order });
 
     // Track chat abort
     tracking.aiChatAborted({ threadId });
-  }, [threadId, messages, abortStreamByOrder]);
+  }, [threadId, visibleMessages, abortStreamByOrder]);
 
-  // Simple streaming detection - just check if any message has streaming status
-  const isStreaming = messages?.some((m) => m.status === "streaming") ?? false;
+  // Simple streaming detection - only if a thread exists
+  const isStreaming =
+    !!threadId &&
+    (visibleMessages?.some((m) => m.status === "streaming") ?? false);
 
   const combinedReferences = useMemo(
     () => [
@@ -339,7 +430,7 @@ export function ChatContent({ threadId }: { threadId: string | undefined }) {
       {/* Messages area with auto-scroll */}
       <Conversation className="flex-1">
         <ConversationContent className="space-y-3">
-          {messages?.length === 0 ? (
+          {(!threadId || visibleMessages?.length === 0) ? (
             <ConversationEmptyState
               icon={<MessageCircle className="w-12 h-12" />}
               title="Inicia una conversación"
@@ -359,7 +450,7 @@ export function ChatContent({ threadId }: { threadId: string | undefined }) {
                   </Button>
                 </div>
               )}
-              {messages.map((m) => (
+              {visibleMessages.map((m) => (
                 <MessageItem
                   key={m.id}
                   message={m}
@@ -437,6 +528,15 @@ function MessageItem({
   const hasActiveTools =
     toolCalls.length > 0 &&
     !toolCalls.every((part: any) => part.state === "output-available");
+
+  // Extract source-url parts (web search, etc.)
+  const sourceParts =
+    message.parts?.filter((part) => part.type === "source-url") || [];
+
+  // Extract citations from tool outputs (legislation, fallos, etc.)
+  const toolCitations = message.parts
+    ? extractCitationsFromToolOutputs(message.parts as unknown[])
+    : [];
 
   return (
     <Message
@@ -537,27 +637,7 @@ function MessageItem({
           }
 
           if (part.type === "source-url") {
-            const sourceTitle =
-              (part as any).title || (part as any).url || "Unknown source";
-            const sourceUrl = (part as any).url || "";
-            return (
-              <Sources key={`source-${index}-${sourceUrl.substring(0, 20)}`}>
-                <SourcesTrigger count={1}>
-                  <>Source: {sourceTitle}</>
-                </SourcesTrigger>
-                <SourcesContent>
-                  <div className="text-xs bg-blue-50 border border-blue-200 rounded p-2">
-                    <strong>URL:</strong> {sourceUrl}
-                    {(part as any).title && (
-                      <>
-                        <br />
-                        <strong>Title:</strong> {(part as any).title}
-                      </>
-                    )}
-                  </div>
-                </SourcesContent>
-              </Sources>
-            );
+            return null;
           }
 
           if (part.type === "file") {
@@ -622,6 +702,48 @@ function MessageItem({
 
           return null;
         })}
+
+        {/* Sources - from source-url parts and tool output citations */}
+        {(sourceParts.length > 0 || toolCitations.length > 0) && (
+          <Sources className="mt-2">
+            <SourcesTrigger count={sourceParts.length + toolCitations.length} />
+            <SourcesContent>
+              {/* Render source-url parts (web search) */}
+              {sourceParts.map((part: any, i: number) => (
+                <Source
+                  key={`source-${i}`}
+                  href={part.url}
+                  title={part.title}
+                  index={i + 1}
+                />
+              ))}
+              {/* Render tool citations (legislation, fallos, etc.) */}
+              {toolCitations.map((cit, i) => (
+                <button
+                  key={`cit-${cit.id}-${i}`}
+                  onClick={() => onCitationClick(cit.id, cit.type)}
+                  className="flex items-center gap-2.5 p-2 rounded-md hover:bg-muted/80 transition-all duration-200 no-underline group/source w-full text-left"
+                >
+                  <div className="flex items-center justify-center h-5 w-5 shrink-0 rounded-full bg-background border text-[10px] font-medium text-muted-foreground group-hover/source:text-foreground group-hover/source:border-primary/20">
+                    {sourceParts.length + i + 1}
+                  </div>
+                  <div className="flex flex-col gap-0.5 min-w-0 flex-1">
+                    <span className="text-xs font-medium truncate text-foreground/90 group-hover/source:text-primary">
+                      {cit.title}
+                    </span>
+                    <span className="text-[10px] text-muted-foreground truncate opacity-70">
+                      {cit.type === "leg"
+                        ? "Legislación"
+                        : cit.type === "fallo"
+                        ? "Jurisprudencia"
+                        : cit.type}
+                    </span>
+                  </div>
+                </button>
+              ))}
+            </SourcesContent>
+          </Sources>
+        )}
 
         {/* Failed status */}
         {!isUser && message.status === "failed" && (

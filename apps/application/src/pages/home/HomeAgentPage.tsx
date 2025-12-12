@@ -7,23 +7,41 @@
  * Sin caso específico - agente general.
  */
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
-import { CircleArrowUp } from "lucide-react";
+import {
+  PromptInput,
+  PromptInputTextarea,
+  PromptInputToolbar,
+  PromptInputSubmit,
+  PromptInputButton,
+} from "@/components/ai-elements/prompt-input";
+import { Globe, AlertTriangle } from "lucide-react";
 import { useHomeThreads } from "@/components/HomeAgent/hooks/useHomeThreads";
 import { HomeAgentLayout } from "@/components/HomeAgent/HomeAgentLayout";
-import { Loader } from "@/components/ai-elements/loader";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { cn } from "@/lib/utils";
 
 export default function HomeAgentPage() {
   const navigate = useNavigate();
   const [inputValue, setInputValue] = useState("");
   const [isCreating, setIsCreating] = useState(false);
+  const [webSearchEnabled, setWebSearchEnabled] = useState(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("homeAgentWebSearchEnabled");
+      return saved === "true";
+    }
+    return false;
+  });
+
+  useEffect(() => {
+    localStorage.setItem("homeAgentWebSearchEnabled", String(webSearchEnabled));
+  }, [webSearchEnabled]);
 
   const { sendMessage } = useHomeThreads();
 
-  const handleSendMessage = async () => {
+  const handleSendMessage = async (e?: React.FormEvent) => {
+    e?.preventDefault();
     if (!inputValue.trim() || isCreating) return;
 
     const message = inputValue.trim();
@@ -31,7 +49,7 @@ export default function HomeAgentPage() {
 
     try {
       // Send message (will create thread automatically with message as title)
-      const result = await sendMessage(message);
+      const result = await sendMessage(message, webSearchEnabled);
 
       if (result.threadId) {
         // Navigate to the new thread
@@ -66,55 +84,54 @@ export default function HomeAgentPage() {
           </div>
 
           <div className="relative w-full max-w-4xl h-fit mx-auto">
-            <Textarea
-              value={inputValue}
-              onChange={(e) => setInputValue(e.target.value)}
-              onKeyDown={handleKeyDown}
-              placeholder="Listo cuando usted lo esté"
-              className="min-h-[150px] max-h-[300px] pt-5 pb-12 px-6 overflow-y-auto bg-white border-2 border-[#E5E7EB] placeholder:text-[#9CA3AF] rounded-2xl resize-none focus:border-[#9ECBFB] focus:outline-none"
-              style={{
-                boxShadow:
-                  "0px 4.27px 34.18px -4.27px rgba(99, 140, 243, 0.32)",
-              }}
-              disabled={isCreating}
-            />
+            {/* Web search hallucination warning */}
+            {webSearchEnabled && (
+              <div className="mb-2">
+                <Alert className="border-amber-400 bg-amber-50">
+                  <AlertTriangle className="size-4 text-amber-600" />
+                  <AlertTitle className="text-amber-900 text-xs">
+                    Búsqueda web activada
+                  </AlertTitle>
+                  <AlertDescription className="text-[11px] text-amber-800">
+                    Las respuestas con búsqueda web son más propensas a alucinaciones. Verifica siempre la información con fuentes confiables antes de usarla en tu caso.
+                  </AlertDescription>
+                </Alert>
+              </div>
+            )}
 
-            {/* <div className="absolute bottom-4 left-6 flex items-center gap-3">
-              <button
-                onClick={() =>
-                  console.log(
-                    "Ask se desplegaria un selector de modo, cuando tengamos esa feature",
-                  )
-                }
+            <PromptInput onSubmit={handleSendMessage} className="border-2 border-[#E5E7EB] shadow-[0px_4.27px_34.18px_-4.27px_rgba(99,140,243,0.32)] rounded-2xl">
+              <PromptInputTextarea
+                value={inputValue}
+                onChange={(e) => setInputValue(e.target.value)}
+                onKeyDown={handleKeyDown}
+                placeholder="Listo cuando usted lo esté"
+                className="min-h-[150px] max-h-[300px] px-6 py-5 bg-white placeholder:text-[#9CA3AF] resize-none focus:outline-none text-base"
                 disabled={isCreating}
-                className="px-3 py-1.5 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-full transition-colors disabled:opacity-50"
-              >
-                Ask
-              </button>
-              <button
-                onClick={() => console.log("Opción 1")}
-                disabled={isCreating}
-                className="px-3 py-1.5 text-sm text-gray-400 hover:text-gray-600 transition-colors disabled:opacity-50"
-              >
-                Opción 1
-              </button>
-              <button
-                onClick={() => console.log("Opción 2")}
-                disabled={isCreating}
-                className="px-3 py-1.5 text-sm text-gray-400 hover:text-gray-600 transition-colors disabled:opacity-50"
-              >
-                Opción 2
-              </button>
-            </div> */}
-
-            <Button
-              onClick={handleSendMessage}
-              disabled={!inputValue.trim() || isCreating}
-              size="icon"
-              className="absolute right-5 bottom-4 bg-transparent disabled:bg-transparent hover:bg-transparent text-black"
-            >
-              {isCreating ? <Loader size={20} /> : <CircleArrowUp size={20} />}
-            </Button>
+              />
+              <PromptInputToolbar className="px-6 pb-4 bg-white">
+                <div className="flex items-center gap-2">
+                  <PromptInputButton
+                    onClick={() => setWebSearchEnabled(!webSearchEnabled)}
+                    className={cn(
+                      "rounded-full transition-all h-8 w-8",
+                      webSearchEnabled && "bg-blue-100 text-blue-600 hover:bg-blue-200"
+                    )}
+                    title={webSearchEnabled ? "Búsqueda web activada" : "Activar búsqueda web"}
+                    type="button"
+                  >
+                    <Globe className="size-4" />
+                    <span className="sr-only">Toggle Web Search</span>
+                  </PromptInputButton>
+                </div>
+                <div className="flex-1" />
+                <PromptInputSubmit
+                  onClick={() => handleSendMessage()}
+                  disabled={!inputValue.trim() || isCreating}
+                  className="bg-transparent hover:bg-transparent text-black"
+                  size="icon"
+                />
+              </PromptInputToolbar>
+            </PromptInput>
           </div>
         </div>
       </div>

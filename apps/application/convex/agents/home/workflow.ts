@@ -24,6 +24,7 @@ export const legalAgentWorkflow = workflow.define({
     userId: v.id("users"),
     threadId: v.string(),
     prompt: v.string(),
+    webSearch: v.boolean(),
   },
   handler: async (step, args): Promise<void> => {
     const userMessage = await saveMessage(step, components.agent, {
@@ -38,6 +39,7 @@ export const legalAgentWorkflow = workflow.define({
         threadId: args.threadId,
         promptMessageId: userMessage.messageId,
         userId: args.userId,
+        webSearch: args.webSearch,
       },
       { retry: false },
     );
@@ -51,9 +53,10 @@ export const streamWithContextAction = internalAction({
     threadId: v.string(),
     promptMessageId: v.string(),
     userId: v.id("users"),
+    webSearch: v.boolean(),
   },
   returns: v.null(),
-  handler: async (ctx, { threadId, promptMessageId, userId }) => {
+  handler: async (ctx, { threadId, promptMessageId, userId, webSearch }) => {
 
     // Determine which model to use based on user's personal billing plan
     // (Home agent doesn't have case context, so only check user's own plan)
@@ -69,8 +72,13 @@ export const streamWithContextAction = internalAction({
 
     const { thread } = await agent.continueThread(ctx, { threadId });
 
-    const openRouterModel = modelToUse === 'gpt-5' ? 'openai/gpt-5.1' : 'openai/gpt-5-mini';
+    let openRouterModel = modelToUse === 'gpt-5' ? 'openai/gpt-5.1' : 'openai/gpt-5-mini';
     const config = { reasoning: modelToUse === 'gpt-5' ? {enabled: true, effort: "low" as const, exclude: false } : undefined};
+
+    if (webSearch) {
+      openRouterModel = openRouterModel + ':online';
+    }
+    console.log('openRouterModel', openRouterModel);
 
 
     try {
@@ -184,6 +192,7 @@ export const initiateWorkflowStreaming = mutation({
   args: {
     prompt: v.string(),
     threadId: v.string(),
+    webSearchEnabled: v.boolean(),
   },
   returns: v.object({
     workflowId: v.string(),
@@ -234,6 +243,7 @@ export const initiateWorkflowStreaming = mutation({
         userId: user._id,
         threadId,
         prompt: args.prompt,
+        webSearch: args.webSearchEnabled,
       },
     );
 

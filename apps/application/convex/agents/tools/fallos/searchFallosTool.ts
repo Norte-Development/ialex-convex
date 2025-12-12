@@ -14,6 +14,39 @@ let tribunalValuesCache: string[] | null = null;
 let tribunalCacheTime = 0;
 const TRIBUNAL_CACHE_DURATION = 24 * 60 * 60 * 1000; // 24 hours
 
+/**
+ * Normalizes jurisdiction values to the correct format.
+ * Matches legislation behavior: maps common "nacional"/"Argentina" variants -> "nac",
+ * and omits the filter if empty/whitespace.
+ */
+function normalizeJurisdiccion(jurisdiccion: string | undefined | null): string | undefined {
+  if (!jurisdiccion) return undefined;
+
+  const normalized = jurisdiccion.trim().toLowerCase();
+  if (normalized === "") return undefined;
+
+  const nacionalVariations = [
+    "nacional",
+    "nación",
+    "nacion",
+    "argentina",
+    "argentino",
+    "federal",
+    "nación argentina",
+    "nacion argentina",
+    "república argentina",
+    "republica argentina",
+    "república",
+    "republica",
+  ];
+
+  if (nacionalVariations.includes(normalized)) {
+    return "nac";
+  }
+
+  return normalized;
+}
+
 // Helper function to convert ISO date string to Unix timestamp
 const isoToTimestamp = (isoDate: string): string => {
   const date = new Date(isoDate);
@@ -22,6 +55,22 @@ const isoToTimestamp = (isoDate: string): string => {
   }
   return Math.floor(date.getTime() / 1000).toString();
 };
+
+/**
+ * Treats "default" date range values (often auto-filled by UI/LLM) as NO-OP.
+ * These broad ranges can unintentionally exclude documents missing date fields
+ * because Qdrant uses MUST range filters.
+ */
+function isNoOpDateFilterValue(value: string | undefined | null): boolean {
+  if (value === undefined || value === null) return true;
+  const v = value.trim();
+  if (v === "") return true;
+  // Common "wide open" defaults:
+  if (v === "1900-01-01" || v === "2100-01-01") return true;
+  // Same defaults after timestamp conversion:
+  if (v === "-2208988800" || v === "4102444800") return true;
+  return false;
+}
 
 /**
  * Unified fallos finder tool.
@@ -65,15 +114,19 @@ export const searchFallosTool = createTool({
       ? `Available tribunal values: ${tribunalValuesCache.join(', ')}`
       : '';
     
-    return `Find fallos (jurisprudencia): hybrid search with filters, browse by filters, fetch facets, or get metadata. 
+    return `Find fallos (jurisprudencia): hybrid search with optional filters, browse by filters, fetch facets, or get metadata. 
 
 IMPORTANT: You can search by document_id alone without a query - just provide filters.document_id. Query is optional when filtering by document_id.
 
+IMPORTANT (DATES): Avoid date filters unless the user explicitly specifies dates. If you MUST use date filters, set dateFiltersExplicit=true.
+IMPORTANT (STRICT FILTERS): Avoid strict filters unless the user explicitly asks (e.g. tribunal/materia). If you MUST use strict filters, set strictFilters=true.
+
 FILTERS:
-- tribunal: Court name. ${tribunalList}
-- materia: Subject matter
-- promulgacion_from/to: Promulgation date range (ISO date strings, converted to timestamps)
-- publicacion_from/to: Publication date range (ISO date strings, converted to timestamps)
+- tribunal (STRICT): Court name. ${tribunalList}
+- jurisdiccion: Jurisdiction. ${jurisdiccionList}. CRITICAL: If no jurisdiction is mentioned, LEAVE THIS FILTER EMPTY (do not include it). Common variants like "Nacional", "Argentina" will be normalized to "nac".
+- materia (STRICT): Subject matter
+- promulgacion_from/to (DATES): Promulgation date range (ISO date strings, converted to timestamps)
+- publicacion_from/to (DATES): Publication date range (ISO date strings, converted to timestamps)
 - document_id: Document ID for exact match`;
   },
   args: z
@@ -82,9 +135,13 @@ FILTERS:
         .enum(["search", "browse", "facets", "metadata"]).describe(
           "Which operation to perform"
         ),
+      // Controls to reduce over-filtering by the model
+      strictFilters: z.boolean().optional().describe("Only set true when the user explicitly requested strict filters (tribunal/materia)."),
+      dateFiltersExplicit: z.boolean().optional().describe("Only set true when the user explicitly requested date constraints."),
       // Common filters
       filters: z
         .object({
+          jurisdiccion: z.string().optional(),
           tribunal: z.string().optional(),
           materia: z.string().optional(),
           promulgacion_from: z.string().optional(),
@@ -94,9 +151,6 @@ FILTERS:
           document_id: z.string().optional().describe("Document ID for exact match"),
         })
         .optional(),
-      // Pagination/sorting for browse
-      limit: z.number().optional(),
-      offset: z.number().optional(),
       // Search-specific (optional when filtering by document_id)
       query: z.string().optional().describe("Search query text - optional when using document_id filter"),
       // Metadata
@@ -112,20 +166,54 @@ FILTERS:
         // Build filters for Qdrant search
         const filters = args.filters || {};
         const qdrantFilters: any = {};
+        const strictFilters = args.strictFilters === true;
+        const dateFiltersExplicit = args.dateFiltersExplicit === true;
         
-        // Direct field filters
-        if (filters.tribunal) qdrantFilters.tribunal = filters.tribunal;
-        if (filters.sala) qdrantFilters.sala = filters.sala;
+        // Normalize and apply jurisdiccion filter (only if provided and not empty)
+        const normalizedJurisdiccion = normalizeJurisdiccion(filters.jurisdiccion);
+        if (normalizedJurisdiccion) {
+          qdrantFilters.jurisdiccion = normalizedJurisdiccion;
+          console.log(`🔧 [Jurisdiction] Fallos: Normalized "${filters.jurisdiccion}" -> "${normalizedJurisdiccion}"`);
+        } else if (filters.jurisdiccion !== undefined && filters.jurisdiccion !== null) {
+          console.log(`⚠️  [Jurisdiction] Fallos: Empty jurisdiction filter provided, omitting: "${filters.jurisdiccion}"`);
+        }
+
+        // Always-allowed filters
         if (filters.document_id) qdrantFilters.document_id = filters.document_id;
-        if (filters.materia) qdrantFilters.materia = filters.materia;
+
+        // Strict filters (only when explicitly requested)
+        if (strictFilters) {
+          if (filters.tribunal) qdrantFilters.tribunal = filters.tribunal;
+          if (filters.materia) qdrantFilters.materia = filters.materia;
+        } else {
+          if (filters.tribunal || filters.materia) {
+            console.log("ℹ️ [Filters] Ignoring strict filters (tribunal/materia) because strictFilters is not true");
+          }
+        }
 
         
-        // Date filters - convert ISO dates to timestamps
+        // Date filters - convert ISO dates to timestamps.
+        // IMPORTANT: ignore wide default ranges (1900..2100) to avoid filtering out docs that don't have these fields.
+        // Also ignore ALL date filters unless dateFiltersExplicit=true.
         try {
-          if (filters.promulgacion_from) qdrantFilters.sanction_date_from = isoToTimestamp(filters.promulgacion_from);
-          if (filters.promulgacion_to) qdrantFilters.sanction_date_to = isoToTimestamp(filters.promulgacion_to);
-          if (filters.publicacion_from) qdrantFilters.publication_date_from = isoToTimestamp(filters.publicacion_from);
-          if (filters.publicacion_to) qdrantFilters.publication_date_to = isoToTimestamp(filters.publicacion_to);
+          if (dateFiltersExplicit) {
+            if (!isNoOpDateFilterValue(filters.promulgacion_from)) {
+              qdrantFilters.sanction_date_from = isoToTimestamp(filters.promulgacion_from);
+            }
+            if (!isNoOpDateFilterValue(filters.promulgacion_to)) {
+              qdrantFilters.sanction_date_to = isoToTimestamp(filters.promulgacion_to);
+            }
+            if (!isNoOpDateFilterValue(filters.publicacion_from)) {
+              qdrantFilters.publication_date_from = isoToTimestamp(filters.publicacion_from);
+            }
+            if (!isNoOpDateFilterValue(filters.publicacion_to)) {
+              qdrantFilters.publication_date_to = isoToTimestamp(filters.publicacion_to);
+            }
+          } else {
+            if (filters.promulgacion_from || filters.promulgacion_to || filters.publicacion_from || filters.publicacion_to) {
+              console.log("ℹ️ [Filters] Ignoring date filters because dateFiltersExplicit is not true");
+            }
+          }
         } catch (dateError) {
           return createErrorResponse(`Error en formato de fecha: ${dateError instanceof Error ? dateError.message : 'Formato de fecha inválido'}`);
         }
@@ -145,13 +233,41 @@ FILTERS:
         }
         
         // Use hybrid Qdrant search with filters
-        const results = await ctx.runAction(
+        let results = await ctx.runAction(
           internal.rag.qdrantUtils.fallos.searchFallos,
           { 
             query,
             filters: Object.keys(qdrantFilters).length > 0 ? qdrantFilters : undefined
           }
         );
+
+        // If nothing found, retry once with relaxed filters (drop the most failure-prone strict filters).
+        // This prevents "0 results" when filters are overly strict or auto-filled.
+        let searchNotes: Array<string> = [];
+        if (results.length === 0 && Object.keys(qdrantFilters).length > 0) {
+          const relaxedFilters: any = { ...qdrantFilters };
+          // Drop strict filters that commonly kill recall:
+          delete relaxedFilters.materia;
+          delete relaxedFilters.publication_date_from;
+          delete relaxedFilters.publication_date_to;
+          delete relaxedFilters.sanction_date_from;
+          delete relaxedFilters.sanction_date_to;
+
+          const relaxedKeys = Object.keys(relaxedFilters);
+          if (relaxedKeys.length < Object.keys(qdrantFilters).length) {
+            searchNotes.push("⚠️ Sin resultados con filtros estrictos; reintentando sin materia/fechas.");
+            results = await ctx.runAction(internal.rag.qdrantUtils.fallos.searchFallos, {
+              query,
+              filters: relaxedKeys.length > 0 ? relaxedFilters : undefined,
+            });
+          }
+
+          // Final fallback: if still empty and we had filters (other than document_id), try without any filters.
+          if (results.length === 0 && relaxedKeys.length > 0 && !relaxedFilters.document_id) {
+            searchNotes.push("⚠️ Sin resultados tras reintento; reintentando sin filtros.");
+            results = await ctx.runAction(internal.rag.qdrantUtils.fallos.searchFallos, { query });
+          }
+        }
 
         // Map to compact search response
         const resultsList = results.map((r, i: number) => ({
@@ -170,13 +286,21 @@ FILTERS:
           materia: r.payload.materia,
           tags: r.payload.tags,
           sumario: r.payload.sumario,
-          // Citation metadata for agent
-          citationId: r.payload.document_id,
-          citationType: 'jur',
-          citationTitle: r.payload.title || `${r.payload.tribunal} - ${r.payload.actor} vs ${r.payload.demandado}`.trim(),
+          url: r.payload.url,
         }));
 
-        return `# 🔍 Resultados de Búsqueda de Fallos
+        // Build citations array (tool-controlled, UI expects citationType === "fallo")
+        const citations = results.map((r) => ({
+          id: r.payload.document_id,
+          type: "fallo" as const,
+          title:
+            r.payload.title ||
+            `${r.payload.tribunal} - ${r.payload.actor} vs ${r.payload.demandado}`.trim() ||
+            "Fallo",
+          url: r.payload.url ?? undefined,
+        }));
+
+        const markdown = `# 🔍 Resultados de Búsqueda de Fallos
 
 ## Consulta
 ${args.query ? `**Término de búsqueda**: "${query}"` : `**Búsqueda por ID**: ${qdrantFilters.document_id || 'N/A'}`}
@@ -185,6 +309,7 @@ ${Object.keys(qdrantFilters).length > 0 ? `\n## Filtros Aplicados\n${Object.entr
 ## Estadísticas
 - **Resultados encontrados**: ${results.length}
 - **Tiempo de búsqueda**: ${new Date().toLocaleString()}
+${searchNotes.length > 0 ? `\n## Notas\n${searchNotes.map((n) => `- ${n}`).join("\n")}` : ""}
 
 ## Resultados
 ${results.length === 0 ? 'No se encontraron resultados para la consulta.' : resultsList.map(r => `
@@ -201,21 +326,36 @@ ${results.length === 0 ? 'No se encontraron resultados para la consulta.' : resu
 - **Tags**: ${r.tags.join(', ') || 'N/A'}
 - **Puntuación de Relevancia**: ${r.score.toFixed(3)}
 - **Sumario**: ${r.sumario || 'Sin sumario disponible'}
+${r.url ? `- **URL**: ${r.url}` : ''}
 `).join('\n')}
 
 ---
 *Búsqueda realizada en la base de datos de fallos.*`;
+
+        return { markdown, citations };
       }
 
       case "browse": {
-        const limit = typeof args.limit === "number" ? Math.min(Math.max(1, args.limit), 100) : 20;
-        const offset = typeof args.offset === "number" ? Math.max(0, args.offset) : 0;
-        const sortBy = args.sortBy;
-        const sortOrder = args.sortOrder ?? "desc";
+        // Keep browse simple for agents: fixed pagination.
+        const limit = 20;
+        const offset = 0;
+        const sortBy = undefined;
+        const sortOrder = "desc";
         const filters = args.filters || {};
 
+        // Normalize jurisdiccion filter for browse operation
+        const normalizedFilters = { ...filters };
+        const normalizedJurisdiccion = normalizeJurisdiccion(filters.jurisdiccion);
+        if (normalizedJurisdiccion) {
+          normalizedFilters.jurisdiccion = normalizedJurisdiccion;
+          console.log(`🔧 [Jurisdiction] Fallos browse: Normalized "${filters.jurisdiccion}" -> "${normalizedJurisdiccion}"`);
+        } else if (filters.jurisdiccion !== undefined && filters.jurisdiccion !== null) {
+          delete normalizedFilters.jurisdiccion;
+          console.log(`⚠️  [Jurisdiction] Fallos browse: Empty jurisdiction filter provided, omitting: "${filters.jurisdiccion}"`);
+        }
+
         const result = await ctx.runAction(api.functions.fallos.listFallos, {
-          filters,
+          filters: normalizedFilters,
           limit,
           offset,
         });
@@ -240,7 +380,7 @@ ${results.length === 0 ? 'No se encontraron resultados para la consulta.' : resu
         return `# 📋 Navegación de Fallos
 
 ## Filtros Aplicados
-${Object.keys(filters).length > 0 ? Object.entries(filters).map(([key, value]) => `- **${key}**: ${value}`).join('\n') : 'Sin filtros aplicados'}
+${Object.keys(normalizedFilters).length > 0 ? Object.entries(normalizedFilters).map(([key, value]) => `- **${key}**: ${value}`).join('\n') : 'Sin filtros aplicados'}
 
 ## Paginación
 - **Elementos por página**: ${limit}
@@ -271,11 +411,23 @@ ${lightweightItems.length === 0 ? 'No se encontraron elementos que coincidan con
 
       case "facets": {
         const filters = args.filters || {};
-        const facets = await ctx.runAction(api.functions.fallos.getFallosFacets, { filters });
+
+        // Normalize jurisdiccion filter for facets operation
+        const normalizedFilters = { ...filters };
+        const normalizedJurisdiccion = normalizeJurisdiccion(filters.jurisdiccion);
+        if (normalizedJurisdiccion) {
+          normalizedFilters.jurisdiccion = normalizedJurisdiccion;
+          console.log(`🔧 [Jurisdiction] Fallos facets: Normalized "${filters.jurisdiccion}" -> "${normalizedJurisdiccion}"`);
+        } else if (filters.jurisdiccion !== undefined && filters.jurisdiccion !== null) {
+          delete normalizedFilters.jurisdiccion;
+          console.log(`⚠️  [Jurisdiction] Fallos facets: Empty jurisdiction filter provided, omitting: "${filters.jurisdiccion}"`);
+        }
+
+        const facets = await ctx.runAction(api.functions.fallos.getFallosFacets, { filters: normalizedFilters });
         return `# 📊 Facetas de Fallos
 
 ## Filtros Aplicados
-${Object.keys(filters).length > 0 ? Object.entries(filters).map(([key, value]) => `- **${key}**: ${value}`).join('\n') : 'Sin filtros aplicados'}
+${Object.keys(normalizedFilters).length > 0 ? Object.entries(normalizedFilters).map(([key, value]) => `- **${key}**: ${value}`).join('\n') : 'Sin filtros aplicados'}
 
 ## Facetas Disponibles
 ${Object.keys(facets).length === 0 ? 'No hay facetas disponibles.' : Object.entries(facets).map(([facetName, facetData]) => `
