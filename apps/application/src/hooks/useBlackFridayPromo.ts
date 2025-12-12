@@ -3,13 +3,16 @@ import { useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { useBillingData } from "@/components/Billing/useBillingData";
 import { BLACK_FRIDAY_CONFIG } from "@/config/blackFriday";
+import { usePopupGate } from "@/features/popups/PopupGate";
 
 export function useBlackFridayPromo() {
   const [isOpen, setIsOpen] = useState(false);
+  const { tryAcquire, release } = usePopupGate();
   const { plan, isLoading: isBillingLoading, userId } = useBillingData();
-  
-  const trialUser = useQuery(api.billing.trials.getTrialUser, 
-    userId ? { userId } : "skip"
+
+  const trialUser = useQuery(
+    api.billing.trials.getTrialUser,
+    userId ? { userId } : "skip",
   );
 
   useEffect(() => {
@@ -21,14 +24,14 @@ export function useBlackFridayPromo() {
 
   const checkEligibility = () => {
     const now = new Date();
-    
+
     console.log("Checking Black Friday Promo Eligibility...", {
       enabled: BLACK_FRIDAY_CONFIG.isEnabled,
       now,
       start: BLACK_FRIDAY_CONFIG.startDate,
       end: BLACK_FRIDAY_CONFIG.endDate,
       plan,
-      trialUser
+      trialUser,
     });
 
     // 1. Check window & enabled status
@@ -51,12 +54,15 @@ export function useBlackFridayPromo() {
     const isConvertedTrial = trialUser?.trialStatus === "converted";
 
     if (isPaidUser || isConvertedTrial) {
-      console.log("User is already paid or converted", { isPaidUser, isConvertedTrial });
+      console.log("User is already paid or converted", {
+        isPaidUser,
+        isConvertedTrial,
+      });
       return;
     }
 
     const isTargetUser = plan === "free" || isTrialActive;
-    
+
     if (!isTargetUser) {
       console.log("User is not in target group (not free, not active trial)");
       return;
@@ -66,7 +72,7 @@ export function useBlackFridayPromo() {
     const storageKeyDate = `${BLACK_FRIDAY_CONFIG.storageKeys.lastShown}-${userId}`;
     const lastShown = localStorage.getItem(storageKeyDate);
     const today = new Date().toLocaleDateString();
-    
+
     if (lastShown === today) {
       console.log("Already shown today");
       return;
@@ -74,7 +80,9 @@ export function useBlackFridayPromo() {
 
     // 4. Impressions Cap (Optional)
     const storageKeyImpressions = `${BLACK_FRIDAY_CONFIG.storageKeys.impressions}-${userId}`;
-    const impressions = parseInt(localStorage.getItem(storageKeyImpressions) || "0");
+    const impressions = parseInt(
+      localStorage.getItem(storageKeyImpressions) || "0",
+    );
     if (impressions >= BLACK_FRIDAY_CONFIG.maxImpressions) {
       console.log("Max impressions reached");
       return;
@@ -82,15 +90,22 @@ export function useBlackFridayPromo() {
 
     // If we got here, show the popup
     console.log("Showing Black Friday Promo!");
+    const gateKey = "blackFriday";
+    if (!tryAcquire(gateKey)) {
+      console.log("Popup gate busy; skipping Black Friday Promo");
+      return;
+    }
     setIsOpen(true);
-    
+
     // Update storage immediately to prevent showing again on reload
     localStorage.setItem(storageKeyDate, today);
     localStorage.setItem(storageKeyImpressions, (impressions + 1).toString());
   };
 
-  const close = () => setIsOpen(false);
+  const close = () => {
+    setIsOpen(false);
+    release("blackFriday");
+  };
 
   return { isOpen, close };
 }
-
