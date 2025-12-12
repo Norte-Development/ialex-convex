@@ -7,7 +7,7 @@ import { usePopupGate } from "@/features/popups/PopupGate";
 
 export function useBlackFridayPromo() {
   const [isOpen, setIsOpen] = useState(false);
-  const { tryAcquire, release } = usePopupGate();
+  const { activeKey, tryAcquire, release } = usePopupGate();
   const { plan, isLoading: isBillingLoading, userId } = useBillingData();
 
   const trialUser = useQuery(
@@ -19,8 +19,11 @@ export function useBlackFridayPromo() {
     // Wait for all data to be loaded
     if (isBillingLoading || !userId || trialUser === undefined) return;
 
+    // If we're already open, don't re-run eligibility.
+    if (isOpen) return;
+
     checkEligibility();
-  }, [isBillingLoading, userId, trialUser, plan]);
+  }, [isBillingLoading, userId, trialUser, plan, activeKey, isOpen]);
 
   const checkEligibility = () => {
     const now = new Date();

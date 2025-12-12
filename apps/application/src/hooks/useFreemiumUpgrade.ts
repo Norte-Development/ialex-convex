@@ -7,7 +7,7 @@ import { usePopupGate } from "@/features/popups/PopupGate";
 
 export function useFreemiumUpgrade() {
   const [isOpen, setIsOpen] = useState(false);
-  const { tryAcquire, release } = usePopupGate();
+  const { activeKey, tryAcquire, release } = usePopupGate();
   const { plan, isLoading: isBillingLoading, userId } = useBillingData();
 
   const user = useQuery(api.functions.users.getCurrentUser, {});
@@ -16,8 +16,11 @@ export function useFreemiumUpgrade() {
     // Wait for all data to be loaded
     if (isBillingLoading || !userId || user === undefined) return;
 
+    // If we're already open, don't re-run eligibility.
+    if (isOpen) return;
+
     checkEligibility();
-  }, [isBillingLoading, userId, user, plan]);
+  }, [isBillingLoading, userId, user, plan, activeKey, isOpen]);
 
   const checkEligibility = () => {
     console.log("Checking Freemium Upgrade Popup Eligibility...", {
