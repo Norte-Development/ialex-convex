@@ -67,6 +67,13 @@ export async function requireAuth(ctx: QueryCtx | MutationCtx) {
 // ========================================
 
 export const ADMINS_ORG_SLUG = "admins" as const;
+/**
+ * Optional: set this in Convex envs to allow org checks via Clerk `org_id` claim.
+ * This is useful because Clerk's JWT template may not include `org_slug` by default.
+ *
+ * Example value: "org_XXXXXXXXXXXXXXXXXXXXXXXX"
+ */
+export const ADMINS_ORG_ID = process.env.ADMINS_ORG_ID as string | undefined;
 
 /**
  * Requires that the authenticated Clerk session has the active organization set
@@ -86,15 +93,31 @@ export async function requireAdminsOrg(ctx: QueryCtx | MutationCtx) {
     claims.org?.slug ??
     claims.organization?.slug;
 
-  if (orgSlug !== ADMINS_ORG_SLUG) {
-    throw new ConvexError({
-      code: "ADMIN_ORG_REQUIRED",
-      message: `This operation requires the '${ADMINS_ORG_SLUG}' organization.`,
-      orgSlug: orgSlug ?? null,
-    });
+  const orgId: string | undefined =
+    claims.org_id ??
+    claims.orgId ??
+    claims.organization_id ??
+    claims.organizationId ??
+    (identity as any).orgId ??
+    (identity as any).organizationId;
+
+  const slugMatches = orgSlug === ADMINS_ORG_SLUG;
+  const idMatches =
+    ADMINS_ORG_ID !== undefined &&
+    orgId !== undefined &&
+    orgId === ADMINS_ORG_ID;
+
+  if (slugMatches || idMatches) {
+    return identity;
   }
 
-  return identity;
+  throw new ConvexError({
+    code: "ADMIN_ORG_REQUIRED",
+    message: `This operation requires the '${ADMINS_ORG_SLUG}' organization.`,
+    orgSlug: orgSlug ?? null,
+    orgId: orgId ?? null,
+    configuredAdminsOrgId: ADMINS_ORG_ID ?? null,
+  });
 }
 
 // ========================================
