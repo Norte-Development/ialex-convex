@@ -17,7 +17,7 @@ import { usePage } from "@/context/PageContext";
 import { useParams } from "react-router-dom";
 import { ContextSummaryBar } from "./ContextSummaryBar";
 import type { Id } from "convex/_generated/dataModel";
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useCallback, useMemo } from "react";
 import type {
   Reference,
   ReferenceWithOriginal,
@@ -203,18 +203,6 @@ export function ChatContent({ threadId }: { threadId: string | undefined }) {
   // Only show messages when there is an active thread
   // This ensures the UI clears immediately when starting a new conversation
   const visibleMessages = threadId ? messages : [];
-
-  // Clear references when thread changes to prevent trailing state
-  useEffect(() => {
-    setLastReferences([]);
-    setCurrentReferences([]);
-    setMessageLocalParts({});
-    // Keep webSearchEnabled as a user-controlled preference, but reset
-    // thread-scoped UI like citation modal to avoid leaking state between threads.
-    setCitationOpen(false);
-    setCitationId("");
-    setCitationType("");
-  }, [threadId]);
 
   // Clear pending prompt when ChatInput confirms it has been processed
   const handleInitialPromptProcessed = useCallback(() => {
