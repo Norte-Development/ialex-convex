@@ -1,6 +1,6 @@
 "use client";
 
-import { useMutation } from "convex/react";
+import { useConvex, useMutation } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import {
   optimisticallySendMessage,
@@ -14,7 +14,7 @@ import { ChatInput } from "./ChatInput";
 import { useEscrito } from "@/context/EscritoContext";
 import { useAuth } from "@/context/AuthContext";
 import { usePage } from "@/context/PageContext";
-import { useParams } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import { ContextSummaryBar } from "./ContextSummaryBar";
 import type { Id } from "convex/_generated/dataModel";
 import { useState, useCallback, useMemo } from "react";
@@ -47,6 +47,7 @@ import { cn } from "@/lib/utils";
 import type { ToolUIPart } from "ai";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { extractCitationsFromToolOutputs } from "../ai-elements/citations";
+import { toast } from "sonner";
 
 // Extended message type that includes status property from Convex agent
 type AgentMessage = {
@@ -67,6 +68,8 @@ type AgentMessage = {
 export function ChatContent({ threadId }: { threadId: string | undefined }) {
   const { createThreadWithTitle, setThreadId } = useThread();
   const { caseId } = useCase();
+  const navigate = useNavigate();
+  const convex = useConvex();
   const { escritoId, cursorPosition } = useEscrito();
   const { user } = useAuth();
   const { pageState } = usePage();
@@ -91,6 +94,35 @@ export function ChatContent({ threadId }: { threadId: string | undefined }) {
   const [citationOpen, setCitationOpen] = useState(false);
   const [citationId, setCitationId] = useState("");
   const [citationType, setCitationType] = useState("");
+
+  const handleCitationClick = useCallback(
+    async (id: string, type: string) => {
+      if (type === "escrito") {
+        try {
+          let targetCaseId: Id<"cases"> | null = (caseId as Id<"cases"> | null) ?? null;
+
+          if (!targetCaseId) {
+            const escrito = await convex.query(api.functions.documents.getEscrito, {
+              escritoId: id as Id<"escritos">,
+            });
+            targetCaseId = escrito.caseId as Id<"cases">;
+          }
+
+          navigate(`/caso/${targetCaseId}/escritos/${id}`);
+          return;
+        } catch (error) {
+          console.error("Error navigating to escrito from citation:", error);
+          toast.error("No se pudo abrir el escrito");
+          return;
+        }
+      }
+
+      setCitationOpen(true);
+      setCitationId(id);
+      setCitationType(type);
+    },
+    [caseId, convex, navigate],
+  );
 
   // Handle removing references from context bar
   const handleRemoveReference = useCallback(
@@ -363,11 +395,7 @@ export function ChatContent({ threadId }: { threadId: string | undefined }) {
                   message={m}
                   user={user}
                   localParts={messageLocalParts[m.id]}
-                  onCitationClick={(id, type) => {
-                    setCitationOpen(true);
-                    setCitationId(id);
-                    setCitationType(type);
-                  }}
+                  onCitationClick={handleCitationClick}
                 />
               ))}
             </>

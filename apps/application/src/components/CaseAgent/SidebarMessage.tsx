@@ -13,9 +13,15 @@ import { Tool } from "../ai-elements/tool";
 import { MessageText } from "../ai-elements/message-text";
 import type { SidebarMessageProps } from "./types/message-types";
 import { CitationModal } from "./citation-modal";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { ToolUIPart } from "ai";
 import { extractCitationsFromToolOutputs } from "../ai-elements/citations";
+import { useNavigate } from "react-router-dom";
+import { useCase } from "@/context/CaseContext";
+import { useConvex } from "convex/react";
+import { api } from "../../../convex/_generated/api";
+import type { Id } from "convex/_generated/dataModel";
+import { toast } from "sonner";
 
 // Tool citations are extracted via shared utility in `ai-elements/citations`.
 
@@ -30,6 +36,9 @@ export function SidebarMessage({
   const [open, setOpen] = useState(false);
   const [citationId, setCitationId] = useState("");
   const [citationType, setCitationType] = useState("");
+  const navigate = useNavigate();
+  const { caseId } = useCase();
+  const convex = useConvex();
   const isUser = message.role === "user";
 
   const messageText =
@@ -105,6 +114,34 @@ export function SidebarMessage({
     }
     return -1;
   })();
+
+  const handleCitationClick = useCallback(
+    async (id: string, type: string) => {
+      if (type === "escrito") {
+        try {
+          let targetCaseId: Id<"cases"> | null = (caseId as Id<"cases"> | null) ?? null;
+          if (!targetCaseId) {
+            const escrito = await convex.query(api.functions.documents.getEscrito, {
+              escritoId: id as Id<"escritos">,
+            });
+            targetCaseId = escrito.caseId as Id<"cases">;
+          }
+
+          navigate(`/caso/${targetCaseId}/escritos/${id}`);
+          return;
+        } catch (error) {
+          console.error("Error navigating to escrito from citation:", error);
+          toast.error("No se pudo abrir el escrito");
+          return;
+        }
+      }
+
+      setOpen(true);
+      setCitationId(id);
+      setCitationType(type);
+    },
+    [caseId, convex, navigate],
+  );
 
   return (
     <Message
@@ -202,9 +239,7 @@ export function SidebarMessage({
                     !isUser
                       ? (id, type) => {
                           console.log("🔗 [Citations] Citation clicked in message text:", { id, type });
-                          setOpen(true);
-                          setCitationId(id);
-                          setCitationType(type);
+                          void handleCitationClick(id, type);
                         }
                       : undefined
                   }
@@ -326,9 +361,7 @@ export function SidebarMessage({
                 key={`cit-${cit.id}-${i}`}
                 onClick={() => {
                   console.log("🔗 [Citations] Citation clicked from sources list:", cit);
-                  setOpen(true);
-                  setCitationId(cit.id);
-                  setCitationType(cit.type);
+                  void handleCitationClick(cit.id, cit.type);
                 }}
                 className="flex items-center gap-2.5 p-2 rounded-md hover:bg-muted/80 transition-all duration-200 no-underline group/source w-full text-left"
               >

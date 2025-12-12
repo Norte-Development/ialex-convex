@@ -8,11 +8,13 @@ import { api } from "../../../convex/_generated/api"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Download, FileText, Loader2, Eye, EyeOff, ExternalLink } from "lucide-react"
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { toast } from "sonner"
 import type { Id } from "convex/_generated/dataModel"
 import DocumentViewer from "@/components/Documents/DocumentViewer"
 import type { FalloDoc } from "../../../types/fallos"
+import { useNavigate } from "react-router-dom"
+import { useConvex } from "convex/react"
 
 interface CitationModalProps {
   open: boolean
@@ -33,12 +35,43 @@ export function CitationModal({ open, setOpen, citationId, citationType }: Citat
   const [isDownloading, setIsDownloading] = useState(false)
   const [showPreview, setShowPreview] = useState(false)
   const [documentUrl, setDocumentUrl] = useState<string | null>(null)
+  const navigate = useNavigate()
+  const convex = useConvex()
 
   // Normalize incoming citation types (tools may emit newer aliases)
   // - "document" => case document ("case-doc")
   // - keep existing: "doc" (library), "case-doc" (case)
   const normalizedCitationType =
     citationType === "document" ? "case-doc" : citationType
+
+  // If an escrito citation slips through to the modal, redirect to the escrito page instead.
+  // This avoids the "Tipo de cita no reconocido: escrito" fallback UI.
+  useEffect(() => {
+    if (!open) return
+    if (normalizedCitationType !== "escrito") return
+    if (!citationId) return
+
+    let cancelled = false
+    ;(async () => {
+      try {
+        const escrito = await convex.query(api.functions.documents.getEscrito, {
+          escritoId: citationId as Id<"escritos">,
+        })
+        if (cancelled) return
+        setOpen(false)
+        navigate(`/caso/${escrito.caseId}/escritos/${citationId}`)
+      } catch (error) {
+        if (cancelled) return
+        console.error("Error redirecting escrito citation from modal:", error)
+        toast.error("No se pudo abrir el escrito")
+        setOpen(false)
+      }
+    })()
+
+    return () => {
+      cancelled = true
+    }
+  }, [citationId, convex, navigate, normalizedCitationType, open, setOpen])
 
   // Actions y queries
   const getNormativeAction = useAction(api.functions.legislation.getNormativeById)

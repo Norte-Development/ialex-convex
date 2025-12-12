@@ -17,7 +17,7 @@ import { useState, useCallback, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useUIMessages } from "@convex-dev/agent/react";
 import { api } from "../../../convex/_generated/api";
-import { useMutation } from "convex/react";
+import { useConvex, useMutation } from "convex/react";
 import { useHomeThreads } from "./hooks/useHomeThreads";
 import {
   Message,
@@ -53,6 +53,7 @@ import { CitationModal } from "@/components/CaseAgent/citation-modal";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { extractCitationsFromToolOutputs } from "@/components/ai-elements/citations";
+import type { Id } from "convex/_generated/dataModel";
 
 export interface HomeAgentChatProps {
   /** ID del thread de conversación */
@@ -371,6 +372,7 @@ export function HomeAgentChat({
   className = "",
 }: HomeAgentChatProps) {
   const navigate = useNavigate();
+  const convex = useConvex();
   const [inputValue, setInputValue] = useState("");
   const [webSearchEnabled, setWebSearchEnabled] = useState(() => {
     if (typeof window !== "undefined") {
@@ -540,6 +542,22 @@ export function HomeAgentChat({
                   copiedMessageId={copiedMessageId}
                   onCopyMessage={handleCopyMessage}
                   onCitationClick={(id, type) => {
+                    // For escritos, navigate directly instead of opening the citation modal.
+                    if (type === "escrito") {
+                      (async () => {
+                        try {
+                          const escrito = await convex.query(api.functions.documents.getEscrito, {
+                            escritoId: id as Id<"escritos">,
+                          });
+                          navigate(`/caso/${escrito.caseId}/escritos/${id}`);
+                        } catch (error) {
+                          console.error("Error navigating to escrito from citation:", error);
+                          toast.error("No se pudo abrir el escrito");
+                        }
+                      })();
+                      return;
+                    }
+
                     console.log("🔗 [Citations] Opening citation modal:", { id, type });
                     setCitationModalOpen(true);
                     setSelectedCitationId(id);
