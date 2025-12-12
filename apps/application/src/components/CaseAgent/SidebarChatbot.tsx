@@ -106,7 +106,7 @@ export default function SidebarChatbot({
 
         {/* Chat Content */}
         <div className="flex-1 flex flex-col min-h-0 border-transparent">
-          <ChatContent key={threadId} threadId={threadId} />
+          <ChatContent key={threadId ?? "no-thread"} threadId={threadId} />
         </div>
       </div>
 

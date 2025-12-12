@@ -40,6 +40,7 @@ export interface UseHomeThreadsReturn {
   messagesLoading: boolean;
   sendMessage: (
     content: string,
+    webSearchEnabled?: boolean,
   ) => Promise<{ workflowId: string; threadId: string }>;
 
   // Combined state
@@ -108,11 +109,12 @@ export function useHomeThreads(
    * Send a message to the current thread or create a new one if none exists
    */
   const sendMessage = useCallback(
-    async (content: string) => {
+    async (content: string, webSearchEnabled: boolean = false) => {
       // Thread will be created with message as title in backend if threadId is empty
       return await workflowMutation({
         prompt: content,
         threadId: threadId || "", // Empty string will trigger thread creation in backend
+        webSearchEnabled,
       });
     },
     [threadId, workflowMutation],

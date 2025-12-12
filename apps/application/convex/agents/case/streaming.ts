@@ -289,7 +289,7 @@ export const streamAsync = internalAction({
 ## Preferencias del Usuario
 - Estilo de Respuesta: ${userPrefs.agentResponseStyle || "formal"}
   ${responseStyleInstructions[userPrefs.agentResponseStyle as keyof typeof responseStyleInstructions] || responseStyleInstructions.formal}
-- Jurisdicción por Defecto: ${userPrefs.defaultJurisdiction || "argentina"}
+- Jurisdicción por Defecto: ${userPrefs.defaultJurisdiction || "nac"} (solo contexto interpretativo; NO completar filtros automáticamente si el usuario no la menciona)
 - Formato de Citas: ${userPrefs.citationFormat || "apa"}
 ` : "";
       

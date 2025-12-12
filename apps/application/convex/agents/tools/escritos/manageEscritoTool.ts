@@ -94,7 +94,28 @@ export const manageEscritoTool = createTool({
             caseId: targetCaseId as Id<"cases">,
           });
 
-          return createEscritosListTemplate(targetCaseId, escritos);
+          const markdown = createEscritosListTemplate(targetCaseId, escritos);
+
+          // Build citations array from all escritos
+          console.log(`📚 [Citations] Creating citations from ${escritos.length} listed escritos`);
+          const citations = escritos.map((escrito: any) => {
+            const citation = {
+              id: escrito._id,
+              type: 'escrito' as const,
+              title: escrito.title || 'Escrito sin título',
+            };
+            console.log(`  📖 Citation created:`, citation);
+            return citation;
+          });
+          console.log(`✅ [Citations] Total citations created: ${citations.length}`);
+
+          // Return structured JSON with markdown and citations (matching legislation/fallos pattern)
+          if (citations.length > 0) {
+            console.log(`📤 [Citations] Returning tool output with ${citations.length} citations`);
+            return { markdown, citations };
+          }
+
+          return markdown;
         }
 
         default:

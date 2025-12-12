@@ -131,7 +131,14 @@ export const readDocumentTool = createTool({
       // Combine chunks content
       const combinedContent = chunksContent.join('\n\n');
 
-      return `# 📖 Lectura de Documento
+      // Build citation for the document
+      const citation = {
+        id: documentId,
+        type: 'case-doc' as const,
+        title: document.title || document.description || 'Documento sin título',
+      };
+
+      const markdown = `# 📖 Lectura de Documento
 
 ## Información del Documento
 - **ID del Documento**: ${documentId}
@@ -151,6 +158,11 @@ ${combinedContent || 'Sin contenido disponible'}
 
 ---
 *Documento leído progresivamente.*`;
+
+      console.log(`📚 [Citations] Creating citation for document read`);
+      console.log(`  📖 Citation created:`, citation);
+      console.log(`📤 [Citations] Returning tool output with 1 citation`);
+      return { markdown, citations: [citation] };
     } catch (error) {
       return createErrorResponse(`Error inesperado: ${error instanceof Error ? error.message : 'Error desconocido'}`);
     }

@@ -95,18 +95,53 @@ export const searchCaseDocumentsTool = createTool({
       const contextWindow = args.contextWindow !== undefined ? args.contextWindow : 4;
 
       // Call the action to perform the search with clustering
-      const results = await ctx.runAction(api.rag.qdrantUtils.caseDocuments.searchCaseDocumentsWithClustering, {
+      const searchResult = await ctx.runAction(api.rag.qdrantUtils.caseDocuments.searchCaseDocumentsWithClustering, {
         query: args.query.trim(),
         caseId,
         limit: Math.min(limit, 50), // Cap at 50 to prevent abuse
         contextWindow: Math.min(contextWindow, 20) // Cap at 20 to prevent abuse
       });
 
-      if (results.length === 0) {
+      // Handle both old (string) and new (object) return formats for backward compatibility
+      const resultsText = typeof searchResult === 'string' ? searchResult : searchResult.text;
+      const documentIds = typeof searchResult === 'string' ? [] : (searchResult.documentIds || []);
+
+      if (!resultsText || resultsText.trim().length === 0) {
         return createCaseDocumentsNoResultsTemplate(args.query.trim(), Math.min(limit, 50), Math.min(contextWindow, 20));
       }
+
+      // Get document metadata for citations
+      const citations = [];
+      if (documentIds.length > 0) {
+        const documents = await ctx.runQuery(internal.functions.documents.getDocumentsForAgent, {
+          caseId: caseId as Id<"cases">,
+        });
+
+        // Create citations for documents found in search results
+        for (const docId of documentIds) {
+          const doc = documents.find((d: any) => d._id === docId);
+          if (doc) {
+            citations.push({
+              id: doc._id,
+              type: 'case-doc' as const,
+              title: doc.title || doc.description || 'Documento sin título',
+            });
+          }
+        }
+      }
+
+      const markdown = createCaseDocumentsSearchTemplate(args.query.trim(), Math.min(limit, 50), Math.min(contextWindow, 20), resultsText);
       
-      return createCaseDocumentsSearchTemplate(args.query.trim(), Math.min(limit, 50), Math.min(contextWindow, 20), results);
+      // Return structured JSON with markdown and citations (matching legislation/fallos pattern)
+      if (citations.length > 0) {
+        console.log(`📚 [Citations] Creating citations from ${citations.length} document search results`);
+        citations.forEach(cit => console.log(`  📖 Citation created:`, cit));
+        console.log(`✅ [Citations] Total citations created: ${citations.length}`);
+        console.log(`📤 [Citations] Returning tool output with ${citations.length} citations`);
+        return { markdown, citations };
+      }
+      
+      return markdown;
     } catch (error) {
       return createErrorResponse(`Error inesperado: ${error instanceof Error ? error.message : 'Error desconocido'}`);
     }

@@ -3,6 +3,9 @@ import {
   PromptInput,
   PromptInputTextarea,
   PromptInputSubmit,
+  PromptInputToolbar,
+  PromptInputTools,
+  PromptInputButton,
 } from "../ai-elements/prompt-input";
 import type { ChatInputProps } from "./types/message-types";
 import type { ChatStatus } from "ai";
@@ -11,6 +14,13 @@ import type { Reference } from "./types/reference-types";
 import { chatSelectionBus } from "@/lib/chatSelectionBus";
 import { SelectionChip } from "./SelectionChip";
 import { useChatbot } from "@/context/ChatbotContext";
+import { cn } from "@/lib/utils";
+import { Globe } from "lucide-react";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 /**
  * ChatInput Component
@@ -48,6 +58,8 @@ export function ChatInput({
   onReferencesChange,
   initialPrompt,
   onInitialPromptProcessed,
+  webSearchEnabled = false,
+  onWebSearchToggle,
 }: ChatInputProps) {
   const { currentPrompt: persistedPrompt, setCurrentPrompt } = useChatbot();
   // Initialize with persisted prompt, but initialPrompt takes precedence
@@ -246,21 +258,22 @@ export function ChatInput({
 
   return (
     <div className=" p-4 bg-transparent">
-      {/* Selection chip on top */}
-      {activeSelection?.selection && (
-        <div className="mb-2">
-          <SelectionChip
-            selection={activeSelection.selection}
-            onRemove={handleRemoveSelection}
-          />
-        </div>
-      )}
-
       <div className="relative">
         <PromptInput
           onSubmit={handleSubmit}
-          className="flex justify-between items-center px-2 overflow-auto"
+          className="border border-input rounded-xl shadow-sm bg-background overflow-hidden"
         >
+          {/* Active Selection within input area */}
+          {activeSelection?.selection && (
+            <div className="px-3 pt-3 pb-0">
+              <SelectionChip
+                selection={activeSelection.selection}
+                onRemove={handleRemoveSelection}
+                className="bg-muted/50 border-0 shadow-none rounded-md text-muted-foreground"
+              />
+            </div>
+          )}
+
           {/* 
             PromptInputTextarea: Auto-resizing textarea with enhanced features
             - Supports Enter to submit, Shift+Enter for new line
@@ -282,19 +295,50 @@ export function ChatInput({
               minHeight: `${minHeight}px`,
               maxHeight: `${maxHeight}px`,
             }}
-            className="resize-none min-h-0 bg-transparent placeholder:text-xs overflow-y-auto"
+            className={cn(
+              "resize-none min-h-[40px] bg-transparent placeholder:text-xs overflow-y-auto border-0 focus-visible:ring-0 shadow-none px-3 py-3",
+              activeSelection?.selection && "pt-2"
+            )}
           />
 
-          <PromptInputSubmit
-            status={status}
-            disabled={!isStreaming && (!prompt.trim() || isInputDisabled)}
-            aria-label={isStreaming ? "Detener" : "Enviar mensaje"}
-            variant={"ghost"}
-            size={"sm"}
-            type={isStreaming ? "button" : "submit"}
-            onClick={handleButtonClick}
-            className="bg-transparent disabled:bg-transparent text-black"
-          />
+          <PromptInputToolbar className="flex justify-between items-center p-2 border-t bg-muted/10">
+            <PromptInputTools>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <PromptInputButton
+                    onClick={() => onWebSearchToggle?.(!webSearchEnabled)}
+                    variant={webSearchEnabled ? "secondary" : "ghost"}
+                    className={cn(
+                      "rounded-full transition-all h-8 w-8",
+                      webSearchEnabled &&
+                        "bg-blue-100 text-blue-600 hover:bg-blue-200"
+                    )}
+                    size="icon"
+                    type="button"
+                  >
+                    <Globe className="size-4" />
+                    <span className="sr-only">Toggle Web Search</span>
+                  </PromptInputButton>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>
+                    Búsqueda web {webSearchEnabled ? "activada" : "desactivada"}
+                  </p>
+                </TooltipContent>
+              </Tooltip>
+            </PromptInputTools>
+
+            <PromptInputSubmit
+              status={status}
+              disabled={!isStreaming && (!prompt.trim() || isInputDisabled)}
+              aria-label={isStreaming ? "Detener" : "Enviar mensaje"}
+              variant={"default"}
+              size={"icon"}
+              type={isStreaming ? "button" : "submit"}
+              onClick={handleButtonClick}
+              className="h-8 w-8 rounded-full"
+            />
+          </PromptInputToolbar>
         </PromptInput>
 
         <ReferenceAutocomplete

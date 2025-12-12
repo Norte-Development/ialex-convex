@@ -13,11 +13,11 @@
  * ```
  */
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useUIMessages } from "@convex-dev/agent/react";
 import { api } from "../../../convex/_generated/api";
-import { useMutation } from "convex/react";
+import { useConvex, useMutation } from "convex/react";
 import { useHomeThreads } from "./hooks/useHomeThreads";
 import {
   Message,
@@ -33,6 +33,7 @@ import {
   PromptInputTextarea,
   PromptInputToolbar,
   PromptInputSubmit,
+  PromptInputButton,
 } from "@/components/ai-elements/prompt-input";
 import { Response } from "@/components/ai-elements/response";
 import { Actions, Action } from "@/components/ai-elements/actions";
@@ -41,14 +42,18 @@ import {
   ReasoningContent,
   ReasoningTrigger,
 } from "@/components/ai-elements/reasoning";
-import { Copy, RotateCw, Check, AlertCircle } from "lucide-react";
+import { Sources, SourcesTrigger, SourcesContent, Source } from "@/components/ai-elements/source";
+import { Copy, RotateCw, Check, AlertCircle, Globe, AlertTriangle } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { es } from "date-fns/locale";
 import { Tool } from "@/components/ai-elements/tool";
-import type { ToolUIPart } from "ai";
+import type { ChatStatus, ToolUIPart } from "ai";
 import { toast } from "sonner";
 import { CitationModal } from "@/components/CaseAgent/citation-modal";
 import { Button } from "@/components/ui/button";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { extractCitationsFromToolOutputs } from "@/components/ai-elements/citations";
+import type { Id } from "convex/_generated/dataModel";
 
 export interface HomeAgentChatProps {
   /** ID del thread de conversación */
@@ -62,12 +67,38 @@ export interface HomeAgentChatProps {
 }
 
 interface HomeAgentMessageProps {
-  msg: any;
+  msg: AgentMessage;
   copiedMessageId: string | null;
   onCopyMessage: (messageId: string, text: string) => void;
   onCitationClick: (id: string, type: string) => void;
   onRetry?: (userMessage: string) => void;
 }
+
+type AgentPart = {
+  type?: string;
+  state?: string;
+  text?: string;
+  output?: unknown;
+  input?: unknown;
+  url?: string;
+  title?: string;
+  mediaType?: string;
+  filename?: string;
+  [key: string]: unknown;
+};
+
+type AgentMessage = {
+  _id?: string;
+  id?: string;
+  role: "user" | "assistant" | "system";
+  status?: "pending" | "streaming" | "done" | "failed" | "success";
+  order?: number;
+  _creationTime?: number;
+  text?: string;
+  parts?: AgentPart[];
+};
+
+// Tool citations are extracted via shared utility in `ai-elements/citations`.
 
 /**
  * Componente individual de mensaje
@@ -82,19 +113,29 @@ const HomeAgentMessage = ({
   const messageText =
     msg.text ||
     msg.parts
-      ?.filter((p: any) => p.type === "text")
-      .map((p: any) => p.text)
+      ?.filter((p) => p.type === "text")
+      .map((p) => p.text)
       .join("") ||
     "";
 
   const isUser = msg.role === "user";
-  const messageId = msg._id || msg.id;
+  const messageId = msg._id ?? msg.id ?? "";
   const isCopied = copiedMessageId === messageId;
 
   // Check for active tools
-  const toolCalls = msg.parts?.filter((p: any) => p.type?.startsWith("tool-")) || [];
-  const allToolsCompleted = toolCalls.length > 0 && toolCalls.every((p: any) => p.state === "output-available");
+  const toolCalls =
+    msg.parts?.filter((p) => typeof p.type === "string" && p.type.startsWith("tool-")) ||
+    [];
+  const allToolsCompleted =
+    toolCalls.length > 0 &&
+    toolCalls.every((p) => p.state === "output-available");
   const hasActiveTools = toolCalls.length > 0 && !allToolsCompleted;
+
+  // Extract source parts (from web search etc.)
+  const sourceParts = msg.parts?.filter((part) => part.type === "source-url") || [];
+  
+  // Extract citations from tool outputs (legislation search, fallos, etc.)
+  const toolCitations = msg.parts ? extractCitationsFromToolOutputs(msg.parts) : [];
 
   return (
     <Message key={messageId} from={msg.role}>
@@ -126,7 +167,7 @@ const HomeAgentMessage = ({
 
         {/* Renderizar parts en orden cronológico */}
         {msg.parts && msg.parts.length > 0 ? (
-          msg.parts.map((part: any, partIndex: number) => {
+          msg.parts.map((part, partIndex: number) => {
             // Renderizar texto
             if (part.type === "text") {
               const displayText = part.text;
@@ -146,6 +187,7 @@ const HomeAgentMessage = ({
                     key={partIndex}
                     className="text-sm"
                     onCitationClick={(id, type) => {
+                      console.log("🔗 [Citations] Citation clicked in message text:", { id, type });
                       onCitationClick(id, type);
                     }}
                   >
@@ -166,9 +208,9 @@ const HomeAgentMessage = ({
                   defaultOpen={false}
                   isStreaming={reasoningIsStreaming}
                 >
-                  <ReasoningTrigger className="!text-[10px]" />
-                  <ReasoningContent className="group relative !px-3 !py-2 !text-[10px] space-y-2 max-w-[85%]">
-                    {part.text}
+                  <ReasoningTrigger className="text-[10px]!" />
+                  <ReasoningContent className="group relative px-3! py-2! text-[10px]! space-y-2 max-w-[85%]">
+                    {typeof part.text === "string" ? part.text : ""}
                   </ReasoningContent>
                 </Reasoning>
               );
@@ -177,7 +219,9 @@ const HomeAgentMessage = ({
             // Renderizar tool calls
             if (part.type?.startsWith("tool-")) {
               const aiSDKState = part.state;
-              const outputType = part.output?.type as string | undefined;
+              const outputType = (part.output as { type?: unknown } | undefined)?.type as
+                | string
+                | undefined;
               const isError =
                 aiSDKState === "output-available" &&
                 (outputType?.startsWith("error-") ?? false);
@@ -202,6 +246,10 @@ const HomeAgentMessage = ({
               );
             }
 
+            if (part.type === "source-url") {
+              return null;
+            }
+
             return null;
           })
         ) : isUser ? (
@@ -212,12 +260,62 @@ const HomeAgentMessage = ({
           <Response
             className="text-sm"
             onCitationClick={(id, type) => {
+              console.log("🔗 [Citations] Citation clicked in message text (fallback):", { id, type });
               onCitationClick(id, type);
             }}
           >
             {messageText || "..."}
           </Response>
         )}
+        {/* Sources - from source-url parts and tool output citations */}
+        {(sourceParts.length > 0 || toolCitations.length > 0) && (
+          <Sources className="mt-2">
+            <SourcesTrigger count={sourceParts.length + toolCitations.length} />
+            <SourcesContent>
+              {/* Render source-url parts (web search) */}
+              {sourceParts.map((part, i: number) => (
+                <Source
+                  key={`source-${i}`}
+                  href={typeof part.url === "string" ? part.url : undefined}
+                  title={typeof part.title === "string" ? part.title : undefined}
+                  index={i + 1}
+                />
+              ))}
+              {/* Render tool citations (legislation, fallos, etc.) */}
+              {toolCitations.map((cit, i: number) => (
+                <button
+                  key={`cit-${cit.id}-${i}`}
+                  onClick={() => {
+                    console.log("🔗 [Citations] Citation clicked from sources list:", cit);
+                    onCitationClick(cit.id, cit.type);
+                  }}
+                  className="flex items-center gap-2.5 p-2 rounded-md hover:bg-muted/80 transition-all duration-200 no-underline group/source w-full text-left"
+                >
+                  <div className="flex items-center justify-center h-5 w-5 shrink-0 rounded-full bg-background border text-[10px] font-medium text-muted-foreground group-hover/source:text-foreground group-hover/source:border-primary/20">
+                    {sourceParts.length + i + 1}
+                  </div>
+                  <div className="flex flex-col gap-0.5 min-w-0 flex-1">
+                    <span className="text-xs font-medium truncate text-foreground/90 group-hover/source:text-primary">
+                      {cit.title}
+                    </span>
+                    <span className="text-[10px] text-muted-foreground truncate opacity-70">
+                      {cit.type === "leg"
+                        ? "Legislación"
+                        : cit.type === "fallo"
+                        ? "Jurisprudencia"
+                        : cit.type === "document" || cit.type === "case-doc" || cit.type === "doc"
+                        ? "Documento"
+                        : cit.type === "escrito"
+                        ? "Escrito"
+                        : cit.type}
+                    </span>
+                  </div>
+                </button>
+              ))}
+            </SourcesContent>
+          </Sources>
+        )}
+
         <div className="flex items-center justify-between mt-2">
           <div className="text-[10px] opacity-70">
             {msg._creationTime
@@ -274,9 +372,21 @@ export function HomeAgentChat({
   className = "",
 }: HomeAgentChatProps) {
   const navigate = useNavigate();
+  const convex = useConvex();
   const [inputValue, setInputValue] = useState("");
+  const [webSearchEnabled, setWebSearchEnabled] = useState(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("homeAgentWebSearchEnabled");
+      return saved === "true";
+    }
+    return false;
+  });
   const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null);
   const [sendError, setSendError] = useState<string | null>(null);
+
+  useEffect(() => {
+    localStorage.setItem("homeAgentWebSearchEnabled", String(webSearchEnabled));
+  }, [webSearchEnabled]);
 
   // Estado para el modal de citas
   const [citationModalOpen, setCitationModalOpen] = useState(false);
@@ -305,7 +415,10 @@ export function HomeAgentChat({
   const isLoading = threadId && !messages && status !== "Exhausted";
 
   // Simple streaming detection - just check if any message has streaming status
-  const isStreaming = messages?.some((m: any) => m.status === "streaming") ?? false;
+  const isStreaming =
+    (messages as unknown as AgentMessage[] | undefined)?.some(
+      (m) => m.status === "streaming",
+    ) ?? false;
 
   // Input debe estar deshabilitado si está cargando O si hay streaming
   const isInputDisabled = messagesLoading || isStreaming;
@@ -325,7 +438,7 @@ export function HomeAgentChat({
     setSendError(null);
 
     try {
-      const result = await sendMessage(message);
+      const result = await sendMessage(message, webSearchEnabled);
       // If no thread was set, navigate to the new thread
       if (!threadId && result.threadId) {
         navigate(`/ai/${result.threadId}`);
@@ -344,8 +457,8 @@ export function HomeAgentChat({
     }
   };
 
-  // Determinar el estado del chat para el botón de submit
-  const chatStatus = isStreaming ? "streaming" : "awaiting-message";
+  // Determinar el estado del chat para el botón de submit (AI SDK expects ChatStatus)
+  const chatStatus: ChatStatus = isStreaming ? "streaming" : "ready";
 
   // Función para copiar mensaje al clipboard
   const handleCopyMessage = async (messageId: string, text: string) => {
@@ -364,7 +477,7 @@ export function HomeAgentChat({
 
     setSendError(null);
     try {
-      await sendMessage(messageText);
+      await sendMessage(messageText, webSearchEnabled);
     } catch (error) {
       console.error("Error regenerating message:", error);
       const errorMessage =
@@ -422,13 +535,30 @@ export function HomeAgentChat({
                   </Button>
                 </div>
               )}
-              {messages.map((msg: any) => (
+              {(messages as unknown as AgentMessage[]).map((msg) => (
                 <HomeAgentMessage
                   key={msg._id || msg.id}
-                  msg={msg}
+                  msg={msg as AgentMessage}
                   copiedMessageId={copiedMessageId}
                   onCopyMessage={handleCopyMessage}
                   onCitationClick={(id, type) => {
+                    // For escritos, navigate directly instead of opening the citation modal.
+                    if (type === "escrito") {
+                      (async () => {
+                        try {
+                          const escrito = await convex.query(api.functions.documents.getEscrito, {
+                            escritoId: id as Id<"escritos">,
+                          });
+                          navigate(`/caso/${escrito.caseId}/escritos/${id}`);
+                        } catch (error) {
+                          console.error("Error navigating to escrito from citation:", error);
+                          toast.error("No se pudo abrir el escrito");
+                        }
+                      })();
+                      return;
+                    }
+
+                    console.log("🔗 [Citations] Opening citation modal:", { id, type });
                     setCitationModalOpen(true);
                     setSelectedCitationId(id);
                     setSelectedCitationType(type);
@@ -444,6 +574,21 @@ export function HomeAgentChat({
 
       {/* Prompt Input */}
       <div className="m-4">
+        {/* Web search hallucination warning */}
+        {webSearchEnabled && (
+          <div className="mb-2">
+            <Alert className="border-amber-400 bg-amber-50">
+              <AlertTriangle className="size-4 text-amber-600" />
+              <AlertTitle className="text-amber-900 text-xs">
+                Búsqueda web activada
+              </AlertTitle>
+              <AlertDescription className="text-[11px] text-amber-800">
+                Las respuestas con búsqueda web son más propensas a alucinaciones. Verifica siempre la información con fuentes confiables antes de usarla en tu caso.
+              </AlertDescription>
+            </Alert>
+          </div>
+        )}
+
         {sendError && (
           <div className="mb-2 flex items-center gap-2 rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
             <AlertCircle className="h-4 w-4" />
@@ -458,10 +603,20 @@ export function HomeAgentChat({
             disabled={isInputDisabled}
           />
           <PromptInputToolbar>
+            <div className="flex items-center gap-2">
+              <PromptInputButton
+                onClick={() => setWebSearchEnabled(!webSearchEnabled)}
+                className={webSearchEnabled ? "text-blue-500 bg-blue-50" : ""}
+                title={webSearchEnabled ? "Búsqueda web activada" : "Activar búsqueda web"}
+              >
+                <Globe className="size-4" />
+                <span className="text-xs">{webSearchEnabled ? "Web" : ""}</span>
+              </PromptInputButton>
+            </div>
             <div className="flex-1" />
             <PromptInputSubmit
               disabled={isStreaming ? false : (!inputValue.trim() || messagesLoading)}
-              status={chatStatus as any}
+              status={chatStatus}
               onClick={handleButtonClick}
               type={isStreaming ? "button" : "submit"}
               aria-label={isStreaming ? "Detener" : "Enviar mensaje"}

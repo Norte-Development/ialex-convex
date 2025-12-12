@@ -41,7 +41,7 @@ export default function HomeAgentThreadPage() {
   return (
     <HomeAgentLayout currentThreadId={threadId}>
       <div className="flex justify-center pt-10 h-full overflow-hidden">
-        <HomeAgentChat threadId={threadId} />
+        <HomeAgentChat key={threadId} threadId={threadId} />
       </div>
     </HomeAgentLayout>
   );

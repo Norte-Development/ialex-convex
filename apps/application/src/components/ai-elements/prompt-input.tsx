@@ -22,7 +22,7 @@ import type {
   HTMLAttributes,
   KeyboardEventHandler,
 } from "react";
-import { Children } from "react";
+import { Children, forwardRef } from "react";
 
 export type PromptInputProps = HTMLAttributes<HTMLFormElement>;
 
@@ -119,17 +119,18 @@ export const PromptInputTools = ({
 
 export type PromptInputButtonProps = ComponentProps<typeof Button>;
 
-export const PromptInputButton = ({
+export const PromptInputButton = forwardRef<HTMLButtonElement, PromptInputButtonProps>(({
   variant = "ghost",
   className,
   size,
   ...props
-}: PromptInputButtonProps) => {
+}, ref) => {
   const newSize =
     (size ?? Children.count(props.children) > 1) ? "default" : "icon";
 
   return (
     <Button
+      ref={ref}
       className={cn(
         "shrink-0 gap-1.5 rounded-lg",
         variant === "ghost" && "text-muted-foreground",
@@ -142,13 +143,14 @@ export const PromptInputButton = ({
       {...props}
     />
   );
-};
+});
+PromptInputButton.displayName = "PromptInputButton";
 
 export type PromptInputSubmitProps = ComponentProps<typeof Button> & {
   status?: ChatStatus;
 };
 
-export const PromptInputSubmit = ({
+export const PromptInputSubmit = forwardRef<HTMLButtonElement, PromptInputSubmitProps>(({
   className,
   variant = "default",
   size = "icon",
@@ -157,7 +159,7 @@ export const PromptInputSubmit = ({
   onClick,
   type,
   ...props
-}: PromptInputSubmitProps) => {
+}, ref) => {
   let Icon = <CircleArrowUpIcon className="size-4" />;
 
   if (status === "submitted") {
@@ -177,6 +179,7 @@ export const PromptInputSubmit = ({
 
   return (
     <Button
+      ref={ref}
       className={cn("gap-1.5 rounded-lg", className)}
       size={size}
       type={type || "submit"}
@@ -187,7 +190,8 @@ export const PromptInputSubmit = ({
       {children ?? Icon}
     </Button>
   );
-};
+});
+PromptInputSubmit.displayName = "PromptInputSubmit";
 
 export type PromptInputModelSelectProps = ComponentProps<typeof Select>;
 
