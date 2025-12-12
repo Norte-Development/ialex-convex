@@ -15,73 +15,9 @@ import type { SidebarMessageProps } from "./types/message-types";
 import { CitationModal } from "./citation-modal";
 import { useState, useEffect } from "react";
 import { ToolUIPart } from "ai";
+import { extractCitationsFromToolOutputs } from "../ai-elements/citations";
 
-/** Citation extracted from tool outputs */
-interface ToolCitation {
-  id: string;
-  type: string;
-  title: string;
-  url?: string;
-}
-
-/**
- * Extracts citations from tool outputs in message parts.
- * Looks for tool parts with output.type === 'json' and output.value.citations
- */
-function extractCitationsFromToolOutputs(parts: unknown[]): ToolCitation[] {
-  const citations: ToolCitation[] = [];
-  
-  console.group("🔍 [Citations] Extracting citations from tool outputs (SidebarMessage)");
-  console.log("Total parts to check:", parts.length);
-  
-  for (const part of parts) {
-    const p = part as { type?: string; state?: string; output?: { type?: string; value?: { citations?: unknown[] } } };
-    if (!p.type?.startsWith("tool-")) continue;
-    if (p.state !== "output-available") continue;
-      
-    const output = p.output;
-    if (!output) {
-      console.log(`  ⏭️  Skipping ${p.type}: no output`);
-      continue;
-    }
-    
-    console.log(`  🔧 Checking ${p.type}:`, {
-      outputType: output.type,
-      hasValue: !!output.value,
-      hasCitations: !!output.value?.citations,
-    });
-    
-    // Check for JSON output with citations array
-    if (output.type === "json" && output.value?.citations) {
-      const citationsArray = output.value.citations;
-      if (Array.isArray(citationsArray)) {
-        console.log(`  ✅ Found ${citationsArray.length} citations in ${p.type}`);
-        for (const cit of citationsArray) {
-          const c = cit as { id?: unknown; type?: unknown; title?: unknown; url?: unknown };
-          if (c.id && c.type) {
-            const citation = {
-              id: String(c.id),
-              type: String(c.type),
-              title: String(c.title || "Fuente"),
-              url: c.url ? String(c.url) : undefined,
-            };
-            citations.push(citation);
-            console.log(`    📚 Citation:`, citation);
-          } else {
-            console.warn(`    ⚠️  Invalid citation (missing id or type):`, cit);
-          }
-        }
-      } else {
-        console.warn(`  ⚠️  Citations is not an array:`, typeof citationsArray);
-      }
-    }
-  }
-  
-  console.log(`📊 Total citations extracted: ${citations.length}`);
-  console.groupEnd();
-  
-  return citations;
-}
+// Tool citations are extracted via shared utility in `ai-elements/citations`.
 
 export function SidebarMessage({
   message,
@@ -174,8 +110,8 @@ export function SidebarMessage({
     <Message
       from={message.role}
       className={cn(
-        "!justify-start ",
-        isUser ? "!flex-row-reverse" : "!flex-row",
+        "justify-start! ",
+        isUser ? "flex-row-reverse!" : "flex-row!",
       )}
     >
       <MessageAvatar
@@ -186,11 +122,11 @@ export function SidebarMessage({
 
       <MessageContent
         className={cn(
-          "group relative !rounded-lg !px-3 !py-2 !text-[12px] shadow-sm space-y-2 max-w-[85%]",
-          isUser && "!bg-[#F3F4F6] !text-black",
-          !isUser && "!bg-[#F3F4F6] !text-black",
+          "group relative rounded-lg! px-3! py-2! text-[12px]! shadow-sm space-y-2 max-w-[85%]",
+          isUser && "bg-[#F3F4F6]! text-black!",
+          !isUser && "bg-[#F3F4F6]! text-black!",
           message.status === "failed" &&
-            "!bg-red-100 !text-red-800 border-l-2 border-red-400",
+            "bg-red-100! text-red-800! border-l-2 border-red-400",
         )}
       >
         {/* Show thinking indicator if message is streaming but has no text yet */}
@@ -293,8 +229,8 @@ export function SidebarMessage({
                   }
                 }}
               >
-                <ReasoningTrigger className="!text-[10px]" />
-                <ReasoningContent className="group relative !px-3 !py-2 !text-[10px] space-y-2 max-w-[85%]">
+                <ReasoningTrigger className="text-[10px]!" />
+                <ReasoningContent className="group relative px-3! py-2! text-[10px]! space-y-2 max-w-[85%]">
                   {part.text}
                 </ReasoningContent>
               </Reasoning>

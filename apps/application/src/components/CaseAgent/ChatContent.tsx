@@ -46,6 +46,7 @@ import { SelectionChip } from "./SelectionChip";
 import { cn } from "@/lib/utils";
 import type { ToolUIPart } from "ai";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { extractCitationsFromToolOutputs } from "../ai-elements/citations";
 
 // Extended message type that includes status property from Convex agent
 type AgentMessage = {
@@ -61,89 +62,7 @@ type AgentMessage = {
   }>;
 };
 
-/** Citation extracted from tool outputs */
-interface ToolCitation {
-  id: string;
-  type: string;
-  title: string;
-  url?: string;
-}
-
-/**
- * Extracts citations from tool outputs in message parts.
- * Supports multiple output shapes depending on the underlying tool/runtime:
- * - output.type === "json" with output.value.citations
- * - output.citations directly (some tool adapters)
- * - output.value being a JSON string containing { citations: [...] }
- */
-function extractCitationsFromToolOutputs(parts: unknown[]): ToolCitation[] {
-  const citations: ToolCitation[] = [];
-  const seen = new Set<string>();
-
-  const addCitation = (raw: unknown) => {
-    const c = raw as { id?: unknown; type?: unknown; title?: unknown; url?: unknown };
-    if (!c?.id || !c?.type) return;
-    const id = String(c.id);
-    const type = String(c.type);
-    const key = `${type}:${id}`;
-    if (seen.has(key)) return;
-    seen.add(key);
-    citations.push({
-      id,
-      type,
-      title: String(c.title || "Fuente"),
-      url: c.url ? String(c.url) : undefined,
-    });
-  };
-
-  const tryExtractFromContainer = (container: unknown) => {
-    if (!container) return;
-    const obj = container as { citations?: unknown };
-    const arr = obj.citations;
-    if (!Array.isArray(arr)) return;
-    for (const raw of arr) addCitation(raw);
-  };
-
-  const tryParseJsonString = (value: unknown): unknown => {
-    if (typeof value !== "string") return null;
-    const trimmed = value.trim();
-    if (!trimmed) return null;
-    // Fast check to avoid parsing arbitrary strings.
-    if (!(trimmed.startsWith("{") || trimmed.startsWith("["))) return null;
-    try {
-      return JSON.parse(trimmed) as unknown;
-    } catch {
-      return null;
-    }
-  };
-
-  for (const part of parts) {
-    const p = part as {
-      type?: string;
-      state?: string;
-      output?: unknown;
-    };
-
-    if (!p.type?.startsWith("tool-")) continue;
-    if (p.state !== "output-available") continue;
-
-    const output = p.output as any;
-    if (!output) continue;
-
-    // Common case: ai-sdk ToolUIPart output wrapper { type, value }
-    tryExtractFromContainer(output?.value);
-    // Some adapters: citations directly on output
-    tryExtractFromContainer(output);
-
-    // Handle stringified JSON in output.value (or output itself)
-    const parsedFromValue = tryParseJsonString(output?.value);
-    if (parsedFromValue) tryExtractFromContainer(parsedFromValue);
-    const parsedFromOutput = tryParseJsonString(output);
-    if (parsedFromOutput) tryExtractFromContainer(parsedFromOutput);
-  }
-
-  return citations;
-}
+// Tool citations are extracted via shared utility in `ai-elements/citations`.
 
 export function ChatContent({ threadId }: { threadId: string | undefined }) {
   const { createThreadWithTitle, setThreadId } = useThread();
@@ -530,8 +449,8 @@ function MessageItem({
     <Message
       from={message.role}
       className={cn(
-        "!justify-start",
-        isUser ? "!flex-row-reverse" : "!flex-row",
+        "justify-start!",
+        isUser ? "flex-row-reverse!" : "flex-row!",
       )}
     >
       <MessageAvatar
@@ -542,11 +461,11 @@ function MessageItem({
 
       <MessageContent
         className={cn(
-          "group relative !rounded-lg !px-3 !py-2 !text-[12px] shadow-sm space-y-2 max-w-[85%]",
-          isUser && "!bg-[#F3F4F6] !text-black",
-          !isUser && "!bg-[#F3F4F6] !text-black",
+          "group relative rounded-lg! px-3! py-2! text-[12px]! shadow-sm space-y-2 max-w-[85%]",
+          isUser && "bg-[#F3F4F6]! text-black!",
+          !isUser && "bg-[#F3F4F6]! text-black!",
           message.status === "failed" &&
-            "!bg-red-100 !text-red-800 border-l-2 border-red-400",
+            "bg-red-100! text-red-800! border-l-2 border-red-400",
         )}
       >
         {/* Thinking indicator */}
@@ -616,8 +535,8 @@ function MessageItem({
                 defaultOpen={false}
                 isStreaming={message.status === "streaming"}
               >
-                <ReasoningTrigger className="!text-[10px]" />
-                <ReasoningContent className="group relative !px-3 !py-2 !text-[10px] space-y-2 max-w-[85%]">
+                <ReasoningTrigger className="text-[10px]!" />
+                <ReasoningContent className="group relative px-3! py-2! text-[10px]! space-y-2 max-w-[85%]">
                   {reasoningText}
                 </ReasoningContent>
               </Reasoning>

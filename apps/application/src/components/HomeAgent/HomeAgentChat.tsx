@@ -47,11 +47,12 @@ import { Copy, RotateCw, Check, AlertCircle, Globe, AlertTriangle } from "lucide
 import { formatDistanceToNow } from "date-fns";
 import { es } from "date-fns/locale";
 import { Tool } from "@/components/ai-elements/tool";
-import type { ToolUIPart } from "ai";
+import type { ChatStatus, ToolUIPart } from "ai";
 import { toast } from "sonner";
 import { CitationModal } from "@/components/CaseAgent/citation-modal";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { extractCitationsFromToolOutputs } from "@/components/ai-elements/citations";
 
 export interface HomeAgentChatProps {
   /** ID del thread de conversación */
@@ -65,77 +66,38 @@ export interface HomeAgentChatProps {
 }
 
 interface HomeAgentMessageProps {
-  msg: any;
+  msg: AgentMessage;
   copiedMessageId: string | null;
   onCopyMessage: (messageId: string, text: string) => void;
   onCitationClick: (id: string, type: string) => void;
   onRetry?: (userMessage: string) => void;
 }
 
-/** Citation extracted from tool outputs */
-interface ToolCitation {
-  id: string;
-  type: string;
-  title: string;
+type AgentPart = {
+  type?: string;
+  state?: string;
+  text?: string;
+  output?: unknown;
+  input?: unknown;
   url?: string;
-}
+  title?: string;
+  mediaType?: string;
+  filename?: string;
+  [key: string]: unknown;
+};
 
-/**
- * Extracts citations from tool outputs in message parts.
- * Looks for tool parts with output.type === 'json' and output.value.citations
- */
-function extractCitationsFromToolOutputs(parts: any[]): ToolCitation[] {
-  const citations: ToolCitation[] = [];
-  
-  console.group("🔍 [Citations] Extracting citations from tool outputs");
-  console.log("Total parts to check:", parts.length);
-  
-  for (const part of parts) {
-    if (!part.type?.startsWith("tool-")) continue;
-    if (part.state !== "output-available") continue;
-    
-    const output = part.output;
-    if (!output) {
-      console.log(`  ⏭️  Skipping ${part.type}: no output`);
-      continue;
-    }
-    
-    console.log(`  🔧 Checking ${part.type}:`, {
-      outputType: output.type,
-      hasValue: !!output.value,
-      hasCitations: !!output.value?.citations,
-    });
-    
-    // Check for JSON output with citations array
-    if (output.type === "json" && output.value?.citations) {
-      const citationsArray = output.value.citations;
-      if (Array.isArray(citationsArray)) {
-        console.log(`  ✅ Found ${citationsArray.length} citations in ${part.type}`);
-        for (const cit of citationsArray) {
-          if (cit.id && cit.type) {
-            const citation = {
-              id: String(cit.id),
-              type: String(cit.type),
-              title: String(cit.title || "Fuente"),
-              url: cit.url ? String(cit.url) : undefined,
-            };
-            citations.push(citation);
-            console.log(`    📚 Citation:`, citation);
-          } else {
-            console.warn(`    ⚠️  Invalid citation (missing id or type):`, cit);
-          }
-        }
-      } else {
-        console.warn(`  ⚠️  Citations is not an array:`, typeof citationsArray);
-      }
-    }
-  }
-  
-  console.log(`📊 Total citations extracted: ${citations.length}`);
-  console.groupEnd();
-  
-  return citations;
-}
+type AgentMessage = {
+  _id?: string;
+  id?: string;
+  role: "user" | "assistant" | "system";
+  status?: "pending" | "streaming" | "done" | "failed" | "success";
+  order?: number;
+  _creationTime?: number;
+  text?: string;
+  parts?: AgentPart[];
+};
+
+// Tool citations are extracted via shared utility in `ai-elements/citations`.
 
 /**
  * Componente individual de mensaje
@@ -150,22 +112,26 @@ const HomeAgentMessage = ({
   const messageText =
     msg.text ||
     msg.parts
-      ?.filter((p: any) => p.type === "text")
-      .map((p: any) => p.text)
+      ?.filter((p) => p.type === "text")
+      .map((p) => p.text)
       .join("") ||
     "";
 
   const isUser = msg.role === "user";
-  const messageId = msg._id || msg.id;
+  const messageId = msg._id ?? msg.id ?? "";
   const isCopied = copiedMessageId === messageId;
 
   // Check for active tools
-  const toolCalls = msg.parts?.filter((p: any) => p.type?.startsWith("tool-")) || [];
-  const allToolsCompleted = toolCalls.length > 0 && toolCalls.every((p: any) => p.state === "output-available");
+  const toolCalls =
+    msg.parts?.filter((p) => typeof p.type === "string" && p.type.startsWith("tool-")) ||
+    [];
+  const allToolsCompleted =
+    toolCalls.length > 0 &&
+    toolCalls.every((p) => p.state === "output-available");
   const hasActiveTools = toolCalls.length > 0 && !allToolsCompleted;
 
   // Extract source parts (from web search etc.)
-  const sourceParts = msg.parts?.filter((part: any) => part.type === "source-url") || [];
+  const sourceParts = msg.parts?.filter((part) => part.type === "source-url") || [];
   
   // Extract citations from tool outputs (legislation search, fallos, etc.)
   const toolCitations = msg.parts ? extractCitationsFromToolOutputs(msg.parts) : [];
@@ -200,7 +166,7 @@ const HomeAgentMessage = ({
 
         {/* Renderizar parts en orden cronológico */}
         {msg.parts && msg.parts.length > 0 ? (
-          msg.parts.map((part: any, partIndex: number) => {
+          msg.parts.map((part, partIndex: number) => {
             // Renderizar texto
             if (part.type === "text") {
               const displayText = part.text;
@@ -241,9 +207,9 @@ const HomeAgentMessage = ({
                   defaultOpen={false}
                   isStreaming={reasoningIsStreaming}
                 >
-                  <ReasoningTrigger className="!text-[10px]" />
-                  <ReasoningContent className="group relative !px-3 !py-2 !text-[10px] space-y-2 max-w-[85%]">
-                    {part.text}
+                  <ReasoningTrigger className="text-[10px]!" />
+                  <ReasoningContent className="group relative px-3! py-2! text-[10px]! space-y-2 max-w-[85%]">
+                    {typeof part.text === "string" ? part.text : ""}
                   </ReasoningContent>
                 </Reasoning>
               );
@@ -252,7 +218,9 @@ const HomeAgentMessage = ({
             // Renderizar tool calls
             if (part.type?.startsWith("tool-")) {
               const aiSDKState = part.state;
-              const outputType = part.output?.type as string | undefined;
+              const outputType = (part.output as { type?: unknown } | undefined)?.type as
+                | string
+                | undefined;
               const isError =
                 aiSDKState === "output-available" &&
                 (outputType?.startsWith("error-") ?? false);
@@ -304,11 +272,11 @@ const HomeAgentMessage = ({
             <SourcesTrigger count={sourceParts.length + toolCitations.length} />
             <SourcesContent>
               {/* Render source-url parts (web search) */}
-              {sourceParts.map((part: any, i: number) => (
+              {sourceParts.map((part, i: number) => (
                 <Source
                   key={`source-${i}`}
-                  href={part.url}
-                  title={part.title}
+                  href={typeof part.url === "string" ? part.url : undefined}
+                  title={typeof part.title === "string" ? part.title : undefined}
                   index={i + 1}
                 />
               ))}
@@ -445,7 +413,10 @@ export function HomeAgentChat({
   const isLoading = threadId && !messages && status !== "Exhausted";
 
   // Simple streaming detection - just check if any message has streaming status
-  const isStreaming = messages?.some((m: any) => m.status === "streaming") ?? false;
+  const isStreaming =
+    (messages as unknown as AgentMessage[] | undefined)?.some(
+      (m) => m.status === "streaming",
+    ) ?? false;
 
   // Input debe estar deshabilitado si está cargando O si hay streaming
   const isInputDisabled = messagesLoading || isStreaming;
@@ -484,8 +455,8 @@ export function HomeAgentChat({
     }
   };
 
-  // Determinar el estado del chat para el botón de submit
-  const chatStatus = isStreaming ? "streaming" : "awaiting-message";
+  // Determinar el estado del chat para el botón de submit (AI SDK expects ChatStatus)
+  const chatStatus: ChatStatus = isStreaming ? "streaming" : "ready";
 
   // Función para copiar mensaje al clipboard
   const handleCopyMessage = async (messageId: string, text: string) => {
@@ -562,10 +533,10 @@ export function HomeAgentChat({
                   </Button>
                 </div>
               )}
-              {messages.map((msg: any) => (
+              {(messages as unknown as AgentMessage[]).map((msg) => (
                 <HomeAgentMessage
                   key={msg._id || msg.id}
-                  msg={msg}
+                  msg={msg as AgentMessage}
                   copiedMessageId={copiedMessageId}
                   onCopyMessage={handleCopyMessage}
                   onCitationClick={(id, type) => {
@@ -627,7 +598,7 @@ export function HomeAgentChat({
             <div className="flex-1" />
             <PromptInputSubmit
               disabled={isStreaming ? false : (!inputValue.trim() || messagesLoading)}
-              status={chatStatus as any}
+              status={chatStatus}
               onClick={handleButtonClick}
               type={isStreaming ? "button" : "submit"}
               aria-label={isStreaming ? "Detener" : "Enviar mensaje"}
