@@ -64,7 +64,7 @@ export const searchLibraryDocumentsTool = createTool({
       console.log("Searching library documents:", { userId, teamIds, query: args.query, limit, contextWindow });
 
       // Call the action to perform the search with clustering
-      const results = await ctx.runAction(api.rag.qdrantUtils.libraryDocuments.searchLibraryDocumentsWithClustering, {
+      const searchResult = await ctx.runAction(api.rag.qdrantUtils.libraryDocuments.searchLibraryDocumentsWithClustering, {
         query: args.query.trim(),
         userId: userId,
         teamIds,
@@ -72,7 +72,11 @@ export const searchLibraryDocumentsTool = createTool({
         contextWindow: Math.min(contextWindow, 20) // Cap at 20 to prevent abuse
       });
 
-      if (!results || results.length === 0) {
+      // Handle both old (string) and new (object) return formats for backward compatibility
+      const resultsText = typeof searchResult === 'string' ? searchResult : searchResult.text;
+      const libraryDocumentIds = typeof searchResult === 'string' ? [] : (searchResult.documentIds || []);
+
+      if (!resultsText || resultsText.length === 0) {
         return `# 🔍 Búsqueda en Biblioteca
 
 ## Consulta
@@ -94,7 +98,7 @@ No se encontraron documentos en tu biblioteca que coincidan con esta búsqueda.
 *Búsqueda completada sin resultados.*`;
       }
 
-      return `# 🔍 Búsqueda en Biblioteca
+      const markdown = `# 🔍 Búsqueda en Biblioteca
 
 ## Consulta
 "${args.query.trim()}"
@@ -108,10 +112,39 @@ Se encontraron fragmentos relevantes en tu biblioteca personal y bibliotecas de 
 
 ## Contenido
 
-${results}
+${resultsText}
 
 ---
 *Resultados de búsqueda en biblioteca. Los fragmentos se han agrupado por documento y se ha expandido el contexto para mayor coherencia.*`;
+
+      // Build citations from matching library documents
+      if (libraryDocumentIds.length > 0) {
+        const accessible = await ctx.runQuery(internal.functions.libraryDocument.getAllAccessibleLibraryDocumentsForAgent, {
+          userId: userId as Id<"users">,
+          limit: 200,
+          offset: 0,
+        });
+        const docs = accessible.documents;
+
+        const citations = libraryDocumentIds
+          .map((id: string) => docs.find((d: any) => d._id === id))
+          .filter(Boolean)
+          .map((doc: any) => ({
+            id: doc._id,
+            type: "doc" as const,
+            title: doc.title || doc.description || "Documento de biblioteca",
+          }));
+
+        if (citations.length > 0) {
+          console.log(`📚 [Citations] Creating citations from ${citations.length} library document search results`);
+          citations.forEach((c) => console.log(`  📖 Citation created:`, c));
+          console.log(`✅ [Citations] Total citations created: ${citations.length}`);
+          console.log(`📤 [Citations] Returning tool output with ${citations.length} citations`);
+          return { markdown, citations };
+        }
+      }
+
+      return markdown;
     } catch (error) {
       console.error("Error in searchLibraryDocumentsTool:", error);
       return createErrorResponse(`Error inesperado: ${error instanceof Error ? error.message : 'Error desconocido'}`);

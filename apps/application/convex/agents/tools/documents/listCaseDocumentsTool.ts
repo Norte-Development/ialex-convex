@@ -113,7 +113,7 @@ export const listCaseDocumentsTool = createTool({
         failedDocuments: documentList.filter(d => d.processingStatus === "failed").length
       };
 
-      return `# 📁 Documentos del Caso
+      const markdown = `# 📁 Documentos del Caso
 
 ## Resumen
 - **Total de Documentos**: ${summary.totalDocuments}
@@ -136,6 +136,27 @@ ${documentList.length === 0 ? 'No hay documentos en este caso.' : documentList.m
 
 ---
 *Lista de documentos del caso actual.*`;
+
+      // Build citations array from all documents
+      console.log(`📚 [Citations] Creating citations from ${documentList.length} listed documents`);
+      const citations = documentList.map((doc) => {
+        const citation = {
+          id: doc.documentId,
+          type: 'case-doc' as const,
+          title: doc.title || 'Documento sin título',
+        };
+        console.log(`  📖 Citation created:`, citation);
+        return citation;
+      });
+      console.log(`✅ [Citations] Total citations created: ${citations.length}`);
+
+      // Return structured JSON with markdown and citations (matching legislation/fallos pattern)
+      if (citations.length > 0) {
+        console.log(`📤 [Citations] Returning tool output with ${citations.length} citations`);
+        return { markdown, citations };
+      }
+
+      return markdown;
     } catch (error) {
       return createErrorResponse(`Error inesperado: ${error instanceof Error ? error.message : 'Error desconocido'}`);
     }

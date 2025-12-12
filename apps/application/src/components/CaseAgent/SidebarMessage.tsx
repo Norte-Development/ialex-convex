@@ -6,7 +6,7 @@ import {
   ReasoningContent,
   ReasoningTrigger,
 } from "../ai-elements/reasoning";
-import { Sources, SourcesTrigger, SourcesContent } from "../ai-elements/source";
+import { Sources, SourcesTrigger, SourcesContent, Source } from "../ai-elements/source";
 import { Actions, Action } from "../ai-elements/actions";
 import { Copy, ThumbsUp, ThumbsDown } from "lucide-react";
 import { Tool } from "../ai-elements/tool";
@@ -15,6 +15,9 @@ import type { SidebarMessageProps } from "./types/message-types";
 import { CitationModal } from "./citation-modal";
 import { useState, useEffect } from "react";
 import { ToolUIPart } from "ai";
+import { extractCitationsFromToolOutputs } from "../ai-elements/citations";
+
+// Tool citations are extracted via shared utility in `ai-elements/citations`.
 
 export function SidebarMessage({
   message,
@@ -45,6 +48,12 @@ export function SidebarMessage({
   
   // Check if there are active tools (not completed yet)
   const hasActiveTools = toolCalls.length > 0 && !allToolsCompleted;
+
+  // Extract source parts (from web search etc.)
+  const sourceParts = message.parts?.filter((part) => part.type === "source-url") || [];
+  
+  // Extract citations from tool outputs (legislation search, fallos, etc.)
+  const toolCitations = message.parts ? extractCitationsFromToolOutputs(message.parts) : [];
 
   // Simple streaming logic - just trust the backend status like HomeAgentPage
   const shouldStream =
@@ -101,8 +110,8 @@ export function SidebarMessage({
     <Message
       from={message.role}
       className={cn(
-        "!justify-start ",
-        isUser ? "!flex-row-reverse" : "!flex-row",
+        "justify-start! ",
+        isUser ? "flex-row-reverse!" : "flex-row!",
       )}
     >
       <MessageAvatar
@@ -113,11 +122,11 @@ export function SidebarMessage({
 
       <MessageContent
         className={cn(
-          "group relative !rounded-lg !px-3 !py-2 !text-[12px] shadow-sm space-y-2 max-w-[85%]",
-          isUser && "!bg-[#F3F4F6] !text-black",
-          !isUser && "!bg-[#F3F4F6] !text-black",
+          "group relative rounded-lg! px-3! py-2! text-[12px]! shadow-sm space-y-2 max-w-[85%]",
+          isUser && "bg-[#F3F4F6]! text-black!",
+          !isUser && "bg-[#F3F4F6]! text-black!",
           message.status === "failed" &&
-            "!bg-red-100 !text-red-800 border-l-2 border-red-400",
+            "bg-red-100! text-red-800! border-l-2 border-red-400",
         )}
       >
         {/* Show thinking indicator if message is streaming but has no text yet */}
@@ -192,7 +201,7 @@ export function SidebarMessage({
                   onCitationClick={
                     !isUser
                       ? (id, type) => {
-                          console.log("Citation clicked:", { id, type });
+                          console.log("🔗 [Citations] Citation clicked in message text:", { id, type });
                           setOpen(true);
                           setCitationId(id);
                           setCitationType(type);
@@ -220,8 +229,8 @@ export function SidebarMessage({
                   }
                 }}
               >
-                <ReasoningTrigger className="!text-[10px]" />
-                <ReasoningContent className="group relative !px-3 !py-2 !text-[10px] space-y-2 max-w-[85%]">
+                <ReasoningTrigger className="text-[10px]!" />
+                <ReasoningContent className="group relative px-3! py-2! text-[10px]! space-y-2 max-w-[85%]">
                   {part.text}
                 </ReasoningContent>
               </Reasoning>
@@ -229,33 +238,7 @@ export function SidebarMessage({
           }
 
           if (part.type === "source-url") {
-            return (
-              <Sources
-                key={index}
-                onToggle={() => {
-                  // Trigger content change when sources are expanded/collapsed
-                  if (onContentChange) {
-                    setTimeout(onContentChange, 100); // Small delay to allow DOM update
-                  }
-                }}
-              >
-                <SourcesTrigger count={1}>
-                  Source:{" "}
-                  {(part as any).title || (part as any).url || "Unknown source"}
-                </SourcesTrigger>
-                <SourcesContent>
-                  <div className="text-xs bg-blue-50 border border-blue-200 rounded p-2">
-                    <strong>URL:</strong> {(part as any).url}
-                    {(part as any).title && (
-                      <>
-                        <br />
-                        <strong>Title:</strong> {(part as any).title}
-                      </>
-                    )}
-                  </div>
-                </SourcesContent>
-              </Sources>
-            );
+            return null;
           }
 
           if (part.type === "file") {
@@ -315,6 +298,64 @@ export function SidebarMessage({
 
         return null;
       })}
+
+      {/* Sources - from source-url parts and tool output citations */}
+      {(sourceParts.length > 0 || toolCitations.length > 0) && (
+        <Sources
+          className="mt-2"
+          onOpenChange={(open: boolean) => {
+            if (open && onContentChange) {
+              setTimeout(onContentChange, 100);
+            }
+          }}
+        >
+          <SourcesTrigger count={sourceParts.length + toolCitations.length} />
+          <SourcesContent>
+            {/* Render source-url parts (web search) */}
+            {sourceParts.map((part: { url?: string; title?: string }, i) => (
+              <Source
+                key={`source-${i}`}
+                href={part.url}
+                title={part.title}
+                index={i + 1}
+              />
+            ))}
+            {/* Render tool citations (legislation, fallos, etc.) */}
+            {toolCitations.map((cit, i) => (
+              <button
+                key={`cit-${cit.id}-${i}`}
+                onClick={() => {
+                  console.log("🔗 [Citations] Citation clicked from sources list:", cit);
+                  setOpen(true);
+                  setCitationId(cit.id);
+                  setCitationType(cit.type);
+                }}
+                className="flex items-center gap-2.5 p-2 rounded-md hover:bg-muted/80 transition-all duration-200 no-underline group/source w-full text-left"
+              >
+                <div className="flex items-center justify-center h-5 w-5 shrink-0 rounded-full bg-background border text-[10px] font-medium text-muted-foreground group-hover/source:text-foreground group-hover/source:border-primary/20">
+                  {sourceParts.length + i + 1}
+                </div>
+                <div className="flex flex-col gap-0.5 min-w-0 flex-1">
+                  <span className="text-xs font-medium truncate text-foreground/90 group-hover/source:text-primary">
+                    {cit.title}
+                  </span>
+                    <span className="text-[10px] text-muted-foreground truncate opacity-70">
+                      {cit.type === "leg"
+                        ? "Legislación"
+                        : cit.type === "fallo"
+                        ? "Jurisprudencia"
+                        : cit.type === "document" || cit.type === "case-doc" || cit.type === "doc"
+                        ? "Documento"
+                        : cit.type === "escrito"
+                        ? "Escrito"
+                        : cit.type}
+                    </span>
+                </div>
+              </button>
+            ))}
+          </SourcesContent>
+        </Sources>
+      )}
 
       {/* Status and Actions */}
       {!isUser && message.status === "failed" && (

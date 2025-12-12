@@ -14,6 +14,56 @@ let jurisdiccionCacheTime = 0;
 const JURISDICCION_CACHE_DURATION = 24 * 60 * 60 * 1000; // 24 hours
 
 /**
+ * Normalizes jurisdiction values to the correct format.
+ * Handles case variations and common synonyms for "nacional" -> "nac"
+ * Returns null/undefined if jurisdiction should be omitted (empty string, whitespace, etc.)
+ */
+function normalizeJurisdiccion(jurisdiccion: string | undefined | null): string | undefined {
+  if (!jurisdiccion) return undefined;
+  
+  const normalized = jurisdiccion.trim().toLowerCase();
+  
+  // If empty after trimming, return undefined to omit the filter
+  if (normalized === '') return undefined;
+  
+  // Map common variations of "nacional" to "nac"
+  const nacionalVariations = [
+    'nacional',
+    'nación',
+    'nacion',
+    'argentina',
+    'argentino',
+    'federal',
+    'nación argentina',
+    'república argentina',
+    'república',
+  ];
+  
+  if (nacionalVariations.includes(normalized)) {
+    return 'nac';
+  }
+  
+  // Return the normalized value as-is (should be a valid province code)
+  // The tool description will validate against available jurisdiccion values
+  return normalized;
+}
+
+/**
+ * Treats "default" date range values (often auto-filled by UI/LLM) as NO-OP.
+ * Wide ranges can unintentionally exclude documents missing date fields because Qdrant uses MUST range filters.
+ */
+function isNoOpDateFilterValue(value: string | undefined | null): boolean {
+  if (value === undefined || value === null) return true;
+  const v = value.trim();
+  if (v === "") return true;
+  // Common "wide open" defaults:
+  if (v === "1900-01-01" || v === "2100-01-01") return true;
+  // Same defaults after timestamp conversion:
+  if (v === "-2208988800" || v === "4102444800") return true;
+  return false;
+}
+
+/**
  * Unified legislation finder tool.
  * Operations:
  * - search: Hybrid search in Qdrant with optional Mongo filters
@@ -55,17 +105,20 @@ export const legislationFindTool = createTool({
       ? `Available jurisdiccion values: ${jurisdiccionValuesCache.join(', ')}`
       : '';
     
-    return `Find legislation: hybrid search with filters, browse by filters, fetch facets, or get metadata. 
+    return `Find legislation: hybrid search with optional filters, browse by filters, fetch facets, or get metadata. 
 
 IMPORTANT: You can search by number alone without a query - just provide filters.number with the numeric part (e.g., 7302 for law 7302/2024). Query is optional when filtering by number.
 
+IMPORTANT (DATES): Avoid date filters unless the user explicitly specifies dates. If you MUST use date filters, set dateFiltersExplicit=true.
+IMPORTANT (STRICT FILTERS): Avoid strict filters unless the user explicitly asks (e.g. estado/tipo_general). If you MUST use strict filters, set strictFilters=true.
+
 FILTERS:
-- tipo_general: Type of legislation. ${tipoGeneralList}
-- jurisdiccion: Jurisdiction. ${jurisdiccionList}. Solo estas jurisdicciones son validas. Si hay dudas dejar en blanco. No se debe usar el pais como jurisdiccion. Las jurisdicciones son provincias o "nacional".
-- estado: Status (vigente, derogada, caduca, anulada, suspendida, abrogada, sin_registro_oficial)
+- jurisdiccion: Jurisdiction. ${jurisdiccionList}. CRITICAL: If no jurisdiction is mentioned or specified by the user, LEAVE THIS FILTER EMPTY (do not include it in filters object). Only use jurisdiccion when explicitly mentioned. Valid values are province codes or "nac" for nacional. Common variations like "Nacional", "Argentina", "nacional" will be automatically normalized to "nac".
+- tipo_general (STRICT): Type of legislation. ${tipoGeneralList}
+- estado (STRICT): Status (vigente, derogada, caduca, anulada, suspendida, abrogada, sin_registro_oficial)
 - number: Law number (use only numeric part)
-- sanction_date_from/to: Sanction date range (ISO date strings)
-- publication_date_from/to: Publication date range (ISO date strings)`;
+- sanction_date_from/to (DATES): Sanction date range (ISO date strings)
+- publication_date_from/to (DATES): Publication date range (ISO date strings)`;
   },
   args: z
     .object({
@@ -73,10 +126,12 @@ FILTERS:
         .enum(["search", "browse", "facets", "metadata"]).describe(
           "Which operation to perform"
         ),
+      // Controls to reduce over-filtering by the model
+      strictFilters: z.boolean().optional().describe("Only set true when the user explicitly requested strict filters (estado/tipo_general)."),
+      dateFiltersExplicit: z.boolean().optional().describe("Only set true when the user explicitly requested date constraints."),
       // Common filters
       filters: z
         .object({
-          type: z.string().optional(),
           jurisdiccion: z.string().optional(),
           tipo_general: z.string().optional(),
           estado: z
@@ -95,15 +150,8 @@ FILTERS:
           publication_date_from: z.string().optional(),
           publication_date_to: z.string().optional(),
           number: z.union([z.number(), z.string()]).optional().describe("Law number (use only numeric part, e.g., 7302 for law 7302/2024)"),
-          search: z.string().optional(),
-          vigencia_actual: z.boolean().optional(),
         })
         .optional(),
-      // Pagination/sorting for browse
-      limit: z.number().optional(),
-      offset: z.number().optional(),
-      sortBy: z.enum(["sanction_date", "updated_at", "created_at", "relevancia"]).optional(),
-      sortOrder: z.enum(["asc", "desc"]).optional(),
       // Search-specific (optional when filtering by number)
       query: z.string().optional().describe("Search query text - optional when using number filter"),
       // Metadata
@@ -122,20 +170,27 @@ FILTERS:
         // Build filters for Qdrant search
         const filters = args.filters || {};
         const qdrantFilters: any = {};
+        const strictFilters = args.strictFilters === true;
+        const dateFiltersExplicit = args.dateFiltersExplicit === true;
         
-        // Direct field filters
-        if (filters.jurisdiccion){
-          if (filters.jurisdiccion === "nacional" || filters.jurisdiccion === "Argentina") {
-            qdrantFilters.jurisdiccion = "nac";
-          } else {
-            qdrantFilters.jurisdiccion = filters.jurisdiccion;
+        // Normalize and apply jurisdiccion filter (only if provided and not empty)
+        const normalizedJurisdiccion = normalizeJurisdiccion(filters.jurisdiccion);
+        if (normalizedJurisdiccion) {
+          qdrantFilters.jurisdiccion = normalizedJurisdiccion;
+          console.log(`🔧 [Jurisdiction] Normalized "${filters.jurisdiccion}" -> "${normalizedJurisdiccion}"`);
+        } else if (filters.jurisdiccion !== undefined && filters.jurisdiccion !== null) {
+          // Log when jurisdiction was provided but normalized to empty (shouldn't happen with proper prompt)
+          console.log(`⚠️  [Jurisdiction] Empty jurisdiction filter provided, omitting: "${filters.jurisdiccion}"`);
+        }
+        // Strict filters (only when explicitly requested)
+        if (strictFilters) {
+          if (filters.tipo_general) qdrantFilters.tipo_general = filters.tipo_general;
+          if (filters.estado) qdrantFilters.estado = filters.estado;
+        } else {
+          if (filters.tipo_general || filters.estado) {
+            console.log("ℹ️ [Filters] Ignoring strict filters (tipo_general/estado) because strictFilters is not true");
           }
         }
-        if (filters.tipo_general) qdrantFilters.tipo_general = filters.tipo_general;
-        if (filters.estado) qdrantFilters.estado = filters.estado;
-        
-        // Type filter (maps to tipo_norma which will be mapped to tipo_general in Qdrant)
-        if (filters.type) qdrantFilters.tipo_norma = filters.type;
         
         // Number filter (will use OR logic in Qdrant for number and numero fields)
         if (filters.number) {
@@ -146,10 +201,17 @@ FILTERS:
         }
         
         // Date filters (pass as date strings - Qdrant will convert to timestamps)
-        if (filters.sanction_date_from) qdrantFilters.sanction_date_from = filters.sanction_date_from;
-        if (filters.sanction_date_to) qdrantFilters.sanction_date_to = filters.sanction_date_to;
-        if (filters.publication_date_from) qdrantFilters.publication_date_from = filters.publication_date_from;
-        if (filters.publication_date_to) qdrantFilters.publication_date_to = filters.publication_date_to;
+        // IMPORTANT: ignore wide default ranges (1900..2100) to avoid filtering out docs that don't have these fields.
+        if (dateFiltersExplicit) {
+          if (!isNoOpDateFilterValue(filters.sanction_date_from)) qdrantFilters.sanction_date_from = filters.sanction_date_from;
+          if (!isNoOpDateFilterValue(filters.sanction_date_to)) qdrantFilters.sanction_date_to = filters.sanction_date_to;
+          if (!isNoOpDateFilterValue(filters.publication_date_from)) qdrantFilters.publication_date_from = filters.publication_date_from;
+          if (!isNoOpDateFilterValue(filters.publication_date_to)) qdrantFilters.publication_date_to = filters.publication_date_to;
+        } else {
+          if (filters.sanction_date_from || filters.sanction_date_to || filters.publication_date_from || filters.publication_date_to) {
+            console.log("ℹ️ [Filters] Ignoring date filters because dateFiltersExplicit is not true");
+          }
+        }
 
         // Query is optional when filtering by number
         let query = "";
@@ -166,13 +228,38 @@ FILTERS:
         }
         
         // Use hybrid Qdrant search with filters
-        const results = await ctx.runAction(
+        let results = await ctx.runAction(
           internal.rag.qdrantUtils.legislation.searchNormatives,
           { 
             query,
             filters: Object.keys(qdrantFilters).length > 0 ? qdrantFilters : undefined
           }
         );
+
+        // If nothing found, retry once by removing the most failure-prone strict filters (dates).
+        // This helps when UI/LLM auto-fills broad date ranges which can exclude docs lacking date fields.
+        let searchNotes: Array<string> = [];
+        if (results.length === 0 && Object.keys(qdrantFilters).length > 0) {
+          const relaxedFilters: any = { ...qdrantFilters };
+          const hadDateFilters =
+            "sanction_date_from" in relaxedFilters ||
+            "sanction_date_to" in relaxedFilters ||
+            "publication_date_from" in relaxedFilters ||
+            "publication_date_to" in relaxedFilters;
+
+          delete relaxedFilters.sanction_date_from;
+          delete relaxedFilters.sanction_date_to;
+          delete relaxedFilters.publication_date_from;
+          delete relaxedFilters.publication_date_to;
+
+          if (hadDateFilters) {
+            searchNotes.push("⚠️ Sin resultados con filtros de fecha; reintentando sin fechas.");
+            results = await ctx.runAction(internal.rag.qdrantUtils.legislation.searchNormatives, {
+              query,
+              filters: Object.keys(relaxedFilters).length > 0 ? relaxedFilters : undefined,
+            });
+          }
+        }
 
         // Map to compact search response with snippet and relations count
         const resultsList = results.map((r, i: number) => ({
@@ -192,13 +279,24 @@ FILTERS:
           relationsCount: Array.isArray(r.relaciones) ? r.relaciones.length : 0,
           url: r.url ?? null,
           content: r.text ?? null,
-          // Citation metadata for agent
-          citationId: r.document_id || r.id,
-          citationType: 'leg',
-          citationTitle: r.title || `${r.tipo_general} ${r.number || ''}`.trim(),
         }));
 
-        return `# 🔍 Resultados de Búsqueda Legislativa
+        // Build citations array from results (tool-controlled, not LLM-dependent)
+        console.log(`📚 [Citations] Creating citations from ${results.length} legislation search results`);
+        const citations = results.map((r) => {
+          const citation = {
+            id: r.document_id || r.id,
+            type: 'leg' as const,
+            title: r.title || `${r.tipo_general || ''} ${r.number || ''}`.trim() || 'Normativa',
+            url: r.url ?? undefined,
+          };
+          console.log(`  📖 Citation created:`, citation);
+          return citation;
+        });
+        console.log(`✅ [Citations] Total citations created: ${citations.length}`);
+
+        // Build markdown summary
+        const markdown = `# 🔍 Resultados de Búsqueda Legislativa
 
 ## Consulta
 ${args.query ? `**Término de búsqueda**: "${query}"` : `**Búsqueda por número**: ${qdrantFilters.number || 'N/A'}`}
@@ -207,6 +305,7 @@ ${Object.keys(qdrantFilters).length > 0 ? `\n## Filtros Aplicados\n${Object.entr
 ## Estadísticas
 - **Resultados encontrados**: ${results.length}
 - **Tiempo de búsqueda**: ${new Date().toLocaleString()}
+${searchNotes.length > 0 ? `\n## Notas\n${searchNotes.map((n) => `- ${n}`).join("\n")}` : ""}
 
 ## Resultados
 ${results.length === 0 ? 'No se encontraron resultados para la consulta.' : resultsList.map(r => `
@@ -227,6 +326,10 @@ ${r.url ? `- **URL**: ${r.url}` : ''}
 
 ---
 *Búsqueda realizada en la base de datos legislativa.*`;
+
+        // Return structured JSON with markdown and citations
+        console.log(`📤 [Citations] Returning tool output with ${citations.length} citations`);
+        return { markdown, citations };
       }
 
       case "browse": {
@@ -235,9 +338,20 @@ ${r.url ? `- **URL**: ${r.url}` : ''}
         const sortBy = args.sortBy;
         const sortOrder = args.sortOrder ?? "desc";
         const filters = args.filters || {};
+        
+        // Normalize jurisdiccion filter for browse operation
+        const normalizedFilters = { ...filters };
+        const normalizedJurisdiccion = normalizeJurisdiccion(filters.jurisdiccion);
+        if (normalizedJurisdiccion) {
+          normalizedFilters.jurisdiccion = normalizedJurisdiccion;
+          console.log(`🔧 [Jurisdiction] Browse: Normalized "${filters.jurisdiccion}" -> "${normalizedJurisdiccion}"`);
+        } else if (filters.jurisdiccion !== undefined && filters.jurisdiccion !== null) {
+          delete normalizedFilters.jurisdiccion; // Remove empty jurisdiction filter
+          console.log(`⚠️  [Jurisdiction] Browse: Empty jurisdiction filter provided, omitting: "${filters.jurisdiccion}"`);
+        }
 
         const result = await ctx.runAction(api.functions.legislation.getNormatives, {
-          filters,
+          filters: normalizedFilters,
           limit,
           offset,
           sortBy,

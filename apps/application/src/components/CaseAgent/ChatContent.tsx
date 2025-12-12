@@ -6,7 +6,7 @@ import {
   optimisticallySendMessage,
   useUIMessages,
 } from "@convex-dev/agent/react";
-import { MessageCircle, Copy, ThumbsUp, ThumbsDown } from "lucide-react";
+import { MessageCircle, Copy, ThumbsUp, ThumbsDown, AlertTriangle } from "lucide-react";
 import { useThread } from "@/context/ThreadContext";
 import { useCase } from "@/context/CaseContext";
 import { useChatbot } from "@/context/ChatbotContext";
@@ -17,7 +17,7 @@ import { usePage } from "@/context/PageContext";
 import { useParams } from "react-router-dom";
 import { ContextSummaryBar } from "./ContextSummaryBar";
 import type { Id } from "convex/_generated/dataModel";
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useCallback, useMemo } from "react";
 import type {
   Reference,
   ReferenceWithOriginal,
@@ -37,7 +37,7 @@ import {
   ReasoningContent,
   ReasoningTrigger,
 } from "../ai-elements/reasoning";
-import { Sources, SourcesTrigger, SourcesContent } from "../ai-elements/source";
+import { Sources, SourcesTrigger, SourcesContent, Source } from "../ai-elements/source";
 import { Actions, Action } from "../ai-elements/actions";
 import { Tool } from "../ai-elements/tool";
 import { MessageText } from "../ai-elements/message-text";
@@ -45,6 +45,8 @@ import { CitationModal } from "./citation-modal";
 import { SelectionChip } from "./SelectionChip";
 import { cn } from "@/lib/utils";
 import type { ToolUIPart } from "ai";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { extractCitationsFromToolOutputs } from "../ai-elements/citations";
 
 // Extended message type that includes status property from Convex agent
 type AgentMessage = {
@@ -59,6 +61,8 @@ type AgentMessage = {
     [key: string]: unknown;
   }>;
 };
+
+// Tool citations are extracted via shared utility in `ai-elements/citations`.
 
 export function ChatContent({ threadId }: { threadId: string | undefined }) {
   const { createThreadWithTitle, setThreadId } = useThread();
@@ -79,6 +83,9 @@ export function ChatContent({ threadId }: { threadId: string | undefined }) {
   const [messageLocalParts, setMessageLocalParts] = useState<
     Record<string, Array<{ type: "selection"; selection: SelectionMeta }>>
   >({});
+
+  // Web search toggle state
+  const [webSearchEnabled, setWebSearchEnabled] = useState(false);
 
   // Citation modal state
   const [citationOpen, setCitationOpen] = useState(false);
@@ -112,12 +119,9 @@ export function ChatContent({ threadId }: { threadId: string | undefined }) {
     { initialNumItems: 50, stream: true },
   );
 
-  // Clear references when thread changes to prevent trailing state
-  useEffect(() => {
-    setLastReferences([]);
-    setCurrentReferences([]);
-    setMessageLocalParts({});
-  }, [threadId]);
+  // Only show messages when there is an active thread
+  // This ensures the UI clears immediately when starting a new conversation
+  const visibleMessages = threadId ? messages : [];
 
   // Clear pending prompt when ChatInput confirms it has been processed
   const handleInitialPromptProcessed = useCallback(() => {
@@ -238,6 +242,7 @@ export function ChatContent({ threadId }: { threadId: string | undefined }) {
           currentEscritoId: currentViewContext.currentEscritoId,
           currentDocumentId: currentViewContext.currentDocumentId, // Add this line
           resolvedReferences: allResolvedReferences,
+          webSearch: webSearchEnabled,
         });
 
         // Store local parts (selections) for this message
@@ -286,15 +291,18 @@ export function ChatContent({ threadId }: { threadId: string | undefined }) {
 
   const handleAbortStream = useCallback(() => {
     if (!threadId) return;
-    const order = messages?.find((m) => m.status === "streaming")?.order ?? 0;
+    const order =
+      visibleMessages?.find((m) => m.status === "streaming")?.order ?? 0;
     void abortStreamByOrder({ threadId, order });
 
     // Track chat abort
     tracking.aiChatAborted({ threadId });
-  }, [threadId, messages, abortStreamByOrder]);
+  }, [threadId, visibleMessages, abortStreamByOrder]);
 
-  // Simple streaming detection - just check if any message has streaming status
-  const isStreaming = messages?.some((m) => m.status === "streaming") ?? false;
+  // Simple streaming detection - only if a thread exists
+  const isStreaming =
+    !!threadId &&
+    (visibleMessages?.some((m) => m.status === "streaming") ?? false);
 
   const combinedReferences = useMemo(
     () => [
@@ -311,10 +319,25 @@ export function ChatContent({ threadId }: { threadId: string | undefined }) {
 
   return (
     <>
+      {/* Web search hallucination warning */}
+      {webSearchEnabled && (
+        <div className="mb-2">
+          <Alert className="border-amber-400 bg-amber-50">
+            <AlertTriangle className="size-4 text-amber-600" />
+            <AlertTitle className="text-amber-900 text-xs">
+              Búsqueda web activada
+            </AlertTitle>
+            <AlertDescription className="text-[11px] text-amber-800">
+              Las respuestas con búsqueda web son más propensas a alucinaciones. Verifica siempre la información con fuentes confiables antes de usarla en tu caso.
+            </AlertDescription>
+          </Alert>
+        </div>
+      )}
+
       {/* Messages area with auto-scroll */}
       <Conversation className="flex-1">
         <ConversationContent className="space-y-3">
-          {messages?.length === 0 ? (
+          {(!threadId || visibleMessages?.length === 0) ? (
             <ConversationEmptyState
               icon={<MessageCircle className="w-12 h-12" />}
               title="Inicia una conversación"
@@ -334,7 +357,7 @@ export function ChatContent({ threadId }: { threadId: string | undefined }) {
                   </Button>
                 </div>
               )}
-              {messages.map((m) => (
+              {visibleMessages.map((m) => (
                 <MessageItem
                   key={m.id}
                   message={m}
@@ -367,6 +390,8 @@ export function ChatContent({ threadId }: { threadId: string | undefined }) {
         onReferencesChange={setCurrentReferences}
         initialPrompt={pendingPrompt || undefined}
         onInitialPromptProcessed={handleInitialPromptProcessed}
+        webSearchEnabled={webSearchEnabled}
+        onWebSearchToggle={setWebSearchEnabled}
       />
 
       {/* Citation modal */}
@@ -411,12 +436,21 @@ function MessageItem({
     toolCalls.length > 0 &&
     !toolCalls.every((part: any) => part.state === "output-available");
 
+  // Extract source-url parts (web search, etc.)
+  const sourceParts =
+    message.parts?.filter((part) => part.type === "source-url") || [];
+
+  // Extract citations from tool outputs (legislation, fallos, etc.)
+  const toolCitations = message.parts
+    ? extractCitationsFromToolOutputs(message.parts as unknown[])
+    : [];
+
   return (
     <Message
       from={message.role}
       className={cn(
-        "!justify-start",
-        isUser ? "!flex-row-reverse" : "!flex-row",
+        "justify-start!",
+        isUser ? "flex-row-reverse!" : "flex-row!",
       )}
     >
       <MessageAvatar
@@ -427,11 +461,11 @@ function MessageItem({
 
       <MessageContent
         className={cn(
-          "group relative !rounded-lg !px-3 !py-2 !text-[12px] shadow-sm space-y-2 max-w-[85%]",
-          isUser && "!bg-[#F3F4F6] !text-black",
-          !isUser && "!bg-[#F3F4F6] !text-black",
+          "group relative rounded-lg! px-3! py-2! text-[12px]! shadow-sm space-y-2 max-w-[85%]",
+          isUser && "bg-[#F3F4F6]! text-black!",
+          !isUser && "bg-[#F3F4F6]! text-black!",
           message.status === "failed" &&
-            "!bg-red-100 !text-red-800 border-l-2 border-red-400",
+            "bg-red-100! text-red-800! border-l-2 border-red-400",
         )}
       >
         {/* Thinking indicator */}
@@ -501,8 +535,8 @@ function MessageItem({
                 defaultOpen={false}
                 isStreaming={message.status === "streaming"}
               >
-                <ReasoningTrigger className="!text-[10px]" />
-                <ReasoningContent className="group relative !px-3 !py-2 !text-[10px] space-y-2 max-w-[85%]">
+                <ReasoningTrigger className="text-[10px]!" />
+                <ReasoningContent className="group relative px-3! py-2! text-[10px]! space-y-2 max-w-[85%]">
                   {reasoningText}
                 </ReasoningContent>
               </Reasoning>
@@ -510,27 +544,7 @@ function MessageItem({
           }
 
           if (part.type === "source-url") {
-            const sourceTitle =
-              (part as any).title || (part as any).url || "Unknown source";
-            const sourceUrl = (part as any).url || "";
-            return (
-              <Sources key={`source-${index}-${sourceUrl.substring(0, 20)}`}>
-                <SourcesTrigger count={1}>
-                  <>Source: {sourceTitle}</>
-                </SourcesTrigger>
-                <SourcesContent>
-                  <div className="text-xs bg-blue-50 border border-blue-200 rounded p-2">
-                    <strong>URL:</strong> {sourceUrl}
-                    {(part as any).title && (
-                      <>
-                        <br />
-                        <strong>Title:</strong> {(part as any).title}
-                      </>
-                    )}
-                  </div>
-                </SourcesContent>
-              </Sources>
-            );
+            return null;
           }
 
           if (part.type === "file") {
@@ -595,6 +609,56 @@ function MessageItem({
 
           return null;
         })}
+
+        {/* Sources - from source-url parts and tool output citations */}
+        {(sourceParts.length > 0 || toolCitations.length > 0) && (
+          <Sources className="mt-2">
+            <SourcesTrigger count={sourceParts.length + toolCitations.length} />
+            <SourcesContent>
+              {/* Render source-url parts (web search) */}
+              {sourceParts.map((part: any, i: number) => (
+                <Source
+                  key={`source-${i}`}
+                  href={part.url}
+                  title={part.title}
+                  index={i + 1}
+                />
+              ))}
+              {/* Render tool citations (legislation, fallos, etc.) */}
+              {toolCitations.map((cit, i) => (
+                <button
+                  key={`cit-${cit.id}-${i}`}
+                  onClick={() => onCitationClick(cit.id, cit.type)}
+                  className="flex items-center gap-2.5 p-2 rounded-md hover:bg-muted/80 transition-all duration-200 no-underline group/source w-full text-left"
+                >
+                  <div className="flex items-center justify-center h-5 w-5 shrink-0 rounded-full bg-background border text-[10px] font-medium text-muted-foreground group-hover/source:text-foreground group-hover/source:border-primary/20">
+                    {sourceParts.length + i + 1}
+                  </div>
+                  <div className="flex flex-col gap-0.5 min-w-0 flex-1">
+                    <span className="text-xs font-medium truncate text-foreground/90 group-hover/source:text-primary">
+                      {cit.title}
+                    </span>
+                    <span className="text-[10px] text-muted-foreground truncate opacity-70">
+                      {cit.type === "leg"
+                        ? "Legislación"
+                        : cit.type === "fallo"
+                        ? "Jurisprudencia"
+                        : cit.type === "document"
+                        ? "Documento"
+                        : cit.type === "case-doc"
+                        ? "Documento"
+                        : cit.type === "doc"
+                        ? "Documento"
+                        : cit.type === "escrito"
+                        ? "Escrito"
+                        : cit.type}
+                    </span>
+                  </div>
+                </button>
+              ))}
+            </SourcesContent>
+          </Sources>
+        )}
 
         {/* Failed status */}
         {!isUser && message.status === "failed" && (
