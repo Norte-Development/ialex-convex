@@ -65,10 +65,12 @@ export const streamWithContextAction = internalAction({
       { userId }
     );
 
-    const systemMessage = `Sos el asistente legal IALEX. Aquí está el contexto actual:
-      Instrucciones:
-      ${prompt}
-    `;
+    const systemMessage = `Sos el asistente legal IALEX.
+WEB_SEARCH_MODE: ${webSearch ? "ENABLED" : "DISABLED"}
+
+Instrucciones:
+${prompt}
+`;
 
     const { thread } = await agent.continueThread(ctx, { threadId });
 

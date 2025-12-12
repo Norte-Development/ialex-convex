@@ -298,15 +298,16 @@ export const streamWithContextAction = internalAction({
     const schemaSummary = `ProseMirror Schema Summary\n- Nodes: ${nodeSpecs.join(", ")}\n- Marks: ${markSpecs.join(", ")}`;
 
     const systemMessage = `
+WEB_SEARCH_MODE: ${webSearch ? "ENABLED" : "DISABLED"}
 
-    ${prompt}
-    ---
-    ${contextString}
+${prompt}
+---
+${contextString}
 
-    ---
-    ${schemaSummary}
-      
-    `;
+---
+${schemaSummary}
+  
+`;
 
     const { thread } = await agent.continueThread(ctx, { threadId });
 
