@@ -56,6 +56,7 @@ import CaseDocumentsPage from "./pages/CaseOpen/CaseDocumentsList";
 import HomeAgentPage from "./pages/home/HomeAgentPage";
 import HomeAgentChatPage from "./pages/home/HomeAgentThreadPage";
 import AdminPage from "./pages/AdminPage";
+import AdminPopupsPage from "./pages/AdminPopupsPage";
 
 // Lazy load only heavy pages with document viewers/editors
 const CaseDocumentPage = lazy(
@@ -74,29 +75,32 @@ const CaseRoutesWrapper: React.FC = () => {
             <AgentReviewSessionProvider>
               <HighlightProvider>
                 <Routes>
-                <Route index element={<CaseDetailPage />} />
-                <Route path="escritos" element={<EscritosPage />} />
-                <Route path="escritos/:escritoId" element={<EscritosPage />} />
-                <Route path="documentos" element={<CaseDocumentsPage />} />
-                <Route path="eventos" element={<CaseEventsPage />} />
+                  <Route index element={<CaseDetailPage />} />
+                  <Route path="escritos" element={<EscritosPage />} />
+                  <Route
+                    path="escritos/:escritoId"
+                    element={<EscritosPage />}
+                  />
+                  <Route path="documentos" element={<CaseDocumentsPage />} />
+                  <Route path="eventos" element={<CaseEventsPage />} />
 
-                <Route path="clientes" element={<CaseClientsPage />} />
-                <Route path="equipos" element={<CaseTeamsPage />} />
-                <Route path="modelos" element={<CaseModelPage />} />
-                <Route path="prompts" element={<CasePromptsPage />} />
-                <Route path="base-de-datos" element={<CaseDataBasePage />} />
-                <Route
-                  path="documentos/:documentId"
-                  element={
-                    <LazyLoadErrorBoundary>
-                      <CaseDocumentPage />
-                    </LazyLoadErrorBoundary>
-                  }
-                />
-                <Route
-                  path="configuracion/reglas"
-                  element={<CaseSettingsRulesPage />}
-                />
+                  <Route path="clientes" element={<CaseClientsPage />} />
+                  <Route path="equipos" element={<CaseTeamsPage />} />
+                  <Route path="modelos" element={<CaseModelPage />} />
+                  <Route path="prompts" element={<CasePromptsPage />} />
+                  <Route path="base-de-datos" element={<CaseDataBasePage />} />
+                  <Route
+                    path="documentos/:documentId"
+                    element={
+                      <LazyLoadErrorBoundary>
+                        <CaseDocumentPage />
+                      </LazyLoadErrorBoundary>
+                    }
+                  />
+                  <Route
+                    path="configuracion/reglas"
+                    element={<CaseSettingsRulesPage />}
+                  />
                 </Routes>
               </HighlightProvider>
             </AgentReviewSessionProvider>
@@ -369,6 +373,14 @@ const AppWithThread = () => {
                       element={
                         <ProtectedRoute>
                           <AdminPage />
+                        </ProtectedRoute>
+                      }
+                    />
+                    <Route
+                      path="/admin/popups"
+                      element={
+                        <ProtectedRoute>
+                          <AdminPopupsPage />
                         </ProtectedRoute>
                       }
                     />
