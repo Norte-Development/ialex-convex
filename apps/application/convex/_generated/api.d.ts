@@ -120,6 +120,7 @@ import type * as functions_mercadopagoAdmin from "../functions/mercadopagoAdmin.
 import type * as functions_mercadopagoImport from "../functions/mercadopagoImport.js";
 import type * as functions_migration from "../functions/migration.js";
 import type * as functions_permissions from "../functions/permissions.js";
+import type * as functions_popups from "../functions/popups.js";
 import type * as functions_prompts from "../functions/prompts.js";
 import type * as functions_search from "../functions/search.js";
 import type * as functions_seedCases from "../functions/seedCases.js";
@@ -297,6 +298,7 @@ declare const fullApi: ApiFromModules<{
   "functions/mercadopagoImport": typeof functions_mercadopagoImport;
   "functions/migration": typeof functions_migration;
   "functions/permissions": typeof functions_permissions;
+  "functions/popups": typeof functions_popups;
   "functions/prompts": typeof functions_prompts;
   "functions/search": typeof functions_search;
   "functions/seedCases": typeof functions_seedCases;

@@ -2,6 +2,7 @@ import { v } from "convex/values";
 import { mutation, query } from "../_generated/server";
 import { ConvexError } from "convex/values";
 import { getCurrentUserFromAuth, requireAdminsOrg } from "../auth_utils";
+import { _getUserPlan } from "../billing/features";
 
 const popupTemplateValidator = v.union(v.literal("simple"));
 const popupAudienceValidator = v.union(
@@ -26,6 +27,26 @@ function validateSchedule(args: { startAt?: number; endAt?: number }) {
       message: "startAt must be <= endAt",
     });
   }
+}
+
+const MS_PER_DAY = 24 * 60 * 60 * 1000;
+
+function audienceMatches(args: {
+  audience: "all" | "free" | "trial" | "free_or_trial";
+  isFree: boolean;
+  isTrial: boolean;
+}) {
+  if (args.audience === "all") return true;
+  if (args.audience === "free") return args.isFree;
+  if (args.audience === "trial") return args.isTrial;
+  if (args.audience === "free_or_trial") return args.isFree || args.isTrial;
+  return false;
+}
+
+function withinSchedule(now: number, startAt?: number, endAt?: number) {
+  if (startAt !== undefined && now < startAt) return false;
+  if (endAt !== undefined && now > endAt) return false;
+  return true;
 }
 
 /**
@@ -264,5 +285,195 @@ export const deletePopupAdmin = mutation({
     }
 
     await ctx.db.delete(args.popupId);
+  },
+});
+
+/**
+ * User: returns the best popup to show right now, or null.
+ *
+ * Selection rules:
+ * - enabled
+ * - audience match (free/trial)
+ * - within schedule window (startAt/endAt)
+ * - showAfterDays based on user account age
+ * - skip if dismissed
+ * - enforce maxImpressions
+ * - enforce frequencyDays based on lastShownAt
+ *
+ * Priority: highest `priority` first, then `updatedAt`.
+ */
+export const getActivePopupForUser = query({
+  args: {},
+  handler: async (ctx) => {
+    const currentUser = await getCurrentUserFromAuth(ctx);
+    const now = Date.now();
+
+    const plan = await _getUserPlan(ctx, currentUser._id);
+    const isTrial =
+      currentUser.trialStatus === "active" &&
+      currentUser.trialEndDate !== undefined &&
+      currentUser.trialEndDate > now;
+    const isFree = !isTrial && plan === "free";
+
+    const popups = await ctx.db
+      .query("popups")
+      .withIndex("by_enabled", (q) => q.eq("enabled", true))
+      .collect();
+
+    if (popups.length === 0) return null;
+
+    const views = await ctx.db
+      .query("popupViews")
+      .withIndex("by_user", (q) => q.eq("userId", currentUser._id))
+      .collect();
+
+    const viewsByPopupId = new Map<string, (typeof views)[number]>();
+    for (const view of views) {
+      viewsByPopupId.set(view.popupId as unknown as string, view);
+    }
+
+    const eligible = popups.filter((popup) => {
+      if (!withinSchedule(now, popup.startAt, popup.endAt)) return false;
+      if (!audienceMatches({ audience: popup.audience, isFree, isTrial })) {
+        return false;
+      }
+
+      if (popup.showAfterDays !== undefined) {
+        const minAgeMs = popup.showAfterDays * MS_PER_DAY;
+        const userAgeMs = now - currentUser._creationTime;
+        if (userAgeMs < minAgeMs) return false;
+      }
+
+      const view = viewsByPopupId.get(popup._id as unknown as string);
+      if (!view) return true;
+      if (view.dismissedAt !== undefined) return false;
+
+      if (
+        popup.maxImpressions !== undefined &&
+        view.impressions >= popup.maxImpressions
+      ) {
+        return false;
+      }
+
+      if (popup.frequencyDays !== undefined) {
+        const minGapMs = popup.frequencyDays * MS_PER_DAY;
+        if (now - view.lastShownAt < minGapMs) return false;
+      }
+
+      return true;
+    });
+
+    if (eligible.length === 0) return null;
+
+    eligible.sort((a, b) => {
+      const prioA = a.priority ?? 0;
+      const prioB = b.priority ?? 0;
+      if (prioA !== prioB) return prioB - prioA;
+      return b.updatedAt - a.updatedAt;
+    });
+
+    const popup = eligible[0];
+    const view = viewsByPopupId.get(popup._id as unknown as string) ?? null;
+
+    return {
+      popup,
+      view: view
+        ? {
+            impressions: view.impressions,
+            firstShownAt: view.firstShownAt,
+            lastShownAt: view.lastShownAt,
+            dismissedAt: view.dismissedAt,
+          }
+        : null,
+    };
+  },
+});
+
+/**
+ * User: record that the popup was shown (impression + lastShownAt).
+ */
+export const recordPopupImpression = mutation({
+  args: {
+    popupId: v.id("popups"),
+  },
+  handler: async (ctx, args) => {
+    const currentUser = await getCurrentUserFromAuth(ctx);
+    const now = Date.now();
+
+    const popup = await ctx.db.get(args.popupId);
+    if (!popup) {
+      throw new ConvexError({ code: "NOT_FOUND", message: "Popup not found" });
+    }
+
+    const existingView = await ctx.db
+      .query("popupViews")
+      .withIndex("by_popup_and_user", (q) =>
+        q.eq("popupId", args.popupId).eq("userId", currentUser._id),
+      )
+      .first();
+
+    if (!existingView) {
+      await ctx.db.insert("popupViews", {
+        popupId: args.popupId,
+        userId: currentUser._id,
+        impressions: 1,
+        firstShownAt: now,
+        lastShownAt: now,
+        dismissedAt: undefined,
+      });
+      return { impressions: 1 };
+    }
+
+    const nextImpressions = existingView.impressions + 1;
+    await ctx.db.patch(existingView._id, {
+      impressions: nextImpressions,
+      lastShownAt: now,
+    });
+
+    return { impressions: nextImpressions };
+  },
+});
+
+/**
+ * User: dismiss a popup (do not show again).
+ */
+export const dismissPopup = mutation({
+  args: {
+    popupId: v.id("popups"),
+  },
+  handler: async (ctx, args) => {
+    const currentUser = await getCurrentUserFromAuth(ctx);
+    const now = Date.now();
+
+    const popup = await ctx.db.get(args.popupId);
+    if (!popup) {
+      throw new ConvexError({ code: "NOT_FOUND", message: "Popup not found" });
+    }
+
+    const existingView = await ctx.db
+      .query("popupViews")
+      .withIndex("by_popup_and_user", (q) =>
+        q.eq("popupId", args.popupId).eq("userId", currentUser._id),
+      )
+      .first();
+
+    if (!existingView) {
+      await ctx.db.insert("popupViews", {
+        popupId: args.popupId,
+        userId: currentUser._id,
+        impressions: 0,
+        firstShownAt: now,
+        lastShownAt: now,
+        dismissedAt: now,
+      });
+      return { dismissedAt: now };
+    }
+
+    await ctx.db.patch(existingView._id, {
+      dismissedAt: now,
+      lastShownAt: now,
+    });
+
+    return { dismissedAt: now };
   },
 });
