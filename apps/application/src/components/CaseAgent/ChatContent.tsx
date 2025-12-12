@@ -736,6 +736,10 @@ function MessageItem({
                         ? "Legislación"
                         : cit.type === "fallo"
                         ? "Jurisprudencia"
+                        : cit.type === "document"
+                        ? "Documento"
+                        : cit.type === "escrito"
+                        ? "Escrito"
                         : cit.type}
                     </span>
                   </div>

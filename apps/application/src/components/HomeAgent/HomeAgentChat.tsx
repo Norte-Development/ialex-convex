@@ -330,7 +330,15 @@ const HomeAgentMessage = ({
                       {cit.title}
                     </span>
                     <span className="text-[10px] text-muted-foreground truncate opacity-70">
-                      {cit.type === "leg" ? "Legislación" : cit.type === "fallo" ? "Jurisprudencia" : cit.type}
+                      {cit.type === "leg"
+                        ? "Legislación"
+                        : cit.type === "fallo"
+                        ? "Jurisprudencia"
+                        : cit.type === "document"
+                        ? "Documento"
+                        : cit.type === "escrito"
+                        ? "Escrito"
+                        : cit.type}
                     </span>
                   </div>
                 </button>

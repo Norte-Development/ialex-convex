@@ -87,7 +87,28 @@ export const searchEscritosTool = createTool({
           .slice(0, searchLimit);
       }
 
-      return createEscritosSearchResultsTemplate(escritos, searchQuery, searchLimit);
+      const markdown = createEscritosSearchResultsTemplate(escritos, searchQuery, searchLimit);
+
+      // Build citations array from escritos (tool-controlled, not LLM-dependent)
+      console.log(`📚 [Citations] Creating citations from ${escritos.length} escrito search results`);
+      const citations = escritos.map((escrito: any) => {
+        const citation = {
+          id: escrito._id,
+          type: 'escrito' as const,
+          title: escrito.title || 'Escrito sin título',
+        };
+        console.log(`  📖 Citation created:`, citation);
+        return citation;
+      });
+      console.log(`✅ [Citations] Total citations created: ${citations.length}`);
+
+      // Return structured JSON with markdown and citations (matching legislation/fallos pattern)
+      if (citations.length > 0) {
+        console.log(`📤 [Citations] Returning tool output with ${citations.length} citations`);
+        return { markdown, citations };
+      }
+
+      return markdown;
 
     } catch (error) {
       return createErrorResponse(`Error inesperado: ${error instanceof Error ? error.message : 'Error desconocido'}`);

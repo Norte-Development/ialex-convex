@@ -18,7 +18,13 @@ export const searchCaseDocumentsWithClustering = action({
     limit: v.number(),
     contextWindow: v.number(),
   },
-  returns: v.string(),
+  returns: v.union(
+    v.string(),
+    v.object({
+      text: v.string(),
+      documentIds: v.array(v.string()),
+    })
+  ),
   handler: async (ctx, args) => {
     const { query, caseId, limit, contextWindow } = args;
 
@@ -167,8 +173,20 @@ export const searchCaseDocumentsWithClustering = action({
       // Join all texts with double newlines for clear separation
       const finalText = combinedTexts.join('\n\n');
 
-      console.log("Returning combined text, length:", finalText.length);
-      return finalText;
+      // Extract unique document IDs from results for citations
+      const documentIds = new Set<string>();
+      expandedResults.slice(0, limit).forEach(result => {
+        const docId = result.payload?.documentId;
+        if (docId && typeof docId === 'string') {
+          documentIds.add(docId);
+        }
+      });
+
+      console.log("Returning combined text, length:", finalText.length, "document IDs:", Array.from(documentIds));
+      return {
+        text: finalText,
+        documentIds: Array.from(documentIds)
+      };
 
     } catch (error) {
       console.error("Error in searchCaseDocumentsWithClustering:", error);

@@ -403,9 +403,17 @@ export function SidebarMessage({
                   <span className="text-xs font-medium truncate text-foreground/90 group-hover/source:text-primary">
                     {cit.title}
                   </span>
-                  <span className="text-[10px] text-muted-foreground truncate opacity-70">
-                    {cit.type === "leg" ? "Legislación" : cit.type === "fallo" ? "Jurisprudencia" : cit.type}
-                  </span>
+                    <span className="text-[10px] text-muted-foreground truncate opacity-70">
+                      {cit.type === "leg"
+                        ? "Legislación"
+                        : cit.type === "fallo"
+                        ? "Jurisprudencia"
+                        : cit.type === "document"
+                        ? "Documento"
+                        : cit.type === "escrito"
+                        ? "Escrito"
+                        : cit.type}
+                    </span>
                 </div>
               </button>
             ))}
