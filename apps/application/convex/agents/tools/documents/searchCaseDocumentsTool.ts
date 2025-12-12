@@ -123,7 +123,7 @@ export const searchCaseDocumentsTool = createTool({
           if (doc) {
             citations.push({
               id: doc._id,
-              type: 'document' as const,
+              type: 'case-doc' as const,
               title: doc.title || doc.description || 'Documento sin título',
             });
           }

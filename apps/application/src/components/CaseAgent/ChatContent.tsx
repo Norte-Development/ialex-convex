@@ -738,6 +738,10 @@ function MessageItem({
                         ? "Jurisprudencia"
                         : cit.type === "document"
                         ? "Documento"
+                        : cit.type === "case-doc"
+                        ? "Documento"
+                        : cit.type === "doc"
+                        ? "Documento"
                         : cit.type === "escrito"
                         ? "Escrito"
                         : cit.type}

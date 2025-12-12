@@ -18,14 +18,10 @@ export const searchCaseDocumentsWithClustering = action({
     limit: v.number(),
     contextWindow: v.number(),
   },
-  returns: v.union(
-    v.string(),
-    v.object({
-      text: v.string(),
-      documentIds: v.array(v.string()),
-    })
-  ),
-  handler: async (ctx, args) => {
+  handler: async (
+    ctx,
+    args,
+  ): Promise<string | { text: string; documentIds: Array<string> }> => {
     const { query, caseId, limit, contextWindow } = args;
 
     try {

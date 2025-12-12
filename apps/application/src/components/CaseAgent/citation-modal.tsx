@@ -34,6 +34,12 @@ export function CitationModal({ open, setOpen, citationId, citationType }: Citat
   const [showPreview, setShowPreview] = useState(false)
   const [documentUrl, setDocumentUrl] = useState<string | null>(null)
 
+  // Normalize incoming citation types (tools may emit newer aliases)
+  // - "document" => case document ("case-doc")
+  // - keep existing: "doc" (library), "case-doc" (case)
+  const normalizedCitationType =
+    citationType === "document" ? "case-doc" : citationType
+
   // Actions y queries
   const getNormativeAction = useAction(api.functions.legislation.getNormativeById)
   const getLibraryDocumentUrl = useAction(api.functions.libraryDocument.getLibraryDocumentUrl)
@@ -42,13 +48,13 @@ export function CitationModal({ open, setOpen, citationId, citationType }: Citat
   // Query para documentos de biblioteca
   const libraryDocument = useQuery(
     api.functions.libraryDocument.getLibraryDocument,
-    citationType === "doc" && citationId ? { documentId: citationId as Id<"libraryDocuments"> } : "skip",
+    normalizedCitationType === "doc" && citationId ? { documentId: citationId as Id<"libraryDocuments"> } : "skip",
   )
 
   // Query para documentos de casos
   const caseDocument = useQuery(
     api.functions.documents.getDocument,
-    citationType === "case-doc" && citationId ? { documentId: citationId as Id<"documents"> } : "skip",
+    normalizedCitationType === "case-doc" && citationId ? { documentId: citationId as Id<"documents"> } : "skip",
   )
 
   // Action para fallos judiciales
@@ -62,7 +68,7 @@ export function CitationModal({ open, setOpen, citationId, citationType }: Citat
   } = useReactQuery<FalloDoc | null>({
     queryKey: ["fallo", citationId],
     queryFn: async (): Promise<FalloDoc | null> => {
-      if (citationType !== "fallo" || !citationId) {
+      if (normalizedCitationType !== "fallo" || !citationId) {
         return null
       }
       try {
@@ -73,7 +79,7 @@ export function CitationModal({ open, setOpen, citationId, citationType }: Citat
         throw error
       }
     },
-    enabled: citationType === "fallo" && !!citationId,
+    enabled: normalizedCitationType === "fallo" && !!citationId,
     staleTime: 5 * 60 * 1000, // 5 minutes
     retry: 2
   })
@@ -84,11 +90,11 @@ export function CitationModal({ open, setOpen, citationId, citationType }: Citat
     try {
       let url: string | null = null
 
-      if (citationType === "doc") {
+      if (normalizedCitationType === "doc") {
         url = await getLibraryDocumentUrl({
           documentId: citationId as Id<"libraryDocuments">,
         })
-      } else if (citationType === "case-doc") {
+      } else if (normalizedCitationType === "case-doc") {
         url = await getCaseDocumentUrl({
           documentId: citationId as Id<"documents">,
         })
@@ -156,7 +162,7 @@ export function CitationModal({ open, setOpen, citationId, citationType }: Citat
 
   // Renderizar contenido según el tipo
   const renderContent = () => {
-    switch (citationType) {
+    switch (normalizedCitationType) {
       case "leg":
         // Legislación/Normativa
         return <NormativeDetails jurisdiction="py" id={citationId} getNormativeAction={getNormativeAction} />
@@ -614,7 +620,7 @@ export function CitationModal({ open, setOpen, citationId, citationType }: Citat
   }
 
   const getTitle = () => {
-    switch (citationType) {
+    switch (normalizedCitationType) {
       case "leg":
         return "Normativa"
       case "doc":

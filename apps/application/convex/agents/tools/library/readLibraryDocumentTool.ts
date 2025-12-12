@@ -108,7 +108,14 @@ export const readLibraryDocumentTool = createTool({
       // Combine chunks content
       const combinedContent = chunksContent.join('\n\n');
 
-      return `# 📖 Lectura de Documento de Biblioteca
+      // Build citation for the library document
+      const citation = {
+        id: documentId,
+        type: "doc" as const,
+        title: document.title || document.description || "Documento de biblioteca",
+      };
+
+      const markdown = `# 📖 Lectura de Documento de Biblioteca
 
 ## Información del Documento
 - **ID del Documento**: ${documentId}
@@ -129,6 +136,11 @@ ${combinedContent || 'Sin contenido disponible'}
 
 ---
 *Para continuar leyendo, usa el mismo tool con chunkIndex: ${chunkIndex + actualChunkCount}*`;
+
+      console.log(`📚 [Citations] Creating citation for library document read`);
+      console.log(`  📖 Citation created:`, citation);
+      console.log(`📤 [Citations] Returning tool output with 1 citation`);
+      return { markdown, citations: [citation] };
     } catch (error) {
       console.error("Error in readLibraryDocumentTool:", error);
       return createErrorResponse(`Error inesperado: ${error instanceof Error ? error.message : 'Error desconocido'}`);

@@ -334,7 +334,7 @@ const HomeAgentMessage = ({
                         ? "Legislación"
                         : cit.type === "fallo"
                         ? "Jurisprudencia"
-                        : cit.type === "document"
+                        : cit.type === "document" || cit.type === "case-doc" || cit.type === "doc"
                         ? "Documento"
                         : cit.type === "escrito"
                         ? "Escrito"
