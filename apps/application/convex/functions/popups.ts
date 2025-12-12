@@ -4,13 +4,27 @@ import { ConvexError } from "convex/values";
 import { getCurrentUserFromAuth } from "../auth_utils";
 import { _getUserPlan } from "../billing/features";
 
-const popupTemplateValidator = v.union(v.literal("simple"));
+const popupTemplateValidator = v.union(v.literal("simple"), v.literal("promo"));
 const popupAudienceValidator = v.union(
   v.literal("all"),
   v.literal("free"),
   v.literal("trial"),
   v.literal("free_or_trial"),
 );
+
+const popupActionValidator = v.object({
+  type: v.union(v.literal("link"), v.literal("billing")),
+  label: v.string(),
+  url: v.optional(v.string()),
+  newTab: v.optional(v.boolean()),
+  billingMode: v.optional(
+    v.union(
+      v.literal("plans"),
+      v.literal("checkout_individual"),
+      v.literal("checkout_team"),
+    ),
+  ),
+});
 
 function normalizeKey(key: string): string {
   return key.trim();
@@ -96,6 +110,9 @@ export const createPopupAdmin = mutation({
     template: v.optional(popupTemplateValidator),
     audience: popupAudienceValidator,
 
+    badgeText: v.optional(v.string()),
+    actions: v.optional(v.array(popupActionValidator)),
+
     startAt: v.optional(v.number()),
     endAt: v.optional(v.number()),
 
@@ -140,6 +157,8 @@ export const createPopupAdmin = mutation({
       enabled: args.enabled ?? true,
       template: args.template ?? "simple",
       audience: args.audience,
+      badgeText: args.badgeText,
+      actions: args.actions,
       startAt: args.startAt,
       endAt: args.endAt,
       showAfterDays: args.showAfterDays,
@@ -168,6 +187,9 @@ export const updatePopupAdmin = mutation({
     enabled: v.optional(v.boolean()),
     template: v.optional(popupTemplateValidator),
     audience: v.optional(popupAudienceValidator),
+
+    badgeText: v.optional(v.string()),
+    actions: v.optional(v.array(popupActionValidator)),
 
     startAt: v.optional(v.number()),
     endAt: v.optional(v.number()),
@@ -227,6 +249,9 @@ export const updatePopupAdmin = mutation({
     if (args.enabled !== undefined) patch.enabled = args.enabled;
     if (args.template !== undefined) patch.template = args.template;
     if (args.audience !== undefined) patch.audience = args.audience;
+
+    if (args.badgeText !== undefined) patch.badgeText = args.badgeText;
+    if (args.actions !== undefined) patch.actions = args.actions;
 
     if (args.startAt !== undefined) patch.startAt = args.startAt;
     if (args.endAt !== undefined) patch.endAt = args.endAt;

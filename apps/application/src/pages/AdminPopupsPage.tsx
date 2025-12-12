@@ -11,7 +11,10 @@ import { PopupsTable } from "@/features/popups/PopupsTable";
 import {
   emptyPopupForm,
   type PopupAudience,
+  type PopupActionFormState,
+  type PopupBillingMode,
   type PopupFormState,
+  type PopupTemplate,
 } from "@/features/popups/popupTypes";
 import {
   parseOptionalDatetimeLocal,
@@ -40,6 +43,35 @@ export default function AdminPopupsPage() {
     return popups.find((p: any) => p._id === editingId) ?? null;
   }, [popups, editingId]);
 
+  const normalizeActions = (actions: PopupActionFormState[]) => {
+    const cleaned = (actions ?? [])
+      .map((a) => {
+        const label = (a.label ?? "").trim();
+        if (!label) return null;
+
+        if (a.type === "link") {
+          const url = (a.url ?? "").trim();
+          if (!url) return null;
+          return {
+            type: "link" as const,
+            label,
+            url,
+            ...(a.newTab !== undefined ? { newTab: !!a.newTab } : {}),
+          };
+        }
+
+        const billingMode = (a.billingMode ?? "plans") as PopupBillingMode;
+        return {
+          type: "billing" as const,
+          label,
+          billingMode,
+        };
+      })
+      .filter(Boolean) as any[];
+
+    return cleaned.length > 0 ? cleaned : undefined;
+  };
+
   const openEdit = (popup: any) => {
     setEditingId(popup._id);
     setEditForm({
@@ -47,7 +79,10 @@ export default function AdminPopupsPage() {
       title: popup.title ?? "",
       body: popup.body ?? "",
       enabled: !!popup.enabled,
+      template: (popup.template ?? "simple") as PopupTemplate,
       audience: (popup.audience ?? "all") as PopupAudience,
+      badgeText: popup.badgeText ?? "",
+      actions: Array.isArray(popup.actions) ? (popup.actions as any) : [],
       startAtLocal: toDatetimeLocal(popup.startAt),
       endAtLocal: toDatetimeLocal(popup.endAt),
       showAfterDays:
@@ -99,13 +134,18 @@ export default function AdminPopupsPage() {
       return;
     }
 
+    const actions = normalizeActions(form.actions);
+
     try {
       await createPopup({
         key: form.key,
         title: form.title,
         body: form.body,
         enabled: form.enabled,
+        template: form.template,
         audience: form.audience,
+        ...(form.badgeText.trim() ? { badgeText: form.badgeText.trim() } : {}),
+        ...(actions ? { actions } : {}),
         ...(startAt !== undefined ? { startAt } : {}),
         ...(endAt !== undefined ? { endAt } : {}),
         ...(parseOptionalInt(form.showAfterDays) !== undefined
@@ -151,6 +191,8 @@ export default function AdminPopupsPage() {
       return;
     }
 
+    const actions = normalizeActions(form.actions);
+
     try {
       await updatePopup({
         popupId: editingId,
@@ -158,7 +200,10 @@ export default function AdminPopupsPage() {
         title: form.title,
         body: form.body,
         enabled: form.enabled,
+        template: form.template,
         audience: form.audience,
+        badgeText: form.badgeText.trim() ? form.badgeText.trim() : "",
+        ...(actions ? { actions } : { actions: [] }),
         ...(startAt !== undefined ? { startAt } : {}),
         ...(endAt !== undefined ? { endAt } : {}),
         ...(parseOptionalInt(form.showAfterDays) !== undefined

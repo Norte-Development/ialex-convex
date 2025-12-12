@@ -5,13 +5,22 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useMarketingPopup } from "@/hooks/useMarketingPopup";
 import { usePopupGate } from "./PopupGate";
+import { useNavigate } from "react-router-dom";
+import { useUpgrade } from "@/components/Billing/useUpgrade";
 
 export function MarketingPopUp() {
   const { active, recordImpression, dismiss } = useMarketingPopup();
   const { tryAcquire, release } = usePopupGate();
+  const navigate = useNavigate();
+  const { upgradeToPlan, isUpgrading } = useUpgrade({
+    onSuccess: () => {
+      // The user will be redirected to Stripe; keep modal closed.
+    },
+  });
 
   const serverPopup = active?.popup ?? null;
   const serverPopupId = serverPopup?._id ?? null;
@@ -94,6 +103,43 @@ export function MarketingPopUp() {
 
   if (!displayPopup) return null;
 
+  const actions = Array.isArray(displayPopup.actions)
+    ? (displayPopup.actions as any[])
+    : [];
+
+  const handleAction = async (action: any) => {
+    if (!action) return;
+
+    if (action.type === "link") {
+      const url = typeof action.url === "string" ? action.url.trim() : "";
+      if (!url) return;
+      const newTab = action.newTab !== false;
+      closeAndDismiss();
+      if (newTab) {
+        window.open(url, "_blank", "noopener,noreferrer");
+      } else {
+        window.location.href = url;
+      }
+      return;
+    }
+
+    if (action.type === "billing") {
+      const mode = action.billingMode ?? "plans";
+      if (mode === "plans") {
+        closeAndDismiss();
+        navigate("/preferencias?section=billing");
+        return;
+      }
+
+      closeAndDismiss();
+      if (mode === "checkout_team") {
+        await upgradeToPlan("premium_team");
+        return;
+      }
+      await upgradeToPlan("premium_individual");
+    }
+  };
+
   return (
     <Dialog
       open={isOpen}
@@ -103,28 +149,111 @@ export function MarketingPopUp() {
         closeAndDismiss();
       }}
     >
-      <DialogContent className="sm:max-w-[560px]">
-        <DialogHeader>
-          <DialogTitle>{displayPopup.title}</DialogTitle>
-        </DialogHeader>
+      {displayPopup.template === "promo" ? (
+        <DialogContent className="sm:max-w-[900px] p-0 overflow-hidden bg-black text-white border-border">
+          <div className="flex flex-col md:flex-row h-full">
+            <div className="w-full md:w-5/12 bg-zinc-950 relative min-h-[200px] md:min-h-full flex flex-col items-center justify-center p-8 overflow-hidden">
+              <div className="relative z-10 text-center space-y-4">
+                {displayPopup.badgeText ? (
+                  <div className="flex justify-center">
+                    <Badge className="text-base px-4 py-1" variant="secondary">
+                      {displayPopup.badgeText}
+                    </Badge>
+                  </div>
+                ) : null}
+                <h2 className="text-3xl md:text-4xl font-black tracking-tight text-white leading-none">
+                  {displayPopup.title}
+                </h2>
+                <div className="w-16 h-1 bg-primary mx-auto rounded-full" />
+                <p className="text-sm text-zinc-300 whitespace-pre-wrap">
+                  {displayPopup.body}
+                </p>
+              </div>
+            </div>
 
-        <div className="space-y-4">
-          <p className="text-sm text-muted-foreground whitespace-pre-wrap">
-            {displayPopup.body}
-          </p>
+            <div className="w-full md:w-7/12 p-6 md:p-8 flex flex-col bg-zinc-950 relative">
+              {actions.length > 0 ? (
+                <div className="space-y-3 mt-auto">
+                  {actions.slice(0, 2).map((action, idx) => (
+                    <Button
+                      key={idx}
+                      onClick={() => void handleAction(action)}
+                      disabled={isUpgrading}
+                      variant={idx === 0 ? "default" : "outline"}
+                      className="w-full h-auto py-4 px-6 flex items-center justify-between"
+                    >
+                      <span className="text-sm font-semibold">
+                        {action.label}
+                      </span>
+                      <span className="text-sm font-bold">→</span>
+                    </Button>
+                  ))}
+                </div>
+              ) : (
+                <div className="mt-auto flex justify-end">
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      closeAndDismiss();
+                    }}
+                  >
+                    Cerrar
+                  </Button>
+                </div>
+              )}
 
-          <div className="flex justify-end">
-            <Button
-              variant="outline"
-              onClick={() => {
-                closeAndDismiss();
-              }}
-            >
-              Cerrar
-            </Button>
+              {actions.length > 0 ? (
+                <Button
+                  variant="ghost"
+                  className="mt-4 text-zinc-300 hover:text-white"
+                  onClick={() => closeAndDismiss()}
+                >
+                  Cerrar
+                </Button>
+              ) : null}
+            </div>
           </div>
-        </div>
-      </DialogContent>
+        </DialogContent>
+      ) : (
+        <DialogContent className="sm:max-w-[560px]">
+          <DialogHeader>
+            <DialogTitle>{displayPopup.title}</DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <p className="text-sm text-muted-foreground whitespace-pre-wrap">
+              {displayPopup.body}
+            </p>
+
+            {actions.length > 0 ? (
+              <div className="flex flex-col gap-2">
+                {actions.slice(0, 2).map((action, idx) => (
+                  <Button
+                    key={idx}
+                    onClick={() => void handleAction(action)}
+                    disabled={isUpgrading}
+                    variant={idx === 0 ? "default" : "outline"}
+                    className="w-full"
+                  >
+                    {action.label}
+                  </Button>
+                ))}
+              </div>
+            ) : null}
+
+            <div className="flex justify-end">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  closeAndDismiss();
+                }}
+              >
+                Cerrar
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      )}
     </Dialog>
   );
 }

@@ -1,11 +1,30 @@
 export type PopupAudience = "all" | "free" | "trial" | "free_or_trial";
 
+export type PopupTemplate = "simple" | "promo";
+
+export type PopupActionType = "link" | "billing";
+export type PopupBillingMode =
+  | "plans"
+  | "checkout_individual"
+  | "checkout_team";
+
+export type PopupActionFormState = {
+  type: PopupActionType;
+  label: string;
+  url?: string;
+  newTab?: boolean;
+  billingMode?: PopupBillingMode;
+};
+
 export type PopupFormState = {
   key: string;
   title: string;
   body: string;
   enabled: boolean;
+  template: PopupTemplate;
   audience: PopupAudience;
+  badgeText: string;
+  actions: PopupActionFormState[];
   startAtLocal: string;
   endAtLocal: string;
   showAfterDays: string;
@@ -19,7 +38,10 @@ export const emptyPopupForm: PopupFormState = {
   title: "",
   body: "",
   enabled: true,
+  template: "simple",
   audience: "all",
+  badgeText: "",
+  actions: [],
   startAtLocal: "",
   endAtLocal: "",
   showAfterDays: "",

@@ -888,12 +888,36 @@ export default defineSchema({
     title: v.string(),
     body: v.string(),
     enabled: v.boolean(),
-    template: v.union(v.literal("simple")),
+    template: v.union(v.literal("simple"), v.literal("promo")),
     audience: v.union(
       v.literal("all"),
       v.literal("free"),
       v.literal("trial"),
       v.literal("free_or_trial"),
+    ),
+
+    // Promo template extras
+    badgeText: v.optional(v.string()),
+
+    // CTAs (max 2 on UI; schema doesn't enforce the cap)
+    actions: v.optional(
+      v.array(
+        v.object({
+          type: v.union(v.literal("link"), v.literal("billing")),
+          label: v.string(),
+          // type=link
+          url: v.optional(v.string()),
+          newTab: v.optional(v.boolean()),
+          // type=billing
+          billingMode: v.optional(
+            v.union(
+              v.literal("plans"),
+              v.literal("checkout_individual"),
+              v.literal("checkout_team"),
+            ),
+          ),
+        }),
+      ),
     ),
 
     // Scheduling window (Unix timestamps ms)
