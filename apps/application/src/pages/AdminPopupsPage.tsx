@@ -77,6 +77,7 @@ export default function AdminPopupsPage() {
     setEditForm({
       key: popup.key ?? "",
       title: popup.title ?? "",
+      subtitle: popup.subtitle ?? "",
       body: popup.body ?? "",
       enabled: !!popup.enabled,
       template: (popup.template ?? "simple") as PopupTemplate,
@@ -140,6 +141,7 @@ export default function AdminPopupsPage() {
       await createPopup({
         key: form.key,
         title: form.title,
+        ...(form.subtitle.trim() ? { subtitle: form.subtitle.trim() } : {}),
         body: form.body,
         enabled: form.enabled,
         template: form.template,
@@ -198,6 +200,7 @@ export default function AdminPopupsPage() {
         popupId: editingId,
         key: form.key,
         title: form.title,
+        subtitle: form.subtitle.trim() ? form.subtitle.trim() : "",
         body: form.body,
         enabled: form.enabled,
         template: form.template,

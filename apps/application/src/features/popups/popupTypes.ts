@@ -19,6 +19,7 @@ export type PopupActionFormState = {
 export type PopupFormState = {
   key: string;
   title: string;
+  subtitle: string;
   body: string;
   enabled: boolean;
   template: PopupTemplate;
@@ -36,6 +37,7 @@ export type PopupFormState = {
 export const emptyPopupForm: PopupFormState = {
   key: "",
   title: "",
+  subtitle: "",
   body: "",
   enabled: true,
   template: "simple",

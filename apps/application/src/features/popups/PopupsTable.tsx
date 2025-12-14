@@ -20,6 +20,7 @@ type PopupRow = {
   _id: any;
   key: string;
   title: string;
+  subtitle?: string;
   body: string;
   enabled: boolean;
   audience: PopupAudience;
@@ -114,6 +115,11 @@ export function PopupsTable({
                         <p className="font-medium">{p.title}</p>
                         <Badge variant="secondary">{p.key}</Badge>
                       </div>
+                      {p.subtitle ? (
+                        <p className="text-sm font-medium line-clamp-1">
+                          {p.subtitle}
+                        </p>
+                      ) : null}
                       <p className="text-sm text-muted-foreground line-clamp-2">
                         {p.body}
                       </p>

@@ -886,6 +886,7 @@ export default defineSchema({
   popups: defineTable({
     key: v.string(), // Stable identifier (e.g. "blackfriday-2025")
     title: v.string(),
+    subtitle: v.optional(v.string()),
     body: v.string(),
     enabled: v.boolean(),
     template: v.union(v.literal("simple"), v.literal("promo")),

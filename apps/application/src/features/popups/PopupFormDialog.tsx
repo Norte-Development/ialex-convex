@@ -213,6 +213,18 @@ export function PopupFormDialog(props: Props) {
           </div>
 
           <div className="space-y-2 md:col-span-2">
+            <Label htmlFor={`${mode}-subtitle`}>Subtítulo (opcional)</Label>
+            <Input
+              id={`${mode}-subtitle`}
+              placeholder="Ej: Disponible para planes Team"
+              value={form.subtitle}
+              onChange={(e) =>
+                setForm((p) => ({ ...p, subtitle: e.target.value }))
+              }
+            />
+          </div>
+
+          <div className="space-y-2 md:col-span-2">
             <Label htmlFor={`${mode}-body`}>Mensaje</Label>
             <Textarea
               id={`${mode}-body`}

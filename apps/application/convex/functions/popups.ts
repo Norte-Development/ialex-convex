@@ -105,6 +105,7 @@ export const createPopupAdmin = mutation({
   args: {
     key: v.string(),
     title: v.string(),
+    subtitle: v.optional(v.string()),
     body: v.string(),
     enabled: v.optional(v.boolean()),
     template: v.optional(popupTemplateValidator),
@@ -153,6 +154,7 @@ export const createPopupAdmin = mutation({
     const popupId = await ctx.db.insert("popups", {
       key,
       title: args.title,
+      subtitle: args.subtitle,
       body: args.body,
       enabled: args.enabled ?? true,
       template: args.template ?? "simple",
@@ -183,6 +185,7 @@ export const updatePopupAdmin = mutation({
     popupId: v.id("popups"),
     key: v.optional(v.string()),
     title: v.optional(v.string()),
+    subtitle: v.optional(v.string()),
     body: v.optional(v.string()),
     enabled: v.optional(v.boolean()),
     template: v.optional(popupTemplateValidator),
@@ -245,6 +248,7 @@ export const updatePopupAdmin = mutation({
 
     if (args.key !== undefined) patch.key = nextKey;
     if (args.title !== undefined) patch.title = args.title;
+    if (args.subtitle !== undefined) patch.subtitle = args.subtitle;
     if (args.body !== undefined) patch.body = args.body;
     if (args.enabled !== undefined) patch.enabled = args.enabled;
     if (args.template !== undefined) patch.template = args.template;

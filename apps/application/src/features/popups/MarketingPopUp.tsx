@@ -150,30 +150,34 @@ export function MarketingPopUp() {
       }}
     >
       {displayPopup.template === "promo" ? (
-        <DialogContent className="sm:max-w-[900px] p-0 overflow-hidden bg-black text-white border-border">
-          <div className="flex flex-col md:flex-row h-full">
-            <div className="w-full md:w-5/12 bg-zinc-950 relative min-h-[200px] md:min-h-full flex flex-col items-center justify-center p-8 overflow-hidden">
-              <div className="relative z-10 text-center space-y-4">
+        <DialogContent className="sm:max-w-[900px] p-0 overflow-hidden  text-white border-border">
+          <div className="flex flex-col md:flex-row h-full bg-red-500">
+            <div className="w-full md:w-[40%] bg-green-500  relative min-h-[200px] md:min-h-full flex flex-col items-center justify-center p-8 overflow-hidden">
+              <div className="relative z-10 text-center space-y-2">
                 {displayPopup.badgeText ? (
                   <div className="flex justify-center">
-                    <Badge className="text-base px-4 py-1" variant="secondary">
+                    <Badge className=" px-4 py-1 text-xl" variant="secondary">
                       {displayPopup.badgeText}
                     </Badge>
                   </div>
                 ) : null}
-                <h2 className="text-3xl md:text-4xl font-black tracking-tight text-white leading-none">
+                <h2 className="text-3xl md:text-5xl font-black tracking-tight text-white leading-none">
                   {displayPopup.title}
                 </h2>
-                <div className="w-16 h-1 bg-primary mx-auto rounded-full" />
-                <p className="text-sm text-zinc-300 whitespace-pre-wrap">
-                  {displayPopup.body}
-                </p>
+                {displayPopup.subtitle ? (
+                  <p className="text-lg font-semibold text-white/90 whitespace-pre-wrap">
+                    {displayPopup.subtitle}
+                  </p>
+                ) : null}
               </div>
             </div>
 
-            <div className="w-full md:w-7/12 p-6 md:p-8 flex flex-col bg-zinc-950 relative">
+            <div className="w-full md:w-[60%] p-6 md:p-8 flex flex-col bg-blue-500 relative h-full">
               {actions.length > 0 ? (
-                <div className="space-y-3 mt-auto">
+                <div className=" mt-auto flex flex-col gap-4 bg-red-200 h-full md:justify-between">
+                  <p className="text-lg text-zinc-300 whitespace-pre-wrap">
+                    {displayPopup.body}
+                  </p>
                   {actions.slice(0, 2).map((action, idx) => (
                     <Button
                       key={idx}
@@ -221,6 +225,11 @@ export function MarketingPopUp() {
           </DialogHeader>
 
           <div className="space-y-4">
+            {displayPopup.subtitle ? (
+              <p className="text-sm font-medium whitespace-pre-wrap">
+                {displayPopup.subtitle}
+              </p>
+            ) : null}
             <p className="text-sm text-muted-foreground whitespace-pre-wrap">
               {displayPopup.body}
             </p>
