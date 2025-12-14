@@ -225,6 +225,19 @@ export function PopupFormDialog(props: Props) {
           </div>
 
           <div className="space-y-2 md:col-span-2">
+            <Label htmlFor={`${mode}-upper-body`}>Upper body (opcional)</Label>
+            <Textarea
+              id={`${mode}-upper-body`}
+              placeholder="Texto corto arriba del mensaje principal."
+              value={form.upperBody}
+              onChange={(e) =>
+                setForm((p) => ({ ...p, upperBody: e.target.value }))
+              }
+              rows={3}
+            />
+          </div>
+
+          <div className="space-y-2 md:col-span-2">
             <Label htmlFor={`${mode}-body`}>Mensaje</Label>
             <Textarea
               id={`${mode}-body`}
