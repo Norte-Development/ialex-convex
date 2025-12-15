@@ -627,4 +627,161 @@ http.route({
   }),
 });
 
+// Google OAuth callback handler
+http.route({
+  path: "/api/google/oauth/callback",
+  method: "GET",
+  handler: httpAction(async (ctx, req) => {
+    const url = new URL(req.url);
+    const code = url.searchParams.get("code");
+    const state = url.searchParams.get("state");
+    const error = url.searchParams.get("error");
+    const errorDescription = url.searchParams.get("error_description");
+
+    // Handle OAuth errors
+    if (error) {
+      console.error("[Google OAuth] Error:", error, errorDescription);
+      // Redirect to frontend with error parameter
+      const frontendUrl = process.env.VITE_APP_URL || "http://localhost:5173";
+      return Response.redirect(
+        `${frontendUrl}/drive-connected?error=${encodeURIComponent(error)}&error_description=${encodeURIComponent(errorDescription || "")}`,
+        302,
+      );
+    }
+
+    // Validate required parameters
+    if (!code || !state) {
+      console.error("[Google OAuth] Missing code or state parameter");
+      const frontendUrl = process.env.VITE_APP_URL || "http://localhost:5173";
+      return Response.redirect(
+        `${frontendUrl}/drive-connected?error=missing_parameters`,
+        302,
+      );
+    }
+
+    try {
+      // Find the user associated with this state token via internal query
+      const stateRecord = await ctx.runQuery(
+        internal.google.drive.getOAuthState,
+        { state },
+      );
+
+      if (!stateRecord) {
+        console.error("[Google OAuth] Invalid or expired state token");
+        const frontendUrl = process.env.VITE_APP_URL || "http://localhost:5173";
+        return Response.redirect(
+          `${frontendUrl}/drive-connected?error=invalid_state`,
+          302,
+        );
+      }
+
+      // Check if state token is too old (more than 10 minutes)
+      const tenMinutesAgo = Date.now() - 10 * 60 * 1000;
+      if (stateRecord.createdAt < tenMinutesAgo) {
+        console.error("[Google OAuth] State token expired");
+        await ctx.runMutation(internal.google.drive.deleteOAuthState, {
+          stateId: stateRecord._id,
+        });
+        const frontendUrl = process.env.VITE_APP_URL || "http://localhost:5173";
+        return Response.redirect(
+          `${frontendUrl}/drive-connected?error=expired_state`,
+          302,
+        );
+      }
+
+      const userId = stateRecord.userId;
+
+      // Get OAuth credentials from environment
+      const clientId = process.env.GOOGLE_CLIENT_ID;
+      const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
+      const redirectUri = process.env.GOOGLE_REDIRECT_URI;
+
+      if (!clientId || !clientSecret || !redirectUri) {
+        console.error(
+          "[Google OAuth] Server not configured for Google OAuth",
+        );
+        const frontendUrl = process.env.VITE_APP_URL || "http://localhost:5173";
+        return Response.redirect(
+          `${frontendUrl}/drive-connected?error=server_config`,
+          302,
+        );
+      }
+
+      // Exchange authorization code for access token
+      const tokenResponse = await fetch("https://oauth2.googleapis.com/token", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+        },
+        body: new URLSearchParams({
+          code,
+          client_id: clientId,
+          client_secret: clientSecret,
+          redirect_uri: redirectUri,
+          grant_type: "authorization_code",
+        }),
+      });
+
+      if (!tokenResponse.ok) {
+        const errorBody = await tokenResponse.text();
+        console.error(
+          "[Google OAuth] Token exchange failed:",
+          tokenResponse.status,
+          errorBody,
+        );
+        const frontendUrl = process.env.VITE_APP_URL || "http://localhost:5173";
+        return Response.redirect(
+          `${frontendUrl}/drive-connected?error=token_exchange_failed`,
+          302,
+        );
+      }
+
+      const tokenData: {
+        access_token: string;
+        expires_in?: number;
+        refresh_token?: string;
+        scope: string;
+        token_type: string;
+      } = await tokenResponse.json();
+
+      // Calculate expiry date
+      const expiryDate =
+        tokenData.expires_in != null
+          ? Date.now() + tokenData.expires_in * 1000
+          : undefined;
+
+      // Store tokens in database
+      await ctx.runMutation(internal.google.drive.upsertGoogleAccount, {
+        userId,
+        accessToken: tokenData.access_token,
+        refreshToken: tokenData.refresh_token,
+        expiryDate,
+        scope: tokenData.scope,
+        tokenType: tokenData.token_type,
+      });
+
+      // Clean up used state token via internal mutation
+      await ctx.runMutation(internal.google.drive.deleteOAuthState, {
+        stateId: stateRecord._id,
+      });
+
+      console.log("[Google OAuth] Successfully connected Google Drive for user:", userId);
+
+      // Redirect back to frontend with success
+      const frontendUrl = process.env.VITE_APP_URL || "http://localhost:5173";
+      return Response.redirect(
+        `${frontendUrl}/drive-connected?success=true`,
+        302,
+      );
+    } catch (error: any) {
+      console.error("[Google OAuth] Unexpected error:", error);
+      const frontendUrl = process.env.VITE_APP_URL || "http://localhost:5173";
+      return Response.redirect(
+        `${frontendUrl}/drive-connected?error=unexpected_error&message=${encodeURIComponent(error.message || "Unknown error")}`,
+        302,
+      );
+    }
+  }),
+});
+
 export default http;

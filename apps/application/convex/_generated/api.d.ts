@@ -131,6 +131,8 @@ import type * as functions_testReadEscritoHelpers from "../functions/testReadEsc
 import type * as functions_todos from "../functions/todos.js";
 import type * as functions_tutorial from "../functions/tutorial.js";
 import type * as functions_users from "../functions/users.js";
+import type * as google_drive from "../google/drive.js";
+import type * as google_driveActions from "../google/driveActions.js";
 import type * as http from "../http.js";
 import type * as migrations_addEventPreferences from "../migrations/addEventPreferences.js";
 import type * as migrations_bulkUserMigration from "../migrations/bulkUserMigration.js";
@@ -308,6 +310,8 @@ declare const fullApi: ApiFromModules<{
   "functions/todos": typeof functions_todos;
   "functions/tutorial": typeof functions_tutorial;
   "functions/users": typeof functions_users;
+  "google/drive": typeof google_drive;
+  "google/driveActions": typeof google_driveActions;
   http: typeof http;
   "migrations/addEventPreferences": typeof migrations_addEventPreferences;
   "migrations/bulkUserMigration": typeof migrations_bulkUserMigration;
