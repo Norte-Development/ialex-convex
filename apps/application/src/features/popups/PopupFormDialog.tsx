@@ -178,6 +178,7 @@ export function PopupFormDialog(props: Props) {
                 <SelectItem value="free">Gratis</SelectItem>
                 <SelectItem value="trial">Trial</SelectItem>
                 <SelectItem value="free_or_trial">Gratis o Trial</SelectItem>
+                <SelectItem value="premium">Premium</SelectItem>
               </SelectContent>
             </Select>
           </div>

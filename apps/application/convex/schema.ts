@@ -896,6 +896,7 @@ export default defineSchema({
       v.literal("free"),
       v.literal("trial"),
       v.literal("free_or_trial"),
+      v.literal("premium"),
     ),
 
     // Promo template extras

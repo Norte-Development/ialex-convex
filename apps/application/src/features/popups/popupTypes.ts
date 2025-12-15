@@ -1,4 +1,9 @@
-export type PopupAudience = "all" | "free" | "trial" | "free_or_trial";
+export type PopupAudience =
+  | "all"
+  | "free"
+  | "trial"
+  | "free_or_trial"
+  | "premium";
 
 export type PopupTemplate = "simple" | "promo";
 

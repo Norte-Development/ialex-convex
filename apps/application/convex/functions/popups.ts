@@ -10,6 +10,7 @@ const popupAudienceValidator = v.union(
   v.literal("free"),
   v.literal("trial"),
   v.literal("free_or_trial"),
+  v.literal("premium"),
 );
 
 const popupActionValidator = v.object({
@@ -46,14 +47,16 @@ function validateSchedule(args: { startAt?: number; endAt?: number }) {
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 
 function audienceMatches(args: {
-  audience: "all" | "free" | "trial" | "free_or_trial";
+  audience: "all" | "free" | "trial" | "free_or_trial" | "premium";
   isFree: boolean;
   isTrial: boolean;
+  isPremium: boolean;
 }) {
   if (args.audience === "all") return true;
   if (args.audience === "free") return args.isFree;
   if (args.audience === "trial") return args.isTrial;
   if (args.audience === "free_or_trial") return args.isFree || args.isTrial;
+  if (args.audience === "premium") return args.isPremium;
   return false;
 }
 
@@ -326,7 +329,7 @@ export const deletePopupAdmin = mutation({
  *
  * Selection rules:
  * - enabled
- * - audience match (free/trial)
+ * - audience match (free/trial/premium)
  * - within schedule window (startAt/endAt)
  * - showAfterDays based on user account age
  * - skip if dismissed
@@ -347,6 +350,7 @@ export const getActivePopupForUser = query({
       currentUser.trialEndDate !== undefined &&
       currentUser.trialEndDate > now;
     const isFree = !isTrial && plan === "free";
+    const isPremium = !isFree && !isTrial;
 
     const popups = await ctx.db
       .query("popups")
@@ -367,7 +371,14 @@ export const getActivePopupForUser = query({
 
     const eligible = popups.filter((popup) => {
       if (!withinSchedule(now, popup.startAt, popup.endAt)) return false;
-      if (!audienceMatches({ audience: popup.audience, isFree, isTrial })) {
+      if (
+        !audienceMatches({
+          audience: popup.audience,
+          isFree,
+          isTrial,
+          isPremium,
+        })
+      ) {
         return false;
       }
 
