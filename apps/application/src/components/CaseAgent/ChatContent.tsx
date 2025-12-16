@@ -17,7 +17,7 @@ import { usePage } from "@/context/PageContext";
 import { useNavigate, useParams } from "react-router-dom";
 import { ContextSummaryBar } from "./ContextSummaryBar";
 import type { Id } from "convex/_generated/dataModel";
-import { useState, useCallback, useMemo } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import type {
   Reference,
   ReferenceWithOriginal,
@@ -88,7 +88,37 @@ export function ChatContent({ threadId }: { threadId: string | undefined }) {
   >({});
 
   // Web search toggle state
-  const [webSearchEnabled, setWebSearchEnabled] = useState(false);
+  const webSearchStorageKey = `caseAgentWebSearchEnabled:${caseId ?? "global"}`;
+  const [webSearchEnabled, setWebSearchEnabled] = useState(() => {
+    if (typeof window === "undefined") return false;
+    try {
+      const saved = localStorage.getItem(webSearchStorageKey);
+      return saved === "true";
+    } catch {
+      return false;
+    }
+  });
+
+  // Rehydrate when switching cases (or any time the storage key changes).
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      const saved = localStorage.getItem(webSearchStorageKey);
+      if (saved !== null) setWebSearchEnabled(saved === "true");
+    } catch {
+      // ignore storage errors
+    }
+  }, [webSearchStorageKey]);
+
+  // Persist across remounts (e.g. when creating the first thread updates the hash/threadId).
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      localStorage.setItem(webSearchStorageKey, String(webSearchEnabled));
+    } catch {
+      // ignore storage errors
+    }
+  }, [webSearchEnabled, webSearchStorageKey]);
 
   // Citation modal state
   const [citationOpen, setCitationOpen] = useState(false);
