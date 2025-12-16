@@ -2,7 +2,6 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "../ui/dialog";
@@ -10,6 +9,8 @@ import { Button } from "../ui/button";
 import { useMutation } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import { toast } from "sonner";
+import { useState } from "react";
+import { Loader2, Check } from "lucide-react";
 
 interface ConnectGoogleModalProps {
   open: boolean;
@@ -46,51 +47,96 @@ export function ConnectGoogleModal({
   isReconnecting = false,
 }: ConnectGoogleModalProps) {
   const getAuthUrl = useMutation(api.google.drive.getGoogleAuthUrl);
+  const [isConnecting, setIsConnecting] = useState(false);
 
   const handleConnect = async () => {
+    setIsConnecting(true);
     try {
       const { url } = await getAuthUrl();
-
-      // Open Google OAuth in a new tab; keep opener so we can return to it
       window.open(url, "_blank");
       onOpenChange(false);
     } catch (error) {
       console.error("Failed to get Google auth URL:", error);
       toast.error("Error al iniciar la conexión con Google");
+    } finally {
+      setIsConnecting(false);
     }
   };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle>
-            {isReconnecting
-              ? "Vuelve a conectar tu cuenta de Google"
-              : "Conecta tu cuenta de Google"}
+      <DialogContent className="sm:max-w-[480px] p-0 overflow-hidden border-0 shadow-xl">
+        {/* Header Background Pattern */}
+        <div className="bg-slate-50 border-b px-6 py-8 flex flex-col items-center justify-center relative overflow-hidden">
+          <div className="absolute inset-0 bg-grid-slate-100 mask-[linear-gradient(0deg,white,rgba(255,255,255,0.6))] -z-10" />
+          
+          <div className="h-16 w-16 bg-white rounded-2xl shadow-sm border flex items-center justify-center mb-4 transform transition-transform hover:scale-105 duration-300">
+            <GoogleIcon className="h-8 w-8" />
+          </div>
+          
+          <DialogTitle className="text-xl font-semibold text-slate-900 mb-2">
+            {isReconnecting ? "Reconectar Google Drive" : "Conectar Google Drive"}
           </DialogTitle>
-          <DialogDescription>
+          <DialogDescription className="text-slate-500 text-center max-w-xs text-sm">
             {isReconnecting
-              ? "Tu conexión con Google ha expirado o ha sido revocada. Debes volver a conectarla para exportar a Google Docs."
-              : "Para exportar este escrito a Google Docs, primero necesitamos conectar tu cuenta de Google."}
+              ? "Tu sesión ha expirado. Vuelve a conectar para continuar exportando."
+              : "Exporta tus escritos directamente a Google Docs con un solo clic."}
           </DialogDescription>
-        </DialogHeader>
-        <div className="flex justify-center py-6">
-          <GoogleIcon className="h-16 w-16" />
         </div>
-        <DialogFooter className="sm:justify-between gap-2">
+
+        {/* Features / Body */}
+        <div className="px-6 py-6 space-y-4">
+          <div className="space-y-3">
+            <div className="flex items-start gap-3">
+              <div className="mt-0.5 bg-green-50 text-green-600 rounded-full p-1">
+                <Check className="h-3 w-3" />
+              </div>
+              <div className="space-y-0.5">
+                <p className="text-sm font-medium text-slate-900">Exportación Directa</p>
+                <p className="text-xs text-slate-500">Guarda tus documentos directamente en tu unidad.</p>
+              </div>
+            </div>
+            <div className="flex items-start gap-3">
+              <div className="mt-0.5 bg-blue-50 text-blue-600 rounded-full p-1">
+                <Check className="h-3 w-3" />
+              </div>
+              <div className="space-y-0.5">
+                <p className="text-sm font-medium text-slate-900">Formato Compatible</p>
+                <p className="text-xs text-slate-500">Mantiene el formato y estructura de tus escritos.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Footer Actions */}
+        <div className="bg-slate-50 px-6 py-4 flex items-center justify-between border-t gap-3">
           <Button
             type="button"
             variant="ghost"
             onClick={() => onOpenChange(false)}
+            className="text-slate-600 hover:text-slate-900 hover:bg-slate-100"
+            disabled={isConnecting}
           >
             Cancelar
           </Button>
-          <Button type="button" onClick={handleConnect} className="gap-2">
-            <GoogleIcon className="h-4 w-4" />
-            {isReconnecting ? "Volver a conectar Google" : "Conectar Google"}
+          <Button 
+            type="button" 
+            onClick={handleConnect} 
+            className="bg-[#4285F4] hover:bg-[#3367D6] text-white shadow-sm gap-2 pl-3 pr-4"
+            disabled={isConnecting}
+          >
+            {isConnecting ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <div className="bg-white rounded-[2px] p-0.5">
+                <GoogleIcon className="h-3 w-3" />
+              </div>
+            )}
+            <span className="font-medium">
+              {isReconnecting ? "Reconectar cuenta" : "Iniciar sesión con Google"}
+            </span>
           </Button>
-        </DialogFooter>
+        </div>
       </DialogContent>
     </Dialog>
   );
