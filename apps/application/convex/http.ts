@@ -644,7 +644,9 @@ http.route({
       // Redirect to frontend with error parameter
       const frontendUrl = process.env.VITE_APP_URL || "http://localhost:5173";
       return Response.redirect(
-        `${frontendUrl}/drive-connected?error=${encodeURIComponent(error)}&error_description=${encodeURIComponent(errorDescription || "")}`,
+        `${frontendUrl}/drive-connected?error=${encodeURIComponent(
+          error,
+        )}&error_description=${encodeURIComponent(errorDescription || "")}`,
         302,
       );
     }
@@ -765,7 +767,10 @@ http.route({
         stateId: stateRecord._id,
       });
 
-      console.log("[Google OAuth] Successfully connected Google Drive for user:", userId);
+      console.log(
+        "[Google OAuth] Successfully connected Google Drive for user:",
+        userId,
+      );
 
       // Redirect back to frontend with success
       const frontendUrl = process.env.VITE_APP_URL || "http://localhost:5173";
@@ -777,7 +782,9 @@ http.route({
       console.error("[Google OAuth] Unexpected error:", error);
       const frontendUrl = process.env.VITE_APP_URL || "http://localhost:5173";
       return Response.redirect(
-        `${frontendUrl}/drive-connected?error=unexpected_error&message=${encodeURIComponent(error.message || "Unknown error")}`,
+        `${frontendUrl}/drive-connected?error=unexpected_error&message=${encodeURIComponent(
+          error.message || "Unknown error",
+        )}`,
         302,
       );
     }

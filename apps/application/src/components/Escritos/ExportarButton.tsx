@@ -9,12 +9,13 @@ import {
   DropdownMenuTrigger,
 } from "../ui/dropdown-menu";
 import { toast } from "sonner";
-import { useAction, useMutation } from "convex/react";
+import { useAction, useMutation, useQuery } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import { exportToWord } from "@/components/Editor/utils/exportWord";
 import { exportToPdfReact } from "@/components/Editor/utils/exportPdfReact";
 import { saveEscritoAsTemplate } from "@/components/Editor/template";
 import { SaveTemplateModal } from "./save-template-modal";
+import { ConnectGoogleModal } from "./ConnectGoogleModal";
 import type { TiptapRef } from "@/components/Editor/tiptap-editor";
 import { generateHTML } from "@tiptap/html";
 import { extensions } from "../Editor/extensions";
@@ -37,8 +38,12 @@ interface ExportarButtonProps {
 export function ExportarButton({ escrito, editorRef }: ExportarButtonProps) {
   const [openSaveTemplateModal, setOpenSaveTemplateModal] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
+  const [connectGoogleModalOpen, setConnectGoogleModalOpen] = useState(false);
+  const [isReconnecting, setIsReconnecting] = useState(false);
+
   const createTemplate = useMutation(api.functions.templates.createModelo);
   const exportToGoogleDocs = useAction(api.functions.documentManagement.escritosExports.exportEscritoToGoogleDocs);
+  const googleAccess = useQuery(api.google.drive.hasGoogleDriveAccess);
   const { currentCase } = useCase();
   const handleExportToWord = async () => {
     if (editorRef.current?.hasPendingSuggestions?.()) {
@@ -81,6 +86,17 @@ export function ExportarButton({ escrito, editorRef }: ExportarButtonProps) {
       return;
     }
 
+    if (googleAccess === undefined) {
+      // Loading state, maybe ignore click or show toast
+      return;
+    }
+
+    if (!googleAccess.connected) {
+      setIsReconnecting(false);
+      setConnectGoogleModalOpen(true);
+      return;
+    }
+
     const content = editorRef.current?.getContent();
     if (!content) {
       toast.error("No hay contenido para exportar");
@@ -88,18 +104,38 @@ export function ExportarButton({ escrito, editorRef }: ExportarButtonProps) {
     }
 
     const htmlContent = generateHTML(content, extensions);
-
-    const doc = await exportToGoogleDocs({
-      escritoId: escrito._id as Id<"escritos">,
-      caseId: currentCase?._id as Id<"cases">,
-      html: htmlContent,
-    });
     
-    if (doc) {
-      toast.success("Documento exportado correctamente a Google Docs");
-      window.open(doc.docUrl, "_blank");
-    } else {
-      toast.error("Error al exportar el documento a Google Docs");
+    setIsExporting(true);
+    try {
+      const doc = await exportToGoogleDocs({
+        escritoId: escrito._id as Id<"escritos">,
+        caseId: currentCase?._id as Id<"cases">,
+        html: htmlContent,
+      });
+
+      if (doc) {
+        toast.success("Documento exportado correctamente a Google Docs");
+        window.open(doc.docUrl, "_blank");
+      }
+    } catch (error: any) {
+      console.error("Error exporting to Google Docs:", error);
+      const msg = error?.message ?? "";
+
+      if (msg.includes("User has not connected Google Drive")) {
+        setIsReconnecting(false);
+        setConnectGoogleModalOpen(true);
+      } else if (
+        msg.includes("Failed to refresh token") ||
+        msg.includes("invalid_grant") ||
+        msg.includes("expired")
+      ) {
+        setIsReconnecting(true);
+        setConnectGoogleModalOpen(true);
+      } else {
+        toast.error("Error al exportar el documento a Google Docs");
+      }
+    } finally {
+      setIsExporting(false);
     }
   };
 
@@ -216,6 +252,11 @@ export function ExportarButton({ escrito, editorRef }: ExportarButtonProps) {
           isPublic: escrito.isPublic,
           tags: escrito.tags,
         }}
+      />
+      <ConnectGoogleModal
+        open={connectGoogleModalOpen}
+        onOpenChange={setConnectGoogleModalOpen}
+        isReconnecting={isReconnecting}
       />
     </>
   );
