@@ -10,21 +10,22 @@ import { internal } from "../_generated/api";
 
 /**
  * Internal action: Create a Google Doc for a user.
- * Uses stored Google tokens to create a document via Google Docs API.
+ * Uses stored Google tokens to create a document via Google Drive API,
+ * uploading HTML content that Google converts into a Docs file.
  * 
  * @param userId - The user whose Google account tokens to use
  * @param title - The title of the document
- * @param content - Optional initial content (plain text)
+ * @param content - Initial content as HTML (required)
  * @returns The Google Doc ID
  */
 export const createGoogleDoc = internalAction({
   args: {
     userId: v.id("users"),
     title: v.string(),
-    // NOTE: Despite the name, this is expected to be HTML.
-    // When provided, we create the Google Doc in a single Drive
-    // multipart upload using `text/html` so Google converts it.
-    content: v.optional(v.string()),
+    // NOTE: This is expected to be HTML.
+    // We create the Google Doc in a single Drive multipart upload
+    // using `text/html` so Google converts it.
+    content: v.string(),
   },
   handler: async (ctx, args): Promise<{ docId: string; docUrl: string }> => {
     // Get stored Google tokens for this user
@@ -39,63 +40,9 @@ export const createGoogleDoc = internalAction({
     // Check if token is expired and refresh if needed
     const accessToken = await ensureValidToken(ctx, args.userId, account);
 
-    // If HTML content is provided, create the Google Doc in a single call
-    // via the Drive upload API using multipart/related with text/html.
-    if (args.content) {
-      return await createGoogleDocFromHtml(accessToken, args.title, args.content);
-    }
-
-    // Fallback: create an empty Google Doc via the Docs API if no content
-    const docResponse = await fetch("https://docs.googleapis.com/v1/documents", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        title: args.title,
-      }),
-    });
-
-    if (!docResponse.ok) {
-      const error = await docResponse.text();
-      throw new Error(`Failed to create Google Doc: ${error}`);
-    }
-
-    const docData: { documentId: string } = await docResponse.json();
-    const docUrl = `https://docs.google.com/document/d/${docData.documentId}`;
-
-    return { docId: docData.documentId, docUrl };
-  },
-});
-
-/**
- * Internal action: Update a Google Doc with new content.
- * 
- * @param userId - The user whose Google account tokens to use
- * @param docId - The Google Doc ID
- * @param content - The content to insert/replace
- */
-export const updateGoogleDoc = internalAction({
-  args: {
-    userId: v.id("users"),
-    docId: v.string(),
-    content: v.string(),
-  },
-  handler: async (ctx, args): Promise<{ success: boolean }> => {
-    const account = await ctx.runQuery(internal.google.drive.getGoogleAccount, {
-      userId: args.userId,
-    });
-
-    if (!account) {
-      throw new Error("User has not connected Google Drive");
-    }
-
-    const accessToken = await ensureValidToken(ctx, args.userId, account);
-
-    await insertTextIntoDoc(accessToken, args.docId, args.content);
-
-    return { success: true };
+    // Create the Google Doc in a single call via the Drive upload API
+    // using multipart/related with text/html.
+    return await createGoogleDocFromHtml(accessToken, args.title, args.content);
   },
 });
 
@@ -287,63 +234,3 @@ async function createGoogleDocFromHtml(
 
   return { docId, docUrl };
 }
-
-/**
- * Insert text into a Google Doc using the Docs API
- */
-async function insertTextIntoDoc(
-  accessToken: string,
-  docId: string,
-  text: string,
-): Promise<void> {
-  // First, get the document to find the end index
-  const docResponse = await fetch(
-    `https://docs.googleapis.com/v1/documents/${docId}`,
-    {
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-      },
-    },
-  );
-
-  if (!docResponse.ok) {
-    throw new Error("Failed to fetch document");
-  }
-
-  const docData: { body: { content: Array<{ endIndex?: number }> } } =
-    await docResponse.json();
-
-  // Find the end index (where to insert)
-  const endIndex =
-    docData.body.content[docData.body.content.length - 1]?.endIndex ?? 1;
-
-  // Insert text at the end
-  const insertResponse = await fetch(
-    `https://docs.googleapis.com/v1/documents/${docId}:batchUpdate`,
-    {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        requests: [
-          {
-            insertText: {
-              location: {
-                index: endIndex - 1,
-              },
-              text: text,
-            },
-          },
-        ],
-      }),
-    },
-  );
-
-  if (!insertResponse.ok) {
-    const error = await insertResponse.text();
-    throw new Error(`Failed to insert text: ${error}`);
-  }
-}
-
