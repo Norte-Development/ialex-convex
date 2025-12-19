@@ -24,7 +24,7 @@ import { ChatbotProvider } from "./context/ChatbotContext";
 import { LayoutProvider } from "./context/LayoutContext";
 import { TutorialProvider } from "./context/TutorialContext";
 import { TutorialOverlay } from "./components/Tutorial/TutorialOverlay";
-import { MigrationWrapper } from "./components/Migration";
+// import { MigrationWrapper } from "./components/Migration";
 
 // Eager load core navigation pages (not heavy, safe to bundle)
 import HomePage from "./pages/home/HomePage";
@@ -75,29 +75,32 @@ const CaseRoutesWrapper: React.FC = () => {
             <AgentReviewSessionProvider>
               <HighlightProvider>
                 <Routes>
-                <Route index element={<CaseDetailPage />} />
-                <Route path="escritos" element={<EscritosPage />} />
-                <Route path="escritos/:escritoId" element={<EscritosPage />} />
-                <Route path="documentos" element={<CaseDocumentsPage />} />
-                <Route path="eventos" element={<CaseEventsPage />} />
+                  <Route index element={<CaseDetailPage />} />
+                  <Route path="escritos" element={<EscritosPage />} />
+                  <Route
+                    path="escritos/:escritoId"
+                    element={<EscritosPage />}
+                  />
+                  <Route path="documentos" element={<CaseDocumentsPage />} />
+                  <Route path="eventos" element={<CaseEventsPage />} />
 
-                <Route path="clientes" element={<CaseClientsPage />} />
-                <Route path="equipos" element={<CaseTeamsPage />} />
-                <Route path="modelos" element={<CaseModelPage />} />
-                <Route path="prompts" element={<CasePromptsPage />} />
-                <Route path="base-de-datos" element={<CaseDataBasePage />} />
-                <Route
-                  path="documentos/:documentId"
-                  element={
-                    <LazyLoadErrorBoundary>
-                      <CaseDocumentPage />
-                    </LazyLoadErrorBoundary>
-                  }
-                />
-                <Route
-                  path="configuracion/reglas"
-                  element={<CaseSettingsRulesPage />}
-                />
+                  <Route path="clientes" element={<CaseClientsPage />} />
+                  <Route path="equipos" element={<CaseTeamsPage />} />
+                  <Route path="modelos" element={<CaseModelPage />} />
+                  <Route path="prompts" element={<CasePromptsPage />} />
+                  <Route path="base-de-datos" element={<CaseDataBasePage />} />
+                  <Route
+                    path="documentos/:documentId"
+                    element={
+                      <LazyLoadErrorBoundary>
+                        <CaseDocumentPage />
+                      </LazyLoadErrorBoundary>
+                    }
+                  />
+                  <Route
+                    path="configuracion/reglas"
+                    element={<CaseSettingsRulesPage />}
+                  />
                 </Routes>
               </HighlightProvider>
             </AgentReviewSessionProvider>
@@ -127,9 +130,9 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({
   return (
     <Protect fallback={<SignInPage />}>
       <OnboardingWrapper>
-        <MigrationWrapper>
-          <Layout>{children}</Layout>
-        </MigrationWrapper>
+        {/* <MigrationWrapper> */}
+        <Layout>{children}</Layout>
+        {/* </MigrationWrapper> */}
       </OnboardingWrapper>
     </Protect>
   );
@@ -239,9 +242,9 @@ const AppWithThread = () => {
                       element={
                         <Protect fallback={<SignInPage />}>
                           <OnboardingWrapper>
-                            <MigrationWrapper>
-                              <CaseRoutesWrapper />
-                            </MigrationWrapper>
+                            {/* <MigrationWrapper> */}
+                            <CaseRoutesWrapper />
+                            {/* </MigrationWrapper> */}
                           </OnboardingWrapper>
                         </Protect>
                       }
