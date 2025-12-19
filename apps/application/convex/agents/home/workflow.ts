@@ -337,34 +337,6 @@ export const saveHomeMessageWithMediaAction = internalAction({
       ...mediaParts,
     ];
 
-    // #region agent log
-    fetch("http://127.0.0.1:7242/ingest/0e2edc26-cd1d-46dd-a120-43a13a299d5f", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        sessionId: "debug-session",
-        runId: "pre-fix-1",
-        hypothesisId: "H2",
-        location: "convex/agents/home/workflow.ts:saveHomeMessageWithMediaAction",
-        message: "Saving home message with media parts",
-        data: {
-          threadId,
-          promptPreview: prompt.slice(0, 120),
-          mediaCount: mediaRefs.length,
-          mediaSummary: mediaRefs.map((m) => ({
-            kind: m.kind,
-            filename: m.filename,
-            hasUrl: !!m.url,
-            gcsBucket: m.gcsBucket,
-            gcsObject: m.gcsObject,
-          })),
-          contentKinds: messageContent.map((p) => (p as any).type),
-        },
-        timestamp: Date.now(),
-      }),
-    }).catch(() => {});
-    // #endregion agent log
-
     const { messageId } = await agent.saveMessage(ctx, {
       threadId,
       message: {
@@ -419,29 +391,6 @@ const buildMediaContentParts = async (
           },
         );
         mediaUrl = resolvedUrl ?? undefined;
-
-        // #region agent log
-        fetch("http://127.0.0.1:7242/ingest/0e2edc26-cd1d-46dd-a120-43a13a299d5f", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            sessionId: "debug-session",
-            runId: "pre-fix-1",
-            hypothesisId: "H3",
-            location: "convex/agents/home/workflow.ts:buildMediaContentParts",
-            message: "Resolved media URL via getShortLivedMediaUrl",
-            data: {
-              threadId,
-              kind: mediaRef.kind,
-              filename: mediaRef.filename,
-              gcsBucket: mediaRef.gcsBucket,
-              gcsObject: mediaRef.gcsObject,
-              resolvedUrlPreview: resolvedUrl ? resolvedUrl.slice(0, 120) : null,
-            },
-            timestamp: Date.now(),
-          }),
-        }).catch(() => {});
-        // #endregion agent log
       } catch (error) {
         console.error(
           "[Home Agent] Error generando URL para media, se omite",
@@ -475,27 +424,6 @@ const buildMediaContentParts = async (
       });
       continue;
     }
-
-    // #region agent log
-    fetch("http://127.0.0.1:7242/ingest/0e2edc26-cd1d-46dd-a120-43a13a299d5f", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        sessionId: "debug-session",
-        runId: "pre-fix-1",
-        hypothesisId: "H4",
-        location: "convex/agents/home/workflow.ts:buildMediaContentParts",
-        message: "Adding file part for media",
-        data: {
-          threadId,
-          kind: mediaRef.kind,
-          filename: mediaRef.filename,
-          mediaUrlPreview: mediaUrl.slice(0, 120),
-        },
-        timestamp: Date.now(),
-      }),
-    }).catch(() => {});
-    // #endregion agent log
 
     parts.push({
       type: "file",

@@ -81,29 +81,6 @@ export const getHomeMediaUploadUrl = action({
     const encodedObject = encodeURIComponent(objectPath).replace(/%2F/g, "/");
     const publicUrl = `https://storage.googleapis.com/${bucketName}/${encodedObject}`;
 
-    // #region agent log
-    fetch("http://127.0.0.1:7242/ingest/0e2edc26-cd1d-46dd-a120-43a13a299d5f", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        sessionId: "debug-session",
-        runId: "pre-fix-1",
-        hypothesisId: "H1",
-        location: "convex/agents/home/media.ts:getHomeMediaUploadUrl",
-        message: "Generated upload + public URL for home media",
-        data: {
-          kind,
-          originalFilename: filename,
-          safeFilename,
-          bucketName,
-          objectPath,
-          publicUrlPreview: publicUrl.slice(0, 120),
-        },
-        timestamp: Date.now(),
-      }),
-    }).catch(() => {});
-    // #endregion agent log
-
     return {
       uploadUrl,
       publicUrl,
