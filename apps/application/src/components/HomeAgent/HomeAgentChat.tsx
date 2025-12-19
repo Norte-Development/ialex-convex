@@ -13,7 +13,7 @@
  * ```
  */
 
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useUIMessages } from "@convex-dev/agent/react";
 import { api } from "../../../convex/_generated/api";
@@ -43,7 +43,7 @@ import {
   ReasoningTrigger,
 } from "@/components/ai-elements/reasoning";
 import { Sources, SourcesTrigger, SourcesContent, Source } from "@/components/ai-elements/source";
-import { Copy, RotateCw, Check, AlertCircle, Globe, AlertTriangle } from "lucide-react";
+import { Copy, RotateCw, Check, AlertCircle, Globe, AlertTriangle, Paperclip } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { es } from "date-fns/locale";
 import { Tool } from "@/components/ai-elements/tool";
@@ -54,7 +54,7 @@ import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { extractCitationsFromToolOutputs } from "@/components/ai-elements/citations";
 import type { Id } from "convex/_generated/dataModel";
-import { HomeAgentFileUpload } from "./HomeAgentFileUpload";
+import { HomeAgentAttachmentPreview } from "./HomeAgentAttachmentPreview";
 import type { HomeAgentMediaRef } from "./types";
 import { HOME_AGENT_MAX_MEDIA_BYTES } from "./types";
 
@@ -388,6 +388,7 @@ export function HomeAgentChat({
   const [sendError, setSendError] = useState<string | null>(null);
   const [mediaAttachments, setMediaAttachments] = useState<HomeAgentMediaRef[]>([]);
   const [isUploadingMedia, setIsUploadingMedia] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     localStorage.setItem("homeAgentWebSearchEnabled", String(webSearchEnabled));
@@ -433,6 +434,8 @@ export function HomeAgentChat({
   // Input debe estar deshabilitado si está cargando O si hay streaming
   const isInputDisabled = messagesLoading || isStreaming || isUploadingMedia;
 
+  const handleFileButtonClick = () => fileInputRef.current?.click();
+
   const handleRemoveMedia = useCallback((gcsObject: string) => {
     setMediaAttachments((prev) =>
       prev.filter((item) => item.gcsObject !== gcsObject),
@@ -449,6 +452,11 @@ export function HomeAgentChat({
       const files = Array.from(filesInput as ArrayLike<File>);
       if (files.length === 0) {
         return;
+      }
+
+      // Reset input value to allow selecting same file again
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
       }
 
       setIsUploadingMedia(true);
@@ -629,8 +637,25 @@ export function HomeAgentChat({
     // For non-streaming state, let the form handle submission naturally
   };
 
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      handleFilesSelected(e.dataTransfer.files);
+    }
+  };
+
   return (
-    <div className={`flex flex-col h-full w-3/4 ${className}`}>
+    <div
+      className={`flex flex-col h-full w-3/4 ${className}`}
+      onDragOver={handleDragOver}
+      onDrop={handleDrop}
+    >
       {/* Conversation with auto-scroll */}
       <Conversation className="flex-1">
         <ConversationContent>
@@ -639,8 +664,16 @@ export function HomeAgentChat({
               <div className="text-muted-foreground">Cargando mensajes...</div>
             </div>
           ) : messages.length === 0 ? (
-            <div className="flex items-center justify-center h-full">
-              <div className="text-muted-foreground">No hay mensajes</div>
+            <div className="flex flex-col items-center justify-center h-full text-center space-y-4">
+              <div className="p-4 rounded-full bg-muted/50">
+                <Paperclip className="size-8 text-muted-foreground/50" />
+              </div>
+              <div>
+                <div className="text-muted-foreground font-medium">No hay mensajes aún</div>
+                <p className="text-xs text-muted-foreground/70 mt-1">
+                  Escribe un mensaje o arrastra archivos aquí para comenzar
+                </p>
+              </div>
             </div>
           ) : (
             <>
@@ -716,13 +749,12 @@ export function HomeAgentChat({
             <span>{sendError}</span>
           </div>
         )}
-        <HomeAgentFileUpload
-          media={mediaAttachments}
-          onSelectFiles={handleFilesSelected}
-          onRemove={handleRemoveMedia}
-          isUploading={isUploadingMedia}
-        />
         <PromptInput onSubmit={handleSubmit}>
+          <HomeAgentAttachmentPreview
+            media={mediaAttachments}
+            onRemove={handleRemoveMedia}
+            isUploading={isUploadingMedia}
+          />
           <PromptInputTextarea
             value={inputValue}
             onChange={(e) => setInputValue(e.target.value)}
@@ -731,6 +763,13 @@ export function HomeAgentChat({
           />
           <PromptInputToolbar>
             <div className="flex items-center gap-2">
+              <PromptInputButton
+                onClick={handleFileButtonClick}
+                disabled={isInputDisabled}
+                title="Adjuntar archivo"
+              >
+                <Paperclip className="size-4" />
+              </PromptInputButton>
               <PromptInputButton
                 onClick={() => setWebSearchEnabled(!webSearchEnabled)}
                 className={webSearchEnabled ? "text-blue-500 bg-blue-50" : ""}
@@ -754,6 +793,20 @@ export function HomeAgentChat({
             />
           </PromptInputToolbar>
         </PromptInput>
+
+        {/* Hidden File Input */}
+        <input
+          type="file"
+          ref={fileInputRef}
+          className="hidden"
+          multiple
+          accept="image/*,application/pdf"
+          onChange={(e) => {
+            if (e.target.files && e.target.files.length > 0) {
+              handleFilesSelected(e.target.files);
+            }
+          }}
+        />
       </div>
 
       {/* Modal de citas unificado */}
