@@ -23,35 +23,39 @@ interface ParseResult {
  * Processes resolved references from frontend and replaces @-references in message.
  * The frontend has already resolved the references, so we just need to replace them in the text.
  */
-const vSelectionMeta = v.optional(v.object({
-  content: v.string(),
-  position: v.object({
-    line: v.number(),
-    column: v.number(),
+const vSelectionMeta = v.optional(
+  v.object({
+    content: v.string(),
+    position: v.object({
+      line: v.number(),
+      column: v.number(),
+    }),
+    range: v.object({
+      from: v.number(),
+      to: v.number(),
+    }),
+    escritoId: v.id("escritos"),
   }),
-  range: v.object({
-    from: v.number(),
-    to: v.number(),
-  }),
-  escritoId: v.id("escritos"),
-}));
+);
 
 export const parseAtReferences = mutation({
   args: {
     userId: v.id("users"),
     message: v.string(),
-    resolvedReferences: v.array(v.object({
-      type: v.union(
-        v.literal("client"),
-        v.literal("document"), 
-        v.literal("escrito"),
-        v.literal("case")
-      ),
-      id: v.string(),
-      name: v.string(),
-      originalText: v.string(),
-      selection: vSelectionMeta,
-    })),
+    resolvedReferences: v.array(
+      v.object({
+        type: v.union(
+          v.literal("client"),
+          v.literal("document"),
+          v.literal("escrito"),
+          v.literal("case"),
+        ),
+        id: v.string(),
+        name: v.string(),
+        originalText: v.string(),
+        selection: vSelectionMeta,
+      }),
+    ),
     caseId: v.optional(v.id("cases")),
   },
   handler: async (ctx, args): Promise<ParseResult> => {
@@ -76,9 +80,12 @@ export const parseAtReferences = mutation({
       };
 
       references.push(parsedRef);
-      
+
       // Replace the @-reference with the resolved name
-      cleanMessage = cleanMessage.replace(resolvedRef.originalText, resolvedRef.name);
+      cleanMessage = cleanMessage.replace(
+        resolvedRef.originalText,
+        resolvedRef.name,
+      );
     }
 
     return {
@@ -87,7 +94,6 @@ export const parseAtReferences = mutation({
     };
   },
 });
-
 
 /**
  * Gets available reference suggestions for autocomplete based on current case context
@@ -130,12 +136,14 @@ export const getReferencesSuggestions = query({
           if (
             client &&
             (!searchTerm ||
-              client.name.toLowerCase().includes(searchTerm.toLowerCase()))
+              client.displayName
+                .toLowerCase()
+                .includes(searchTerm.toLowerCase()))
           ) {
             suggestions.push({
               type: "client",
               id: client._id,
-              name: client.name,
+              name: client.displayName,
               preview: `${client.clientType} - ${clientCase.role || "Sin rol"}`,
             });
           }
@@ -145,9 +153,12 @@ export const getReferencesSuggestions = query({
 
     // Get documents (scoped to case if provided)
     if (!args.type || args.type === "document") {
-      const documents = await ctx.runQuery(api.functions.documents.getDocuments, {
-        caseId: args.caseId as Id<"cases">,
-      });
+      const documents = await ctx.runQuery(
+        api.functions.documents.getDocuments,
+        {
+          caseId: args.caseId as Id<"cases">,
+        },
+      );
 
       const filteredDocs = documents
         .filter(

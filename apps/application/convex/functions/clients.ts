@@ -152,67 +152,148 @@ async function batchFetchClientCases(
 }
 
 /**
- * Creates a new client record in the system.
+ * Creates a new client record using the juridical model (CCyCN + LGS).
  *
  * @param {Object} args - The function arguments
- * @param {string} args.name - The client's full name or company name
- * @param {string} [args.email] - The client's email address
- * @param {string} [args.phone] - The client's phone number
- * @param {string} [args.dni] - Document Nacional de Identidad (for individuals)
- * @param {string} [args.cuit] - Código Único de Identificación Tributaria (for companies)
- * @param {string} [args.address] - The client's physical address
- * @param {"individual" | "company"} args.clientType - Whether this is an individual person or company
- * @param {string} [args.notes] - Additional notes about the client
+ * @param {"humana" | "juridica"} args.naturalezaJuridica - Legal nature of the client
+ *
+ * For Persona Humana (naturalezaJuridica = "humana"):
+ * @param {string} args.nombre - First name
+ * @param {string} args.apellido - Last name
+ * @param {string} args.dni - DNI (required)
+ * @param {"sin_actividad" | "profesional" | "comerciante"} args.actividadEconomica - Economic activity
+ * @param {string} [args.cuit] - CUIT (required if actividadEconomica !== "sin_actividad")
+ * @param {string} [args.profesionEspecifica] - Specific profession
+ *
+ * For Persona Jurídica (naturalezaJuridica = "juridica"):
+ * @param {string} args.razonSocial - Company name
+ * @param {string} args.cuit - CUIT (required)
+ * @param {string} args.tipoPersonaJuridica - Type of legal entity
+ * @param {string} [args.tipoSociedad] - Society type (if tipoPersonaJuridica = "sociedad")
+ * @param {string} [args.descripcionOtro] - Description for "otro" types
+ *
  * @returns {Promise<string>} The created client's document ID
- * @throws {Error} When not authenticated
- *
- * @description This function creates a new client record with the authenticated user
- * as the creator. Clients can be either individuals (with DNI) or companies (with CUIT).
- * The function automatically sets the client as active and records who created it.
- *
- * @example
- * ```javascript
- * // Create an individual client
- * const clientId = await createClient({
- *   name: "Juan Pérez",
- *   email: "juan@email.com",
- *   dni: "12345678",
- *   clientType: "individual",
- *   phone: "+54 11 1234-5678"
- * });
- *
- * // Create a company client
- * const companyId = await createClient({
- *   name: "Empresa ABC S.A.",
- *   email: "contacto@empresa.com",
- *   cuit: "20-12345678-9",
- *   clientType: "company"
- * });
- * ```
  */
 export const createClient = mutation({
   args: {
-    name: v.string(),
+    // Capa 1 - Naturaleza Jurídica
+    naturalezaJuridica: v.union(v.literal("humana"), v.literal("juridica")),
+
+    // Campos Persona Humana
+    nombre: v.optional(v.string()),
+    apellido: v.optional(v.string()),
+    dni: v.optional(v.string()),
+    actividadEconomica: v.optional(
+      v.union(
+        v.literal("sin_actividad"),
+        v.literal("profesional"),
+        v.literal("comerciante"),
+      ),
+    ),
+    profesionEspecifica: v.optional(v.string()),
+
+    // Campos Persona Jurídica
+    razonSocial: v.optional(v.string()),
+    tipoPersonaJuridica: v.optional(
+      v.union(
+        v.literal("sociedad"),
+        v.literal("asociacion_civil"),
+        v.literal("fundacion"),
+        v.literal("cooperativa"),
+        v.literal("ente_publico"),
+        v.literal("consorcio"),
+        v.literal("otro"),
+      ),
+    ),
+    tipoSociedad: v.optional(
+      v.union(
+        v.literal("SA"),
+        v.literal("SAS"),
+        v.literal("SRL"),
+        v.literal("COLECTIVA"),
+        v.literal("COMANDITA_SIMPLE"),
+        v.literal("COMANDITA_ACCIONES"),
+        v.literal("CAPITAL_INDUSTRIA"),
+        v.literal("IRREGULAR"),
+        v.literal("HECHO"),
+        v.literal("OTRO"),
+      ),
+    ),
+    descripcionOtro: v.optional(v.string()),
+
+    // Campos comunes
+    cuit: v.optional(v.string()),
     email: v.optional(v.string()),
     phone: v.optional(v.string()),
-    dni: v.optional(v.string()),
-    cuit: v.optional(v.string()),
-    address: v.optional(v.string()),
-    clientType: v.union(v.literal("individual"), v.literal("company")),
+    domicilioLegal: v.optional(v.string()),
     notes: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const currentUser = await getCurrentUserFromAuth(ctx);
 
+    // Validaciones según naturaleza jurídica
+    let displayName: string;
+
+    if (args.naturalezaJuridica === "humana") {
+      if (!args.nombre?.trim()) {
+        throw new Error("El nombre es requerido para personas humanas");
+      }
+      if (!args.apellido?.trim()) {
+        throw new Error("El apellido es requerido para personas humanas");
+      }
+      if (!args.dni?.trim()) {
+        throw new Error("El DNI es obligatorio para personas humanas");
+      }
+      if (!args.actividadEconomica) {
+        throw new Error("La actividad económica es requerida");
+      }
+      if (args.actividadEconomica !== "sin_actividad" && !args.cuit?.trim()) {
+        throw new Error(
+          "El CUIT es obligatorio para profesionales y comerciantes",
+        );
+      }
+
+      displayName = `${args.apellido.trim()}, ${args.nombre.trim()}`;
+    } else {
+      if (!args.razonSocial?.trim()) {
+        throw new Error("La razón social es requerida para personas jurídicas");
+      }
+      if (!args.cuit?.trim()) {
+        throw new Error("El CUIT es obligatorio para personas jurídicas");
+      }
+      if (!args.tipoPersonaJuridica) {
+        throw new Error("El tipo de persona jurídica es requerido");
+      }
+      if (args.tipoPersonaJuridica === "sociedad" && !args.tipoSociedad) {
+        throw new Error("El tipo de sociedad es requerido");
+      }
+      if (
+        (args.tipoPersonaJuridica === "otro" || args.tipoSociedad === "OTRO") &&
+        !args.descripcionOtro?.trim()
+      ) {
+        throw new Error("La descripción es requerida para tipos no listados");
+      }
+
+      displayName = args.razonSocial.trim();
+    }
+
     const clientId = await ctx.db.insert("clients", {
-      name: args.name,
+      naturalezaJuridica: args.naturalezaJuridica,
+      nombre: args.nombre,
+      apellido: args.apellido,
+      dni: args.dni,
+      actividadEconomica: args.actividadEconomica,
+      profesionEspecifica: args.profesionEspecifica,
+      razonSocial: args.razonSocial,
+      tipoPersonaJuridica: args.tipoPersonaJuridica,
+      tipoSociedad: args.tipoSociedad,
+      descripcionOtro: args.descripcionOtro,
+      cuit: args.cuit,
       email: args.email,
       phone: args.phone,
-      dni: args.dni,
-      cuit: args.cuit,
-      address: args.address,
-      clientType: args.clientType,
+      domicilioLegal: args.domicilioLegal,
       notes: args.notes,
+      displayName,
       isActive: true,
       createdBy: currentUser._id,
     });
@@ -267,12 +348,114 @@ export const createClient = mutation({
  * // }
  * ```
  */
+// Validator reutilizable para el cliente con nuevo modelo jurídico
+const clientValidator = v.object({
+  _id: v.id("clients"),
+  _creationTime: v.number(),
+  // Capa 1 - Naturaleza Jurídica
+  naturalezaJuridica: v.union(v.literal("humana"), v.literal("juridica")),
+  // Campos Persona Humana
+  nombre: v.optional(v.string()),
+  apellido: v.optional(v.string()),
+  dni: v.optional(v.string()),
+  actividadEconomica: v.optional(
+    v.union(
+      v.literal("sin_actividad"),
+      v.literal("profesional"),
+      v.literal("comerciante"),
+    ),
+  ),
+  profesionEspecifica: v.optional(v.string()),
+  // Campos Persona Jurídica
+  razonSocial: v.optional(v.string()),
+  tipoPersonaJuridica: v.optional(
+    v.union(
+      v.literal("sociedad"),
+      v.literal("asociacion_civil"),
+      v.literal("fundacion"),
+      v.literal("cooperativa"),
+      v.literal("ente_publico"),
+      v.literal("consorcio"),
+      v.literal("otro"),
+    ),
+  ),
+  tipoSociedad: v.optional(
+    v.union(
+      v.literal("SA"),
+      v.literal("SAS"),
+      v.literal("SRL"),
+      v.literal("COLECTIVA"),
+      v.literal("COMANDITA_SIMPLE"),
+      v.literal("COMANDITA_ACCIONES"),
+      v.literal("CAPITAL_INDUSTRIA"),
+      v.literal("IRREGULAR"),
+      v.literal("HECHO"),
+      v.literal("OTRO"),
+    ),
+  ),
+  descripcionOtro: v.optional(v.string()),
+  // Campos comunes
+  cuit: v.optional(v.string()),
+  email: v.optional(v.string()),
+  phone: v.optional(v.string()),
+  domicilioLegal: v.optional(v.string()),
+  notes: v.optional(v.string()),
+  displayName: v.string(),
+  // Campos legado (ya no funca esto)
+  clientType: v.optional(
+    v.union(v.literal("individual"), v.literal("company")),
+  ),
+  name: v.optional(v.string()),
+  address: v.optional(v.string()),
+  // Sistema
+  isActive: v.boolean(),
+  createdBy: v.id("users"),
+});
+
+// Validator para casos asociados
+const clientCaseValidator = v.object({
+  case: v.union(
+    v.object({
+      _id: v.id("cases"),
+      _creationTime: v.number(),
+      title: v.string(),
+      description: v.optional(v.string()),
+      status: v.union(
+        v.literal("pendiente"),
+        v.literal("en progreso"),
+        v.literal("completado"),
+        v.literal("archivado"),
+        v.literal("cancelado"),
+      ),
+      category: v.optional(v.string()),
+      priority: v.union(
+        v.literal("low"),
+        v.literal("medium"),
+        v.literal("high"),
+      ),
+      startDate: v.number(),
+      endDate: v.optional(v.number()),
+      assignedLawyer: v.id("users"),
+      createdBy: v.id("users"),
+      isArchived: v.boolean(),
+      tags: v.optional(v.array(v.string())),
+      estimatedHours: v.optional(v.number()),
+      actualHours: v.optional(v.number()),
+      expedientNumber: v.optional(v.string()),
+      lastActivityAt: v.optional(v.number()),
+    }),
+    v.null(),
+  ),
+  role: v.optional(v.string()),
+  relationId: v.id("clientCases"),
+});
+
 export const getClients = query({
   args: {
     paginationOpts: v.optional(paginationOptsValidator),
     search: v.optional(v.string()),
-    clientType: v.optional(
-      v.union(v.literal("individual"), v.literal("company")),
+    naturalezaJuridica: v.optional(
+      v.union(v.literal("humana"), v.literal("juridica")),
     ),
     sortBy: v.optional(v.string()),
     sortOrder: v.optional(v.union(v.literal("asc"), v.literal("desc"))),
@@ -280,56 +463,8 @@ export const getClients = query({
   returns: v.object({
     page: v.array(
       v.object({
-        _id: v.id("clients"),
-        _creationTime: v.number(),
-        name: v.string(),
-        email: v.optional(v.string()),
-        phone: v.optional(v.string()),
-        dni: v.optional(v.string()),
-        cuit: v.optional(v.string()),
-        address: v.optional(v.string()),
-        clientType: v.union(v.literal("individual"), v.literal("company")),
-        isActive: v.boolean(),
-        notes: v.optional(v.string()),
-        createdBy: v.id("users"),
-        cases: v.array(
-          v.object({
-            case: v.union(
-              v.object({
-                _id: v.id("cases"),
-                _creationTime: v.number(),
-                title: v.string(),
-                description: v.optional(v.string()),
-                status: v.union(
-                  v.literal("pendiente"),
-                  v.literal("en progreso"),
-                  v.literal("completado"),
-                  v.literal("archivado"),
-                  v.literal("cancelado"),
-                ),
-                category: v.optional(v.string()),
-                priority: v.union(
-                  v.literal("low"),
-                  v.literal("medium"),
-                  v.literal("high"),
-                ),
-                startDate: v.number(),
-                endDate: v.optional(v.number()),
-                assignedLawyer: v.id("users"),
-                createdBy: v.id("users"),
-                isArchived: v.boolean(),
-                tags: v.optional(v.array(v.string())),
-                estimatedHours: v.optional(v.number()),
-                actualHours: v.optional(v.number()),
-                expedientNumber: v.optional(v.string()),
-                lastActivityAt: v.optional(v.number()),
-              }),
-              v.null(),
-            ),
-            role: v.optional(v.string()),
-            relationId: v.id("clientCases"),
-          }),
-        ),
+        ...clientValidator.fields,
+        cases: v.array(clientCaseValidator),
       }),
     ),
     isDone: v.boolean(),
@@ -401,8 +536,15 @@ export const getClients = query({
 
       // Apply fuzzy matching filter
       allClients = allClients.filter((client) => {
-        // Search in client name
-        if (fuzzyMatch(client.name, searchTerm)) return true;
+        // Search in displayName (nombre completo o razón social)
+        if (fuzzyMatch(client.displayName, searchTerm)) return true;
+
+        // Search in nombre y apellido (persona humana)
+        if (fuzzyMatch(client.nombre, searchTerm)) return true;
+        if (fuzzyMatch(client.apellido, searchTerm)) return true;
+
+        // Search in razón social (persona jurídica)
+        if (fuzzyMatch(client.razonSocial, searchTerm)) return true;
 
         // Search in DNI (normalize by removing common separators)
         if (client.dni) {
@@ -448,10 +590,10 @@ export const getClients = query({
       accessibleClientIds.has(c._id),
     );
 
-    // Apply client type filter
-    if (args.clientType) {
+    // Apply naturaleza jurídica filter
+    if (args.naturalezaJuridica) {
       filteredClients = filteredClients.filter(
-        (c) => c.clientType === args.clientType,
+        (c) => c.naturalezaJuridica === args.naturalezaJuridica,
       );
     }
 
@@ -462,12 +604,13 @@ export const getClients = query({
 
         switch (args.sortBy) {
           case "name":
-            aValue = a.name.toLowerCase();
-            bValue = b.name.toLowerCase();
+          case "displayName":
+            aValue = a.displayName.toLowerCase();
+            bValue = b.displayName.toLowerCase();
             break;
-          case "clientType":
-            aValue = a.clientType;
-            bValue = b.clientType;
+          case "naturalezaJuridica":
+            aValue = a.naturalezaJuridica;
+            bValue = b.naturalezaJuridica;
             break;
           case "createdAt":
           default:
@@ -526,56 +669,8 @@ export const getClientById = query({
   args: { clientId: v.id("clients") },
   returns: v.union(
     v.object({
-      _id: v.id("clients"),
-      _creationTime: v.number(),
-      name: v.string(),
-      email: v.optional(v.string()),
-      phone: v.optional(v.string()),
-      dni: v.optional(v.string()),
-      cuit: v.optional(v.string()),
-      address: v.optional(v.string()),
-      clientType: v.union(v.literal("individual"), v.literal("company")),
-      isActive: v.boolean(),
-      notes: v.optional(v.string()),
-      createdBy: v.id("users"),
-      cases: v.array(
-        v.object({
-          case: v.union(
-            v.object({
-              _id: v.id("cases"),
-              _creationTime: v.number(),
-              title: v.string(),
-              description: v.optional(v.string()),
-              status: v.union(
-                v.literal("pendiente"),
-                v.literal("en progreso"),
-                v.literal("completado"),
-                v.literal("archivado"),
-                v.literal("cancelado"),
-              ),
-              category: v.optional(v.string()),
-              priority: v.union(
-                v.literal("low"),
-                v.literal("medium"),
-                v.literal("high"),
-              ),
-              startDate: v.number(),
-              endDate: v.optional(v.number()),
-              assignedLawyer: v.id("users"),
-              createdBy: v.id("users"),
-              isArchived: v.boolean(),
-              tags: v.optional(v.array(v.string())),
-              estimatedHours: v.optional(v.number()),
-              actualHours: v.optional(v.number()),
-              expedientNumber: v.optional(v.string()),
-              lastActivityAt: v.optional(v.number()),
-            }),
-            v.null(),
-          ),
-          role: v.optional(v.string()),
-          relationId: v.id("clientCases"),
-        }),
-      ),
+      ...clientValidator.fields,
+      cases: v.array(clientCaseValidator),
     }),
     v.null(),
   ),
@@ -653,15 +748,51 @@ export const getClientById = query({
 export const updateClient = mutation({
   args: {
     clientId: v.id("clients"),
-    name: v.optional(v.string()),
+    // Campos Persona Humana
+    nombre: v.optional(v.string()),
+    apellido: v.optional(v.string()),
+    dni: v.optional(v.string()),
+    actividadEconomica: v.optional(
+      v.union(
+        v.literal("sin_actividad"),
+        v.literal("profesional"),
+        v.literal("comerciante"),
+      ),
+    ),
+    profesionEspecifica: v.optional(v.string()),
+    // Campos Persona Jurídica
+    razonSocial: v.optional(v.string()),
+    tipoPersonaJuridica: v.optional(
+      v.union(
+        v.literal("sociedad"),
+        v.literal("asociacion_civil"),
+        v.literal("fundacion"),
+        v.literal("cooperativa"),
+        v.literal("ente_publico"),
+        v.literal("consorcio"),
+        v.literal("otro"),
+      ),
+    ),
+    tipoSociedad: v.optional(
+      v.union(
+        v.literal("SA"),
+        v.literal("SAS"),
+        v.literal("SRL"),
+        v.literal("COLECTIVA"),
+        v.literal("COMANDITA_SIMPLE"),
+        v.literal("COMANDITA_ACCIONES"),
+        v.literal("CAPITAL_INDUSTRIA"),
+        v.literal("IRREGULAR"),
+        v.literal("HECHO"),
+        v.literal("OTRO"),
+      ),
+    ),
+    descripcionOtro: v.optional(v.string()),
+    // Campos comunes
+    cuit: v.optional(v.string()),
     email: v.optional(v.string()),
     phone: v.optional(v.string()),
-    dni: v.optional(v.string()),
-    cuit: v.optional(v.string()),
-    address: v.optional(v.string()),
-    clientType: v.optional(
-      v.union(v.literal("individual"), v.literal("company")),
-    ),
+    domicilioLegal: v.optional(v.string()),
     notes: v.optional(v.string()),
     isActive: v.optional(v.boolean()),
   },
@@ -701,27 +832,22 @@ export const updateClient = mutation({
       }
     }
 
-    // Ensure DNI vs CUIT consistency when switching clientType
-    if (patch.clientType) {
-      if (patch.clientType === "individual") {
-        // keep dni, clear cuit (both explicitly passed empty strings and existing values)
-        if (patch.cuit === "" || currentClient.cuit) {
-          patch.cuit = undefined as any;
-        }
-      }
-      if (patch.clientType === "company") {
-        // keep cuit, clear dni (both explicitly passed empty strings and existing values)
-        if (patch.dni === "" || currentClient.dni) {
-          patch.dni = undefined as any;
-        }
+    // Recalcular displayName si se actualizan campos relevantes
+    let displayName = currentClient.displayName;
+    if (currentClient.naturalezaJuridica === "humana") {
+      const nombre = patch.nombre ?? currentClient.nombre;
+      const apellido = patch.apellido ?? currentClient.apellido;
+      if (nombre && apellido) {
+        displayName = `${apellido.trim()}, ${nombre.trim()}`;
       }
     } else {
-      // If clientType is not being changed, only clear fields explicitly passed as empty
-      if (patch.cuit === "") patch.cuit = undefined as any;
-      if (patch.dni === "") patch.dni = undefined as any;
+      const razonSocial = patch.razonSocial ?? currentClient.razonSocial;
+      if (razonSocial) {
+        displayName = razonSocial.trim();
+      }
     }
 
-    await ctx.db.patch(clientId, patch as any);
+    await ctx.db.patch(clientId, { ...patch, displayName } as any);
     return clientId;
   },
 });
@@ -809,18 +935,7 @@ export const searchClientsForAgent = internalQuery({
   },
   returns: v.array(
     v.object({
-      _id: v.id("clients"),
-      _creationTime: v.number(),
-      name: v.string(),
-      email: v.optional(v.string()),
-      phone: v.optional(v.string()),
-      dni: v.optional(v.string()),
-      cuit: v.optional(v.string()),
-      address: v.optional(v.string()),
-      clientType: v.union(v.literal("individual"), v.literal("company")),
-      isActive: v.boolean(),
-      notes: v.optional(v.string()),
-      createdBy: v.id("users"),
+      ...clientValidator.fields,
       cases: v.array(
         v.object({
           caseId: v.id("cases"),
@@ -864,11 +979,11 @@ export const searchClientsForAgent = internalQuery({
         .filter((c): c is Doc<"clients"> => c !== null)
         .slice(0, limit);
     } else if (args.searchTerm) {
-      // Use search index for name search
+      // Use search index for displayName search
       const searchResults = await ctx.db
         .query("clients")
         .withSearchIndex("search_clients", (q) =>
-          q.search("name", args.searchTerm!).eq("isActive", true),
+          q.search("displayName", args.searchTerm!).eq("isActive", true),
         )
         .take(limit);
 
@@ -915,5 +1030,171 @@ export const searchClientsForAgent = internalQuery({
         relationId,
       })),
     }));
+  },
+});
+
+// ========================================
+// MIGRATION FUNCTIONS
+// ========================================
+
+/**
+ * Migrates legacy clients (with clientType/name/address) to the new juridical model.
+ * This should be run ONCE after deploying the new schema.
+ *
+ * Migration rules:
+ * - clientType: "individual" → naturalezaJuridica: "humana"
+ * - clientType: "company" → naturalezaJuridica: "juridica"
+ * - name → displayName (and split into nombre/apellido for individuals, or razonSocial for companies)
+ * - address → domicilioLegal
+ *
+ * @returns Summary of migrated clients
+ */
+export const migrateClientsToJuridicalModel = mutation({
+  args: {
+    dryRun: v.optional(v.boolean()), // If true, only report what would be migrated
+  },
+  handler: async (ctx, args) => {
+    // Get all clients
+    const allClients = await ctx.db.query("clients").collect();
+
+    const results = {
+      total: allClients.length,
+      alreadyMigrated: 0,
+      needsMigration: 0,
+      migrated: 0,
+      errors: [] as Array<{ clientId: string; error: string }>,
+    };
+
+    for (const client of allClients) {
+      // Check if client already has new model fields
+      if (client.naturalezaJuridica && client.displayName) {
+        results.alreadyMigrated++;
+        continue;
+      }
+
+      results.needsMigration++;
+
+      // Skip actual migration if dry run
+      if (args.dryRun) {
+        continue;
+      }
+
+      try {
+        // Determine naturaleza jurídica from legacy clientType
+        const legacyClientType = (client as any).clientType;
+        const legacyName = (client as any).name || "";
+        const legacyAddress = (client as any).address;
+
+        let updateData: Record<string, any> = {
+          domicilioLegal: legacyAddress || client.domicilioLegal,
+        };
+
+        if (legacyClientType === "company") {
+          // Persona Jurídica
+          updateData.naturalezaJuridica = "juridica";
+          updateData.razonSocial = legacyName;
+          updateData.displayName = legacyName || "Sin nombre";
+          // Default to "otro" since we don't know the exact type
+          updateData.tipoPersonaJuridica = client.tipoPersonaJuridica || "otro";
+          updateData.descripcionOtro =
+            client.descripcionOtro || "Migrado del sistema anterior";
+        } else {
+          // Persona Humana (default for "individual" or unknown)
+          updateData.naturalezaJuridica = "humana";
+
+          // Try to split name into nombre/apellido
+          const nameParts = legacyName.trim().split(/\s+/);
+          if (nameParts.length >= 2) {
+            // Assume last part is apellido, rest is nombre
+            updateData.apellido = nameParts.pop();
+            updateData.nombre = nameParts.join(" ");
+          } else {
+            // Single word name
+            updateData.nombre = legacyName || "Sin nombre";
+            updateData.apellido = "-";
+          }
+
+          // Create displayName in "Apellido, Nombre" format
+          updateData.displayName = `${updateData.apellido}, ${updateData.nombre}`;
+
+          // Keep existing DNI, default activity
+          updateData.actividadEconomica =
+            client.actividadEconomica || "sin_actividad";
+        }
+
+        await ctx.db.patch(client._id, updateData);
+        results.migrated++;
+      } catch (error) {
+        results.errors.push({
+          clientId: client._id,
+          error: error instanceof Error ? error.message : "Unknown error",
+        });
+      }
+    }
+
+    console.log("Migration results:", results);
+    return results;
+  },
+});
+
+/**
+ * Gets migration status - how many clients need migration
+ */
+export const getMigrationStatus = query({
+  args: {},
+  returns: v.object({
+    total: v.number(),
+    alreadyMigrated: v.number(),
+    needsMigration: v.number(),
+    sampleLegacyClients: v.array(
+      v.object({
+        _id: v.id("clients"),
+        name: v.optional(v.string()),
+        clientType: v.optional(
+          v.union(v.literal("individual"), v.literal("company")),
+        ),
+        hasNewModel: v.boolean(),
+      }),
+    ),
+  }),
+  handler: async (ctx) => {
+    await getCurrentUserFromAuth(ctx);
+
+    const allClients = await ctx.db.query("clients").collect();
+
+    let alreadyMigrated = 0;
+    let needsMigration = 0;
+    const sampleLegacyClients: Array<{
+      _id: any;
+      name: string | undefined;
+      clientType: "individual" | "company" | undefined;
+      hasNewModel: boolean;
+    }> = [];
+
+    for (const client of allClients) {
+      const hasNewModel = !!(client.naturalezaJuridica && client.displayName);
+
+      if (hasNewModel) {
+        alreadyMigrated++;
+      } else {
+        needsMigration++;
+        // Keep first 5 samples
+        if (sampleLegacyClients.length < 5) {
+          sampleLegacyClients.push({
+            _id: client._id,
+            name: (client as any).name,
+            clientType: (client as any).clientType,
+            hasNewModel,
+          });
+        }
+      }
+    }
+
+    return {
+      total: allClients.length,
+      alreadyMigrated,
+      needsMigration,
+      sampleLegacyClients,
+    };
   },
 });

@@ -1,11 +1,11 @@
 /**
  * Migration Functions Index
- * 
+ *
  * This file exports all migration-related functions so they can be
  * properly referenced via the internal API.
- * 
- * NOTE: We do NOT re-export functions from kindeHelpers.ts, firebaseHelpers.ts, 
- * or clerkHelpers.ts because those files have "use node" and re-exporting them 
+ *
+ * NOTE: We do NOT re-export functions from kindeHelpers.ts, firebaseHelpers.ts,
+ * or clerkHelpers.ts because those files have "use node" and re-exporting them
  * causes bundling issues.
  * Instead, call them directly via:
  * - internal.migrations.kindeHelpers.getAllKindeUsers
@@ -39,8 +39,7 @@ export {
 } from "./sendAnnouncement";
 
 // Export phase 2 functions (Data Migration)
-export { migrateUserData } from "./migrateUserData";
+// export { migrateUserData } from "./migrateUserData";
 export { createCase } from "./migrateCases";
-export { createClient } from "./migrateClients";
+// export { createClient } from "./migrateClients";
 export { createDocument } from "./migrateDocuments";
-
