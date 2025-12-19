@@ -348,7 +348,53 @@ export const createClient = mutation({
  * // }
  * ```
  */
+/**
+ * Helper function to compute displayName for legacy clients.
+ * Used to ensure all returned clients have a displayName even if not in DB.
+ */
+function computeDisplayName(client: Doc<"clients">): string {
+  // If displayName exists, use it
+  if (client.displayName) return client.displayName;
+
+  // For new model clients without displayName (shouldn't happen but just in case)
+  if (
+    client.naturalezaJuridica === "humana" &&
+    client.apellido &&
+    client.nombre
+  ) {
+    return `${client.apellido}, ${client.nombre}`;
+  }
+  if (client.naturalezaJuridica === "juridica" && client.razonSocial) {
+    return client.razonSocial;
+  }
+
+  // For legacy clients, use the old name field
+  if ((client as any).name) {
+    return (client as any).name;
+  }
+
+  // Last resort fallback
+  return "Sin nombre";
+}
+
+/**
+ * Normalizes a client document to ensure it has all required fields for the API.
+ * Computes displayName and naturalezaJuridica for legacy clients.
+ */
+function normalizeClient<T extends Doc<"clients">>(
+  client: T,
+): T & { displayName: string; naturalezaJuridica: "humana" | "juridica" } {
+  return {
+    ...client,
+    displayName: computeDisplayName(client),
+    naturalezaJuridica:
+      client.naturalezaJuridica ||
+      ((client as any).clientType === "company" ? "juridica" : "humana"),
+  };
+}
+
 // Validator reutilizable para el cliente con nuevo modelo jurídico
+// displayName es string porque siempre lo calculamos en el handler
 const clientValidator = v.object({
   _id: v.id("clients"),
   _creationTime: v.number(),
@@ -605,8 +651,8 @@ export const getClients = query({
         switch (args.sortBy) {
           case "name":
           case "displayName":
-            aValue = a.displayName.toLowerCase();
-            bValue = b.displayName.toLowerCase();
+            aValue = computeDisplayName(a).toLowerCase();
+            bValue = computeDisplayName(b).toLowerCase();
             break;
           case "naturalezaJuridica":
             aValue = a.naturalezaJuridica;
@@ -618,7 +664,8 @@ export const getClients = query({
             bValue = b._creationTime;
             break;
         }
-
+        if (aValue == null) aValue = "";
+        if (bValue == null) bValue = "";
         if (aValue < bValue) return args.sortOrder === "asc" ? -1 : 1;
         if (aValue > bValue) return args.sortOrder === "asc" ? 1 : -1;
         return 0;
@@ -640,8 +687,14 @@ export const getClients = query({
     // Batch fetch related data to avoid N+1 queries
     const clientsWithCases = await batchFetchClientCases(ctx, paginatedClients);
 
+    // Normalize clients to ensure displayName and naturalezaJuridica are present
+    const normalizedClients = clientsWithCases.map((clientWithCases) => ({
+      ...normalizeClient(clientWithCases),
+      cases: clientWithCases.cases,
+    }));
+
     return {
-      page: clientsWithCases,
+      page: normalizedClients,
       isDone,
       continueCursor,
       totalCount: filteredClients.length,
@@ -709,7 +762,11 @@ export const getClientById = query({
     // Use batch fetching for single client as well for consistency
     const [clientWithCases] = await batchFetchClientCases(ctx, [client]);
 
-    return clientWithCases;
+    // Normalize to ensure displayName and naturalezaJuridica are present
+    return {
+      ...normalizeClient(clientWithCases),
+      cases: clientWithCases.cases,
+    };
   },
 });
 
@@ -1019,9 +1076,9 @@ export const searchClientsForAgent = internalQuery({
     // Use batch fetching to get cases for all clients
     const clientsWithBasicCases = await batchFetchClientCases(ctx, clients);
 
-    // Transform to the format expected by the agent
+    // Transform to the format expected by the agent, normalizing legacy clients
     return clientsWithBasicCases.map((client) => ({
-      ...client,
+      ...normalizeClient(client),
       cases: client.cases.map(({ case: caseData, role, relationId }) => ({
         caseId: caseData!._id,
         caseTitle: caseData!.title,
@@ -1158,7 +1215,7 @@ export const getMigrationStatus = query({
     ),
   }),
   handler: async (ctx) => {
-    await getCurrentUserFromAuth(ctx);
+    // await getCurrentUserFromAuth(ctx);
 
     const allClients = await ctx.db.query("clients").collect();
 

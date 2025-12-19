@@ -135,6 +135,7 @@ export const getReferencesSuggestions = query({
           const client = await ctx.db.get(clientCase.clientId);
           if (
             client &&
+            client.displayName &&
             (!searchTerm ||
               client.displayName
                 .toLowerCase()
@@ -143,7 +144,7 @@ export const getReferencesSuggestions = query({
             suggestions.push({
               type: "client",
               id: client._id,
-              name: client.displayName,
+              name: client.displayName as string,
               preview: `${client.clientType} - ${clientCase.role || "Sin rol"}`,
             });
           }

@@ -159,11 +159,14 @@ export default defineSchema({
   // Clients table - legal clients (modelo jurídico CCyCN + LGS)
   clients: defineTable({
     // ============================================
-    // CAPA 1 - NATURALEZA JURÍDICA (obligatorio)
+    // CAPA 1 - NATURALEZA JURÍDICA
+    // Opcional para compatibilidad con datos legacy - las funciones calculan fallback
     // ============================================
-    naturalezaJuridica: v.union(
-      v.literal("humana"), // Persona humana (Art. 19 CCyCN)
-      v.literal("juridica"), // Persona jurídica (Art. 141 CCyCN)
+    naturalezaJuridica: v.optional(
+      v.union(
+        v.literal("humana"), // Persona humana (Art. 19 CCyCN)
+        v.literal("juridica"), // Persona jurídica (Art. 141 CCyCN)
+      ),
     ),
 
     // ============================================
@@ -230,7 +233,8 @@ export default defineSchema({
     notes: v.optional(v.string()),
 
     // Campo computado para display y búsquedas (nombre completo o razón social)
-    displayName: v.string(),
+    // Opcional para compatibilidad con datos legacy - las funciones calculan fallback
+    displayName: v.optional(v.string()),
 
     // ============================================
     // CAMPOS LEGADO (para migración - deprecated)
