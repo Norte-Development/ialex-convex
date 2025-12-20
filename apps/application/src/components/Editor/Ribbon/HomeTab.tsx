@@ -10,6 +10,8 @@ import {
   AlignCenter,
   AlignRight,
   AlignJustify,
+  Undo2,
+  Redo2,
 } from "lucide-react";
 import { FontPicker } from "../Toolbar/FontPicker";
 import { FontSizePicker } from "../Toolbar/FontSizePicker";
@@ -25,6 +27,8 @@ export function HomeTab({ editor }: HomeTabProps) {
   const editorState = useEditorState({
     editor,
     selector: (ctx) => ({
+      canUndo: ctx.editor.can().undo() ?? false,
+      canRedo: ctx.editor.can().redo() ?? false,
       isBold: ctx.editor.isActive("bold") ?? false,
       isItalic: ctx.editor.isActive("italic") ?? false,
       isUnderline: ctx.editor.isActive("underline") ?? false,
@@ -38,6 +42,37 @@ export function HomeTab({ editor }: HomeTabProps) {
 
   return (
     <div className="ribbon-tab-content">
+      {/* Edit Group */}
+      <div className="ribbon-group">
+        <div className="ribbon-group-label">Edición</div>
+        <div className="ribbon-group-content">
+          <div className="flex gap-0.5">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => editor.chain().focus().undo().run()}
+              disabled={!editorState.canUndo}
+              className="h-7 w-7 p-0 hover:bg-office-hover"
+              title="Deshacer (Ctrl+Z)"
+            >
+              <Undo2 className="h-4 w-4" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => editor.chain().focus().redo().run()}
+              disabled={!editorState.canRedo}
+              className="h-7 w-7 p-0 hover:bg-office-hover"
+              title="Rehacer (Ctrl+Y)"
+            >
+              <Redo2 className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+      </div>
+
+      <div className="ribbon-separator" />
+
       {/* Font Group */}
       <div className="ribbon-group">
         <div className="ribbon-group-label">Fuente</div>

@@ -14,13 +14,7 @@ import { api } from "../../../convex/_generated/api";
 import { Checkbox } from "../ui/checkbox";
 import { useNavigate } from "react-router-dom";
 import { useState } from "react";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "../ui/dropdown-menu";
+
 import {
   AlertDialog,
   AlertDialogAction,
@@ -32,7 +26,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "../ui/alert-dialog";
-import { MoreVertical, Pencil, Trash2, X } from "lucide-react";
+import { Pencil, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
 import { Id } from "../../../convex/_generated/dataModel";
 import EditCaseDialog from "./EditCaseDialog";
@@ -365,13 +359,14 @@ export default function CaseTable({
               <TableCell className="text-center hidden md:table-cell">
                 Miembros
               </TableCell>
+              <TableCell className="text-center w-20">Acciones</TableCell>
             </TableRow>
           </TableHeader>
           <TableBody>
             {!cases || cases.length === 0 ? (
               <TableRow>
                 <TableCell
-                  colSpan={5}
+                  colSpan={6}
                   className="text-center py-8 text-gray-500"
                 >
                   No hay casos disponibles
@@ -409,51 +404,36 @@ export default function CaseTable({
                   <TableCell className="text-center hidden md:table-cell">
                     <CaseUsers caseId={case_._id} />
                   </TableCell>
-                  {(case_.accessLevel === "advanced" ||
-                    case_.accessLevel === "admin") && (
-                    <TableCell className="!p-0">
-                      <div
-                        className="absolute right-2 top-1/2 -translate-y-1/2 z-10"
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="h-8 w-8 p-0 opacity-0 group-hover:opacity-100 !hover:opacity-100 transition-opacity bg-white shadow-sm"
-                            >
-                              <MoreVertical className="h-4 w-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            {(case_.accessLevel === "advanced" ||
-                              case_.accessLevel === "admin") && (
-                              <DropdownMenuItem
-                                onClick={() => handleEdit(case_)}
-                                className="cursor-pointer"
-                              >
-                                <Pencil className="mr-2 h-4 w-4" />
-                                <span>Editar</span>
-                              </DropdownMenuItem>
-                            )}
-                            {case_.accessLevel === "admin" && (
-                              <>
-                                <DropdownMenuSeparator />
-                                <DropdownMenuItem
-                                  onClick={() => setCaseToDelete(case_)}
-                                  className="cursor-pointer text-red-600 focus:text-red-600"
-                                >
-                                  <Trash2 className="mr-2 h-4 w-4" />
-                                  <span>Eliminar</span>
-                                </DropdownMenuItem>
-                              </>
-                            )}
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </div>
-                    </TableCell>
-                  )}
+                  <TableCell className="text-center">
+                    <div
+                      className="flex justify-center items-center gap-1"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      {(case_.accessLevel === "advanced" ||
+                        case_.accessLevel === "admin") && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleEdit(case_)}
+                          className="h-8 w-8 p-0 hover:bg-gray-100"
+                          title="Editar"
+                        >
+                          <Pencil className="h-4 w-4 text-gray-600" />
+                        </Button>
+                      )}
+                      {case_.accessLevel === "admin" && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setCaseToDelete(case_)}
+                          className="h-8 w-8 p-0 hover:bg-red-50"
+                          title="Eliminar"
+                        >
+                          <Trash2 className="h-4 w-4 text-red-600" />
+                        </Button>
+                      )}
+                    </div>
+                  </TableCell>
                 </TableRow>
               ))
             )}

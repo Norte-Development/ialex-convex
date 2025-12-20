@@ -57,6 +57,7 @@ import HomeAgentPage from "./pages/home/HomeAgentPage";
 import HomeAgentChatPage from "./pages/home/HomeAgentThreadPage";
 import AdminPage from "./pages/AdminPage";
 import AdminPopupsPage from "./pages/AdminPopupsPage";
+import DriveConnectedPage from "./pages/DriveConnectedPage";
 
 // Lazy load only heavy pages with document viewers/editors
 const CaseDocumentPage = lazy(
@@ -365,6 +366,14 @@ const AppWithThread = () => {
                       element={
                         <ProtectedRoute>
                           <BillingSuccessPage />
+                        </ProtectedRoute>
+                      }
+                    />
+                    <Route
+                      path="/drive-connected"
+                      element={
+                        <ProtectedRoute>
+                          <DriveConnectedPage />
                         </ProtectedRoute>
                       }
                     />

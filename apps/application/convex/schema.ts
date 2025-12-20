@@ -1016,4 +1016,31 @@ export default defineSchema({
     .index("by_subscription", ["subscriptionId"])
     .index("by_user", ["userId"])
     .index("by_sent_date", ["sentAt"]),
+
+  // ========================================
+  // GOOGLE DRIVE INTEGRATION
+  // ========================================
+
+  // Google OAuth State Tokens - temporary tokens for OAuth flow
+  googleOAuthStates: defineTable({
+    state: v.string(), // OAuth state token
+    userId: v.id("users"), // User initiating the OAuth flow
+    createdAt: v.number(), // Timestamp when state was created
+  })
+    .index("by_state", ["state"])
+    .index("by_user", ["userId"])
+    .index("by_created_at", ["createdAt"]),
+
+  // Google Accounts - stores OAuth tokens for Google Drive/Docs access
+  googleAccounts: defineTable({
+    userId: v.id("users"), // User who connected their Google account
+    accessToken: v.string(), // Google OAuth access token
+    refreshToken: v.optional(v.string()), // Google OAuth refresh token (for token renewal)
+    expiryDate: v.optional(v.number()), // Timestamp when access token expires
+    scope: v.string(), // OAuth scopes granted (comma-separated)
+    tokenType: v.string(), // Usually "Bearer"
+    createdAt: v.number(), // Timestamp when account was first connected
+    updatedAt: v.number(), // Timestamp when tokens were last updated
+  })
+    .index("by_user", ["userId"]),
 });
