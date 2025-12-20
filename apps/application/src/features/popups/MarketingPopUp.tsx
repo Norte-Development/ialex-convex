@@ -179,83 +179,45 @@ export function MarketingPopUp() {
     >
       {displayPopup.template === "promo" ? (
         <DialogContent className="sm:max-w-[900px] p-0 overflow-hidden text-white border-border">
-          <div className="flex flex-col md:flex-row h-full">
-            <div className="w-full md:w-[40%] relative min-h-[200px] md:min-h-full flex flex-col items-center justify-center p-8 overflow-hidden bg-linear-to-br from-primary to-primary/80">
-              {/* Background Image */}
-              {imageUrl && (
-                <img
-                  src={imageUrl}
-                  alt=""
-                  className="absolute inset-0 w-full h-full object-cover opacity-30"
-                />
-              )}
-              <div className="relative z-10 text-center space-y-2">
-                {displayPopup.badgeText ? (
-                  <div className="flex justify-center">
-                    <Badge className="px-4 py-1 text-xl" variant="secondary">
-                      {displayPopup.badgeText}
-                    </Badge>
-                  </div>
-                ) : null}
-                <h2 className="text-3xl md:text-5xl font-black tracking-tight text-white leading-none">
-                  {displayPopup.title}
-                </h2>
-                {displayPopup.subtitle ? (
-                  <p className="text-lg font-semibold text-white/90 whitespace-pre-wrap">
-                    {displayPopup.subtitle}
-                  </p>
-                ) : null}
+          <div className="w-full h-full relative min-h-[200px]  flex flex-col items-center justify-center  overflow-hidden bg-[#022570] pt-20">
+            {displayPopup.badgeText ? (
+              <div className="flex justify-center">
+                <Badge className="px-4 py-1 text-xl" variant="secondary">
+                  {displayPopup.badgeText}
+                </Badge>
               </div>
-            </div>
-
-            <div className="w-full md:w-[60%] p-6 md:p-8 flex flex-col bg-background relative h-full">
-              {actions.length > 0 ? (
-                <div className="mt-auto flex flex-col gap-4 h-full md:justify-between">
-                  {displayPopup.upperBody ? (
-                    <p className="text-xl font-bold whitespace-pre-wrap">
-                      {displayPopup.upperBody}
-                    </p>
-                  ) : null}
-                  <p className="text-lg text-zinc-300 whitespace-pre-wrap">
+            ) : null}
+            <h2 className="text-3xl md:text-5xl  h-full font-black tracking-tight text-white leading-none translate-y-5">
+              {displayPopup.title}
+            </h2>
+            <div className="flex  gap-0 p-0  w-full h-full  ">
+              <div className="w-[40%] h-full gap-2  flex flex-col justify-center items-center">
+                {displayPopup.body ? (
+                  <p className="text-3xl text-center px-5 text-semibold  text-white/90 whitespace-pre-wrap">
                     {displayPopup.body}
                   </p>
-                  {actions.slice(0, 2).map((action, idx) => (
-                    <Button
-                      key={idx}
-                      onClick={() => void handleAction(action)}
-                      disabled={isUpgrading}
-                      variant={idx === 0 ? "default" : "outline"}
-                      className="w-full h-auto py-4 px-6 flex items-center justify-between"
-                    >
-                      <span className="text-sm font-semibold">
-                        {action.label}
-                      </span>
-                      <span className="text-sm font-bold">→</span>
-                    </Button>
-                  ))}
-                </div>
-              ) : (
-                <div className="mt-auto flex justify-end">
+                ) : null}
+                {actions.slice(0, 2).map((action, idx) => (
                   <Button
-                    variant="outline"
-                    onClick={() => {
-                      closeAndDismiss();
-                    }}
+                    key={idx}
+                    onClick={() => void handleAction(action)}
+                    disabled={isUpgrading}
+                    variant={idx === 0 ? "default" : "outline"}
+                    className="w-fit text-small  bg-[#022570] text-white hover:bg-[#022570] hover:text-white border px-5 shadow-lg"
                   >
-                    Cerrar
+                    {action.label}
                   </Button>
-                </div>
-              )}
-
-              {actions.length > 0 ? (
-                <Button
-                  variant="ghost"
-                  className="mt-4 text-zinc-300 hover:text-white"
-                  onClick={() => closeAndDismiss()}
-                >
-                  Cerrar
-                </Button>
-              ) : null}
+                ))}
+              </div>
+              <div className="w-[60%] h-full flex justify-center items-center p-5">
+                {imageUrl && (
+                  <img
+                    src={imageUrl}
+                    alt=""
+                    className="h-[75%] w-[950%] object-cover bg-red-400"
+                  />
+                )}
+              </div>
             </div>
           </div>
         </DialogContent>

@@ -213,7 +213,7 @@ export function PopupFormDialog(props: Props) {
             />
           </div>
 
-          <div className="space-y-2 md:col-span-2">
+          {/* <div className="space-y-2 md:col-span-2">
             <Label htmlFor={`${mode}-subtitle`}>Subtítulo (opcional)</Label>
             <Input
               id={`${mode}-subtitle`}
@@ -223,8 +223,8 @@ export function PopupFormDialog(props: Props) {
                 setForm((p) => ({ ...p, subtitle: e.target.value }))
               }
             />
-          </div>
-
+          </div> */}
+          {/* 
           <div className="space-y-2 md:col-span-2">
             <Label htmlFor={`${mode}-upper-body`}>Upper body (opcional)</Label>
             <Textarea
@@ -236,7 +236,7 @@ export function PopupFormDialog(props: Props) {
               }
               rows={3}
             />
-          </div>
+          </div> */}
 
           <div className="space-y-2 md:col-span-2">
             <Label htmlFor={`${mode}-body`}>Mensaje</Label>
