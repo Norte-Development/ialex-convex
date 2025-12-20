@@ -21,7 +21,7 @@ import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Button as UIButton } from "@/components/ui/button";
-import { Plus, Trash2 } from "lucide-react";
+import { Plus, Trash2, ImageIcon, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
 import {
@@ -262,6 +262,68 @@ export function PopupFormDialog(props: Props) {
             <p className="text-xs text-muted-foreground">
               Se muestra como etiqueta en el template Promo.
             </p>
+          </div>
+
+          {/* Image Upload Section */}
+          <div className="space-y-3 md:col-span-2 rounded-md border p-3">
+            <div>
+              <p className="text-sm font-medium">Imagen (opcional)</p>
+              <p className="text-xs text-muted-foreground">
+                Imagen promocional para el pop-up. Recomendado: 800x600px.
+              </p>
+            </div>
+
+            {form.imagePreviewUrl ? (
+              <div className="relative inline-block">
+                <img
+                  src={form.imagePreviewUrl}
+                  alt="Preview"
+                  className="max-h-40 rounded-md border object-contain"
+                />
+                <UIButton
+                  type="button"
+                  variant="destructive"
+                  size="icon"
+                  className="absolute -top-2 -right-2 h-6 w-6"
+                  onClick={() =>
+                    setForm((p) => ({
+                      ...p,
+                      imageFile: null,
+                      imagePreviewUrl: "",
+                      existingImageBucket: undefined,
+                      existingImageObject: undefined,
+                    }))
+                  }
+                >
+                  <X className="h-4 w-4" />
+                </UIButton>
+              </div>
+            ) : (
+              <label className="flex cursor-pointer flex-col items-center justify-center gap-2 rounded-md border-2 border-dashed border-muted-foreground/25 bg-muted/50 p-6 transition-colors hover:border-muted-foreground/50 hover:bg-muted">
+                <ImageIcon className="h-8 w-8 text-muted-foreground" />
+                <span className="text-sm text-muted-foreground">
+                  Click para seleccionar imagen
+                </span>
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) {
+                      const previewUrl = URL.createObjectURL(file);
+                      setForm((p) => ({
+                        ...p,
+                        imageFile: file,
+                        imagePreviewUrl: previewUrl,
+                        existingImageBucket: undefined,
+                        existingImageObject: undefined,
+                      }));
+                    }
+                  }}
+                />
+              </label>
+            )}
           </div>
 
           <div className="space-y-3 md:col-span-2 rounded-md border p-3">

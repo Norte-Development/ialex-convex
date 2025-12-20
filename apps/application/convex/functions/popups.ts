@@ -1,8 +1,9 @@
 import { v } from "convex/values";
-import { mutation, query } from "../_generated/server";
+import { action, mutation, query } from "../_generated/server";
 import { ConvexError } from "convex/values";
 import { getCurrentUserFromAuth } from "../auth_utils";
 import { _getUserPlan } from "../billing/features";
+import { internal, api } from "../_generated/api";
 
 const popupTemplateValidator = v.union(v.literal("simple"), v.literal("promo"));
 const popupAudienceValidator = v.union(
@@ -126,6 +127,9 @@ export const createPopupAdmin = mutation({
     maxImpressions: v.optional(v.number()),
 
     priority: v.optional(v.number()),
+    // Image fields
+    imageGcsBucket: v.optional(v.string()),
+    imageGcsObject: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     // TEMP: server-side admin guard disabled; relying on frontend RequireAdminsOrg.
@@ -172,6 +176,8 @@ export const createPopupAdmin = mutation({
       frequencyDays: args.frequencyDays,
       maxImpressions: args.maxImpressions,
       priority: args.priority,
+      imageGcsBucket: args.imageGcsBucket,
+      imageGcsObject: args.imageGcsObject,
       createdBy: currentUser._id,
       updatedBy: currentUser._id,
       createdAt: now,
@@ -208,6 +214,9 @@ export const updatePopupAdmin = mutation({
     maxImpressions: v.optional(v.number()),
 
     priority: v.optional(v.number()),
+    // Image fields
+    imageGcsBucket: v.optional(v.string()),
+    imageGcsObject: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     // TEMP: server-side admin guard disabled; relying on frontend RequireAdminsOrg.
@@ -275,6 +284,10 @@ export const updatePopupAdmin = mutation({
       patch.maxImpressions = args.maxImpressions;
 
     if (args.priority !== undefined) patch.priority = args.priority;
+    if (args.imageGcsBucket !== undefined)
+      patch.imageGcsBucket = args.imageGcsBucket;
+    if (args.imageGcsObject !== undefined)
+      patch.imageGcsObject = args.imageGcsObject;
 
     await ctx.db.patch(args.popupId, patch);
   },
@@ -519,5 +532,94 @@ export const dismissPopup = mutation({
     });
 
     return { dismissedAt: now };
+  },
+});
+
+/**
+ * Admin: generate signed URL for popup image upload.
+ */
+export const generatePopupImageUploadUrl = action({
+  args: {
+    mimeType: v.string(),
+    fileSize: v.number(),
+  },
+  handler: async (
+    ctx,
+    args,
+  ): Promise<{
+    url: string;
+    bucket: string;
+    object: string;
+    contentType: string;
+    expiresAt: number;
+  }> => {
+    const user = await ctx.auth.getUserIdentity();
+    if (!user) throw new Error("User not authenticated");
+
+    // Validate it's an image
+    if (!args.mimeType.startsWith("image/")) {
+      throw new Error("Only image files are allowed");
+    }
+
+    const bucket = process.env.GCS_BUCKET;
+    const ttl = Number(process.env.GCS_UPLOAD_URL_TTL_SECONDS || 300);
+    if (!bucket) throw new Error("Missing GCS_BUCKET env var");
+
+    const timestamp = Date.now();
+    const objectPath = `popups/images/${crypto.randomUUID()}/${timestamp}`;
+
+    const {
+      url,
+      bucket: returnedBucket,
+      object,
+      expiresSeconds,
+    } = await ctx.runAction(internal.utils.gcs.generateGcsV4SignedUrlAction, {
+      bucket,
+      object: objectPath,
+      expiresSeconds: ttl,
+      method: "PUT",
+      contentType: args.mimeType,
+    });
+
+    return {
+      url,
+      bucket: returnedBucket,
+      object,
+      contentType: args.mimeType,
+      expiresAt: Date.now() + expiresSeconds * 1000,
+    };
+  },
+});
+
+/**
+ * Get signed URL for popup image (read).
+ */
+export const getPopupImageUrl = action({
+  args: {
+    popupId: v.id("popups"),
+  },
+  handler: async (ctx, args): Promise<string | null> => {
+    const user = await ctx.auth.getUserIdentity();
+    if (!user) return null;
+
+    const popup = await ctx.runQuery(api.functions.popups.getPopupAdmin, {
+      popupId: args.popupId,
+    });
+
+    if (!popup?.imageGcsBucket || !popup?.imageGcsObject) {
+      return null;
+    }
+
+    const { url } = await ctx.runAction(
+      internal.utils.gcs.generateGcsV4SignedUrlAction,
+      {
+        bucket: popup.imageGcsBucket,
+        object: popup.imageGcsObject,
+        expiresSeconds: 900, // 15 minutes
+        method: "GET",
+      },
+    );
+
+    return url;
   },
 });

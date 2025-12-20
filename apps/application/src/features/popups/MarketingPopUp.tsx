@@ -12,6 +12,8 @@ import { useMarketingPopup } from "@/hooks/useMarketingPopup";
 import { usePopupGate } from "./PopupGate";
 import { useNavigate } from "react-router-dom";
 import { useUpgrade } from "@/components/Billing/useUpgrade";
+import { useAction } from "convex/react";
+import { api } from "../../../convex/_generated/api";
 export function MarketingPopUp() {
   const { active, recordImpression, dismiss } = useMarketingPopup();
   const { tryAcquire, release } = usePopupGate();
@@ -28,7 +30,9 @@ export function MarketingPopUp() {
   const [isOpen, setIsOpen] = useState(false);
   const [displayPopup, setDisplayPopup] = useState<any | null>(null);
   const [dismissedId, setDismissedId] = useState<string | null>(null);
+  const [imageUrl, setImageUrl] = useState<string | null>(null);
   const impressionSentFor = useRef<string | null>(null);
+  const getPopupImageUrl = useAction(api.functions.popups.getPopupImageUrl);
 
   console.log("Server popup:", serverPopup);
   console.log("displayPopup:", displayPopup);
@@ -104,6 +108,27 @@ export function MarketingPopUp() {
     }
   }, [serverPopupId, dismissedId]);
 
+  // Load image URL when popup changes
+  useEffect(() => {
+    if (!displayPopup?._id || !displayPopup?.imageGcsBucket) {
+      setImageUrl(null);
+      return;
+    }
+
+    let cancelled = false;
+    getPopupImageUrl({ popupId: displayPopup._id })
+      .then((url) => {
+        if (!cancelled && url) setImageUrl(url);
+      })
+      .catch((e) => {
+        console.error("Failed to get popup image URL:", e);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [displayPopup?._id, displayPopup?.imageGcsBucket, getPopupImageUrl]);
+
   if (!displayPopup) return null;
 
   const actions = Array.isArray(displayPopup.actions)
@@ -153,13 +178,21 @@ export function MarketingPopUp() {
       }}
     >
       {displayPopup.template === "promo" ? (
-        <DialogContent className="sm:max-w-[900px] p-0 overflow-hidden  text-white border-border">
-          <div className="flex flex-col md:flex-row h-full bg-red-500">
-            <div className="w-full md:w-[40%] bg-green-500  relative min-h-[200px] md:min-h-full flex flex-col items-center justify-center p-8 overflow-hidden">
+        <DialogContent className="sm:max-w-[900px] p-0 overflow-hidden text-white border-border">
+          <div className="flex flex-col md:flex-row h-full">
+            <div className="w-full md:w-[40%] relative min-h-[200px] md:min-h-full flex flex-col items-center justify-center p-8 overflow-hidden bg-linear-to-br from-primary to-primary/80">
+              {/* Background Image */}
+              {imageUrl && (
+                <img
+                  src={imageUrl}
+                  alt=""
+                  className="absolute inset-0 w-full h-full object-cover opacity-30"
+                />
+              )}
               <div className="relative z-10 text-center space-y-2">
                 {displayPopup.badgeText ? (
                   <div className="flex justify-center">
-                    <Badge className=" px-4 py-1 text-xl" variant="secondary">
+                    <Badge className="px-4 py-1 text-xl" variant="secondary">
                       {displayPopup.badgeText}
                     </Badge>
                   </div>
@@ -175,11 +208,11 @@ export function MarketingPopUp() {
               </div>
             </div>
 
-            <div className="w-full md:w-[60%] p-6 md:p-8 flex flex-col bg-blue-500 relative h-full">
+            <div className="w-full md:w-[60%] p-6 md:p-8 flex flex-col bg-background relative h-full">
               {actions.length > 0 ? (
-                <div className=" mt-auto flex flex-col gap-4 bg-red-200 h-full md:justify-between">
+                <div className="mt-auto flex flex-col gap-4 h-full md:justify-between">
                   {displayPopup.upperBody ? (
-                    <p className="text-xl font-bold text-white whitespace-pre-wrap">
+                    <p className="text-xl font-bold whitespace-pre-wrap">
                       {displayPopup.upperBody}
                     </p>
                   ) : null}
@@ -228,24 +261,17 @@ export function MarketingPopUp() {
         </DialogContent>
       ) : (
         <DialogContent className="sm:max-w-[900px] flex flex-col md:flex-row p-0 gap-0">
-          <div className="space-y-4 bg-blue-400 w-[40%] h-full flex flex-col items-center justify-center px-5">
-            <DialogHeader>
-              <CircleAlert className="mx-auto mb-4 h-20 w-20 text-white" />
-              <DialogTitle className="text-4xl font-bold">
+          <div className="relative space-y-4 bg-linear-to-br from-primary to-primary/80 w-full md:w-[40%] h-full flex flex-col items-center justify-center px-5 py-8 overflow-hidden">
+            <DialogHeader className="relative z-10">
+              <DialogTitle className="text-4xl font-bold text-white text-center">
                 {displayPopup.title}
               </DialogTitle>
             </DialogHeader>
             {displayPopup.subtitle ? (
-              <p className="text-lg font-medium whitespace-pre-wrap">
+              <p className="relative z-10 text-lg font-medium whitespace-pre-wrap text-white/90 text-center">
                 {displayPopup.subtitle}
               </p>
             ) : null}
-          </div>
-          <div className="w-[60%] h-full bg-amber-500 gap-10 px-10 flex flex-col justify-center py-10">
-            <p className="text-3xl font-bold text-black whitespace-pre-wrap pr-10">
-              {displayPopup.upperBody}
-            </p>
-            <p className="whitespace-pre-wrap text-lg">{displayPopup.body}</p>
             {actions.length > 0 ? (
               <div className="flex flex-col gap-2">
                 {actions.slice(0, 2).map((action, idx) => (
@@ -261,6 +287,22 @@ export function MarketingPopUp() {
                 ))}
               </div>
             ) : null}
+          </div>
+          <div className="w-full md:w-[60%] h-full gap-10 px-10 flex flex-col justify-center py-10 bg-[#323232] items-center">
+            {imageUrl && (
+              <img
+                src={imageUrl}
+                alt=""
+                className="h-[60%] w-[90%] object-cover bg-red-400"
+              />
+            )}
+
+            <p className="text-3xl font-bold text-white whitespace-pre-wrap pr-10">
+              {displayPopup.upperBody}
+            </p>
+            <p className="whitespace-pre-wrap text-lg text-white">
+              {displayPopup.body}
+            </p>
           </div>
         </DialogContent>
       )}

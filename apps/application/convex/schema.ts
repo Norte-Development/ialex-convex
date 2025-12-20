@@ -889,6 +889,9 @@ export default defineSchema({
     subtitle: v.optional(v.string()),
     upperBody: v.optional(v.string()),
     body: v.string(),
+    // Image stored in GCS
+    imageGcsBucket: v.optional(v.string()),
+    imageGcsObject: v.optional(v.string()),
     enabled: v.boolean(),
     template: v.union(v.literal("simple"), v.literal("promo")),
     audience: v.union(

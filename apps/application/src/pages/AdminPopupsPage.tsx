@@ -1,6 +1,6 @@
 import { RequireAdminsOrg } from "@/components/Auth/RequireAdminsOrg";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { useMutation, useQuery } from "convex/react";
+import { useAction, useMutation, useQuery } from "convex/react";
 import { AlertTriangle, Shield } from "lucide-react";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
@@ -28,6 +28,10 @@ export default function AdminPopupsPage() {
   const updatePopup = useMutation(api.functions.popups.updatePopupAdmin);
   const setEnabled = useMutation(api.functions.popups.setPopupEnabledAdmin);
   const deletePopup = useMutation(api.functions.popups.deletePopupAdmin);
+  const generateImageUploadUrl = useAction(
+    api.functions.popups.generatePopupImageUploadUrl,
+  );
+  const getPopupImageUrl = useAction(api.functions.popups.getPopupImageUrl);
 
   const [createOpen, setCreateOpen] = useState(false);
   const [createForm, setCreateForm] = useState<PopupFormState>(emptyPopupForm);
@@ -72,8 +76,20 @@ export default function AdminPopupsPage() {
     return cleaned.length > 0 ? cleaned : undefined;
   };
 
-  const openEdit = (popup: any) => {
+  const openEdit = async (popup: any) => {
     setEditingId(popup._id);
+
+    // Get existing image URL if popup has one
+    let imagePreviewUrl = "";
+    if (popup.imageGcsBucket && popup.imageGcsObject) {
+      try {
+        const url = await getPopupImageUrl({ popupId: popup._id });
+        if (url) imagePreviewUrl = url;
+      } catch (e) {
+        console.error("Failed to get popup image URL:", e);
+      }
+    }
+
     setEditForm({
       key: popup.key ?? "",
       title: popup.title ?? "",
@@ -94,6 +110,10 @@ export default function AdminPopupsPage() {
       maxImpressions:
         popup.maxImpressions === undefined ? "" : String(popup.maxImpressions),
       priority: popup.priority === undefined ? "" : String(popup.priority),
+      imageFile: null,
+      imagePreviewUrl,
+      existingImageBucket: popup.imageGcsBucket,
+      existingImageObject: popup.imageGcsObject,
     });
     setEditOpen(true);
   };
@@ -112,6 +132,33 @@ export default function AdminPopupsPage() {
         delete copy[id];
         return copy;
       });
+    }
+  };
+
+  // Helper to upload image and return bucket/object
+  const uploadImage = async (
+    imageFile: File,
+  ): Promise<{ bucket: string; object: string } | null> => {
+    try {
+      const uploadData = await generateImageUploadUrl({
+        mimeType: imageFile.type,
+        fileSize: imageFile.size,
+      });
+
+      const response = await fetch(uploadData.url, {
+        method: "PUT",
+        headers: { "Content-Type": imageFile.type },
+        body: imageFile,
+      });
+
+      if (!response.ok) {
+        throw new Error(`Upload failed: ${response.status}`);
+      }
+
+      return { bucket: uploadData.bucket, object: uploadData.object };
+    } catch (e) {
+      console.error("Image upload failed:", e);
+      return null;
     }
   };
 
@@ -139,6 +186,21 @@ export default function AdminPopupsPage() {
     const actions = normalizeActions(form.actions);
 
     try {
+      // Upload image if present
+      let imageGcsBucket: string | undefined;
+      let imageGcsObject: string | undefined;
+
+      if (form.imageFile) {
+        const uploaded = await uploadImage(form.imageFile);
+        if (uploaded) {
+          imageGcsBucket = uploaded.bucket;
+          imageGcsObject = uploaded.object;
+        } else {
+          toast.error("Error al subir la imagen");
+          return;
+        }
+      }
+
       await createPopup({
         key: form.key,
         title: form.title,
@@ -164,6 +226,8 @@ export default function AdminPopupsPage() {
         ...(parseOptionalInt(form.priority) !== undefined
           ? { priority: parseOptionalInt(form.priority) }
           : {}),
+        ...(imageGcsBucket ? { imageGcsBucket } : {}),
+        ...(imageGcsObject ? { imageGcsObject } : {}),
       });
       toast.success("Pop-up creado");
       setCreateForm(emptyPopupForm);
@@ -198,6 +262,27 @@ export default function AdminPopupsPage() {
     const actions = normalizeActions(form.actions);
 
     try {
+      // Handle image: upload new, keep existing, or clear
+      let imageGcsBucket: string | undefined;
+      let imageGcsObject: string | undefined;
+
+      if (form.imageFile) {
+        // New image - upload it
+        const uploaded = await uploadImage(form.imageFile);
+        if (uploaded) {
+          imageGcsBucket = uploaded.bucket;
+          imageGcsObject = uploaded.object;
+        } else {
+          toast.error("Error al subir la imagen");
+          return;
+        }
+      } else if (form.existingImageBucket && form.existingImageObject) {
+        // Keep existing image
+        imageGcsBucket = form.existingImageBucket;
+        imageGcsObject = form.existingImageObject;
+      }
+      // If neither, image will be cleared (undefined)
+
       await updatePopup({
         popupId: editingId,
         key: form.key,
@@ -224,6 +309,8 @@ export default function AdminPopupsPage() {
         ...(parseOptionalInt(form.priority) !== undefined
           ? { priority: parseOptionalInt(form.priority) }
           : {}),
+        imageGcsBucket,
+        imageGcsObject,
       });
       toast.success("Pop-up actualizado");
       setEditOpen(false);

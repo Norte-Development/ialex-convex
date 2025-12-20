@@ -38,6 +38,11 @@ export type PopupFormState = {
   frequencyDays: string;
   maxImpressions: string;
   priority: string;
+  // Image fields
+  imageFile: File | null;
+  imagePreviewUrl: string;
+  existingImageBucket?: string;
+  existingImageObject?: string;
 };
 
 export const emptyPopupForm: PopupFormState = {
@@ -57,4 +62,6 @@ export const emptyPopupForm: PopupFormState = {
   frequencyDays: "",
   maxImpressions: "",
   priority: "",
+  imageFile: null,
+  imagePreviewUrl: "",
 };
