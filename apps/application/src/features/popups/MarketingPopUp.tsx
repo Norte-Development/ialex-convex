@@ -261,14 +261,20 @@ export function MarketingPopUp() {
         </DialogContent>
       ) : (
         <DialogContent className="sm:max-w-[900px] flex flex-col md:flex-row p-0 gap-0">
-          <div className="relative space-y-4 bg-linear-to-br from-primary to-primary/80 w-full md:w-[40%] h-full flex flex-col items-center justify-center px-5 py-8 overflow-hidden">
+          <div
+            className="relative space-y-4  w-full md:w-[40%] h-full flex flex-col items-center justify-center px-5 py-8 overflow-hidden"
+            style={{
+              background:
+                "linear-gradient(180deg, #224A8A 7.05%, rgba(99, 179, 255, 0.87) 48.89%, #002146 97.79%)",
+            }}
+          >
             <DialogHeader className="relative z-10">
               <DialogTitle className="text-4xl font-bold text-white text-center">
                 {displayPopup.title}
               </DialogTitle>
             </DialogHeader>
             {displayPopup.subtitle ? (
-              <p className="relative z-10 text-lg font-medium whitespace-pre-wrap text-white/90 text-center">
+              <p className="relative z-10 text-base font-medium whitespace-pre-wrap text-white/90 text-center">
                 {displayPopup.subtitle}
               </p>
             ) : null}
@@ -280,7 +286,7 @@ export function MarketingPopUp() {
                     onClick={() => void handleAction(action)}
                     disabled={isUpgrading}
                     variant={idx === 0 ? "default" : "outline"}
-                    className="w-full text-xl font-bold py-6"
+                    className="w-full text-sm font-bold bg-white text-primary"
                   >
                     {action.label}
                   </Button>
@@ -293,16 +299,9 @@ export function MarketingPopUp() {
               <img
                 src={imageUrl}
                 alt=""
-                className="h-[60%] w-[90%] object-cover bg-red-400"
+                className="h-[75%] w-[950%] object-cover bg-red-400"
               />
             )}
-
-            <p className="text-3xl font-bold text-white whitespace-pre-wrap pr-10">
-              {displayPopup.upperBody}
-            </p>
-            <p className="whitespace-pre-wrap text-lg text-white">
-              {displayPopup.body}
-            </p>
           </div>
         </DialogContent>
       )}
