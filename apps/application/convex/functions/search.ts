@@ -66,7 +66,7 @@ export const globalSearch = query({
     const casesSearchResults = await ctx.db
       .query("cases")
       .withSearchIndex("search_cases", (q) =>
-        q.search("title", searchQuery).eq("isArchived", false)
+        q.search("title", searchQuery).eq("isArchived", false),
       )
       .take(limit);
 
@@ -85,7 +85,7 @@ export const globalSearch = query({
         const userAccess = await ctx.db
           .query("caseAccess")
           .withIndex("by_case_and_user", (q) =>
-            q.eq("caseId", caseItem._id).eq("userId", user._id)
+            q.eq("caseId", caseItem._id).eq("userId", user._id),
           )
           .filter((q) => q.eq(q.field("isActive"), true))
           .first();
@@ -99,7 +99,7 @@ export const globalSearch = query({
           const teamAccess = await ctx.db
             .query("caseAccess")
             .withIndex("by_case_and_team", (q) =>
-              q.eq("caseId", caseItem._id).eq("teamId", teamId)
+              q.eq("caseId", caseItem._id).eq("teamId", teamId),
             )
             .filter((q) => q.eq(q.field("isActive"), true))
             .first();
@@ -110,7 +110,7 @@ export const globalSearch = query({
         }
 
         return null;
-      })
+      }),
     );
 
     const cases = casesWithAccess
@@ -126,7 +126,7 @@ export const globalSearch = query({
     const clientsSearchResults = await ctx.db
       .query("clients")
       .withSearchIndex("search_clients", (q) =>
-        q.search("name", searchQuery).eq("isActive", true)
+        q.search("displayName", searchQuery).eq("isActive", true),
       )
       .take(limit);
 
@@ -140,7 +140,9 @@ export const globalSearch = query({
     // Search Documents - only from cases the user has access to
     const documentsSearchResults = await ctx.db
       .query("documents")
-      .withSearchIndex("search_documents", (q) => q.search("title", searchQuery))
+      .withSearchIndex("search_documents", (q) =>
+        q.search("title", searchQuery),
+      )
       .take(limit * 2); // Get more to filter
 
     // Filter documents by case access
@@ -161,7 +163,7 @@ export const globalSearch = query({
         const userAccess = await ctx.db
           .query("caseAccess")
           .withIndex("by_case_and_user", (q) =>
-            q.eq("caseId", caseItem._id).eq("userId", user._id)
+            q.eq("caseId", caseItem._id).eq("userId", user._id),
           )
           .filter((q) => q.eq(q.field("isActive"), true))
           .first();
@@ -175,7 +177,7 @@ export const globalSearch = query({
           const teamAccess = await ctx.db
             .query("caseAccess")
             .withIndex("by_case_and_team", (q) =>
-              q.eq("caseId", caseItem._id).eq("teamId", teamId)
+              q.eq("caseId", caseItem._id).eq("teamId", teamId),
             )
             .filter((q) => q.eq(q.field("isActive"), true))
             .first();
@@ -186,7 +188,7 @@ export const globalSearch = query({
         }
 
         return null;
-      })
+      }),
     );
 
     const documents = documentsWithAccess
@@ -203,7 +205,7 @@ export const globalSearch = query({
     const escritosSearchResults = await ctx.db
       .query("escritos")
       .withSearchIndex("search_escritos", (q) =>
-        q.search("title", searchQuery).eq("isArchived", false)
+        q.search("title", searchQuery).eq("isArchived", false),
       )
       .take(limit * 2); // Get more to filter
 
@@ -225,7 +227,7 @@ export const globalSearch = query({
         const userAccess = await ctx.db
           .query("caseAccess")
           .withIndex("by_case_and_user", (q) =>
-            q.eq("caseId", caseItem._id).eq("userId", user._id)
+            q.eq("caseId", caseItem._id).eq("userId", user._id),
           )
           .filter((q) => q.eq(q.field("isActive"), true))
           .first();
@@ -239,7 +241,7 @@ export const globalSearch = query({
           const teamAccess = await ctx.db
             .query("caseAccess")
             .withIndex("by_case_and_team", (q) =>
-              q.eq("caseId", caseItem._id).eq("teamId", teamId)
+              q.eq("caseId", caseItem._id).eq("teamId", teamId),
             )
             .filter((q) => q.eq(q.field("isActive"), true))
             .first();
@@ -250,7 +252,7 @@ export const globalSearch = query({
         }
 
         return null;
-      })
+      }),
     );
 
     const escritos = escritosWithAccess
@@ -267,7 +269,7 @@ export const globalSearch = query({
     const templatesSearchResults = await ctx.db
       .query("modelos")
       .withSearchIndex("search_templates", (q) =>
-        q.search("name", searchQuery).eq("isActive", true)
+        q.search("name", searchQuery).eq("isActive", true),
       )
       .take(limit * 2); // Get more to filter
 
@@ -291,7 +293,7 @@ export const globalSearch = query({
     const libraryDocumentsSearchResults = await ctx.db
       .query("libraryDocuments")
       .withSearchIndex("search_library_documents", (q) =>
-        q.search("title", searchQuery)
+        q.search("title", searchQuery),
       )
       .take(limit * 2); // Get more to filter
 
@@ -303,7 +305,7 @@ export const globalSearch = query({
         // Team documents
         if (doc.teamId && teamIds.includes(doc.teamId)) return true;
         return false;
-      }
+      },
     );
 
     const libraryDocuments = libraryDocumentsWithAccess

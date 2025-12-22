@@ -105,7 +105,7 @@ export default function CreateCaseDialog() {
   const clients = clientsResult?.page || [];
   const filteredClients = clients.filter(
     (client) =>
-      client.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      client.displayName.toLowerCase().includes(searchQuery.toLowerCase()) ||
       client.dni?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       client.cuit?.toLowerCase().includes(searchQuery.toLowerCase()),
   );
@@ -117,13 +117,19 @@ export default function CreateCaseDialog() {
     }));
   };
 
-  const handleClientToggle = (client: { _id: Id<"clients">; name: string }) => {
+  const handleClientToggle = (client: {
+    _id: Id<"clients">;
+    displayName: string;
+  }) => {
     setSelectedClients((prev) => {
       const isSelected = prev.some((c) => c.id === client._id);
       if (isSelected) {
         return prev.filter((c) => c.id !== client._id);
       } else {
-        return [...prev, { id: client._id, name: client.name, role: "" }];
+        return [
+          ...prev,
+          { id: client._id, name: client.displayName, role: "" },
+        ];
       }
     });
   };
@@ -543,7 +549,7 @@ export default function CreateCaseDialog() {
                               htmlFor={client._id}
                               className="text-sm cursor-pointer flex-1"
                             >
-                              {client.name}
+                              {client.displayName}
                               {client.dni && (
                                 <span className="text-muted-foreground ml-2">
                                   DNI: {client.dni}

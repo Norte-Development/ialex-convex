@@ -15,7 +15,7 @@ interface SearchResultItemProps {
   metadata?: {
     status?: string;
     category?: string;
-    clientType?: string;
+    naturalezaJuridica?: string;
     email?: string;
     documentType?: string;
     templateType?: string;
@@ -71,7 +71,7 @@ const highlightMatch = (text: string, query: string) => {
       </span>
     ) : (
       <span key={index}>{part}</span>
-    )
+    ),
   );
 };
 
@@ -88,7 +88,7 @@ export default function SearchResultItem({
       className={cn(
         "w-full flex items-start gap-3 px-3 py-2.5 rounded-md transition-colors",
         "hover:bg-accent text-left",
-        "focus:outline-none focus:bg-accent"
+        "focus:outline-none focus:bg-accent",
       )}
     >
       <div className="flex-shrink-0 mt-0.5 text-muted-foreground">
@@ -114,8 +114,12 @@ export default function SearchResultItem({
                 <span>{metadata.category}</span>
               </>
             )}
-            {metadata.clientType && (
-              <span className="capitalize">{metadata.clientType}</span>
+            {metadata.naturalezaJuridica && (
+              <span>
+                {metadata.naturalezaJuridica === "juridica"
+                  ? "P. Jurídica"
+                  : "P. Humana"}
+              </span>
             )}
             {metadata.email && (
               <>

@@ -23,16 +23,70 @@ import {
 } from "../ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs";
 import { Badge } from "../ui/badge";
-import { UserPlus, Search, Loader2, Link2 } from "lucide-react";
+import {
+  UserPlus,
+  Search,
+  Loader2,
+  Link2,
+  Building2,
+  User,
+} from "lucide-react";
 import { toast } from "sonner";
 import { useCase } from "../../context/CaseContext";
 import { tracking } from "@/lib/tracking";
 import { closeFloatingLayers } from "@/lib/closeFloatingLayers";
+import {
+  type NaturalezaJuridica,
+  type ActividadEconomica,
+  type TipoPersonaJuridica,
+  type TipoSociedad,
+  ACTIVIDAD_ECONOMICA_LABELS,
+  TIPO_PERSONA_JURIDICA_LABELS,
+  TIPO_SOCIEDAD_LABELS,
+  esCuitObligatorio,
+} from "../../../types/clients";
 
 interface SyncNewClientDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }
+
+interface FormData {
+  naturalezaJuridica: NaturalezaJuridica;
+  // Persona Humana
+  nombre: string;
+  apellido: string;
+  dni: string;
+  actividadEconomica: ActividadEconomica;
+  profesionEspecifica: string;
+  // Persona Jurídica
+  razonSocial: string;
+  tipoPersonaJuridica: TipoPersonaJuridica | "";
+  tipoSociedad: TipoSociedad | "";
+  // Comunes
+  cuit: string;
+  email: string;
+  phone: string;
+  domicilioLegal: string;
+  notes: string;
+}
+
+const initialFormData: FormData = {
+  naturalezaJuridica: "humana",
+  nombre: "",
+  apellido: "",
+  dni: "",
+  actividadEconomica: "sin_actividad",
+  profesionEspecifica: "",
+  razonSocial: "",
+  tipoPersonaJuridica: "",
+  tipoSociedad: "",
+  cuit: "",
+  email: "",
+  phone: "",
+  domicilioLegal: "",
+  notes: "",
+};
 
 export default function SyncNewClientDialog({
   open,
@@ -50,16 +104,7 @@ export default function SyncNewClientDialog({
 
   // Estados para crear
   const [isCreating, setIsCreating] = useState(false);
-  const [formData, setFormData] = useState({
-    name: "",
-    email: "",
-    phone: "",
-    dni: "",
-    cuit: "",
-    address: "",
-    clientType: "individual" as "individual" | "company",
-    notes: "",
-  });
+  const [formData, setFormData] = useState<FormData>(initialFormData);
 
   // Prevent dialog closing while submitting
   const handleOpenChange = (newOpen: boolean) => {
@@ -94,12 +139,18 @@ export default function SyncNewClientDialog({
     );
   }, [allClientsResult, linkedClientsResult]);
 
-  const handleInputChange = (field: string, value: string) => {
-    setFormData((prev) => ({
-      ...prev,
-      [field]: value,
-    }));
+  const handleChange = <K extends keyof FormData>(
+    field: K,
+    value: FormData[K],
+  ) => {
+    setFormData((prev) => ({ ...prev, [field]: value }));
   };
+
+  // Determinar si CUIT es obligatorio
+  const cuitRequired = esCuitObligatorio(
+    formData.naturalezaJuridica,
+    formData.actividadEconomica,
+  );
 
   const handleLinkClient = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -143,43 +194,73 @@ export default function SyncNewClientDialog({
   const handleCreateAndLink = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!formData.name.trim()) {
-      toast.error("El nombre es requerido");
-      return;
-    }
-
-    // Validación según tipo de cliente
-    if (formData.clientType === "individual" && !formData.dni.trim()) {
-      toast.error("El DNI es requerido para personas físicas");
-      return;
-    }
-
-    if (formData.clientType === "company" && !formData.cuit.trim()) {
-      toast.error("El CUIT es requerido para empresas");
-      return;
+    // Validaciones según naturaleza jurídica
+    if (formData.naturalezaJuridica === "humana") {
+      if (!formData.nombre.trim()) {
+        toast.error("El nombre es requerido");
+        return;
+      }
+      if (!formData.apellido.trim()) {
+        toast.error("El apellido es requerido");
+        return;
+      }
+      if (!formData.dni.trim()) {
+        toast.error("El DNI es obligatorio para personas humanas");
+        return;
+      }
+      if (cuitRequired && !formData.cuit.trim()) {
+        toast.error("El CUIT es obligatorio para profesionales y comerciantes");
+        return;
+      }
+    } else {
+      if (!formData.razonSocial.trim()) {
+        toast.error("La razón social es requerida");
+        return;
+      }
+      if (!formData.cuit.trim()) {
+        toast.error("El CUIT es obligatorio para personas jurídicas");
+        return;
+      }
     }
 
     setIsCreating(true);
 
     try {
-      // Crear el cliente
-      const clientData = {
-        name: formData.name,
-        email: formData.email || undefined,
-        phone: formData.phone || undefined,
-        dni: formData.dni || undefined,
-        cuit: formData.cuit || undefined,
-        address: formData.address || undefined,
-        clientType: formData.clientType,
-        notes: formData.notes || undefined,
-      };
+      // Crear el cliente con el nuevo modelo
+      const clientData =
+        formData.naturalezaJuridica === "humana"
+          ? {
+              naturalezaJuridica: "humana" as const,
+              nombre: formData.nombre,
+              apellido: formData.apellido,
+              dni: formData.dni,
+              actividadEconomica: formData.actividadEconomica,
+              profesionEspecifica: formData.profesionEspecifica || undefined,
+              cuit: formData.cuit || undefined,
+              email: formData.email || undefined,
+              phone: formData.phone || undefined,
+              domicilioLegal: formData.domicilioLegal || undefined,
+              notes: formData.notes || undefined,
+            }
+          : {
+              naturalezaJuridica: "juridica" as const,
+              razonSocial: formData.razonSocial,
+              tipoPersonaJuridica: formData.tipoPersonaJuridica || undefined,
+              tipoSociedad: formData.tipoSociedad || undefined,
+              cuit: formData.cuit,
+              email: formData.email || undefined,
+              phone: formData.phone || undefined,
+              domicilioLegal: formData.domicilioLegal || undefined,
+              notes: formData.notes || undefined,
+            };
 
       const clientId = await createClient(clientData);
 
       // Track client creation
       tracking.clientCreated({
         clientId,
-        clientType: formData.clientType,
+        clientType:
+          formData.naturalezaJuridica === "humana" ? "individual" : "company",
       });
 
       // Vincular automáticamente al caso
@@ -192,16 +273,7 @@ export default function SyncNewClientDialog({
       toast.success("Cliente creado y vinculado exitosamente");
 
       // Reset form
-      setFormData({
-        name: "",
-        email: "",
-        phone: "",
-        dni: "",
-        cuit: "",
-        address: "",
-        clientType: "individual",
-        notes: "",
-      });
+      setFormData(initialFormData);
       setSelectedRole("Demandante");
       // Small delay to avoid portal teardown races before closing dialog
       await new Promise((resolve) => setTimeout(resolve, 100));
@@ -292,7 +364,7 @@ export default function SyncNewClientDialog({
                         >
                           <div className="flex-1">
                             <div className="font-medium text-sm">
-                              {client.name}
+                              {client.displayName}
                             </div>
                             <div className="text-xs text-gray-500">
                               {client.dni && `DNI: ${client.dni}`}
@@ -301,9 +373,9 @@ export default function SyncNewClientDialog({
                             </div>
                           </div>
                           <Badge variant="outline" className="text-xs">
-                            {client.clientType === "individual"
-                              ? "Persona"
-                              : "Empresa"}
+                            {client.naturalezaJuridica === "juridica"
+                              ? "P. Jurídica"
+                              : "P. Humana"}
                           </Badge>
                         </div>
                       ))}
@@ -362,143 +434,282 @@ export default function SyncNewClientDialog({
           {/* Tab de Crear */}
           <TabsContent value="create" className="space-y-4 mt-4">
             <form onSubmit={handleCreateAndLink} className="space-y-4">
-              <div className="grid grid-cols-1 gap-4">
-                {/* Nombre */}
-                <div className="space-y-2">
-                  <Label htmlFor="name">Nombre Completo / Razón Social *</Label>
-                  <Input
-                    id="name"
-                    placeholder="Ej: Juan Pérez / Empresa ABC S.A."
-                    value={formData.name}
-                    onChange={(e) => handleInputChange("name", e.target.value)}
-                    required
-                  />
-                </div>
-
-                {/* Tipo de Cliente */}
-                <div className="space-y-2">
-                  <Label>Tipo de Cliente *</Label>
-                  <Select
-                    value={formData.clientType}
-                    onValueChange={(value) =>
-                      handleInputChange("clientType", value)
+              {/* Selector de Naturaleza Jurídica */}
+              <div className="space-y-2">
+                <Label>Naturaleza Jurídica *</Label>
+                <div className="grid grid-cols-2 gap-2">
+                  <Button
+                    type="button"
+                    variant={
+                      formData.naturalezaJuridica === "humana"
+                        ? "default"
+                        : "outline"
                     }
+                    onClick={() => handleChange("naturalezaJuridica", "humana")}
+                    className="gap-2"
                   >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Seleccionar tipo" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="individual">Persona Física</SelectItem>
-                      <SelectItem value="company">Empresa</SelectItem>
-                    </SelectContent>
-                  </Select>
+                    <User className="h-4 w-4" />
+                    Persona Humana
+                  </Button>
+                  <Button
+                    type="button"
+                    variant={
+                      formData.naturalezaJuridica === "juridica"
+                        ? "default"
+                        : "outline"
+                    }
+                    onClick={() =>
+                      handleChange("naturalezaJuridica", "juridica")
+                    }
+                    className="gap-2"
+                  >
+                    <Building2 className="h-4 w-4" />
+                    Persona Jurídica
+                  </Button>
                 </div>
+              </div>
 
-                {/* DNI/CUIT según tipo */}
-                <div className="grid grid-cols-2 gap-4">
-                  {formData.clientType === "individual" ? (
+              {formData.naturalezaJuridica === "humana" ? (
+                <>
+                  {/* Campos Persona Humana */}
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="nombre">Nombre *</Label>
+                      <Input
+                        id="nombre"
+                        placeholder="Juan"
+                        value={formData.nombre}
+                        onChange={(e) => handleChange("nombre", e.target.value)}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="apellido">Apellido *</Label>
+                      <Input
+                        id="apellido"
+                        placeholder="Pérez"
+                        value={formData.apellido}
+                        onChange={(e) =>
+                          handleChange("apellido", e.target.value)
+                        }
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label htmlFor="dni">DNI *</Label>
                       <Input
                         id="dni"
-                        placeholder="Ej: 12345678"
+                        placeholder="12345678"
                         value={formData.dni}
-                        onChange={(e) =>
-                          handleInputChange("dni", e.target.value)
-                        }
-                        required
+                        onChange={(e) => handleChange("dni", e.target.value)}
                       />
                     </div>
-                  ) : (
                     <div className="space-y-2">
-                      <Label htmlFor="cuit">CUIT *</Label>
-                      <Input
-                        id="cuit"
-                        placeholder="Ej: 20-12345678-9"
-                        value={formData.cuit}
-                        onChange={(e) =>
-                          handleInputChange("cuit", e.target.value)
+                      <Label>Actividad Económica</Label>
+                      <Select
+                        value={formData.actividadEconomica}
+                        onValueChange={(v) =>
+                          handleChange(
+                            "actividadEconomica",
+                            v as ActividadEconomica,
+                          )
                         }
-                        required
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {(
+                            Object.entries(ACTIVIDAD_ECONOMICA_LABELS) as [
+                              ActividadEconomica,
+                              string,
+                            ][]
+                          ).map(([value, label]) => (
+                            <SelectItem key={value} value={value}>
+                              {label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+
+                  {formData.actividadEconomica !== "sin_actividad" && (
+                    <div className="space-y-2">
+                      <Label htmlFor="profesionEspecifica">
+                        Profesión / Actividad específica
+                      </Label>
+                      <Input
+                        id="profesionEspecifica"
+                        placeholder="Ej: Abogado, Contador, Comerciante"
+                        value={formData.profesionEspecifica}
+                        onChange={(e) =>
+                          handleChange("profesionEspecifica", e.target.value)
+                        }
                       />
                     </div>
                   )}
-
-                  {/* Email */}
+                </>
+              ) : (
+                <>
+                  {/* Campos Persona Jurídica */}
                   <div className="space-y-2">
-                    <Label htmlFor="email">Email</Label>
+                    <Label htmlFor="razonSocial">Razón Social *</Label>
                     <Input
-                      id="email"
-                      type="email"
-                      placeholder="Ej: cliente@email.com"
-                      value={formData.email}
+                      id="razonSocial"
+                      placeholder="Empresa ABC S.A."
+                      value={formData.razonSocial}
                       onChange={(e) =>
-                        handleInputChange("email", e.target.value)
-                      }
-                    />
-                  </div>
-                </div>
-
-                {/* Teléfono y Dirección */}
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="phone">Teléfono</Label>
-                    <Input
-                      id="phone"
-                      placeholder="Ej: +54 11 1234-5678"
-                      value={formData.phone}
-                      onChange={(e) =>
-                        handleInputChange("phone", e.target.value)
+                        handleChange("razonSocial", e.target.value)
                       }
                     />
                   </div>
 
-                  <div className="space-y-2">
-                    <Label htmlFor="address">Dirección</Label>
-                    <Input
-                      id="address"
-                      placeholder="Ej: Av. Corrientes 1234, CABA"
-                      value={formData.address}
-                      onChange={(e) =>
-                        handleInputChange("address", e.target.value)
-                      }
-                    />
-                  </div>
-                </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>Tipo de Persona Jurídica</Label>
+                      <Select
+                        value={formData.tipoPersonaJuridica}
+                        onValueChange={(v) =>
+                          handleChange(
+                            "tipoPersonaJuridica",
+                            v as TipoPersonaJuridica,
+                          )
+                        }
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Seleccionar tipo" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {(
+                            Object.entries(TIPO_PERSONA_JURIDICA_LABELS) as [
+                              TipoPersonaJuridica,
+                              string,
+                            ][]
+                          ).map(([value, label]) => (
+                            <SelectItem key={value} value={value}>
+                              {label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
 
-                {/* Rol en el caso */}
+                    {formData.tipoPersonaJuridica === "sociedad" && (
+                      <div className="space-y-2">
+                        <Label>Tipo de Sociedad</Label>
+                        <Select
+                          value={formData.tipoSociedad}
+                          onValueChange={(v) =>
+                            handleChange("tipoSociedad", v as TipoSociedad)
+                          }
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Seleccionar tipo" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {(
+                              Object.entries(TIPO_SOCIEDAD_LABELS) as [
+                                TipoSociedad,
+                                string,
+                              ][]
+                            ).map(([value, label]) => (
+                              <SelectItem key={value} value={value}>
+                                {label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    )}
+                  </div>
+                </>
+              )}
+
+              {/* Datos de contacto comunes */}
+              <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label>Rol en el Caso *</Label>
-                  <Select value={selectedRole} onValueChange={setSelectedRole}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Seleccionar rol" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Demandante">Demandante</SelectItem>
-                      <SelectItem value="Demandado">Demandado</SelectItem>
-                      <SelectItem value="Testigo">Testigo</SelectItem>
-                      <SelectItem value="Representante Legal">
-                        Representante Legal
-                      </SelectItem>
-                      <SelectItem value="Tercero Interesado">
-                        Tercero Interesado
-                      </SelectItem>
-                      <SelectItem value="Otro">Otro</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                {/* Notas */}
-                <div className="space-y-2">
-                  <Label htmlFor="notes">Notas</Label>
-                  <Textarea
-                    id="notes"
-                    placeholder="Notas adicionales sobre el cliente..."
-                    value={formData.notes}
-                    onChange={(e) => handleInputChange("notes", e.target.value)}
-                    rows={3}
+                  <Label htmlFor="cuit">
+                    CUIT{" "}
+                    {formData.naturalezaJuridica === "juridica" || cuitRequired
+                      ? "*"
+                      : "(opcional)"}
+                  </Label>
+                  <Input
+                    id="cuit"
+                    placeholder="20-12345678-9"
+                    value={formData.cuit}
+                    onChange={(e) => handleChange("cuit", e.target.value)}
                   />
                 </div>
+                <div className="space-y-2">
+                  <Label htmlFor="email">Email</Label>
+                  <Input
+                    id="email"
+                    type="email"
+                    placeholder="cliente@email.com"
+                    value={formData.email}
+                    onChange={(e) => handleChange("email", e.target.value)}
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="phone">Teléfono</Label>
+                  <Input
+                    id="phone"
+                    placeholder="+54 11 1234-5678"
+                    value={formData.phone}
+                    onChange={(e) => handleChange("phone", e.target.value)}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="domicilioLegal">Domicilio Legal</Label>
+                  <Input
+                    id="domicilioLegal"
+                    placeholder="Av. Corrientes 1234, CABA"
+                    value={formData.domicilioLegal}
+                    onChange={(e) =>
+                      handleChange("domicilioLegal", e.target.value)
+                    }
+                  />
+                </div>
+              </div>
+
+              {/* Rol en el caso */}
+              <div className="space-y-2">
+                <Label>Rol en el Caso *</Label>
+                <Select value={selectedRole} onValueChange={setSelectedRole}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Seleccionar rol" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Demandante">Demandante</SelectItem>
+                    <SelectItem value="Demandado">Demandado</SelectItem>
+                    <SelectItem value="Testigo">Testigo</SelectItem>
+                    <SelectItem value="Representante Legal">
+                      Representante Legal
+                    </SelectItem>
+                    <SelectItem value="Tercero Interesado">
+                      Tercero Interesado
+                    </SelectItem>
+                    <SelectItem value="Otro">Otro</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Notas */}
+              <div className="space-y-2">
+                <Label htmlFor="notes">Notas</Label>
+                <Textarea
+                  id="notes"
+                  placeholder="Notas adicionales sobre el cliente..."
+                  value={formData.notes}
+                  onChange={(e) => handleChange("notes", e.target.value)}
+                  rows={3}
+                />
               </div>
 
               <DialogFooter>

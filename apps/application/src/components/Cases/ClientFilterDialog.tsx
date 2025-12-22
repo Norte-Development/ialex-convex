@@ -35,8 +35,11 @@ export default function ClientFilterDialog({
 
   const clients = clientsResult?.page || [];
 
-  const handleSelectClient = (client: { _id: Id<"clients">; name: string }) => {
-    onSelectClient({ id: client._id, name: client.name });
+  const handleSelectClient = (client: {
+    _id: Id<"clients">;
+    displayName: string;
+  }) => {
+    onSelectClient({ id: client._id, name: client.displayName });
     setOpen(false);
     setSearchQuery("");
   };
@@ -125,7 +128,7 @@ export default function ClientFilterDialog({
                     }`}
                   >
                     <div className="mt-0.5">
-                      {client.clientType === "company" ? (
+                      {client.naturalezaJuridica === "juridica" ? (
                         <Building2 className="h-5 w-5 text-gray-400" />
                       ) : (
                         <User className="h-5 w-5 text-gray-400" />
@@ -133,7 +136,7 @@ export default function ClientFilterDialog({
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="font-medium text-gray-900 truncate">
-                        {client.name}
+                        {client.displayName}
                       </div>
                       <div className="flex flex-wrap gap-2 mt-1 text-sm text-gray-500">
                         {client.dni && <span>DNI: {client.dni}</span>}

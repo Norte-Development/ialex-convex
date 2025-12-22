@@ -2,217 +2,167 @@ import { v } from "convex/values";
 import { query, mutation, internalQuery } from "../_generated/server";
 import { paginationOptsValidator } from "convex/server";
 import { getCurrentUserFromAuth } from "../auth_utils";
-import type { QueryCtx } from "../_generated/server";
 import type { Doc } from "../_generated/dataModel";
+
+// Import helpers and validators from clientManagement module
+import {
+  normalizeText,
+  fuzzyMatch,
+  getAccessibleCaseIds,
+  batchFetchClientCases,
+  computeDisplayName,
+  normalizeClient,
+  clientValidator,
+  clientCaseValidator,
+} from "./clientManagement";
 
 // ========================================
 // CLIENT MANAGEMENT
 // ========================================
 
 /**
- * Normalizes text for flexible searching by:
- * - Removing accents/diacritics
- * - Converting to lowercase
- * - Trimming and normalizing whitespace
- */
-function normalizeText(text: string | undefined | null): string {
-  if (!text) return "";
-  return text
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "") // Remove accents
-    .toLowerCase()
-    .trim()
-    .replace(/\s+/g, " "); // Normalize whitespace
-}
-
-/**
- * Checks if a normalized search term matches within a normalized target string.
- * Performs a fuzzy search that allows partial matches.
- */
-function fuzzyMatch(
-  target: string | undefined | null,
-  search: string,
-): boolean {
-  if (!search) return true;
-  if (!target) return false;
-
-  const normalizedTarget = normalizeText(target);
-  const normalizedSearch = normalizeText(search);
-
-  // Simple partial match - contains the search term
-  return normalizedTarget.includes(normalizedSearch);
-}
-
-/**
- * Helper function to get all case IDs that a user has access to.
- * Includes cases the user created, is assigned to, has team access to, or has explicit user permissions for.
- */
-async function getAccessibleCaseIds(
-  ctx: QueryCtx,
-  userId: string,
-): Promise<Set<string>> {
-  const caseIds = new Set<string>();
-
-  // 1. Cases the user created or is assigned to
-  const ownedCases = await ctx.db
-    .query("cases")
-    .filter((q) =>
-      q.or(
-        q.eq(q.field("createdBy"), userId),
-        q.eq(q.field("assignedLawyer"), userId),
-      ),
-    )
-    .collect();
-  ownedCases.forEach((c) => caseIds.add(c._id));
-
-  // 2. Cases accessible through team membership
-  const teamMemberships = await ctx.db
-    .query("teamMemberships")
-    .withIndex("by_user", (q) => q.eq("userId", userId as any))
-    .filter((q) => q.eq(q.field("isActive"), true))
-    .collect();
-
-  const teamCaseAccess = await Promise.all(
-    teamMemberships.map((membership) =>
-      ctx.db
-        .query("teamCaseAccess")
-        .withIndex("by_team", (q) => q.eq("teamId", membership.teamId))
-        .filter((q) => q.eq(q.field("isActive"), true))
-        .collect(),
-    ),
-  );
-  teamCaseAccess.flat().forEach((access) => caseIds.add(access.caseId));
-
-  // 3. Cases with explicit user permissions
-  const userCaseAccess = await ctx.db
-    .query("userCaseAccess")
-    .withIndex("by_user", (q) => q.eq("userId", userId as any))
-    .filter((q) => q.eq(q.field("isActive"), true))
-    .collect();
-  userCaseAccess.forEach((access) => caseIds.add(access.caseId));
-
-  return caseIds;
-}
-
-/**
- * Helper function to batch fetch client cases to avoid N+1 queries.
- * Fetches all client-case relationships and case data in batches.
- */
-async function batchFetchClientCases(
-  ctx: QueryCtx,
-  clients: Array<Doc<"clients">>,
-) {
-  if (clients.length === 0) return [];
-
-  // Batch fetch all client-case relationships for all clients
-  const allRelations = await Promise.all(
-    clients.map(async (client) => {
-      const relations = await ctx.db
-        .query("clientCases")
-        .withIndex("by_client", (q) => q.eq("clientId", client._id))
-        .filter((q) => q.eq(q.field("isActive"), true))
-        .collect();
-      return { clientId: client._id, relations };
-    }),
-  );
-
-  // Collect all unique case IDs
-  const caseIdsSet = new Set<string>();
-  for (const { relations } of allRelations) {
-    for (const relation of relations) {
-      caseIdsSet.add(relation.caseId);
-    }
-  }
-
-  // Batch fetch all case data
-  const casesMap = new Map<string, Doc<"cases"> | null>();
-  await Promise.all(
-    Array.from(caseIdsSet).map(async (caseId) => {
-      const caseData = (await ctx.db.get(caseId as any)) as Doc<"cases"> | null;
-      casesMap.set(caseId, caseData);
-    }),
-  );
-
-  // Assemble the result
-  return clients.map((client) => {
-    const clientRelations = allRelations.find((r) => r.clientId === client._id);
-    const cases = (clientRelations?.relations || [])
-      .map((relation) => ({
-        case: casesMap.get(relation.caseId) || null,
-        role: relation.role,
-        relationId: relation._id,
-      }))
-      .filter(({ case: caseData }) => caseData !== null);
-
-    return {
-      ...client,
-      cases,
-    };
-  });
-}
-
-/**
- * Creates a new client record in the system.
+ * Creates a new client record using the juridical model (CCyCN + LGS).
  *
  * @param {Object} args - The function arguments
- * @param {string} args.name - The client's full name or company name
- * @param {string} [args.email] - The client's email address
- * @param {string} [args.phone] - The client's phone number
- * @param {string} [args.dni] - Document Nacional de Identidad (for individuals)
- * @param {string} [args.cuit] - Código Único de Identificación Tributaria (for companies)
- * @param {string} [args.address] - The client's physical address
- * @param {"individual" | "company"} args.clientType - Whether this is an individual person or company
- * @param {string} [args.notes] - Additional notes about the client
+ * @param {"humana" | "juridica"} args.naturalezaJuridica - Legal nature of the client
+ *
+ * For Persona Humana (naturalezaJuridica = "humana"):
+ * @param {string} args.nombre - First name
+ * @param {string} args.apellido - Last name
+ * @param {string} args.dni - DNI (required)
+ * @param {"sin_actividad" | "profesional" | "comerciante"} args.actividadEconomica - Economic activity
+ * @param {string} [args.cuit] - CUIT (required if actividadEconomica !== "sin_actividad")
+ * @param {string} [args.profesionEspecifica] - Specific profession
+ *
+ * For Persona Jurídica (naturalezaJuridica = "juridica"):
+ * @param {string} args.razonSocial - Company name
+ * @param {string} args.cuit - CUIT (required)
+ * @param {string} args.tipoPersonaJuridica - Type of legal entity
+ * @param {string} [args.tipoSociedad] - Society type (if tipoPersonaJuridica = "sociedad")
+ * @param {string} [args.descripcionOtro] - Description for "otro" types
+ *
  * @returns {Promise<string>} The created client's document ID
- * @throws {Error} When not authenticated
- *
- * @description This function creates a new client record with the authenticated user
- * as the creator. Clients can be either individuals (with DNI) or companies (with CUIT).
- * The function automatically sets the client as active and records who created it.
- *
- * @example
- * ```javascript
- * // Create an individual client
- * const clientId = await createClient({
- *   name: "Juan Pérez",
- *   email: "juan@email.com",
- *   dni: "12345678",
- *   clientType: "individual",
- *   phone: "+54 11 1234-5678"
- * });
- *
- * // Create a company client
- * const companyId = await createClient({
- *   name: "Empresa ABC S.A.",
- *   email: "contacto@empresa.com",
- *   cuit: "20-12345678-9",
- *   clientType: "company"
- * });
- * ```
  */
 export const createClient = mutation({
   args: {
-    name: v.string(),
+    // Capa 1 - Naturaleza Jurídica
+    naturalezaJuridica: v.union(v.literal("humana"), v.literal("juridica")),
+
+    // Campos Persona Humana
+    nombre: v.optional(v.string()),
+    apellido: v.optional(v.string()),
+    dni: v.optional(v.string()),
+    actividadEconomica: v.optional(
+      v.union(
+        v.literal("sin_actividad"),
+        v.literal("profesional"),
+        v.literal("comerciante"),
+      ),
+    ),
+    profesionEspecifica: v.optional(v.string()),
+
+    // Campos Persona Jurídica
+    razonSocial: v.optional(v.string()),
+    tipoPersonaJuridica: v.optional(
+      v.union(
+        v.literal("sociedad"),
+        v.literal("asociacion_civil"),
+        v.literal("fundacion"),
+        v.literal("cooperativa"),
+        v.literal("ente_publico"),
+        v.literal("consorcio"),
+        v.literal("otro"),
+      ),
+    ),
+    tipoSociedad: v.optional(
+      v.union(
+        v.literal("SA"),
+        v.literal("SAS"),
+        v.literal("SRL"),
+        v.literal("COLECTIVA"),
+        v.literal("COMANDITA_SIMPLE"),
+        v.literal("COMANDITA_ACCIONES"),
+        v.literal("CAPITAL_INDUSTRIA"),
+        v.literal("IRREGULAR"),
+        v.literal("HECHO"),
+        v.literal("OTRO"),
+      ),
+    ),
+    descripcionOtro: v.optional(v.string()),
+
+    // Campos comunes
+    cuit: v.optional(v.string()),
     email: v.optional(v.string()),
     phone: v.optional(v.string()),
-    dni: v.optional(v.string()),
-    cuit: v.optional(v.string()),
-    address: v.optional(v.string()),
-    clientType: v.union(v.literal("individual"), v.literal("company")),
+    domicilioLegal: v.optional(v.string()),
     notes: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const currentUser = await getCurrentUserFromAuth(ctx);
 
+    // Validaciones según naturaleza jurídica
+    let displayName: string;
+
+    if (args.naturalezaJuridica === "humana") {
+      if (!args.nombre?.trim()) {
+        throw new Error("El nombre es requerido para personas humanas");
+      }
+      if (!args.apellido?.trim()) {
+        throw new Error("El apellido es requerido para personas humanas");
+      }
+      if (!args.dni?.trim()) {
+        throw new Error("El DNI es obligatorio para personas humanas");
+      }
+      if (!args.actividadEconomica) {
+        throw new Error("La actividad económica es requerida");
+      }
+      if (args.actividadEconomica !== "sin_actividad" && !args.cuit?.trim()) {
+        throw new Error(
+          "El CUIT es obligatorio para profesionales y comerciantes",
+        );
+      }
+
+      displayName = `${args.apellido.trim()}, ${args.nombre.trim()}`;
+    } else {
+      if (!args.razonSocial?.trim()) {
+        throw new Error("La razón social es requerida para personas jurídicas");
+      }
+      if (!args.cuit?.trim()) {
+        throw new Error("El CUIT es obligatorio para personas jurídicas");
+      }
+      if (!args.tipoPersonaJuridica) {
+        throw new Error("El tipo de persona jurídica es requerido");
+      }
+      if (args.tipoPersonaJuridica === "sociedad" && !args.tipoSociedad) {
+        throw new Error("El tipo de sociedad es requerido");
+      }
+      if (
+        (args.tipoPersonaJuridica === "otro" || args.tipoSociedad === "OTRO") &&
+        !args.descripcionOtro?.trim()
+      ) {
+        throw new Error("La descripción es requerida para tipos no listados");
+      }
+
+      displayName = args.razonSocial.trim();
+    }
+
     const clientId = await ctx.db.insert("clients", {
-      name: args.name,
+      naturalezaJuridica: args.naturalezaJuridica,
+      nombre: args.nombre,
+      apellido: args.apellido,
+      dni: args.dni,
+      actividadEconomica: args.actividadEconomica,
+      profesionEspecifica: args.profesionEspecifica,
+      razonSocial: args.razonSocial,
+      tipoPersonaJuridica: args.tipoPersonaJuridica,
+      tipoSociedad: args.tipoSociedad,
+      descripcionOtro: args.descripcionOtro,
+      cuit: args.cuit,
       email: args.email,
       phone: args.phone,
-      dni: args.dni,
-      cuit: args.cuit,
-      address: args.address,
-      clientType: args.clientType,
+      domicilioLegal: args.domicilioLegal,
       notes: args.notes,
+      displayName,
       isActive: true,
       createdBy: currentUser._id,
     });
@@ -267,12 +217,13 @@ export const createClient = mutation({
  * // }
  * ```
  */
+
 export const getClients = query({
   args: {
     paginationOpts: v.optional(paginationOptsValidator),
     search: v.optional(v.string()),
-    clientType: v.optional(
-      v.union(v.literal("individual"), v.literal("company")),
+    naturalezaJuridica: v.optional(
+      v.union(v.literal("humana"), v.literal("juridica")),
     ),
     sortBy: v.optional(v.string()),
     sortOrder: v.optional(v.union(v.literal("asc"), v.literal("desc"))),
@@ -280,56 +231,8 @@ export const getClients = query({
   returns: v.object({
     page: v.array(
       v.object({
-        _id: v.id("clients"),
-        _creationTime: v.number(),
-        name: v.string(),
-        email: v.optional(v.string()),
-        phone: v.optional(v.string()),
-        dni: v.optional(v.string()),
-        cuit: v.optional(v.string()),
-        address: v.optional(v.string()),
-        clientType: v.union(v.literal("individual"), v.literal("company")),
-        isActive: v.boolean(),
-        notes: v.optional(v.string()),
-        createdBy: v.id("users"),
-        cases: v.array(
-          v.object({
-            case: v.union(
-              v.object({
-                _id: v.id("cases"),
-                _creationTime: v.number(),
-                title: v.string(),
-                description: v.optional(v.string()),
-                status: v.union(
-                  v.literal("pendiente"),
-                  v.literal("en progreso"),
-                  v.literal("completado"),
-                  v.literal("archivado"),
-                  v.literal("cancelado"),
-                ),
-                category: v.optional(v.string()),
-                priority: v.union(
-                  v.literal("low"),
-                  v.literal("medium"),
-                  v.literal("high"),
-                ),
-                startDate: v.number(),
-                endDate: v.optional(v.number()),
-                assignedLawyer: v.id("users"),
-                createdBy: v.id("users"),
-                isArchived: v.boolean(),
-                tags: v.optional(v.array(v.string())),
-                estimatedHours: v.optional(v.number()),
-                actualHours: v.optional(v.number()),
-                expedientNumber: v.optional(v.string()),
-                lastActivityAt: v.optional(v.number()),
-              }),
-              v.null(),
-            ),
-            role: v.optional(v.string()),
-            relationId: v.id("clientCases"),
-          }),
-        ),
+        ...clientValidator.fields,
+        cases: v.array(clientCaseValidator),
       }),
     ),
     isDone: v.boolean(),
@@ -401,8 +304,15 @@ export const getClients = query({
 
       // Apply fuzzy matching filter
       allClients = allClients.filter((client) => {
-        // Search in client name
-        if (fuzzyMatch(client.name, searchTerm)) return true;
+        // Search in displayName (nombre completo o razón social)
+        if (fuzzyMatch(client.displayName, searchTerm)) return true;
+
+        // Search in nombre y apellido (persona humana)
+        if (fuzzyMatch(client.nombre, searchTerm)) return true;
+        if (fuzzyMatch(client.apellido, searchTerm)) return true;
+
+        // Search in razón social (persona jurídica)
+        if (fuzzyMatch(client.razonSocial, searchTerm)) return true;
 
         // Search in DNI (normalize by removing common separators)
         if (client.dni) {
@@ -448,10 +358,10 @@ export const getClients = query({
       accessibleClientIds.has(c._id),
     );
 
-    // Apply client type filter
-    if (args.clientType) {
+    // Apply naturaleza jurídica filter
+    if (args.naturalezaJuridica) {
       filteredClients = filteredClients.filter(
-        (c) => c.clientType === args.clientType,
+        (c) => c.naturalezaJuridica === args.naturalezaJuridica,
       );
     }
 
@@ -462,12 +372,13 @@ export const getClients = query({
 
         switch (args.sortBy) {
           case "name":
-            aValue = a.name.toLowerCase();
-            bValue = b.name.toLowerCase();
+          case "displayName":
+            aValue = computeDisplayName(a).toLowerCase();
+            bValue = computeDisplayName(b).toLowerCase();
             break;
-          case "clientType":
-            aValue = a.clientType;
-            bValue = b.clientType;
+          case "naturalezaJuridica":
+            aValue = a.naturalezaJuridica;
+            bValue = b.naturalezaJuridica;
             break;
           case "createdAt":
           default:
@@ -475,7 +386,8 @@ export const getClients = query({
             bValue = b._creationTime;
             break;
         }
-
+        if (aValue == null) aValue = "";
+        if (bValue == null) bValue = "";
         if (aValue < bValue) return args.sortOrder === "asc" ? -1 : 1;
         if (aValue > bValue) return args.sortOrder === "asc" ? 1 : -1;
         return 0;
@@ -497,8 +409,14 @@ export const getClients = query({
     // Batch fetch related data to avoid N+1 queries
     const clientsWithCases = await batchFetchClientCases(ctx, paginatedClients);
 
+    // Normalize clients to ensure displayName and naturalezaJuridica are present
+    const normalizedClients = clientsWithCases.map((clientWithCases) => ({
+      ...normalizeClient(clientWithCases),
+      cases: clientWithCases.cases,
+    }));
+
     return {
-      page: clientsWithCases,
+      page: normalizedClients,
       isDone,
       continueCursor,
       totalCount: filteredClients.length,
@@ -526,56 +444,8 @@ export const getClientById = query({
   args: { clientId: v.id("clients") },
   returns: v.union(
     v.object({
-      _id: v.id("clients"),
-      _creationTime: v.number(),
-      name: v.string(),
-      email: v.optional(v.string()),
-      phone: v.optional(v.string()),
-      dni: v.optional(v.string()),
-      cuit: v.optional(v.string()),
-      address: v.optional(v.string()),
-      clientType: v.union(v.literal("individual"), v.literal("company")),
-      isActive: v.boolean(),
-      notes: v.optional(v.string()),
-      createdBy: v.id("users"),
-      cases: v.array(
-        v.object({
-          case: v.union(
-            v.object({
-              _id: v.id("cases"),
-              _creationTime: v.number(),
-              title: v.string(),
-              description: v.optional(v.string()),
-              status: v.union(
-                v.literal("pendiente"),
-                v.literal("en progreso"),
-                v.literal("completado"),
-                v.literal("archivado"),
-                v.literal("cancelado"),
-              ),
-              category: v.optional(v.string()),
-              priority: v.union(
-                v.literal("low"),
-                v.literal("medium"),
-                v.literal("high"),
-              ),
-              startDate: v.number(),
-              endDate: v.optional(v.number()),
-              assignedLawyer: v.id("users"),
-              createdBy: v.id("users"),
-              isArchived: v.boolean(),
-              tags: v.optional(v.array(v.string())),
-              estimatedHours: v.optional(v.number()),
-              actualHours: v.optional(v.number()),
-              expedientNumber: v.optional(v.string()),
-              lastActivityAt: v.optional(v.number()),
-            }),
-            v.null(),
-          ),
-          role: v.optional(v.string()),
-          relationId: v.id("clientCases"),
-        }),
-      ),
+      ...clientValidator.fields,
+      cases: v.array(clientCaseValidator),
     }),
     v.null(),
   ),
@@ -614,7 +484,11 @@ export const getClientById = query({
     // Use batch fetching for single client as well for consistency
     const [clientWithCases] = await batchFetchClientCases(ctx, [client]);
 
-    return clientWithCases;
+    // Normalize to ensure displayName and naturalezaJuridica are present
+    return {
+      ...normalizeClient(clientWithCases),
+      cases: clientWithCases.cases,
+    };
   },
 });
 
@@ -653,15 +527,51 @@ export const getClientById = query({
 export const updateClient = mutation({
   args: {
     clientId: v.id("clients"),
-    name: v.optional(v.string()),
+    // Campos Persona Humana
+    nombre: v.optional(v.string()),
+    apellido: v.optional(v.string()),
+    dni: v.optional(v.string()),
+    actividadEconomica: v.optional(
+      v.union(
+        v.literal("sin_actividad"),
+        v.literal("profesional"),
+        v.literal("comerciante"),
+      ),
+    ),
+    profesionEspecifica: v.optional(v.string()),
+    // Campos Persona Jurídica
+    razonSocial: v.optional(v.string()),
+    tipoPersonaJuridica: v.optional(
+      v.union(
+        v.literal("sociedad"),
+        v.literal("asociacion_civil"),
+        v.literal("fundacion"),
+        v.literal("cooperativa"),
+        v.literal("ente_publico"),
+        v.literal("consorcio"),
+        v.literal("otro"),
+      ),
+    ),
+    tipoSociedad: v.optional(
+      v.union(
+        v.literal("SA"),
+        v.literal("SAS"),
+        v.literal("SRL"),
+        v.literal("COLECTIVA"),
+        v.literal("COMANDITA_SIMPLE"),
+        v.literal("COMANDITA_ACCIONES"),
+        v.literal("CAPITAL_INDUSTRIA"),
+        v.literal("IRREGULAR"),
+        v.literal("HECHO"),
+        v.literal("OTRO"),
+      ),
+    ),
+    descripcionOtro: v.optional(v.string()),
+    // Campos comunes
+    cuit: v.optional(v.string()),
     email: v.optional(v.string()),
     phone: v.optional(v.string()),
-    dni: v.optional(v.string()),
-    cuit: v.optional(v.string()),
-    address: v.optional(v.string()),
-    clientType: v.optional(
-      v.union(v.literal("individual"), v.literal("company")),
-    ),
+    domicilioLegal: v.optional(v.string()),
     notes: v.optional(v.string()),
     isActive: v.optional(v.boolean()),
   },
@@ -701,27 +611,22 @@ export const updateClient = mutation({
       }
     }
 
-    // Ensure DNI vs CUIT consistency when switching clientType
-    if (patch.clientType) {
-      if (patch.clientType === "individual") {
-        // keep dni, clear cuit (both explicitly passed empty strings and existing values)
-        if (patch.cuit === "" || currentClient.cuit) {
-          patch.cuit = undefined as any;
-        }
-      }
-      if (patch.clientType === "company") {
-        // keep cuit, clear dni (both explicitly passed empty strings and existing values)
-        if (patch.dni === "" || currentClient.dni) {
-          patch.dni = undefined as any;
-        }
+    // Recalcular displayName si se actualizan campos relevantes
+    let displayName = currentClient.displayName;
+    if (currentClient.naturalezaJuridica === "humana") {
+      const nombre = patch.nombre ?? currentClient.nombre;
+      const apellido = patch.apellido ?? currentClient.apellido;
+      if (nombre && apellido) {
+        displayName = `${apellido.trim()}, ${nombre.trim()}`;
       }
     } else {
-      // If clientType is not being changed, only clear fields explicitly passed as empty
-      if (patch.cuit === "") patch.cuit = undefined as any;
-      if (patch.dni === "") patch.dni = undefined as any;
+      const razonSocial = patch.razonSocial ?? currentClient.razonSocial;
+      if (razonSocial) {
+        displayName = razonSocial.trim();
+      }
     }
 
-    await ctx.db.patch(clientId, patch as any);
+    await ctx.db.patch(clientId, { ...patch, displayName } as any);
     return clientId;
   },
 });
@@ -809,18 +714,7 @@ export const searchClientsForAgent = internalQuery({
   },
   returns: v.array(
     v.object({
-      _id: v.id("clients"),
-      _creationTime: v.number(),
-      name: v.string(),
-      email: v.optional(v.string()),
-      phone: v.optional(v.string()),
-      dni: v.optional(v.string()),
-      cuit: v.optional(v.string()),
-      address: v.optional(v.string()),
-      clientType: v.union(v.literal("individual"), v.literal("company")),
-      isActive: v.boolean(),
-      notes: v.optional(v.string()),
-      createdBy: v.id("users"),
+      ...clientValidator.fields,
       cases: v.array(
         v.object({
           caseId: v.id("cases"),
@@ -864,11 +758,11 @@ export const searchClientsForAgent = internalQuery({
         .filter((c): c is Doc<"clients"> => c !== null)
         .slice(0, limit);
     } else if (args.searchTerm) {
-      // Use search index for name search
+      // Use search index for displayName search
       const searchResults = await ctx.db
         .query("clients")
         .withSearchIndex("search_clients", (q) =>
-          q.search("name", args.searchTerm!).eq("isActive", true),
+          q.search("displayName", args.searchTerm!).eq("isActive", true),
         )
         .take(limit);
 
@@ -904,9 +798,9 @@ export const searchClientsForAgent = internalQuery({
     // Use batch fetching to get cases for all clients
     const clientsWithBasicCases = await batchFetchClientCases(ctx, clients);
 
-    // Transform to the format expected by the agent
+    // Transform to the format expected by the agent, normalizing legacy clients
     return clientsWithBasicCases.map((client) => ({
-      ...client,
+      ...normalizeClient(client),
       cases: client.cases.map(({ case: caseData, role, relationId }) => ({
         caseId: caseData!._id,
         caseTitle: caseData!.title,

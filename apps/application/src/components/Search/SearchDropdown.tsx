@@ -114,9 +114,9 @@ export default function SearchDropdown({
                   <SearchResultItem
                     key={client._id}
                     type="client"
-                    title={client.name}
+                    title={client.displayName}
                     metadata={{
-                      clientType: client.clientType,
+                      naturalezaJuridica: client.naturalezaJuridica,
                       email: client.email,
                     }}
                     onClick={() => onResultClick("client", client._id)}
