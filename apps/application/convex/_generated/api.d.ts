@@ -154,8 +154,11 @@ import type * as migrations_identifyExistingUsers from "../migrations/identifyEx
 import type * as migrations_index from "../migrations/index.js";
 import type * as migrations_kindeHelpers from "../migrations/kindeHelpers.js";
 import type * as migrations_migrateCases from "../migrations/migrateCases.js";
+import type * as migrations_migrateClients from "../migrations/migrateClients.js";
 import type * as migrations_migrateDocuments from "../migrations/migrateDocuments.js";
 import type * as migrations_migrateTestUsers from "../migrations/migrateTestUsers.js";
+import type * as migrations_migrateUserData from "../migrations/migrateUserData.js";
+import type * as migrations_migrationWorkflow from "../migrations/migrationWorkflow.js";
 import type * as migrations_mimeTypeUtils from "../migrations/mimeTypeUtils.js";
 import type * as migrations_processingHelpers from "../migrations/processingHelpers.js";
 import type * as migrations_sendAnnouncement from "../migrations/sendAnnouncement.js";
@@ -337,8 +340,11 @@ declare const fullApi: ApiFromModules<{
   "migrations/index": typeof migrations_index;
   "migrations/kindeHelpers": typeof migrations_kindeHelpers;
   "migrations/migrateCases": typeof migrations_migrateCases;
+  "migrations/migrateClients": typeof migrations_migrateClients;
   "migrations/migrateDocuments": typeof migrations_migrateDocuments;
   "migrations/migrateTestUsers": typeof migrations_migrateTestUsers;
+  "migrations/migrateUserData": typeof migrations_migrateUserData;
+  "migrations/migrationWorkflow": typeof migrations_migrationWorkflow;
   "migrations/mimeTypeUtils": typeof migrations_mimeTypeUtils;
   "migrations/processingHelpers": typeof migrations_processingHelpers;
   "migrations/sendAnnouncement": typeof migrations_sendAnnouncement;
