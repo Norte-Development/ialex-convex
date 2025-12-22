@@ -418,9 +418,14 @@ function EscritoRow({
       </TableCell>
       <TableCell>
         <div className="flex items-center gap-2">
-          <Link2 className="h-4 w-4 text-primary" />
-          <div className="flex flex-col">
-            <span className="font-medium text-gray-900">{escrito.title}</span>
+          <Link2 className="h-4 w-4 text-primary shrink-0" />
+          <div className="flex flex-col min-w-0">
+            <span 
+              className="font-medium text-gray-900 truncate max-w-[200px] sm:max-w-[300px] md:max-w-[400px] block" 
+              title={escrito.title}
+            >
+              {escrito.title}
+            </span>
             {/* Optional tag badge placeholder */}
             {/* <Badge className="mt-1 w-fit" variant="secondary">Tag</Badge> */}
           </div>

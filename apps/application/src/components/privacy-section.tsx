@@ -56,6 +56,20 @@ export function PrivacySection({ preferences, onUpdate }: PrivacySectionProps) {
               onCheckedChange={(value) => onUpdate("activityLogVisible", value)}
             />
           </div>
+
+          <div className="pt-4 border-t">
+            <p className="text-xs text-muted-foreground">
+              Para más información sobre cómo manejamos tus datos, consulta nuestra{" "}
+              <a 
+                href="https://ialex.com.ar/politica-privacidad" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="text-primary hover:underline"
+              >
+                Política de Privacidad
+              </a>
+            </p>
+          </div>
         </CardContent>
       </Card>
     </section>

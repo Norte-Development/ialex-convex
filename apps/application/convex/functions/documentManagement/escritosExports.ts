@@ -26,7 +26,7 @@ export const exportEscritoToGoogleDocs = action({
     args: {
         escritoId: v.id("escritos"),
         caseId: v.id("cases"),
-        html: v.optional(v.string()),
+        html: v.string(),
     },
     handler: async (ctx, args) : Promise<{ docId: string; docUrl: string }> => {
 

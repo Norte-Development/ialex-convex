@@ -10,10 +10,9 @@ import { getCurrentUserFromAuth } from "../auth_utils";
 // Pure Convex runtime (queries/mutations) - no Node.js dependencies
 // ========================================
 
-// Google OAuth scopes for Drive and Docs API
+// Google OAuth scopes for Drive API
 const GOOGLE_SCOPES = [
   "https://www.googleapis.com/auth/drive.file", // Access to files created/opened by the app
-  "https://www.googleapis.com/auth/documents", // Google Docs API access
 ];
 
 /**

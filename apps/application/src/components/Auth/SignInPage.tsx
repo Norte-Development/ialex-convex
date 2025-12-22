@@ -92,7 +92,7 @@ export const SignInPage: React.FC = () => {
           </div>
 
           {/* Sign In Component */}
-          <div className="flex justify-center">
+          <div className="flex flex-col items-center gap-4">
             <SignIn
               signUpUrl="/signup"
               appearance={{
@@ -107,6 +107,17 @@ export const SignInPage: React.FC = () => {
                 }
               }}
             />
+            <p className="text-xs text-muted-foreground text-center">
+              Al iniciar sesión, aceptas nuestra{" "}
+              <a 
+                href="https://ialex.com.ar/politica-privacidad" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="text-primary hover:underline"
+              >
+                Política de Privacidad
+              </a>
+            </p>
           </div>
         </div>
       </div>
