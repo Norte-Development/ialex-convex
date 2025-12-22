@@ -882,6 +882,84 @@ export default defineSchema({
     .index("by_attendance_status", ["attendanceStatus"])
     .index("by_active_status", ["isActive"]),
 
+  // Marketing / Informational Popups - configurable popups shown in the app
+  popups: defineTable({
+    key: v.string(), // Stable identifier (e.g. "blackfriday-2025")
+    title: v.string(),
+    subtitle: v.optional(v.string()),
+    upperBody: v.optional(v.string()),
+    body: v.string(),
+    // Image stored in GCS
+    imageGcsBucket: v.optional(v.string()),
+    imageGcsObject: v.optional(v.string()),
+    enabled: v.boolean(),
+    template: v.union(v.literal("simple"), v.literal("promo")),
+    audience: v.union(
+      v.literal("all"),
+      v.literal("free"),
+      v.literal("trial"),
+      v.literal("free_or_trial"),
+      v.literal("premium"),
+    ),
+
+    // Promo template extras
+    badgeText: v.optional(v.string()),
+
+    // CTAs (max 2 on UI; schema doesn't enforce the cap)
+    actions: v.optional(
+      v.array(
+        v.object({
+          type: v.union(v.literal("link"), v.literal("billing")),
+          label: v.string(),
+          // type=link
+          url: v.optional(v.string()),
+          newTab: v.optional(v.boolean()),
+          // type=billing
+          billingMode: v.optional(
+            v.union(
+              v.literal("plans"),
+              v.literal("checkout_individual"),
+              v.literal("checkout_team"),
+            ),
+          ),
+        }),
+      ),
+    ),
+
+    // Scheduling window (Unix timestamps ms)
+    startAt: v.optional(v.number()),
+    endAt: v.optional(v.number()),
+
+    // Frequency controls
+    showAfterDays: v.optional(v.number()),
+    frequencyDays: v.optional(v.number()),
+    maxImpressions: v.optional(v.number()),
+
+    // Ordering
+    priority: v.optional(v.number()),
+
+    // Audit
+    createdBy: v.optional(v.id("users")),
+    updatedBy: v.optional(v.id("users")),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_key", ["key"])
+    .index("by_enabled", ["enabled"])
+    .index("by_enabled_and_priority", ["enabled", "priority"]),
+
+  // Per-user popup view tracking (replaces localStorage gating)
+  popupViews: defineTable({
+    popupId: v.id("popups"),
+    userId: v.id("users"),
+    impressions: v.number(),
+    firstShownAt: v.number(),
+    lastShownAt: v.number(),
+    dismissedAt: v.optional(v.number()),
+  })
+    .index("by_popup_and_user", ["popupId", "userId"])
+    .index("by_user", ["userId"]),
+
   // MercadoPago subscriptions - for manual management
   mercadopagoSubscriptions: defineTable({
     // User reference
