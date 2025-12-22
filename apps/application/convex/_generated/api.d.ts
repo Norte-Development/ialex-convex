@@ -95,6 +95,7 @@ import type * as firebaseAdmin from "../firebaseAdmin.js";
 import type * as functions_agentRules from "../functions/agentRules.js";
 import type * as functions_cases from "../functions/cases.js";
 import type * as functions_clientManagement_clientHelpers from "../functions/clientManagement/clientHelpers.js";
+import type * as functions_clientManagement_clientMigrations from "../functions/clientManagement/clientMigrations.js";
 import type * as functions_clientManagement_clientValidators from "../functions/clientManagement/clientValidators.js";
 import type * as functions_clientManagement_index from "../functions/clientManagement/index.js";
 import type * as functions_clients from "../functions/clients.js";
@@ -284,6 +285,7 @@ declare const fullApi: ApiFromModules<{
   "functions/agentRules": typeof functions_agentRules;
   "functions/cases": typeof functions_cases;
   "functions/clientManagement/clientHelpers": typeof functions_clientManagement_clientHelpers;
+  "functions/clientManagement/clientMigrations": typeof functions_clientManagement_clientMigrations;
   "functions/clientManagement/clientValidators": typeof functions_clientManagement_clientValidators;
   "functions/clientManagement/index": typeof functions_clientManagement_index;
   "functions/clients": typeof functions_clients;

@@ -16,3 +16,9 @@ export {
 
 // Validators
 export { clientValidator, clientCaseValidator } from "./clientValidators";
+
+// Migration functions
+export {
+  migrateClientsToJuridicalModel,
+  getMigrationStatus,
+} from "./clientMigrations";
