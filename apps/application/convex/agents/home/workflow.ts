@@ -1,9 +1,9 @@
 import { WorkflowManager } from "@convex-dev/workflow";
 import { components, internal, api } from "../../_generated/api";
 import { v } from "convex/values";
-import { saveMessage } from "@convex-dev/agent";
 import { agent } from "./agent";
 import { internalAction, mutation } from "../../_generated/server";
+import type { ActionCtx } from "../../_generated/server";
 import { getCurrentUserFromAuth } from "../../auth_utils";
 import { authorizeThreadAccess } from "../threads";
 import { prompt } from "./prompt";
@@ -11,6 +11,33 @@ import { _getUserPlan, _getOrCreateUsageLimits, _getModelForUserPersonal } from 
 import { PLAN_LIMITS } from "../../billing/planLimits";
 import { openai } from "@ai-sdk/openai";
 import { createOpenRouter } from '@openrouter/ai-sdk-provider';
+const HOME_MEDIA_MAX_SIZE_BYTES = Number(
+  process.env.HOME_MEDIA_MAX_SIZE_BYTES ?? 10 * 1024 * 1024,
+);
+
+const mediaKindValidator = v.union(v.literal("image"), v.literal("pdf"));
+
+const mediaRefValidator = v.object({
+  url: v.optional(v.string()),
+  gcsBucket: v.string(),
+  gcsObject: v.string(),
+  contentType: v.string(),
+  filename: v.string(),
+  size: v.number(),
+  kind: mediaKindValidator,
+});
+
+type MediaKind = "image" | "pdf";
+
+type MediaRef = {
+  url?: string;
+  gcsBucket: string;
+  gcsObject: string;
+  contentType: string;
+  filename: string;
+  size: number;
+  kind: MediaKind;
+};
 
 const openrouter = createOpenRouter({
   apiKey: process.env.OPENROUTER_API_KEY,
@@ -25,19 +52,24 @@ export const legalAgentWorkflow = workflow.define({
     threadId: v.string(),
     prompt: v.string(),
     webSearch: v.boolean(),
+    media: v.optional(v.array(mediaRefValidator)),
   },
   handler: async (step, args): Promise<void> => {
-    const userMessage = await saveMessage(step, components.agent, {
+    const { messageId: promptMessageId } = await step.runAction(
+      internal.agents.home.workflow.saveHomeMessageWithMediaAction,
+      {
         threadId: args.threadId,
         prompt: args.prompt,
-      });
+        media: args.media ?? [],
+      },
+    );
 
 
     await step.runAction(
       internal.agents.home.workflow.streamWithContextAction,
       {
         threadId: args.threadId,
-        promptMessageId: userMessage.messageId,
+        promptMessageId,
         userId: args.userId,
         webSearch: args.webSearch,
       },
@@ -195,6 +227,7 @@ export const initiateWorkflowStreaming = mutation({
     prompt: v.string(),
     threadId: v.string(),
     webSearchEnabled: v.boolean(),
+    media: v.optional(v.array(mediaRefValidator)),
   },
   returns: v.object({
     workflowId: v.string(),
@@ -224,6 +257,31 @@ export const initiateWorkflowStreaming = mutation({
       );
     }
 
+    const media = args.media ?? [];
+
+    for (const mediaItem of media) {
+      if (mediaItem.size > HOME_MEDIA_MAX_SIZE_BYTES) {
+        throw new Error(
+          `El archivo ${mediaItem.filename} supera el máximo permitido (${Math.round(
+            HOME_MEDIA_MAX_SIZE_BYTES / (1024 * 1024),
+          )}MB)`,
+        );
+      }
+      if (
+        mediaItem.kind === "image" &&
+        !mediaItem.contentType.startsWith("image/")
+      ) {
+        throw new Error(
+          `Solo se permiten imágenes con content-type image/* (recibido: ${mediaItem.contentType})`,
+        );
+      }
+      if (mediaItem.kind === "pdf" && mediaItem.contentType !== "application/pdf") {
+        throw new Error(
+          `Solo se permiten PDFs con content-type application/pdf (recibido: ${mediaItem.contentType})`,
+        );
+      }
+    }
+
     let threadId = args.threadId;
     if (!threadId) {
       // Use first 50 chars of message as thread title
@@ -246,6 +304,7 @@ export const initiateWorkflowStreaming = mutation({
         threadId,
         prompt: args.prompt,
         webSearch: args.webSearchEnabled,
+        media,
       },
     );
 
@@ -260,3 +319,119 @@ export const initiateWorkflowStreaming = mutation({
     return { workflowId, threadId };
   },
 });
+
+export const saveHomeMessageWithMediaAction = internalAction({
+  args: {
+    threadId: v.string(),
+    prompt: v.string(),
+    media: v.optional(v.array(mediaRefValidator)),
+  },
+  returns: v.object({
+    messageId: v.string(),
+  }),
+  handler: async (ctx, { threadId, prompt, media }) => {
+    const mediaRefs = media ?? [];
+    const mediaParts = await buildMediaContentParts(ctx, threadId, mediaRefs);
+    const messageContent = [
+      { type: "text" as const, text: prompt },
+      ...mediaParts,
+    ];
+
+    const { messageId } = await agent.saveMessage(ctx, {
+      threadId,
+      message: {
+        role: "user",
+        content: messageContent,
+      },
+    });
+
+    return { messageId };
+  },
+});
+
+type ImagePart = {
+  type: "image";
+  image: string;
+  mimeType: string;
+};
+
+type FilePart = {
+  type: "file";
+  data: string;
+  filename: string;
+  mimeType: string;
+};
+
+const buildMediaContentParts = async (
+  ctx: ActionCtx,
+  threadId: string,
+  mediaRefs: Array<MediaRef>,
+): Promise<Array<ImagePart | FilePart>> => {
+  const parts: Array<ImagePart | FilePart> = [];
+
+  for (const mediaRef of mediaRefs) {
+    if (mediaRef.size > HOME_MEDIA_MAX_SIZE_BYTES) {
+      console.warn("[Home Agent] Archivo omitido por exceder tamaño máximo", {
+        threadId,
+        filename: mediaRef.filename,
+        size: mediaRef.size,
+      });
+      continue;
+    }
+
+    let mediaUrl = mediaRef.url;
+
+    if (!mediaUrl) {
+      try {
+        const resolvedUrl = await ctx.runAction(
+          internal.agents.whatsapp.mediaUtils.getShortLivedMediaUrl,
+          {
+            gcsBucket: mediaRef.gcsBucket,
+            gcsObject: mediaRef.gcsObject,
+          },
+        );
+        mediaUrl = resolvedUrl ?? undefined;
+      } catch (error) {
+        console.error(
+          "[Home Agent] Error generando URL para media, se omite",
+          {
+            threadId,
+            gcsBucket: mediaRef.gcsBucket,
+            gcsObject: mediaRef.gcsObject,
+            error,
+          },
+        );
+      }
+    }
+
+    if (!mediaUrl) {
+      console.warn(
+        "[Home Agent] No se pudo obtener URL pública para media, se omite",
+        {
+          threadId,
+          gcsBucket: mediaRef.gcsBucket,
+          gcsObject: mediaRef.gcsObject,
+        },
+      );
+      continue;
+    }
+
+    if (mediaRef.kind === "image") {
+      parts.push({
+        type: "image",
+        image: mediaUrl,
+        mimeType: mediaRef.contentType,
+      });
+      continue;
+    }
+
+    parts.push({
+      type: "file",
+      data: mediaUrl,
+      filename: mediaRef.filename,
+      mimeType: mediaRef.contentType,
+    });
+  }
+
+  return parts;
+};

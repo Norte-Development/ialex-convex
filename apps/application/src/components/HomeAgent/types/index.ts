@@ -33,3 +33,9 @@ export type {
   ChatInputProps,
   EmptyStateProps,
 } from "./ui-types";
+
+export type {
+  HomeAgentMediaRef,
+  HomeAgentMediaKind,
+} from "./media-types";
+export { HOME_AGENT_MAX_MEDIA_BYTES } from "./media-types";
