@@ -22,6 +22,7 @@ import type * as agents_core_utils_normalizedSearch from "../agents/core/utils/n
 import type * as agents_core_utils_textNormalization from "../agents/core/utils/textNormalization.js";
 import type * as agents_home_agent from "../agents/home/agent.js";
 import type * as agents_home_index from "../agents/home/index.js";
+import type * as agents_home_media from "../agents/home/media.js";
 import type * as agents_home_prompt from "../agents/home/prompt.js";
 import type * as agents_home_streaming from "../agents/home/streaming.js";
 import type * as agents_home_workflow from "../agents/home/workflow.js";
@@ -94,6 +95,10 @@ import type * as context_parseReferences from "../context/parseReferences.js";
 import type * as firebaseAdmin from "../firebaseAdmin.js";
 import type * as functions_agentRules from "../functions/agentRules.js";
 import type * as functions_cases from "../functions/cases.js";
+import type * as functions_clientManagement_clientHelpers from "../functions/clientManagement/clientHelpers.js";
+import type * as functions_clientManagement_clientMigrations from "../functions/clientManagement/clientMigrations.js";
+import type * as functions_clientManagement_clientValidators from "../functions/clientManagement/clientValidators.js";
+import type * as functions_clientManagement_index from "../functions/clientManagement/index.js";
 import type * as functions_clients from "../functions/clients.js";
 import type * as functions_documentManagement_documentAgentHelpers from "../functions/documentManagement/documentAgentHelpers.js";
 import type * as functions_documentManagement_documentCrud from "../functions/documentManagement/documentCrud.js";
@@ -126,8 +131,8 @@ import type * as functions_libraryDocumentProcessing from "../functions/libraryD
 import type * as functions_libraryFolders from "../functions/libraryFolders.js";
 import type * as functions_mercadopagoAdmin from "../functions/mercadopagoAdmin.js";
 import type * as functions_mercadopagoImport from "../functions/mercadopagoImport.js";
-import type * as functions_migration from "../functions/migration.js";
 import type * as functions_permissions from "../functions/permissions.js";
+import type * as functions_popups from "../functions/popups.js";
 import type * as functions_prompts from "../functions/prompts.js";
 import type * as functions_search from "../functions/search.js";
 import type * as functions_seedCases from "../functions/seedCases.js";
@@ -209,6 +214,7 @@ declare const fullApi: ApiFromModules<{
   "agents/core/utils/textNormalization": typeof agents_core_utils_textNormalization;
   "agents/home/agent": typeof agents_home_agent;
   "agents/home/index": typeof agents_home_index;
+  "agents/home/media": typeof agents_home_media;
   "agents/home/prompt": typeof agents_home_prompt;
   "agents/home/streaming": typeof agents_home_streaming;
   "agents/home/workflow": typeof agents_home_workflow;
@@ -281,6 +287,10 @@ declare const fullApi: ApiFromModules<{
   firebaseAdmin: typeof firebaseAdmin;
   "functions/agentRules": typeof functions_agentRules;
   "functions/cases": typeof functions_cases;
+  "functions/clientManagement/clientHelpers": typeof functions_clientManagement_clientHelpers;
+  "functions/clientManagement/clientMigrations": typeof functions_clientManagement_clientMigrations;
+  "functions/clientManagement/clientValidators": typeof functions_clientManagement_clientValidators;
+  "functions/clientManagement/index": typeof functions_clientManagement_index;
   "functions/clients": typeof functions_clients;
   "functions/documentManagement/documentAgentHelpers": typeof functions_documentManagement_documentAgentHelpers;
   "functions/documentManagement/documentCrud": typeof functions_documentManagement_documentCrud;
@@ -313,8 +323,8 @@ declare const fullApi: ApiFromModules<{
   "functions/libraryFolders": typeof functions_libraryFolders;
   "functions/mercadopagoAdmin": typeof functions_mercadopagoAdmin;
   "functions/mercadopagoImport": typeof functions_mercadopagoImport;
-  "functions/migration": typeof functions_migration;
   "functions/permissions": typeof functions_permissions;
+  "functions/popups": typeof functions_popups;
   "functions/prompts": typeof functions_prompts;
   "functions/search": typeof functions_search;
   "functions/seedCases": typeof functions_seedCases;

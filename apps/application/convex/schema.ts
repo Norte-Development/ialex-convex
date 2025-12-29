@@ -156,27 +156,115 @@ export default defineSchema({
     .index("by_active_status", ["isActive"])
     .index("by_completion_status", ["isCompleted"]),
 
-  // Clients table - legal clients
+  // Clients table - legal clients (modelo jurídico CCyCN + LGS)
   clients: defineTable({
-    name: v.string(),
+    // ============================================
+    // CAPA 1 - NATURALEZA JURÍDICA
+    // Opcional para compatibilidad con datos legacy - las funciones calculan fallback
+    // ============================================
+    naturalezaJuridica: v.optional(
+      v.union(
+        v.literal("humana"), // Persona humana (Art. 19 CCyCN)
+        v.literal("juridica"), // Persona jurídica (Art. 141 CCyCN)
+      ),
+    ),
+
+    // ============================================
+    // CAMPOS PERSONA HUMANA (naturalezaJuridica = "humana")
+    // ============================================
+    nombre: v.optional(v.string()), // Nombre de pila
+    apellido: v.optional(v.string()), // Apellido
+    dni: v.optional(v.string()), // DNI (obligatorio para persona humana)
+
+    // Clasificación económica (persona humana)
+    actividadEconomica: v.optional(
+      v.union(
+        v.literal("sin_actividad"), // Consumidor puro
+        v.literal("profesional"), // Profesional independiente
+        v.literal("comerciante"), // Comerciante individual
+      ),
+    ),
+    profesionEspecifica: v.optional(v.string()), // Si es profesional o comerciante
+
+    // ============================================
+    // CAMPOS PERSONA JURÍDICA (naturalezaJuridica = "juridica")
+    // ============================================
+    razonSocial: v.optional(v.string()), // Razón social (obligatorio para PJ)
+
+    // Tipo de persona jurídica (Art. 148 CCyCN)
+    tipoPersonaJuridica: v.optional(
+      v.union(
+        v.literal("sociedad"), // Sociedades comerciales (LGS)
+        v.literal("asociacion_civil"), // Asociación Civil
+        v.literal("fundacion"), // Fundación
+        v.literal("cooperativa"), // Cooperativa
+        v.literal("ente_publico"), // Entes estatales
+        v.literal("consorcio"), // Consorcio de PH
+        v.literal("otro"), // Otros tipos
+      ),
+    ),
+
+    // Tipo societario (solo si tipoPersonaJuridica = "sociedad")
+    tipoSociedad: v.optional(
+      v.union(
+        v.literal("SA"), // Sociedad Anónima
+        v.literal("SAS"), // Sociedad por Acciones Simplificada
+        v.literal("SRL"), // Sociedad de Responsabilidad Limitada
+        v.literal("COLECTIVA"), // Sociedad Colectiva
+        v.literal("COMANDITA_SIMPLE"), // Sociedad en Comandita Simple
+        v.literal("COMANDITA_ACCIONES"), // Sociedad en Comandita por Acciones
+        v.literal("CAPITAL_INDUSTRIA"), // Sociedad de Capital e Industria
+        v.literal("IRREGULAR"), // Sociedad irregular ⚠️
+        v.literal("HECHO"), // Sociedad de hecho ⚠️
+        v.literal("OTRO"), // Otro tipo
+      ),
+    ),
+
+    // Descripción para tipos "otro"
+    descripcionOtro: v.optional(v.string()),
+
+    // ============================================
+    // CAMPOS COMUNES
+    // ============================================
+    cuit: v.optional(v.string()), // CUIT (obligatorio para PJ, condicional para PH)
     email: v.optional(v.string()),
     phone: v.optional(v.string()),
-    dni: v.optional(v.string()), // DNI for identification
-    cuit: v.optional(v.string()), // CUIT for tax identification
-    address: v.optional(v.string()),
-    clientType: v.union(v.literal("individual"), v.literal("company")),
-    isActive: v.boolean(),
+    domicilioLegal: v.optional(v.string()),
     notes: v.optional(v.string()),
+
+    // Campo computado para display y búsquedas (nombre completo o razón social)
+    // Opcional para compatibilidad con datos legacy - las funciones calculan fallback
+    displayName: v.optional(v.string()),
+
+    // ============================================
+    // CAMPOS LEGADO (para migración - deprecated)
+    // ============================================
+    // @deprecated - usar naturalezaJuridica
+    clientType: v.optional(
+      v.union(v.literal("individual"), v.literal("company")),
+    ),
+    // @deprecated - usar displayName
+    name: v.optional(v.string()),
+    // @deprecated - usar domicilioLegal
+    address: v.optional(v.string()),
+
+    // ============================================
+    // SISTEMA
+    // ============================================
+    isActive: v.boolean(),
     createdBy: v.id("users"),
   })
+    .index("by_naturaleza", ["naturalezaJuridica"])
     .index("by_dni", ["dni"])
     .index("by_cuit", ["cuit"])
     .index("by_email", ["email"])
     .index("by_created_by", ["createdBy"])
     .index("by_active_status", ["isActive"])
+    .index("by_tipo_persona_juridica", ["tipoPersonaJuridica"])
+    .index("by_tipo_sociedad", ["tipoSociedad"])
     .searchIndex("search_clients", {
-      searchField: "name",
-      filterFields: ["isActive"],
+      searchField: "displayName",
+      filterFields: ["isActive", "naturalezaJuridica"],
     }),
 
   // Cases table - legal cases (removed clientId for many-to-many relationship)
@@ -882,6 +970,84 @@ export default defineSchema({
     .index("by_attendance_status", ["attendanceStatus"])
     .index("by_active_status", ["isActive"]),
 
+  // Marketing / Informational Popups - configurable popups shown in the app
+  popups: defineTable({
+    key: v.string(), // Stable identifier (e.g. "blackfriday-2025")
+    title: v.string(),
+    subtitle: v.optional(v.string()),
+    upperBody: v.optional(v.string()),
+    body: v.string(),
+    // Image stored in GCS
+    imageGcsBucket: v.optional(v.string()),
+    imageGcsObject: v.optional(v.string()),
+    enabled: v.boolean(),
+    template: v.union(v.literal("simple"), v.literal("promo")),
+    audience: v.union(
+      v.literal("all"),
+      v.literal("free"),
+      v.literal("trial"),
+      v.literal("free_or_trial"),
+      v.literal("premium"),
+    ),
+
+    // Promo template extras
+    badgeText: v.optional(v.string()),
+
+    // CTAs (max 2 on UI; schema doesn't enforce the cap)
+    actions: v.optional(
+      v.array(
+        v.object({
+          type: v.union(v.literal("link"), v.literal("billing")),
+          label: v.string(),
+          // type=link
+          url: v.optional(v.string()),
+          newTab: v.optional(v.boolean()),
+          // type=billing
+          billingMode: v.optional(
+            v.union(
+              v.literal("plans"),
+              v.literal("checkout_individual"),
+              v.literal("checkout_team"),
+            ),
+          ),
+        }),
+      ),
+    ),
+
+    // Scheduling window (Unix timestamps ms)
+    startAt: v.optional(v.number()),
+    endAt: v.optional(v.number()),
+
+    // Frequency controls
+    showAfterDays: v.optional(v.number()),
+    frequencyDays: v.optional(v.number()),
+    maxImpressions: v.optional(v.number()),
+
+    // Ordering
+    priority: v.optional(v.number()),
+
+    // Audit
+    createdBy: v.optional(v.id("users")),
+    updatedBy: v.optional(v.id("users")),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_key", ["key"])
+    .index("by_enabled", ["enabled"])
+    .index("by_enabled_and_priority", ["enabled", "priority"]),
+
+  // Per-user popup view tracking (replaces localStorage gating)
+  popupViews: defineTable({
+    popupId: v.id("popups"),
+    userId: v.id("users"),
+    impressions: v.number(),
+    firstShownAt: v.number(),
+    lastShownAt: v.number(),
+    dismissedAt: v.optional(v.number()),
+  })
+    .index("by_popup_and_user", ["popupId", "userId"])
+    .index("by_user", ["userId"]),
+
   // MercadoPago subscriptions - for manual management
   mercadopagoSubscriptions: defineTable({
     // User reference
@@ -963,6 +1129,5 @@ export default defineSchema({
     tokenType: v.string(), // Usually "Bearer"
     createdAt: v.number(), // Timestamp when account was first connected
     updatedAt: v.number(), // Timestamp when tokens were last updated
-  })
-    .index("by_user", ["userId"]),
+  }).index("by_user", ["userId"]),
 });

@@ -10,6 +10,8 @@ import { api } from "../../../convex/_generated/api";
 import { Loader } from "@/components/ai-elements/loader";
 import { BlackFridayPopup } from "@/components/BlackFriday/BlackFridayPopup";
 import { FreemiumUpgradePopup } from "@/components/Freemium/FreemiumUpgradePopup";
+import { PopupGateProvider } from "@/features/popups/PopupGate";
+import { MarketingPopUp } from "@/features/popups/MarketingPopUp";
 
 export default function HomePage() {
   const { user } = useAuth();
@@ -36,15 +38,17 @@ export default function HomePage() {
   }
 
   const casesInProgress =
-    cases.filter(
-      (c) => c.status === "en progreso" || c.status === "pendiente",
-    ).length || 0;
+    cases.filter((c) => c.status === "en progreso" || c.status === "pendiente")
+      .length || 0;
 
   return (
     <>
       <TutorialManager />
-      <BlackFridayPopup />
-      <FreemiumUpgradePopup />
+      <PopupGateProvider>
+        <MarketingPopUp />
+        <BlackFridayPopup />
+        <FreemiumUpgradePopup />
+      </PopupGateProvider>
 
       <div className="w-full bg-background px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
         <div className="max-w-[1600px] mx-auto space-y-6 sm:space-y-8">
@@ -123,7 +127,12 @@ export default function HomePage() {
                     Casos Recientes
                   </h2>
                   <div className="flex items-center justify-end">
-                    <button className="text-sm text-[#130261] hover:underline" onClick={() => navigate("/casos")}>Ver todos</button>
+                    <button
+                      className="text-sm text-[#130261] hover:underline"
+                      onClick={() => navigate("/casos")}
+                    >
+                      Ver todos
+                    </button>
                   </div>
                 </div>
                 {isLoadingCases ? (
@@ -152,13 +161,12 @@ export default function HomePage() {
                         <p className="text-xs text-gray-600 mb-2">
                           Última actualización{" "}
                           {caseItem._creationTime
-                            ? new Date(caseItem._creationTime).toLocaleDateString(
-                                "es-ES",
-                                {
-                                  day: "numeric",
-                                  month: "short",
-                                },
-                              )
+                            ? new Date(
+                                caseItem._creationTime,
+                              ).toLocaleDateString("es-ES", {
+                                day: "numeric",
+                                month: "short",
+                              })
                             : "recientemente"}
                         </p>
                         {caseItem.category && (

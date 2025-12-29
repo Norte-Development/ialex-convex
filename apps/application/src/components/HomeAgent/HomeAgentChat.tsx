@@ -13,16 +13,12 @@
  * ```
  */
 
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useUIMessages } from "@convex-dev/agent/react";
 import { api } from "../../../convex/_generated/api";
-import { useConvex, useMutation } from "convex/react";
+import { useConvex, useMutation, useAction } from "convex/react";
 import { useHomeThreads } from "./hooks/useHomeThreads";
-import {
-  Message,
-  MessageContent,
-} from "@/components/ai-elements/message";
 import {
   Conversation,
   ConversationContent,
@@ -35,25 +31,19 @@ import {
   PromptInputSubmit,
   PromptInputButton,
 } from "@/components/ai-elements/prompt-input";
-import { Response } from "@/components/ai-elements/response";
-import { Actions, Action } from "@/components/ai-elements/actions";
-import {
-  Reasoning,
-  ReasoningContent,
-  ReasoningTrigger,
-} from "@/components/ai-elements/reasoning";
-import { Sources, SourcesTrigger, SourcesContent, Source } from "@/components/ai-elements/source";
-import { Copy, RotateCw, Check, AlertCircle, Globe, AlertTriangle } from "lucide-react";
-import { formatDistanceToNow } from "date-fns";
-import { es } from "date-fns/locale";
-import { Tool } from "@/components/ai-elements/tool";
-import type { ChatStatus, ToolUIPart } from "ai";
+import { Globe, AlertTriangle, Paperclip, AlertCircle } from "lucide-react";
+import type { ChatStatus } from "ai";
 import { toast } from "sonner";
 import { CitationModal } from "@/components/CaseAgent/citation-modal";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { extractCitationsFromToolOutputs } from "@/components/ai-elements/citations";
 import type { Id } from "convex/_generated/dataModel";
+import { HomeAgentAttachmentPreview } from "./HomeAgentAttachmentPreview";
+import { HomeAgentMessage, type AgentMessage } from "./HomeAgentMessage";
+import type { HomeAgentMediaRef } from "./types";
+import { HOME_AGENT_MAX_MEDIA_BYTES } from "./types";
+
+// Tool citations are extracted via shared utility in `ai-elements/citations`.
 
 export interface HomeAgentChatProps {
   /** ID del thread de conversación */
@@ -65,303 +55,6 @@ export interface HomeAgentChatProps {
   /** Clase CSS personalizada para el contenedor */
   className?: string;
 }
-
-interface HomeAgentMessageProps {
-  msg: AgentMessage;
-  copiedMessageId: string | null;
-  onCopyMessage: (messageId: string, text: string) => void;
-  onCitationClick: (id: string, type: string) => void;
-  onRetry?: (userMessage: string) => void;
-}
-
-type AgentPart = {
-  type?: string;
-  state?: string;
-  text?: string;
-  output?: unknown;
-  input?: unknown;
-  url?: string;
-  title?: string;
-  mediaType?: string;
-  filename?: string;
-  [key: string]: unknown;
-};
-
-type AgentMessage = {
-  _id?: string;
-  id?: string;
-  role: "user" | "assistant" | "system";
-  status?: "pending" | "streaming" | "done" | "failed" | "success";
-  order?: number;
-  _creationTime?: number;
-  text?: string;
-  parts?: AgentPart[];
-};
-
-// Tool citations are extracted via shared utility in `ai-elements/citations`.
-
-/**
- * Componente individual de mensaje
- */
-const HomeAgentMessage = ({
-  msg,
-  copiedMessageId,
-  onCopyMessage,
-  onCitationClick,
-  onRetry,
-}: HomeAgentMessageProps) => {
-  const messageText =
-    msg.text ||
-    msg.parts
-      ?.filter((p) => p.type === "text")
-      .map((p) => p.text)
-      .join("") ||
-    "";
-
-  const isUser = msg.role === "user";
-  const messageId = msg._id ?? msg.id ?? "";
-  const isCopied = copiedMessageId === messageId;
-
-  // Check for active tools
-  const toolCalls =
-    msg.parts?.filter((p) => typeof p.type === "string" && p.type.startsWith("tool-")) ||
-    [];
-  const allToolsCompleted =
-    toolCalls.length > 0 &&
-    toolCalls.every((p) => p.state === "output-available");
-  const hasActiveTools = toolCalls.length > 0 && !allToolsCompleted;
-
-  // Extract source parts (from web search etc.)
-  const sourceParts = msg.parts?.filter((part) => part.type === "source-url") || [];
-  
-  // Extract citations from tool outputs (legislation search, fallos, etc.)
-  const toolCitations = msg.parts ? extractCitationsFromToolOutputs(msg.parts) : [];
-
-  return (
-    <Message key={messageId} from={msg.role}>
-      <MessageContent>
-        {/* Show thinking indicator if message is streaming but has no text yet */}
-        {!isUser &&
-          msg.status === "streaming" &&
-          (!messageText || messageText.trim() === "") && (
-            <div className="flex items-center gap-2">
-              <div className="flex gap-1">
-                <div
-                  className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"
-                  style={{ animationDelay: "0ms" }}
-                />
-                <div
-                  className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"
-                  style={{ animationDelay: "150ms" }}
-                />
-                <div
-                  className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"
-                  style={{ animationDelay: "300ms" }}
-                />
-              </div>
-              <span className="text-xs text-gray-500 italic">
-                {hasActiveTools ? "Procesando herramientas..." : "Pensando..."}
-              </span>
-            </div>
-          )}
-
-        {/* Renderizar parts en orden cronológico */}
-        {msg.parts && msg.parts.length > 0 ? (
-          msg.parts.map((part, partIndex: number) => {
-            // Renderizar texto
-            if (part.type === "text") {
-              const displayText = part.text;
-
-              if (isUser) {
-                return (
-                  <div
-                    key={partIndex}
-                    className="whitespace-pre-wrap text-sm"
-                  >
-                    {displayText || "..."}
-                  </div>
-                );
-              } else {
-                return (
-                  <Response
-                    key={partIndex}
-                    className="text-sm"
-                    onCitationClick={(id, type) => {
-                      console.log("🔗 [Citations] Citation clicked in message text:", { id, type });
-                      onCitationClick(id, type);
-                    }}
-                  >
-                    {displayText || "..."}
-                  </Response>
-                );
-              }
-            }
-
-            // Renderizar reasoning
-            if (part.type === "reasoning") {
-              // Simple streaming detection - trust the backend status
-              const reasoningIsStreaming = msg.status === "streaming";
-
-              return (
-                <Reasoning
-                  key={`${messageId}-${partIndex}`}
-                  defaultOpen={false}
-                  isStreaming={reasoningIsStreaming}
-                >
-                  <ReasoningTrigger className="text-[10px]!" />
-                  <ReasoningContent className="group relative px-3! py-2! text-[10px]! space-y-2 max-w-[85%]">
-                    {typeof part.text === "string" ? part.text : ""}
-                  </ReasoningContent>
-                </Reasoning>
-              );
-            }
-
-            // Renderizar tool calls
-            if (part.type?.startsWith("tool-")) {
-              const aiSDKState = part.state;
-              const outputType = (part.output as { type?: unknown } | undefined)?.type as
-                | string
-                | undefined;
-              const isError =
-                aiSDKState === "output-available" &&
-                (outputType?.startsWith("error-") ?? false);
-
-              const toolState = isError
-                ? "output-error"
-                : aiSDKState === "output-available"
-                  ? "output-available"
-                  : aiSDKState === "input-available"
-                    ? "input-available"
-                    : "input-streaming";
-
-              return (
-                <Tool
-                  key={partIndex}
-                  className="mb-2"
-                  type={part.type.replace("tool-", "")}
-                  state={toolState}
-                  output={part.output as ToolUIPart["output"]}
-                  input={part.input}
-                />
-              );
-            }
-
-            if (part.type === "source-url") {
-              return null;
-            }
-
-            return null;
-          })
-        ) : isUser ? (
-          <div className="whitespace-pre-wrap text-sm">
-            {messageText || "..."}
-          </div>
-        ) : (
-          <Response
-            className="text-sm"
-            onCitationClick={(id, type) => {
-              console.log("🔗 [Citations] Citation clicked in message text (fallback):", { id, type });
-              onCitationClick(id, type);
-            }}
-          >
-            {messageText || "..."}
-          </Response>
-        )}
-        {/* Sources - from source-url parts and tool output citations */}
-        {(sourceParts.length > 0 || toolCitations.length > 0) && (
-          <Sources className="mt-2">
-            <SourcesTrigger count={sourceParts.length + toolCitations.length} />
-            <SourcesContent>
-              {/* Render source-url parts (web search) */}
-              {sourceParts.map((part, i: number) => (
-                <Source
-                  key={`source-${i}`}
-                  href={typeof part.url === "string" ? part.url : undefined}
-                  title={typeof part.title === "string" ? part.title : undefined}
-                  index={i + 1}
-                />
-              ))}
-              {/* Render tool citations (legislation, fallos, etc.) */}
-              {toolCitations.map((cit, i: number) => (
-                <button
-                  key={`cit-${cit.id}-${i}`}
-                  onClick={() => {
-                    console.log("🔗 [Citations] Citation clicked from sources list:", cit);
-                    onCitationClick(cit.id, cit.type);
-                  }}
-                  className="flex items-center gap-2.5 p-2 rounded-md hover:bg-muted/80 transition-all duration-200 no-underline group/source w-full text-left"
-                >
-                  <div className="flex items-center justify-center h-5 w-5 shrink-0 rounded-full bg-background border text-[10px] font-medium text-muted-foreground group-hover/source:text-foreground group-hover/source:border-primary/20">
-                    {sourceParts.length + i + 1}
-                  </div>
-                  <div className="flex flex-col gap-0.5 min-w-0 flex-1">
-                    <span className="text-xs font-medium truncate text-foreground/90 group-hover/source:text-primary">
-                      {cit.title}
-                    </span>
-                    <span className="text-[10px] text-muted-foreground truncate opacity-70">
-                      {cit.type === "leg"
-                        ? "Legislación"
-                        : cit.type === "fallo"
-                        ? "Jurisprudencia"
-                        : cit.type === "document" || cit.type === "case-doc" || cit.type === "doc"
-                        ? "Documento"
-                        : cit.type === "escrito"
-                        ? "Escrito"
-                        : cit.type}
-                    </span>
-                  </div>
-                </button>
-              ))}
-            </SourcesContent>
-          </Sources>
-        )}
-
-        <div className="flex items-center justify-between mt-2">
-          <div className="text-[10px] opacity-70">
-            {msg._creationTime
-              ? formatDistanceToNow(msg._creationTime, {
-                  addSuffix: true,
-                  locale: es,
-                })
-              : "ahora"}
-          </div>
-
-          {/* Actions - Solo para mensajes de la IA */}
-          {!isUser && (
-            <Actions>
-              <Action
-                tooltip={isCopied ? "¡Copiado!" : "Copiar"}
-                onClick={() => onCopyMessage(messageId, messageText)}
-              >
-                {isCopied ? (
-                  <Check className="size-4" />
-                ) : (
-                  <Copy className="size-4" />
-                )}
-              </Action>
-
-              {onRetry && (
-                <Action
-                  tooltip="Reintentar"
-                  onClick={() => onRetry(messageText)}
-                >
-                  <RotateCw className="size-4" />
-                </Action>
-              )}
-            </Actions>
-          )}
-        </div>
-
-        {msg.status === "failed" && (
-          <div className="flex items-center gap-2 mt-2 text-red-600 text-sm">
-            <AlertCircle className="size-4" />
-            <span>Error al procesar el mensaje</span>
-          </div>
-        )}
-      </MessageContent>
-    </Message>
-  );
-};
 
 /**
  * Componente de chat con streaming para HomeAgent
@@ -383,10 +76,17 @@ export function HomeAgentChat({
   });
   const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null);
   const [sendError, setSendError] = useState<string | null>(null);
+  const [mediaAttachments, setMediaAttachments] = useState<HomeAgentMediaRef[]>([]);
+  const [isUploadingMedia, setIsUploadingMedia] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     localStorage.setItem("homeAgentWebSearchEnabled", String(webSearchEnabled));
   }, [webSearchEnabled]);
+
+  useEffect(() => {
+    setMediaAttachments([]);
+  }, [threadId]);
 
   // Estado para el modal de citas
   const [citationModalOpen, setCitationModalOpen] = useState(false);
@@ -406,6 +106,7 @@ export function HomeAgentChat({
 
   // Hook para enviar mensajes
   const { sendMessage, messagesLoading } = useHomeThreads({ threadId });
+  const getUploadUrl = useAction(api.agents.home.media.getHomeMediaUploadUrl);
 
   // Hook para abortar streams
   const abortStreamByOrder = useMutation(
@@ -421,13 +122,126 @@ export function HomeAgentChat({
     ) ?? false;
 
   // Input debe estar deshabilitado si está cargando O si hay streaming
-  const isInputDisabled = messagesLoading || isStreaming;
+  const isInputDisabled = messagesLoading || isStreaming || isUploadingMedia;
+
+  const handleFileButtonClick = () => fileInputRef.current?.click();
+
+  const handleRemoveMedia = useCallback((gcsObject: string) => {
+    setMediaAttachments((prev) =>
+      prev.filter((item) => item.gcsObject !== gcsObject),
+    );
+  }, []);
+
+  const handleFilesSelected = useCallback(
+    async (filesInput: FileList | File[]) => {
+      if (isUploadingMedia) {
+        toast.error("Espera a que termine la carga actual.");
+        return;
+      }
+
+      const files = Array.from(filesInput as ArrayLike<File>);
+      if (files.length === 0) {
+        return;
+      }
+
+      // Reset input value to allow selecting same file again
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
+
+      setIsUploadingMedia(true);
+      try {
+        for (const file of files) {
+          const kind =
+            file.type === "application/pdf"
+              ? "pdf"
+              : file.type.startsWith("image/")
+                ? "image"
+                : null;
+
+          if (!kind) {
+            toast.error("Formato no soportado", {
+              description: `${file.name} no es una imagen ni PDF.`,
+            });
+            continue;
+          }
+
+          if (file.size > HOME_AGENT_MAX_MEDIA_BYTES) {
+            toast.error("Archivo demasiado grande", {
+              description: `${file.name} supera los ${(HOME_AGENT_MAX_MEDIA_BYTES / (1024 * 1024)).toFixed(0)}MB permitidos.`,
+            });
+            continue;
+          }
+
+          try {
+            const uploadConfig = await getUploadUrl({
+              filename: file.name,
+              contentType: file.type,
+              kind,
+            });
+
+            if (file.size > uploadConfig.maxSize) {
+              toast.error("Archivo supera el límite permitido", {
+                description: `${file.name} excede ${(
+                  uploadConfig.maxSize /
+                  (1024 * 1024)
+                ).toFixed(0)}MB.`,
+              });
+              continue;
+            }
+
+            const response = await fetch(uploadConfig.uploadUrl, {
+              method: "PUT",
+              headers: {
+                "Content-Type": file.type,
+              },
+              body: file,
+            });
+
+            if (!response.ok) {
+              throw new Error(
+                `Fallo la carga (${response.status} ${response.statusText})`,
+              );
+            }
+
+            setMediaAttachments((prev) => [
+              ...prev,
+              {
+                url: uploadConfig.publicUrl,
+                gcsBucket: uploadConfig.gcsBucket,
+                gcsObject: uploadConfig.gcsObject,
+                contentType: uploadConfig.contentType,
+                filename: uploadConfig.filename,
+                size: file.size,
+                kind,
+              },
+            ]);
+          } catch (error) {
+            console.error("Error uploading media", error);
+            const description =
+              error instanceof Error ? error.message : "Intenta nuevamente.";
+            toast.error("No se pudo subir el archivo", {
+              description,
+            });
+          }
+        }
+      } finally {
+        setIsUploadingMedia(false);
+      }
+    },
+    [getUploadUrl, isUploadingMedia],
+  );
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     // Don't submit if we're streaming (abort should be handled by button click)
     if (isStreaming) {
+      return;
+    }
+
+    if (isUploadingMedia) {
+      toast.error("Espera a que terminen las cargas antes de enviar.");
       return;
     }
     
@@ -438,11 +252,16 @@ export function HomeAgentChat({
     setSendError(null);
 
     try {
-      const result = await sendMessage(message, webSearchEnabled);
+      const result = await sendMessage(
+        message,
+        webSearchEnabled,
+        mediaAttachments,
+      );
       // If no thread was set, navigate to the new thread
       if (!threadId && result.threadId) {
         navigate(`/ai/${result.threadId}`);
       }
+      setMediaAttachments([]);
     } catch (error) {
       console.error("Error sending message:", error);
       const errorMessage =
@@ -508,8 +327,25 @@ export function HomeAgentChat({
     // For non-streaming state, let the form handle submission naturally
   };
 
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      handleFilesSelected(e.dataTransfer.files);
+    }
+  };
+
   return (
-    <div className={`flex flex-col h-full w-3/4 ${className}`}>
+    <div
+      className={`flex flex-col h-full w-3/4 ${className}`}
+      onDragOver={handleDragOver}
+      onDrop={handleDrop}
+    >
       {/* Conversation with auto-scroll */}
       <Conversation className="flex-1">
         <ConversationContent>
@@ -518,8 +354,16 @@ export function HomeAgentChat({
               <div className="text-muted-foreground">Cargando mensajes...</div>
             </div>
           ) : messages.length === 0 ? (
-            <div className="flex items-center justify-center h-full">
-              <div className="text-muted-foreground">No hay mensajes</div>
+            <div className="flex flex-col items-center justify-center h-full text-center space-y-4">
+              <div className="p-4 rounded-full bg-muted/50">
+                <Paperclip className="size-8 text-muted-foreground/50" />
+              </div>
+              <div>
+                <div className="text-muted-foreground font-medium">No hay mensajes aún</div>
+                <p className="text-xs text-muted-foreground/70 mt-1">
+                  Escribe un mensaje o arrastra archivos aquí para comenzar
+                </p>
+              </div>
             </div>
           ) : (
             <>
@@ -596,6 +440,11 @@ export function HomeAgentChat({
           </div>
         )}
         <PromptInput onSubmit={handleSubmit}>
+          <HomeAgentAttachmentPreview
+            media={mediaAttachments}
+            onRemove={handleRemoveMedia}
+            isUploading={isUploadingMedia}
+          />
           <PromptInputTextarea
             value={inputValue}
             onChange={(e) => setInputValue(e.target.value)}
@@ -604,6 +453,13 @@ export function HomeAgentChat({
           />
           <PromptInputToolbar>
             <div className="flex items-center gap-2">
+              <PromptInputButton
+                onClick={handleFileButtonClick}
+                disabled={isInputDisabled}
+                title="Adjuntar archivo"
+              >
+                <Paperclip className="size-4" />
+              </PromptInputButton>
               <PromptInputButton
                 onClick={() => setWebSearchEnabled(!webSearchEnabled)}
                 className={webSearchEnabled ? "text-blue-500 bg-blue-50" : ""}
@@ -615,7 +471,11 @@ export function HomeAgentChat({
             </div>
             <div className="flex-1" />
             <PromptInputSubmit
-              disabled={isStreaming ? false : (!inputValue.trim() || messagesLoading)}
+              disabled={
+                isStreaming
+                  ? false
+                  : (!inputValue.trim() || messagesLoading || isUploadingMedia)
+              }
               status={chatStatus}
               onClick={handleButtonClick}
               type={isStreaming ? "button" : "submit"}
@@ -623,6 +483,20 @@ export function HomeAgentChat({
             />
           </PromptInputToolbar>
         </PromptInput>
+
+        {/* Hidden File Input */}
+        <input
+          type="file"
+          ref={fileInputRef}
+          className="hidden"
+          multiple
+          accept="image/*,application/pdf"
+          onChange={(e) => {
+            if (e.target.files && e.target.files.length > 0) {
+              handleFilesSelected(e.target.files);
+            }
+          }}
+        />
       </div>
 
       {/* Modal de citas unificado */}
