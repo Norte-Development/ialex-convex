@@ -1,6 +1,6 @@
 /**
  * Templates for Clients tools markdown responses
- * 
+ *
  * This file contains all the markdown templates used by clients-related tools.
  * Templates are separated from tool logic to improve maintainability and reusability.
  */
@@ -8,45 +8,140 @@
 import { Id } from "../../../_generated/dataModel";
 
 /**
- * Type definition for client results
+ * Type definition for client results (new juridical model)
  */
 export type ClientResult = {
   _id: Id<"clients">;
   _creationTime: number;
-  name: string;
+  // Capa 1 - Naturaleza Jurídica
+  naturalezaJuridica: "humana" | "juridica";
+  // Campos Persona Humana
+  nombre?: string;
+  apellido?: string;
+  dni?: string;
+  actividadEconomica?: "sin_actividad" | "profesional" | "comerciante";
+  profesionEspecifica?: string;
+  // Campos Persona Jurídica
+  razonSocial?: string;
+  tipoPersonaJuridica?:
+    | "sociedad"
+    | "asociacion_civil"
+    | "fundacion"
+    | "cooperativa"
+    | "ente_publico"
+    | "consorcio"
+    | "otro";
+  tipoSociedad?:
+    | "SA"
+    | "SAS"
+    | "SRL"
+    | "COLECTIVA"
+    | "COMANDITA_SIMPLE"
+    | "COMANDITA_ACCIONES"
+    | "CAPITAL_INDUSTRIA"
+    | "IRREGULAR"
+    | "HECHO"
+    | "OTRO";
+  descripcionOtro?: string;
+  // Campos comunes
+  cuit?: string;
   email?: string;
   phone?: string;
-  dni?: string;
-  cuit?: string;
-  address?: string;
-  clientType: "individual" | "company";
-  isActive: boolean;
+  domicilioLegal?: string;
   notes?: string;
+  displayName: string;
+  // Campos legado (deprecated)
+  clientType?: "individual" | "company";
+  name?: string;
+  address?: string;
+  // Sistema
+  isActive: boolean;
   createdBy: Id<"users">;
   cases: Array<{
     caseId: Id<"cases">;
     caseTitle: string;
-    caseStatus: "pendiente" | "en progreso" | "completado" | "archivado" | "cancelado";
+    caseStatus:
+      | "pendiente"
+      | "en progreso"
+      | "completado"
+      | "archivado"
+      | "cancelado";
     role?: string;
     relationId: Id<"clientCases">;
   }>;
+};
+
+// Labels for display
+const tipoPersonaJuridicaLabels: Record<string, string> = {
+  sociedad: "Sociedad",
+  asociacion_civil: "Asociación Civil",
+  fundacion: "Fundación",
+  cooperativa: "Cooperativa",
+  ente_publico: "Ente Público",
+  consorcio: "Consorcio",
+  otro: "Otro",
+};
+
+const tipoSociedadLabels: Record<string, string> = {
+  SA: "Sociedad Anónima (S.A.)",
+  SAS: "Sociedad por Acciones Simplificada (S.A.S.)",
+  SRL: "Sociedad de Responsabilidad Limitada (S.R.L.)",
+  COLECTIVA: "Sociedad Colectiva",
+  COMANDITA_SIMPLE: "Sociedad en Comandita Simple",
+  COMANDITA_ACCIONES: "Sociedad en Comandita por Acciones",
+  CAPITAL_INDUSTRIA: "Sociedad de Capital e Industria",
+  IRREGULAR: "Sociedad Irregular ⚠️",
+  HECHO: "Sociedad de Hecho ⚠️",
+  OTRO: "Otro tipo societario",
+};
+
+const actividadEconomicaLabels: Record<string, string> = {
+  sin_actividad: "Sin actividad económica",
+  profesional: "Profesional",
+  comerciante: "Comerciante",
 };
 
 /**
  * Template for formatting individual client details
  */
 export function formatClientDetails(client: ClientResult): string {
-  const typeLabel = client.clientType === "individual" ? "👤 Persona Física" : "🏢 Empresa";
-  
-  let details = `### ${client.name} (${typeLabel})
-- **ID**: ${client._id}
-- **Tipo**: ${client.clientType === "individual" ? "Persona Física" : "Empresa"}`;
+  const isHumana = client.naturalezaJuridica === "humana";
+  const typeLabel = isHumana ? "👤 Persona Humana" : "🏢 Persona Jurídica";
 
-  if (client.dni) details += `\n- **DNI**: ${client.dni}`;
+  let details = `### ${client.displayName} (${typeLabel})
+- **ID**: ${client._id}
+- **Naturaleza Jurídica**: ${isHumana ? "Persona Humana" : "Persona Jurídica"}`;
+
+  if (isHumana) {
+    // Persona Humana fields
+    if (client.nombre) details += `\n- **Nombre**: ${client.nombre}`;
+    if (client.apellido) details += `\n- **Apellido**: ${client.apellido}`;
+    if (client.dni) details += `\n- **DNI**: ${client.dni}`;
+    if (client.actividadEconomica) {
+      details += `\n- **Actividad Económica**: ${actividadEconomicaLabels[client.actividadEconomica] || client.actividadEconomica}`;
+    }
+    if (client.profesionEspecifica)
+      details += `\n- **Profesión**: ${client.profesionEspecifica}`;
+  } else {
+    // Persona Jurídica fields
+    if (client.razonSocial)
+      details += `\n- **Razón Social**: ${client.razonSocial}`;
+    if (client.tipoPersonaJuridica) {
+      details += `\n- **Tipo**: ${tipoPersonaJuridicaLabels[client.tipoPersonaJuridica] || client.tipoPersonaJuridica}`;
+    }
+    if (client.tipoSociedad) {
+      details += `\n- **Tipo Societario**: ${tipoSociedadLabels[client.tipoSociedad] || client.tipoSociedad}`;
+    }
+    if (client.descripcionOtro)
+      details += `\n- **Descripción**: ${client.descripcionOtro}`;
+  }
+
+  // Common fields
   if (client.cuit) details += `\n- **CUIT**: ${client.cuit}`;
   if (client.email) details += `\n- **Email**: ${client.email}`;
   if (client.phone) details += `\n- **Teléfono**: ${client.phone}`;
-  if (client.address) details += `\n- **Dirección**: ${client.address}`;
+  if (client.domicilioLegal)
+    details += `\n- **Domicilio Legal**: ${client.domicilioLegal}`;
   if (client.notes) details += `\n- **Notas**: ${client.notes}`;
 
   if (client.cases.length > 0) {
@@ -70,7 +165,7 @@ export function formatClientDetails(client: ClientResult): string {
 export function createSearchResultsTemplate(
   clients: ClientResult[],
   searchTerm: string,
-  limit: number
+  limit: number,
 ): string {
   if (clients.length === 0) {
     return `# 🔍 Búsqueda de Clientes
@@ -96,7 +191,7 @@ No se encontraron clientes que coincidan con el término de búsqueda.
 **Buscar**: "${searchTerm}"
 
 ## Resultados Encontrados
-Se encontraron **${clients.length}** cliente${clients.length !== 1 ? 's' : ''}.
+Se encontraron **${clients.length}** cliente${clients.length !== 1 ? "s" : ""}.
 
 ---
 
@@ -122,7 +217,7 @@ Se encontraron **${clients.length}** cliente${clients.length !== 1 ? 's' : ''}.
 export function createCaseClientsResultsTemplate(
   clients: ClientResult[],
   caseId: string,
-  limit: number
+  limit: number,
 ): string {
   if (clients.length === 0) {
     return `# 👥 Clientes del Caso
@@ -149,7 +244,7 @@ Esto podría significar que:
 - **ID del Caso**: ${caseId}
 
 ## Clientes Encontrados
-Se encontraron **${clients.length}** cliente${clients.length !== 1 ? 's' : ''} asociado${clients.length !== 1 ? 's' : ''} a este caso.
+Se encontraron **${clients.length}** cliente${clients.length !== 1 ? "s" : ""} asociado${clients.length !== 1 ? "s" : ""} a este caso.
 
 ---
 
@@ -157,10 +252,10 @@ Se encontraron **${clients.length}** cliente${clients.length !== 1 ? 's' : ''} a
 
   clients.forEach((client, idx) => {
     // Find the role for this specific case
-    const caseInfo = client.cases.find(c => c.caseId === caseId);
+    const caseInfo = client.cases.find((c) => c.caseId === caseId);
     const role = caseInfo?.role || "No especificado";
-    
-    result += `\n## ${idx + 1}. ${client.name} - ${role}\n\n`;
+
+    result += `\n## ${idx + 1}. ${client.displayName} - ${role}\n\n`;
     result += formatClientDetails(client);
     if (idx < clients.length - 1) result += "\n\n---\n";
   });
@@ -179,7 +274,7 @@ Se encontraron **${clients.length}** cliente${clients.length !== 1 ? 's' : ''} a
  */
 export function createAllClientsResultsTemplate(
   clients: ClientResult[],
-  limit: number
+  limit: number,
 ): string {
   if (clients.length === 0) {
     return `# 📋 Todos los Clientes
@@ -200,7 +295,7 @@ Para comenzar a trabajar con clientes:
   let result = `# 📋 Todos los Clientes
 
 ## Listado General
-Se encontraron **${clients.length}** cliente${clients.length !== 1 ? 's' : ''} activo${clients.length !== 1 ? 's' : ''}.
+Se encontraron **${clients.length}** cliente${clients.length !== 1 ? "s" : ""} activo${clients.length !== 1 ? "s" : ""}.
 
 ---
 

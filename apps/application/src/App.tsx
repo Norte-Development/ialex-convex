@@ -24,7 +24,7 @@ import { ChatbotProvider } from "./context/ChatbotContext";
 import { LayoutProvider } from "./context/LayoutContext";
 import { TutorialProvider } from "./context/TutorialContext";
 import { TutorialOverlay } from "./components/Tutorial/TutorialOverlay";
-import { MigrationWrapper } from "./components/Migration";
+// import { MigrationWrapper } from "./components/Migration";
 
 // Eager load core navigation pages (not heavy, safe to bundle)
 import HomePage from "./pages/home/HomePage";
@@ -131,9 +131,9 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({
   return (
     <Protect fallback={<SignInPage />}>
       <OnboardingWrapper>
-        <MigrationWrapper>
-          <Layout>{children}</Layout>
-        </MigrationWrapper>
+        {/* <MigrationWrapper> */}
+        <Layout>{children}</Layout>
+        {/* </MigrationWrapper> */}
       </OnboardingWrapper>
     </Protect>
   );
@@ -243,9 +243,9 @@ const AppWithThread = () => {
                       element={
                         <Protect fallback={<SignInPage />}>
                           <OnboardingWrapper>
-                            <MigrationWrapper>
-                              <CaseRoutesWrapper />
-                            </MigrationWrapper>
+                            {/* <MigrationWrapper> */}
+                            <CaseRoutesWrapper />
+                            {/* </MigrationWrapper> */}
                           </OnboardingWrapper>
                         </Protect>
                       }

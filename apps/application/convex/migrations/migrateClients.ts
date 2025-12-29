@@ -1,6 +1,6 @@
 /**
  * Client Migration - Phase 2
- * 
+ *
  * Mutations for creating clients in Convex from Firestore data.
  */
 
@@ -33,13 +33,14 @@ export const createClient = internalMutation({
       isActive: true,
       createdBy: args.newUserId,
     });
-    
-    console.log(`Created client ${clientId} from Firestore client ${args.oldFirestoreClientId}`);
-    
+
+    console.log(
+      `Created client ${clientId} from Firestore client ${args.oldFirestoreClientId}`,
+    );
+
     return {
       clientId,
       oldFirestoreClientId: args.oldFirestoreClientId,
     };
-  }
+  },
 });
-
