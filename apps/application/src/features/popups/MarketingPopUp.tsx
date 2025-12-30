@@ -248,7 +248,7 @@ export function MarketingPopUp() {
                     onClick={() => void handleAction(action)}
                     disabled={isUpgrading}
                     variant={idx === 0 ? "default" : "outline"}
-                    className="w-full text-sm font-bold bg-white text-primary"
+                    className="w-full text-sm font-bold bg-white text-primary hover:bg-primary hover:text-white"
                   >
                     {action.label}
                   </Button>
