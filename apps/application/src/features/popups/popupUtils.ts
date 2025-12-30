@@ -32,6 +32,7 @@ export function audienceLabel(audience: PopupAudience) {
   if (audience === "all") return "Todos";
   if (audience === "free") return "Gratis";
   if (audience === "trial") return "Trial";
+  if (audience === "premium") return "Premium";
   return "Gratis o Trial";
 }
 
