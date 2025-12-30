@@ -235,9 +235,9 @@ export function MarketingPopUp() {
                 {displayPopup.title}
               </DialogTitle>
             </DialogHeader>
-            {displayPopup.subtitle ? (
-              <p className="relative z-10 text-base font-medium whitespace-pre-wrap text-white/90 text-center">
-                {displayPopup.subtitle}
+            {displayPopup.body ? (
+              <p className="text-XL text-center px-5  text-white/90 whitespace-pre-wrap">
+                {displayPopup.body}
               </p>
             ) : null}
             {actions.length > 0 ? (
@@ -261,7 +261,7 @@ export function MarketingPopUp() {
               <img
                 src={imageUrl}
                 alt=""
-                className="h-[75%] w-[950%] object-cover bg-red-400"
+                className="h-[75%] w-[950%] object-cover "
               />
             )}
           </div>

@@ -384,14 +384,15 @@ export const getActivePopupForUser = query({
 
     const eligible = popups.filter((popup) => {
       if (!withinSchedule(now, popup.startAt, popup.endAt)) return false;
-      if (
-        !audienceMatches({
-          audience: popup.audience,
-          isFree,
-          isTrial,
-          isPremium,
-        })
-      ) {
+
+      const audienceMatch = audienceMatches({
+        audience: popup.audience,
+        isFree,
+        isTrial,
+        isPremium,
+      });
+
+      if (!audienceMatch) {
         return false;
       }
 
