@@ -5,7 +5,11 @@ import { getCurrentUserFromAuth } from "../auth_utils";
 import { _getUserPlan } from "../billing/features";
 import { internal, api } from "../_generated/api";
 
-const popupTemplateValidator = v.union(v.literal("simple"), v.literal("promo"));
+const popupTemplateValidator = v.union(
+  v.literal("simple"),
+  v.literal("promo"),
+  v.literal("text_only"),
+);
 const popupAudienceValidator = v.union(
   v.literal("all"),
   v.literal("free"),

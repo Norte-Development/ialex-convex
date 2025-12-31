@@ -6,7 +6,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { CircleAlert } from "lucide-react";
+import { CircleAlert, Info, Sparkles, Bell } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useMarketingPopup } from "@/hooks/useMarketingPopup";
 import { usePopupGate } from "./PopupGate";
@@ -177,7 +177,66 @@ export function MarketingPopUp() {
         closeAndDismiss();
       }}
     >
-      {displayPopup.template === "promo" ? (
+      {displayPopup.template === "text_only" ? (
+        <DialogContent className="sm:max-w-xl p-0 overflow-hidden border-0 shadow-2xl">
+          <div
+            className="relative w-full flex flex-col items-center justify-center px-8 py-16 overflow-hidden"
+            style={{
+              background:
+                "linear-gradient(135deg, #1a365d 0%, #2563eb 50%, #1e40af 100%)",
+            }}
+          >
+            {/* Decorative circles */}
+            <div className="absolute -top-20 -right-20 w-64 h-64 bg-white/10 rounded-full blur-3xl" />
+            <div className="absolute -bottom-20 -left-20 w-64 h-64 bg-blue-400/20 rounded-full blur-3xl" />
+
+            <div className="relative z-10 text-center space-y-6">
+              {/* Icon container with glassmorphism */}
+              <div className="mx-auto w-16 h-16 rounded-2xl bg-white/20 backdrop-blur-sm border border-white/30 flex items-center justify-center shadow-lg">
+                <Bell className="w-8 h-8 text-white" />
+              </div>
+
+              <DialogHeader className="space-y-4">
+                <DialogTitle className="text-3xl md:text-4xl font-bold text-white text-center leading-tight drop-shadow-lg">
+                  {displayPopup.title}
+                </DialogTitle>
+
+                {displayPopup.body ? (
+                  <>
+                    <p className="text-lg text-white/90 text-center whitespace-pre-wrap max-w-md mx-auto leading-relaxed">
+                      {displayPopup.body}
+                    </p>
+                  </>
+                ) : null}
+              </DialogHeader>
+
+              {/* Optional CTAs */}
+              {actions.length > 0 ? (
+                <div className="flex flex-col sm:flex-row gap-3 justify-center mt-2">
+                  {actions.slice(0, 2).map((action, idx) => (
+                    <Button
+                      key={idx}
+                      onClick={() => void handleAction(action)}
+                      disabled={isUpgrading}
+                      variant={idx === 0 ? "default" : "outline"}
+                      className={
+                        idx === 0
+                          ? "bg-white text-blue-700 hover:bg-white/90 font-semibold px-6"
+                          : "border-white/50 text-white hover:bg-white/10 font-semibold px-6"
+                      }
+                    >
+                      {action.label}
+                    </Button>
+                  ))}
+                </div>
+              ) : null}
+            </div>
+
+            {/* Subtle animated glow at bottom */}
+            <div className="absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r from-blue-400 via-cyan-400 to-blue-400" />
+          </div>
+        </DialogContent>
+      ) : displayPopup.template === "promo" ? (
         <DialogContent className="sm:max-w-[900px] p-0 overflow-hidden text-white border-border">
           <div className="w-full h-full relative min-h-[200px]  flex flex-col items-center justify-center  overflow-hidden bg-[#022570] pt-20">
             {displayPopup.badgeText ? (
