@@ -5,7 +5,7 @@ export type PopupAudience =
   | "free_or_trial"
   | "premium";
 
-export type PopupTemplate = "simple" | "promo";
+export type PopupTemplate = "simple" | "promo" | "text_only";
 
 export type PopupActionType = "link" | "billing";
 export type PopupBillingMode =

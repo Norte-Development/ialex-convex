@@ -981,7 +981,11 @@ export default defineSchema({
     imageGcsBucket: v.optional(v.string()),
     imageGcsObject: v.optional(v.string()),
     enabled: v.boolean(),
-    template: v.union(v.literal("simple"), v.literal("promo")),
+    template: v.union(
+      v.literal("simple"),
+      v.literal("promo"),
+      v.literal("text_only"),
+    ),
     audience: v.union(
       v.literal("all"),
       v.literal("free"),
