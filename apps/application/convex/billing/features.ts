@@ -1,5 +1,12 @@
 import { v } from "convex/values";
-import { query, mutation, internalQuery, internalMutation, QueryCtx, MutationCtx } from "../_generated/server";
+import {
+  query,
+  mutation,
+  internalQuery,
+  internalMutation,
+  QueryCtx,
+  MutationCtx,
+} from "../_generated/server";
 import { Id } from "../_generated/dataModel";
 import { PLAN_LIMITS, PlanType } from "./planLimits";
 
@@ -12,13 +19,13 @@ function isDevMode(): boolean {
   if (process.env.DISABLE_PLAN_LIMITS === "true") {
     return true;
   }
-  
-  // Option 2: Check if CONVEX_SITE_URL contains "dev" 
+
+  // Option 2: Check if CONVEX_SITE_URL contains "dev"
   const siteUrl = process.env.CONVEX_SITE_URL || "";
   if (siteUrl.includes(".cloud-dev.") || siteUrl.includes("localhost")) {
     return true;
   }
-  
+
   return false;
 }
 
@@ -26,10 +33,18 @@ function isDevMode(): boolean {
  * Internal helper to get user plan - used by both queries and mutations
  * EXPORTED for use in other files
  */
-export async function _getUserPlan(ctx: QueryCtx | MutationCtx, userId: Id<"users">): Promise<PlanType> {
+export async function _getUserPlan(
+  ctx: QueryCtx | MutationCtx,
+  userId: Id<"users">,
+): Promise<PlanType> {
+  // DEV MODE: If DISABLE_PLAN_LIMITS is true, treat all users as premium
+  if (isDevMode()) {
+    return "premium_individual";
+  }
+
   // Get user for trial status check
   const user = await ctx.db.get(userId);
-  
+
   // Check for MercadoPago subscription FIRST (manual management)
   const mpSubscription = await ctx.db
     .query("mercadopagoSubscriptions")
@@ -39,7 +54,7 @@ export async function _getUserPlan(ctx: QueryCtx | MutationCtx, userId: Id<"user
 
   if (mpSubscription) {
     // Mark trial as converted if user was in trial
-    if (user?.trialStatus === "active" && 'scheduler' in ctx) {
+    if (user?.trialStatus === "active" && "scheduler" in ctx) {
       await ctx.db.patch(userId, { trialStatus: "converted" });
     }
     return mpSubscription.plan as PlanType;
@@ -59,43 +74,45 @@ export async function _getUserPlan(ctx: QueryCtx | MutationCtx, userId: Id<"user
       .collect();
 
     // Filter for active subscriptions
-    const activeSubscription = subscriptions.find((sub) => sub.stripe?.status === "active");
-    
+    const activeSubscription = subscriptions.find(
+      (sub) => sub.stripe?.status === "active",
+    );
+
     if (activeSubscription) {
       // Get the first item's price ID from the Stripe object
       const priceId = activeSubscription.stripe?.items?.data?.[0]?.price?.id;
-      
+
       if (priceId) {
         // Find the price in stripePrices table
         const price = await ctx.db
           .query("stripePrices")
           .withIndex("byPriceId", (q) => q.eq("priceId", priceId))
           .first();
-        
+
         if (price) {
           // Get the product ID from the price
           const productId = price.stripe.productId;
-          
+
           if (productId) {
             // Find the product - no index for productId, so use filter
             const product = await ctx.db
               .query("stripeProducts")
               .filter((q) => q.eq(q.field("productId"), productId))
               .first();
-            
+
             if (product) {
               // Check product metadata for plan type
               const plan = product.stripe?.metadata?.plan;
               if (plan === "premium_individual") {
                 // Mark trial as converted if user was in trial
-                if (user?.trialStatus === "active" && 'scheduler' in ctx) {
+                if (user?.trialStatus === "active" && "scheduler" in ctx) {
                   await ctx.db.patch(userId, { trialStatus: "converted" });
                 }
                 return "premium_individual";
               }
               if (plan === "premium_team") {
                 // Mark trial as converted if user was in trial
-                if (user?.trialStatus === "active" && 'scheduler' in ctx) {
+                if (user?.trialStatus === "active" && "scheduler" in ctx) {
                   await ctx.db.patch(userId, { trialStatus: "converted" });
                 }
                 return "premium_team";
@@ -106,15 +123,23 @@ export async function _getUserPlan(ctx: QueryCtx | MutationCtx, userId: Id<"user
       }
     }
   }
-  
+
   // No active paid subscription - check if user has ACTIVE trial
-  if (user?.trialStatus === "active" && user.trialEndDate && user.trialEndDate > Date.now()) {
+  if (
+    user?.trialStatus === "active" &&
+    user.trialEndDate &&
+    user.trialEndDate > Date.now()
+  ) {
     return user.trialPlan || "premium_individual";
   }
-  
+
   // If trial expired but status not updated yet, mark as expired (only in mutation context)
-  if (user?.trialStatus === "active" && user.trialEndDate && user.trialEndDate <= Date.now()) {
-    if ('scheduler' in ctx) {
+  if (
+    user?.trialStatus === "active" &&
+    user.trialEndDate &&
+    user.trialEndDate <= Date.now()
+  ) {
+    if ("scheduler" in ctx) {
       // MutationCtx - can update
       await ctx.db.patch(userId, { trialStatus: "expired" });
     }
@@ -126,13 +151,16 @@ export async function _getUserPlan(ctx: QueryCtx | MutationCtx, userId: Id<"user
 /**
  * Internal helper to get team plan - used by both queries and mutations
  * EXPORTED for use in other files
- * 
+ *
  * SIMPLIFIED: Team plan is ALWAYS the owner's plan (no separate team subscriptions)
  */
-export async function _getTeamPlan(ctx: QueryCtx | MutationCtx, teamId: Id<"teams">): Promise<PlanType> {
+export async function _getTeamPlan(
+  ctx: QueryCtx | MutationCtx,
+  teamId: Id<"teams">,
+): Promise<PlanType> {
   const team = await ctx.db.get(teamId);
   if (!team) return "free";
-  
+
   // Team plan is always the owner's plan
   return await _getUserPlan(ctx, team.createdBy);
 }
@@ -140,7 +168,7 @@ export async function _getTeamPlan(ctx: QueryCtx | MutationCtx, teamId: Id<"team
 /**
  * Internal helper to get or create usage limits for an entity
  * EXPORTED for use in other files
- * 
+ *
  * This function gracefully handles missing usageLimits records by creating them
  * with default values. This is essential for:
  * - New users/teams that don't have limits initialized yet
@@ -150,7 +178,7 @@ export async function _getTeamPlan(ctx: QueryCtx | MutationCtx, teamId: Id<"team
 export async function _getOrCreateUsageLimits(
   ctx: MutationCtx,
   entityId: string,
-  entityType: "user" | "team"
+  entityType: "user" | "team",
 ) {
   let usage = await ctx.db
     .query("usageLimits")
@@ -186,12 +214,22 @@ export async function _incrementUsage(
   args: {
     entityId: string;
     entityType: "user" | "team";
-    counter: "casesCount" | "documentsCount" | "aiMessagesThisMonth" | "escritosCount" | "libraryDocumentsCount" | "storageUsedBytes";
+    counter:
+      | "casesCount"
+      | "documentsCount"
+      | "aiMessagesThisMonth"
+      | "escritosCount"
+      | "libraryDocumentsCount"
+      | "storageUsedBytes";
     amount?: number;
-  }
+  },
 ): Promise<void> {
   // Use helper to get or create limits
-  const limits = await _getOrCreateUsageLimits(ctx, args.entityId, args.entityType);
+  const limits = await _getOrCreateUsageLimits(
+    ctx,
+    args.entityId,
+    args.entityType,
+  );
 
   const increment = args.amount || 1;
 
@@ -203,18 +241,18 @@ export async function _incrementUsage(
 /**
  * Internal helper to determine which AI model a user should use based ONLY on their personal plan
  * EXPORTED for use in other files
- * 
+ *
  * Used for non-case contexts (e.g., home page assistant)
  * Only checks the user's personal subscription, NOT team memberships
- * 
+ *
  * Returns:
  * - 'gpt-5' if user has premium_individual or premium_team subscription
  * - 'gpt-4o' otherwise (free users always get GPT-4o in non-case contexts)
  */
 export async function _getModelForUserPersonal(
   ctx: QueryCtx | MutationCtx,
-  userId: Id<"users">
-): Promise<'gpt-5' | 'gpt-4o'> {
+  userId: Id<"users">,
+): Promise<"gpt-5" | "gpt-4o"> {
   const userPlan = await _getUserPlan(ctx, userId);
   if (userPlan === "premium_individual" || userPlan === "premium_team") {
     return "gpt-5";
@@ -225,19 +263,19 @@ export async function _getModelForUserPersonal(
 /**
  * Internal helper to determine which AI model a user should use IN A SPECIFIC CASE CONTEXT
  * EXPORTED for use in other files
- * 
+ *
  * Context-aware model selection:
  * - Premium users (individual/team) → GPT-5 everywhere
  * - Free users in personal cases → GPT-4o
  * - Free users in premium team cases → GPT-5 (only in that team's cases)
- * 
+ *
  * This prevents free users from getting premium benefits globally if they're in one premium team
  */
 export async function _getModelForUserInCase(
   ctx: QueryCtx | MutationCtx,
   userId: Id<"users">,
-  caseId: Id<"cases">
-): Promise<'gpt-5' | 'gpt-4o'> {
+  caseId: Id<"cases">,
+): Promise<"gpt-5" | "gpt-4o"> {
   // 1. Check user's own plan first (premium users always get GPT-5)
   const userPlan = await _getUserPlan(ctx, userId);
   if (userPlan === "premium_individual" || userPlan === "premium_team") {
@@ -291,7 +329,7 @@ export async function _getBillingEntity(
   args: {
     userId: Id<"users">;
     teamId?: Id<"teams">;
-  }
+  },
 ): Promise<{
   entityId: string;
   entityType: "user" | "team";
@@ -305,7 +343,7 @@ export async function _getBillingEntity(
       plan,
     };
   }
-  
+
   const plan = await _getUserPlan(ctx, args.userId);
   return {
     entityId: args.userId,
@@ -324,90 +362,109 @@ export async function _checkLimit(
   args: {
     userId: Id<"users">;
     teamId?: Id<"teams">;
-    limitType: "cases" | "documentsPerCase" | "escritosPerCase" | "libraryDocuments" | "storageGB";
+    limitType:
+      | "cases"
+      | "documentsPerCase"
+      | "escritosPerCase"
+      | "libraryDocuments"
+      | "storageGB";
     currentCount?: number; // For per-case limits
     additionalBytes?: number; // For storage checks
-  }
+  },
 ): Promise<void> {
   // Skip limit checks in dev mode
   if (isDevMode()) {
     return;
   }
 
-  const billing = await _getBillingEntity(ctx, { userId: args.userId, teamId: args.teamId });
+  const billing = await _getBillingEntity(ctx, {
+    userId: args.userId,
+    teamId: args.teamId,
+  });
   const limits = PLAN_LIMITS[billing.plan];
-  
+
   // For queries, we need to handle the readonly context
   // We'll try to get usage, but won't create it if it doesn't exist in query context
   let usage;
-  if ('db' in ctx && 'scheduler' in ctx) {
+  if ("db" in ctx && "scheduler" in ctx) {
     // MutationCtx - can create usage limits
-    usage = await _getOrCreateUsageLimits(ctx as MutationCtx, billing.entityId, billing.entityType);
+    usage = await _getOrCreateUsageLimits(
+      ctx as MutationCtx,
+      billing.entityId,
+      billing.entityType,
+    );
   } else {
     // QueryCtx - can only read usage limits
     usage = await ctx.db
       .query("usageLimits")
       .withIndex("by_entity", (q) => q.eq("entityId", billing.entityId))
       .first();
-    
+
     if (!usage) {
       // No usage record yet, allow (will be created on first use)
       return;
     }
   }
-  
+
   // Check specific limit type
   switch (args.limitType) {
     case "cases":
       if (usage.casesCount >= limits.cases) {
         throw new Error(
-          `Límite de ${limits.cases} casos alcanzado. Actualiza a Premium para casos ilimitados.`
+          `Límite de ${limits.cases} casos alcanzado. Actualiza a Premium para casos ilimitados.`,
         );
       }
       break;
-    
+
     case "documentsPerCase":
-      if (args.currentCount !== undefined && args.currentCount >= limits.documentsPerCase) {
+      if (
+        args.currentCount !== undefined &&
+        args.currentCount >= limits.documentsPerCase
+      ) {
         throw new Error(
-          `Límite de ${limits.documentsPerCase} documentos por caso alcanzado.`
+          `Límite de ${limits.documentsPerCase} documentos por caso alcanzado.`,
         );
       }
       break;
-    
+
     case "escritosPerCase":
-      if (args.currentCount !== undefined && args.currentCount >= limits.escritosPerCase) {
+      if (
+        args.currentCount !== undefined &&
+        args.currentCount >= limits.escritosPerCase
+      ) {
         throw new Error(
-          `Límite de ${limits.escritosPerCase} escritos por caso alcanzado.`
+          `Límite de ${limits.escritosPerCase} escritos por caso alcanzado.`,
         );
       }
       break;
-    
+
     case "libraryDocuments":
       // Count library docs for this entity
       const libDocs = await ctx.db
         .query("libraryDocuments")
-        .filter((q) => 
+        .filter((q) =>
           billing.entityType === "team"
             ? q.eq(q.field("teamId"), billing.entityId as Id<"teams">)
-            : q.eq(q.field("createdBy"), billing.entityId as Id<"users">)
+            : q.eq(q.field("createdBy"), billing.entityId as Id<"users">),
         )
         .collect();
-      
+
       if (libDocs.length >= limits.libraryDocuments) {
         throw new Error(
-          `Límite de ${limits.libraryDocuments} documentos de biblioteca alcanzado.`
+          `Límite de ${limits.libraryDocuments} documentos de biblioteca alcanzado.`,
         );
       }
       break;
-    
+
     case "storageGB":
       const storageLimitBytes = limits.storageGB * 1024 * 1024 * 1024;
       const newTotal = usage.storageUsedBytes + (args.additionalBytes || 0);
-      
+
       if (newTotal > storageLimitBytes) {
-        const availableGB = (storageLimitBytes - usage.storageUsedBytes) / (1024 * 1024 * 1024);
+        const availableGB =
+          (storageLimitBytes - usage.storageUsedBytes) / (1024 * 1024 * 1024);
         throw new Error(
-          `Espacio insuficiente. Disponible: ${availableGB.toFixed(2)}GB.`
+          `Espacio insuficiente. Disponible: ${availableGB.toFixed(2)}GB.`,
         );
       }
       break;
@@ -420,7 +477,7 @@ export async function _checkLimit(
  */
 export async function _canAddTeamMember(
   ctx: QueryCtx | MutationCtx,
-  teamId: Id<"teams">
+  teamId: Id<"teams">,
 ): Promise<{
   allowed: boolean;
   reason?: string;
@@ -434,7 +491,7 @@ export async function _canAddTeamMember(
       .withIndex("by_team", (q) => q.eq("teamId", teamId))
       .filter((q) => q.eq(q.field("isActive"), true))
       .collect();
-    
+
     return {
       allowed: true,
       currentCount: currentMembers.length,
@@ -457,7 +514,7 @@ export async function _canAddTeamMember(
   const teamPlan = await _getTeamPlan(ctx, teamId);
 
   const limits = PLAN_LIMITS[teamPlan];
-  
+
   // Count current team members
   const currentMembers = await ctx.db
     .query("teamMemberships")
@@ -471,9 +528,10 @@ export async function _canAddTeamMember(
   if (currentCount >= maxAllowed) {
     return {
       allowed: false,
-      reason: teamPlan === "premium_individual" 
-        ? `Límite de 3 miembros alcanzado. Actualiza a Premium Equipo para 6 miembros.`
-        : `Límite de miembros alcanzado.`,
+      reason:
+        teamPlan === "premium_individual"
+          ? `Límite de 3 miembros alcanzado. Actualiza a Premium Equipo para 6 miembros.`
+          : `Límite de miembros alcanzado.`,
       currentCount,
       maxAllowed,
     };
@@ -489,14 +547,14 @@ export async function _canAddTeamMember(
 /**
  * Internal helper to check if a user can create a team
  * EXPORTED for use in other files
- * 
+ *
  * Rules:
  * - User plan must not be "free"
  * - User can own maximum 1 team (enforced for NEW creations only, grandfathers existing)
  */
 export async function _canCreateTeam(
   ctx: QueryCtx | MutationCtx,
-  userId: Id<"users">
+  userId: Id<"users">,
 ): Promise<{
   allowed: boolean;
   reason?: string;
@@ -510,7 +568,7 @@ export async function _canCreateTeam(
       .withIndex("by_created_by", (q) => q.eq("createdBy", userId))
       .filter((q) => q.eq(q.field("isActive"), true))
       .collect();
-    
+
     return {
       allowed: true,
       ownedCount: ownedTeams.length,
@@ -520,7 +578,7 @@ export async function _canCreateTeam(
 
   // Check user's plan
   const userPlan = await _getUserPlan(ctx, userId);
-  
+
   if (userPlan === "free") {
     return {
       allowed: false,
@@ -558,7 +616,7 @@ export async function _canCreateTeam(
 /**
  * Check if a user can access library features in a given workspace context
  * EXPORTED for use in other files
- * 
+ *
  * Library access rules:
  * - Personal library: Only if user has premium plan
  * - Team library: If user is in a team with premium_team plan (even if user is free)
@@ -568,7 +626,7 @@ export async function _canAccessLibrary(
   args: {
     userId: Id<"users">;
     teamId?: Id<"teams">;
-  }
+  },
 ): Promise<{
   allowed: boolean;
   reason?: string;
@@ -583,7 +641,7 @@ export async function _canAccessLibrary(
       .filter((q) => q.eq(q.field("teamId"), args.teamId))
       .filter((q) => q.eq(q.field("isActive"), true))
       .first();
-    
+
     if (!membership) {
       return {
         allowed: false,
@@ -627,7 +685,7 @@ export async function _canAccessLibrary(
 /**
  * Check if a user can access WhatsApp agent
  * EXPORTED for use in other files
- * 
+ *
  * Access rules:
  * - User has premium_individual or premium_team plan → allowed
  * - User is a member of any team with premium_team plan → allowed
@@ -635,7 +693,7 @@ export async function _canAccessLibrary(
  */
 export async function _canAccessWhatsapp(
   ctx: QueryCtx | MutationCtx,
-  userId: Id<"users">
+  userId: Id<"users">,
 ): Promise<{
   allowed: boolean;
   reason?: string;
@@ -669,7 +727,8 @@ export async function _canAccessWhatsapp(
   // 3. User doesn't have premium access
   return {
     allowed: false,
-    reason: "El agente de WhatsApp solo está disponible para usuarios Premium. Actualiza tu plan para acceder a esta funcionalidad.",
+    reason:
+      "El agente de WhatsApp solo está disponible para usuarios Premium. Actualiza tu plan para acceder a esta funcionalidad.",
   };
 }
 
@@ -693,7 +752,7 @@ export const getUserPlan = query({
   returns: v.union(
     v.literal("free"),
     v.literal("premium_individual"),
-    v.literal("premium_team")
+    v.literal("premium_team"),
   ),
   handler: async (ctx, args): Promise<PlanType> => {
     return await _getUserPlan(ctx, args.userId);
@@ -730,7 +789,7 @@ export const canAccessWhatsappInternal = internalQuery({
 
 /**
  * Get the plan for a team (internal use)
- * 
+ *
  * SIMPLIFIED MODEL:
  * Team plan is ALWAYS the owner's plan (no separate team subscriptions)
  * - If owner has free → team is frozen (read-only)
@@ -742,7 +801,7 @@ export const getTeamPlanInternal = internalQuery({
   returns: v.union(
     v.literal("free"),
     v.literal("premium_individual"),
-    v.literal("premium_team")
+    v.literal("premium_team"),
   ),
   handler: async (ctx, args): Promise<PlanType> => {
     return await _getTeamPlan(ctx, args.teamId);
@@ -751,7 +810,7 @@ export const getTeamPlanInternal = internalQuery({
 
 /**
  * Get the plan for a team (public query for UI)
- * 
+ *
  * Returns the team's plan based on the owner's subscription
  */
 export const getTeamPlan = query({
@@ -759,7 +818,7 @@ export const getTeamPlan = query({
   returns: v.union(
     v.literal("free"),
     v.literal("premium_individual"),
-    v.literal("premium_team")
+    v.literal("premium_team"),
   ),
   handler: async (ctx, args): Promise<PlanType> => {
     return await _getTeamPlan(ctx, args.teamId);
@@ -769,7 +828,7 @@ export const getTeamPlan = query({
 /**
  * Check if a user has access to a specific feature
  * Context-aware: checks based on case workspace (personal vs team)
- * 
+ *
  * @param userId - The user to check access for
  * @param feature - The feature to check (e.g., "gpt5_access", "team_library", "create_case")
  * @param caseId - Optional case context to determine workspace (personal vs team)
@@ -785,7 +844,10 @@ export const hasFeatureAccess = query({
     reason: v.optional(v.string()),
     canUpgrade: v.optional(v.boolean()),
   }),
-  handler: async (ctx, args): Promise<{ allowed: boolean; reason?: string; canUpgrade?: boolean }> => {
+  handler: async (
+    ctx,
+    args,
+  ): Promise<{ allowed: boolean; reason?: string; canUpgrade?: boolean }> => {
     // Allow all features in dev mode
     if (isDevMode()) {
       return { allowed: true };
@@ -801,7 +863,7 @@ export const hasFeatureAccess = query({
         .filter((q) => q.neq(q.field("teamId"), undefined))
         .filter((q) => q.eq(q.field("isActive"), true))
         .first();
-      
+
       if (teamAccess?.teamId) {
         // Verify user is a member
         const membership = await ctx.db
@@ -810,14 +872,17 @@ export const hasFeatureAccess = query({
           .filter((q) => q.eq(q.field("teamId"), teamAccess.teamId))
           .filter((q) => q.eq(q.field("isActive"), true))
           .first();
-        
+
         if (membership) {
           teamId = teamAccess.teamId;
         }
       }
     }
 
-    const billing = await _getBillingEntity(ctx, { userId: args.userId, teamId: teamId });
+    const billing = await _getBillingEntity(ctx, {
+      userId: args.userId,
+      teamId: teamId,
+    });
     const limits = PLAN_LIMITS[billing.plan];
 
     // Special handling for create_team feature - check ownership limits
@@ -831,7 +896,10 @@ export const hasFeatureAccess = query({
     }
 
     // Premium users have full access to other features
-    if (billing.plan === "premium_individual" || billing.plan === "premium_team") {
+    if (
+      billing.plan === "premium_individual" ||
+      billing.plan === "premium_team"
+    ) {
       return { allowed: true };
     }
 
@@ -839,13 +907,19 @@ export const hasFeatureAccess = query({
     switch (args.feature) {
       case "gpt5_access":
         if (!limits.features.gpt5) {
-          return { allowed: false, reason: "GPT-5 solo disponible en plan Premium." };
+          return {
+            allowed: false,
+            reason: "GPT-5 solo disponible en plan Premium.",
+          };
         }
         break;
 
       case "team_library":
         if (!limits.features.teamLibrary) {
-          return { allowed: false, reason: "Biblioteca de equipo solo en plan Premium." };
+          return {
+            allowed: false,
+            reason: "Biblioteca de equipo solo en plan Premium.",
+          };
         }
         break;
     }
@@ -886,14 +960,16 @@ export const hasFeatureAccess = query({
           .withIndex("by_user", (q) => q.eq("userId", args.userId))
           .first();
 
-        const availableMessages = limits.aiMessagesPerMonth - usage.aiMessagesThisMonth;
+        const availableMessages =
+          limits.aiMessagesPerMonth - usage.aiMessagesThisMonth;
         const availableCredits = credits?.remaining || 0;
         const totalAvailable = availableMessages + availableCredits;
 
         if (totalAvailable <= 0) {
           return {
             allowed: false,
-            reason: "Límite de mensajes alcanzado. Compra créditos o actualiza a Premium.",
+            reason:
+              "Límite de mensajes alcanzado. Compra créditos o actualiza a Premium.",
           };
         }
         break;
@@ -921,7 +997,7 @@ export const hasFeatureAccess = query({
 export const getModelForUserPersonal = internalMutation({
   args: { userId: v.id("users") },
   returns: v.union(v.literal("gpt-5"), v.literal("gpt-4o")),
-  handler: async (ctx, args): Promise<'gpt-5' | 'gpt-4o'> => {
+  handler: async (ctx, args): Promise<"gpt-5" | "gpt-4o"> => {
     return await _getModelForUserPersonal(ctx, args.userId);
   },
 });
@@ -932,12 +1008,12 @@ export const getModelForUserPersonal = internalMutation({
  * Internal mutation wrapper for _getModelForUserInCase
  */
 export const getModelForUserInCase = internalMutation({
-  args: { 
+  args: {
     userId: v.id("users"),
     caseId: v.id("cases"),
   },
   returns: v.union(v.literal("gpt-5"), v.literal("gpt-4o")),
-  handler: async (ctx, args): Promise<'gpt-5' | 'gpt-4o'> => {
+  handler: async (ctx, args): Promise<"gpt-5" | "gpt-4o"> => {
     return await _getModelForUserInCase(ctx, args.userId, args.caseId);
   },
 });
@@ -955,7 +1031,7 @@ export const incrementUsage = internalMutation({
       v.literal("aiMessagesThisMonth"),
       v.literal("escritosCount"),
       v.literal("libraryDocumentsCount"),
-      v.literal("storageUsedBytes")
+      v.literal("storageUsedBytes"),
     ),
     amount: v.optional(v.number()),
   },
@@ -984,15 +1060,19 @@ export const decrementCredits = internalMutation({
     }
 
     const amount = args.amount || 1;
-    
+
     // Get billing entity
     const billing = await _getBillingEntity(ctx, {
       userId: args.userId,
       teamId: args.teamId,
     });
-    
+
     const limits = PLAN_LIMITS[billing.plan];
-    const usage = await _getOrCreateUsageLimits(ctx, billing.entityId, billing.entityType);
+    const usage = await _getOrCreateUsageLimits(
+      ctx,
+      billing.entityId,
+      billing.entityType,
+    );
 
     // If within monthly limit, increment counter
     if (usage.aiMessagesThisMonth < limits.aiMessagesPerMonth) {
@@ -1075,7 +1155,7 @@ export const canAccessLibrary = query({
  * Check if a team can add more members based on its subscription
  */
 export const canAddTeamMember = query({
-  args: { 
+  args: {
     teamId: v.id("teams"),
   },
   returns: v.object({
@@ -1094,7 +1174,7 @@ export const canAddTeamMember = query({
  * Validates plan level and ownership limits
  */
 export const canCreateTeam = query({
-  args: { 
+  args: {
     userId: v.id("users"),
   },
   returns: v.object({
@@ -1111,7 +1191,7 @@ export const canCreateTeam = query({
 /**
  * Check if a user can downgrade to a specific plan
  * Validates that downgrade won't violate team member limits
- * 
+ *
  * Rules:
  * - Downgrade to premium_individual: team must have ≤3 members
  * - Downgrade to free: team will be frozen (can't add members, create cases)
@@ -1122,7 +1202,7 @@ export const canDowngradeToPlan = query({
     newPlan: v.union(
       v.literal("free"),
       v.literal("premium_individual"),
-      v.literal("premium_team")
+      v.literal("premium_team"),
     ),
   },
   returns: v.object({
@@ -1134,7 +1214,7 @@ export const canDowngradeToPlan = query({
   handler: async (ctx, args) => {
     // Get current plan
     const currentPlan = await _getUserPlan(ctx, args.userId);
-    
+
     // Check if user owns a team
     const ownedTeam = await ctx.db
       .query("teams")
@@ -1164,14 +1244,18 @@ export const canDowngradeToPlan = query({
       // Always allow but warn about freezing
       return {
         allowed: true,
-        reason: "Tu equipo será congelado (solo lectura) hasta que actualices tu plan.",
+        reason:
+          "Tu equipo será congelado (solo lectura) hasta que actualices tu plan.",
         teamMemberCount: memberCount,
         willFreezeTeam: true,
       };
     }
 
     // Check downgrade to premium_individual
-    if (args.newPlan === "premium_individual" && currentPlan === "premium_team") {
+    if (
+      args.newPlan === "premium_individual" &&
+      currentPlan === "premium_team"
+    ) {
       if (memberCount > 3) {
         return {
           allowed: false,
@@ -1180,7 +1264,7 @@ export const canDowngradeToPlan = query({
           willFreezeTeam: false,
         };
       }
-      
+
       return {
         allowed: true,
         reason: "Los miembros de tu equipo perderán acceso a GPT-5.",
@@ -1268,4 +1352,3 @@ export const getUsageLimits = query({
     };
   },
 });
-
