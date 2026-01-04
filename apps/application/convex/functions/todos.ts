@@ -143,6 +143,7 @@ export const listTodoItemsByList = query({
   returns: v.array(v.object({
     _id: v.id("todoItems"),
     title: v.string(),
+    description: v.optional(v.string()),
     status: v.union(v.literal("pending"), v.literal("in_progress"), v.literal("completed"), v.literal("blocked")),
     order: v.number(),
   })),
@@ -152,7 +153,13 @@ export const listTodoItemsByList = query({
       .withIndex("by_list", (q: any) => q.eq("listId", listId))
       .order("asc")
       .collect();
-    return items.map((i: any) => ({ _id: i._id, title: i.title, status: i.status, order: i.order }));
+    return items.map((i: any) => ({
+      _id: i._id,
+      title: i.title,
+      description: i.description,
+      status: i.status,
+      order: i.order
+    }));
   },
 });
 
