@@ -10,6 +10,7 @@ import { ChevronDown, ChevronRight, Plus, Sparkles } from "lucide-react";
 import { WorkPlanTaskItem } from "./WorkPlanTaskItem";
 import { WorkPlanEmptyState } from "./WorkPlanEmptyState";
 import { AddTaskDialog } from "../AddTaskDialog";
+import { GenerateChecklistDialog } from "../GenerateChecklistDialog";
 
 interface CaseWorkPlanPanelProps {
   caseId: Id<"cases">;
@@ -23,6 +24,7 @@ export function CaseWorkPlanPanel({
   const { user } = useAuth();
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [isAddTaskDialogOpen, setIsAddTaskDialogOpen] = useState(false);
+  const [isGenerateDialogOpen, setIsGenerateDialogOpen] = useState(false);
 
   // Queries
   const lists = useQuery(api.functions.todos.listTodoListsByCase, { caseId });
@@ -109,8 +111,7 @@ export function CaseWorkPlanPanel({
               variant="outline"
               size="sm"
               className="flex-1"
-              disabled
-              title="Proximamente"
+              onClick={() => setIsGenerateDialogOpen(true)}
             >
               <Sparkles className="h-4 w-4 mr-2" />
               {primaryList ? "Regenerar Plan" : "Generar con iAlex"}
@@ -133,6 +134,14 @@ export function CaseWorkPlanPanel({
         caseId={caseId}
         listId={primaryList?._id}
         userId={user?._id as Id<"users"> | undefined}
+      />
+
+      <GenerateChecklistDialog
+        open={isGenerateDialogOpen}
+        onOpenChange={setIsGenerateDialogOpen}
+        caseId={caseId}
+        userId={user?._id as Id<"users"> | undefined}
+        hasExistingPlan={!!primaryList}
       />
     </div>
   );
