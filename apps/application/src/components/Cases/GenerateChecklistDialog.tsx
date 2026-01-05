@@ -38,17 +38,21 @@ export function GenerateChecklistDialog({
   userId,
   hasExistingPlan,
 }: GenerateChecklistDialogProps) {
-  const [sourceType, setSourceType] = useState<"case_description" | "thread_conversation">("case_description");
+  const [sourceType, setSourceType] = useState<
+    "case_description" | "thread_conversation"
+  >("case_description");
   const [selectedThreadId, setSelectedThreadId] = useState<string>("");
   const [isGenerating, setIsGenerating] = useState(false);
 
   // Cargar threads del caso
-  const threads = useQuery(
-    api.agents.threads.listThreads,
-    { caseId: caseId as unknown as string, paginationOpts: { numItems: 20, cursor: null as any } }
-  );
+  const threads = useQuery(api.agents.threads.listThreads, {
+    caseId: caseId as unknown as string,
+    paginationOpts: { numItems: 20, cursor: null as any },
+  });
 
-  const generateChecklist = useAction(api.functions.checklistGeneration.generateCaseChecklist);
+  const generateChecklist = useAction(
+    api.functions.checklistGeneration.generateCaseChecklist,
+  );
 
   const handleGenerate = async () => {
     if (!userId) {
@@ -67,7 +71,8 @@ export function GenerateChecklistDialog({
         caseId,
         userId,
         sourceType,
-        threadId: sourceType === "thread_conversation" ? selectedThreadId : undefined,
+        threadId:
+          sourceType === "thread_conversation" ? selectedThreadId : undefined,
       });
 
       toast.success(`Plan generado: ${result.taskCount} tareas creadas`);
@@ -85,7 +90,8 @@ export function GenerateChecklistDialog({
         <DialogHeader>
           <DialogTitle>Generar Plan de Trabajo</DialogTitle>
           <DialogDescription>
-            iAlex analizara la informacion y generara un plan de tareas personalizado para este caso.
+            iAlex analizara la informacion y generara un plan de tareas
+            personalizado para este caso.
           </DialogDescription>
         </DialogHeader>
 
@@ -93,7 +99,8 @@ export function GenerateChecklistDialog({
           <div className="flex items-start gap-2 p-3 rounded-md bg-yellow-50 border border-yellow-200">
             <AlertTriangle className="h-5 w-5 text-yellow-600 shrink-0 mt-0.5" />
             <div className="text-sm text-yellow-800">
-              Ya existe un plan de trabajo. Generar uno nuevo reemplazara todas las tareas actuales.
+              Ya existe un plan de trabajo. Generar uno nuevo reemplazara todas
+              las tareas actuales.
             </div>
           </div>
         )}
@@ -105,27 +112,43 @@ export function GenerateChecklistDialog({
             className="space-y-3"
           >
             <div className="flex items-start space-x-3 p-3 rounded-lg border hover:bg-gray-50 cursor-pointer">
-              <RadioGroupItem value="case_description" id="case_description" className="mt-1" />
-              <Label htmlFor="case_description" className="cursor-pointer flex-1">
+              <RadioGroupItem
+                value="case_description"
+                id="case_description"
+                className="mt-1"
+              />
+              <Label
+                htmlFor="case_description"
+                className="cursor-pointer flex-1"
+              >
                 <div className="flex items-center gap-2">
-                  <FileText className="h-4 w-4 text-tertiary" />
-                  <span className="font-medium">Desde descripcion del caso</span>
+                  <span className="font-medium">
+                    Desde descripcion del caso
+                  </span>
                 </div>
                 <p className="text-sm text-gray-500 mt-1">
-                  Genera el plan basandose en el titulo, categoria, descripcion y clientes del caso.
+                  Genera el plan basandose en el titulo, categoria, descripcion
+                  y clientes del caso.
                 </p>
               </Label>
             </div>
 
             <div className="flex items-start space-x-3 p-3 rounded-lg border hover:bg-gray-50 cursor-pointer">
-              <RadioGroupItem value="thread_conversation" id="thread_conversation" className="mt-1" />
-              <Label htmlFor="thread_conversation" className="cursor-pointer flex-1">
+              <RadioGroupItem
+                value="thread_conversation"
+                id="thread_conversation"
+                className="mt-1"
+              />
+              <Label
+                htmlFor="thread_conversation"
+                className="cursor-pointer flex-1"
+              >
                 <div className="flex items-center gap-2">
-                  <MessageSquare className="h-4 w-4 text-tertiary" />
                   <span className="font-medium">Desde conversacion</span>
                 </div>
                 <p className="text-sm text-gray-500 mt-1">
-                  Analiza una conversacion con iAlex para extraer tareas discutidas.
+                  Analiza una conversacion con iAlex para extraer tareas
+                  discutidas.
                 </p>
               </Label>
             </div>
@@ -136,7 +159,10 @@ export function GenerateChecklistDialog({
               <Label className="text-sm text-gray-600 mb-2 block">
                 Selecciona la conversacion
               </Label>
-              <Select value={selectedThreadId} onValueChange={setSelectedThreadId}>
+              <Select
+                value={selectedThreadId}
+                onValueChange={setSelectedThreadId}
+              >
                 <SelectTrigger>
                   <SelectValue placeholder="Selecciona una conversacion..." />
                 </SelectTrigger>
@@ -158,7 +184,11 @@ export function GenerateChecklistDialog({
         </div>
 
         <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isGenerating}>
+          <Button
+            variant="outline"
+            onClick={() => onOpenChange(false)}
+            disabled={isGenerating}
+          >
             Cancelar
           </Button>
           <Button onClick={handleGenerate} disabled={isGenerating}>
