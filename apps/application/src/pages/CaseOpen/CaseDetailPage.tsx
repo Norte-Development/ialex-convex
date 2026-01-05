@@ -1,5 +1,6 @@
 import { useCase } from "@/context/CaseContext";
 import CaseLayout from "@/components/Cases/CaseLayout";
+import CaseInternalNotesPanel from "@/components/Cases/CaseInternalNotesPanel";
 import { Badge } from "../../components/ui/badge";
 import { Button } from "../../components/ui/button";
 import {
@@ -350,6 +351,11 @@ export default function CaseDetailPage() {
               </Button>
             </Link>
           </div>
+        </div>
+
+        {/* Notas Internas */}
+        <div className="space-y-6" data-tutorial="case-notes">
+          <CaseInternalNotesPanel />
         </div>
       </div>
 
