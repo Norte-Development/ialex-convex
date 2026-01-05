@@ -5,21 +5,21 @@ import { action, ActionCtx } from "../_generated/server";
 import { api } from "../_generated/api";
 import { Id } from "../_generated/dataModel";
 import { createOpenRouter } from '@openrouter/ai-sdk-provider';
-import { generateObject } from "ai";
-import { z } from "zod";
+import { generateText } from "ai";
 
 const openrouter = createOpenRouter({
   apiKey: process.env.OPENROUTER_API_KEY,
 });
 
-// Schema para la respuesta del LLM
-const checklistSchema = z.object({
-  title: z.string().describe("Titulo descriptivo del plan de trabajo"),
-  tasks: z.array(z.object({
-    title: z.string().describe("Titulo corto de la tarea (max 80 chars)"),
-    description: z.string().optional().describe("Descripcion detallada opcional"),
-  })).min(3).max(15).describe("Lista de tareas ordenadas cronologicamente"),
-});
+interface ChecklistTask {
+  title: string;
+  description?: string;
+}
+
+interface Checklist {
+  title: string;
+  tasks: ChecklistTask[];
+}
 
 interface GenerateCaseChecklistArgs {
   caseId: Id<"cases">;
@@ -57,15 +57,15 @@ export const generateCaseChecklist = action({
 
     // 3. Construir contexto base
     let contextPrompt: string = `
-# Caso Legal
-- Titulo: ${caseData.title}
-- Categoria: ${caseData.category || "No especificada"}
-- Estado: ${caseData.status}
-- Prioridad: ${caseData.priority}
-- Descripcion: ${caseData.description || "Sin descripcion"}
-- Expediente: ${caseData.expedientNumber || "No asignado"}
+CASO LEGAL:
+Titulo: ${caseData.title}
+Categoria: ${caseData.category || "No especificada"}
+Estado: ${caseData.status}
+Prioridad: ${caseData.priority}
+Descripcion: ${caseData.description || "Sin descripcion"}
+Expediente: ${caseData.expedientNumber || "No asignado"}
 
-# Clientes
+CLIENTES:
 ${clients?.map((c: any) => `- ${c.name || c.displayName} (${c.role || "cliente"})`).join("\n") || "Sin clientes asignados"}
 `;
 
@@ -84,53 +84,122 @@ ${clients?.map((c: any) => `- ${c.name || c.displayName} (${c.role || "cliente"}
 
       contextPrompt += `
 
-# Conversacion con el Agente
+CONVERSACION CON EL AGENTE:
 ${conversationContext}
 `;
     }
 
-    // 5. Generar checklist con IA
-    const systemPrompt: string = `Eres un abogado senior argentino experto en planificacion de casos legales.
-Tu tarea es generar un plan de trabajo (checklist) para un caso legal.
+    // 5. System prompt
+    const systemPrompt: string = `Eres un abogado argentino experto. Tu tarea es generar un plan de trabajo para un caso legal.
 
-Reglas:
-- Genera entre 5 y 12 tareas concretas y accionables
-- Ordena las tareas cronologicamente (de primero a ultimo)
-- Cada tarea debe ser especifica y medible
-- Usa terminologia legal argentina
-- Incluye tareas como: revision documental, redaccion de escritos, plazos procesales, audiencias, etc.
-- El titulo del plan debe reflejar el tipo de caso`;
+INSTRUCCIONES:
+1. Genera entre 5 y 12 tareas concretas
+2. Ordena las tareas cronologicamente (de primero a ultimo)
+3. Cada tarea debe ser especifica y medible
+4. Usa terminologia legal argentina
+5. Incluye tareas como: revision documental, redaccion de escritos, plazos procesales, audiencias, etc.
 
-    const { object: checklist } = await generateObject({
-      model: openrouter('anthropic/claude-haiku-4.5'),
-      schema: checklistSchema,
-      system: systemPrompt,
-      prompt: `Genera un plan de trabajo detallado para el siguiente caso:
+FORMATO DE RESPUESTA:
+Debes responder UNICAMENTE con un JSON valido. Sin texto antes ni despues.
+
+Estructura requerida:
+{
+  "title": "Titulo del plan de trabajo",
+  "tasks": [
+    {"title": "Primera tarea", "description": "Detalle opcional"},
+    {"title": "Segunda tarea", "description": "Otro detalle"}
+  ]
+}
+
+IMPORTANTE: Responde solo con el JSON. No incluyas markdown ni ningun texto adicional.`;
+
+    try {
+      // 6. Generar texto con Haiku
+      const { text } = await generateText({
+        model: openrouter('anthropic/claude-haiku-4.5'),
+        system: systemPrompt,
+        prompt: `Genera un plan de trabajo para este caso:
 
 ${contextPrompt}
 
-Responde con un JSON que contenga "title" (titulo del plan) y "tasks" (array de tareas con "title" y "description" opcional).`,
-    });
+Responde con el JSON del plan de trabajo.`,
+      });
 
-    // 6. Crear o actualizar la lista en la base de datos
-    const listId: Id<"todoLists"> = await ctx.runMutation(api.functions.todos.getOrCreateCaseTodoList, {
-      title: checklist.title,
-      caseId: args.caseId,
-      createdBy: args.userId,
-    });
+      // 7. Parsear JSON manualmente
+      let cleanedText = text.trim();
 
-    // 7. Limpiar y agregar nuevas tareas
-    await ctx.runMutation(api.functions.todos.clearAndReplaceTodoItems, {
-      listId,
-      items: checklist.tasks,
-      createdBy: args.userId,
-    });
+      // Eliminar markdown code blocks si existen
+      cleanedText = cleanedText.replace(/^```json\s*/i, '');
+      cleanedText = cleanedText.replace(/^```\s*/i, '');
+      cleanedText = cleanedText.replace(/```\s*$/i, '');
 
-    return {
-      success: true,
-      listId,
-      taskCount: checklist.tasks.length,
-      title: checklist.title,
-    };
+      // Eliminar cualquier texto antes del primer {
+      const firstBraceIndex = cleanedText.indexOf('{');
+      if (firstBraceIndex > 0) {
+        cleanedText = cleanedText.substring(firstBraceIndex);
+      }
+
+      // Eliminar cualquier texto despues del ultimo }
+      const lastBraceIndex = cleanedText.lastIndexOf('}');
+      if (lastBraceIndex >= 0 && lastBraceIndex < cleanedText.length - 1) {
+        cleanedText = cleanedText.substring(0, lastBraceIndex + 1);
+      }
+
+      console.log("JSON limpiado:", cleanedText);
+
+      // Parsear JSON
+      let checklist: Checklist;
+      try {
+        checklist = JSON.parse(cleanedText);
+      } catch (parseError: any) {
+        console.error("Error parseando JSON:", parseError);
+        console.error("Texto original:", text);
+        throw new Error("No se pudo parsear la respuesta de la IA como JSON");
+      }
+
+      // 8. Validar estructura
+      if (!checklist?.title || typeof checklist.title !== 'string') {
+        throw new Error("El plan debe tener un título válido");
+      }
+
+      if (!Array.isArray(checklist?.tasks) || checklist.tasks.length === 0) {
+        throw new Error("El plan debe tener al menos una tarea");
+      }
+
+      if (checklist.tasks.length < 5 || checklist.tasks.length > 12) {
+        throw new Error("El plan debe tener entre 5 y 12 tareas");
+      }
+
+      // Validar cada tarea
+      for (const task of checklist.tasks) {
+        if (!task?.title || typeof task.title !== 'string') {
+          throw new Error("Cada tarea debe tener un título válido");
+        }
+      }
+
+      // 9. Crear o actualizar la lista en la base de datos
+      const listId: Id<"todoLists"> = await ctx.runMutation(api.functions.todos.getOrCreateCaseTodoList, {
+        title: checklist.title,
+        caseId: args.caseId,
+        createdBy: args.userId,
+      });
+
+      // 10. Limpiar y agregar nuevas tareas
+      await ctx.runMutation(api.functions.todos.clearAndReplaceTodoItems, {
+        listId,
+        items: checklist.tasks,
+        createdBy: args.userId,
+      });
+
+      return {
+        success: true,
+        listId,
+        taskCount: checklist.tasks.length,
+        title: checklist.title,
+      };
+    } catch (error: any) {
+      console.error("Error generando checklist:", error);
+      throw new Error(`Error al generar el plan: ${error.message || "Error desconocido"}`);
+    }
   },
 });
