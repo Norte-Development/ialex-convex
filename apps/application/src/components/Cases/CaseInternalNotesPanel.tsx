@@ -52,9 +52,11 @@ export default function CaseInternalNotesPanel() {
     if (!editingNote) return;
 
     try {
+      // Extract caseId from data as updateMutation doesn't accept it
+      const { caseId, ...updateData } = data;
       await updateNote({
         noteId: editingNote._id,
-        ...data,
+        ...updateData,
       });
       toast.success("Nota actualizada exitosamente");
       setIsFormOpen(false);
