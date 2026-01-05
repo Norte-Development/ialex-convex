@@ -88,7 +88,9 @@ export default function NoteCard({ note, onEdit, onDelete }: NoteCardProps) {
             <span>{timeAgo}</span>
           </div>
           {note.updaterName && note.updaterName !== note.creatorName && (
-            <span className="text-gray-400">· Editado</span>
+            <span className="text-gray-400">
+              Editado por: <span className="text-gray-600 font-medium">{note.updaterName}</span>
+            </span>
           )}
         </div>
       </div>
