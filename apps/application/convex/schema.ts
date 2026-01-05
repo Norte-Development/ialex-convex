@@ -970,6 +970,43 @@ export default defineSchema({
     .index("by_attendance_status", ["attendanceStatus"])
     .index("by_active_status", ["isActive"]),
 
+  // Case Internal Notes - internal notes for cases
+  caseNotes: defineTable({
+    // Core fields
+    caseId: v.id("cases"),
+    content: v.string(), // Note content (main text)
+    title: v.optional(v.string()), // Optional title/headline
+
+    // Classification
+    type: v.union(
+      v.literal("decisión"),      // Decision made
+      v.literal("recordatorio"),  // Reminder
+      v.literal("acuerdo"),       // Agreement
+      v.literal("información"),   // Information
+      v.literal("otro")           // Other
+    ),
+    isImportant: v.boolean(), // Importance flag
+
+    // Metadata
+    createdBy: v.id("users"),
+    updatedBy: v.optional(v.id("users")), // Last editor
+
+    // Timestamps
+    lastEditedAt: v.optional(v.number()), // Last edit timestamp
+
+    // Soft delete
+    isActive: v.boolean(),
+  })
+    .index("by_case", ["caseId"])
+    .index("by_created_by", ["createdBy"])
+    .index("by_type", ["type"])
+    .index("by_case_and_active", ["caseId", "isActive"])
+    .index("by_important", ["isImportant"])
+    .searchIndex("search_notes", {
+      searchField: "content",
+      filterFields: ["isActive", "caseId", "type"],
+    }),
+
   // Marketing / Informational Popups - configurable popups shown in the app
   popups: defineTable({
     key: v.string(), // Stable identifier (e.g. "blackfriday-2025")
