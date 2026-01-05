@@ -8,7 +8,11 @@
 import { useQuery, useMutation } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
 import { useCallback, useMemo } from "react";
-import type { HomeThread, HomeMessage } from "../types";
+import type {
+  HomeThread,
+  HomeMessage,
+  HomeAgentMediaRef,
+} from "../types";
 
 /**
  * Hook configuration options
@@ -40,6 +44,8 @@ export interface UseHomeThreadsReturn {
   messagesLoading: boolean;
   sendMessage: (
     content: string,
+    webSearchEnabled?: boolean,
+    media?: HomeAgentMediaRef[],
   ) => Promise<{ workflowId: string; threadId: string }>;
 
   // Combined state
@@ -108,11 +114,17 @@ export function useHomeThreads(
    * Send a message to the current thread or create a new one if none exists
    */
   const sendMessage = useCallback(
-    async (content: string) => {
+    async (
+      content: string,
+      webSearchEnabled: boolean = false,
+      media?: HomeAgentMediaRef[],
+    ) => {
       // Thread will be created with message as title in backend if threadId is empty
       return await workflowMutation({
         prompt: content,
         threadId: threadId || "", // Empty string will trigger thread creation in backend
+        webSearchEnabled,
+        media: media && media.length > 0 ? media : undefined,
       });
     },
     [threadId, workflowMutation],

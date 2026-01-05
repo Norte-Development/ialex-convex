@@ -151,8 +151,15 @@ export const queryDocumentTool = createTool({
           limit
         });
 
+        // Build citation for the document
+        const citation = {
+          id: documentId,
+          type: 'case-doc' as const,
+          title: document.title || document.description || 'Documento sin título',
+        };
+
         if (!searchResults || searchResults.length === 0) {
-          return `# 🔍 Consulta de Documento - Sin Resultados
+          const markdown = `# 🔍 Consulta de Documento - Sin Resultados
 
 ## Información del Documento
 - **ID del Documento**: ${documentId}
@@ -166,9 +173,14 @@ No se encontró contenido relevante para la consulta en este documento.
 
 ---
 *Búsqueda semántica realizada en el documento.*`;
+
+          console.log(`📚 [Citations] Creating citation for document query (no results)`);
+          console.log(`  📖 Citation created:`, citation);
+          console.log(`📤 [Citations] Returning tool output with 1 citation`);
+          return { markdown, citations: [citation] };
         }
 
-        return `# 🔍 Consulta de Documento
+        const markdown = `# 🔍 Consulta de Documento
 
 ## Información del Documento
 - **ID del Documento**: ${documentId}
@@ -190,6 +202,11 @@ ${searchResults.map((result, index) => `
 
 ---
 *Búsqueda semántica realizada en el documento.*`;
+
+        console.log(`📚 [Citations] Creating citation for document query`);
+        console.log(`  📖 Citation created:`, citation);
+        console.log(`📤 [Citations] Returning tool output with 1 citation`);
+        return { markdown, citations: [citation] };
       } else if (mode === "read") {
         // Progressive reading mode
         // Get total chunks (prefer DB field, fallback to Qdrant count)
@@ -224,7 +241,14 @@ ${searchResults.map((result, index) => `
         // Combine chunks content
         const combinedContent = chunksContent.join('\n\n');
 
-        return `# 📖 Lectura de Documento
+        // Build citation for the document
+        const citation = {
+          id: documentId,
+          type: 'case-doc' as const,
+          title: document.title || document.description || 'Documento sin título',
+        };
+
+        const markdown = `# 📖 Lectura de Documento
 
 ## Información del Documento
 - **ID del Documento**: ${documentId}
@@ -244,6 +268,11 @@ ${combinedContent || 'Sin contenido disponible'}
 
 ---
 *Documento leído progresivamente.*`;
+
+        console.log(`📚 [Citations] Creating citation for document read`);
+        console.log(`  📖 Citation created:`, citation);
+        console.log(`📤 [Citations] Returning tool output with 1 citation`);
+        return { markdown, citations: [citation] };
       } else {
         return createErrorResponse(`Modo no soportado: ${mode}. Use 'search' o 'read'.`);
       }

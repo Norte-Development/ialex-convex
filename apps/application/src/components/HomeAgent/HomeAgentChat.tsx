@@ -13,16 +13,12 @@
  * ```
  */
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useUIMessages } from "@convex-dev/agent/react";
 import { api } from "../../../convex/_generated/api";
-import { useMutation } from "convex/react";
+import { useConvex, useMutation, useAction } from "convex/react";
 import { useHomeThreads } from "./hooks/useHomeThreads";
-import {
-  Message,
-  MessageContent,
-} from "@/components/ai-elements/message";
 import {
   Conversation,
   ConversationContent,
@@ -33,22 +29,21 @@ import {
   PromptInputTextarea,
   PromptInputToolbar,
   PromptInputSubmit,
+  PromptInputButton,
 } from "@/components/ai-elements/prompt-input";
-import { Response } from "@/components/ai-elements/response";
-import { Actions, Action } from "@/components/ai-elements/actions";
-import {
-  Reasoning,
-  ReasoningContent,
-  ReasoningTrigger,
-} from "@/components/ai-elements/reasoning";
-import { Copy, RotateCw, Check, AlertCircle } from "lucide-react";
-import { formatDistanceToNow } from "date-fns";
-import { es } from "date-fns/locale";
-import { Tool } from "@/components/ai-elements/tool";
-import type { ToolUIPart } from "ai";
+import { Globe, AlertTriangle, Paperclip, AlertCircle } from "lucide-react";
+import type { ChatStatus } from "ai";
 import { toast } from "sonner";
 import { CitationModal } from "@/components/CaseAgent/citation-modal";
 import { Button } from "@/components/ui/button";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import type { Id } from "convex/_generated/dataModel";
+import { HomeAgentAttachmentPreview } from "./HomeAgentAttachmentPreview";
+import { HomeAgentMessage, type AgentMessage } from "./HomeAgentMessage";
+import type { HomeAgentMediaRef } from "./types";
+import { HOME_AGENT_MAX_MEDIA_BYTES } from "./types";
+
+// Tool citations are extracted via shared utility in `ai-elements/citations`.
 
 export interface HomeAgentChatProps {
   /** ID del thread de conversación */
@@ -61,210 +56,6 @@ export interface HomeAgentChatProps {
   className?: string;
 }
 
-interface HomeAgentMessageProps {
-  msg: any;
-  copiedMessageId: string | null;
-  onCopyMessage: (messageId: string, text: string) => void;
-  onCitationClick: (id: string, type: string) => void;
-  onRetry?: (userMessage: string) => void;
-}
-
-/**
- * Componente individual de mensaje
- */
-const HomeAgentMessage = ({
-  msg,
-  copiedMessageId,
-  onCopyMessage,
-  onCitationClick,
-  onRetry,
-}: HomeAgentMessageProps) => {
-  const messageText =
-    msg.text ||
-    msg.parts
-      ?.filter((p: any) => p.type === "text")
-      .map((p: any) => p.text)
-      .join("") ||
-    "";
-
-  const isUser = msg.role === "user";
-  const messageId = msg._id || msg.id;
-  const isCopied = copiedMessageId === messageId;
-
-  // Check for active tools
-  const toolCalls = msg.parts?.filter((p: any) => p.type?.startsWith("tool-")) || [];
-  const allToolsCompleted = toolCalls.length > 0 && toolCalls.every((p: any) => p.state === "output-available");
-  const hasActiveTools = toolCalls.length > 0 && !allToolsCompleted;
-
-  return (
-    <Message key={messageId} from={msg.role}>
-      <MessageContent>
-        {/* Show thinking indicator if message is streaming but has no text yet */}
-        {!isUser &&
-          msg.status === "streaming" &&
-          (!messageText || messageText.trim() === "") && (
-            <div className="flex items-center gap-2">
-              <div className="flex gap-1">
-                <div
-                  className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"
-                  style={{ animationDelay: "0ms" }}
-                />
-                <div
-                  className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"
-                  style={{ animationDelay: "150ms" }}
-                />
-                <div
-                  className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"
-                  style={{ animationDelay: "300ms" }}
-                />
-              </div>
-              <span className="text-xs text-gray-500 italic">
-                {hasActiveTools ? "Procesando herramientas..." : "Pensando..."}
-              </span>
-            </div>
-          )}
-
-        {/* Renderizar parts en orden cronológico */}
-        {msg.parts && msg.parts.length > 0 ? (
-          msg.parts.map((part: any, partIndex: number) => {
-            // Renderizar texto
-            if (part.type === "text") {
-              const displayText = part.text;
-
-              if (isUser) {
-                return (
-                  <div
-                    key={partIndex}
-                    className="whitespace-pre-wrap text-sm"
-                  >
-                    {displayText || "..."}
-                  </div>
-                );
-              } else {
-                return (
-                  <Response
-                    key={partIndex}
-                    className="text-sm"
-                    onCitationClick={(id, type) => {
-                      onCitationClick(id, type);
-                    }}
-                  >
-                    {displayText || "..."}
-                  </Response>
-                );
-              }
-            }
-
-            // Renderizar reasoning
-            if (part.type === "reasoning") {
-              // Simple streaming detection - trust the backend status
-              const reasoningIsStreaming = msg.status === "streaming";
-
-              return (
-                <Reasoning
-                  key={`${messageId}-${partIndex}`}
-                  defaultOpen={false}
-                  isStreaming={reasoningIsStreaming}
-                >
-                  <ReasoningTrigger className="!text-[10px]" />
-                  <ReasoningContent className="group relative !px-3 !py-2 !text-[10px] space-y-2 max-w-[85%]">
-                    {part.text}
-                  </ReasoningContent>
-                </Reasoning>
-              );
-            }
-
-            // Renderizar tool calls
-            if (part.type?.startsWith("tool-")) {
-              const aiSDKState = part.state;
-              const outputType = part.output?.type as string | undefined;
-              const isError =
-                aiSDKState === "output-available" &&
-                (outputType?.startsWith("error-") ?? false);
-
-              const toolState = isError
-                ? "output-error"
-                : aiSDKState === "output-available"
-                  ? "output-available"
-                  : aiSDKState === "input-available"
-                    ? "input-available"
-                    : "input-streaming";
-
-              return (
-                <Tool
-                  key={partIndex}
-                  className="mb-2"
-                  type={part.type.replace("tool-", "")}
-                  state={toolState}
-                  output={part.output as ToolUIPart["output"]}
-                  input={part.input}
-                />
-              );
-            }
-
-            return null;
-          })
-        ) : isUser ? (
-          <div className="whitespace-pre-wrap text-sm">
-            {messageText || "..."}
-          </div>
-        ) : (
-          <Response
-            className="text-sm"
-            onCitationClick={(id, type) => {
-              onCitationClick(id, type);
-            }}
-          >
-            {messageText || "..."}
-          </Response>
-        )}
-        <div className="flex items-center justify-between mt-2">
-          <div className="text-[10px] opacity-70">
-            {msg._creationTime
-              ? formatDistanceToNow(msg._creationTime, {
-                  addSuffix: true,
-                  locale: es,
-                })
-              : "ahora"}
-          </div>
-
-          {/* Actions - Solo para mensajes de la IA */}
-          {!isUser && (
-            <Actions>
-              <Action
-                tooltip={isCopied ? "¡Copiado!" : "Copiar"}
-                onClick={() => onCopyMessage(messageId, messageText)}
-              >
-                {isCopied ? (
-                  <Check className="size-4" />
-                ) : (
-                  <Copy className="size-4" />
-                )}
-              </Action>
-
-              {onRetry && (
-                <Action
-                  tooltip="Reintentar"
-                  onClick={() => onRetry(messageText)}
-                >
-                  <RotateCw className="size-4" />
-                </Action>
-              )}
-            </Actions>
-          )}
-        </div>
-
-        {msg.status === "failed" && (
-          <div className="flex items-center gap-2 mt-2 text-red-600 text-sm">
-            <AlertCircle className="size-4" />
-            <span>Error al procesar el mensaje</span>
-          </div>
-        )}
-      </MessageContent>
-    </Message>
-  );
-};
-
 /**
  * Componente de chat con streaming para HomeAgent
  */
@@ -274,9 +65,28 @@ export function HomeAgentChat({
   className = "",
 }: HomeAgentChatProps) {
   const navigate = useNavigate();
+  const convex = useConvex();
   const [inputValue, setInputValue] = useState("");
+  const [webSearchEnabled, setWebSearchEnabled] = useState(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("homeAgentWebSearchEnabled");
+      return saved === "true";
+    }
+    return false;
+  });
   const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null);
   const [sendError, setSendError] = useState<string | null>(null);
+  const [mediaAttachments, setMediaAttachments] = useState<HomeAgentMediaRef[]>([]);
+  const [isUploadingMedia, setIsUploadingMedia] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    localStorage.setItem("homeAgentWebSearchEnabled", String(webSearchEnabled));
+  }, [webSearchEnabled]);
+
+  useEffect(() => {
+    setMediaAttachments([]);
+  }, [threadId]);
 
   // Estado para el modal de citas
   const [citationModalOpen, setCitationModalOpen] = useState(false);
@@ -296,6 +106,7 @@ export function HomeAgentChat({
 
   // Hook para enviar mensajes
   const { sendMessage, messagesLoading } = useHomeThreads({ threadId });
+  const getUploadUrl = useAction(api.agents.home.media.getHomeMediaUploadUrl);
 
   // Hook para abortar streams
   const abortStreamByOrder = useMutation(
@@ -305,16 +116,132 @@ export function HomeAgentChat({
   const isLoading = threadId && !messages && status !== "Exhausted";
 
   // Simple streaming detection - just check if any message has streaming status
-  const isStreaming = messages?.some((m: any) => m.status === "streaming") ?? false;
+  const isStreaming =
+    (messages as unknown as AgentMessage[] | undefined)?.some(
+      (m) => m.status === "streaming",
+    ) ?? false;
 
   // Input debe estar deshabilitado si está cargando O si hay streaming
-  const isInputDisabled = messagesLoading || isStreaming;
+  const isInputDisabled = messagesLoading || isStreaming || isUploadingMedia;
+
+  const handleFileButtonClick = () => fileInputRef.current?.click();
+
+  const handleRemoveMedia = useCallback((gcsObject: string) => {
+    setMediaAttachments((prev) =>
+      prev.filter((item) => item.gcsObject !== gcsObject),
+    );
+  }, []);
+
+  const handleFilesSelected = useCallback(
+    async (filesInput: FileList | File[]) => {
+      if (isUploadingMedia) {
+        toast.error("Espera a que termine la carga actual.");
+        return;
+      }
+
+      const files = Array.from(filesInput as ArrayLike<File>);
+      if (files.length === 0) {
+        return;
+      }
+
+      // Reset input value to allow selecting same file again
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
+
+      setIsUploadingMedia(true);
+      try {
+        for (const file of files) {
+          const kind =
+            file.type === "application/pdf"
+              ? "pdf"
+              : file.type.startsWith("image/")
+                ? "image"
+                : null;
+
+          if (!kind) {
+            toast.error("Formato no soportado", {
+              description: `${file.name} no es una imagen ni PDF.`,
+            });
+            continue;
+          }
+
+          if (file.size > HOME_AGENT_MAX_MEDIA_BYTES) {
+            toast.error("Archivo demasiado grande", {
+              description: `${file.name} supera los ${(HOME_AGENT_MAX_MEDIA_BYTES / (1024 * 1024)).toFixed(0)}MB permitidos.`,
+            });
+            continue;
+          }
+
+          try {
+            const uploadConfig = await getUploadUrl({
+              filename: file.name,
+              contentType: file.type,
+              kind,
+            });
+
+            if (file.size > uploadConfig.maxSize) {
+              toast.error("Archivo supera el límite permitido", {
+                description: `${file.name} excede ${(
+                  uploadConfig.maxSize /
+                  (1024 * 1024)
+                ).toFixed(0)}MB.`,
+              });
+              continue;
+            }
+
+            const response = await fetch(uploadConfig.uploadUrl, {
+              method: "PUT",
+              headers: {
+                "Content-Type": file.type,
+              },
+              body: file,
+            });
+
+            if (!response.ok) {
+              throw new Error(
+                `Fallo la carga (${response.status} ${response.statusText})`,
+              );
+            }
+
+            setMediaAttachments((prev) => [
+              ...prev,
+              {
+                url: uploadConfig.publicUrl,
+                gcsBucket: uploadConfig.gcsBucket,
+                gcsObject: uploadConfig.gcsObject,
+                contentType: uploadConfig.contentType,
+                filename: uploadConfig.filename,
+                size: file.size,
+                kind,
+              },
+            ]);
+          } catch (error) {
+            console.error("Error uploading media", error);
+            const description =
+              error instanceof Error ? error.message : "Intenta nuevamente.";
+            toast.error("No se pudo subir el archivo", {
+              description,
+            });
+          }
+        }
+      } finally {
+        setIsUploadingMedia(false);
+      }
+    },
+    [getUploadUrl, isUploadingMedia],
+  );
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     // Don't submit if we're streaming (abort should be handled by button click)
     if (isStreaming) {
+      return;
+    }
+
+    if (isUploadingMedia) {
+      toast.error("Espera a que terminen las cargas antes de enviar.");
       return;
     }
     
@@ -325,11 +252,16 @@ export function HomeAgentChat({
     setSendError(null);
 
     try {
-      const result = await sendMessage(message);
+      const result = await sendMessage(
+        message,
+        webSearchEnabled,
+        mediaAttachments,
+      );
       // If no thread was set, navigate to the new thread
       if (!threadId && result.threadId) {
         navigate(`/ai/${result.threadId}`);
       }
+      setMediaAttachments([]);
     } catch (error) {
       console.error("Error sending message:", error);
       const errorMessage =
@@ -344,8 +276,8 @@ export function HomeAgentChat({
     }
   };
 
-  // Determinar el estado del chat para el botón de submit
-  const chatStatus = isStreaming ? "streaming" : "awaiting-message";
+  // Determinar el estado del chat para el botón de submit (AI SDK expects ChatStatus)
+  const chatStatus: ChatStatus = isStreaming ? "streaming" : "ready";
 
   // Función para copiar mensaje al clipboard
   const handleCopyMessage = async (messageId: string, text: string) => {
@@ -364,7 +296,7 @@ export function HomeAgentChat({
 
     setSendError(null);
     try {
-      await sendMessage(messageText);
+      await sendMessage(messageText, webSearchEnabled);
     } catch (error) {
       console.error("Error regenerating message:", error);
       const errorMessage =
@@ -395,8 +327,25 @@ export function HomeAgentChat({
     // For non-streaming state, let the form handle submission naturally
   };
 
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      handleFilesSelected(e.dataTransfer.files);
+    }
+  };
+
   return (
-    <div className={`flex flex-col h-full w-3/4 ${className}`}>
+    <div
+      className={`flex flex-col h-full w-3/4 ${className}`}
+      onDragOver={handleDragOver}
+      onDrop={handleDrop}
+    >
       {/* Conversation with auto-scroll */}
       <Conversation className="flex-1">
         <ConversationContent>
@@ -405,8 +354,16 @@ export function HomeAgentChat({
               <div className="text-muted-foreground">Cargando mensajes...</div>
             </div>
           ) : messages.length === 0 ? (
-            <div className="flex items-center justify-center h-full">
-              <div className="text-muted-foreground">No hay mensajes</div>
+            <div className="flex flex-col items-center justify-center h-full text-center space-y-4">
+              <div className="p-4 rounded-full bg-muted/50">
+                <Paperclip className="size-8 text-muted-foreground/50" />
+              </div>
+              <div>
+                <div className="text-muted-foreground font-medium">No hay mensajes aún</div>
+                <p className="text-xs text-muted-foreground/70 mt-1">
+                  Escribe un mensaje o arrastra archivos aquí para comenzar
+                </p>
+              </div>
             </div>
           ) : (
             <>
@@ -422,13 +379,30 @@ export function HomeAgentChat({
                   </Button>
                 </div>
               )}
-              {messages.map((msg: any) => (
+              {(messages as unknown as AgentMessage[]).map((msg) => (
                 <HomeAgentMessage
                   key={msg._id || msg.id}
-                  msg={msg}
+                  msg={msg as AgentMessage}
                   copiedMessageId={copiedMessageId}
                   onCopyMessage={handleCopyMessage}
                   onCitationClick={(id, type) => {
+                    // For escritos, navigate directly instead of opening the citation modal.
+                    if (type === "escrito") {
+                      (async () => {
+                        try {
+                          const escrito = await convex.query(api.functions.documents.getEscrito, {
+                            escritoId: id as Id<"escritos">,
+                          });
+                          navigate(`/caso/${escrito.caseId}/escritos/${id}`);
+                        } catch (error) {
+                          console.error("Error navigating to escrito from citation:", error);
+                          toast.error("No se pudo abrir el escrito");
+                        }
+                      })();
+                      return;
+                    }
+
+                    console.log("🔗 [Citations] Opening citation modal:", { id, type });
                     setCitationModalOpen(true);
                     setSelectedCitationId(id);
                     setSelectedCitationType(type);
@@ -444,6 +418,21 @@ export function HomeAgentChat({
 
       {/* Prompt Input */}
       <div className="m-4">
+        {/* Web search hallucination warning */}
+        {webSearchEnabled && (
+          <div className="mb-2">
+            <Alert className="border-amber-400 bg-amber-50">
+              <AlertTriangle className="size-4 text-amber-600" />
+              <AlertTitle className="text-amber-900 text-xs">
+                Búsqueda web activada
+              </AlertTitle>
+              <AlertDescription className="text-[11px] text-amber-800">
+                Las respuestas con búsqueda web son más propensas a alucinaciones. Verifica siempre la información con fuentes confiables antes de usarla en tu caso.
+              </AlertDescription>
+            </Alert>
+          </div>
+        )}
+
         {sendError && (
           <div className="mb-2 flex items-center gap-2 rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
             <AlertCircle className="h-4 w-4" />
@@ -451,6 +440,11 @@ export function HomeAgentChat({
           </div>
         )}
         <PromptInput onSubmit={handleSubmit}>
+          <HomeAgentAttachmentPreview
+            media={mediaAttachments}
+            onRemove={handleRemoveMedia}
+            isUploading={isUploadingMedia}
+          />
           <PromptInputTextarea
             value={inputValue}
             onChange={(e) => setInputValue(e.target.value)}
@@ -458,16 +452,51 @@ export function HomeAgentChat({
             disabled={isInputDisabled}
           />
           <PromptInputToolbar>
+            <div className="flex items-center gap-2">
+              <PromptInputButton
+                onClick={handleFileButtonClick}
+                disabled={isInputDisabled}
+                title="Adjuntar archivo"
+              >
+                <Paperclip className="size-4" />
+              </PromptInputButton>
+              <PromptInputButton
+                onClick={() => setWebSearchEnabled(!webSearchEnabled)}
+                className={webSearchEnabled ? "text-blue-500 bg-blue-50" : ""}
+                title={webSearchEnabled ? "Búsqueda web activada" : "Activar búsqueda web"}
+              >
+                <Globe className="size-4" />
+                <span className="text-xs">{webSearchEnabled ? "Web" : ""}</span>
+              </PromptInputButton>
+            </div>
             <div className="flex-1" />
             <PromptInputSubmit
-              disabled={isStreaming ? false : (!inputValue.trim() || messagesLoading)}
-              status={chatStatus as any}
+              disabled={
+                isStreaming
+                  ? false
+                  : (!inputValue.trim() || messagesLoading || isUploadingMedia)
+              }
+              status={chatStatus}
               onClick={handleButtonClick}
               type={isStreaming ? "button" : "submit"}
               aria-label={isStreaming ? "Detener" : "Enviar mensaje"}
             />
           </PromptInputToolbar>
         </PromptInput>
+
+        {/* Hidden File Input */}
+        <input
+          type="file"
+          ref={fileInputRef}
+          className="hidden"
+          multiple
+          accept="image/*,application/pdf"
+          onChange={(e) => {
+            if (e.target.files && e.target.files.length > 0) {
+              handleFilesSelected(e.target.files);
+            }
+          }}
+        />
       </div>
 
       {/* Modal de citas unificado */}

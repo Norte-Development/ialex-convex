@@ -19,6 +19,18 @@ export interface ChatInputProps {
   onSendMessage: (message: string, activeReferences?: Reference[]) => void;
 
   /**
+   * Controls whether web search is enabled for the next message
+   * This value is passed down from the parent so it can be sent to the backend
+   */
+  webSearchEnabled?: boolean;
+
+  /**
+   * Callback when the web search toggle is changed in the input
+   * Allows the parent component to update its state and pass the flag to the backend
+   */
+  onWebSearchToggle?: (enabled: boolean) => void;
+
+  /**
    * Indicates whether the AI is currently streaming a response
    * When true, shows abort button and disables send functionality
    */

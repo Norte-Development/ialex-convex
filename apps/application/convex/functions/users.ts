@@ -1,5 +1,5 @@
 import { v } from "convex/values";
-import { query, mutation, action, internalQuery } from "../_generated/server";
+import { query, mutation, action, internalQuery, internalMutation } from "../_generated/server";
 import { getCurrentUserFromAuth } from "../auth_utils";
 import { requireNewCaseAccess } from "../auth_utils";
 import { internal, api } from "../_generated/api";
@@ -746,7 +746,7 @@ export const verifyWhatsappCode = action({
       emailNotifications: true,
     };
 
-    await ctx.runMutation(api.functions.users.updateWhatsappPreferences, {
+    await ctx.runMutation(internal.functions.users.updateWhatsappPreferences, {
       userId,
       preferences: {
         ...currentPreferences,
@@ -762,7 +762,7 @@ export const verifyWhatsappCode = action({
 /**
  * Internal mutation to update WhatsApp preferences
  */
-export const updateWhatsappPreferences = mutation({
+export const updateWhatsappPreferences = internalMutation({
   args: {
     userId: v.id("users"),
     preferences: v.any(),

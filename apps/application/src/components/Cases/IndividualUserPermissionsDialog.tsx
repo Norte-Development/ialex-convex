@@ -50,10 +50,6 @@ export default function IndividualUserPermissionsDialog({
   // Add permissions check
   const { can } = usePermissions();
 
-  // Debug logging
-  console.log("IndividualUserPermissionsDialog - caseId:", caseId);
-  console.log("IndividualUserPermissionsDialog - isOpen:", isOpen);
-
   // Get available users for this case (combines search + filtering in one efficient query)
   const availableUsers = useQuery(
     api.functions.users.searchAvailableUsersForCase,

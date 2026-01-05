@@ -91,7 +91,19 @@ export const getEscritoStatsTool = createTool({
           paragraphs: countParagraphs(doc),
       }
       
-      return createEscritoStatsTemplate(escrito._id, doc.version, stats);
+      const markdown = createEscritoStatsTemplate(escrito._id, doc.version, stats);
+
+      // Build citation for the escrito
+      const citation = {
+        id: correctedEscritoId,
+        type: 'escrito' as const,
+        title: escrito.title || 'Escrito sin título',
+      };
+
+      console.log(`📚 [Citations] Creating citation for escrito stats`);
+      console.log(`  📖 Citation created:`, citation);
+      console.log(`📤 [Citations] Returning tool output with 1 citation`);
+      return { markdown, citations: [citation] };
     } catch (error) {
       return createErrorResponse(`Error inesperado: ${error instanceof Error ? error.message : 'Error desconocido'}`);
     }

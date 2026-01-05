@@ -212,6 +212,7 @@ export const legalAgentWorkflow = workflow.define({
     currentEscritoId: v.optional(v.id("escritos")),
     currentDocumentId: v.optional(v.id("documents")),
     resolvedReferences: v.optional(v.array(vResolvedReference)),
+    webSearch: v.boolean(),
   },
   handler: async (step, args): Promise<void> => {
     console.log("Starting legal agent workflow");
@@ -240,6 +241,7 @@ export const legalAgentWorkflow = workflow.define({
         threadId: args.threadId,
         promptMessageId: userMessage.messageId,
         contextBundle,
+        webSearch: args.webSearch,
       },
       { retry: false },
     );
@@ -253,9 +255,10 @@ export const streamWithContextAction = internalAction({
     threadId: v.string(),
     promptMessageId: v.string(),
     contextBundle: vContextBundle,
+    webSearch: v.boolean(),
   },
   returns: v.null(),
-  handler: async (ctx, { threadId, promptMessageId, contextBundle }) => {
+  handler: async (ctx, { threadId, promptMessageId, contextBundle, webSearch }) => {
     // Determine which model to use based on user's billing plan and case context
     if (!contextBundle.case?.id) {
       throw new Error("Case context is required for agent workflow");
@@ -295,21 +298,25 @@ export const streamWithContextAction = internalAction({
     const schemaSummary = `ProseMirror Schema Summary\n- Nodes: ${nodeSpecs.join(", ")}\n- Marks: ${markSpecs.join(", ")}`;
 
     const systemMessage = `
+WEB_SEARCH_MODE: ${webSearch ? "ENABLED" : "DISABLED"}
 
-    ${prompt}
-    ---
-    ${contextString}
+${prompt}
+---
+${contextString}
 
-    ---
-    ${schemaSummary}
-      
-    `;
+---
+${schemaSummary}
+  
+`;
 
     const { thread } = await agent.continueThread(ctx, { threadId });
 
-    const openRouterModel = modelToUse === 'gpt-5' ? 'openai/gpt-5.1' : 'openai/gpt-5-mini';
+    let openRouterModel = modelToUse === 'gpt-5' ? 'openai/gpt-5.1' : 'openai/gpt-5-mini';
     const config = { reasoning: modelToUse === 'gpt-5' ? {enabled: true, effort: "low" as const, exclude: false } : undefined};
 
+    if (webSearch) {
+      openRouterModel = openRouterModel + ':online';
+    }
     console.log('openRouterModel', openRouterModel);
 
     try {
@@ -428,6 +435,7 @@ export const initiateWorkflowStreaming = mutation({
     currentEscritoId: v.optional(v.id("escritos")),
     currentDocumentId: v.optional(v.id("documents")),
     resolvedReferences: v.optional(v.array(vResolvedReference)),
+    webSearch: v.boolean(),
   },
   returns: v.object({
     workflowId: v.string(),
@@ -492,6 +500,7 @@ export const initiateWorkflowStreaming = mutation({
         currentEscritoId: args.currentEscritoId,
         currentDocumentId: args.currentDocumentId,
         resolvedReferences: args.resolvedReferences,
+        webSearch: args.webSearch,
       },
     );
 

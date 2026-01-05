@@ -1,8 +1,6 @@
-
-
 /**
  * Migration Workflow - Phase 2
- * 
+ *
  * Converts the single migration action into a workflow to avoid timeouts.
  * Breaks down the migration into smaller, resumable steps.
  */
@@ -11,11 +9,11 @@ import { WorkflowManager } from "@convex-dev/workflow";
 import { components, internal } from "../_generated/api";
 import { v } from "convex/values";
 import { internalAction, internalMutation } from "../_generated/server";
-import type { 
-  UserMigrationResult, 
-  FirestoreCaseData, 
-  FirestoreClientData, 
-  FirestoreDocumentData 
+import type {
+  UserMigrationResult,
+  FirestoreCaseData,
+  FirestoreClientData,
+  FirestoreDocumentData,
 } from "./types";
 import { detectMimeTypeFromFileType, getSafeMimeType } from "./mimeTypeUtils";
 
@@ -44,7 +42,7 @@ export const userDataMigrationWorkflow = workflow.define({
   },
   handler: async (step, args): Promise<UserMigrationResult> => {
     console.log(`Starting workflow-based migration for user ${args.userId}`);
-    
+
     // Initialize workflow state
     const state: MigrationWorkflowState = {
       userId: args.userId,
@@ -66,14 +64,14 @@ export const userDataMigrationWorkflow = workflow.define({
       // Step 1: Get migration metadata and update status
       const migrationData = await step.runAction(
         internal.migrations.migrationWorkflow.getMigrationMetadata,
-        { userId: args.userId }
+        { userId: args.userId },
       );
       state.oldKindeId = migrationData.oldKindeId;
 
       // Step 2: Fetch all Firestore data
       const firestoreData = await step.runAction(
         internal.migrations.migrationWorkflow.fetchFirestoreData,
-        { kindeUserId: state.oldKindeId }
+        { kindeUserId: state.oldKindeId },
       );
       state.cases = firestoreData.cases;
       state.clients = firestoreData.clients;
@@ -82,10 +80,10 @@ export const userDataMigrationWorkflow = workflow.define({
       // Step 3: Process and categorize documents
       const documentData = await step.runAction(
         internal.migrations.migrationWorkflow.processDocuments,
-        { 
-          cases: state.cases, 
-          allDocuments: state.allDocuments 
-        }
+        {
+          cases: state.cases,
+          allDocuments: state.allDocuments,
+        },
       );
       state.caseDocuments = documentData.caseDocuments;
       state.libraryDocuments = documentData.libraryDocuments;
@@ -97,7 +95,7 @@ export const userDataMigrationWorkflow = workflow.define({
           userId: args.userId,
           cases: state.cases,
           caseDocuments: state.caseDocuments,
-        }
+        },
       );
       state.caseIdMap = caseResults.caseIdMap;
       state.casesCount = caseResults.casesCount;
@@ -110,7 +108,7 @@ export const userDataMigrationWorkflow = workflow.define({
         {
           userId: args.userId,
           libraryDocuments: state.libraryDocuments,
-        }
+        },
       );
       state.libraryDocumentsCount = libraryResults.libraryDocumentsCount;
       state.errors.push(...libraryResults.errors);
@@ -121,7 +119,7 @@ export const userDataMigrationWorkflow = workflow.define({
         {
           userId: args.userId,
           clients: state.clients,
-        }
+        },
       );
       state.clientsCount = clientResults.clientsCount;
       state.errors.push(...clientResults.errors);
@@ -129,13 +127,15 @@ export const userDataMigrationWorkflow = workflow.define({
       // Step 7: Complete migration
       await step.runMutation(
         internal.migrations.migrationWorkflow.completeMigration,
-        { 
-          userId: args.userId, 
-          status: "completed" as const 
-        }
+        {
+          userId: args.userId,
+          status: "completed" as const,
+        },
       );
 
-      console.log(`Migration workflow completed for user ${args.userId} with ${state.errors.length} errors`);
+      console.log(
+        `Migration workflow completed for user ${args.userId} with ${state.errors.length} errors`,
+      );
 
       return {
         success: true,
@@ -147,19 +147,21 @@ export const userDataMigrationWorkflow = workflow.define({
         errorCount: state.errors.length,
         errors: state.errors,
       };
-
     } catch (error: any) {
-      console.error(`Migration workflow failed for user ${args.userId}:`, error);
-      
+      console.error(
+        `Migration workflow failed for user ${args.userId}:`,
+        error,
+      );
+
       // Update status to failed
       await step.runMutation(
         internal.migrations.migrationWorkflow.completeMigration,
-        { 
-          userId: args.userId, 
-          status: "failed" as const 
-        }
+        {
+          userId: args.userId,
+          status: "failed" as const,
+        },
       );
-      
+
       throw error;
     }
   },
@@ -174,19 +176,19 @@ export const getMigrationMetadata = internalAction({
   handler: async (ctx, { userId }): Promise<{ oldKindeId: string }> => {
     const migrationStatus = await ctx.runQuery(
       internal.migrations.helpers.getMigrationStatus,
-      { userId }
+      { userId },
     );
-    
+
     if (!migrationStatus) {
       throw new Error("No migration metadata found for user");
     }
-    
+
     // Update status to in_progress
-    await ctx.runMutation(
-      internal.migrations.helpers.updateMigrationStatus,
-      { userId, status: "in_progress" as const }
-    );
-    
+    await ctx.runMutation(internal.migrations.helpers.updateMigrationStatus, {
+      userId,
+      status: "in_progress" as const,
+    });
+
     return { oldKindeId: migrationStatus.oldKindeId };
   },
 });
@@ -199,20 +201,32 @@ export const fetchFirestoreData = internalAction({
     clients: v.array(v.any()),
     allDocuments: v.array(v.any()),
   }),
-  handler: async (ctx, { kindeUserId }): Promise<{ cases: FirestoreCaseData[]; clients: FirestoreClientData[]; allDocuments: FirestoreDocumentData[] }> => {
+  handler: async (
+    ctx,
+    { kindeUserId },
+  ): Promise<{
+    cases: FirestoreCaseData[];
+    clients: FirestoreClientData[];
+    allDocuments: FirestoreDocumentData[];
+  }> => {
     console.log(`Fetching Firestore data for Kinde user ${kindeUserId}`);
-    
+
     const [cases, clients, allDocuments] = await Promise.all([
-      ctx.runAction(internal.migrations.firestoreDataHelpers.getUserCases, 
-        { kindeUserId }),
-      ctx.runAction(internal.migrations.firestoreDataHelpers.getUserClients, 
-        { kindeUserId }),
-      ctx.runAction(internal.migrations.firestoreDataHelpers.getUserDocuments,
-        { kindeUserId }),
+      ctx.runAction(internal.migrations.firestoreDataHelpers.getUserCases, {
+        kindeUserId,
+      }),
+      ctx.runAction(internal.migrations.firestoreDataHelpers.getUserClients, {
+        kindeUserId,
+      }),
+      ctx.runAction(internal.migrations.firestoreDataHelpers.getUserDocuments, {
+        kindeUserId,
+      }),
     ]);
-    
-    console.log(`Found ${cases.length} cases, ${clients.length} clients, ${allDocuments.length} documents`);
-    
+
+    console.log(
+      `Found ${cases.length} cases, ${clients.length} clients, ${allDocuments.length} documents`,
+    );
+
     return { cases, clients, allDocuments };
   },
 });
@@ -232,16 +246,24 @@ export const processDocuments = internalAction({
     const caseLinkedDocIds = new Set<string>();
     for (const firestoreCase of cases) {
       if (firestoreCase.documents) {
-        firestoreCase.documents.forEach((docId: string) => caseLinkedDocIds.add(docId));
+        firestoreCase.documents.forEach((docId: string) =>
+          caseLinkedDocIds.add(docId),
+        );
       }
     }
-    
+
     // Separate documents into case-linked and library (standalone)
-    const caseDocuments = allDocuments.filter((doc: any) => caseLinkedDocIds.has(doc.id));
-    const libraryDocuments = allDocuments.filter((doc: any) => !caseLinkedDocIds.has(doc.id));
-    
-    console.log(`Documents breakdown: ${caseDocuments.length} case-linked, ${libraryDocuments.length} library`);
-    
+    const caseDocuments = allDocuments.filter((doc: any) =>
+      caseLinkedDocIds.has(doc.id),
+    );
+    const libraryDocuments = allDocuments.filter(
+      (doc: any) => !caseLinkedDocIds.has(doc.id),
+    );
+
+    console.log(
+      `Documents breakdown: ${caseDocuments.length} case-linked, ${libraryDocuments.length} library`,
+    );
+
     return { caseDocuments, libraryDocuments };
   },
 });
@@ -264,7 +286,7 @@ export const migrateCases = internalAction({
     const caseIdMap: Record<string, string> = {};
     const errors: string[] = [];
     let caseDocumentsCount = 0;
-    
+
     for (const firestoreCase of cases) {
       try {
         const result = await ctx.runMutation(
@@ -277,23 +299,27 @@ export const migrateCases = internalAction({
             createdAt: firestoreCase.createdAt,
             updatedAt: firestoreCase.updatedAt,
             oldFirestoreCaseId: firestoreCase.id,
-          }
+          },
         );
         caseIdMap[firestoreCase.id] = result.caseId;
-        
+
         // Migrate documents for this case
         if (firestoreCase.documents && firestoreCase.documents.length > 0) {
-          console.log(`Migrating ${firestoreCase.documents.length} documents for case ${firestoreCase.caseName}`);
-          
-          const caseDocsForThisCase = caseDocuments.filter((doc: any) => 
-            firestoreCase.documents.includes(doc.id)
+          console.log(
+            `Migrating ${firestoreCase.documents.length} documents for case ${firestoreCase.caseName}`,
           );
-          
+
+          const caseDocsForThisCase = caseDocuments.filter((doc: any) =>
+            firestoreCase.documents.includes(doc.id),
+          );
+
           for (const doc of caseDocsForThisCase) {
             try {
               // Detect proper MIME type from file type
-              const mimeType = getSafeMimeType(detectMimeTypeFromFileType(doc.fileType));
-              
+              const mimeType = getSafeMimeType(
+                detectMimeTypeFromFileType(doc.fileType),
+              );
+
               // Upload file to GCS
               const uploadResult = await ctx.runAction(
                 internal.migrations.fileStorageHelpers.uploadFileToGCS,
@@ -301,14 +327,16 @@ export const migrateCases = internalAction({
                   storageUrl: doc.storageUrl,
                   fileName: doc.fileName,
                   mimeType: mimeType,
-                }
+                },
               );
-              
+
               if (!uploadResult.success) {
-                errors.push(`Case Document ${doc.id}: Upload failed - ${uploadResult.error}`);
+                errors.push(
+                  `Case Document ${doc.id}: Upload failed - ${uploadResult.error}`,
+                );
                 continue;
               }
-              
+
               // Create case document in Convex using internal function
               await ctx.runMutation(
                 internal.functions.documents.internalCreateDocument,
@@ -321,13 +349,16 @@ export const migrateCases = internalAction({
                   mimeType: mimeType,
                   fileSize: uploadResult.fileSize,
                   createdBy: userId,
-                }
+                },
               );
-              
+
               caseDocumentsCount++;
             } catch (error: any) {
               errors.push(`Case Document ${doc.id}: ${error.message}`);
-              console.error(`Failed to migrate case document ${doc.id}:`, error);
+              console.error(
+                `Failed to migrate case document ${doc.id}:`,
+                error,
+              );
             }
           }
         }
@@ -336,9 +367,11 @@ export const migrateCases = internalAction({
         console.error(`Failed to migrate case ${firestoreCase.id}:`, error);
       }
     }
-    
-    console.log(`Migrated ${Object.keys(caseIdMap).length} cases with ${caseDocumentsCount} documents`);
-    
+
+    console.log(
+      `Migrated ${Object.keys(caseIdMap).length} cases with ${caseDocumentsCount} documents`,
+    );
+
     return {
       caseIdMap,
       casesCount: cases.length,
@@ -362,12 +395,14 @@ export const migrateLibraryDocuments = internalAction({
     console.log(`Migrating ${libraryDocuments.length} library documents...`);
     const errors: string[] = [];
     let libraryDocumentsCount = 0;
-    
+
     for (const doc of libraryDocuments) {
       try {
         // Detect proper MIME type from file type
-        const mimeType = getSafeMimeType(detectMimeTypeFromFileType(doc.fileType));
-        
+        const mimeType = getSafeMimeType(
+          detectMimeTypeFromFileType(doc.fileType),
+        );
+
         // Upload file to GCS
         const uploadResult = await ctx.runAction(
           internal.migrations.fileStorageHelpers.uploadFileToGCS,
@@ -375,14 +410,16 @@ export const migrateLibraryDocuments = internalAction({
             storageUrl: doc.storageUrl,
             fileName: doc.fileName,
             mimeType: mimeType,
-          }
+          },
         );
-        
+
         if (!uploadResult.success) {
-          errors.push(`Library Document ${doc.id}: Upload failed - ${uploadResult.error}`);
+          errors.push(
+            `Library Document ${doc.id}: Upload failed - ${uploadResult.error}`,
+          );
           continue;
         }
-        
+
         // Create library document in Convex using internal function
         await ctx.runMutation(
           internal.functions.libraryDocument.internalCreateLibraryDocument,
@@ -393,18 +430,18 @@ export const migrateLibraryDocuments = internalAction({
             mimeType: mimeType,
             fileSize: uploadResult.fileSize,
             createdBy: userId,
-          }
+          },
         );
-        
+
         libraryDocumentsCount++;
       } catch (error: any) {
         errors.push(`Library Document ${doc.id}: ${error.message}`);
         console.error(`Failed to migrate library document ${doc.id}:`, error);
       }
     }
-    
+
     console.log(`Migrated ${libraryDocumentsCount} library documents`);
-    
+
     return {
       libraryDocumentsCount,
       errors,
@@ -426,30 +463,27 @@ export const migrateClients = internalAction({
     console.log("Migrating clients...");
     const errors: string[] = [];
     let clientsCount = 0;
-    
+
     for (const client of clients) {
       try {
-        await ctx.runMutation(
-          internal.migrations.migrateClients.createClient,
-          {
-            newUserId: userId,
-            nombre: client.nombre,
-            email: client.email,
-            telefono: client.telefono,
-            dni: client.dni,
-            lugarTrabajo: client.lugarTrabajo,
-            oldFirestoreClientId: client.id,
-          }
-        );
+        await ctx.runMutation(internal.migrations.migrateClients.createClient, {
+          newUserId: userId,
+          nombre: client.nombre,
+          email: client.email,
+          telefono: client.telefono,
+          dni: client.dni,
+          lugarTrabajo: client.lugarTrabajo,
+          oldFirestoreClientId: client.id,
+        });
         clientsCount++;
       } catch (error: any) {
         errors.push(`Client ${client.id}: ${error.message}`);
         console.error(`Failed to migrate client ${client.id}:`, error);
       }
     }
-    
+
     console.log(`Migrated ${clientsCount} clients`);
-    
+
     return {
       clientsCount,
       errors,
@@ -465,10 +499,10 @@ export const completeMigration = internalMutation({
   },
   returns: v.null(),
   handler: async (ctx, { userId, status }) => {
-    await ctx.runMutation(
-      internal.migrations.helpers.updateMigrationStatus,
-      { userId, status }
-    );
+    await ctx.runMutation(internal.migrations.helpers.updateMigrationStatus, {
+      userId,
+      status,
+    });
     return null;
   },
 });
@@ -479,15 +513,15 @@ export const migrateUserDataWorkflow = internalAction({
   returns: v.any(), // UserMigrationResult
   handler: async (ctx, { userId }): Promise<UserMigrationResult> => {
     console.log(`Starting workflow-based data migration for user ${userId}`);
-    
+
     const workflowId = await workflow.start(
       ctx,
       internal.migrations.migrationWorkflow.userDataMigrationWorkflow,
-      { userId }
+      { userId },
     );
-    
+
     console.log(`Migration workflow started with ID: ${workflowId}`);
-    
+
     // Return a result indicating the workflow has been started
     // The actual migration will happen asynchronously
     return {

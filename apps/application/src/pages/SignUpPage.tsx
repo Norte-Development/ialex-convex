@@ -113,7 +113,7 @@ export default function SignUpPage() {
           </div>
 
           {/* Sign Up Component */}
-          <div className="flex justify-center">
+          <div className="flex flex-col items-center gap-4">
             <SignUp 
               fallbackRedirectUrl={isTrial ? "/?trial=true" : "/"}
               signInUrl="/signin"
@@ -129,6 +129,17 @@ export default function SignUpPage() {
                 }
               }}
             />
+            <p className="text-xs text-muted-foreground text-center">
+              Al registrarte, aceptas nuestra{" "}
+              <a 
+                href="https://ialex.com.ar/politica-privacidad" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="text-primary hover:underline"
+              >
+                Política de Privacidad
+              </a>
+            </p>
           </div>
         </div>
       </div>

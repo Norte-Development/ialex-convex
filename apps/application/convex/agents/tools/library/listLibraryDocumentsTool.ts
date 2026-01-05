@@ -82,7 +82,7 @@ export const listLibraryDocumentsTool = createTool({
       const limit = args.limit !== undefined ? args.limit : 10;
       const offset = args.offset !== undefined ? args.offset : 0;
 
-      return `# 📚 Documentos de Biblioteca
+      const markdown = `# 📚 Documentos de Biblioteca
 
 ## Resumen
 - **Total de Documentos**: ${summary.totalDocuments}
@@ -110,6 +110,26 @@ ${documentList.length === 0 ? 'No hay documentos en tu biblioteca.' : documentLi
 
 ---
 *Lista de documentos de tu biblioteca personal y de equipos.*`;
+
+      // Build citations array from all listed library documents
+      console.log(`📚 [Citations] Creating citations from ${documentList.length} listed library documents`);
+      const citations = documentList.map((doc) => {
+        const citation = {
+          id: doc.documentId,
+          type: "doc" as const,
+          title: doc.title || doc.description || "Documento de biblioteca",
+        };
+        console.log(`  📖 Citation created:`, citation);
+        return citation;
+      });
+      console.log(`✅ [Citations] Total citations created: ${citations.length}`);
+
+      if (citations.length > 0) {
+        console.log(`📤 [Citations] Returning tool output with ${citations.length} citations`);
+        return { markdown, citations };
+      }
+
+      return markdown;
     } catch (error) {
       console.error("Error in listLibraryDocumentsTool:", error);
       return createErrorResponse(`Error inesperado: ${error instanceof Error ? error.message : 'Error desconocido'}`);

@@ -16,8 +16,6 @@ import {
   ChevronUp,
   FolderOpen,
   Trash2,
-  FolderPlus,
-  FilePlus,
   FileAudio,
   FileVideo,
 } from "lucide-react";
@@ -40,6 +38,8 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
+import { useState } from "react";
+import { useAction } from "convex/react";
 
 type DocumentItem = {
   _id: Id<"documents">;
@@ -317,6 +317,9 @@ function DocumentRow({
     userId: document.createdBy,
   });
 
+  const [isDownloading, setIsDownloading] = useState(false);
+  const getDocumentUrlAction = useAction(api.functions.documents.getDocumentUrl);
+
   const deleteDocument = useMutation(api.functions.documents.deleteDocument);
 
   const handleDelete = async () => {
@@ -330,6 +333,27 @@ function DocumentRow({
     } catch (err) {
       console.error("Error deleting document", err);
       toast.error("No se pudo eliminar el documento");
+    }
+  };
+
+  const handleDownload = async () => {
+    setIsDownloading(true);
+    try {
+      const url = await getDocumentUrlAction({ documentId: document._id });
+      
+      if (!url) {
+        toast.error("No se pudo obtener la URL del documento");
+        return;
+      }
+
+      // Open the document URL in a new tab (this will trigger download)
+      window.open(url, "_blank");
+      toast.success("Descargando documento...");
+    } catch (error) {
+      console.error("Error al descargar documento:", error);
+      toast.error("Error al descargar el documento");
+    } finally {
+      setIsDownloading(false);
     }
   };
 
@@ -391,8 +415,10 @@ function DocumentRow({
           <div className="flex items-center justify-end gap-2 text-gray-500">
             <button
               type="button"
-              className="p-1 hover:text-gray-900"
+              className="p-1 hover:text-gray-900 disabled:opacity-50 disabled:cursor-not-allowed"
               aria-label="Descargar"
+              onClick={handleDownload}
+              disabled={isDownloading}
             >
               <Download className="h-4 w-4" />
             </button>

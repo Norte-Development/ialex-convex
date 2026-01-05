@@ -962,36 +962,68 @@ const readEscritoTool = createTool({
       }
       
       const doc = await prosemirrorSync.getDoc(ctx, escrito.prosemirrorId, buildServerSchema());
+      
+      // Build citation for the escrito
+      const citation = {
+        id: correctedEscritoId,
+        type: 'escrito' as const,
+        title: escrito.title || 'Escrito sin título',
+      };
+
+      let result: any;
       switch (args.operation) {
         case "outline":
-          return getEscritoOutline(doc.doc);
+          result = getEscritoOutline(doc.doc);
+          break;
         case "chunk":
-          return getEscritoChunks(doc.doc, args.chunkIndex, args.contextWindow);
+          result = getEscritoChunks(doc.doc, args.chunkIndex, args.contextWindow);
+          break;
         case "full":
-          return getFullEscrito(doc.doc);
+          result = getFullEscrito(doc.doc);
+          break;
         case "getTextSelection":
-          return getTextSelection(doc.doc, args.from, args.to);
+          result = getTextSelection(doc.doc, args.from, args.to);
+          break;
         case "getJsonSelection":
-          return getJsonSelection(doc.doc, args.from, args.to);
+          result = getJsonSelection(doc.doc, args.from, args.to);
+          break;
         case "getTextRange":
-          return getTextRange(doc.doc, { from: args.from, to: args.to, afterText: args.afterText, beforeText: args.beforeText, occurrenceIndex: args.occurrenceIndex });
+          result = getTextRange(doc.doc, { from: args.from, to: args.to, afterText: args.afterText, beforeText: args.beforeText, occurrenceIndex: args.occurrenceIndex });
+          break;
         case "getJsonRange":
-          return getJsonRange(doc.doc, { from: args.from, to: args.to, afterText: args.afterText, beforeText: args.beforeText, occurrenceIndex: args.occurrenceIndex });
+          result = getJsonRange(doc.doc, { from: args.from, to: args.to, afterText: args.afterText, beforeText: args.beforeText, occurrenceIndex: args.occurrenceIndex });
+          break;
         case "getTextChunks":
           if (args.unit && args.chunkSize) {
-            return getTextChunksBySize(doc.doc, { unit: args.unit, chunkSize: args.chunkSize, chunkIndex: args.chunkIndex ?? 0, contextWindow: args.contextWindow ?? 0 });
+            result = getTextChunksBySize(doc.doc, { unit: args.unit, chunkSize: args.chunkSize, chunkIndex: args.chunkIndex ?? 0, contextWindow: args.contextWindow ?? 0 });
+          } else {
+            result = getEscritoChunks(doc.doc, args.chunkIndex ?? 0, args.contextWindow ?? 0);
           }
-          return getEscritoChunks(doc.doc, args.chunkIndex ?? 0, args.contextWindow ?? 0);
+          break;
         case "getJsonChunks":
           if (args.unit && args.chunkSize) {
-            return getJsonChunksBySize(doc.doc, { unit: args.unit, chunkSize: args.chunkSize, chunkIndex: args.chunkIndex ?? 0, contextWindow: args.contextWindow ?? 0 });
+            result = getJsonChunksBySize(doc.doc, { unit: args.unit, chunkSize: args.chunkSize, chunkIndex: args.chunkIndex ?? 0, contextWindow: args.contextWindow ?? 0 });
+          } else {
+            // Fallback: return semantic chunks as JSON slices
+            const sem = getEscritoChunks(doc.doc, args.chunkIndex ?? 0, args.contextWindow ?? 0);
+            result = sem.map(ch => ({ from: ch.startPos, to: ch.endPos, json: getJsonSlice(doc.doc, ch.startPos, ch.endPos), index: ch.chunkIndex, total: sem.length }));
           }
-          // Fallback: return semantic chunks as JSON slices
-          const sem = getEscritoChunks(doc.doc, args.chunkIndex ?? 0, args.contextWindow ?? 0);
-          return sem.map(ch => ({ from: ch.startPos, to: ch.endPos, json: getJsonSlice(doc.doc, ch.startPos, ch.endPos), index: ch.chunkIndex, total: sem.length }));
+          break;
         default:
           return createErrorResponse(`Operación inválida: ${args.operation}`);
       }
+
+      // If result is a string (markdown), wrap it with citations
+      if (typeof result === 'string') {
+        console.log(`📚 [Citations] Creating citation for escrito read (${args.operation})`);
+        console.log(`  📖 Citation created:`, citation);
+        console.log(`📤 [Citations] Returning tool output with 1 citation`);
+        return { markdown: result, citations: [citation] };
+      }
+
+      // For non-string results (objects), return as-is (they might be structured data)
+      // Note: These won't show citations in UI, but that's acceptable for structured data operations
+      return result;
     } catch (error) {
       return createErrorResponse(`Error inesperado: ${error instanceof Error ? error.message : 'Error desconocido'}`);
     }

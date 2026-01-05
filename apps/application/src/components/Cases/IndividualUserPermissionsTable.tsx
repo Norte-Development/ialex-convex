@@ -65,7 +65,6 @@ export function IndividualUserPermissionsTable({
     requiredLevel: "admin",
   });
 
-  console.log("Is current user admin?", isAdmin);
 
   const handleRevokeAccess = async (userId: Id<"users">) => {
     try {
