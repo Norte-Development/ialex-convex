@@ -27,6 +27,15 @@ export {
   checkUserCaseAccess,
 } from "./cases";
 
+// Case Notes Management
+export {
+  listNotesByCase,
+  getNoteById,
+  createCaseNote,
+  updateCaseNote,
+  deleteCaseNote,
+} from "./caseNotes";
+
 // Permission Management
 export {
   grantUserCaseAccess,
