@@ -6,6 +6,8 @@ import {
   type NormalizedCaseCandidate,
   type CaseHistorySearchResponse,
 } from "../types/api";
+import { writeFileSync } from "fs";
+import { parseCaseSearchResultsHtml } from "./pjnCaseHistoryParsers";
 
 const CASE_HISTORY_SEARCH_URL =
   "https://scw.pjn.gov.ar/scw/consultaListaRelacionados.seam";
@@ -210,7 +212,7 @@ async function establishScwSession(
 
     // We got a successful response - extract the HTML and ViewState
     const html = await response.text();
-    const viewState = extractViewState(html);
+    let viewState = extractViewState(html);
 
     if (!viewState) {
       logger.warn("SCW session: ViewState not found in HTML", {
@@ -218,7 +220,83 @@ async function establishScwSession(
         htmlLength: html.length,
         htmlPreview: html.substring(0, 500),
       });
-      throw new Error("ViewState not found in SCW page");
+
+      // Fallback: sometimes authenticated flows land on pages like
+      // homePrivado.seam that don't expose a ViewState in the outer HTML.
+      // In that case, try explicitly loading the search page again with the
+      // current cookies to obtain a proper JSF form + ViewState.
+      try {
+        logger.info(
+          "SCW session: attempting fallback GET to search page for ViewState",
+          {
+            fre,
+            fromUrl: currentUrl,
+          },
+        );
+
+        const searchResponse = await fetch(CASE_HISTORY_SEARCH_URL, {
+          method: "GET",
+          headers,
+          redirect: "manual",
+        });
+
+        const fallbackSetCookieHeaders =
+          searchResponse.headers.raw()["set-cookie"] || [];
+        if (fallbackSetCookieHeaders.length > 0) {
+          currentCookies = mergeCookies(currentCookies, fallbackSetCookieHeaders);
+        }
+
+        if (!searchResponse.ok) {
+          logger.error("SCW session fallback search failed", {
+            status: searchResponse.status,
+            url: CASE_HISTORY_SEARCH_URL,
+          });
+          throw new Error(
+            `SCW search fallback failed with status ${searchResponse.status}`,
+          );
+        }
+
+        const searchHtml = await searchResponse.text();
+        viewState = extractViewState(searchHtml);
+
+        if (!viewState) {
+          logger.warn(
+            "SCW session fallback search page still missing ViewState",
+            {
+              url: CASE_HISTORY_SEARCH_URL,
+              htmlLength: searchHtml.length,
+              htmlPreview: searchHtml.substring(0, 500),
+            },
+          );
+          throw new Error("ViewState not found after SCW search fallback");
+        }
+
+        logger.info("SCW session established successfully via fallback", {
+          fre,
+          finalUrl: CASE_HISTORY_SEARCH_URL,
+          redirectCount,
+          cookieCount: currentCookies.length,
+          viewStateLength: viewState.length,
+        });
+
+        return {
+          cookies: currentCookies,
+          viewState,
+          html: searchHtml,
+        };
+      } catch (fallbackError) {
+        // Preserve original error semantics so callers can continue to treat
+        // this as a hard failure when we truly cannot obtain a ViewState.
+        logger.error("SCW session fallback failed", {
+          fre,
+          fromUrl: currentUrl,
+          error:
+            fallbackError instanceof Error
+              ? fallbackError.message
+              : String(fallbackError),
+        });
+        throw new Error("ViewState not found in SCW page");
+      }
     }
 
     logger.info("SCW session established successfully", {
@@ -375,6 +453,15 @@ async function fetchCaseHistorySearchHtml(
 
     const html = await response.text();
 
+    // Save the raw HTML response to a file for debugging or inspection
+    const debugFilePath = `./pjn_case_history_debug_${Date.now()}.html`;
+    try {
+      writeFileSync(debugFilePath, html, "utf8");
+      logger.info("Saved PJN case history HTML to file", { debugFilePath });
+    } catch (e) {
+      logger.warn("Failed to write PJN case history HTML debug file", { error: e instanceof Error ? e.message : String(e) });
+    }
+
     logger.debug("PJN case history search HTML fetched", {
       fre,
       status: response.status,
@@ -449,22 +536,85 @@ export interface CaseHistorySearchResult {
 }
 
 /**
+ * Normalize a case number string for comparison by removing leading zeros
+ * and extracting the numeric part before the year.
+ *
+ * Examples:
+ * - "003852/2020" -> "3852/2020"
+ * - "3852/2020" -> "3852/2020"
+ * - "011003047/2005/1" -> "11003047/2005/1"
+ */
+function normalizeCaseNumberForMatching(
+  caseNumber: string,
+  year: number
+): string {
+  // Remove leading zeros from the numeric part
+  const parts = caseNumber.split("/");
+  if (parts.length > 0) {
+    const numericPart = parts[0].replace(/^0+/, "") || "0";
+    const yearPart = parts[1] || String(year);
+    return `${numericPart}/${yearPart}`;
+  }
+  return caseNumber;
+}
+
+/**
+ * Check if a candidate matches the search criteria.
+ *
+ * Matching logic:
+ * 1. Jurisdiction code matches (case-insensitive)
+ * 2. Case number matches (normalized, removing leading zeros)
+ * 3. Year matches (extracted from case number)
+ */
+function candidateMatches(
+  candidate: NormalizedCaseCandidate,
+  searchJurisdiction: string,
+  searchCaseNumber: string,
+  searchYear: number
+): boolean {
+  // Match jurisdiction (case-insensitive)
+  if (
+    !candidate.jurisdiction ||
+    candidate.jurisdiction.toUpperCase() !== searchJurisdiction.toUpperCase()
+  ) {
+    return false;
+  }
+
+  // Match case number and year
+  if (!candidate.caseNumber) {
+    return false;
+  }
+
+  const normalizedCandidate = normalizeCaseNumberForMatching(
+    candidate.caseNumber,
+    searchYear
+  );
+  const normalizedSearch = normalizeCaseNumberForMatching(
+    `${searchCaseNumber}/${searchYear}`,
+    searchYear
+  );
+
+  // Check if the normalized case numbers match
+  // We need to handle cases where the candidate might have additional suffixes
+  // e.g., "3852/2020/TO2" should match "3852/2020"
+  const candidateBase = normalizedCandidate.split("/").slice(0, 2).join("/");
+  const searchBase = normalizedSearch.split("/").slice(0, 2).join("/");
+
+  return candidateBase === searchBase;
+}
+
+/**
  * Perform a case history search on the PJN portal using an existing
  * authenticated session.
  *
- * This function is responsible for:
- * - Navigating to `consultaListaRelacionados.seam` using Playwright.
- * - Submitting the appropriate search form with the provided FRE or
- *   jurisdiction + case number.
+ * This function is responsible:
+ * - Fetching the search results HTML from `consultaListaRelacionados.seam`
  * - Parsing the resulting HTML table into a list of `NormalizedCaseCandidate`
  *   objects using dedicated HTML parsing helpers.
  * - Applying a best-effort selection strategy to pick a single candidate
- *   (e.g. exact FRE match), while still returning all candidates for UI
- *   disambiguation when necessary.
+ *   (matching jurisdiction and case number), while still returning all
+ *   candidates for UI disambiguation when necessary.
  * - Emitting structured logs with request identifiers, timing, and counts.
- *
- * NOTE: The concrete Playwright/browser logic and HTML parsing are not
- * implemented yet; this is a typed placeholder to be filled in later.
  */
 export async function performCaseHistorySearch(
   session: SessionState,
@@ -472,16 +622,65 @@ export async function performCaseHistorySearch(
 ): Promise<CaseHistorySearchResult> {
   const { fre, html } = await fetchCaseHistorySearchHtml(session, options);
 
-  // The raw HTML is now available for parsing into `NormalizedCaseCandidate`
-  // objects. The parsing layer is intentionally left for a follow-up change.
   logger.debug("performCaseHistorySearch HTML ready for parsing", {
     fre,
     htmlLength: html.length,
   });
 
-  // TODO: Use `parseCaseSearchResultsHtml(html)` and selection logic to build
-  // a full `CaseHistorySearchResult`.
-  throw new Error("Not implemented: HTML parsing for performCaseHistorySearch");
+  // Parse the HTML into candidates
+  const candidates = parseCaseSearchResultsHtml(html);
+
+  logger.info("Parsed case history search results", {
+    fre,
+    candidateCount: candidates.length,
+  });
+
+  // Apply selection logic to find the best matching candidate
+  let selectedCandidate: NormalizedCaseCandidate | null = null;
+  const matchingCandidates = candidates.filter((candidate) =>
+    candidateMatches(
+      candidate,
+      options.jurisdiction,
+      options.caseNumber,
+      options.year
+    )
+  );
+
+  if (matchingCandidates.length === 1) {
+    selectedCandidate = matchingCandidates[0];
+    logger.info("Selected unique matching candidate", {
+      fre,
+      selectedFre: selectedCandidate.fre,
+      rowIndex: selectedCandidate.rowIndex,
+    });
+  } else if (matchingCandidates.length > 1) {
+    // Multiple matches - pick the first one (could be enhanced with better logic)
+    selectedCandidate = matchingCandidates[0];
+    logger.warn("Multiple matching candidates found, selected first", {
+      fre,
+      matchCount: matchingCandidates.length,
+      selectedFre: selectedCandidate.fre,
+      rowIndex: selectedCandidate.rowIndex,
+    });
+  } else if (candidates.length > 0) {
+    logger.warn("No exact match found, but candidates available", {
+      fre,
+      candidateCount: candidates.length,
+      searchJurisdiction: options.jurisdiction,
+      searchCaseNumber: options.caseNumber,
+      searchYear: options.year,
+    });
+  } else {
+    logger.info("No candidates found in search results", {
+      fre,
+    });
+  }
+
+  return {
+    fre,
+    candidates,
+    selectedCandidate,
+  };
 }
 
 /**
@@ -497,16 +696,43 @@ export async function performCaseHistorySearch(
  * - Optionally attach additional case metadata when available.
  *
  * NOTE: This is a pure transformation and must not perform any I/O.
+ *
+ * NOTE: The `cid` field is set to null since we're now using `rowIndex`
+ * for navigation. The response type still includes `cid` for backward
+ * compatibility, but it should not be used for navigation.
  */
 export function toCaseHistorySearchResponse(
   result: CaseHistorySearchResult
 ): CaseHistorySearchResponse {
-  // Placeholder implementation: document intended behavior via JSDoc.
-  logger.debug("toCaseHistorySearchResponse called (placeholder)", {
-    candidateCount: result.candidates.length,
-    hasSelected: Boolean(result.selectedCandidate),
-  });
+  if (result.candidates.length === 0) {
+    return {
+      status: "NOT_FOUND",
+      fre: result.fre,
+      candidates: [],
+    };
+  }
 
-  throw new Error("Not implemented: toCaseHistorySearchResponse");
+  if (result.selectedCandidate) {
+    return {
+      status: "OK",
+      fre: result.selectedCandidate.fre,
+      cid: null, // Using rowIndex instead of cid for navigation
+      candidates: result.candidates,
+      caseMetadata: {
+        rowIndex: result.selectedCandidate.rowIndex,
+        jurisdiction: result.selectedCandidate.jurisdiction,
+        caseNumber: result.selectedCandidate.caseNumber,
+        caratula: result.selectedCandidate.caratula,
+      },
+    };
+  }
+
+  // Candidates found but no exact match selected
+  return {
+    status: "OK",
+    fre: result.fre,
+    cid: null,
+    candidates: result.candidates,
+  };
 }
 

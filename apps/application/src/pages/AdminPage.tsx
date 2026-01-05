@@ -2,6 +2,7 @@ import { useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { MercadoPagoAdminDashboard } from "@/components/Admin/MercadoPagoAdminDashboard";
 import { PjnCaseHistorySearch } from "@/components/PjnCaseHistorySearch";
+import { PjnCaseHistorySyncTester } from "@/components/PjnCaseHistorySyncTester";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Shield, AlertTriangle } from "lucide-react";
 
@@ -54,7 +55,8 @@ export default function AdminPage() {
           <h1 className="text-2xl font-bold">Panel de Administración</h1>
         </div>
         <p className="text-muted-foreground">
-          Bienvenido, {currentUser.name}. Aquí puedes gestionar las suscripciones MercadoPago.
+          Bienvenido, {currentUser.name}. Aquí puedes gestionar las suscripciones MercadoPago
+          y probar integraciones avanzadas como el scraper PJN.
         </p>
       </div>
       
@@ -62,8 +64,13 @@ export default function AdminPage() {
         <MercadoPagoAdminDashboard />
         
         <div>
-          <h2 className="text-xl font-semibold mb-4">Prueba de Búsqueda PJN</h2>
+          <h2 className="text-xl font-semibold mb-4">PJN - Búsqueda de Expedientes</h2>
           <PjnCaseHistorySearch />
+        </div>
+
+        <div>
+          <h2 className="text-xl font-semibold mb-4">PJN - Sync de Historial para un Caso</h2>
+          <PjnCaseHistorySyncTester />
         </div>
       </div>
     </div>

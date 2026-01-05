@@ -295,6 +295,7 @@ export default defineSchema({
     actualHours: v.optional(v.number()),
     lastActivityAt: v.optional(v.number()),
     lastPjnNotificationSync: v.optional(v.number()), // Last sync timestamp for PJN notifications
+    lastPjnHistorySyncAt: v.optional(v.number()), // Last sync timestamp for PJN case history (docket)
   })
     .index("by_status", ["status"])
     .index("by_assigned_lawyer", ["assignedLawyer"])

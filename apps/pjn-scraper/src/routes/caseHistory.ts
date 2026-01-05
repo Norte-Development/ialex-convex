@@ -2,10 +2,19 @@ import { Router, Request, Response } from "express";
 import { SessionStore, SessionState } from "../lib/sessionStore";
 import {
   scrapeCaseHistorySearchRequestSchema,
+  scrapeCaseHistoryDetailsRequestSchema,
   type CaseHistorySearchResponse,
+  type CaseHistoryDetailsResponse,
 } from "../types/api";
 import { logger } from "../middleware/logging";
-import { performCaseHistorySearch } from "../lib/caseHistorySearch";
+import {
+  performCaseHistorySearch,
+  toCaseHistorySearchResponse,
+} from "../lib/caseHistorySearch";
+import {
+  scrapeCaseHistoryDetails,
+  toCaseHistoryDetailsResponse,
+} from "../lib/caseHistoryDetails";
 import { refreshPjnTokens, isTokenExpired } from "../lib/pjnTokens";
 
 const router: Router = Router();
@@ -160,24 +169,24 @@ router.post(
       }
 
       try {
-        // NOTE: This will currently throw at the HTML parsing step,
-        // but it will exercise the HTTP POST to consultaListaRelacionados.seam
-        // and log the raw HTML so we can iterate on parsers.
-        await performCaseHistorySearch(session, {
+        const result = await performCaseHistorySearch(session, {
           jurisdiction,
           caseNumber,
           year,
           requestId,
         });
 
-        // Once parsing is implemented, this handler should transform
-        // the result into a proper CaseHistorySearchResponse.
-        return res.json({
-          status: "ERROR",
-          error:
-            "HTML parsing not implemented yet; check scraper logs for raw HTML.",
-          code: "NOT_IMPLEMENTED",
-        } satisfies CaseHistorySearchResponse);
+        const response = toCaseHistorySearchResponse(result);
+        logger.info("Case history search completed", {
+          requestId,
+          userId,
+          fre,
+          status: response.status,
+          candidateCount: result.candidates.length,
+          hasSelected: Boolean(result.selectedCandidate),
+        });
+
+        return res.json(response);
       } catch (error) {
         if (error instanceof Error && error.message === "AUTH_REQUIRED") {
           logger.warn("Auth required during case history search", {
@@ -187,23 +196,6 @@ router.post(
           return res.json({
             status: "AUTH_REQUIRED",
             reason: "Session expired or invalid",
-          } satisfies CaseHistorySearchResponse);
-        }
-
-        if (
-          error instanceof Error &&
-          error.message.includes("HTML parsing for performCaseHistorySearch")
-        ) {
-          // Surface a friendlier message while we're still wiring up parsers.
-          logger.info("Case history search reached HTML parsing stub", {
-            requestId,
-            userId,
-          });
-          return res.json({
-            status: "ERROR",
-            error:
-              "HTML fetched successfully; parsing is not implemented yet. Inspect scraper logs for the raw HTML output.",
-            code: "NOT_IMPLEMENTED",
           } satisfies CaseHistorySearchResponse);
         }
 
@@ -232,6 +224,144 @@ router.post(
         error: "Internal server error",
         code: "INTERNAL_ERROR",
       } satisfies CaseHistorySearchResponse);
+    }
+  }
+);
+
+/**
+ * POST /scrape/case-history/details
+ *
+ * Endpoint to scrape the full PJN case history (movimientos + Doc. digitales)
+ * for a given FRE using the expediente.seam portal.
+ *
+ * Mirrors the auth/session handling of the search endpoint, including token
+ * refresh and AUTH_REQUIRED signalling back to Convex.
+ */
+router.post(
+  "/scrape/case-history/details",
+  async (req: Request, res: Response) => {
+    const requestId = `req-${Date.now()}-${Math.random()
+      .toString(36)
+      .substr(2, 9)}`;
+
+    try {
+      const parsed = scrapeCaseHistoryDetailsRequestSchema.safeParse(req.body);
+      if (!parsed.success) {
+        logger.warn("Invalid case history details request", {
+          requestId,
+          errors: parsed.error.issues,
+        });
+        return res.status(400).json({
+          status: "ERROR",
+          error: "Invalid request",
+          code: "VALIDATION_ERROR",
+        } satisfies CaseHistoryDetailsResponse);
+      }
+
+      const {
+        userId,
+        fre,
+        includeMovements,
+        includeDocuments,
+        maxMovements,
+        maxDocuments,
+      } = parsed.data;
+
+      logger.info("Starting case history details scrape", {
+        requestId,
+        userId,
+        fre,
+      });
+
+      let session = await sessionStore.loadSession(userId);
+      if (!session) {
+        logger.warn("No session found for user (case history details)", {
+          requestId,
+          userId,
+        });
+        return res.json({
+          status: "AUTH_REQUIRED",
+          reason: "No session found. Please authenticate first.",
+        } satisfies CaseHistoryDetailsResponse);
+      }
+
+      // Ensure we have a valid access token (refresh if expired),
+      // mirroring the events and search route behavior.
+      session = await ensureValidToken(userId, session);
+      if (!session) {
+        logger.warn(
+          "Failed to ensure valid token for user (case history details)",
+          {
+            requestId,
+            userId,
+          }
+        );
+        return res.json({
+          status: "AUTH_REQUIRED",
+          reason:
+            "Session expired and could not be refreshed. Please re-authenticate.",
+        } satisfies CaseHistoryDetailsResponse);
+      }
+
+      try {
+        const result = await scrapeCaseHistoryDetails(session, {
+          fre,
+          userId,
+          includeMovements,
+          includeDocuments,
+          maxMovements,
+          maxDocuments,
+          requestId,
+        });
+
+        const response = toCaseHistoryDetailsResponse(result);
+
+        logger.info("Case history details scrape completed", {
+          requestId,
+          userId,
+          fre,
+          stats: result.stats,
+        });
+
+        return res.json(response);
+      } catch (error) {
+        if (error instanceof Error && error.message === "AUTH_REQUIRED") {
+          logger.warn("Auth required during case history details scrape", {
+            requestId,
+            userId,
+          });
+          return res.json({
+            status: "AUTH_REQUIRED",
+            reason: "Session expired or invalid",
+          } satisfies CaseHistoryDetailsResponse);
+        }
+
+        logger.error("Case history details scrape failed", {
+          requestId,
+          userId,
+          fre,
+          error: error instanceof Error ? error.message : String(error),
+          stack: error instanceof Error ? error.stack : undefined,
+        });
+
+        return res.status(500).json({
+          status: "ERROR",
+          error: error instanceof Error ? error.message : "Unknown error",
+          code: "SCRAPE_ERROR",
+        } satisfies CaseHistoryDetailsResponse);
+      }
+    } catch (error) {
+      logger.error("Unhandled error in case history details route", {
+        requestId,
+        error: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : undefined,
+      });
+
+      return res.status(500).json({
+        status: "ERROR",
+        error: "Internal server error",
+        code: "INTERNAL_ERROR",
+      } satisfies CaseHistoryDetailsResponse);
     }
   }
 );

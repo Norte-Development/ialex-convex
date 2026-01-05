@@ -23,6 +23,8 @@ export interface Case {
   tags?: string[];
   expedientNumber?: string;
   fre?: string;
+  lastPjnNotificationSync?: number;
+  lastPjnHistorySyncAt?: number;
   // Access control fields (added by getCases query)
   accessLevel?: "basic" | "advanced" | "admin";
   source?: "user" | "team";

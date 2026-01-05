@@ -32,13 +32,12 @@ export const scrapeCaseHistorySearchRequestSchema = z.object({
 /**
  * Request schema for scraping detailed PJN case history for a specific expediente.
  *
- * This targets expediente.seam for a given `cid` and FRE, and optionally allows
- * callers to control which sections are scraped and soft limits for volume.
+ * This targets expediente.seam for a given FRE and optionally allows callers to
+ * control which sections are scraped and soft limits for volume.
  */
 export const scrapeCaseHistoryDetailsRequestSchema = z.object({
   userId: z.string(),
   fre: z.string(),
-  cid: z.string(),
   includeMovements: z.boolean().optional(),
   includeDocuments: z.boolean().optional(),
   maxMovements: z.number().int().positive().optional(),
@@ -119,9 +118,9 @@ export interface NormalizedCaseCandidate {
    */
   caratula?: string | null;
   /**
-   * Internal PJN case identifier used as the `cid` query parameter for expediente.seam.
+   * Row index in the search results table, used for JSF form submission to navigate to expediente.seam.
    */
-  cid: string;
+  rowIndex: number;
   /**
    * Optional raw HTML snippet for debugging / observability.
    */

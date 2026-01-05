@@ -454,3 +454,166 @@ export const createDocumentEntry = internalMutation({
     );
   },
 });
+
+/**
+ * Create activity log entry for a PJN docket movement (historical case history).
+ * Uses the already-known caseId from the sync action for reliable association.
+ */
+export const createDocketMovementEntry = internalMutation({
+  args: {
+    userId: v.id("users"),
+    caseId: v.id("cases"),
+    movement: v.object({
+      movementId: v.string(),
+      fre: v.union(v.string(), v.null()),
+      date: v.string(),
+      description: v.string(),
+      hasDocument: v.boolean(),
+      documentSource: v.optional(
+        v.union(v.literal("actuaciones"), v.literal("doc_digitales")),
+      ),
+      docRef: v.optional(v.union(v.string(), v.null())),
+      gcsPath: v.optional(v.string()),
+    }),
+  },
+  handler: async (ctx, args): Promise<void> => {
+    const timestamp =
+      new Date(args.movement.date).getTime() || Date.now();
+
+    await ctx.db.insert("pjnActivityLog", {
+      userId: args.userId,
+      caseId: args.caseId as any,
+      action: "pjn_docket_movement",
+      source: "PJN-Portal",
+      pjnMovementId: args.movement.movementId,
+      metadata: {
+        fre: args.movement.fre,
+        date: args.movement.date,
+        description: args.movement.description,
+        hasDocument: args.movement.hasDocument,
+        documentSource: args.movement.documentSource,
+        docRef: args.movement.docRef,
+        gcsPath: args.movement.gcsPath,
+      },
+      timestamp,
+    });
+  },
+});
+
+/**
+ * Create or update a document entry for a PJN historical docket PDF and
+ * record the corresponding activity log entry.
+ */
+export const createHistoricalDocumentEntry = internalMutation({
+  args: {
+    userId: v.id("users"),
+    caseId: v.id("cases"),
+    document: v.object({
+      docId: v.string(),
+      fre: v.union(v.string(), v.null()),
+      date: v.string(),
+      description: v.string(),
+      source: v.union(
+        v.literal("actuaciones"),
+        v.literal("doc_digitales"),
+      ),
+      gcsPath: v.optional(v.string()),
+      docRef: v.optional(v.union(v.string(), v.null())),
+    }),
+  },
+  handler: async (ctx, args): Promise<void> => {
+    const { document } = args;
+
+    const timestamp =
+      new Date(document.date).getTime() || Date.now();
+
+    // If there is no stored PDF for this document, we still want an
+    // activity log entry but we cannot create a file-backed document.
+    if (!document.gcsPath) {
+      await ctx.db.insert("pjnActivityLog", {
+        userId: args.userId,
+        caseId: args.caseId as any,
+        action: "pjn_historical_document",
+        source: "PJN-Portal",
+        pjnMovementId: document.docId,
+        metadata: {
+          fre: document.fre,
+          date: document.date,
+          description: document.description,
+          source: document.source,
+          docRef: document.docRef,
+          gcsPath: document.gcsPath,
+        },
+        timestamp,
+      });
+      return;
+    }
+
+    // Parse GCS path: gs://bucket/path/to/file.pdf
+    const gcsMatch = document.gcsPath.match(/^gs:\/\/([^\/]+)\/(.+)$/);
+    if (!gcsMatch) {
+      console.error(
+        "Invalid GCS path format for historical document:",
+        document.gcsPath,
+      );
+      return;
+    }
+
+    const [, bucket, objectPath] = gcsMatch;
+
+    // Idempotency: check if a document already exists for this GCS object.
+    const existing = await ctx.db
+      .query("documents")
+      .withIndex("by_gcs_object", (q) => q.eq("gcsObject", objectPath))
+      .first();
+
+    let documentId: Id<"documents">;
+    if (existing) {
+      documentId = existing._id;
+    } else {
+      documentId = await ctx.db.insert("documents", {
+        title: document.description || `PJN Docket - ${document.docId}`,
+        description: document.description,
+        caseId: args.caseId as any,
+        documentType: "court_filing",
+        storageBackend: "gcs",
+        gcsBucket: bucket,
+        gcsObject: objectPath,
+        originalFileName: `pjn-doc-${document.docId}.pdf`,
+        mimeType: "application/pdf",
+        fileSize: 0, // Will be updated by document-processor
+        createdBy: args.userId,
+        processingStatus: "pending",
+        tags: ["PJN-Portal", "historical"],
+      });
+
+      // Enqueue document for processing using the standard document pipeline
+      await ctx.scheduler.runAfter(
+        0,
+        internal.functions.documentProcessing.processDocument,
+        {
+          documentId,
+        },
+      );
+    }
+
+    // Record the corresponding activity log entry
+    await ctx.db.insert("pjnActivityLog", {
+      userId: args.userId,
+      caseId: args.caseId as any,
+      action: "pjn_historical_document",
+      source: "PJN-Portal",
+      pjnMovementId: document.docId,
+      metadata: {
+        fre: document.fre,
+        date: document.date,
+        description: document.description,
+        source: document.source,
+        gcsPath: document.gcsPath,
+        docRef: document.docRef,
+        documentId,
+      },
+      timestamp,
+    });
+  },
+});
