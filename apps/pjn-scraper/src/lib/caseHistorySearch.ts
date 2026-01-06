@@ -6,8 +6,8 @@ import {
   type NormalizedCaseCandidate,
   type CaseHistorySearchResponse,
 } from "../types/api";
-import { writeFileSync } from "fs";
 import { parseCaseSearchResultsHtml } from "./pjnCaseHistoryParsers";
+import { DebugStorage } from "./debugStorage";
 
 const CASE_HISTORY_SEARCH_URL =
   "https://scw.pjn.gov.ar/scw/consultaListaRelacionados.seam";
@@ -15,6 +15,7 @@ const CASE_HISTORY_SEARCH_URL =
 interface RawCaseHistorySearchResult {
   fre: string;
   html: string;
+  cookies: string[];
 }
 
 /**
@@ -355,6 +356,11 @@ function buildSearchFormBody(
   return params.toString();
 }
 
+interface RawCaseHistorySearchResultWithDebug extends RawCaseHistorySearchResult {
+  debugStorage?: DebugStorage;
+  cookies: string[];
+}
+
 /**
  * Low-level helper that performs the actual HTTP POST against
  * `consultaListaRelacionados.seam` using the stored PJN session cookies.
@@ -369,7 +375,7 @@ function buildSearchFormBody(
 async function fetchCaseHistorySearchHtml(
   session: SessionState,
   options: CaseHistorySearchOptions
-): Promise<RawCaseHistorySearchResult> {
+): Promise<RawCaseHistorySearchResultWithDebug> {
   const fre = buildFreFromOptions(options);
 
   if (!session.cookies || session.cookies.length === 0) {
@@ -453,22 +459,31 @@ async function fetchCaseHistorySearchHtml(
 
     const html = await response.text();
 
-    // Save the raw HTML response to a file for debugging or inspection
-    const debugFilePath = `./pjn_case_history_debug_${Date.now()}.html`;
-    try {
-      writeFileSync(debugFilePath, html, "utf8");
-      logger.info("Saved PJN case history HTML to file", { debugFilePath });
-    } catch (e) {
-      logger.warn("Failed to write PJN case history HTML debug file", { error: e instanceof Error ? e.message : String(e) });
+    // Save the raw HTML response to debug storage if provided
+    if (options.debugStorage) {
+      const safeFre = fre.replace(/[/\\:]/g, "_");
+      options.debugStorage.saveHtml(`${safeFre}_01_search`, html, {
+        fre,
+        searchOptions: {
+          jurisdiction: options.jurisdiction,
+          caseNumber: options.caseNumber,
+          year: options.year,
+        },
+      });
     }
+
+    // Collect cookies from the response
+    const responseCookies = response.headers.raw()["set-cookie"] || [];
+    const updatedCookies = mergeCookies(scwSession.cookies, responseCookies);
 
     logger.debug("PJN case history search HTML fetched", {
       fre,
       status: response.status,
       htmlLength: html.length,
+      cookieCount: updatedCookies.length,
     });
 
-    return { fre, html };
+    return { fre, html, cookies: updatedCookies, debugStorage: options.debugStorage };
   } catch (error) {
     if (error instanceof Error && error.name === "AbortError") {
       logger.error("PJN case history search timeout", {
@@ -511,6 +526,10 @@ export interface CaseHistorySearchOptions {
    * Optional request identifier for structured logging and tracing.
    */
   requestId?: string;
+  /**
+   * Optional debug storage instance for saving HTML and parsed results.
+   */
+  debugStorage?: DebugStorage;
 }
 
 /**
@@ -533,6 +552,16 @@ export interface CaseHistorySearchResult {
    * one expediente (e.g. exact FRE match).
    */
   selectedCandidate: NormalizedCaseCandidate | null;
+  /**
+   * The raw HTML from the search results page. Used for navigation
+   * to expediente.seam without needing to re-search.
+   */
+  searchHtml: string;
+  /**
+   * Cookies collected during the search session. Needed for subsequent
+   * requests to maintain the JSF session state.
+   */
+  cookies: string[];
 }
 
 /**
@@ -620,7 +649,7 @@ export async function performCaseHistorySearch(
   session: SessionState,
   options: CaseHistorySearchOptions
 ): Promise<CaseHistorySearchResult> {
-  const { fre, html } = await fetchCaseHistorySearchHtml(session, options);
+  const { fre, html, cookies, debugStorage } = await fetchCaseHistorySearchHtml(session, options);
 
   logger.debug("performCaseHistorySearch HTML ready for parsing", {
     fre,
@@ -676,10 +705,29 @@ export async function performCaseHistorySearch(
     });
   }
 
+  // Save parsed results to debug storage if provided
+  if (debugStorage) {
+    const safeFre = fre.replace(/[/\\:]/g, "_");
+    debugStorage.saveJson(`${safeFre}_01_search_results`, {
+      candidates,
+      selectedCandidate,
+      matchingCandidatesCount: matchingCandidates.length,
+    }, {
+      fre,
+      searchOptions: {
+        jurisdiction: options.jurisdiction,
+        caseNumber: options.caseNumber,
+        year: options.year,
+      },
+    });
+  }
+
   return {
     fre,
     candidates,
     selectedCandidate,
+    searchHtml: html,
+    cookies,
   };
 }
 

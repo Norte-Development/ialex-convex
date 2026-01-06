@@ -8,13 +8,14 @@ import {
 } from "../types/api";
 import { logger } from "../middleware/logging";
 import {
-  performCaseHistorySearch,
-  toCaseHistorySearchResponse,
-} from "../lib/caseHistorySearch";
+  performCaseHistorySearchPlaywright,
+} from "../lib/playwright/caseHistorySearchPlaywright";
 import {
-  scrapeCaseHistoryDetails,
-  toCaseHistoryDetailsResponse,
-} from "../lib/caseHistoryDetails";
+  scrapeCaseHistoryDetailsPlaywright,
+  toCaseHistoryDetailsResponsePlaywright,
+} from "../lib/playwright/caseHistoryDetailsPlaywright";
+import { getPjnPageForUser, closePjnPage } from "../lib/playwright/pjnPlaywrightSession";
+import { toCaseHistorySearchResponse } from "../lib/caseHistorySearch";
 import { refreshPjnTokens, isTokenExpired } from "../lib/pjnTokens";
 
 const router: Router = Router();
@@ -169,14 +170,19 @@ router.post(
       }
 
       try {
-        const result = await performCaseHistorySearch(session, {
-          jurisdiction,
-          caseNumber,
-          year,
-          requestId,
-        });
+        // Get Playwright page for the session
+        const { page, handle } = await getPjnPageForUser(session);
+        
+        try {
+          const result = await performCaseHistorySearchPlaywright(page, {
+            jurisdiction,
+            caseNumber,
+            year,
+            requestId,
+          });
 
-        const response = toCaseHistorySearchResponse(result);
+          // Convert to response format (reusing existing helper)
+          const response = toCaseHistorySearchResponse(result);
         logger.info("Case history search completed", {
           requestId,
           userId,
@@ -186,7 +192,11 @@ router.post(
           hasSelected: Boolean(result.selectedCandidate),
         });
 
-        return res.json(response);
+          return res.json(response);
+        } finally {
+          // Always close the page and browser handle
+          await closePjnPage(page, handle);
+        }
       } catch (error) {
         if (error instanceof Error && error.message === "AUTH_REQUIRED") {
           logger.warn("Auth required during case history search", {
@@ -304,7 +314,7 @@ router.post(
       }
 
       try {
-        const result = await scrapeCaseHistoryDetails(session, {
+        const result = await scrapeCaseHistoryDetailsPlaywright(session, {
           fre,
           userId,
           includeMovements,
@@ -314,7 +324,7 @@ router.post(
           requestId,
         });
 
-        const response = toCaseHistoryDetailsResponse(result);
+        const response = toCaseHistoryDetailsResponsePlaywright(result);
 
         logger.info("Case history details scrape completed", {
           requestId,

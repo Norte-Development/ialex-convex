@@ -1187,6 +1187,54 @@ export default defineSchema({
     .index("by_user_and_timestamp", ["userId", "timestamp"])
     .index("by_case_and_timestamp", ["caseId", "timestamp"]),
 
+  // Case Participants (Intervinientes) - judges, lawyers, parties, prosecutors
+  caseParticipants: defineTable({
+    caseId: v.id("cases"),
+    role: v.string(), // "Juez", "Fiscal", "Abogado Querellante", "Defensor", "Perito", etc.
+    name: v.string(),
+    details: v.optional(v.string()),
+    pjnParticipantId: v.optional(v.string()),
+    syncedFrom: v.literal("pjn"),
+    syncedAt: v.number(),
+  })
+    .index("by_case", ["caseId"])
+    .index("by_role", ["role"])
+    .index("by_case_and_role", ["caseId", "role"])
+    .index("by_pjn_id", ["pjnParticipantId"]),
+
+  // Case Appeals (Recursos)
+  caseAppeals: defineTable({
+    caseId: v.id("cases"),
+    appealType: v.string(),
+    filedDate: v.optional(v.string()),
+    status: v.optional(v.string()),
+    court: v.optional(v.string()),
+    description: v.optional(v.string()),
+    pjnAppealId: v.optional(v.string()),
+    syncedFrom: v.literal("pjn"),
+    syncedAt: v.number(),
+  })
+    .index("by_case", ["caseId"])
+    .index("by_status", ["status"])
+    .index("by_pjn_id", ["pjnAppealId"]),
+
+  // Related Cases (Vinculados)
+  relatedCases: defineTable({
+    caseId: v.id("cases"),
+    relatedFre: v.string(),
+    relationshipType: v.string(),
+    relatedCaratula: v.optional(v.string()),
+    relatedCourt: v.optional(v.string()),
+    pjnRelationId: v.optional(v.string()),
+    relatedCaseId: v.optional(v.id("cases")),
+    syncedFrom: v.literal("pjn"),
+    syncedAt: v.number(),
+  })
+    .index("by_case", ["caseId"])
+    .index("by_related_fre", ["relatedFre"])
+    .index("by_relationship_type", ["relationshipType"])
+    .index("by_pjn_id", ["pjnRelationId"]),
+
   // Notifications - user-facing notifications from PJN and system events
   notifications: defineTable({
     userId: v.id("users"),

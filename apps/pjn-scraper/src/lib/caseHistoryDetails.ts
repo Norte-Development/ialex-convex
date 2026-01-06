@@ -1,7 +1,6 @@
 import fetch from "node-fetch";
 import { createHash } from "crypto";
 import * as cheerio from "cheerio";
-import { writeFileSync } from "fs";
 import { logger } from "../middleware/logging";
 import { config } from "../config";
 import type { SessionState } from "./sessionStore";
@@ -19,7 +18,14 @@ import {
 import {
   parseActuacionesHtml,
   parseDocDigitalesHtml,
+  parseIntervinientesHtml,
+  parseRecursosHtml,
+  parseVinculadosHtml,
+  type NormalizedParticipant,
+  type NormalizedAppeal,
+  type NormalizedRelatedCase,
 } from "./pjnCaseHistoryParsers";
+import { DebugStorage, createDebugSession } from "./debugStorage";
 
 /**
  * Options for scraping the full historical docket for a PJN expediente
@@ -57,6 +63,13 @@ export interface CaseHistoryDetailsOptions {
    * Optional request identifier for structured logging.
    */
   requestId?: string;
+  /**
+   * Enable debug storage for saving HTML and parsed results.
+   * When true, creates a new debug session automatically.
+   * When a DebugStorage instance is provided, uses that instance.
+   * Defaults to true in development.
+   */
+  debugStorage?: boolean | DebugStorage;
 }
 
 /**
@@ -70,7 +83,15 @@ export interface CaseHistoryDetailsResult {
   fre: string;
   movimientos: NormalizedMovement[];
   docDigitales: NormalizedDigitalDocument[];
+  intervinientes: NormalizedParticipant[];
+  recursos: NormalizedAppeal[];
+  vinculados: NormalizedRelatedCase[];
   stats: CaseHistoryStats;
+  /**
+   * Optional cid for the expediente.seam conversation, when available.
+   * This is taken from the final expediente URL (e.g. expediente.seam?cid=304513).
+   */
+  cid?: string;
 }
 
 const CASE_HISTORY_SEARCH_URL =
@@ -132,42 +153,31 @@ function mergeCookies(
  * with the rowIndex parameter.
  *
  * This function:
- * 1. First performs a search to get the search results page with ViewState
+ * 1. Uses the already-fetched search results HTML and cookies (no re-search!)
  * 2. Submits a form to navigate to the specific case using rowIndex
  * 3. Follows redirects to expediente.seam
  * 4. Returns the HTML of the expediente page and updated cookies
  */
 async function navigateToExpediente(
   session: SessionState,
-  jurisdiction: string,
-  caseNumber: string,
-  year: number,
+  searchHtml: string,
+  searchCookies: string[],
   rowIndex: number
 ): Promise<{ html: string; cookies: string[]; cid: string }> {
   logger.debug("Navigating to expediente.seam", {
-    jurisdiction,
-    caseNumber,
-    year,
     rowIndex,
+    searchHtmlLength: searchHtml.length,
+    cookieCount: searchCookies.length,
   });
 
-  // Step 1: Perform search to get the search results page with ViewState
-  const searchResult = await performCaseHistorySearch(session, {
-    jurisdiction,
-    caseNumber,
-    year,
-  });
+  // Extract ViewState from the search results HTML we already have
+  const viewState = extractViewState(searchHtml);
 
-  if (!searchResult.selectedCandidate) {
-    throw new Error(
-      "No candidate found for navigation. Search must return a selected candidate."
-    );
+  if (!viewState) {
+    throw new Error("ViewState not found in search results page");
   }
 
-  // Step 2: Get the search results HTML again to extract ViewState
-  // We need to re-fetch the search results page to get the ViewState
-  // after the search was performed. We'll use the same pattern as establishScwSession
-  const cookieHeader = session.cookies?.join("; ") || "";
+  let currentCookies = [...searchCookies];
 
   const headers: Record<string, string> = {
     accept:
@@ -177,7 +187,7 @@ async function navigateToExpediente(
     "cache-control": "no-cache",
     pragma: "no-cache",
     "upgrade-insecure-requests": "1",
-    cookie: cookieHeader,
+    cookie: currentCookies.join("; "),
     referer: CASE_HISTORY_SEARCH_URL,
   };
 
@@ -185,41 +195,56 @@ async function navigateToExpediente(
     headers["user-agent"] = session.headers["User-Agent"];
   }
 
-  // Get the search results page to extract ViewState
-  const searchPageResponse = await fetch(CASE_HISTORY_SEARCH_URL, {
-    method: "GET",
-    headers,
-    redirect: "manual",
-  });
+  // Locate the original JSF form and all of its inputs so we can faithfully
+  // reproduce the POST that the browser would send when clicking "visualizar".
+  const $ = cheerio.load(searchHtml);
+  const form =
+    $("form#tablaConsultaLista\\:tablaConsultaForm").first().length > 0
+      ? $("form#tablaConsultaLista\\:tablaConsultaForm").first()
+      : $("form[name='tablaConsultaLista:tablaConsultaForm']").first();
 
-  if (!searchPageResponse.ok) {
+  if (!form.length) {
     throw new Error(
-      `Failed to fetch search page: ${searchPageResponse.status}`
+      "Could not find tablaConsultaLista:tablaConsultaForm in search results HTML"
     );
   }
 
-  const searchPageHtml = await searchPageResponse.text();
-  const viewState = extractViewState(searchPageHtml);
+  const formActionAttr = form.attr("action") || CASE_HISTORY_SEARCH_URL;
+  const formActionUrl = formActionAttr.startsWith("http")
+    ? formActionAttr
+    : new URL(formActionAttr, CASE_HISTORY_SEARCH_URL).toString();
 
-  if (!viewState) {
-    throw new Error("ViewState not found in search results page");
-  }
-
-  // Collect cookies from the search page response
-  const setCookieHeaders = searchPageResponse.headers.raw()["set-cookie"] || [];
-  let currentCookies = mergeCookies(session.cookies || [], setCookieHeaders);
+  const formName =
+    form.attr("name") ||
+    form.attr("id") ||
+    "tablaConsultaLista:tablaConsultaForm";
 
   // Step 3: Submit form to navigate to expediente using rowIndex
   const formParams = new URLSearchParams();
-  formParams.set(
-    "tablaConsultaLista:tablaConsultaForm",
-    "tablaConsultaLista:tablaConsultaForm"
-  );
-  formParams.set(
-    `tablaConsultaLista:tablaConsultaForm:j_idt179:dataTable:${rowIndex}:j_idt230`,
-    `tablaConsultaLista:tablaConsultaForm:j_idt179:dataTable:${rowIndex}:j_idt230`
-  );
+
+  // 3a) Pre-populate with all inputs from the original form (including hidden).
+  form.find("input").each((_, el) => {
+    const name = $(el).attr("name");
+    if (!name) return;
+
+    const type = ($(el).attr("type") || "").toLowerCase();
+    // Only send checked checkboxes / radios
+    if ((type === "checkbox" || type === "radio") && !$(el).attr("checked")) {
+      return;
+    }
+
+    const value = $(el).attr("value") ?? "";
+    formParams.set(name, value);
+  });
+
+  // 3b) Override the key JSF params to mimic clicking the "visualizar expediente" button.
+  formParams.set(formName, formName);
+
+  const triggerName = `tablaConsultaLista:tablaConsultaForm:j_idt179:dataTable:${rowIndex}:j_idt230`;
+  formParams.set(triggerName, triggerName);
+
   formParams.set("javax.faces.ViewState", viewState);
+  formParams.set("conversationPropagation", "join");
 
   const formHeaders: Record<string, string> = {
     ...headers,
@@ -229,10 +254,10 @@ async function navigateToExpediente(
 
   logger.debug("Submitting JSF form to navigate to expediente", {
     rowIndex,
-    formAction: CASE_HISTORY_SEARCH_URL,
+    formAction: formActionUrl,
   });
 
-  const formResponse = await fetch(CASE_HISTORY_SEARCH_URL, {
+  const formResponse = await fetch(formActionUrl, {
     method: "POST",
     headers: formHeaders,
     body: formParams.toString(),
@@ -288,9 +313,13 @@ async function navigateToExpediente(
 
     const expedienteHtml = await expedienteResponse.text();
 
-    // Extract cid from the final URL if available, otherwise use a hash of the FRE
     const urlObj = new URL(expedienteResponse.url);
-    const cid = urlObj.searchParams.get("cid") || "";
+    // Only trust cid when we're actually on expediente.seam
+    const cid =
+      urlObj.pathname.endsWith("/expediente.seam") &&
+      urlObj.searchParams.get("cid")
+        ? urlObj.searchParams.get("cid")!
+        : "";
 
     logger.info("Successfully navigated to expediente.seam", {
       cid,
@@ -307,7 +336,11 @@ async function navigateToExpediente(
   // If no redirect, try to parse the response as expediente page
   const html = await formResponse.text();
   const urlObj = new URL(formResponse.url);
-  const cid = urlObj.searchParams.get("cid") || "";
+  const cid =
+    urlObj.pathname.endsWith("/expediente.seam") &&
+    urlObj.searchParams.get("cid")
+      ? urlObj.searchParams.get("cid")!
+      : "";
 
   return {
     html,
@@ -437,6 +470,106 @@ async function loadDocDigitalesTab(
 }
 
 /**
+ * Load Intervinientes tab by submitting a JSF form.
+ */
+async function loadIntervinientesTab(
+  session: SessionState,
+  expedienteHtml: string,
+  cookies: string[]
+): Promise<string> {
+  return loadTabByName(session, expedienteHtml, cookies, "intervinientes");
+}
+
+/**
+ * Load Recursos tab by submitting a JSF form.
+ */
+async function loadRecursosTab(
+  session: SessionState,
+  expedienteHtml: string,
+  cookies: string[]
+): Promise<string> {
+  return loadTabByName(session, expedienteHtml, cookies, "recursos");
+}
+
+/**
+ * Load Vinculados tab by submitting a JSF form.
+ */
+async function loadVinculadosTab(
+  session: SessionState,
+  expedienteHtml: string,
+  cookies: string[]
+): Promise<string> {
+  return loadTabByName(session, expedienteHtml, cookies, "vinculados");
+}
+
+/**
+ * Generic tab loader - finds and clicks a tab by partial name match.
+ */
+async function loadTabByName(
+  session: SessionState,
+  expedienteHtml: string,
+  cookies: string[],
+  tabName: string
+): Promise<string> {
+  const $ = cheerio.load(expedienteHtml);
+
+  // Look for tab link/button
+  const tabElement = $(`a[href*="${tabName}" i], a[id*="${tabName}" i], input[value*="${tabName}" i]`).first();
+
+  const viewState = extractViewState(expedienteHtml);
+  if (!viewState) {
+    return expedienteHtml;
+  }
+
+  if (tabElement.length > 0) {
+    const form = tabElement.closest("form");
+    if (form.length > 0) {
+      const formAction = form.attr("action") || EXPEDIENTE_URL;
+      const formName = form.attr("name") || form.attr("id") || "";
+      const name = tabElement.attr("name");
+      const id = tabElement.attr("id");
+
+      const formParams = new URLSearchParams();
+      if (formName) formParams.set(formName, formName);
+      if (name) formParams.set(name, name);
+      if (id) formParams.set(id, id);
+      formParams.set("javax.faces.ViewState", viewState);
+
+      const headers: Record<string, string> = {
+        accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        "accept-language": session.headers?.["Accept-Language"] ?? "en-US,en;q=0.9",
+        "content-type": "application/x-www-form-urlencoded",
+        cookie: cookies.join("; "),
+        referer: EXPEDIENTE_URL,
+      };
+
+      if (session.headers?.["User-Agent"]) {
+        headers["user-agent"] = session.headers["User-Agent"];
+      }
+
+      try {
+        const response = await fetch(formAction, {
+          method: "POST",
+          headers,
+          body: formParams.toString(),
+          redirect: "follow",
+        });
+
+        if (response.ok) {
+          return await response.text();
+        }
+      } catch (error) {
+        logger.warn(`Failed to load ${tabName} tab`, {
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
+    }
+  }
+
+  return expedienteHtml;
+}
+
+/**
  * Download a PDF from a document reference and upload to GCS.
  */
 async function downloadAndUploadPdf(
@@ -557,18 +690,33 @@ export async function scrapeCaseHistoryDetails(
   const startTime = Date.now();
   const { fre, userId, includeMovements = true, includeDocuments = true, maxMovements, maxDocuments, requestId } = options;
 
+  // Initialize debug storage
+  let debugStorage: DebugStorage | undefined;
+  if (options.debugStorage === true || options.debugStorage === undefined) {
+    // Create new debug session (enabled by default in non-production)
+    debugStorage = createDebugSession();
+  } else if (options.debugStorage instanceof DebugStorage) {
+    debugStorage = options.debugStorage;
+  }
+
+  const safeFre = fre.replace(/[/\\:]/g, "_");
+
   logger.info("Starting case history details scrape", {
     fre,
     userId,
     requestId,
     includeMovements,
     includeDocuments,
+    debugSessionId: debugStorage?.getSessionId(),
+    debugSessionDir: debugStorage?.getSessionDir(),
   });
 
   // Parse FRE to extract jurisdiction, caseNumber, year
   const parsed = parseFre(fre);
   if (!parsed) {
-    throw new Error(`Invalid FRE format: ${fre}. Expected format: "FRE-3852/2020"`);
+    const error = `Invalid FRE format: ${fre}. Expected format: "FRE-3852/2020"`;
+    debugStorage?.saveJson(`${safeFre}_error`, { error, stage: "parse_fre" });
+    throw new Error(error);
   }
 
   const { jurisdiction, caseNumber, year } = parsed;
@@ -580,12 +728,13 @@ export async function scrapeCaseHistoryDetails(
     caseNumber,
     year,
     requestId,
+    debugStorage,
   });
 
   if (!searchResult.selectedCandidate) {
-    throw new Error(
-      `No candidate found for FRE ${fre}. Cannot navigate to expediente page.`
-    );
+    const error = `No candidate found for FRE ${fre}. Cannot navigate to expediente page.`;
+    debugStorage?.saveJson(`${safeFre}_error`, { error, stage: "search", candidates: searchResult.candidates });
+    throw new Error(error);
   }
 
   const rowIndex = searchResult.selectedCandidate.rowIndex;
@@ -595,39 +744,27 @@ export async function scrapeCaseHistoryDetails(
     selectedFre: searchResult.selectedCandidate.fre,
   });
 
-  // Step 2: Navigate to expediente.seam
+  // Step 2: Navigate to expediente.seam using the search result HTML and cookies
   logger.debug("Step 2: Navigating to expediente.seam", { rowIndex });
   const navigationResult = await navigateToExpediente(
     session,
-    jurisdiction,
-    caseNumber,
-    year,
+    searchResult.searchHtml,
+    searchResult.cookies,
     rowIndex
   );
   const { html: expedienteHtml, cookies, cid } = navigationResult;
 
-  // Persist the raw expediente HTML for debugging/inspection.
-  const expedienteDebugPath = `./pjn_case_history_details_${Date.now()}.html`;
-  try {
-    writeFileSync(expedienteDebugPath, expedienteHtml, "utf8");
-    logger.info("Saved PJN expediente HTML to file", {
-      fre,
-      cid,
-      expedienteDebugPath,
-    });
-  } catch (error) {
-    logger.warn("Failed to write PJN expediente HTML debug file", {
-      fre,
-      cid,
-      error: error instanceof Error ? error.message : String(error),
-    });
-  }
+  // Save expediente HTML to debug storage
+  debugStorage?.saveHtml(`${safeFre}_02_expediente`, expedienteHtml, { fre, cid, rowIndex });
 
   // Step 3: Parse Actuaciones
   let movimientos: NormalizedMovement[] = [];
   if (includeMovements) {
     logger.debug("Step 3: Parsing Actuaciones", { fre });
     movimientos = parseActuacionesHtml(expedienteHtml, fre);
+    
+    // Save parsed actuaciones to debug storage
+    debugStorage?.saveJson(`${safeFre}_02_actuaciones`, movimientos, { fre, totalCount: movimientos.length });
     
     // Apply maxMovements limit
     if (maxMovements && movimientos.length > maxMovements) {
@@ -650,25 +787,14 @@ export async function scrapeCaseHistoryDetails(
       cookies
     );
 
-    // Persist Doc. digitales HTML for debugging/inspection.
-    const docDigitalesDebugPath = `./pjn_case_history_doc_digitales_${Date.now()}.html`;
-    try {
-      writeFileSync(docDigitalesDebugPath, docDigitalesHtml, "utf8");
-      logger.info("Saved PJN Doc. digitales HTML to file", {
-        fre,
-        cid,
-        docDigitalesDebugPath,
-      });
-    } catch (error) {
-      logger.warn("Failed to write PJN Doc. digitales HTML debug file", {
-        fre,
-        cid,
-        error: error instanceof Error ? error.message : String(error),
-      });
-    }
+    // Save Doc. digitales HTML to debug storage
+    debugStorage?.saveHtml(`${safeFre}_03_doc_digitales`, docDigitalesHtml, { fre, cid });
     
     logger.debug("Step 4: Parsing Doc. digitales", { fre });
     docDigitales = parseDocDigitalesHtml(docDigitalesHtml, fre);
+    
+    // Save parsed doc digitales to debug storage
+    debugStorage?.saveJson(`${safeFre}_03_doc_digitales`, docDigitales, { fre, totalCount: docDigitales.length });
     
     // Apply maxDocuments limit
     if (maxDocuments && docDigitales.length > maxDocuments) {
@@ -681,7 +807,28 @@ export async function scrapeCaseHistoryDetails(
     }
   }
 
-  // Step 5: Download PDFs and upload to GCS
+  // Step 5: Load and parse Intervinientes tab
+  logger.debug("Step 5: Loading Intervinientes tab", { fre });
+  const intervinientesHtml = await loadIntervinientesTab(session, expedienteHtml, cookies);
+  debugStorage?.saveHtml(`${safeFre}_04_intervinientes`, intervinientesHtml, { fre });
+  const intervinientes = parseIntervinientesHtml(intervinientesHtml);
+  debugStorage?.saveJson(`${safeFre}_04_intervinientes`, intervinientes, { fre, totalCount: intervinientes.length });
+
+  // Step 6: Load and parse Recursos tab
+  logger.debug("Step 6: Loading Recursos tab", { fre });
+  const recursosHtml = await loadRecursosTab(session, expedienteHtml, cookies);
+  debugStorage?.saveHtml(`${safeFre}_05_recursos`, recursosHtml, { fre });
+  const recursos = parseRecursosHtml(recursosHtml);
+  debugStorage?.saveJson(`${safeFre}_05_recursos`, recursos, { fre, totalCount: recursos.length });
+
+  // Step 7: Load and parse Vinculados tab
+  logger.debug("Step 7: Loading Vinculados tab", { fre });
+  const vinculadosHtml = await loadVinculadosTab(session, expedienteHtml, cookies);
+  debugStorage?.saveHtml(`${safeFre}_06_vinculados`, vinculadosHtml, { fre });
+  const vinculados = parseVinculadosHtml(vinculadosHtml);
+  debugStorage?.saveJson(`${safeFre}_06_vinculados`, vinculados, { fre, totalCount: vinculados.length });
+
+  // Step 8: Download PDFs and upload to GCS
   let downloadErrors = 0;
   
   // Download PDFs for documents with docRef
@@ -747,19 +894,35 @@ export async function scrapeCaseHistoryDetails(
     durationMs,
   };
 
+  const result: CaseHistoryDetailsResult = {
+    fre,
+    movimientos,
+    docDigitales,
+    intervinientes,
+    recursos,
+    vinculados,
+    stats,
+    cid,
+  };
+
+  // Save final result to debug storage
+  debugStorage?.saveJson(`${safeFre}_final_result`, result, {
+    fre,
+    userId,
+    requestId,
+    durationMs,
+  });
+
   logger.info("Case history details scrape completed", {
     fre,
     userId,
     requestId,
     stats,
+    debugSessionId: debugStorage?.getSessionId(),
+    debugSessionDir: debugStorage?.getSessionDir(),
   });
 
-  return {
-    fre,
-    movimientos,
-    docDigitales,
-    stats,
-  };
+  return result;
 }
 
 /**
@@ -778,15 +941,17 @@ export async function scrapeCaseHistoryDetails(
  * NOTE: This is a pure transformation and must not perform any I/O.
  */
 export function toCaseHistoryDetailsResponse(
-  result: CaseHistoryDetailsResult,
-  cid: string = ""
+  result: CaseHistoryDetailsResult
 ): CaseHistoryDetailsResponse {
   return {
     status: "OK",
     fre: result.fre,
-    cid, // Include cid for backward compatibility, but it's not used for navigation
+    cid: result.cid ?? "",
     movimientos: result.movimientos,
     docDigitales: result.docDigitales,
+    intervinientes: result.intervinientes,
+    recursos: result.recursos,
+    vinculados: result.vinculados,
     stats: result.stats,
   };
 }

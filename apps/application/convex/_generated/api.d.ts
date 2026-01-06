@@ -132,6 +132,7 @@ import type * as functions_libraryFolders from "../functions/libraryFolders.js";
 import type * as functions_mercadopagoAdmin from "../functions/mercadopagoAdmin.js";
 import type * as functions_mercadopagoImport from "../functions/mercadopagoImport.js";
 import type * as functions_permissions from "../functions/permissions.js";
+import type * as functions_pjnHistory from "../functions/pjnHistory.js";
 import type * as functions_popups from "../functions/popups.js";
 import type * as functions_prompts from "../functions/prompts.js";
 import type * as functions_search from "../functions/search.js";
@@ -331,6 +332,7 @@ declare const fullApi: ApiFromModules<{
   "functions/mercadopagoAdmin": typeof functions_mercadopagoAdmin;
   "functions/mercadopagoImport": typeof functions_mercadopagoImport;
   "functions/permissions": typeof functions_permissions;
+  "functions/pjnHistory": typeof functions_pjnHistory;
   "functions/popups": typeof functions_popups;
   "functions/prompts": typeof functions_prompts;
   "functions/search": typeof functions_search;

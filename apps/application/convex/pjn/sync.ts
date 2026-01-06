@@ -617,3 +617,124 @@ export const createHistoricalDocumentEntry = internalMutation({
     });
   },
 });
+
+/**
+ * Create participant entry from PJN Intervinientes tab.
+ */
+export const createParticipantEntry = internalMutation({
+  args: {
+    caseId: v.id("cases"),
+    participant: v.object({
+      participantId: v.string(),
+      role: v.string(),
+      name: v.string(),
+      details: v.optional(v.string()),
+    }),
+  },
+  returns: v.null(),
+  handler: async (ctx, args): Promise<null> => {
+    // Idempotency check
+    const existing = await ctx.db
+      .query("caseParticipants")
+      .withIndex("by_pjn_id", (q) => q.eq("pjnParticipantId", args.participant.participantId))
+      .first();
+
+    if (existing) return null;
+
+    await ctx.db.insert("caseParticipants", {
+      caseId: args.caseId,
+      role: args.participant.role,
+      name: args.participant.name,
+      details: args.participant.details,
+      pjnParticipantId: args.participant.participantId,
+      syncedFrom: "pjn",
+      syncedAt: Date.now(),
+    });
+    return null;
+  },
+});
+
+/**
+ * Create appeal entry from PJN Recursos tab.
+ */
+export const createAppealEntry = internalMutation({
+  args: {
+    caseId: v.id("cases"),
+    appeal: v.object({
+      appealId: v.string(),
+      appealType: v.string(),
+      filedDate: v.optional(v.string()),
+      status: v.optional(v.string()),
+      court: v.optional(v.string()),
+      description: v.optional(v.string()),
+    }),
+  },
+  returns: v.null(),
+  handler: async (ctx, args): Promise<null> => {
+    // Idempotency check
+    const existing = await ctx.db
+      .query("caseAppeals")
+      .withIndex("by_pjn_id", (q) => q.eq("pjnAppealId", args.appeal.appealId))
+      .first();
+
+    if (existing) return null;
+
+    await ctx.db.insert("caseAppeals", {
+      caseId: args.caseId,
+      appealType: args.appeal.appealType,
+      filedDate: args.appeal.filedDate,
+      status: args.appeal.status,
+      court: args.appeal.court,
+      description: args.appeal.description,
+      pjnAppealId: args.appeal.appealId,
+      syncedFrom: "pjn",
+      syncedAt: Date.now(),
+    });
+    return null;
+  },
+});
+
+/**
+ * Create related case entry from PJN Vinculados tab.
+ */
+export const createRelatedCaseEntry = internalMutation({
+  args: {
+    caseId: v.id("cases"),
+    relatedCase: v.object({
+      relationId: v.string(),
+      relatedFre: v.string(),
+      relationshipType: v.string(),
+      relatedCaratula: v.optional(v.string()),
+      relatedCourt: v.optional(v.string()),
+    }),
+  },
+  returns: v.null(),
+  handler: async (ctx, args): Promise<null> => {
+    // Idempotency check
+    const existing = await ctx.db
+      .query("relatedCases")
+      .withIndex("by_pjn_id", (q) => q.eq("pjnRelationId", args.relatedCase.relationId))
+      .first();
+
+    if (existing) return null;
+
+    // Try to find linked case in our DB
+    const linkedCase = await ctx.db
+      .query("cases")
+      .withIndex("by_fre", (q) => q.eq("fre", args.relatedCase.relatedFre))
+      .first();
+
+    await ctx.db.insert("relatedCases", {
+      caseId: args.caseId,
+      relatedFre: args.relatedCase.relatedFre,
+      relationshipType: args.relatedCase.relationshipType,
+      relatedCaratula: args.relatedCase.relatedCaratula,
+      relatedCourt: args.relatedCase.relatedCourt,
+      pjnRelationId: args.relatedCase.relationId,
+      relatedCaseId: linkedCase?._id,
+      syncedFrom: "pjn",
+      syncedAt: Date.now(),
+    });
+    return null;
+  },
+});

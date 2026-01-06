@@ -481,3 +481,171 @@ export function parseDocDigitalesHtml(
   return documents;
 }
 
+/**
+ * Normalized participant entry from the Intervinientes tab.
+ */
+export interface NormalizedParticipant {
+  participantId: string;
+  role: string;
+  name: string;
+  details?: string;
+}
+
+/**
+ * Parse the Intervinientes tab HTML into normalized participants.
+ */
+export function parseIntervinientesHtml(html: string): NormalizedParticipant[] {
+  const $ = cheerio.load(html);
+  const participants: NormalizedParticipant[] = [];
+
+  const tableSelectors = [
+    'table[id*="intervinientes" i]',
+    'div[id*="intervinientes" i] table',
+    'table[class*="dataTable"]',
+  ];
+
+  let table = $();
+  for (const selector of tableSelectors) {
+    table = $(selector).first();
+    if (table.length > 0) break;
+  }
+
+  if (table.length === 0) return [];
+
+  const rows = table.find("tbody tr, tr");
+  rows.each((_, element) => {
+    const $row = $(element);
+    const $cells = $row.find("td");
+    if ($cells.length < 2) return;
+
+    const role = $cells.eq(0).text().trim();
+    const name = $cells.eq(1).text().trim();
+    const details = $cells.length > 2 ? $cells.eq(2).text().trim() : undefined;
+
+    if (!role || !name) return;
+
+    const participantId = generateHashId(`${role}|${name}|${details ?? ""}`);
+    participants.push({ participantId, role, name, details: details || undefined });
+  });
+
+  return participants;
+}
+
+/**
+ * Normalized appeal entry from the Recursos tab.
+ */
+export interface NormalizedAppeal {
+  appealId: string;
+  appealType: string;
+  filedDate?: string;
+  status?: string;
+  court?: string;
+  description?: string;
+}
+
+/**
+ * Parse the Recursos tab HTML into normalized appeals.
+ */
+export function parseRecursosHtml(html: string): NormalizedAppeal[] {
+  const $ = cheerio.load(html);
+  const appeals: NormalizedAppeal[] = [];
+
+  const tableSelectors = [
+    'table[id*="recursos" i]',
+    'div[id*="recursos" i] table',
+    'table[class*="dataTable"]',
+  ];
+
+  let table = $();
+  for (const selector of tableSelectors) {
+    table = $(selector).first();
+    if (table.length > 0) break;
+  }
+
+  if (table.length === 0) return [];
+
+  const rows = table.find("tbody tr, tr");
+  rows.each((_, element) => {
+    const $row = $(element);
+    const $cells = $row.find("td");
+    if ($cells.length < 2) return;
+
+    const appealType = $cells.eq(0).text().trim();
+    const filedDate = $cells.length > 1 ? $cells.eq(1).text().trim() : undefined;
+    const status = $cells.length > 2 ? $cells.eq(2).text().trim() : undefined;
+    const court = $cells.length > 3 ? $cells.eq(3).text().trim() : undefined;
+    const description = $cells.length > 4 ? $cells.eq(4).text().trim() : undefined;
+
+    if (!appealType) return;
+
+    const appealId = generateHashId(`${appealType}|${filedDate ?? ""}|${status ?? ""}`);
+    appeals.push({
+      appealId,
+      appealType,
+      filedDate: filedDate || undefined,
+      status: status || undefined,
+      court: court || undefined,
+      description: description || undefined,
+    });
+  });
+
+  return appeals;
+}
+
+/**
+ * Normalized related case entry from the Vinculados tab.
+ */
+export interface NormalizedRelatedCase {
+  relationId: string;
+  relatedFre: string;
+  relationshipType: string;
+  relatedCaratula?: string;
+  relatedCourt?: string;
+}
+
+/**
+ * Parse the Vinculados tab HTML into normalized related cases.
+ */
+export function parseVinculadosHtml(html: string): NormalizedRelatedCase[] {
+  const $ = cheerio.load(html);
+  const relatedCases: NormalizedRelatedCase[] = [];
+
+  const tableSelectors = [
+    'table[id*="vinculados" i]',
+    'div[id*="vinculados" i] table',
+    'table[class*="dataTable"]',
+  ];
+
+  let table = $();
+  for (const selector of tableSelectors) {
+    table = $(selector).first();
+    if (table.length > 0) break;
+  }
+
+  if (table.length === 0) return [];
+
+  const rows = table.find("tbody tr, tr");
+  rows.each((_, element) => {
+    const $row = $(element);
+    const $cells = $row.find("td");
+    if ($cells.length < 2) return;
+
+    const relatedFre = $cells.eq(0).text().trim();
+    const relationshipType = $cells.eq(1).text().trim();
+    const relatedCaratula = $cells.length > 2 ? $cells.eq(2).text().trim() : undefined;
+    const relatedCourt = $cells.length > 3 ? $cells.eq(3).text().trim() : undefined;
+
+    if (!relatedFre || !relationshipType) return;
+
+    const relationId = generateHashId(`${relatedFre}|${relationshipType}`);
+    relatedCases.push({
+      relationId,
+      relatedFre,
+      relationshipType,
+      relatedCaratula: relatedCaratula || undefined,
+      relatedCourt: relatedCourt || undefined,
+    });
+  });
+
+  return relatedCases;
+}

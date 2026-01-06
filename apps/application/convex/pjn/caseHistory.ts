@@ -59,6 +59,30 @@ type NormalizedDigitalDocument = {
   docRef?: string | null;
 };
 
+type NormalizedParticipant = {
+  participantId: string;
+  role: string;
+  name: string;
+  details?: string;
+};
+
+type NormalizedAppeal = {
+  appealId: string;
+  appealType: string;
+  filedDate?: string;
+  status?: string;
+  court?: string;
+  description?: string;
+};
+
+type NormalizedRelatedCase = {
+  relationId: string;
+  relatedFre: string;
+  relationshipType: string;
+  relatedCaratula?: string;
+  relatedCourt?: string;
+};
+
 type CaseHistoryDetailsResponse =
   | {
       status: "OK";
@@ -66,6 +90,9 @@ type CaseHistoryDetailsResponse =
       cid: string;
       movimientos: NormalizedMovement[];
       docDigitales: NormalizedDigitalDocument[];
+      intervinientes?: NormalizedParticipant[];
+      recursos?: NormalizedAppeal[];
+      vinculados?: NormalizedRelatedCase[];
       stats: {
         movimientosCount: number;
         docsCount: number;
@@ -384,6 +411,9 @@ export const syncCaseHistoryForCase = action({
       status: v.literal("OK"),
       movimientosSynced: v.number(),
       documentsSynced: v.number(),
+      participantsSynced: v.number(),
+      appealsSynced: v.number(),
+      relatedCasesSynced: v.number(),
       stats: v.object({
         movimientosCount: v.number(),
         docsCount: v.number(),
@@ -720,6 +750,33 @@ export const syncCaseHistoryForCase = action({
         );
       }
 
+      // Ingest participants
+      const intervinientes = detailsResult.intervinientes ?? [];
+      for (const participant of intervinientes) {
+        await ctx.runMutation(internal.pjn.sync.createParticipantEntry, {
+          caseId: args.caseId,
+          participant,
+        });
+      }
+
+      // Ingest appeals
+      const recursos = detailsResult.recursos ?? [];
+      for (const appeal of recursos) {
+        await ctx.runMutation(internal.pjn.sync.createAppealEntry, {
+          caseId: args.caseId,
+          appeal,
+        });
+      }
+
+      // Ingest related cases
+      const vinculados = detailsResult.vinculados ?? [];
+      for (const relatedCase of vinculados) {
+        await ctx.runMutation(internal.pjn.sync.createRelatedCaseEntry, {
+          caseId: args.caseId,
+          relatedCase,
+        });
+      }
+
       const lastSyncAt = Date.now();
       await ctx.runMutation(
         internal.pjn.caseHistory.setLastPjnHistorySyncAt,
@@ -733,6 +790,9 @@ export const syncCaseHistoryForCase = action({
         status: "OK" as const,
         movimientosSynced: movimientos.length,
         documentsSynced: docDigitales.length,
+        participantsSynced: intervinientes.length,
+        appealsSynced: recursos.length,
+        relatedCasesSynced: vinculados.length,
         stats: {
           movimientosCount: detailsResult.stats.movimientosCount,
           docsCount: detailsResult.stats.docsCount,

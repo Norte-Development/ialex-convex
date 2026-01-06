@@ -20,10 +20,22 @@ function parseCookieString(cookieStr: string): Cookie {
   const [name, ...valueParts] = cookieStr.split("=");
   const value = valueParts.join("="); // Handle values that contain "="
 
+  // NOTE:
+  // For the PJN case history scraper we care primarily about SCW cookies
+  // (https://scw.pjn.gov.ar), since all of the expediente navigation and
+  // case history search flows run against that host.
+  //
+  // Session cookies coming from the HTTP-based SCW flows do not include an
+  // explicit domain attribute, so we need to pick a concrete host here.
+  // Using the SCW host ensures that when we navigate to
+  // https://scw.pjn.gov.ar/... in Playwright, these cookies are actually
+  // sent and we land on the authenticated UI instead of the public page.
+  const scwHost = "scw.pjn.gov.ar";
+
   return {
     name: name.trim(),
     value: value.trim(),
-    domain: new URL(config.pjnPortalBaseUrl).hostname,
+    domain: scwHost,
     path: "/",
     expires: -1, // Session cookie
     httpOnly: false,

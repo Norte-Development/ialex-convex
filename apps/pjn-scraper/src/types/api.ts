@@ -255,6 +255,39 @@ export type CaseHistorySearchResponse =
     };
 
 /**
+ * Normalized participant from Intervinientes tab.
+ */
+export interface NormalizedParticipant {
+  participantId: string;
+  role: string;
+  name: string;
+  details?: string;
+}
+
+/**
+ * Normalized appeal from Recursos tab.
+ */
+export interface NormalizedAppeal {
+  appealId: string;
+  appealType: string;
+  filedDate?: string;
+  status?: string;
+  court?: string;
+  description?: string;
+}
+
+/**
+ * Normalized related case from Vinculados tab.
+ */
+export interface NormalizedRelatedCase {
+  relationId: string;
+  relatedFre: string;
+  relationshipType: string;
+  relatedCaratula?: string;
+  relatedCourt?: string;
+}
+
+/**
  * Response payload for /scrape/case-history/details.
  */
 export type CaseHistoryDetailsResponse =
@@ -264,6 +297,9 @@ export type CaseHistoryDetailsResponse =
       cid: string;
       movimientos: NormalizedMovement[];
       docDigitales: NormalizedDigitalDocument[];
+      intervinientes?: NormalizedParticipant[];
+      recursos?: NormalizedAppeal[];
+      vinculados?: NormalizedRelatedCase[];
       stats: CaseHistoryStats;
     }
   | {
