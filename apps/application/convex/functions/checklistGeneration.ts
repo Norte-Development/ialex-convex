@@ -4,7 +4,7 @@ import { v } from "convex/values";
 import { action, ActionCtx } from "../_generated/server";
 import { api } from "../_generated/api";
 import { Id } from "../_generated/dataModel";
-import { createOpenRouter } from '@openrouter/ai-sdk-provider';
+import { createOpenRouter } from "@openrouter/ai-sdk-provider";
 import { generateText } from "ai";
 
 const openrouter = createOpenRouter({
@@ -51,9 +51,12 @@ export const generateCaseChecklist = action({
     }
 
     // 2. Cargar clientes del caso
-    const clients: any[] | null = await ctx.runQuery(api.functions.cases.getClientsForCase, {
-      caseId: args.caseId,
-    });
+    const clients: any[] | null = await ctx.runQuery(
+      api.functions.cases.getClientsForCase,
+      {
+        caseId: args.caseId,
+      },
+    );
 
     // 3. Construir contexto base
     let contextPrompt: string = `
@@ -71,10 +74,13 @@ ${clients?.map((c: any) => `- ${c.name || c.displayName} (${c.role || "cliente"}
 
     // 4. Si viene de conversacion, cargar mensajes del thread
     if (args.sourceType === "thread_conversation" && args.threadId) {
-      const messages = await ctx.runQuery(api.agents.threads.getThreadMessages, {
-        threadId: args.threadId as any,
-        paginationOpts: { numItems: 30, cursor: null as any },
-      });
+      const messages = await ctx.runQuery(
+        api.agents.threads.getThreadMessages,
+        {
+          threadId: args.threadId as any,
+          paginationOpts: { numItems: 30, cursor: null as any },
+        },
+      );
 
       const conversationContext = messages.page
         .filter((m: any) => m.text)
@@ -114,9 +120,9 @@ Estructura requerida:
 IMPORTANTE: Responde solo con el JSON. No incluyas markdown ni ningun texto adicional.`;
 
     try {
-      // 6. Generar texto con Haiku
+      // 6. Generar texto con DeepSeek
       const { text } = await generateText({
-        model: openrouter('anthropic/claude-haiku-4.5'),
+        model: openrouter("deepseek/deepseek-chat"),
         system: systemPrompt,
         prompt: `Genera un plan de trabajo para este caso:
 
@@ -129,18 +135,18 @@ Responde con el JSON del plan de trabajo.`,
       let cleanedText = text.trim();
 
       // Eliminar markdown code blocks si existen
-      cleanedText = cleanedText.replace(/^```json\s*/i, '');
-      cleanedText = cleanedText.replace(/^```\s*/i, '');
-      cleanedText = cleanedText.replace(/```\s*$/i, '');
+      cleanedText = cleanedText.replace(/^```json\s*/i, "");
+      cleanedText = cleanedText.replace(/^```\s*/i, "");
+      cleanedText = cleanedText.replace(/```\s*$/i, "");
 
       // Eliminar cualquier texto antes del primer {
-      const firstBraceIndex = cleanedText.indexOf('{');
+      const firstBraceIndex = cleanedText.indexOf("{");
       if (firstBraceIndex > 0) {
         cleanedText = cleanedText.substring(firstBraceIndex);
       }
 
       // Eliminar cualquier texto despues del ultimo }
-      const lastBraceIndex = cleanedText.lastIndexOf('}');
+      const lastBraceIndex = cleanedText.lastIndexOf("}");
       if (lastBraceIndex >= 0 && lastBraceIndex < cleanedText.length - 1) {
         cleanedText = cleanedText.substring(0, lastBraceIndex + 1);
       }
@@ -158,7 +164,7 @@ Responde con el JSON del plan de trabajo.`,
       }
 
       // 8. Validar estructura
-      if (!checklist?.title || typeof checklist.title !== 'string') {
+      if (!checklist?.title || typeof checklist.title !== "string") {
         throw new Error("El plan debe tener un título válido");
       }
 
@@ -172,17 +178,20 @@ Responde con el JSON del plan de trabajo.`,
 
       // Validar cada tarea
       for (const task of checklist.tasks) {
-        if (!task?.title || typeof task.title !== 'string') {
+        if (!task?.title || typeof task.title !== "string") {
           throw new Error("Cada tarea debe tener un título válido");
         }
       }
 
       // 9. Crear o actualizar la lista en la base de datos
-      const listId: Id<"todoLists"> = await ctx.runMutation(api.functions.todos.getOrCreateCaseTodoList, {
-        title: checklist.title,
-        caseId: args.caseId,
-        createdBy: args.userId,
-      });
+      const listId: Id<"todoLists"> = await ctx.runMutation(
+        api.functions.todos.getOrCreateCaseTodoList,
+        {
+          title: checklist.title,
+          caseId: args.caseId,
+          createdBy: args.userId,
+        },
+      );
 
       // 10. Limpiar y agregar nuevas tareas
       await ctx.runMutation(api.functions.todos.clearAndReplaceTodoItems, {
@@ -199,7 +208,9 @@ Responde con el JSON del plan de trabajo.`,
       };
     } catch (error: any) {
       console.error("Error generando checklist:", error);
-      throw new Error(`Error al generar el plan: ${error.message || "Error desconocido"}`);
+      throw new Error(
+        `Error al generar el plan: ${error.message || "Error desconocido"}`,
+      );
     }
   },
 });
