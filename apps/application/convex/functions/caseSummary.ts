@@ -260,17 +260,28 @@ export const verifyUserCaseAccess = internalQuery({
       .first();
 
     if (!user) {
-      return { authorized: false, userId: null, error: "Usuario no encontrado" };
+      return {
+        authorized: false,
+        userId: null,
+        error: "Usuario no encontrado",
+      };
     }
 
     // Check if user is case owner
     const caseData = await ctx.db.get(args.caseId);
     if (!caseData) {
-      return { authorized: false, userId: user._id, error: "Caso no encontrado" };
+      return {
+        authorized: false,
+        userId: user._id,
+        error: "Caso no encontrado",
+      };
     }
 
     // Owner always has access
-    if (caseData.createdBy === user._id || caseData.assignedLawyer === user._id) {
+    if (
+      caseData.createdBy === user._id ||
+      caseData.assignedLawyer === user._id
+    ) {
       return { authorized: true, userId: user._id, error: null };
     }
 
@@ -278,7 +289,7 @@ export const verifyUserCaseAccess = internalQuery({
     const directAccess = await ctx.db
       .query("caseAccess")
       .withIndex("by_case_and_user", (q) =>
-        q.eq("caseId", args.caseId).eq("userId", user._id)
+        q.eq("caseId", args.caseId).eq("userId", user._id),
       )
       .first();
 
@@ -312,7 +323,7 @@ export const generateCaseSummary = action({
       // 0. Verify user authentication and access
       const accessCheck = await ctx.runQuery(
         internal.functions.caseSummary.verifyUserCaseAccess,
-        { caseId: args.caseId }
+        { caseId: args.caseId },
       );
 
       if (!accessCheck.authorized) {
@@ -340,19 +351,8 @@ export const generateCaseSummary = action({
       // 2. Build summary prompt
       const prompt = buildSummaryPrompt(caseData);
 
-      // 3. Get model to use for this user/case
-      const modelToUse: string = await ctx.runMutation(
-        internal.billing.features.getModelForUserInCase,
-        {
-          userId: caseData.userId,
-          caseId: args.caseId,
-        },
-      );
-
-      const openRouterModel: string =
-        modelToUse === "gpt-5"
-          ? "openai/gpt-5.1"
-          : "anthropic/claude-haiku-4.5";
+      // 3. Model for summary generation
+      const openRouterModel = "deepseek/deepseek-chat";
 
       // 4. Generate summary using AI SDK
       const { text } = await generateText({
