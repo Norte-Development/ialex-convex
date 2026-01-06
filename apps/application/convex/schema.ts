@@ -290,6 +290,10 @@ export default defineSchema({
     estimatedHours: v.optional(v.number()),
     actualHours: v.optional(v.number()),
     lastActivityAt: v.optional(v.number()),
+    // AI-generated case summary
+    caseSummary: v.optional(v.string()), // Resumen en formato <summary>...</summary>
+    caseSummaryUpdatedAt: v.optional(v.number()), // Timestamp última actualización
+    caseSummaryManuallyEdited: v.optional(v.boolean()), // true si fue editado manualmente
   })
     .index("by_status", ["status"])
     .index("by_assigned_lawyer", ["assignedLawyer"])
