@@ -27,6 +27,12 @@ export {
   checkUserCaseAccess,
 } from "./cases";
 
+// Case Summary (AI-powered)
+export {
+  generateCaseSummary,
+  updateCaseSummary,
+} from "./caseSummary";
+
 // Permission Management
 export {
   grantUserCaseAccess,

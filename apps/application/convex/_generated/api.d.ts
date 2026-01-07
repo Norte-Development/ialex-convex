@@ -94,6 +94,7 @@ import type * as context_contextService from "../context/contextService.js";
 import type * as context_parseReferences from "../context/parseReferences.js";
 import type * as firebaseAdmin from "../firebaseAdmin.js";
 import type * as functions_agentRules from "../functions/agentRules.js";
+import type * as functions_caseSummary from "../functions/caseSummary.js";
 import type * as functions_cases from "../functions/cases.js";
 import type * as functions_clientManagement_clientHelpers from "../functions/clientManagement/clientHelpers.js";
 import type * as functions_clientManagement_clientMigrations from "../functions/clientManagement/clientMigrations.js";
@@ -286,6 +287,7 @@ declare const fullApi: ApiFromModules<{
   "context/parseReferences": typeof context_parseReferences;
   firebaseAdmin: typeof firebaseAdmin;
   "functions/agentRules": typeof functions_agentRules;
+  "functions/caseSummary": typeof functions_caseSummary;
   "functions/cases": typeof functions_cases;
   "functions/clientManagement/clientHelpers": typeof functions_clientManagement_clientHelpers;
   "functions/clientManagement/clientMigrations": typeof functions_clientManagement_clientMigrations;
