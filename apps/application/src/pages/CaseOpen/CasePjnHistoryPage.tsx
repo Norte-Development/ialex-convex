@@ -1,6 +1,6 @@
 import { useCase } from "@/context/CaseContext"
 import CaseLayout from "@/components/Cases/CaseLayout"
-import { useQuery, useAction } from "convex/react"
+import { useQuery, useMutation } from "convex/react"
 import { api } from "../../../convex/_generated/api"
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
@@ -27,12 +27,19 @@ import {
 } from "lucide-react"
 import { toast } from "sonner"
 import { Skeleton } from "@/components/ui/skeleton"
+import { CaseHistorySyncProgress } from "@/components/Cases/CaseHistorySyncProgress"
 
 export default function CasePjnHistoryPage() {
   const { currentCase } = useCase()
   const [isSyncing, setIsSyncing] = useState(false)
 
-  const syncAction = useAction(api.pjn.caseHistory.syncCaseHistoryForCase)
+  const retrySync = useMutation(api.functions.pjnCaseHistory.retryCaseHistorySync)
+  
+  // Fetch the current sync job status
+  const syncJob = useQuery(
+    api.functions.pjnCaseHistory.getCaseHistorySyncStatus,
+    currentCase ? { caseId: currentCase._id } : "skip"
+  )
 
   const actuaciones = useQuery(
     api.functions.pjnHistory.getCaseActuaciones,
@@ -64,16 +71,12 @@ export default function CasePjnHistoryPage() {
 
     setIsSyncing(true)
     try {
-      const result = await syncAction({ caseId: currentCase._id })
+      const result = await retrySync({ caseId: currentCase._id })
 
-      if (result.status === "OK") {
-        toast.success(
-          `Sincronización completada: ${result.movimientosSynced} movimientos, ${result.documentsSynced} documentos, ${result.participantsSynced} participantes, ${result.appealsSynced} recursos, ${result.relatedCasesSynced} vinculados`
-        )
-      } else if (result.status === "AUTH_REQUIRED") {
-        toast.error(`Se requiere autenticación: ${result.reason}`)
+      if (result.success) {
+        toast.success("Sincronización iniciada en segundo plano")
       } else {
-        toast.error(`Error: ${result.error}`)
+        toast.error(`Error: ${"error" in result ? result.error : "Error desconocido"}`)
       }
     } catch (error) {
       toast.error(
@@ -83,6 +86,15 @@ export default function CasePjnHistoryPage() {
       setIsSyncing(false)
     }
   }
+
+  // Check if there's an active sync job (queued or running)
+  const hasActiveSync = syncJob && (syncJob.status === "queued" || syncJob.status === "running")
+  
+  // Show completed job briefly (for 10 seconds after completion)
+  const showCompletedJob = syncJob && 
+    syncJob.status === "completed" && 
+    syncJob.finishedAt && 
+    Date.now() - syncJob.finishedAt < 10000
 
   const formatDate = (timestamp: number) => {
     return new Date(timestamp).toLocaleDateString("es-AR", {
@@ -138,7 +150,7 @@ export default function CasePjnHistoryPage() {
           </div>
           <Button
             onClick={handleSync}
-            disabled={isSyncing || !currentCase.fre}
+            disabled={isSyncing || !currentCase.fre || hasActiveSync}
             className="gap-2"
           >
             {isSyncing ? (
@@ -146,9 +158,26 @@ export default function CasePjnHistoryPage() {
             ) : (
               <RefreshCw className="h-4 w-4" />
             )}
-            {isSyncing ? "Sincronizando..." : "Sincronizar desde PJN"}
+            {isSyncing ? "Iniciando..." : hasActiveSync ? "Sincronizando..." : "Sincronizar desde PJN"}
           </Button>
         </div>
+
+        {/* Sync Progress */}
+        {(hasActiveSync || showCompletedJob || (syncJob && (syncJob.status === "failed" || syncJob.status === "auth_required"))) && (
+          <CaseHistorySyncProgress
+            status={syncJob.status}
+            phase={syncJob.phase}
+            progress={syncJob.progressPercent}
+            errorMessage={syncJob.errorMessage}
+            movimientosProcessed={syncJob.movimientosProcessed}
+            documentsProcessed={syncJob.documentsProcessed}
+            participantsProcessed={syncJob.participantsProcessed}
+            appealsProcessed={syncJob.appealsProcessed}
+            relatedCasesProcessed={syncJob.relatedCasesProcessed}
+            onRetry={handleSync}
+            retrying={isSyncing}
+          />
+        )}
 
         {/* Tabs */}
         <Tabs defaultValue="movimientos" className="w-full">

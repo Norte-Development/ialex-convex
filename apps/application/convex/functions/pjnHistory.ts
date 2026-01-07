@@ -1,20 +1,18 @@
 import { v } from "convex/values"
 import { query } from "../_generated/server"
+import { Id } from "../_generated/dataModel"
 
 export const getCaseActuaciones = query({
   args: { caseId: v.id("cases") },
-  returns: v.array(
-    v.object({
-      _id: v.id("caseActuaciones"),
-      movementDate: v.number(),
-      description: v.string(),
-      hasDocument: v.boolean(),
-      documentId: v.optional(v.id("documents")),
-      gcsPath: v.optional(v.string()),
-      rawDate: v.optional(v.string()),
-    })
-  ),
-  handler: async (ctx, args) => {
+  handler: async (ctx, args): Promise<Array<{
+    _id: Id<"caseActuaciones">;
+    movementDate: number;
+    description: string;
+    hasDocument: boolean;
+    documentId?: Id<"documents">;
+    gcsPath?: string;
+    rawDate?: string;
+  }>> => {
     const actuaciones = await ctx.db
       .query("caseActuaciones")
       .withIndex("by_case_and_date", (q) => q.eq("caseId", args.caseId))
@@ -35,17 +33,14 @@ export const getCaseActuaciones = query({
 
 export const getPjnActivityLog = query({
   args: { caseId: v.id("cases") },
-  returns: v.array(
-    v.object({
-      _id: v.id("pjnActivityLog"),
-      _creationTime: v.number(),
-      action: v.string(),
-      pjnMovementId: v.optional(v.union(v.string(), v.null())),
-      metadata: v.optional(v.any()),
-      timestamp: v.number(),
-    })
-  ),
-  handler: async (ctx, args) => {
+  handler: async (ctx, args): Promise<Array<{
+    _id: Id<"pjnActivityLog">;
+    _creationTime: number;
+    action: string;
+    pjnMovementId?: string | null;
+    metadata?: any;
+    timestamp: number;
+  }>> => {
     const logs = await ctx.db
       .query("pjnActivityLog")
       .withIndex("by_case", (q) => q.eq("caseId", args.caseId))
@@ -65,16 +60,13 @@ export const getPjnActivityLog = query({
 
 export const getCaseParticipants = query({
   args: { caseId: v.id("cases") },
-  returns: v.array(
-    v.object({
-      _id: v.id("caseParticipants"),
-      role: v.string(),
-      name: v.string(),
-      details: v.optional(v.string()),
-      syncedAt: v.number(),
-    })
-  ),
-  handler: async (ctx, args) => {
+  handler: async (ctx, args): Promise<Array<{
+    _id: Id<"caseParticipants">;
+    role: string;
+    name: string;
+    details?: string;
+    syncedAt: number;
+  }>> => {
     const participants = await ctx.db
       .query("caseParticipants")
       .withIndex("by_case", (q) => q.eq("caseId", args.caseId))
@@ -92,18 +84,15 @@ export const getCaseParticipants = query({
 
 export const getCaseAppeals = query({
   args: { caseId: v.id("cases") },
-  returns: v.array(
-    v.object({
-      _id: v.id("caseAppeals"),
-      appealType: v.string(),
-      filedDate: v.optional(v.string()),
-      status: v.optional(v.string()),
-      court: v.optional(v.string()),
-      description: v.optional(v.string()),
-      syncedAt: v.number(),
-    })
-  ),
-  handler: async (ctx, args) => {
+  handler: async (ctx, args): Promise<Array<{
+    _id: Id<"caseAppeals">;
+    appealType: string;
+    filedDate?: string;
+    status?: string;
+    court?: string;
+    description?: string;
+    syncedAt: number;
+  }>> => {
     const appeals = await ctx.db
       .query("caseAppeals")
       .withIndex("by_case", (q) => q.eq("caseId", args.caseId))
@@ -123,18 +112,15 @@ export const getCaseAppeals = query({
 
 export const getRelatedCases = query({
   args: { caseId: v.id("cases") },
-  returns: v.array(
-    v.object({
-      _id: v.id("relatedCases"),
-      relatedFre: v.string(),
-      relationshipType: v.string(),
-      relatedCaratula: v.optional(v.string()),
-      relatedCourt: v.optional(v.string()),
-      relatedCaseId: v.optional(v.id("cases")),
-      syncedAt: v.number(),
-    })
-  ),
-  handler: async (ctx, args) => {
+  handler: async (ctx, args): Promise<Array<{
+    _id: Id<"relatedCases">;
+    relatedFre: string;
+    relationshipType: string;
+    relatedCaratula?: string;
+    relatedCourt?: string;
+    relatedCaseId?: Id<"cases">;
+    syncedAt: number;
+  }>> => {
     const related = await ctx.db
       .query("relatedCases")
       .withIndex("by_case", (q) => q.eq("caseId", args.caseId))

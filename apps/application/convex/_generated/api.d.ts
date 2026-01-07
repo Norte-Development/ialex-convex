@@ -132,6 +132,7 @@ import type * as functions_libraryFolders from "../functions/libraryFolders.js";
 import type * as functions_mercadopagoAdmin from "../functions/mercadopagoAdmin.js";
 import type * as functions_mercadopagoImport from "../functions/mercadopagoImport.js";
 import type * as functions_permissions from "../functions/permissions.js";
+import type * as functions_pjnCaseHistory from "../functions/pjnCaseHistory.js";
 import type * as functions_pjnHistory from "../functions/pjnHistory.js";
 import type * as functions_popups from "../functions/popups.js";
 import type * as functions_prompts from "../functions/prompts.js";
@@ -174,9 +175,11 @@ import type * as migrations_types from "../migrations/types.js";
 import type * as notifications from "../notifications.js";
 import type * as pjn_accounts from "../pjn/accounts.js";
 import type * as pjn_caseHistory from "../pjn/caseHistory.js";
+import type * as pjn_caseHistoryJobs from "../pjn/caseHistoryJobs.js";
 import type * as pjn_cron from "../pjn/cron.js";
 import type * as pjn_cronHandlers from "../pjn/cronHandlers.js";
 import type * as pjn_sync from "../pjn/sync.js";
+import type * as pjn_trigger from "../pjn/trigger.js";
 import type * as prosemirror from "../prosemirror.js";
 import type * as rag_qdrantUtils_caseDocuments from "../rag/qdrantUtils/caseDocuments.js";
 import type * as rag_qdrantUtils_client from "../rag/qdrantUtils/client.js";
@@ -200,6 +203,7 @@ import type * as utils_pjnConstants from "../utils/pjnConstants.js";
 import type * as utils_resend from "../utils/resend.js";
 import type * as whatsapp_twilio from "../whatsapp/twilio.js";
 import type * as whatsapp_whatsapp from "../whatsapp/whatsapp.js";
+import type * as workflows_pjnCaseHistoryWorkflow from "../workflows/pjnCaseHistoryWorkflow.js";
 
 import type {
   ApiFromModules,
@@ -332,6 +336,7 @@ declare const fullApi: ApiFromModules<{
   "functions/mercadopagoAdmin": typeof functions_mercadopagoAdmin;
   "functions/mercadopagoImport": typeof functions_mercadopagoImport;
   "functions/permissions": typeof functions_permissions;
+  "functions/pjnCaseHistory": typeof functions_pjnCaseHistory;
   "functions/pjnHistory": typeof functions_pjnHistory;
   "functions/popups": typeof functions_popups;
   "functions/prompts": typeof functions_prompts;
@@ -374,9 +379,11 @@ declare const fullApi: ApiFromModules<{
   notifications: typeof notifications;
   "pjn/accounts": typeof pjn_accounts;
   "pjn/caseHistory": typeof pjn_caseHistory;
+  "pjn/caseHistoryJobs": typeof pjn_caseHistoryJobs;
   "pjn/cron": typeof pjn_cron;
   "pjn/cronHandlers": typeof pjn_cronHandlers;
   "pjn/sync": typeof pjn_sync;
+  "pjn/trigger": typeof pjn_trigger;
   prosemirror: typeof prosemirror;
   "rag/qdrantUtils/caseDocuments": typeof rag_qdrantUtils_caseDocuments;
   "rag/qdrantUtils/client": typeof rag_qdrantUtils_client;
@@ -400,6 +407,7 @@ declare const fullApi: ApiFromModules<{
   "utils/resend": typeof utils_resend;
   "whatsapp/twilio": typeof whatsapp_twilio;
   "whatsapp/whatsapp": typeof whatsapp_whatsapp;
+  "workflows/pjnCaseHistoryWorkflow": typeof workflows_pjnCaseHistoryWorkflow;
 }>;
 
 /**

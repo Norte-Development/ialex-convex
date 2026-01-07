@@ -1,5 +1,5 @@
 import { v } from "convex/values";
-import { action, internalMutation, internalQuery } from "../_generated/server";
+import { action, internalAction, internalMutation, internalQuery } from "../_generated/server";
 import { api, internal } from "../_generated/api";
 import { Id } from "../_generated/dataModel";
 
@@ -123,31 +123,33 @@ export const searchCaseHistory = action({
     caseNumber: v.string(),
     year: v.number(),
   },
-  returns: v.union(
-    v.object({
-      status: v.literal("OK"),
-      fre: v.string(),
-      cid: v.union(v.string(), v.null()),
-      candidates: v.array(v.any()),
-      caseMetadata: v.optional(v.any()),
-    }),
-    v.object({
-      status: v.literal("NOT_FOUND"),
-      fre: v.string(),
-      candidates: v.array(v.any()),
-    }),
-    v.object({
-      status: v.literal("AUTH_REQUIRED"),
-      reason: v.string(),
-      details: v.optional(v.any()),
-    }),
-    v.object({
-      status: v.literal("ERROR"),
-      error: v.string(),
-      code: v.optional(v.string()),
-    })
-  ),
-  handler: async (ctx, args) => {
+  handler: async (
+    ctx,
+    args
+  ): Promise<
+    | {
+        status: "OK";
+        fre: string;
+        cid: string | null;
+        candidates: Array<any>;
+        caseMetadata?: any;
+      }
+    | {
+        status: "NOT_FOUND";
+        fre: string;
+        candidates: Array<any>;
+      }
+    | {
+        status: "AUTH_REQUIRED";
+        reason: string;
+        details?: any;
+      }
+    | {
+        status: "ERROR";
+        error: string;
+        code?: string;
+      }
+  > => {
     const scraperUrl = process.env.PJN_SCRAPER_URL;
     if (!scraperUrl) {
       throw new Error("PJN_SCRAPER_URL environment variable is not set");
@@ -406,34 +408,36 @@ export const syncCaseHistoryForCase = action({
   args: {
     caseId: v.id("cases"),
   },
-  returns: v.union(
-    v.object({
-      status: v.literal("OK"),
-      movimientosSynced: v.number(),
-      documentsSynced: v.number(),
-      participantsSynced: v.number(),
-      appealsSynced: v.number(),
-      relatedCasesSynced: v.number(),
-      stats: v.object({
-        movimientosCount: v.number(),
-        docsCount: v.number(),
-        downloadErrors: v.number(),
-        durationMs: v.number(),
-      }),
-      lastSyncAt: v.number(),
-    }),
-    v.object({
-      status: v.literal("AUTH_REQUIRED"),
-      reason: v.string(),
-      details: v.optional(v.any()),
-    }),
-    v.object({
-      status: v.literal("ERROR"),
-      error: v.string(),
-      code: v.optional(v.string()),
-    }),
-  ),
-  handler: async (ctx, args) => {
+  handler: async (
+    ctx,
+    args
+  ): Promise<
+    | {
+        status: "OK";
+        movimientosSynced: number;
+        documentsSynced: number;
+        participantsSynced: number;
+        appealsSynced: number;
+        relatedCasesSynced: number;
+        stats: {
+          movimientosCount: number;
+          docsCount: number;
+          downloadErrors: number;
+          durationMs: number;
+        };
+        lastSyncAt: number;
+      }
+    | {
+        status: "AUTH_REQUIRED";
+        reason: string;
+        details?: any;
+      }
+    | {
+        status: "ERROR";
+        error: string;
+        code?: string;
+      }
+  > => {
     const scraperUrl = process.env.PJN_SCRAPER_URL;
     if (!scraperUrl) {
       throw new Error("PJN_SCRAPER_URL environment variable is not set");
@@ -827,6 +831,416 @@ export const syncCaseHistoryForCase = action({
 });
 
 /**
+ * Internal action version of syncCaseHistoryForCase that can be called from workflows.
+ * This includes progress tracking for the job.
+ */
+export const syncCaseHistoryForCaseInternal = internalAction({
+  args: {
+    caseId: v.id("cases"),
+    userId: v.id("users"),
+    jobId: v.id("pjnCaseHistorySyncJobs"),
+  },
+  handler: async (
+    ctx,
+    args
+  ): Promise<
+    | {
+        status: "OK";
+        movimientosSynced: number;
+        documentsSynced: number;
+        participantsSynced: number;
+        appealsSynced: number;
+        relatedCasesSynced: number;
+        stats: {
+          movimientosCount: number;
+          docsCount: number;
+          downloadErrors: number;
+          durationMs: number;
+        };
+        lastSyncAt: number;
+      }
+    | {
+        status: "AUTH_REQUIRED";
+        reason: string;
+        details?: any;
+      }
+    | {
+        status: "ERROR";
+        error: string;
+        code?: string;
+      }
+  > => {
+    const scraperUrl = process.env.PJN_SCRAPER_URL;
+    if (!scraperUrl) {
+      throw new Error("PJN_SCRAPER_URL environment variable is not set");
+    }
+
+    const serviceAuthSecret = process.env.EXPEDIENTES_SCRAPER_SECRET;
+    if (!serviceAuthSecret) {
+      throw new Error("EXPEDIENTES_SCRAPER_SECRET environment variable is not set");
+    }
+
+    const { caseId, userId, jobId } = args;
+
+    // Load the case directly from the database (we're already in an internal action)
+    const caseDoc = await ctx.runQuery(internal.functions.cases.getCaseByIdInternal, {
+      caseId,
+    });
+
+    if (!caseDoc) {
+      return {
+        status: "ERROR" as const,
+        error: "Case not found",
+        code: "CASE_NOT_FOUND",
+      };
+    }
+
+    if (!caseDoc.fre) {
+      return {
+        status: "ERROR" as const,
+        error:
+          "El caso no tiene FRE configurado. Agrega el FRE en los datos del caso antes de sincronizar.",
+        code: "MISSING_FRE",
+      };
+    }
+
+    const fre: string = caseDoc.fre;
+
+    // Helper function to attempt automatic reauth using stored credentials
+    const attemptAutomaticReauth = async (): Promise<
+      "ok" | "auth_failed" | "error" | "no_credentials"
+    > => {
+      const credentials = await ctx.runQuery(
+        internal.pjn.accounts.getDecryptedPassword,
+        { userId }
+      );
+
+      if (!credentials) {
+        console.log(
+          `No stored credentials found for user ${String(userId)}, manual reauth required`
+        );
+        return "no_credentials";
+      }
+
+      try {
+        const reauthResponse = await fetch(`${scraperUrl}/reauth`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "X-Service-Auth": serviceAuthSecret,
+          },
+          body: JSON.stringify({
+            userId: userId as string,
+            username: credentials.username,
+            password: credentials.password,
+          }),
+        });
+
+        if (!reauthResponse.ok) {
+          const errorText = await reauthResponse.text();
+          console.error(
+            `Reauth failed for user ${String(userId)}: ${reauthResponse.status} - ${errorText}`
+          );
+          await ctx.runMutation(internal.pjn.accounts.markNeedsReauth, {
+            userId,
+            reason: `Scraper returned ${reauthResponse.status}`,
+          });
+          return "error";
+        }
+
+        const reauthResult = (await reauthResponse.json()) as {
+          status: string;
+          reason?: string;
+          error?: string;
+        };
+
+        if (reauthResult.status === "AUTH_FAILED") {
+          const reason =
+            reauthResult.reason && typeof reauthResult.reason === "string"
+              ? reauthResult.reason
+              : "Invalid credentials";
+
+          console.log(`Automatic reauth failed for user ${String(userId)}: ${reason}`);
+          await ctx.runMutation(internal.pjn.accounts.markNeedsReauth, {
+            userId,
+            reason,
+          });
+          return "auth_failed";
+        }
+
+        if (reauthResult.status === "ERROR") {
+          const errorMessage =
+            reauthResult.error && typeof reauthResult.error === "string"
+              ? reauthResult.error
+              : "Unknown error";
+
+          console.error(`Reauth error for user ${String(userId)}: ${errorMessage}`);
+          await ctx.runMutation(internal.pjn.accounts.markNeedsReauth, {
+            userId,
+            reason: errorMessage,
+          });
+          return "error";
+        }
+
+        if (reauthResult.status === "OK") {
+          console.log(`Automatic reauth succeeded for user ${String(userId)}`);
+          await ctx.runMutation(internal.pjn.accounts.clearNeedsReauth, {
+            userId,
+          });
+          return "ok";
+        }
+
+        console.warn(
+          `Unexpected reauth status for user ${String(userId)}: ${reauthResult.status}`
+        );
+        await ctx.runMutation(internal.pjn.accounts.markNeedsReauth, {
+          userId,
+          reason: `Unexpected reauth status: ${reauthResult.status}`,
+        });
+        return "error";
+      } catch (error) {
+        console.error(`Reauth request failed for user ${String(userId)}:`, error);
+        await ctx.runMutation(internal.pjn.accounts.markNeedsReauth, {
+          userId,
+          reason: error instanceof Error ? error.message : "Automatic reauth failed",
+        });
+        return "error";
+      }
+    };
+
+    // Get account info
+    const account: Array<{
+      accountId: string;
+      userId: Id<"users">;
+      username: string;
+      lastSyncedAt: number | undefined;
+      lastEventId: string | undefined;
+      needsReauth: boolean | undefined;
+    }> = await ctx.runQuery(internal.pjn.accounts.listActiveAccounts);
+    const userAccount = account.find((a) => a.userId === userId);
+
+    if (!userAccount) {
+      return {
+        status: "AUTH_REQUIRED" as const,
+        reason: "No PJN account found. Please connect your PJN account first.",
+      };
+    }
+
+    // If account needs reauth, attempt automatic reauth
+    if (userAccount.needsReauth) {
+      console.log(`Attempting automatic reauth for user ${String(userId)}`);
+      const reauthResult = await attemptAutomaticReauth();
+      if (reauthResult !== "ok") {
+        return {
+          status: "AUTH_REQUIRED" as const,
+          reason:
+            reauthResult === "no_credentials"
+              ? "No stored credentials found. Please reconnect your PJN account."
+              : "Session expired and could not be refreshed. Please reconnect your PJN account.",
+        };
+      }
+    }
+
+    const requestBody: {
+      userId: string;
+      fre: string;
+      includeMovements?: boolean;
+      includeDocuments?: boolean;
+      maxMovements?: number;
+      maxDocuments?: number;
+    } = {
+      userId: userId as string,
+      fre,
+    };
+
+    try {
+      // Update progress: fetching history (10-30%)
+      await ctx.runMutation(internal.pjn.caseHistoryJobs.updateJobProgress, {
+        jobId,
+        phase: "fetching_history",
+        progressPercent: 20,
+      });
+
+      // Helper function to perform the details request
+      const performDetails = async (): Promise<CaseHistoryDetailsResponse> => {
+        const response = await fetch(`${scraperUrl}/scrape/case-history/details`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "X-Service-Auth": serviceAuthSecret,
+          },
+          body: JSON.stringify(requestBody),
+        });
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          throw new Error(`Scraper returned ${response.status}: ${errorText}`);
+        }
+
+        const result = (await response.json()) as CaseHistoryDetailsResponse;
+        return result;
+      };
+
+      // First attempt to fetch details with the current session
+      let detailsResult = await performDetails();
+
+      if (detailsResult.status === "AUTH_REQUIRED") {
+        console.log(
+          `Session expired or invalid for user ${String(userId)}, attempting automatic reauth for details sync`
+        );
+
+        const reauthResult = await attemptAutomaticReauth();
+
+        if (reauthResult !== "ok") {
+          return {
+            status: "AUTH_REQUIRED" as const,
+            reason:
+              reauthResult === "no_credentials"
+                ? "No stored credentials found. Please reconnect your PJN account."
+                : "Session expired and could not be refreshed. Please reconnect your PJN account.",
+          };
+        }
+
+        // Reauth succeeded; retry details once
+        detailsResult = await performDetails();
+
+        if (detailsResult.status === "AUTH_REQUIRED") {
+          await ctx.runMutation(internal.pjn.accounts.markNeedsReauth, {
+            userId,
+            reason: "Session still invalid after automatic reauth",
+          });
+          return {
+            status: "AUTH_REQUIRED" as const,
+            reason:
+              "Session still invalid after automatic reauth. Please reconnect your PJN account.",
+          };
+        }
+      }
+
+      if (detailsResult.status === "ERROR") {
+        return {
+          status: "ERROR" as const,
+          error: detailsResult.error,
+          code: detailsResult.code,
+        };
+      }
+
+      if (detailsResult.status !== "OK") {
+        return {
+          status: "ERROR" as const,
+          error: "Unexpected response from scraper",
+          code: "SCRAPER_UNEXPECTED_RESPONSE",
+        };
+      }
+
+      const movimientos: NormalizedMovement[] = detailsResult.movimientos ?? [];
+      const docDigitales: NormalizedDigitalDocument[] =
+        detailsResult.docDigitales ?? [];
+
+      // Update progress: ingesting movements (30-60%)
+      await ctx.runMutation(internal.pjn.caseHistoryJobs.updateJobProgress, {
+        jobId,
+        phase: "ingesting_movements",
+        progressPercent: 40,
+      });
+
+      // Ingest movimientos
+      for (const movement of movimientos) {
+        await ctx.runMutation(internal.pjn.sync.upsertActuacion, {
+          userId,
+          caseId,
+          movement,
+        });
+        await ctx.runMutation(internal.pjn.sync.createDocketMovementEntry, {
+          userId,
+          caseId,
+          movement,
+        });
+      }
+
+      // Update progress: ingesting documents (60-80%)
+      await ctx.runMutation(internal.pjn.caseHistoryJobs.updateJobProgress, {
+        jobId,
+        phase: "ingesting_documents",
+        progressPercent: 70,
+      });
+
+      // Ingest historical documents
+      for (const document of docDigitales) {
+        await ctx.runMutation(internal.pjn.sync.createHistoricalDocumentEntry, {
+          userId,
+          caseId,
+          document,
+        });
+      }
+
+      // Ingest participants
+      const intervinientes = detailsResult.intervinientes ?? [];
+      for (const participant of intervinientes) {
+        await ctx.runMutation(internal.pjn.sync.createParticipantEntry, {
+          caseId,
+          participant,
+        });
+      }
+
+      // Ingest appeals
+      const recursos = detailsResult.recursos ?? [];
+      for (const appeal of recursos) {
+        await ctx.runMutation(internal.pjn.sync.createAppealEntry, {
+          caseId,
+          appeal,
+        });
+      }
+
+      // Ingest related cases
+      const vinculados = detailsResult.vinculados ?? [];
+      for (const relatedCase of vinculados) {
+        await ctx.runMutation(internal.pjn.sync.createRelatedCaseEntry, {
+          caseId,
+          relatedCase,
+        });
+      }
+
+      const lastSyncAt = Date.now();
+      await ctx.runMutation(internal.pjn.caseHistory.setLastPjnHistorySyncAt, {
+        caseId,
+        lastSyncAt,
+      });
+
+      return {
+        status: "OK" as const,
+        movimientosSynced: movimientos.length,
+        documentsSynced: docDigitales.length,
+        participantsSynced: intervinientes.length,
+        appealsSynced: recursos.length,
+        relatedCasesSynced: vinculados.length,
+        stats: {
+          movimientosCount: detailsResult.stats.movimientosCount,
+          docsCount: detailsResult.stats.docsCount,
+          downloadErrors: detailsResult.stats.downloadErrors,
+          durationMs: detailsResult.stats.durationMs,
+        },
+        lastSyncAt,
+      };
+    } catch (error) {
+      console.error(
+        `Case history sync failed for user ${String(userId)} and case ${String(caseId)}:`,
+        error
+      );
+      await ctx.runMutation(internal.pjn.accounts.markNeedsReauth, {
+        userId,
+        reason: error instanceof Error ? error.message : "Unknown error",
+      });
+      return {
+        status: "ERROR" as const,
+        error: error instanceof Error ? error.message : "Unknown error",
+        code: "SCRAPE_ERROR",
+      };
+    }
+  },
+});
+
+/**
  * Internal mutation to update lastPjnHistorySyncAt for a case.
  * This keeps all direct DB writes in mutation contexts.
  */
@@ -835,8 +1249,7 @@ export const setLastPjnHistorySyncAt = internalMutation({
     caseId: v.id("cases"),
     lastSyncAt: v.number(),
   },
-  returns: v.null(),
-  handler: async (ctx, args) => {
+  handler: async (ctx, args): Promise<null> => {
     await ctx.db.patch(args.caseId, {
       lastPjnHistorySyncAt: args.lastSyncAt,
     });
@@ -851,28 +1264,23 @@ export const listActuacionesForCase = internalQuery({
   args: {
     caseId: v.id("cases"),
   },
-  returns: v.array(
-    v.object({
-      _id: v.id("caseActuaciones"),
-      caseId: v.id("cases"),
-      fre: v.optional(v.string()),
-      pjnMovementId: v.string(),
-      movementDate: v.number(),
-      rawDate: v.optional(v.string()),
-      description: v.string(),
-      hasDocument: v.boolean(),
-      documentSource: v.optional(
-        v.union(v.literal("actuaciones"), v.literal("doc_digitales"))
-      ),
-      docRef: v.optional(v.string()),
-      gcsPath: v.optional(v.string()),
-      documentId: v.optional(v.id("documents")),
-      origin: v.union(v.literal("history_sync"), v.literal("notification")),
-      syncedFrom: v.literal("pjn"),
-      syncedAt: v.number(),
-    })
-  ),
-  handler: async (ctx, args) => {
+  handler: async (ctx, args): Promise<Array<{
+    _id: Id<"caseActuaciones">;
+    caseId: Id<"cases">;
+    fre?: string;
+    pjnMovementId: string;
+    movementDate: number;
+    rawDate?: string;
+    description: string;
+    hasDocument: boolean;
+    documentSource?: "actuaciones" | "doc_digitales";
+    docRef?: string;
+    gcsPath?: string;
+    documentId?: Id<"documents">;
+    origin: "history_sync" | "notification";
+    syncedFrom: "pjn";
+    syncedAt: number;
+  }>> => {
     const actuaciones = await ctx.db
       .query("caseActuaciones")
       .withIndex("by_case_and_date", (q) => q.eq("caseId", args.caseId))

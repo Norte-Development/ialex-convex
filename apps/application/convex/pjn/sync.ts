@@ -768,7 +768,6 @@ export const createParticipantEntry = internalMutation({
       details: v.optional(v.string()),
     }),
   },
-  returns: v.null(),
   handler: async (ctx, args): Promise<null> => {
     // Idempotency check
     const existing = await ctx.db
@@ -806,7 +805,6 @@ export const createAppealEntry = internalMutation({
       description: v.optional(v.string()),
     }),
   },
-  returns: v.null(),
   handler: async (ctx, args): Promise<null> => {
     // Idempotency check
     const existing = await ctx.db
@@ -845,7 +843,6 @@ export const createRelatedCaseEntry = internalMutation({
       relatedCourt: v.optional(v.string()),
     }),
   },
-  returns: v.null(),
   handler: async (ctx, args): Promise<null> => {
     // Idempotency check
     const existing = await ctx.db
@@ -871,6 +868,31 @@ export const createRelatedCaseEntry = internalMutation({
       relatedCaseId: linkedCase?._id,
       syncedFrom: "pjn",
       syncedAt: Date.now(),
+    });
+    return null;
+  },
+});
+
+/**
+ * Internal mutation to log PJN activity.
+ * Used by workflows and internal processes to track PJN operations.
+ */
+export const logPjnActivity = internalMutation({
+  args: {
+    userId: v.id("users"),
+    caseId: v.optional(v.id("cases")),
+    action: v.string(),
+    source: v.optional(v.string()),
+    metadata: v.optional(v.any()),
+  },
+  handler: async (ctx, args): Promise<null> => {
+    await ctx.db.insert("pjnActivityLog", {
+      userId: args.userId,
+      caseId: args.caseId,
+      action: args.action,
+      source: args.source ?? "internal",
+      metadata: args.metadata,
+      timestamp: Date.now(),
     });
     return null;
   },

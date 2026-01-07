@@ -1117,6 +1117,56 @@ export default defineSchema({
     .index("by_sent_date", ["sentAt"]),
 
   // ========================================
+  // PJN CASE HISTORY SYNC JOBS
+  // ========================================
+
+  // PJN Case History Sync Jobs - tracks long-running sync operations
+  pjnCaseHistorySyncJobs: defineTable({
+    caseId: v.id("cases"),
+    userId: v.id("users"),
+    status: v.union(
+      v.literal("queued"),
+      v.literal("running"),
+      v.literal("completed"),
+      v.literal("failed"),
+      v.literal("auth_required"),
+    ),
+    phase: v.optional(
+      v.union(
+        v.literal("connecting"),
+        v.literal("fetching_history"),
+        v.literal("ingesting_movements"),
+        v.literal("ingesting_documents"),
+        v.literal("finalizing"),
+      ),
+    ),
+    progressPercent: v.optional(v.number()), // 0-100
+    errorMessage: v.optional(v.string()),
+    
+    // Stats
+    movimientosProcessed: v.optional(v.number()),
+    documentsProcessed: v.optional(v.number()),
+    participantsProcessed: v.optional(v.number()),
+    appealsProcessed: v.optional(v.number()),
+    relatedCasesProcessed: v.optional(v.number()),
+    durationMs: v.optional(v.number()),
+    
+    // Retry tracking
+    retryAttempt: v.optional(v.number()),
+    
+    // Timestamps
+    createdAt: v.number(),
+    startedAt: v.optional(v.number()),
+    finishedAt: v.optional(v.number()),
+    lastUpdatedAt: v.number(),
+  })
+    .index("by_case", ["caseId"])
+    .index("by_user", ["userId"])
+    .index("by_status", ["status"])
+    .index("by_case_and_status", ["caseId", "status"])
+    .index("by_created_at", ["createdAt"]),
+
+  // ========================================
   // GOOGLE DRIVE INTEGRATION
   // ========================================
 

@@ -13,6 +13,7 @@ import {
   checkNewCaseAccess,
 } from "../auth_utils";
 import { internal } from "../_generated/api";
+import { Doc } from "../_generated/dataModel";
 import { _checkLimit, _getBillingEntity } from "../billing/features";
 import { Id } from "../_generated/dataModel";
 import { caseUpdateTemplate } from "../services/emailTemplates";
@@ -189,6 +190,18 @@ export const createCase = mutation({
       });
     }
 
+    // If FRE was provided at creation, queue a PJN case history sync
+    if (args.fre) {
+      await ctx.scheduler.runAfter(
+        0,
+        internal.pjn.trigger.queueCaseHistorySyncForCase,
+        {
+          caseId,
+          userId: currentUser._id,
+        }
+      );
+    }
+
     console.log("Created case with id:", caseId);
     return caseId;
   },
@@ -238,8 +251,24 @@ export const updateCase = mutation({
     if (args.priority !== undefined) updates.priority = args.priority;
     if (args.category !== undefined) updates.category = args.category;
     if (args.assignedLawyer !== undefined) updates.assignedLawyer = args.assignedLawyer;
+    
+    // Track if FRE changed
+    const freChanged = args.fre !== undefined && args.fre !== existingCase.fre;
     if (args.fre !== undefined) updates.fre = args.fre;
+    
     await ctx.db.patch(args.caseId, updates);
+
+    // If FRE was set or changed, queue a PJN case history sync
+    if (freChanged && args.fre) {
+      await ctx.scheduler.runAfter(
+        0,
+        internal.pjn.trigger.queueCaseHistorySyncForCase,
+        {
+          caseId: args.caseId,
+          userId: currentUser._id,
+        }
+      );
+    }
 
     // Send notification if status changed
     if (args.status !== undefined && args.status !== existingCase.status) {
@@ -697,6 +726,16 @@ export const getCaseById = query({
     }
 
     return caseData;
+  },
+});
+
+/**
+ * Internal query to get a case by ID without auth (for internal workflows)
+ */
+export const getCaseByIdInternal = internalQuery({
+  args: { caseId: v.id("cases") },
+  handler: async (ctx, args): Promise<Doc<"cases"> | null> => {
+    return await ctx.db.get(args.caseId);
   },
 });
 
