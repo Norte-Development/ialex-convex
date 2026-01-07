@@ -1,6 +1,6 @@
 import { useCase } from "@/context/CaseContext";
 import CaseLayout from "@/components/Cases/CaseLayout";
-import { CaseSummaryPanel } from "@/components/Cases/CaseSummaryPanel";
+import { CaseSummaryPanel } from "@/components/Cases/CaseSummary";
 import { Badge } from "../../components/ui/badge";
 import { Button } from "../../components/ui/button";
 import {
