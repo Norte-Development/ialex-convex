@@ -1,7 +1,7 @@
 import { v } from "convex/values";
 import { internalAction, internalMutation } from "../_generated/server";
 import { internal } from "../_generated/api";
-import { Id } from "../_generated/dataModel";
+import { Id, Doc } from "../_generated/dataModel";
 
 /**
  * Sync notifications for a single user
@@ -362,7 +362,72 @@ export const createActivityLogEntry = internalMutation({
 });
 
 /**
- * Create document entry for a PJN PDF
+ * Shared helper to create or get a PJN document from GCS path.
+ * Returns the documentId if successful, null otherwise.
+ */
+async function createOrGetPjnDocument(
+  ctx: any, // Using any to avoid complex type inference issues with MutationCtx
+  params: {
+    gcsPath: string;
+    caseId: Id<"cases">;
+    userId: Id<"users">;
+    title: string;
+    description: string;
+    originalFileName: string;
+    tags: string[];
+  },
+): Promise<Id<"documents"> | null> {
+  // Parse GCS path: gs://bucket/path/to/file.pdf
+  const gcsMatch = params.gcsPath.match(/^gs:\/\/([^\/]+)\/(.+)$/);
+  if (!gcsMatch) {
+    console.error("Invalid GCS path format:", params.gcsPath);
+    return null;
+  }
+
+  const [, bucket, objectPath] = gcsMatch;
+
+  // Check if document already exists (idempotency)
+  const existing = await ctx.db
+    .query("documents")
+    .withIndex("by_gcs_object", (q: any) => q.eq("gcsObject", objectPath))
+    .first();
+
+  if (existing) {
+    // Document already exists, return existing ID
+    return existing._id;
+  }
+
+  // Create new document
+  const documentId = await ctx.db.insert("documents", {
+    title: params.title,
+    description: params.description,
+    caseId: params.caseId,
+    documentType: "court_filing",
+    storageBackend: "gcs",
+    gcsBucket: bucket,
+    gcsObject: objectPath,
+    originalFileName: params.originalFileName,
+    mimeType: "application/pdf",
+    fileSize: 0, // Will be updated by document-processor
+    createdBy: params.userId,
+    processingStatus: "pending",
+    tags: params.tags,
+  });
+
+  // Enqueue document for processing using the standard document pipeline
+  await ctx.scheduler.runAfter(
+    0,
+    internal.functions.documentProcessing.processDocument,
+    {
+      documentId,
+    },
+  );
+
+  return documentId;
+}
+
+/**
+ * Create document entry for a PJN PDF (from notifications)
  */
 export const createDocumentEntry = internalMutation({
   args: {
@@ -382,17 +447,8 @@ export const createDocumentEntry = internalMutation({
       return;
     }
 
-    // Parse GCS path: gs://bucket/path/to/file.pdf
-    const gcsMatch = args.event.gcsPath.match(/^gs:\/\/([^\/]+)\/(.+)$/);
-    if (!gcsMatch) {
-      console.error("Invalid GCS path format:", args.event.gcsPath);
-      return;
-    }
-
-    const [, bucket, objectPath] = gcsMatch;
-
     // Try to find case by FRE
-    let caseId: string | undefined;
+    let caseId: Id<"cases"> | undefined;
     if (args.event.fre) {
       const caseMatch = await ctx.db
         .query("cases")
@@ -415,43 +471,15 @@ export const createDocumentEntry = internalMutation({
       return;
     }
 
-    // Check if document already exists
-    const existing = await ctx.db
-      .query("documents")
-      .withIndex("by_gcs_object", (q) => q.eq("gcsObject", objectPath))
-      .first();
-
-    if (existing) {
-      // Document already exists, skip creation
-      return;
-    }
-
-    // Create new document
-    const documentId = await ctx.db.insert("documents", {
+    await createOrGetPjnDocument(ctx as any, {
+      gcsPath: args.event.gcsPath,
+      caseId,
+      userId: args.userId,
       title: `PJN Notification - ${args.event.pjnEventId}`,
       description: args.event.description,
-      caseId: caseId as any,
-      documentType: "court_filing",
-      storageBackend: "gcs",
-      gcsBucket: bucket,
-      gcsObject: objectPath,
       originalFileName: `pjn-event-${args.event.pjnEventId}.pdf`,
-      mimeType: "application/pdf",
-      fileSize: 0, // Will be updated by document-processor
-      createdBy: args.userId,
-      processingStatus: "pending",
-      // Store PJN metadata
       tags: ["PJN-Portal", args.event.category],
     });
-
-    // Enqueue document for processing using the standard document pipeline
-    await ctx.scheduler.runAfter(
-      0,
-      internal.functions.documentProcessing.processDocument,
-      {
-        documentId,
-      },
-    );
   },
 });
 
@@ -501,8 +529,92 @@ export const createDocketMovementEntry = internalMutation({
 });
 
 /**
+ * Upsert an actuación entry into the caseActuaciones table.
+ * Uses pjnMovementId + caseId for idempotency.
+ * If the movement has a gcsPath, also creates/links the document
+ * to ensure all PJN documents are available as first-class documents.
+ */
+export const upsertActuacion = internalMutation({
+  args: {
+    caseId: v.id("cases"),
+    userId: v.id("users"),
+    movement: v.object({
+      movementId: v.string(),
+      fre: v.union(v.string(), v.null()),
+      date: v.string(),
+      description: v.string(),
+      hasDocument: v.boolean(),
+      documentSource: v.optional(
+        v.union(v.literal("actuaciones"), v.literal("doc_digitales")),
+      ),
+      docRef: v.optional(v.union(v.string(), v.null())),
+      gcsPath: v.optional(v.string()),
+    }),
+  },
+  handler: async (ctx, args): Promise<void> => {
+    const movementDate = new Date(args.movement.date).getTime() || Date.now();
+
+    const existing = await ctx.db
+      .query("caseActuaciones")
+      .withIndex("by_case_and_pjn_id", (q) =>
+        q.eq("caseId", args.caseId).eq("pjnMovementId", args.movement.movementId)
+      )
+      .first();
+
+    // If movement has a document (gcsPath), create or get the document
+    // This ensures movements with documents are processed even if they
+    // don't appear in docDigitales
+    let documentId: Id<"documents"> | undefined = existing?.documentId;
+    if (args.movement.gcsPath && !documentId) {
+      const createdDocId = await createOrGetPjnDocument(ctx as any, {
+        gcsPath: args.movement.gcsPath,
+        caseId: args.caseId,
+        userId: args.userId,
+        title: args.movement.description || `PJN Movement - ${args.movement.movementId}`,
+        description: args.movement.description,
+        originalFileName: `pjn-movement-${args.movement.movementId}.pdf`,
+        tags: ["PJN-Portal", "historical", args.movement.documentSource || "actuaciones"],
+      });
+      if (createdDocId) {
+        documentId = createdDocId;
+      }
+    }
+
+    const actuacionData = {
+      caseId: args.caseId,
+      fre: args.movement.fre ?? undefined,
+      pjnMovementId: args.movement.movementId,
+      movementDate,
+      rawDate: args.movement.date,
+      description: args.movement.description,
+      hasDocument: args.movement.hasDocument,
+      documentSource: args.movement.documentSource,
+      docRef: args.movement.docRef ?? undefined,
+      gcsPath: args.movement.gcsPath,
+      documentId, // Set documentId as the canonical reference
+      origin: "history_sync" as const,
+      syncedFrom: "pjn" as const,
+      syncedAt: Date.now(),
+    };
+
+    if (existing) {
+      // Preserve existing documentId if we didn't create a new one
+      const patchData = {
+        ...actuacionData,
+        documentId: documentId ?? existing.documentId,
+      };
+      await ctx.db.patch(existing._id, patchData);
+    } else {
+      await ctx.db.insert("caseActuaciones", actuacionData);
+    }
+  },
+});
+
+/**
  * Create or update a document entry for a PJN historical docket PDF and
  * record the corresponding activity log entry.
+ * This ensures all PJN history documents become first-class documents
+ * and are processed through the standard pipeline.
  */
 export const createHistoricalDocumentEntry = internalMutation({
   args: {
@@ -549,52 +661,77 @@ export const createHistoricalDocumentEntry = internalMutation({
       return;
     }
 
-    // Parse GCS path: gs://bucket/path/to/file.pdf
-    const gcsMatch = document.gcsPath.match(/^gs:\/\/([^\/]+)\/(.+)$/);
-    if (!gcsMatch) {
-      console.error(
-        "Invalid GCS path format for historical document:",
-        document.gcsPath,
-      );
+    // Create or get the document using shared helper
+    // This ensures it's processed through the standard pipeline
+    const documentId = await createOrGetPjnDocument(ctx as any, {
+      gcsPath: document.gcsPath,
+      caseId: args.caseId,
+      userId: args.userId,
+      title: document.description || `PJN Docket - ${document.docId}`,
+      description: document.description,
+      originalFileName: `pjn-doc-${document.docId}.pdf`,
+      tags: ["PJN-Portal", "historical"],
+    });
+
+    if (!documentId) {
+      // Failed to create document, still log activity
+      await ctx.db.insert("pjnActivityLog", {
+        userId: args.userId,
+        caseId: args.caseId as any,
+        action: "pjn_historical_document",
+        source: "PJN-Portal",
+        pjnMovementId: document.docId,
+        metadata: {
+          fre: document.fre,
+          date: document.date,
+          description: document.description,
+          source: document.source,
+          docRef: document.docRef,
+          gcsPath: document.gcsPath,
+          error: "Failed to create document entry",
+        },
+        timestamp,
+      });
       return;
     }
 
-    const [, bucket, objectPath] = gcsMatch;
+    // Link document to matching actuación(es) if docRef matches
+    // The documentId is now the canonical reference for the document
+    if (document.docRef) {
+      const actuaciones = await ctx.db
+        .query("caseActuaciones")
+        .withIndex("by_case_and_date", (q) => q.eq("caseId", args.caseId))
+        .collect();
 
-    // Idempotency: check if a document already exists for this GCS object.
-    const existing = await ctx.db
-      .query("documents")
-      .withIndex("by_gcs_object", (q) => q.eq("gcsObject", objectPath))
-      .first();
-
-    let documentId: Id<"documents">;
-    if (existing) {
-      documentId = existing._id;
-    } else {
-      documentId = await ctx.db.insert("documents", {
-        title: document.description || `PJN Docket - ${document.docId}`,
-        description: document.description,
-        caseId: args.caseId as any,
-        documentType: "court_filing",
-        storageBackend: "gcs",
-        gcsBucket: bucket,
-        gcsObject: objectPath,
-        originalFileName: `pjn-doc-${document.docId}.pdf`,
-        mimeType: "application/pdf",
-        fileSize: 0, // Will be updated by document-processor
-        createdBy: args.userId,
-        processingStatus: "pending",
-        tags: ["PJN-Portal", "historical"],
-      });
-
-      // Enqueue document for processing using the standard document pipeline
-      await ctx.scheduler.runAfter(
-        0,
-        internal.functions.documentProcessing.processDocument,
-        {
-          documentId,
-        },
+      // Find all matching actuaciones (there could be multiple)
+      const matchingActuaciones = actuaciones.filter(
+        (a) => a.docRef === document.docRef,
       );
+
+      // Update all matching actuaciones with documentId
+      for (const actuacion of matchingActuaciones) {
+        await ctx.db.patch(actuacion._id, {
+          documentId,
+          gcsPath: document.gcsPath ?? actuacion.gcsPath,
+        });
+      }
+    }
+
+    // Also try to match by GCS path if docRef didn't match
+    // This handles cases where docRef might be missing but we have the same PDF
+    const actuacionesByGcs = await ctx.db
+      .query("caseActuaciones")
+      .withIndex("by_case_and_date", (q) => q.eq("caseId", args.caseId))
+      .collect();
+
+    const matchingByGcs = actuacionesByGcs.filter(
+      (a) => a.gcsPath === document.gcsPath && !a.documentId,
+    );
+
+    for (const actuacion of matchingByGcs) {
+      await ctx.db.patch(actuacion._id, {
+        documentId,
+      });
     }
 
     // Record the corresponding activity log entry
@@ -611,7 +748,7 @@ export const createHistoricalDocumentEntry = internalMutation({
         source: document.source,
         gcsPath: document.gcsPath,
         docRef: document.docRef,
-        documentId,
+        documentId, // Store documentId as the canonical reference
       },
       timestamp,
     });

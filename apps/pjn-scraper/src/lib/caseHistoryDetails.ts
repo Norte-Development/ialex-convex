@@ -778,85 +778,93 @@ export async function scrapeCaseHistoryDetails(
   }
 
   // Step 4: Load and parse Doc. digitales tab
+  // COMMENTED OUT FOR TESTING - Only parsing actuaciones for now
   let docDigitales: NormalizedDigitalDocument[] = [];
-  if (includeDocuments) {
-    logger.debug("Step 4: Loading Doc. digitales tab", { fre });
-    const docDigitalesHtml = await loadDocDigitalesTab(
-      session,
-      expedienteHtml,
-      cookies
-    );
+  // if (includeDocuments) {
+  //   logger.debug("Step 4: Loading Doc. digitales tab", { fre });
+  //   const docDigitalesHtml = await loadDocDigitalesTab(
+  //     session,
+  //     expedienteHtml,
+  //     cookies
+  //   );
 
-    // Save Doc. digitales HTML to debug storage
-    debugStorage?.saveHtml(`${safeFre}_03_doc_digitales`, docDigitalesHtml, { fre, cid });
-    
-    logger.debug("Step 4: Parsing Doc. digitales", { fre });
-    docDigitales = parseDocDigitalesHtml(docDigitalesHtml, fre);
-    
-    // Save parsed doc digitales to debug storage
-    debugStorage?.saveJson(`${safeFre}_03_doc_digitales`, docDigitales, { fre, totalCount: docDigitales.length });
-    
-    // Apply maxDocuments limit
-    if (maxDocuments && docDigitales.length > maxDocuments) {
-      docDigitales = docDigitales.slice(0, maxDocuments);
-      logger.info("Limited docDigitales to maxDocuments", {
-        fre,
-        maxDocuments,
-        totalFound: docDigitales.length,
-      });
-    }
-  }
+  //   // Save Doc. digitales HTML to debug storage
+  //   debugStorage?.saveHtml(`${safeFre}_03_doc_digitales`, docDigitalesHtml, { fre, cid });
+  //   
+  //   logger.debug("Step 4: Parsing Doc. digitales", { fre });
+  //   docDigitales = parseDocDigitalesHtml(docDigitalesHtml, fre);
+  //   
+  //   // Save parsed doc digitales to debug storage
+  //   debugStorage?.saveJson(`${safeFre}_03_doc_digitales`, docDigitales, { fre, totalCount: docDigitales.length });
+  //   
+  //   // Apply maxDocuments limit
+  //   if (maxDocuments && docDigitales.length > maxDocuments) {
+  //     docDigitales = docDigitales.slice(0, maxDocuments);
+  //     logger.info("Limited docDigitales to maxDocuments", {
+  //       fre,
+  //       maxDocuments,
+  //       totalFound: docDigitales.length,
+  //     });
+  //   }
+  // }
 
   // Step 5: Load and parse Intervinientes tab
-  logger.debug("Step 5: Loading Intervinientes tab", { fre });
-  const intervinientesHtml = await loadIntervinientesTab(session, expedienteHtml, cookies);
-  debugStorage?.saveHtml(`${safeFre}_04_intervinientes`, intervinientesHtml, { fre });
-  const intervinientes = parseIntervinientesHtml(intervinientesHtml);
-  debugStorage?.saveJson(`${safeFre}_04_intervinientes`, intervinientes, { fre, totalCount: intervinientes.length });
+  // COMMENTED OUT FOR TESTING - Only parsing actuaciones for now
+  // logger.debug("Step 5: Loading Intervinientes tab", { fre });
+  // const intervinientesHtml = await loadIntervinientesTab(session, expedienteHtml, cookies);
+  // debugStorage?.saveHtml(`${safeFre}_04_intervinientes`, intervinientesHtml, { fre });
+  // const intervinientes = parseIntervinientesHtml(intervinientesHtml);
+  // debugStorage?.saveJson(`${safeFre}_04_intervinientes`, intervinientes, { fre, totalCount: intervinientes.length });
+  const intervinientes: NormalizedParticipant[] = [];
 
   // Step 6: Load and parse Recursos tab
-  logger.debug("Step 6: Loading Recursos tab", { fre });
-  const recursosHtml = await loadRecursosTab(session, expedienteHtml, cookies);
-  debugStorage?.saveHtml(`${safeFre}_05_recursos`, recursosHtml, { fre });
-  const recursos = parseRecursosHtml(recursosHtml);
-  debugStorage?.saveJson(`${safeFre}_05_recursos`, recursos, { fre, totalCount: recursos.length });
+  // COMMENTED OUT FOR TESTING - Only parsing actuaciones for now
+  // logger.debug("Step 6: Loading Recursos tab", { fre });
+  // const recursosHtml = await loadRecursosTab(session, expedienteHtml, cookies);
+  // debugStorage?.saveHtml(`${safeFre}_05_recursos`, recursosHtml, { fre });
+  // const recursos = parseRecursosHtml(recursosHtml);
+  // debugStorage?.saveJson(`${safeFre}_05_recursos`, recursos, { fre, totalCount: recursos.length });
+  const recursos: NormalizedAppeal[] = [];
 
   // Step 7: Load and parse Vinculados tab
-  logger.debug("Step 7: Loading Vinculados tab", { fre });
-  const vinculadosHtml = await loadVinculadosTab(session, expedienteHtml, cookies);
-  debugStorage?.saveHtml(`${safeFre}_06_vinculados`, vinculadosHtml, { fre });
-  const vinculados = parseVinculadosHtml(vinculadosHtml);
-  debugStorage?.saveJson(`${safeFre}_06_vinculados`, vinculados, { fre, totalCount: vinculados.length });
+  // COMMENTED OUT FOR TESTING - Only parsing actuaciones for now
+  // logger.debug("Step 7: Loading Vinculados tab", { fre });
+  // const vinculadosHtml = await loadVinculadosTab(session, expedienteHtml, cookies);
+  // debugStorage?.saveHtml(`${safeFre}_06_vinculados`, vinculadosHtml, { fre });
+  // const vinculados = parseVinculadosHtml(vinculadosHtml);
+  // debugStorage?.saveJson(`${safeFre}_06_vinculados`, vinculados, { fre, totalCount: vinculados.length });
+  const vinculados: NormalizedRelatedCase[] = [];
 
   // Step 8: Download PDFs and upload to GCS
   let downloadErrors = 0;
   
   // Download PDFs for documents with docRef
-  for (const doc of docDigitales) {
-    if (doc.docRef && !doc.gcsPath) {
-      try {
-        const gcsPath = await downloadAndUploadPdf(
-          doc.docRef,
-          doc.docId,
-          userId,
-          session,
-          cookies,
-          storage
-        );
-        if (gcsPath) {
-          doc.gcsPath = gcsPath;
-        } else {
-          downloadErrors++;
-        }
-      } catch (error) {
-        logger.error("Error processing document PDF", {
-          docId: doc.docId,
-          error: error instanceof Error ? error.message : String(error),
-        });
-        downloadErrors++;
-      }
-    }
-  }
+  // COMMENTED OUT FOR TESTING - Only parsing actuaciones for now
+  // for (const doc of docDigitales) {
+  //   if (doc.docRef && !doc.gcsPath) {
+  //     try {
+  //       const gcsPath = await downloadAndUploadPdf(
+  //         doc.docRef,
+  //         doc.docId,
+  //         userId,
+  //         session,
+  //         cookies,
+  //         storage
+  //       );
+  //       if (gcsPath) {
+  //         doc.gcsPath = gcsPath;
+  //       } else {
+  //         downloadErrors++;
+  //       }
+  //     } catch (error) {
+  //       logger.error("Error processing document PDF", {
+  //         docId: doc.docId,
+  //         error: error instanceof Error ? error.message : String(error),
+  //       });
+  //       downloadErrors++;
+  //     }
+  //   }
+  // }
 
   // Download PDFs for movements with docRef
   for (const movement of movimientos) {

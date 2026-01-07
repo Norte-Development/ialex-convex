@@ -87,7 +87,7 @@ async function downloadAndUploadPdf(
   docId: string,
   userId: string,
   page: Page,
-  storage: GcsStorage
+  storage: GcsStorage,
 ): Promise<string | null> {
   if (!docRef) {
     return null;
@@ -105,7 +105,9 @@ async function downloadAndUploadPdf(
       if (urlMatch) {
         downloadUrl = urlMatch[1];
       } else {
-        logger.warn("Could not extract URL from JavaScript reference", { docRef });
+        logger.warn("Could not extract URL from JavaScript reference", {
+          docRef,
+        });
         return null;
       }
     }
@@ -169,13 +171,85 @@ async function downloadAndUploadPdf(
 }
 
 /**
+ * Scrape all pages of the Actuaciones table by interacting with the pagination controls.
+ * This function:
+ * - Parses the current page's Actuaciones table.
+ * - Finds all pagination links for additional pages.
+ * - Clicks through each page, waiting for content to load.
+ * - Aggregates all movements across all pages.
+ * - Respects maxMovements limit if provided.
+ */
+async function scrapeAllActuacionesPages(
+  page: Page,
+  fre: string,
+  maxMovements: number | undefined,
+  debugStorage: DebugStorage | undefined,
+  safeFre: string,
+): Promise<NormalizedMovement[]> {
+  const allMovements: NormalizedMovement[] = [];
+  let currentPage = 1;
+
+  while (true) {
+    const html = await page.content();
+
+    debugStorage?.saveHtml(
+      `${safeFre}_02_actuaciones_page${currentPage}`,
+      html,
+      { fre, page: currentPage },
+    );
+
+    const pageMovements = parseActuacionesHtml(html, fre);
+    allMovements.push(...pageMovements);
+
+    if (maxMovements && allMovements.length >= maxMovements) {
+      const truncated = allMovements.slice(0, maxMovements);
+      return truncated;
+    }
+
+    const paginationContainer = page.locator(
+      "#expediente\\:j_idt217\\:divPagesAct",
+    );
+    if ((await paginationContainer.count()) === 0) {
+      break;
+    }
+
+    const nextPageArrow = paginationContainer.locator(
+      "a#expediente\\:j_idt217\\:j_idt234",
+    );
+
+    const isNextDisabled = await nextPageArrow
+      .evaluate((el) => {
+        const parent = el.closest("li");
+        return parent?.classList.contains("disabled") ?? false;
+      })
+      .catch(() => true);
+
+    if (isNextDisabled) {
+      break;
+    }
+
+    try {
+      await Promise.all([
+        page.waitForLoadState("networkidle", { timeout: 30000 }),
+        nextPageArrow.click(),
+      ]);
+      currentPage++;
+    } catch {
+      break;
+    }
+  }
+
+  return allMovements;
+}
+
+/**
  * Scrape the full historical docket for a PJN expediente using Playwright
  * to navigate the UI and Cheerio to parse the HTML.
  */
 export async function scrapeCaseHistoryDetailsPlaywright(
   session: SessionState,
   options: CaseHistoryDetailsOptions,
-  storage: GcsStorage = new GcsStorage()
+  storage: GcsStorage = new GcsStorage(),
 ): Promise<CaseHistoryDetailsResult> {
   const startTime = Date.now();
   const {
@@ -260,28 +334,25 @@ export async function scrapeCaseHistoryDetailsPlaywright(
     const { expedienteHtml, cid } = await navigateToExpedientePlaywright(
       page,
       searchResult.selectedCandidate,
-      debugStorage
+      debugStorage,
     );
 
-    // Step 3: Parse Actuaciones
+    // Step 3: Parse Actuaciones (all pages)
     let movimientos: NormalizedMovement[] = [];
     if (includeMovements) {
-      logger.debug("Step 3: Parsing Actuaciones", { fre });
-      movimientos = parseActuacionesHtml(expedienteHtml, fre);
+      logger.debug("Step 3: Parsing Actuaciones (all pages)", { fre });
+      movimientos = await scrapeAllActuacionesPages(
+        page,
+        fre,
+        maxMovements,
+        debugStorage,
+        safeFre,
+      );
 
       debugStorage?.saveJson(`${safeFre}_02_actuaciones`, movimientos, {
         fre,
         totalCount: movimientos.length,
       });
-
-      if (maxMovements && movimientos.length > maxMovements) {
-        movimientos = movimientos.slice(0, maxMovements);
-        logger.info("Limited movimientos to maxMovements", {
-          fre,
-          maxMovements,
-          totalFound: movimientos.length,
-        });
-      }
     }
 
     // Step 4: Load and parse Doc. digitales tab
@@ -291,7 +362,7 @@ export async function scrapeCaseHistoryDetailsPlaywright(
       const docDigitalesHtml = await loadDocDigitalesHtml(
         page,
         debugStorage,
-        fre
+        fre,
       );
 
       logger.debug("Step 4: Parsing Doc. digitales", { fre });
@@ -317,7 +388,7 @@ export async function scrapeCaseHistoryDetailsPlaywright(
     const intervinientesHtml = await loadIntervinientesHtml(
       page,
       debugStorage,
-      fre
+      fre,
     );
     const intervinientes = parseIntervinientesHtml(intervinientesHtml);
     debugStorage?.saveJson(`${safeFre}_04_intervinientes`, intervinientes, {
@@ -355,7 +426,7 @@ export async function scrapeCaseHistoryDetailsPlaywright(
             doc.docId,
             userId,
             page,
-            storage
+            storage,
           );
           if (gcsPath) {
             doc.gcsPath = gcsPath;
@@ -381,7 +452,7 @@ export async function scrapeCaseHistoryDetailsPlaywright(
             movement.movementId,
             userId,
             page,
-            storage
+            storage,
           );
           if (gcsPath) {
             movement.gcsPath = gcsPath;
@@ -446,7 +517,7 @@ export async function scrapeCaseHistoryDetailsPlaywright(
  * Convert a CaseHistoryDetailsResult into the public CaseHistoryDetailsResponse shape.
  */
 export function toCaseHistoryDetailsResponsePlaywright(
-  result: CaseHistoryDetailsResult
+  result: CaseHistoryDetailsResult,
 ): CaseHistoryDetailsResponse {
   return {
     status: "OK",

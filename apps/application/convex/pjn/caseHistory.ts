@@ -1,5 +1,5 @@
 import { v } from "convex/values";
-import { action, internalMutation } from "../_generated/server";
+import { action, internalMutation, internalQuery } from "../_generated/server";
 import { api, internal } from "../_generated/api";
 import { Id } from "../_generated/dataModel";
 
@@ -731,6 +731,11 @@ export const syncCaseHistoryForCase = action({
 
       // Ingest movimientos
       for (const movement of movimientos) {
+        await ctx.runMutation(internal.pjn.sync.upsertActuacion, {
+          userId,
+          caseId: args.caseId,
+          movement,
+        });
         await ctx.runMutation(internal.pjn.sync.createDocketMovementEntry, {
           userId,
           caseId: args.caseId,
@@ -836,5 +841,43 @@ export const setLastPjnHistorySyncAt = internalMutation({
       lastPjnHistorySyncAt: args.lastSyncAt,
     });
     return null;
+  },
+});
+
+/**
+ * Internal query to list actuaciones for a case, ordered by movementDate.
+ */
+export const listActuacionesForCase = internalQuery({
+  args: {
+    caseId: v.id("cases"),
+  },
+  returns: v.array(
+    v.object({
+      _id: v.id("caseActuaciones"),
+      caseId: v.id("cases"),
+      fre: v.optional(v.string()),
+      pjnMovementId: v.string(),
+      movementDate: v.number(),
+      rawDate: v.optional(v.string()),
+      description: v.string(),
+      hasDocument: v.boolean(),
+      documentSource: v.optional(
+        v.union(v.literal("actuaciones"), v.literal("doc_digitales"))
+      ),
+      docRef: v.optional(v.string()),
+      gcsPath: v.optional(v.string()),
+      documentId: v.optional(v.id("documents")),
+      origin: v.union(v.literal("history_sync"), v.literal("notification")),
+      syncedFrom: v.literal("pjn"),
+      syncedAt: v.number(),
+    })
+  ),
+  handler: async (ctx, args) => {
+    const actuaciones = await ctx.db
+      .query("caseActuaciones")
+      .withIndex("by_case_and_date", (q) => q.eq("caseId", args.caseId))
+      .collect();
+
+    return actuaciones.sort((a, b) => b.movementDate - a.movementDate);
   },
 });

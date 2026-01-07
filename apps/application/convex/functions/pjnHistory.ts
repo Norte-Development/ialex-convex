@@ -1,6 +1,38 @@
 import { v } from "convex/values"
 import { query } from "../_generated/server"
 
+export const getCaseActuaciones = query({
+  args: { caseId: v.id("cases") },
+  returns: v.array(
+    v.object({
+      _id: v.id("caseActuaciones"),
+      movementDate: v.number(),
+      description: v.string(),
+      hasDocument: v.boolean(),
+      documentId: v.optional(v.id("documents")),
+      gcsPath: v.optional(v.string()),
+      rawDate: v.optional(v.string()),
+    })
+  ),
+  handler: async (ctx, args) => {
+    const actuaciones = await ctx.db
+      .query("caseActuaciones")
+      .withIndex("by_case_and_date", (q) => q.eq("caseId", args.caseId))
+      .order("desc")
+      .collect()
+
+    return actuaciones.map((a) => ({
+      _id: a._id,
+      movementDate: a.movementDate,
+      description: a.description,
+      hasDocument: a.hasDocument,
+      documentId: a.documentId,
+      gcsPath: a.gcsPath,
+      rawDate: a.rawDate,
+    }))
+  },
+})
+
 export const getPjnActivityLog = query({
   args: { caseId: v.id("cases") },
   returns: v.array(

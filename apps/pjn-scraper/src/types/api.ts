@@ -121,10 +121,6 @@ export interface NormalizedCaseCandidate {
    * Row index in the search results table, used for JSF form submission to navigate to expediente.seam.
    */
   rowIndex: number;
-  /**
-   * Optional raw HTML snippet for debugging / observability.
-   */
-  rawHtml?: string | null;
 }
 
 /**
@@ -164,10 +160,6 @@ export interface NormalizedMovement {
    * GCS path where the associated PDF was uploaded, if any.
    */
   gcsPath?: string;
-  /**
-   * Optional raw HTML snippet for debugging / observability.
-   */
-  rawHtml?: string | null;
 }
 
 /**
@@ -204,10 +196,6 @@ export interface NormalizedDigitalDocument {
    * Optional reference string extracted from the DOM.
    */
   docRef?: string | null;
-  /**
-   * Optional raw HTML snippet for debugging / observability.
-   */
-  rawHtml?: string | null;
 }
 
 /**

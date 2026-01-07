@@ -103,7 +103,6 @@ export function parseCaseSearchResultsHtml(
       caseNumber: parsed.caseNumber,
       caratula: caratula || null,
       rowIndex: rowIndex,
-      rawHtml: $row.html() || null,
     };
 
     candidates.push(candidate);
@@ -191,6 +190,8 @@ export function parseActuacionesHtml(html: string, fre?: string | null): Normali
   // Look for Actuaciones table - common JSF table patterns
   // Try multiple selectors for robustness
   const tableSelectors = [
+    'table[id="expediente:action-table"]',  // Exact match for the specific ID
+    'table[id*="action-table" i]',          // Flexible match for action-table in ID
     'table[id*="actuaciones" i]',
     'table[id*="movimientos" i]',
     'table[class*="dataTable"]',
@@ -307,7 +308,6 @@ export function parseActuacionesHtml(html: string, fre?: string | null): Normali
       hasDocument,
       documentSource: "actuaciones",
       docRef,
-      rawHtml: $row.html() || null,
     };
 
     movements.push(movement);
@@ -472,7 +472,6 @@ export function parseDocDigitalesHtml(
       description: description || "Sin descripción",
       source: "doc_digitales",
       docRef,
-      rawHtml: $row.html() || null,
     };
 
     documents.push(document);

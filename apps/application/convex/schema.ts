@@ -1235,6 +1235,29 @@ export default defineSchema({
     .index("by_relationship_type", ["relationshipType"])
     .index("by_pjn_id", ["pjnRelationId"]),
 
+  // Case Actuaciones - normalized case history/docket entries per case
+  caseActuaciones: defineTable({
+    caseId: v.id("cases"),
+    fre: v.optional(v.string()),
+    pjnMovementId: v.string(),
+    movementDate: v.number(),
+    rawDate: v.optional(v.string()),
+    description: v.string(),
+    hasDocument: v.boolean(),
+    documentSource: v.optional(
+      v.union(v.literal("actuaciones"), v.literal("doc_digitales"))
+    ),
+    docRef: v.optional(v.string()),
+    gcsPath: v.optional(v.string()),
+    documentId: v.optional(v.id("documents")),
+    origin: v.union(v.literal("history_sync"), v.literal("notification")),
+    syncedFrom: v.literal("pjn"),
+    syncedAt: v.number(),
+  })
+    .index("by_case_and_date", ["caseId", "movementDate"])
+    .index("by_case_and_pjn_id", ["caseId", "pjnMovementId"])
+    .index("by_documentId", ["documentId"]),
+
   // Notifications - user-facing notifications from PJN and system events
   notifications: defineTable({
     userId: v.id("users"),

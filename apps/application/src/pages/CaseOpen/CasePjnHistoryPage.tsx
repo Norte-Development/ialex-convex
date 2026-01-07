@@ -23,6 +23,7 @@ import {
   AlertCircle,
   CheckCircle,
   Loader2,
+  ExternalLink,
 } from "lucide-react"
 import { toast } from "sonner"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -32,6 +33,11 @@ export default function CasePjnHistoryPage() {
   const [isSyncing, setIsSyncing] = useState(false)
 
   const syncAction = useAction(api.pjn.caseHistory.syncCaseHistoryForCase)
+
+  const actuaciones = useQuery(
+    api.functions.pjnHistory.getCaseActuaciones,
+    currentCase ? { caseId: currentCase._id } : "skip"
+  )
 
   const activityLog = useQuery(
     api.functions.pjnHistory.getPjnActivityLog,
@@ -88,9 +94,7 @@ export default function CasePjnHistoryPage() {
     })
   }
 
-  const movements = activityLog?.filter(
-    (log) => log.action === "pjn_docket_movement"
-  )
+  const movements = actuaciones || []
   const documents = activityLog?.filter(
     (log) => log.action === "pjn_historical_document"
   )
@@ -152,9 +156,9 @@ export default function CasePjnHistoryPage() {
             <TabsTrigger value="movimientos" className="gap-2">
               <FileText size={14} />
               Actuaciones
-              {movements && (
+              {actuaciones && (
                 <Badge variant="secondary" className="ml-1">
-                  {movements.length}
+                  {actuaciones.length}
                 </Badge>
               )}
             </TabsTrigger>
@@ -198,9 +202,9 @@ export default function CasePjnHistoryPage() {
 
           {/* Actuaciones Tab */}
           <TabsContent value="movimientos" className="mt-4">
-            {movements === undefined ? (
+            {actuaciones === undefined ? (
               <TableSkeleton />
-            ) : movements.length === 0 ? (
+            ) : actuaciones.length === 0 ? (
               <EmptyState message="No hay actuaciones sincronizadas" />
             ) : (
               <Table>
@@ -212,17 +216,29 @@ export default function CasePjnHistoryPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {movements.map((log) => (
-                    <TableRow key={log._id}>
+                  {movements.map((actuacion) => (
+                    <TableRow key={actuacion._id}>
                       <TableCell className="whitespace-nowrap">
-                        {formatDate(log.timestamp)}
+                        {formatDate(actuacion.movementDate)}
                       </TableCell>
+                      <TableCell>{actuacion.description}</TableCell>
                       <TableCell>
-                        {String((log.metadata as Record<string, unknown>)?.description ?? "-")}
-                      </TableCell>
-                      <TableCell>
-                        {(log.metadata as Record<string, unknown>)?.hasDocument ? (
-                          <CheckCircle size={16} className="text-green-500" />
+                        {actuacion.documentId ? (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-8 w-8 p-0"
+                            onClick={() => {
+                              // Link to document detail or preview
+                              window.open(`/caso/${currentCase._id}/documentos/${actuacion.documentId}`, "_blank")
+                            }}
+                          >
+                            <FileText size={16} className="text-blue-500" />
+                          </Button>
+                        ) : actuacion.hasDocument ? (
+                          <div title="Documento disponible en PJN (pendiente de descarga)">
+                            <CheckCircle size={16} className="text-green-500" />
+                          </div>
                         ) : (
                           "-"
                         )}
@@ -250,21 +266,36 @@ export default function CasePjnHistoryPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {documents.map((log) => (
-                    <TableRow key={log._id}>
-                      <TableCell className="whitespace-nowrap">
-                        {formatDate(log.timestamp)}
-                      </TableCell>
-                      <TableCell>
-                        {String((log.metadata as Record<string, unknown>)?.description ?? "-")}
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant="outline">
-                          {String((log.metadata as Record<string, unknown>)?.source ?? "PJN")}
-                        </Badge>
-                      </TableCell>
-                    </TableRow>
-                  ))}
+                  {documents.map((log) => {
+                    const metadata = log.metadata as Record<string, any>;
+                    return (
+                      <TableRow key={log._id}>
+                        <TableCell className="whitespace-nowrap">
+                          {formatDate(log.timestamp)}
+                        </TableCell>
+                        <TableCell>
+                          {String(metadata?.description ?? "-")}
+                        </TableCell>
+                        <TableCell className="flex items-center gap-2">
+                          <Badge variant="outline">
+                            {String(metadata?.source ?? "PJN")}
+                          </Badge>
+                          {metadata?.documentId && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-8 w-8 p-0"
+                              onClick={() => {
+                                window.open(`/caso/${currentCase._id}/documentos/${metadata.documentId}`, "_blank")
+                              }}
+                            >
+                              <FileText size={16} className="text-blue-500" />
+                            </Button>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
                 </TableBody>
               </Table>
             )}
