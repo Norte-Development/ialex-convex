@@ -7,7 +7,7 @@ import type {
   CaseHistoryDetailsResponse,
 } from "../../types/api";
 import {
-  parseActuacionesHtml,
+  parseActuacionesHtmlImproved,
   parseDocDigitalesHtml,
   parseIntervinientesHtml,
   parseRecursosHtml,
@@ -198,7 +198,7 @@ async function scrapeAllActuacionesPages(
       { fre, page: currentPage },
     );
 
-    const pageMovements = parseActuacionesHtml(html, fre);
+    const pageMovements = parseActuacionesHtmlImproved(html, fre);
     allMovements.push(...pageMovements);
 
     if (maxMovements && allMovements.length >= maxMovements) {
@@ -261,6 +261,10 @@ export async function scrapeCaseHistoryDetailsPlaywright(
     maxDocuments,
     requestId,
   } = options;
+
+  // Default to 20 movimientos per run when not explicitly provided,
+  // to keep scraper runs bounded during testing.
+  const effectiveMaxMovements = maxMovements ?? 20;
 
   // Initialize debug storage
   let debugStorage: DebugStorage | undefined;
@@ -344,7 +348,7 @@ export async function scrapeCaseHistoryDetailsPlaywright(
       movimientos = await scrapeAllActuacionesPages(
         page,
         fre,
-        maxMovements,
+        effectiveMaxMovements,
         debugStorage,
         safeFre,
       );

@@ -317,6 +317,131 @@ export function parseActuacionesHtml(html: string, fre?: string | null): Normali
 }
 
 /**
+ * Improved parser for the Actuaciones table on `expediente.seam`.
+ *
+ * This version is layout-aware for the SCW table
+ * (`expediente:action-table` with OFICINA / FECHA / TIPO / DESCRIPCION headers)
+ * and falls back to {@link parseActuacionesHtml} for other layouts.
+ */
+export function parseActuacionesHtmlImproved(
+  html: string,
+  fre?: string | null
+): NormalizedMovement[] {
+  const $ = cheerio.load(html);
+
+  // Try to extract FRE from HTML if not provided
+  const extractedFre = fre || extractFreFromHtml(html);
+
+  const tableSelectors = [
+    'table[id="expediente:action-table"]',
+    'table[id*="action-table" i]',
+    'table[id*="actuaciones" i]',
+    'table[id*="movimientos" i]',
+    'table[class*="dataTable"]',
+    'table.rf-dg',
+    'div[id*="actuaciones" i] table',
+    'div[id*="movimientos" i] table',
+  ];
+
+  let table = $();
+  for (const selector of tableSelectors) {
+    table = $(selector).first();
+    if (table.length > 0) {
+      break;
+    }
+  }
+
+  if (table.length === 0) {
+    const tables = $("table tbody tr");
+    if (tables.length > 0) {
+      table = tables.first().closest("table");
+    }
+  }
+
+  if (table.length === 0) {
+    return [];
+  }
+
+  const headerCells = table.find("thead tr").first().find("th");
+  const headerText = headerCells.text().toLowerCase();
+  const isScwActuaciones =
+    headerText.includes("oficina") &&
+    headerText.includes("fecha") &&
+    (headerText.includes("descripcion") ||
+      headerText.includes("descripci\u00d3n") ||
+      headerText.includes("detalle"));
+
+  if (!isScwActuaciones) {
+    // Defer to the original generic parser
+    return parseActuacionesHtml(html, fre);
+  }
+
+  const movements: NormalizedMovement[] = [];
+  const rows = table.find("tbody tr");
+
+  rows.each((_, element) => {
+    const $row = $(element);
+    const $cells = $row.find("td");
+    if ($cells.length < 5) {
+      return;
+    }
+
+    // [0]=acciones, [1]=OFICINA, [2]=FECHA, [3]=TIPO, [4]=DESCRIPCION / DETALLE
+    const dateCellText = $cells.eq(2).text().trim();
+    const dateMatch = dateCellText.match(/\d{1,2}\/\d{1,2}\/\d{4}/);
+    if (!dateMatch) {
+      return;
+    }
+
+    const date = parseDate(dateMatch[0]);
+
+    const tipoText = $cells.eq(3).text().trim();
+    const detalleText = $cells.eq(4).text().trim();
+    const descriptionParts = [tipoText, detalleText].filter(
+      (part) => part && part.length > 0
+    );
+    const description =
+      descriptionParts.join(" - ") || "Sin descripción";
+
+    let hasDocument = false;
+    let docRef: string | null = null;
+
+    const downloadLinks = $row.find(
+      'a[href*="pdf" i], a[href*="download" i], a[onclick*="download" i], a[href*="viewer.seam" i]'
+    );
+    if (downloadLinks.length > 0) {
+      hasDocument = true;
+      const link = downloadLinks.first();
+      const href = link.attr("href");
+      const onclick = link.attr("onclick");
+      docRef = href || onclick || null;
+    }
+
+    const rowText = $row.text().toLowerCase();
+    if (!hasDocument && rowText.includes("pdf")) {
+      hasDocument = true;
+    }
+
+    const idInput = `${extractedFre || "unknown"}|${date}|${description}`;
+    const movementId = generateHashId(idInput);
+
+    const movement: NormalizedMovement = {
+      movementId,
+      fre: extractedFre,
+      date,
+      description,
+      hasDocument,
+      documentSource: "actuaciones",
+      docRef,
+    };
+
+    movements.push(movement);
+  });
+
+  return movements;
+}
+
+/**
  * Parse the HTML for the "Doc. digitales" tab on `expediente.seam`
  * into a list of normalized digital documents.
  *
