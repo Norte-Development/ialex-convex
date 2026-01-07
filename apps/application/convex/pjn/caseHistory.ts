@@ -1145,6 +1145,8 @@ export const syncCaseHistoryForCaseInternal = internalAction({
       });
 
       // Ingest movimientos
+      // Note: upsertActuacion already handles creating documents for movements
+      // that have gcsPath, so we don't need to call createHistoricalDocumentEntry separately
       for (const movement of movimientos) {
         await ctx.runMutation(internal.pjn.sync.upsertActuacion, {
           userId,
