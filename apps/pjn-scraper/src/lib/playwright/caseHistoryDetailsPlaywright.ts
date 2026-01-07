@@ -201,11 +201,6 @@ async function scrapeAllActuacionesPages(
     const pageMovements = parseActuacionesHtmlImproved(html, fre);
     allMovements.push(...pageMovements);
 
-    if (maxMovements && allMovements.length >= maxMovements) {
-      const truncated = allMovements.slice(0, maxMovements);
-      return truncated;
-    }
-
     const paginationContainer = page.locator(
       "#expediente\\:j_idt217\\:divPagesAct",
     );
@@ -228,18 +223,54 @@ async function scrapeAllActuacionesPages(
       break;
     }
 
+    // Selector for the active page number inside the paginator
+    const activePageNumberSelector =
+      '#expediente\\:j_idt217\\:divPagesAct li.active span span';
+    const activePageLocator = page.locator(activePageNumberSelector);
+    const previousActivePageText = await activePageLocator
+      .textContent()
+      .then((text) => text?.trim() ?? null)
+      .catch(() => null);
+
     try {
-      await Promise.all([
-        page.waitForLoadState("networkidle", { timeout: 30000 }),
-        nextPageArrow.click(),
-      ]);
+      const waitForPageChange =
+        previousActivePageText !== null
+          ? page.waitForFunction(
+              (state: { selector: string; prev: string }) => {
+                const el = document.querySelector(state.selector);
+                if (!el) return false;
+                const text = el.textContent?.trim() ?? "";
+                return text.length > 0 && text !== state.prev;
+              },
+              {
+                selector: activePageNumberSelector,
+                prev: previousActivePageText,
+              },
+            )
+          : page.waitForLoadState("networkidle", { timeout: 30000 });
+
+      await Promise.all([nextPageArrow.click(), waitForPageChange]);
       currentPage++;
     } catch {
       break;
     }
   }
 
-  return allMovements;
+  // De-duplicate movements by movementId to guard against accidental
+  // re-scrapes of the same page or overlapping pagination results.
+  const uniqueById = new Map<string, NormalizedMovement>();
+  for (const movement of allMovements) {
+    if (!uniqueById.has(movement.movementId)) {
+      uniqueById.set(movement.movementId, movement);
+    }
+  }
+
+  const uniqueMovements = Array.from(uniqueById.values());
+  if (maxMovements && uniqueMovements.length > maxMovements) {
+    return uniqueMovements.slice(0, maxMovements);
+  }
+
+  return uniqueMovements;
 }
 
 /**
