@@ -3,6 +3,7 @@ import { useAction } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import { Id } from "../../../convex/_generated/dataModel";
 import { usePermissions } from "@/context/CasePermissionsContext";
+import { useChatbot } from "@/context/ChatbotContext";
 import { toast } from "sonner";
 import {
   Collapsible,
@@ -194,6 +195,26 @@ function getActionConfig(
 }
 
 // ============================================
+// HELPER: Generate prompt for agent based on action
+// ============================================
+function generateActionPrompt(
+  step: string,
+  actionType: CaseSummaryContent["nextSteps"][0]["actionType"],
+): string {
+  const actionPrefixes: Record<typeof actionType, string> = {
+    document: "Ayúdame a preparar el siguiente documento para este caso:",
+    meeting: "Ayúdame a preparar una reunión sobre:",
+    filing: "Ayúdame a redactar un escrito judicial para:",
+    research: "Investiga sobre lo siguiente para este caso:",
+    communication: "Ayúdame a redactar una comunicación sobre:",
+    other: "Ayúdame con la siguiente tarea del caso:",
+  };
+
+  const prefix = actionPrefixes[actionType] || actionPrefixes.other;
+  return `${prefix} ${step}`;
+}
+
+// ============================================
 // HELPER: Get importance badge
 // ============================================
 function getImportanceBadge(importance: "high" | "medium" | "low") {
@@ -244,8 +265,10 @@ function getPriorityBadge(priority: "high" | "medium" | "low") {
 // ============================================
 function StructuredSummaryDisplay({
   content,
+  onActionClick,
 }: {
   content: CaseSummaryContent;
+  onActionClick?: (prompt: string) => void;
 }) {
   return (
     <div className="space-y-6">
@@ -356,6 +379,13 @@ function StructuredSummaryDisplay({
                     variant="outline"
                     size="sm"
                     className={cn("text-xs gap-1", actionConfig.color)}
+                    onClick={() => {
+                      const prompt = generateActionPrompt(
+                        item.step,
+                        item.actionType,
+                      );
+                      onActionClick?.(prompt);
+                    }}
                   >
                     <Icon className="h-3 w-3" />
                     {actionConfig.label}
@@ -418,6 +448,7 @@ export function CaseSummaryPanel({
   const [copied, setCopied] = useState(false);
 
   const permissions = usePermissions();
+  const { openChatbotWithPrompt } = useChatbot();
 
   const generateSummary = useAction(
     api.functions.caseSummary.generateCaseSummary,
@@ -598,7 +629,10 @@ export function CaseSummaryPanel({
             {hasSummary ? (
               // Display Mode - Check if structured or legacy
               isStructured && parsedContent ? (
-                <StructuredSummaryDisplay content={parsedContent} />
+                <StructuredSummaryDisplay
+                  content={parsedContent}
+                  onActionClick={openChatbotWithPrompt}
+                />
               ) : (
                 <LegacySummaryDisplay summary={existingSummary!} />
               )
