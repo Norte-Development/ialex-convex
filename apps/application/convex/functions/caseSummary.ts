@@ -8,12 +8,97 @@ import {
 import { internal } from "../_generated/api";
 import { Id } from "../_generated/dataModel";
 import { createOpenRouter } from "@openrouter/ai-sdk-provider";
-import { generateText } from "ai";
+import { generateObject } from "ai";
+import { z } from "zod";
 import { getCurrentUserFromAuth, requireNewCaseAccess } from "../auth_utils";
 
 const openrouter = createOpenRouter({
   apiKey: process.env.OPENROUTER_API_KEY,
 });
+
+// ============================================
+// SCHEMA: Structured Case Summary
+// ============================================
+
+const caseSummarySchema = z.object({
+  keyFacts: z
+    .array(
+      z.object({
+        fact: z.string().describe("Hecho clave del caso"),
+        importance: z
+          .enum(["high", "medium", "low"])
+          .describe("Nivel de importancia"),
+      }),
+    )
+    .max(5)
+    .describe("Los 3-5 hechos más importantes del caso"),
+
+  relevantActions: z
+    .array(
+      z.object({
+        action: z.string().describe("Descripción de la acción legal"),
+        date: z
+          .string()
+          .describe(
+            "Fecha de la acción si aplica, o string vacío si no hay fecha",
+          ),
+        status: z
+          .enum(["completed", "in_progress", "pending"])
+          .describe("Estado de la acción"),
+      }),
+    )
+    .describe("Acciones legales tomadas o en curso"),
+
+  currentStatus: z
+    .object({
+      summary: z
+        .string()
+        .describe("Resumen del estado actual en 2-3 oraciones"),
+      phase: z
+        .enum([
+          "initial",
+          "investigation",
+          "negotiation",
+          "litigation",
+          "appeal",
+          "closed",
+        ])
+        .describe("Fase procesal actual"),
+      urgency: z
+        .enum(["urgent", "normal", "low"])
+        .describe("Nivel de urgencia"),
+    })
+    .describe("Situación actual del caso"),
+
+  nextSteps: z
+    .array(
+      z.object({
+        step: z.string().describe("Descripción del paso a seguir"),
+        priority: z
+          .enum(["high", "medium", "low"])
+          .describe("Prioridad del paso"),
+        actionType: z
+          .enum([
+            "document", // Preparar/revisar documento
+            "meeting", // Agendar reunión
+            "filing", // Presentar escrito
+            "research", // Investigación
+            "communication", // Contactar a alguien
+            "other",
+          ])
+          .describe("Tipo de acción para habilitar botones"),
+        deadline: z
+          .string()
+          .describe(
+            "Fecha límite sugerida si aplica, o string vacío si no hay",
+          ),
+      }),
+    )
+    .max(5)
+    .describe("Próximos pasos concretos para avanzar el caso"),
+});
+
+export type CaseSummaryContent = z.infer<typeof caseSummarySchema>;
 
 // Type definition for case context to avoid circular inference
 interface CaseContext {
@@ -145,16 +230,14 @@ function buildSummaryPrompt(context: CaseContext): string {
     });
   };
 
-  return `# Generar Resumen de Caso Legal
-
-Eres un asistente legal especializado en sintetizar información de casos legales para abogados argentinos.
+  return `Analiza la siguiente información de un caso legal argentino y genera un resumen estructurado.
 
 ## Información del Caso
-- **Título**: ${context.title}
-- **Descripción**: ${context.description || "Sin descripción"}
-- **Estado**: ${context.status}
-- **Categoría**: ${context.category || "No especificada"}
-- **Expediente**: ${context.expedientNumber || "No especificado"}
+- Título: ${context.title}
+- Descripción: ${context.description || "Sin descripción"}
+- Estado: ${context.status}
+- Categoría: ${context.category || "No especificada"}
+- Expediente: ${context.expedientNumber || "No especificado"}
 
 ## Partes Involucradas
 ${
@@ -173,7 +256,7 @@ ${
   context.documents.length > 0
     ? context.documents
         .slice(0, 10)
-        .map((d) => `- **${d.title}** (${d.type || "Documento"})`)
+        .map((d) => `- ${d.title} (${d.type || "Documento"})`)
         .join("\n")
     : "- No hay documentos"
 }
@@ -184,8 +267,7 @@ ${
     ? context.escritos
         .slice(0, 8)
         .map(
-          (e) =>
-            `- **${e.title}** (${e.status}) - ${formatDate(e.lastEditedAt)}`,
+          (e) => `- ${e.title} (${e.status}) - ${formatDate(e.lastEditedAt)}`,
         )
         .join("\n")
     : "- No hay escritos"
@@ -195,48 +277,23 @@ ${
 ${
   context.events.length > 0
     ? context.events
-        .map((e) => `- **${e.title}** - ${formatDate(e.start)}`)
+        .map((e) => `- ${e.title} - ${formatDate(e.start)}`)
         .join("\n")
     : "- No hay eventos"
 }
 
-## Instrucciones
-Genera un resumen ESTRUCTURADO y CONCISO del caso en español con las siguientes secciones:
-
-1. **Hechos Clave**: Los 3-5 hechos más importantes del caso
-2. **Acciones Relevantes**: Acciones legales tomadas o en curso
-3. **Estado Actual**: Situación actual del caso de forma clara
-4. **Próximos Pasos**: Sugerencias concretas para avanzar el caso (máximo 5)
-
-## Formato de Salida
-Responde EN ESTE FORMATO EXACTO (sin markdown fuera de las etiquetas):
-
-<summary>
-## Hechos Clave
-• [Hecho 1]
-• [Hecho 2]
-• [Hecho 3]
-
-## Acciones Relevantes
-• [Acción 1]
-• [Acción 2]
-
-## Estado Actual
-[Descripción clara del estado actual en 2-3 oraciones]
-
-## Próximos Pasos
-1. [Paso 1]
-2. [Paso 2]
-3. [Paso 3]
-</summary>
-
-IMPORTANTE:
+INSTRUCCIONES:
 - Sé conciso y directo
-- Usa viñetas (•) para listas
-- Máximo 3 oraciones por sección
 - Enfócate en información práctica y accionable
-- Si hay poca información, indícalo honestamente
+- Si hay poca información, indícalo honestamente en los campos correspondientes
 - NO inventes hechos que no estén en la información proporcionada
+- Para nextSteps, asigna actionType según el tipo de acción sugerida:
+  * "document" para preparar/revisar documentos
+  * "meeting" para agendar reuniones
+  * "filing" para presentar escritos judiciales
+  * "research" para tareas de investigación
+  * "communication" para contactar partes involucradas
+  * "other" para acciones que no encajan en las anteriores
 `;
 }
 
@@ -352,18 +409,28 @@ export const generateCaseSummary = action({
       const prompt = buildSummaryPrompt(caseData);
 
       // 3. Model for summary generation
-      const openRouterModel = "deepseek/deepseek-chat";
+      // TODO: REVISAR MODELO
+      // Opciones probadas:
+      // - "deepseek/deepseek-chat": Muy barato, buen structured output, pero no cumple política "Paid model training"
+      // - "google/gemini-2.0-flash-exp:free": Gratuito pero tiene rate limiting agresivo
+      // - "anthropic/claude-3-haiku": NO soporta generateObject via OpenRouter (devuelve texto plano)
+      // - "openai/gpt-4o-mini": Buen precio, excelente structured output
+      //
+      // Para usar DeepSeek: cambiar política en https://openrouter.ai/settings/privacy
+      const openRouterModel = "openai/gpt-4o-mini";
 
-      // 4. Generate summary using AI SDK
-      const { text } = await generateText({
+      // 4. Generate structured summary using AI SDK with Zod schema
+      const { object } = await generateObject({
         model: openrouter(openRouterModel),
+        schema: caseSummarySchema,
         prompt: prompt,
       });
 
-      // 5. Save summary to case document
+      // 5. Serialize and save summary to case document
+      const summaryJson = JSON.stringify(object);
       await ctx.runMutation(internal.functions.caseSummary.saveSummaryToCase, {
         caseId: args.caseId,
-        summary: text,
+        summary: summaryJson,
       });
 
       // 6. Decrement credits
@@ -383,7 +450,7 @@ export const generateCaseSummary = action({
 
       return {
         success: true,
-        summary: text,
+        summary: summaryJson,
         message: "Resumen generado exitosamente",
       };
     } catch (error) {
