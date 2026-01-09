@@ -132,9 +132,9 @@ export const globalSearch = query({
 
     const clients = clientsSearchResults.map((c) => ({
       _id: c._id,
-      name: c.name,
-      clientType: c.clientType,
-      email: c.email,
+      displayName: c.displayName ?? c.name ?? "",
+      naturalezaJuridica: c.naturalezaJuridica,
+      email: c.email ?? undefined,
     }));
 
     // Search Documents - only from cases the user has access to
