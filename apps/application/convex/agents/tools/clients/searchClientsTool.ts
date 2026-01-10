@@ -1,7 +1,7 @@
 import { createTool, ToolCtx } from "@convex-dev/agent";
 import { api, internal } from "../../../_generated/api";
 import { z } from "zod";
-import { getUserAndCaseIds, createErrorResponse, validateStringParam, validateNumberParam } from "../shared/utils";
+import { getUserAndCaseIds, createErrorResponse } from "../shared/utils";
 import { Id } from "../../../_generated/dataModel";
 import { 
   createSearchResultsTemplate, 
@@ -37,13 +37,21 @@ import {
  *   limit: 50
  * });
  */
+/**
+ * Schema for searchCaseClientsTool arguments.
+ * All fields have defaults to satisfy OpenAI's JSON schema requirements.
+ */
+const searchCaseClientsToolArgs = z.object({
+  searchTerm: z.string().default("").describe("Search term to filter clients by name, DNI, or CUIT. Empty string to get all clients."),
+  limit: z.number().int().min(1).max(100).default(20).describe("Maximum number of results to return (default: 20, max: 100)")
+});
+
+type SearchCaseClientsToolArgs = z.infer<typeof searchCaseClientsToolArgs>;
+
 export const searchCaseClientsTool = createTool({
   description: "Tool for searching and retrieving client information. Supports searching by name, DNI, CUIT, or filtering by case. Returns comprehensive client details including their cases and roles. Perfect for finding client information and understanding client-case relationships.",
-  args: z.object({
-    searchTerm: z.any().optional().describe("Search term to filter clients by name, DNI, or CUIT"),
-    limit: z.any().optional().describe("Maximum number of results to return (default: 20, max: 100)")
-  }).required({}),
-  handler: async (ctx: ToolCtx, args: any) => {
+  args: searchCaseClientsToolArgs,
+  handler: async (ctx: ToolCtx, args: SearchCaseClientsToolArgs) => {
     try {
       const {caseId, userId} = getUserAndCaseIds(ctx.userId as string);
 
@@ -57,11 +65,9 @@ export const searchCaseClientsTool = createTool({
         requiredLevel: "basic"
       } )
 
-      const searchTerm = args.searchTerm?.trim();
+      const searchTerm = args.searchTerm.trim() !== "" ? args.searchTerm.trim() : undefined;
       const targetCaseId = caseId?.trim();
-      const limitError = validateNumberParam(args.limit, "limit", 1, 100, 20);
-      if (limitError) return limitError;
-      const limit = args.limit !== undefined ? args.limit : 20;
+      const limit = args.limit;
 
       // Call internal query to search clients
       const clients = await ctx.runQuery(internal.functions.clients.searchClientsForAgent, {

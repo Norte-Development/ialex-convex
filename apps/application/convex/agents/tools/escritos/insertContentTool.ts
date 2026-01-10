@@ -1,17 +1,46 @@
 import { createTool, ToolCtx } from "@convex-dev/agent";
 import { z } from "zod";
 import { api, internal } from "../../../_generated/api";
-import { getUserAndCaseIds, validateStringParam, createErrorResponse, validateAndCorrectEscritoId } from "../shared/utils";
+import { getUserAndCaseIds, createErrorResponse, validateAndCorrectEscritoId } from "../shared/utils";
 import { Id } from "../../../_generated/dataModel";
+
+/**
+ * Schema for insertContentTool placement descriptor.
+ */
+const placementSchema = z.union([
+  z.object({
+    type: z.literal("documentStart"),
+  }),
+  z.object({
+    type: z.literal("documentEnd"),
+  }),
+  z.object({
+    type: z.literal("range"),
+    textStart: z.string().describe("Text marker for the start of the range"),
+    textEnd: z.string().describe("Text marker for the end of the range"),
+  }),
+  z.object({
+    type: z.literal("position"),
+    position: z.number().describe("Absolute position to insert at"),
+  }),
+]);
+
+/**
+ * Schema for insertContentTool arguments.
+ * All fields are required.
+ */
+const insertContentToolArgs = z.object({
+  escritoId: z.string().describe("The Escrito ID (Convex doc id)"),
+  html: z.string().describe("HTML string to insert"),
+  placement: placementSchema.describe("Placement descriptor specifying where to insert the content"),
+});
+
+type InsertContentToolArgs = z.infer<typeof insertContentToolArgs>;
 
 export const insertContentTool = createTool({
   description: "Insert HTML content into an Escrito at documentStart, documentEnd, a text-defined range, or an absolute position.",
-  args: z.object({
-    escritoId: z.any().describe("The Escrito ID (Convex doc id)"),
-    html: z.any().describe("HTML string to insert"),
-    placement: z.any().describe("Placement descriptor: {type:'documentStart'|'documentEnd'} | {type:'range', textStart, textEnd} | {type:'position', position}")
-  }).required({escritoId: true, html: true, placement: true}),
-  handler: async function* (ctx: ToolCtx, args: any) {
+  args: insertContentToolArgs,
+  handler: async function* (ctx: ToolCtx, args: InsertContentToolArgs) {
     const { caseId, userId } = getUserAndCaseIds(ctx.userId as string);
 
     yield {
@@ -25,8 +54,10 @@ export const insertContentTool = createTool({
       requiredLevel: "advanced"
     });
 
-    const idErr = validateStringParam(args.escritoId, "escritoId");
-    if (idErr) return idErr;
+    // Validate escritoId is not empty
+    if (!args.escritoId || args.escritoId.trim() === "") {
+      return createErrorResponse("Se requiere un escritoId");
+    }
 
     // Auto-correct truncated IDs
     const { id: correctedEscritoId, wasCorrected } = await validateAndCorrectEscritoId(
@@ -38,25 +69,13 @@ export const insertContentTool = createTool({
     if (wasCorrected) {
       console.log(`✅ Auto-corrected escritoId in insertContent: ${args.escritoId} -> ${correctedEscritoId}`);
     }
-    const htmlErr = validateStringParam(args.html, "html");
-    if (htmlErr) return htmlErr;
-    if (!args.placement || typeof args.placement !== 'object') {
-      return createErrorResponse("Objeto de ubicación inválido");
+
+    // Validate html is not empty
+    if (!args.html || args.html.trim() === "") {
+      return createErrorResponse("Se requiere contenido HTML");
     }
 
-    // Basic validation for placement variants
-    const placement = args.placement as any;
-    if (placement.type === 'range') {
-      const sErr = validateStringParam(placement.textStart, "placement.textStart");
-      if (sErr) return sErr;
-      const eErr = validateStringParam(placement.textEnd, "placement.textEnd");
-      if (eErr) return eErr;
-    }
-    if (placement.type === 'position') {
-      if (typeof placement.position !== 'number' || !Number.isFinite(placement.position)) {
-        return createErrorResponse("placement.position debe ser un número finito");
-      }
-    }
+    const placement = args.placement;
 
     const result = await ctx.runAction(api.functions.escritosTransforms.index.insertHtmlContent, {
       escritoId: correctedEscritoId as any,

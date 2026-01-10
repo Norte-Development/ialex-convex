@@ -2,7 +2,7 @@ import { createTool, ToolCtx, getThreadMetadata } from "@convex-dev/agent";
 import { components } from "../../../_generated/api";
 import { api, internal } from "../../../_generated/api";
 import { z } from "zod";
-import { createErrorResponse, validateStringParam, validateNumberParam, getUserAndCaseIds } from "../shared/utils";
+import { createErrorResponse, getUserAndCaseIds } from "../shared/utils";
 import { Id } from "../../../_generated/dataModel";
 
 /**
@@ -37,18 +37,26 @@ import { Id } from "../../../_generated/dataModel";
  *   chunkCount: 3
  * });
  */
+/**
+ * Schema for queryDocumentTool arguments.
+ * All fields have defaults to satisfy OpenAI's JSON schema requirements.
+ */
+const queryDocumentToolArgs = z.object({
+  documentId: z.string().describe("The ID of the document to work with"),
+  mode: z.enum(["search", "read"]).default("search").describe("Mode: 'search' (semantic search) or 'read' (progressive reading). Default: 'search'"),
+  query: z.string().default("").describe("Search query for semantic search mode. Empty string to omit."),
+  chunkIndex: z.number().int().min(0).default(0).describe("Starting chunk index for read mode (0-based, default: 0)"),
+  chunkCount: z.number().int().min(1).max(10).default(1).describe("Number of chunks to read in read mode (default: 1)"),
+  limit: z.number().int().min(1).max(20).default(5).describe("Maximum results for search mode (default: 5)"),
+  caseId: z.string().default("").describe("Optional case ID. If provided, will use this case instead of extracting from context. Used for WhatsApp agent. Empty string to omit.")
+});
+
+type QueryDocumentToolArgs = z.infer<typeof queryDocumentToolArgs>;
+
 export const queryDocumentTool = createTool({
   description: "Query and read documents with multiple modes. Supports semantic search, progressive reading, and direct document access. Perfect for finding specific information or systematically reading through documents.",
-  args: z.object({
-    documentId: z.any().describe("The ID of the document to work with"),
-    mode: z.any().optional().describe("Mode: 'search' (semantic search), 'read' (progressive reading), or 'full' (read entire document). Default: 'search'"),
-    query: z.any().optional().describe("Search query for semantic search mode"),
-    chunkIndex: z.any().optional().describe("Starting chunk index for read mode (0-based, default: 0)"),
-    chunkCount: z.any().optional().describe("Number of chunks to read in read mode (default: 1)"),
-    limit: z.any().optional().describe("Maximum results for search mode (default: 5)"),
-    caseId: z.any().optional().describe("Optional case ID. If provided, will use this case instead of extracting from context. Used for WhatsApp agent.")
-  }).required({documentId: true}),
-  handler: async (ctx: ToolCtx, args: any) => {
+  args: queryDocumentToolArgs,
+  handler: async (ctx: ToolCtx, args: QueryDocumentToolArgs) => {
     try {
       // Get userId first
       const userAndCase = getUserAndCaseIds(ctx.userId as string);
@@ -75,8 +83,8 @@ export const queryDocumentTool = createTool({
         }
       }
 
-      // If no caseId from context, use the one from args (for WhatsApp agent)
-      if (!caseId && args.caseId) {
+      // If no caseId from context, use the one from args (for WhatsApp agent) - empty string means not provided
+      if (!caseId && args.caseId && args.caseId.trim() !== "") {
         caseId = args.caseId;
       }
 
@@ -95,32 +103,23 @@ export const queryDocumentTool = createTool({
         requiredLevel: "basic"
       } )
 
-      // Validate inputs in handler
-      const documentIdError = validateStringParam(args.documentId, "documentId");
-      if (documentIdError) return documentIdError;
-
-      const documentId = args.documentId.trim();
-      const mode = args.mode || "search";
-
-      // Validate mode-specific parameters
-      if (mode === "search") {
-        const queryError = validateStringParam(args.query, "query");
-        if (queryError) return queryError;
+      // Validate documentId is not empty
+      if (!args.documentId || args.documentId.trim() === "") {
+        return createErrorResponse("Se requiere un documentId");
       }
 
-      const limitError = validateNumberParam(args.limit, "limit", 1, 20, 5);
-      if (limitError) return limitError;
+      const documentId = args.documentId.trim();
+      const mode = args.mode;
 
-      const chunkIndexError = validateNumberParam(args.chunkIndex, "chunkIndex", 0, Infinity, 0);
-      if (chunkIndexError) return chunkIndexError;
+      // Validate mode-specific parameters
+      if (mode === "search" && (!args.query || args.query.trim() === "")) {
+        return createErrorResponse("Se requiere un término de búsqueda (query) para el modo 'search'");
+      }
 
-      const chunkCountError = validateNumberParam(args.chunkCount, "chunkCount", 1, 10, 1);
-      if (chunkCountError) return chunkCountError;
-
-      const query = args.query ? args.query.trim() : "";
-      const limit = args.limit !== undefined ? args.limit : 5;
-      const chunkIndex = args.chunkIndex !== undefined ? args.chunkIndex : 0;
-      const chunkCount = args.chunkCount !== undefined ? args.chunkCount : 1;
+      const query = args.query.trim();
+      const limit = args.limit;
+      const chunkIndex = args.chunkIndex;
+      const chunkCount = args.chunkCount;
 
       // Get document metadata using internal helper (bypasses permission checks)
       const document = await ctx.runQuery(internal.functions.documents.getDocumentForAgent, {

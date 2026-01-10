@@ -4,6 +4,14 @@ import { z } from "zod";
 import { createErrorResponse, validateStringParam, validateNumberParam } from "../shared/utils";
 
 /**
+ * Return type for the legislationReadTool handler.
+ * Returns a markdown-formatted string containing either:
+ * - Success: Document information, reading progress, and chunk content
+ * - Error: Formatted error message
+ */
+export type LegislationReadToolResult = string;
+
+/**
  * Tool for reading legislation documents progressively, chunk by chunk.
  * Use this to read through entire legislation documents sequentially without overwhelming token limits.
  * Perfect for systematic legislation analysis.
@@ -30,15 +38,25 @@ import { createErrorResponse, validateStringParam, validateNumberParam } from ".
  *   chunkCount: 3
  * });
  */
+/**
+ * Schema for legislationReadTool arguments
+ */
+const legislationReadToolArgs = z.object({
+  documentId: z.string().describe("The ID of the legislation document to read (this is the document_id field in the legislation collection)"),
+  chunkIndex: z.number().int().min(0).default(0).describe("Which chunk to read (0-based index). Start with 0 for the beginning."),
+  chunkCount: z.number().int().min(1).max(10).default(1).describe("Number of consecutive chunks to read (default: 1). Use higher values to read multiple chunks at once."),
+  contextWindow: z.number().int().min(0).max(10).default(0).describe("Optional number of adjacent chunks to include on both sides for additional context.")
+});
+
+/**
+ * Type for legislationReadTool arguments
+ */
+type LegislationReadToolArgs = z.infer<typeof legislationReadToolArgs>;
+
 export const legislationReadTool = createTool({
   description: "Read a legislation document progressively, chunk by chunk. Use this to read through entire legislation documents sequentially without overwhelming token limits. Perfect for systematic legislation analysis.",
-  args: z.object({
-    documentId: z.any().describe("The ID of the legislation document to read (this is the document_id field in the legislation collection)"),
-    chunkIndex: z.any().optional().describe("Which chunk to read (0-based index). Start with 0 for the beginning."),
-    chunkCount: z.any().optional().describe("Number of consecutive chunks to read (default: 1). Use higher values to read multiple chunks at once."),
-    contextWindow: z.any().optional().describe("Optional number of adjacent chunks to include on both sides for additional context.")
-  }).required({documentId: true}),
-  handler: async (ctx: ToolCtx, args: any) => {
+  args: legislationReadToolArgs,
+  handler: async (ctx: ToolCtx, args: LegislationReadToolArgs): Promise<LegislationReadToolResult> => {
     try {
       // Validate inputs in handler
       const documentIdError = validateStringParam(args.documentId, "documentId");
@@ -54,9 +72,9 @@ export const legislationReadTool = createTool({
       if (contextWindowError) return contextWindowError;
 
       const documentId = args.documentId.trim();
-      const chunkIndex = args.chunkIndex !== undefined ? args.chunkIndex : 0;
-      const chunkCount = args.chunkCount !== undefined ? args.chunkCount : 1;
-      const contextWindow = args.contextWindow !== undefined ? args.contextWindow : 0;
+      const chunkIndex = args.chunkIndex ?? 0;
+      const chunkCount = args.chunkCount ?? 1;
+      const contextWindow = args.contextWindow ?? 0;
       
       // Verify authentication
       if (!ctx.userId) {
@@ -132,4 +150,4 @@ ${combinedContent || 'Sin contenido disponible'}
       return createErrorResponse(`Error inesperado: ${error instanceof Error ? error.message : 'Error desconocido'}`);
     }
   }
-} as any);
+});

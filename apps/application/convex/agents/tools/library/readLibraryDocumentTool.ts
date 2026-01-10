@@ -5,6 +5,21 @@ import { createErrorResponse, validateStringParam, validateNumberParam, getUserA
 import { Id } from "../../../_generated/dataModel";
 
 /**
+ * Citation type for library document citations
+ */
+interface LibraryDocumentCitation {
+  id: string;
+  type: "doc";
+  title: string;
+}
+
+/**
+ * Return type for readLibraryDocumentTool handler.
+ * Returns either a markdown string (error) or an object with markdown and citations.
+ */
+export type ReadLibraryDocumentToolResult = string | { markdown: string; citations: LibraryDocumentCitation[] };
+
+/**
  * Tool for reading a library document progressively, chunk by chunk.
  * Use this to read through entire library documents sequentially without overwhelming token limits.
  * Perfect for systematic document analysis.
@@ -31,14 +46,24 @@ import { Id } from "../../../_generated/dataModel";
  *   chunkCount: 3
  * });
  */
+/**
+ * Schema for readLibraryDocumentTool arguments
+ */
+const readLibraryDocumentToolArgs = z.object({
+  documentId: z.string().describe("The ID of the library document to read"),
+  chunkIndex: z.number().int().min(0).default(0).describe("Which chunk to read (0-based index). Start with 0 for the beginning."),
+  chunkCount: z.number().int().min(1).max(10).default(1).describe("Number of consecutive chunks to read (default: 1). Use higher values to read multiple chunks at once.")
+});
+
+/**
+ * Type for readLibraryDocumentTool arguments
+ */
+type ReadLibraryDocumentToolArgs = z.infer<typeof readLibraryDocumentToolArgs>;
+
 export const readLibraryDocumentTool = createTool({
   description: "Read a library document progressively, chunk by chunk. Use this tool when you need to systematically read through library documents without overwhelming token limits. Perfect for comprehensive analysis of reference materials, templates, and knowledge base articles. Start with chunkIndex 0 and increment to read sequentially.",
-  args: z.object({
-    documentId: z.any().describe("The ID of the library document to read"),
-    chunkIndex: z.any().optional().describe("Which chunk to read (0-based index). Start with 0 for the beginning."),
-    chunkCount: z.any().optional().describe("Number of consecutive chunks to read (default: 1). Use higher values to read multiple chunks at once.")
-  }).required({documentId: true}),
-  handler: async (ctx: ToolCtx, args: any) => {
+  args: readLibraryDocumentToolArgs,
+  handler: async (ctx: ToolCtx, args: ReadLibraryDocumentToolArgs): Promise<ReadLibraryDocumentToolResult> => {
     try {
       // Verify authentication using agent context
       if (!ctx.userId) {
@@ -59,13 +84,13 @@ export const readLibraryDocumentTool = createTool({
       if (chunkCountError) return chunkCountError;
 
       const documentId = args.documentId.trim();
-      const chunkIndex = args.chunkIndex !== undefined ? args.chunkIndex : 0;
-      const chunkCount = args.chunkCount !== undefined ? args.chunkCount : 1;
+      const chunkIndex = args.chunkIndex ?? 0;
+      const chunkCount = args.chunkCount ?? 1;
 
       console.log("Reading library document:", { documentId, chunkIndex, chunkCount });
 
       // Get library document metadata (includes permission check)
-      const document = await ctx.runQuery(internal.functions.libraryDocument.getLibraryDocumentForAgent, {
+      const document: { title: string; description?: string; teamId?: Id<"teams">; processingStatus?: string; totalChunks?: number } | null = await ctx.runQuery(internal.functions.libraryDocument.getLibraryDocumentForAgent, {
         documentId: documentId as Id<"libraryDocuments">
       });
 
@@ -95,7 +120,7 @@ export const readLibraryDocumentTool = createTool({
       const actualChunkCount = Math.min(chunkCount, totalChunks - chunkIndex);
 
       // Fetch multiple chunks from Qdrant
-      const chunksContent = await ctx.runAction(api.rag.qdrantUtils.libraryDocuments.getLibraryDocumentChunksByRange, {
+      const chunksContent: string[] = await ctx.runAction(api.rag.qdrantUtils.libraryDocuments.getLibraryDocumentChunksByRange, {
         libraryDocumentId: documentId,
         startIndex: chunkIndex,
         endIndex: chunkIndex + actualChunkCount - 1
@@ -106,16 +131,16 @@ export const readLibraryDocumentTool = createTool({
       }
 
       // Combine chunks content
-      const combinedContent = chunksContent.join('\n\n');
+      const combinedContent: string = chunksContent.join('\n\n');
 
       // Build citation for the library document
-      const citation = {
+      const citation: LibraryDocumentCitation = {
         id: documentId,
         type: "doc" as const,
         title: document.title || document.description || "Documento de biblioteca",
       };
 
-      const markdown = `# 📖 Lectura de Documento de Biblioteca
+      const markdown: string = `# 📖 Lectura de Documento de Biblioteca
 
 ## Información del Documento
 - **ID del Documento**: ${documentId}
@@ -146,5 +171,5 @@ ${combinedContent || 'Sin contenido disponible'}
       return createErrorResponse(`Error inesperado: ${error instanceof Error ? error.message : 'Error desconocido'}`);
     }
   }
-} as any);
+});
 

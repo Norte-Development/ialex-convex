@@ -106,8 +106,8 @@ ${prompt}
 
     const { thread } = await agent.continueThread(ctx, { threadId });
 
-    let openRouterModel = modelToUse === 'gpt-5' ? 'anthropic/claude-haiku-4.5' : 'anthropic/claude-haiku-4.5';
-    // const config = { reasoning: modelToUse === 'gpt-5' ? {enabled: true, effort: "low" as const, exclude: false } : undefined};
+    let openRouterModel = modelToUse === 'gpt-5' ? 'openai/gpt-5.1' : 'openai/gpt-5-mini';
+    const config = { reasoning: modelToUse === 'gpt-5' ? {enabled: true, effort: "low" as const, exclude: false } : undefined};
 
     if (webSearch) {
       openRouterModel = openRouterModel + ':online';
