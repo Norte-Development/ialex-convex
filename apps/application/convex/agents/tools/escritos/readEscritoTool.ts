@@ -878,27 +878,35 @@ export const getFullEscrito = (doc: Node): { text: string; wordCount: number; st
  *   operation: "full" 
  * });
  * ``` */
+/**
+ * Schema for readEscritoTool arguments.
+ * All fields have defaults to satisfy OpenAI's JSON schema requirements.
+ */
+const readEscritoToolArgs = z.object({
+  escritoId: z.string().describe("The Escrito ID (Convex doc id)"),
+  operation: z.enum(["outline", "chunk", "full", "getTextSelection", "getJsonSelection", "getTextRange", "getJsonRange", "getTextChunks", "getJsonChunks"]).describe("Which read operation to perform"),
+  // Existing chunking by semantic chunks
+  chunkIndex: z.number().int().min(0).default(0).describe("Semantic chunk index (default: 0)"),
+  contextWindow: z.number().int().min(0).default(0).describe("Chunks before/after to include (default: 0)"),
+  // Selection by absolute positions
+  from: z.number().int().min(0).default(0).describe("Start position (absolute, default: 0)"),
+  to: z.number().int().min(0).default(0).describe("End position (absolute, default: 0 means end of document)"),
+  // Anchor-based ranges
+  afterText: z.string().default("").describe("Anchor text after which the range starts. Empty string to omit."),
+  beforeText: z.string().default("").describe("Anchor text before which the range ends. Empty string to omit."),
+  occurrenceIndex: z.number().int().min(1).default(1).describe("Occurrence index for anchors (1-based, default: 1)"),
+  // Chunking by size
+  unit: z.enum(["words", "nodes"]).default("words").describe("Size unit for chunking (default: words)"),
+  chunkSize: z.number().int().min(1).default(300).describe("Size per chunk in unit (default: 300)"),
+  caseId: z.string().default("").describe("Optional case ID. If provided, will use this case instead of extracting from context. Used for WhatsApp agent. Empty string to omit.")
+});
+
+type ReadEscritoToolArgs = z.infer<typeof readEscritoToolArgs>;
+
 const readEscritoTool = createTool({
   description: "Read an Escrito from the case. Use this tool to review escrito content before editing, verify changes after editing, or understand the current state of the document. Supports multiple read operations: 'outline' for structure, 'chunk' for specific sections, 'full' for complete content, and range operations for specific text selections.",
-  args: z.object({
-    escritoId: z.any().describe("The Escrito ID (Convex doc id)"),
-    operation: z.enum(["outline", "chunk", "full", "getTextSelection", "getJsonSelection", "getTextRange", "getJsonRange", "getTextChunks", "getJsonChunks"]).describe("Which read operation to perform"),
-    // Existing chunking by semantic chunks
-    chunkIndex: z.number().optional().describe("Semantic chunk index"),
-    contextWindow: z.number().optional().describe("Chunks before/after to include"),
-    // Selection by absolute positions
-    from: z.number().optional().describe("Start position (absolute)"),
-    to: z.number().optional().describe("End position (absolute)"),
-    // Anchor-based ranges
-    afterText: z.string().optional().describe("Anchor text after which the range starts"),
-    beforeText: z.string().optional().describe("Anchor text before which the range ends"),
-    occurrenceIndex: z.number().optional().describe("Occurrence index for anchors (1-based)"),
-    // Chunking by size
-    unit: z.enum(["words", "nodes"]).optional().describe("Size unit for chunking"),
-    chunkSize: z.number().optional().describe("Size per chunk in unit"),
-    caseId: z.any().optional().describe("Optional case ID. If provided, will use this case instead of extracting from context. Used for WhatsApp agent.")
-  }).required({escritoId: true}),
-  handler: async (ctx: ToolCtx, args: any) => {
+  args: readEscritoToolArgs,
+  handler: async (ctx: ToolCtx, args: ReadEscritoToolArgs) => {
     try {
       // Get userId first
       const userAndCase = getUserAndCaseIds(ctx.userId as string);
@@ -920,8 +928,8 @@ const readEscritoTool = createTool({
         }
       }
 
-      // If no caseId from context, use the one from args (for WhatsApp agent)
-      if (!caseId && args.caseId) {
+      // If no caseId from context, use the one from args (for WhatsApp agent) - empty string means not provided
+      if (!caseId && args.caseId && args.caseId.trim() !== "") {
         caseId = args.caseId;
       }
 
@@ -970,7 +978,13 @@ const readEscritoTool = createTool({
         title: escrito.title || 'Escrito sin título',
       };
 
-      let result: any;
+      // Convert empty strings to undefined for optional text parameters
+      const afterText = args.afterText && args.afterText.trim() !== "" ? args.afterText : undefined;
+      const beforeText = args.beforeText && args.beforeText.trim() !== "" ? args.beforeText : undefined;
+      const fromPos = args.from > 0 ? args.from : undefined;
+      const toPos = args.to > 0 ? args.to : undefined;
+
+      let result: unknown;
       switch (args.operation) {
         case "outline":
           result = getEscritoOutline(doc.doc);
@@ -988,26 +1002,16 @@ const readEscritoTool = createTool({
           result = getJsonSelection(doc.doc, args.from, args.to);
           break;
         case "getTextRange":
-          result = getTextRange(doc.doc, { from: args.from, to: args.to, afterText: args.afterText, beforeText: args.beforeText, occurrenceIndex: args.occurrenceIndex });
+          result = getTextRange(doc.doc, { from: fromPos, to: toPos, afterText, beforeText, occurrenceIndex: args.occurrenceIndex });
           break;
         case "getJsonRange":
-          result = getJsonRange(doc.doc, { from: args.from, to: args.to, afterText: args.afterText, beforeText: args.beforeText, occurrenceIndex: args.occurrenceIndex });
+          result = getJsonRange(doc.doc, { from: fromPos, to: toPos, afterText, beforeText, occurrenceIndex: args.occurrenceIndex });
           break;
         case "getTextChunks":
-          if (args.unit && args.chunkSize) {
-            result = getTextChunksBySize(doc.doc, { unit: args.unit, chunkSize: args.chunkSize, chunkIndex: args.chunkIndex ?? 0, contextWindow: args.contextWindow ?? 0 });
-          } else {
-            result = getEscritoChunks(doc.doc, args.chunkIndex ?? 0, args.contextWindow ?? 0);
-          }
+          result = getTextChunksBySize(doc.doc, { unit: args.unit, chunkSize: args.chunkSize, chunkIndex: args.chunkIndex, contextWindow: args.contextWindow });
           break;
         case "getJsonChunks":
-          if (args.unit && args.chunkSize) {
-            result = getJsonChunksBySize(doc.doc, { unit: args.unit, chunkSize: args.chunkSize, chunkIndex: args.chunkIndex ?? 0, contextWindow: args.contextWindow ?? 0 });
-          } else {
-            // Fallback: return semantic chunks as JSON slices
-            const sem = getEscritoChunks(doc.doc, args.chunkIndex ?? 0, args.contextWindow ?? 0);
-            result = sem.map(ch => ({ from: ch.startPos, to: ch.endPos, json: getJsonSlice(doc.doc, ch.startPos, ch.endPos), index: ch.chunkIndex, total: sem.length }));
-          }
+          result = getJsonChunksBySize(doc.doc, { unit: args.unit, chunkSize: args.chunkSize, chunkIndex: args.chunkIndex, contextWindow: args.contextWindow });
           break;
         default:
           return createErrorResponse(`Operación inválida: ${args.operation}`);

@@ -49,12 +49,20 @@ export interface EscritoStatsResponse {
  * console.log(`Document has ${stats.stats.words} words and ${stats.stats.paragraphs} paragraphs`);
  * ```
  */
+/**
+ * Schema for getEscritoStatsTool arguments.
+ * All fields have defaults to satisfy OpenAI's JSON schema requirements.
+ */
+const getEscritoStatsToolArgs = z.object({
+  escritoId: z.string().describe("The Escrito ID (Convex doc id)"),
+});
+
+type GetEscritoStatsToolArgs = z.infer<typeof getEscritoStatsToolArgs>;
+
 export const getEscritoStatsTool = createTool({
   description: "Get the stats and structure information of an Escrito. Use this tool BEFORE any escrito editing to understand the document size, structure, and current state. Provides word count, paragraph count, and version information to help plan editing strategies.",
-  args: z.object({
-    escritoId: z.any().describe("The Escrito ID (Convex doc id)"),
-  }).required({escritoId: true}),
-  handler: async (ctx: ToolCtx, args: any) => {
+  args: getEscritoStatsToolArgs,
+  handler: async (ctx: ToolCtx, args: GetEscritoStatsToolArgs) => {
     try {
       const {caseId, userId} = getUserAndCaseIds(ctx.userId as string);
       

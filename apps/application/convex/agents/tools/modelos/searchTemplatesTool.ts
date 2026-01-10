@@ -1,7 +1,7 @@
 import { createTool, ToolCtx } from "@convex-dev/agent";
 import { api, internal } from "../../../_generated/api";
 import { z } from "zod";
-import { createErrorResponse, validateNumberParam, getUserAndCaseIds } from "../shared/utils";
+import { createErrorResponse, getUserAndCaseIds } from "../shared/utils";
 import { Id } from "../../../_generated/dataModel";
 import { 
   createSpecificTemplateTemplate,
@@ -46,26 +46,33 @@ import {
  *   templateId: "template_123"
  * });
  */
+/**
+ * Schema for searchTemplatesTool arguments.
+ * All fields have defaults to satisfy OpenAI's JSON schema requirements.
+ */
+const searchTemplatesToolArgs = z.object({
+  searchTerm: z.string().default("").describe("Search term to filter templates by name or description. Empty string to omit."),
+  category: z.string().default("").describe("Filter by category (e.g., 'Derecho Civil', 'Derecho Mercantil'). Empty string to omit."),
+  contentType: z.string().default("").describe("Filter by content type: 'html' or 'json'. Empty string to omit."),
+  templateId: z.string().default("").describe("Get specific template by ID. Empty string to omit."),
+  limit: z.number().int().min(1).max(100).default(20).describe("Maximum number of results to return (default: 20, max: 100)")
+});
+
+type SearchTemplatesToolArgs = z.infer<typeof searchTemplatesToolArgs>;
+
 export const searchTemplatesTool = createTool({
   description: "Tool for searching and retrieving template information. Supports searching by name, category, content type, or getting specific templates. Returns template summaries and brief descriptions without raw content or IDs. Perfect for finding and understanding templates before applying them to escritos.",
-  args: z.object({
-    searchTerm: z.string().optional().describe("Search term to filter templates by name or description"),
-    category: z.string().optional().describe("Filter by category (e.g., 'Derecho Civil', 'Derecho Mercantil')"),
-    contentType: z.string().optional().describe("Filter by content type: 'html' or 'json'"),
-    templateId: z.string().optional().describe("Get specific template by ID"),
-    limit: z.number().min(1).max(100).optional().describe("Maximum number of results to return (default: 20, max: 100)")
-  }).required({}),
-  handler: async (ctx: ToolCtx, args: any) => {
+  args: searchTemplatesToolArgs,
+  handler: async (ctx: ToolCtx, args: SearchTemplatesToolArgs) => {
     try {
       const {caseId, userId} = getUserAndCaseIds(ctx.userId as string);
 
-      const searchTerm = args.searchTerm?.trim();
-      const category = args.category?.trim();
-      const contentType = args.contentType?.trim();
-      const templateId = args.templateId?.trim();
-      const limitError = validateNumberParam(args.limit, "limit", 1, 100, 20);
-      if (limitError) return limitError;
-      const limit = args.limit !== undefined ? args.limit : 20;
+      // Convert empty strings to undefined for optional parameters
+      const searchTerm = args.searchTerm.trim() !== "" ? args.searchTerm.trim() : undefined;
+      const category = args.category.trim() !== "" ? args.category.trim() : undefined;
+      const contentType = args.contentType.trim() !== "" ? args.contentType.trim() : undefined;
+      const templateId = args.templateId.trim() !== "" ? args.templateId.trim() : undefined;
+      const limit = args.limit;
       
       if (templateId) {
         // Get specific template by ID

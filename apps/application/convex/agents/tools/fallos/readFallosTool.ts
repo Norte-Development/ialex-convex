@@ -4,6 +4,24 @@ import { z } from "zod";
 import { createErrorResponse, validateStringParam, validateNumberParam } from "../shared/utils";
 
 /**
+ * Return type for the readFallosTool handler.
+ * Returns a markdown-formatted string containing either:
+ * - Success: Document information, reading progress, and chunk content
+ * - Error: Formatted error message
+ */
+export type ReadFallosToolResult = string;
+
+/**
+ * Schema for readFallosTool arguments
+ */
+const readFallosToolArgs = z.object({
+  documentId: z.string().describe("The ID of the fallo document to read (this is the document_id field in the fallos collection)"),
+  chunkIndex: z.number().int().min(0).describe("Which chunk to read (0-based index). Start with 0 for the beginning.").default(0),
+  chunkCount: z.number().int().min(1).max(10).describe("Number of consecutive chunks to read (default: 1). Use higher values to read multiple chunks at once.").default(1),
+  contextWindow: z.number().int().min(0).max(10).describe("Optional number of adjacent chunks to include on both sides for additional context.").default(0)
+});
+
+/**
  * Tool for reading fallos documents progressively, chunk by chunk.
  * Use this to read through entire fallos documents sequentially without overwhelming token limits.
  * Perfect for systematic fallos analysis.
@@ -32,13 +50,8 @@ import { createErrorResponse, validateStringParam, validateNumberParam } from ".
  */
 export const readFallosTool = createTool({
   description: "Read a fallo document progressively, chunk by chunk. Use this to read through entire fallos documents sequentially without overwhelming token limits. Perfect for systematic fallos analysis.",
-  args: z.object({
-    documentId: z.any().describe("The ID of the fallo document to read (this is the document_id field in the fallos collection)"),
-    chunkIndex: z.any().optional().describe("Which chunk to read (0-based index). Start with 0 for the beginning."),
-    chunkCount: z.any().optional().describe("Number of consecutive chunks to read (default: 1). Use higher values to read multiple chunks at once."),
-    contextWindow: z.any().optional().describe("Optional number of adjacent chunks to include on both sides for additional context.")
-  }).required({documentId: true}),
-  handler: async (ctx: ToolCtx, args: any) => {
+  args: readFallosToolArgs,
+  handler: async (ctx: ToolCtx, args: z.infer<typeof readFallosToolArgs>): Promise<ReadFallosToolResult> => {
     try {
       // Validate inputs in handler
       const documentIdError = validateStringParam(args.documentId, "documentId");
@@ -137,4 +150,4 @@ ${combinedContent || 'Sin contenido disponible'}
       return createErrorResponse(`Error inesperado: ${error instanceof Error ? error.message : 'Error desconocido'}`);
     }
   }
-} as any);
+});
