@@ -42,6 +42,7 @@ import { HomeAgentAttachmentPreview } from "./HomeAgentAttachmentPreview";
 import { HomeAgentMessage, type AgentMessage } from "./HomeAgentMessage";
 import type { HomeAgentMediaRef } from "./types";
 import { HOME_AGENT_MAX_MEDIA_BYTES } from "./types";
+import { parseAiLimitError } from "@/lib/aiLimitError";
 
 // Tool citations are extracted via shared utility in `ai-elements/citations`.
 
@@ -264,13 +265,30 @@ export function HomeAgentChat({
       setMediaAttachments([]);
     } catch (error) {
       console.error("Error sending message:", error);
-      const errorMessage =
-        error instanceof Error ? error.message : "Error al enviar el mensaje";
-      setSendError(errorMessage);
-      toast.error("Error al enviar mensaje", {
-        description: errorMessage,
-        duration: 5000,
-      });
+      const { isAiLimit, isTeamLimit, message: parsedMessage } =
+        parseAiLimitError(error);
+
+      if (isAiLimit) {
+        const friendlyMessage = isTeamLimit
+          ? "Tu equipo ha alcanzado el límite mensual de mensajes de IA."
+          : "Has alcanzado tu límite mensual de mensajes de IA.";
+        setSendError(friendlyMessage);
+        toast.error("Límite de mensajes de IA alcanzado", {
+          description: friendlyMessage,
+          duration: 5000,
+        });
+      } else {
+        const fallbackMessage =
+          error instanceof Error
+            ? error.message
+            : parsedMessage || "Error al enviar el mensaje";
+        setSendError(fallbackMessage);
+        toast.error("Error al enviar mensaje", {
+          description: fallbackMessage,
+          duration: 5000,
+        });
+      }
+
       // Restaurar el mensaje en el input para que el usuario pueda reintentarlo
       setInputValue(message);
     }
