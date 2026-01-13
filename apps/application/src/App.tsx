@@ -62,6 +62,7 @@ import DriveConnectedPage from "./pages/DriveConnectedPage";
 const CaseDocumentPage = lazy(
   () => import("./pages/CaseOpen/CaseDocumentPage"),
 );
+
 const LibraryDocumentPage = lazy(() => import("./pages/LibraryDocumentPage"));
 
 // Wrapper to provide CasePermissionsProvider with caseId from CaseContext
