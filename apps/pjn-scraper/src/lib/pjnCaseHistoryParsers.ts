@@ -623,6 +623,11 @@ export function parseIntervinientesHtml(html: string): NormalizedParticipant[] {
   const participants: NormalizedParticipant[] = [];
 
   const tableSelectors = [
+    // Primary: explicit participants table inside the Intervinientes tab
+    '#expediente\\:participantsTable',
+    'table[id*="participantsTable" i]',
+    'div[id*="intervinientesTab" i] table.rf-dt',
+    // Fallbacks for older layouts
     'table[id*="intervinientes" i]',
     'div[id*="intervinientes" i] table',
     'table[class*="dataTable"]',
@@ -636,7 +641,15 @@ export function parseIntervinientesHtml(html: string): NormalizedParticipant[] {
 
   if (table.length === 0) return [];
 
-  const rows = table.find("tbody tr, tr");
+  // Prefer RichFaces data rows (PARTES) and avoid nested detail rows where possible.
+  // The main party rows live in <tbody class="rf-dt-b">; nested detail/collapsible rows
+  // use <tbody class="rf-cst">.
+  let rows = table.find("tbody.rf-dt-b tr");
+  if (rows.length === 0) {
+    // Fallback to generic tbody rows if the expected class isn't present.
+    rows = table.find("tbody tr, tr");
+  }
+
   rows.each((_, element) => {
     const $row = $(element);
     const $cells = $row.find("td");
@@ -644,7 +657,18 @@ export function parseIntervinientesHtml(html: string): NormalizedParticipant[] {
 
     const role = $cells.eq(0).text().trim();
     const name = $cells.eq(1).text().trim();
-    const details = $cells.length > 2 ? $cells.eq(2).text().trim() : undefined;
+
+    // Combine TOMO/FOLIO + I.E.J. (or any extra columns) into a single optional details string.
+    const extraParts: string[] = [];
+    if ($cells.length > 2) {
+      const tomoFolio = $cells.eq(2).text().trim();
+      if (tomoFolio) extraParts.push(tomoFolio);
+    }
+    if ($cells.length > 3) {
+      const iej = $cells.eq(3).text().trim();
+      if (iej) extraParts.push(iej);
+    }
+    const details = extraParts.length > 0 ? extraParts.join(" | ") : undefined;
 
     if (!role || !name) return;
 

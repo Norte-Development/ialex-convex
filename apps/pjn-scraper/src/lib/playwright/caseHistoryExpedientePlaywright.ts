@@ -203,12 +203,14 @@ export async function loadDocDigitalesHtml(
   fre?: string
 ): Promise<string> {
   const tabSelectors = [
-    'a:has-text("Doc. digitales")',
-    'a:has-text("Documentos digitales")',
-    'a[id*="doc" i][id*="digital" i]',
-    'a[href*="doc" i][href*="digital" i]',
-    'button:has-text("Doc. digitales")',
-    'li:has-text("Doc. digitales") a',
+    // RichFaces tab header cells for "Doc. digitales" / "Documentos digitales"
+    'td.rf-tab-hdr-inact:has-text("Doc. digitales")',
+    'td.rf-tab-hdr:has-text("Doc. digitales")',
+    'td.rf-tab-hdr-inact:has-text("Documentos digitales")',
+    'td.rf-tab-hdr:has-text("Documentos digitales")',
+    // Fallbacks by id if needed (escape colons for CSS)
+    '#expediente\\:j_idt???\\:header\\:inactive',
+    '#expediente\\:j_idt???\\:header\\:active',
   ];
 
   const safeFre = fre ? fre.replace(/[/\\:]/g, "_") : "unknown";
@@ -229,22 +231,41 @@ export async function loadIntervinientesHtml(
   debugStorage?: DebugStorage,
   fre?: string
 ): Promise<string> {
-  const tabSelectors = [
-    'a:has-text("Intervinientes")',
-    'a[id*="intervinientes" i]',
-    'a[href*="intervinientes" i]',
-    'button:has-text("Intervinientes")',
-    'li:has-text("Intervinientes") a',
-  ];
-
   const safeFre = fre ? fre.replace(/[/\\:]/g, "_") : "unknown";
-  return loadTabPlaywright(
-    page,
-    "Intervinientes",
-    tabSelectors,
-    debugStorage,
-    `${safeFre}_04_intervinientes`
-  );
+
+  logger.debug("Clicking Intervinientes tab", { fre });
+
+  // Locate the Intervinientes tab header within the expediente tab panel.
+  const tabHeader = page
+    .locator('#expediente\\:expedienteTab td.rf-tab-hdr')
+    .filter({ hasText: "Intervinientes" })
+    .first();
+
+  await tabHeader.click();
+
+  // Wait until the hidden value reflects that the Intervinientes tab is active.
+  await page
+    .waitForFunction(() => {
+      const input = document.getElementById(
+        "expediente:expedienteTab-value",
+      ) as HTMLInputElement | null;
+      return input?.value === "intervinientes";
+    })
+    .catch(() => {
+      // If this fails, we'll still capture HTML for debugging.
+      return null;
+    });
+
+  const html = await page.content();
+
+  if (debugStorage) {
+    debugStorage.saveHtml(`${safeFre}_04_intervinientes`, html, {
+      fre,
+      tabName: "Intervinientes",
+    });
+  }
+
+  return html;
 }
 
 /**
@@ -256,11 +277,12 @@ export async function loadRecursosHtml(
   fre?: string
 ): Promise<string> {
   const tabSelectors = [
-    'a:has-text("Recursos")',
-    'a[id*="recursos" i]',
-    'a[href*="recursos" i]',
-    'button:has-text("Recursos")',
-    'li:has-text("Recursos") a',
+    // RichFaces tab header cells for "Recursos"
+    'td.rf-tab-hdr-inact:has-text("Recursos")',
+    'td.rf-tab-hdr:has-text("Recursos")',
+    // Fallbacks by exact id based on observed markup
+    '#expediente\\:j_idt519\\:header\\:inactive',
+    '#expediente\\:j_idt519\\:header\\:active',
   ];
 
   const safeFre = fre ? fre.replace(/[/\\:]/g, "_") : "unknown";
@@ -282,11 +304,12 @@ export async function loadVinculadosHtml(
   fre?: string
 ): Promise<string> {
   const tabSelectors = [
-    'a:has-text("Vinculados")',
-    'a[id*="vinculados" i]',
-    'a[href*="vinculados" i]',
-    'button:has-text("Vinculados")',
-    'li:has-text("Vinculados") a',
+    // RichFaces tab header cells for "Vinculados"
+    'td.rf-tab-hdr-inact:has-text("Vinculados")',
+    'td.rf-tab-hdr:has-text("Vinculados")',
+    // Fallbacks by exact id based on observed markup
+    '#expediente\\:j_idt479\\:header\\:inactive',
+    '#expediente\\:j_idt479\\:header\\:active',
   ];
 
   const safeFre = fre ? fre.replace(/[/\\:]/g, "_") : "unknown";
