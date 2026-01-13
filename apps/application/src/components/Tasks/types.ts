@@ -22,9 +22,24 @@ export interface TaskColumnData {
 }
 
 export const TASK_COLUMNS: TaskColumnData[] = [
-  { id: "pending", title: "Pendiente", status: "pending", color: "bg-gray-100 border-gray-300" },
-  { id: "in_progress", title: "En Progreso", status: "in_progress", color: "bg-blue-100 border-blue-300" },
-  { id: "completed", title: "Completado", status: "completed", color: "bg-green-100 border-green-300" },
+  {
+    id: "pending",
+    title: "Pendiente",
+    status: "pending",
+    color: "border-gray-200",
+  },
+  {
+    id: "in_progress",
+    title: "En Progreso",
+    status: "in_progress",
+    color: "border-tertiary",
+  },
+  {
+    id: "completed",
+    title: "Completado",
+    status: "completed",
+    color: "border-gray-200",
+  },
 ];
 
 export interface DragDataTaskCard {

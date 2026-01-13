@@ -1,4 +1,4 @@
-import type { Id, Doc } from "../../../../convex/_generated/dataModel";
+import type { Id } from "../../../../convex/_generated/dataModel";
 import { useTaskOperations } from "../hooks/useTaskOperations";
 import { useTaskKanbanMonitor } from "../hooks/useTaskKanbanMonitor";
 import { KanbanColumn } from "./KanbanColumn";
@@ -18,17 +18,15 @@ export function KanbanBoard({ todoListId }: KanbanBoardProps) {
     await deleteTodoItem({ itemId: taskId as Id<"todoItems"> });
   };
 
-  // Setup drag and drop monitor
   useTaskKanbanMonitor({
     onStatusChange: updateTaskStatus,
     onReorder: async () => {
-      // Implementar reordenamiento si es necesario
       console.log("Reordenar tarea");
     },
   });
 
   return (
-    <div className="flex gap-6 pb-6 overflow-x-auto">
+    <div className="flex gap-8 pb-4 overflow-x-auto">
       {TASK_COLUMNS.map((column) => (
         <KanbanColumn
           key={column.id}
