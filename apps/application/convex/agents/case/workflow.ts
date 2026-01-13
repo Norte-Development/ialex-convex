@@ -93,7 +93,7 @@ const vContextBundle = v.object({
   clients: v.array(
     v.object({
       id: v.id("clients"),
-      name: v.string(),
+      name: v.optional(v.string()),
       email: v.optional(v.string()),
       phone: v.optional(v.string()),
       dni: v.optional(v.string()),

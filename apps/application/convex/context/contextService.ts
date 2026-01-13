@@ -93,7 +93,7 @@ export interface CaseContext {
 
 export interface ClientContext {
   id: Id<"clients">;
-  name: string;
+  name?: string;
   email?: string;
   phone?: string;
   dni?: string;
@@ -555,7 +555,7 @@ export class ContextService {
     // Client information
     if (contextBundle.clients.length > 0) {
       const clientInfo = contextBundle.clients
-        .map(client => `- ${client.name} (${client.clientType}${client.role ? `, ${client.role}` : ''})`)
+        .map(client => `- ${client.name ?? 'Sin nombre'} (${client.clientType}${client.role ? `, ${client.role}` : ''})`)
         .join('\n');
       sections.push(`## Clientes del caso
 ${clientInfo}`);
