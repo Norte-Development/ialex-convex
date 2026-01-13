@@ -1,6 +1,6 @@
 import { WorkflowManager } from "@convex-dev/workflow";
 import { components, internal, api } from "../../_generated/api";
-import { v } from "convex/values";
+import { v, ConvexError } from "convex/values";
 import { agent } from "./agent";
 import { internalAction, mutation } from "../../_generated/server";
 import type { ActionCtx } from "../../_generated/server";
@@ -252,9 +252,11 @@ export const initiateWorkflowStreaming = mutation({
     const totalAvailable = availableMessages + availableCredits;
 
     if (totalAvailable <= 0) {
-      throw new Error(
-        "Has alcanzado el límite de mensajes de IA. Compra créditos o actualiza a Premium para mensajes ilimitados."
-      );
+      throw new ConvexError({
+        code: "AI_LIMIT_EXCEEDED",
+        message: "Has alcanzado el límite de mensajes de IA. Compra créditos o actualiza a Premium para mensajes ilimitados.",
+        isTeamLimit: false,
+      });
     }
 
     const media = args.media ?? [];

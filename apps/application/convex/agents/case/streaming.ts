@@ -6,7 +6,7 @@ import {
   mutation,
   query,
 } from "../../_generated/server";
-import { v } from "convex/values";
+import { v, ConvexError } from "convex/values";
 import { authorizeThreadAccess } from "../threads";
 import { agent } from "./agent";
 import { ContextService } from "../../context/contextService";
@@ -95,10 +95,14 @@ export const initiateAsyncStreaming = mutation({
       const totalAvailable = availableMessages + availableCredits;
 
       if (totalAvailable <= 0) {
-        const errorMsg = billing.entityType === "team"
-          ? "El equipo ha alcanzado el límite de mensajes de IA este mes."
-          : "Has alcanzado el límite de mensajes de IA. Compra créditos o actualiza a Premium para mensajes ilimitados.";
-        throw new Error(errorMsg);
+        const isTeamLimit = billing.entityType === "team";
+        throw new ConvexError({
+          code: "AI_LIMIT_EXCEEDED",
+          message: isTeamLimit
+            ? "El equipo ha alcanzado el límite de mensajes de IA este mes."
+            : "Has alcanzado el límite de mensajes de IA. Compra créditos o actualiza a Premium para mensajes ilimitados.",
+          isTeamLimit,
+        });
       }
 
       // Gather rich context using ContextService
