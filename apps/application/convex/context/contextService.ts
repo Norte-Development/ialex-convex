@@ -98,7 +98,7 @@ export interface ClientContext {
   phone?: string;
   dni?: string;
   cuit?: string;
-  clientType: "individual" | "company";
+  clientType?: "individual" | "company";
   isActive: boolean;
   role?: string; // plaintiff, defendant, witness, etc.
 }

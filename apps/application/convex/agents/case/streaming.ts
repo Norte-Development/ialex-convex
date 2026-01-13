@@ -201,7 +201,7 @@ export const streamAsync = internalAction({
           phone: v.optional(v.string()),
           dni: v.optional(v.string()),
           cuit: v.optional(v.string()),
-          clientType: v.union(v.literal("individual"), v.literal("company")),
+          clientType: v.optional(v.union(v.literal("individual"), v.literal("company"))),
           isActive: v.boolean(),
           role: v.optional(v.string()),
         })),
