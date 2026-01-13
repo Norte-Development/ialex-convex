@@ -25,7 +25,7 @@ import {
 } from "../../components/ui/dialog";
 import { useState } from "react";
 import CaseStatusSelector from "@/components/Cases/CaseStatusSelector";
-import { CaseWorkPlanPanel } from "@/components/Cases/WorkPlan";
+import { WorkPlanQuickAccess } from "@/components/Cases/WorkPlan/WorkPlanQuickAccess";
 
 export default function CaseDetailPage() {
   const { currentCase } = useCase();
@@ -247,8 +247,8 @@ export default function CaseDetailPage() {
           </Link>
         </div>
 
-        {/* Plan de Trabajo */}
-        <CaseWorkPlanPanel caseId={currentCase._id} />
+        {/* Plan de Trabajo - Acceso Rápido */}
+        <WorkPlanQuickAccess caseId={currentCase._id} />
 
         {/* Información del Caso */}
         <div className="space-y-6" data-tutorial="case-info">
