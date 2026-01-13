@@ -6,7 +6,8 @@ import { useAuth } from "@/context/AuthContext";
 import { cn } from "@/lib/utils";
 import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
-import { ChevronDown, ChevronRight, Plus, Sparkles } from "lucide-react";
+import { ChevronDown, ChevronRight, Plus, Sparkles, ExternalLink } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import { WorkPlanTaskItem } from "./WorkPlanTaskItem";
 import { WorkPlanEmptyState } from "./WorkPlanEmptyState";
 import { AddTaskDialog } from "../AddTaskDialog";
@@ -22,6 +23,7 @@ export function CaseWorkPlanPanel({
   className,
 }: CaseWorkPlanPanelProps) {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [isAddTaskDialogOpen, setIsAddTaskDialogOpen] = useState(false);
   const [isGenerateDialogOpen, setIsGenerateDialogOpen] = useState(false);
@@ -106,23 +108,34 @@ export function CaseWorkPlanPanel({
           )}
 
           {/* Action Buttons */}
-          <div className="flex gap-2 pt-2 border-t">
+          <div className="flex flex-col gap-2 pt-2 border-t">
             <Button
-              variant="outline"
+              variant="ghost"
               size="sm"
-              className="flex-1"
-              onClick={() => setIsGenerateDialogOpen(true)}
+              className="w-full justify-start text-gray-600 hover:text-gray-900"
+              onClick={() => navigate(`/caso/${caseId}/tareas`)}
             >
-              <Sparkles className="h-4 w-4 mr-2" />
-              {primaryList ? "Regenerar Plan" : "Generar con iAlex"}
+              <ExternalLink className="h-4 w-4 mr-2" />
+              Ver tablero Kanban
             </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setIsAddTaskDialogOpen(true)}
-            >
-              <Plus className="h-4 w-4" />
-            </Button>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                className="flex-1"
+                onClick={() => setIsGenerateDialogOpen(true)}
+              >
+                <Sparkles className="h-4 w-4 mr-2" />
+                {primaryList ? "Regenerar Plan" : "Generar con iAlex"}
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setIsAddTaskDialogOpen(true)}
+              >
+                <Plus className="h-4 w-4" />
+              </Button>
+            </div>
           </div>
         </div>
       )}

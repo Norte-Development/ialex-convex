@@ -76,22 +76,20 @@ export const updateTodoItem = mutation({
     itemId: v.id("todoItems"),
     title: v.optional(v.string()),
     description: v.optional(v.string()),
-    status: v.optional(v.union(v.literal("pending"), v.literal("in_progress"), v.literal("completed"), v.literal("blocked"))),
+    status: v.optional(v.union(v.literal("pending"), v.literal("in_progress"), v.literal("completed"))),
     order: v.optional(v.number()),
     assignedTo: v.optional(v.id("users")),
     dueDate: v.optional(v.number()),
-    blockedReason: v.optional(v.string()),
   },
   returns: v.null(),
   handler: async (ctx: MutationCtx, args: {
     itemId: Id<"todoItems">;
     title?: string;
     description?: string;
-    status?: "pending" | "in_progress" | "completed" | "blocked";
+    status?: "pending" | "in_progress" | "completed";
     order?: number;
     assignedTo?: Id<"users">;
     dueDate?: number;
-    blockedReason?: string;
   }) => {
     const existing = await ctx.db.get(args.itemId);
     if (!existing) return null;
@@ -103,19 +101,91 @@ export const updateTodoItem = mutation({
       ...(args.order !== undefined ? { order: args.order } : {}),
       ...(args.assignedTo !== undefined ? { assignedTo: args.assignedTo } : {}),
       ...(args.dueDate !== undefined ? { dueDate: args.dueDate } : {}),
-      ...(args.blockedReason !== undefined ? { blockedReason: args.blockedReason } : {}),
     });
 
     // Update list progressPercent (simple derived metric)
-    const listId: Id<"todoLists"> = existing.listId as Id<"todoLists">;
-    const items = await ctx.db
+    await updateListProgress(ctx, existing.listId as Id<"todoLists">);
+
+    return null;
+  },
+});
+
+// Helper function to update list progress
+async function updateListProgress(ctx: MutationCtx, listId: Id<"todoLists">) {
+  const items = await ctx.db
+    .query("todoItems")
+    .withIndex("by_list", (q: any) => q.eq("listId", listId))
+    .collect();
+  const total = items.length;
+  const completed = items.filter((i: any) => i.status === "completed").length;
+  const progress = total === 0 ? 0 : Math.round((completed / total) * 100);
+  await ctx.db.patch(listId, { progressPercent: progress });
+}
+
+// Update todo item status and move it to the end of the target column
+export const updateTodoItemStatus = mutation({
+  args: {
+    todoItemId: v.id("todoItems"),
+    newStatus: v.union(v.literal("pending"), v.literal("in_progress"), v.literal("completed")),
+  },
+  returns: v.id("todoItems"),
+  handler: async (ctx: MutationCtx, args: {
+    todoItemId: Id<"todoItems">;
+    newStatus: "pending" | "in_progress" | "completed";
+  }) => {
+    const { todoItemId, newStatus } = args;
+
+    // Validate that the task exists
+    const task = await ctx.db.get(todoItemId);
+    if (!task) {
+      throw new Error("Tarea no encontrada");
+    }
+
+    // Calculate new order (at the end of the destination column)
+    const tasksInColumn = await ctx.db
       .query("todoItems")
-      .withIndex("by_list", (q: any) => q.eq("listId", listId))
+      .withIndex("by_list_status_order", (q: any) =>
+        q.eq("listId", task.listId).eq("status", newStatus)
+      )
       .collect();
-    const total = items.length;
-    const completed = items.filter((i: any) => i.status === "completed").length;
-    const progress = total === 0 ? 0 : Math.round((completed / total) * 100);
-    await ctx.db.patch(listId, { progressPercent: progress });
+
+    const maxOrder = tasksInColumn.length > 0
+      ? Math.max(...tasksInColumn.map((t) => t.order ?? 0))
+      : -1;
+    const newOrder = maxOrder + 1;
+
+    // Update task
+    await ctx.db.patch(todoItemId, {
+      status: newStatus,
+      order: newOrder,
+    });
+
+    // Recalculate list progress
+    await updateListProgress(ctx, task.listId as Id<"todoLists">);
+
+    return todoItemId;
+  },
+});
+
+// Reorder tasks within a column
+export const reorderTodoItems = mutation({
+  args: {
+    listId: v.id("todoLists"),
+    status: v.union(v.literal("pending"), v.literal("in_progress"), v.literal("completed")),
+    taskIds: v.array(v.id("todoItems")),
+  },
+  returns: v.null(),
+  handler: async (ctx: MutationCtx, args: {
+    listId: Id<"todoLists">;
+    status: "pending" | "in_progress" | "completed";
+    taskIds: Id<"todoItems">[];
+  }) => {
+    const { listId, status, taskIds } = args;
+
+    // Update order of each task
+    for (let i = 0; i < taskIds.length; i++) {
+      await ctx.db.patch(taskIds[i], { order: i });
+    }
 
     return null;
   },
@@ -140,26 +210,12 @@ export const listTodoListsByThread = query({
 
 export const listTodoItemsByList = query({
   args: { listId: v.id("todoLists") },
-  returns: v.array(v.object({
-    _id: v.id("todoItems"),
-    title: v.string(),
-    description: v.optional(v.string()),
-    status: v.union(v.literal("pending"), v.literal("in_progress"), v.literal("completed"), v.literal("blocked")),
-    order: v.number(),
-  })),
   handler: async (ctx: QueryCtx, { listId }: { listId: Id<"todoLists"> }) => {
     const items = await ctx.db
       .query("todoItems")
       .withIndex("by_list", (q: any) => q.eq("listId", listId))
-      .order("asc")
       .collect();
-    return items.map((i: any) => ({
-      _id: i._id,
-      title: i.title,
-      description: i.description,
-      status: i.status,
-      order: i.order
-    }));
+    return items;
   },
 });
 

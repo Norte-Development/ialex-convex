@@ -649,18 +649,17 @@ export default defineSchema({
       v.literal("pending"),
       v.literal("in_progress"),
       v.literal("completed"),
-      v.literal("blocked"),
     ),
     order: v.number(),
     assignedTo: v.optional(v.id("users")),
     dueDate: v.optional(v.number()),
-    blockedReason: v.optional(v.string()),
     createdBy: v.id("users"),
   })
     .index("by_list", ["listId"])
     .index("by_status", ["status"])
     .index("by_list_and_status", ["listId", "status"])
-    .index("by_assigned_to", ["assignedTo"]),
+    .index("by_assigned_to", ["assignedTo"])
+    .index("by_list_status_order", ["listId", "status", "order"]),
 
   // ========================================
   // NEW UNIFIED PERMISSIONS SYSTEM
