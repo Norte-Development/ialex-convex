@@ -190,6 +190,7 @@ export const streamAsync = internalAction({
             status: v.string(),
             priority: v.string(),
             category: v.optional(v.string()),
+            expedientNumber: v.optional(v.string()),
             startDate: v.number(),
             endDate: v.optional(v.number()),
             assignedLawyer: v.id("users"),

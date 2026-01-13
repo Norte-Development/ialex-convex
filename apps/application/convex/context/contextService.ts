@@ -83,6 +83,7 @@ export interface CaseContext {
   status: string;
   priority: string;
   category?: string;
+  expedientNumber?: string;
   startDate: number;
   endDate?: number;
   assignedLawyer: Id<"users">;
@@ -325,6 +326,7 @@ export class ContextService {
       status: caseDoc.status,
       priority: caseDoc.priority,
       category: caseDoc.category,
+      expedientNumber: caseDoc.expedientNumber,
       startDate: caseDoc.startDate,
       endDate: caseDoc.endDate,
       assignedLawyer: caseDoc.assignedLawyer,
@@ -353,14 +355,37 @@ export class ContextService {
     for (const clientCase of clientCases) {
       const client = await ctx.db.get(clientCase.clientId);
       if (client && client.isActive) {
+        // Prefer the new normalized displayName, then fall back through
+        // the structured schema fields and finally legacy fields.
+        const displayName =
+          client.displayName ||
+          (client.naturalezaJuridica === "humana" &&
+            client.nombre &&
+            client.apellido
+            ? `${client.nombre} ${client.apellido}`
+            : client.razonSocial ||
+              client.nombre ||
+              client.apellido ||
+              client.name ||
+              "Cliente sin nombre");
+
+        // Prefer legacy clientType if present, otherwise infer from naturalezaJuridica.
+        const clientType =
+          client.clientType ||
+          (client.naturalezaJuridica === "humana"
+            ? "individual"
+            : client.naturalezaJuridica === "juridica"
+            ? "company"
+            : undefined);
+
         clientContexts.push({
           id: client._id,
-          name: client.name,
+          name: displayName,
           email: client.email,
           phone: client.phone,
           dni: client.dni,
           cuit: client.cuit,
-          clientType: client.clientType,
+          clientType,
           isActive: client.isActive,
           role: clientCase.role,
         });
@@ -397,9 +422,12 @@ export class ContextService {
       .collect();
 
     return caseDocuments.map((doc: any) => ({
-      name: doc.title || doc.name || "Sin título",
+      // Prefer the canonical title, then original file name as a fallback,
+      // and finally a generic placeholder.
+      name: doc.title || doc.originalFileName || "Sin título",
       id: doc._id,
-      type: doc.type || doc.category,
+      // Prefer the domain-specific documentType, then fall back to MIME type.
+      type: doc.documentType || doc.mimeType,
     }));
   }
 
@@ -543,6 +571,7 @@ export class ContextService {
       sections.push(`## Caso actual
 - Title: ${caseInfo.title}
 - ID: ${caseInfo.id}
+${caseInfo.expedientNumber ? `- Expediente: ${caseInfo.expedientNumber}` : ""}
 - Descripcion: ${caseInfo.description || 'No description'}
 - Estado: ${caseInfo.status}
 - Prioridad: ${caseInfo.priority}
