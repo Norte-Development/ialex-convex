@@ -8,9 +8,10 @@ import { api } from "../../../../convex/_generated/api";
 
 interface KanbanBoardProps {
   todoListId: Id<"todoLists">;
+  caseId: Id<"cases">;
 }
 
-export function KanbanBoard({ todoListId }: KanbanBoardProps) {
+export function KanbanBoard({ todoListId, caseId }: KanbanBoardProps) {
   const { groupedTasks, updateTaskStatus } = useTaskOperations(todoListId);
   const deleteTodoItem = useMutation(api.functions.todos.deleteTodoItem);
 
@@ -33,6 +34,7 @@ export function KanbanBoard({ todoListId }: KanbanBoardProps) {
           column={column}
           tasks={groupedTasks[column.status as keyof typeof groupedTasks]}
           onDeleteTask={handleDeleteTask}
+          caseId={caseId}
         />
       ))}
     </div>

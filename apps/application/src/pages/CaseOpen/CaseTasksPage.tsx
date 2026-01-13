@@ -93,7 +93,7 @@ export default function CaseTasksPage() {
         {tasks.length === 0 ? (
           <KanbanEmptyState caseId={currentCase._id} />
         ) : (
-          <KanbanBoard todoListId={todoListId} />
+          <KanbanBoard todoListId={todoListId} caseId={currentCase._id} />
         )}
       </div>
 

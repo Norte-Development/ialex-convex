@@ -661,6 +661,20 @@ export default defineSchema({
     .index("by_assigned_to", ["assignedTo"])
     .index("by_list_status_order", ["listId", "status", "order"]),
 
+  // Task Comments: Comments on individual todo items with @mentions support
+  taskComments: defineTable({
+    taskId: v.id("todoItems"),
+    authorId: v.id("users"),
+    content: v.string(), // Text content with mentions as @[userId]
+    mentions: v.optional(v.array(v.id("users"))), // Array of mentioned user IDs
+    createdAt: v.number(),
+    updatedAt: v.optional(v.number()),
+    isEdited: v.boolean(),
+  })
+    .index("by_task", ["taskId"])
+    .index("by_author", ["authorId"])
+    .index("by_task_and_created", ["taskId", "createdAt"]),
+
   // ========================================
   // NEW UNIFIED PERMISSIONS SYSTEM
   // ========================================
