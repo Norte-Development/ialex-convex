@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback } from "react";
-import { useMutation } from "convex/react";
+import { useMutation, useQuery } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
 import type { Id } from "../../../../convex/_generated/dataModel";
 import { Button } from "@/components/ui/button";
@@ -17,6 +17,62 @@ interface CommentInputProps {
   placeholder?: string;
 }
 
+/**
+ * Convert display content (@Name) to storage format (@[userId])
+ */
+function convertToStorageFormat(
+  displayContent: string,
+  mentionMap: Map<string, string>,
+): string {
+  let result = displayContent;
+  // Sort by name length descending to avoid partial replacements
+  const sortedEntries = Array.from(mentionMap.entries()).sort(
+    (a, b) => b[0].length - a[0].length,
+  );
+  for (const [name, id] of sortedEntries) {
+    // Replace @Name with @[userId] - use word boundary to avoid partial matches
+    const regex = new RegExp(`@${escapeRegex(name)}(?=\\s|$|[.,!?;:])`, "g");
+    result = result.replace(regex, `@[${id}]`);
+  }
+  return result;
+}
+
+/**
+ * Convert storage format (@[userId]) to display format (@Name)
+ */
+function convertToDisplayFormat(
+  storageContent: string,
+  members: { id: string; name: string }[] | undefined,
+): { display: string; mentionMap: Map<string, string> } {
+  const mentionMap = new Map<string, string>();
+  let display = storageContent;
+
+  if (!members) return { display, mentionMap };
+
+  const mentionRegex = /@\[([^\]]+)\]/g;
+  let match;
+
+  while ((match = mentionRegex.exec(storageContent)) !== null) {
+    const userId = match[1];
+    const user = members.find((m) => m.id === userId);
+    if (user) {
+      mentionMap.set(user.name, userId);
+    }
+  }
+
+  // Replace all @[userId] with @Name
+  display = storageContent.replace(mentionRegex, (_, userId) => {
+    const user = members.find((m) => m.id === userId);
+    return `@${user?.name || "Usuario"}`;
+  });
+
+  return { display, mentionMap };
+}
+
+function escapeRegex(string: string): string {
+  return string.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
 export function CommentInput({
   taskId,
   caseId,
@@ -27,13 +83,39 @@ export function CommentInput({
   onSave,
   placeholder = "Escribe un comentario... usa @ para mencionar",
 }: CommentInputProps) {
-  const [content, setContent] = useState(initialValue);
+  // mentionMap tracks name -> userId for converting back when sending
+  const [mentionMap, setMentionMap] = useState<Map<string, string>>(new Map());
   const [cursorPosition, setCursorPosition] = useState(0);
   const [showAutocomplete, setShowAutocomplete] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const createComment = useMutation(api.functions.comments.createComment);
+
+  // Get case members for resolving mention names
+  const members = useQuery(
+    api.functions.permissions.getCaseMembersSuggestions,
+    { caseId },
+  );
+
+  // Convert initial value from storage format to display format
+  const [content, setContent] = useState(() => {
+    if (!initialValue) return "";
+    // Initial conversion will happen when members load
+    return initialValue;
+  });
+
+  // Update content when members load and we have initial value with mentions
+  const [hasInitialized, setHasInitialized] = useState(false);
+  if (members && initialValue && !hasInitialized && /@\[/.test(initialValue)) {
+    const { display, mentionMap: newMap } = convertToDisplayFormat(
+      initialValue,
+      members,
+    );
+    setContent(display);
+    setMentionMap(newMap);
+    setHasInitialized(true);
+  }
 
   const handleInputChange = useCallback(
     (e: React.ChangeEvent<HTMLTextAreaElement>) => {
@@ -45,8 +127,8 @@ export function CommentInput({
 
       // Check if we should show autocomplete
       const textBeforeCursor = newValue.slice(0, newCursorPos);
-      // Show autocomplete if there's an @ that's not part of a completed mention @[...]
-      const hasOpenMention = /@[^@\[\]\s]*$/.test(textBeforeCursor);
+      // Show autocomplete if there's an @ followed by word characters (not a completed mention)
+      const hasOpenMention = /@[\w]*$/.test(textBeforeCursor);
       setShowAutocomplete(hasOpenMention);
     },
     [],
@@ -60,12 +142,19 @@ export function CommentInput({
 
   const handleSelectUser = useCallback(
     (user: { id: string; name: string }, startPos: number, endPos: number) => {
-      // Replace @query with @[userId] and add the name as display text after
+      // Replace @query with @Name (display format)
       const before = content.slice(0, startPos);
       const after = content.slice(endPos);
-      const mention = `@[${user.id}]`;
-      const newContent = before + mention + after;
-      const newCursorPos = startPos + mention.length;
+      const mention = `@${user.name}`;
+      const newContent = before + mention + " " + after;
+      const newCursorPos = startPos + mention.length + 1;
+
+      // Add to mention map
+      setMentionMap((prev) => {
+        const newMap = new Map(prev);
+        newMap.set(user.name, user.id);
+        return newMap;
+      });
 
       setContent(newContent);
       setCursorPosition(newCursorPos);
@@ -85,8 +174,11 @@ export function CommentInput({
   const handleSubmit = async () => {
     if (!content.trim() || isSubmitting) return;
 
+    // Convert display format to storage format before sending
+    const storageContent = convertToStorageFormat(content.trim(), mentionMap);
+
     if (isEditing && onSave) {
-      onSave(content.trim());
+      onSave(storageContent);
       return;
     }
 
@@ -94,9 +186,10 @@ export function CommentInput({
     try {
       await createComment({
         taskId,
-        content: content.trim(),
+        content: storageContent,
       });
       setContent("");
+      setMentionMap(new Map());
       onCommentAdded?.();
     } catch (error) {
       console.error("Failed to create comment:", error);
