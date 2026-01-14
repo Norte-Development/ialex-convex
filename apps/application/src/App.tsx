@@ -52,6 +52,7 @@ import BillingSuccessPage from "./pages/BillingSuccessPage";
 import EventosPage from "./pages/EventosPage";
 import EventDetailPage from "./pages/EventDetailPage";
 import CaseDocumentsPage from "./pages/CaseOpen/CaseDocumentsList";
+import CaseTasksPage from "./pages/CaseOpen/CaseTasksPage";
 import HomeAgentPage from "./pages/home/HomeAgentPage";
 import HomeAgentChatPage from "./pages/home/HomeAgentThreadPage";
 import AdminPage from "./pages/AdminPage";
@@ -82,6 +83,7 @@ const CaseRoutesWrapper: React.FC = () => {
                     element={<EscritosPage />}
                   />
                   <Route path="documentos" element={<CaseDocumentsPage />} />
+                  <Route path="tareas" element={<CaseTasksPage />} />
                   <Route path="eventos" element={<CaseEventsPage />} />
 
                   <Route path="clientes" element={<CaseClientsPage />} />
