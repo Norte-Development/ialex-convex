@@ -3,16 +3,13 @@ import { monitorForElements } from "@atlaskit/pragmatic-drag-and-drop/element/ad
 import { Id, TaskStatus } from "../types";
 
 interface UseTaskKanbanMonitorProps {
-  onStatusChange: (
-    taskId: Id<"todoItems">,
-    newStatus: TaskStatus,
-  ) => Promise<void>;
+  onStatusChange: (taskId: Id<"todoItems">, newStatus: TaskStatus) => void;
   onReorder: (
     taskId: Id<"todoItems">,
     status: TaskStatus,
     targetIndex: number,
     position: "top" | "bottom",
-  ) => Promise<void>;
+  ) => void;
 }
 
 export function useTaskKanbanMonitor({
@@ -26,7 +23,7 @@ export function useTaskKanbanMonitor({
           document.body.classList.add("overflow-x-hidden");
         } catch {}
       },
-      onDrop: async ({ source, location }) => {
+      onDrop: ({ source, location }) => {
         try {
           document.body.classList.remove("overflow-x-hidden");
         } catch {}
@@ -57,16 +54,16 @@ export function useTaskKanbanMonitor({
 
           if (oldStatus !== targetStatus) {
             // First change status, then reorder
-            await onStatusChange(taskId, targetStatus);
+            onStatusChange(taskId, targetStatus);
           }
 
           // Reorder within the column
-          await onReorder(taskId, targetStatus, targetIndex, position);
+          onReorder(taskId, targetStatus, targetIndex, position);
         } else if (columnDropTarget) {
           // Dropped on column (not on a task) - just change status
           const newStatus = columnDropTarget.data.status as TaskStatus;
           if (oldStatus !== newStatus) {
-            await onStatusChange(taskId, newStatus);
+            onStatusChange(taskId, newStatus);
           }
         }
       },

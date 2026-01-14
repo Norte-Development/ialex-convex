@@ -4,7 +4,7 @@ import { GripVertical, X, MessageSquare } from "lucide-react";
 import { TaskItem } from "../types";
 import { useDraggableTask } from "../hooks/useDraggableTask";
 import { useDroppableTask } from "../hooks/useDroppableTask";
-import { useMutation, useQuery } from "convex/react";
+import { useQuery } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
 import { TaskDetailDialog } from "../TaskDetailDialog";
 import type { Id } from "../../../../convex/_generated/dataModel";
@@ -13,6 +13,10 @@ interface KanbanTaskCardProps {
   task: TaskItem;
   index: number;
   onDeleteTask?: (taskId: string) => void;
+  onStatusChange?: (
+    taskId: Id<"todoItems">,
+    newStatus: "pending" | "completed",
+  ) => void;
   caseId: Id<"cases">;
 }
 
@@ -20,10 +24,10 @@ export function KanbanTaskCard({
   task,
   index,
   onDeleteTask,
+  onStatusChange,
   caseId,
 }: KanbanTaskCardProps) {
   const [isDetailOpen, setIsDetailOpen] = useState(false);
-  const updateTodoItem = useMutation(api.functions.todos.updateTodoItem);
   const { taskRef, dragHandleRef, isDragging } = useDraggableTask({
     taskId: task._id,
     status: task.status,
@@ -53,10 +57,9 @@ export function KanbanTaskCard({
 
   const handleStatusToggle = async (checked: boolean) => {
     const newStatus = checked ? "completed" : "pending";
-    await updateTodoItem({
-      itemId: task._id,
-      status: newStatus,
-    });
+    if (onStatusChange) {
+      onStatusChange(task._id, newStatus);
+    }
   };
 
   const handleDelete = (e: React.MouseEvent) => {

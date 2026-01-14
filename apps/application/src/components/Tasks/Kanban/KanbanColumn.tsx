@@ -1,5 +1,5 @@
 import type { Id } from "../../../../convex/_generated/dataModel";
-import { TaskItem, TaskColumnData } from "../types";
+import { TaskItem, TaskColumnData, TaskStatus } from "../types";
 import { KanbanTaskCard } from "./KanbanTaskCard";
 import { useDroppableColumn } from "../hooks/useDroppableColumn";
 
@@ -7,6 +7,7 @@ interface KanbanColumnProps {
   column: TaskColumnData;
   tasks: TaskItem[];
   onDeleteTask?: (taskId: string) => void;
+  onStatusChange?: (taskId: Id<"todoItems">, newStatus: TaskStatus) => void;
   caseId: Id<"cases">;
 }
 
@@ -14,6 +15,7 @@ export function KanbanColumn({
   column,
   tasks,
   onDeleteTask,
+  onStatusChange,
   caseId,
 }: KanbanColumnProps) {
   const { columnRef, isDraggingOver } = useDroppableColumn({
@@ -51,6 +53,7 @@ export function KanbanColumn({
               task={task}
               index={index}
               onDeleteTask={onDeleteTask}
+              onStatusChange={onStatusChange}
               caseId={caseId}
             />
           ))

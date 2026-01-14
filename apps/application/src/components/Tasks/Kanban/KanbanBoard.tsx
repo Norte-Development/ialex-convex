@@ -12,7 +12,7 @@ interface KanbanBoardProps {
 }
 
 export function KanbanBoard({ todoListId, caseId }: KanbanBoardProps) {
-  const { groupedTasks, updateTaskStatus, reorderTasks } =
+  const { groupedTasks, updateTaskStatus, reorderTasks, localTasks } =
     useTaskOperations(todoListId);
   const deleteTodoItem = useMutation(api.functions.todos.deleteTodoItem);
 
@@ -20,18 +20,23 @@ export function KanbanBoard({ todoListId, caseId }: KanbanBoardProps) {
     await deleteTodoItem({ itemId: taskId as Id<"todoItems"> });
   };
 
-  const handleReorder = async (
+  const handleReorder = (
     taskId: Id<"todoItems">,
     status: TaskStatus,
     targetIndex: number,
     position: "top" | "bottom",
   ) => {
-    // Get current tasks in this column
-    const currentTasks =
-      groupedTasks[status as keyof typeof groupedTasks] || [];
-    const taskIds = currentTasks.map((t) => t._id);
+    // Usar localTasks para obtener el estado actual real
+    if (!localTasks) return;
 
-    // Find current position of the dragged task
+    // Obtener tareas de la columna destino desde localTasks
+    const tasksInColumn = localTasks
+      .filter((t) => t.status === status)
+      .sort((a, b) => a.order - b.order);
+
+    const taskIds = tasksInColumn.map((t) => t._id);
+
+    // Find current position of the dragged task in this column
     const currentIndex = taskIds.indexOf(taskId);
 
     // Calculate new position
@@ -48,8 +53,8 @@ export function KanbanBoard({ todoListId, caseId }: KanbanBoardProps) {
     // Insert at new position
     filteredIds.splice(newIndex, 0, taskId);
 
-    // Call reorder
-    await reorderTasks(status, filteredIds);
+    // Call reorder (synchronously applies optimistic update)
+    reorderTasks(status, filteredIds);
   };
 
   useTaskKanbanMonitor({
@@ -65,6 +70,7 @@ export function KanbanBoard({ todoListId, caseId }: KanbanBoardProps) {
           column={column}
           tasks={groupedTasks[column.status as keyof typeof groupedTasks]}
           onDeleteTask={handleDeleteTask}
+          onStatusChange={updateTaskStatus}
           caseId={caseId}
         />
       ))}

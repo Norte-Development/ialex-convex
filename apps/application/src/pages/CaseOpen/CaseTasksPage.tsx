@@ -5,7 +5,6 @@ import { useQuery, useMutation } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import type { Id } from "../../../convex/_generated/dataModel";
 import { KanbanBoard } from "@/components/Tasks/Kanban/KanbanBoard";
-import { KanbanEmptyState } from "@/components/Tasks/Kanban/KanbanEmptyState";
 import { AddTaskDialog } from "@/components/Cases/AddTaskDialog";
 import { GenerateChecklistDialog } from "@/components/Cases/GenerateChecklistDialog";
 import { Button } from "@/components/ui/button";
@@ -66,35 +65,29 @@ export default function CaseTasksPage() {
             <h1 className="text-xl font-medium text-gray-900">Tareas</h1>
             <p className="text-sm text-gray-500">{currentCase.title}</p>
           </div>
-          {tasks.length > 0 && (
-            <div className="flex items-center gap-2">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setIsGenerateOpen(true)}
-                className="text-gray-500 hover:text-tertiary"
-              >
-                <Sparkles className="h-4 w-4 mr-1.5" />
-                Regenerar
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setIsAddTaskOpen(true)}
-                className="border-tertiary text-tertiary hover:bg-tertiary/5"
-              >
-                <Plus className="h-4 w-4 mr-1.5" />
-                Nueva tarea
-              </Button>
-            </div>
-          )}
+          <div className="flex items-center gap-2">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setIsGenerateOpen(true)}
+              className="text-gray-500 hover:text-tertiary"
+            >
+              <Sparkles className="h-4 w-4 mr-1.5" />
+              {tasks.length > 0 ? "Regenerar" : "Generar plan con IA"}
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setIsAddTaskOpen(true)}
+              className="border-tertiary text-tertiary hover:bg-tertiary/5"
+            >
+              <Plus className="h-4 w-4 mr-1.5" />
+              Nueva tarea
+            </Button>
+          </div>
         </header>
 
-        {tasks.length === 0 ? (
-          <KanbanEmptyState caseId={currentCase._id} />
-        ) : (
-          <KanbanBoard todoListId={todoListId} caseId={currentCase._id} />
-        )}
+        <KanbanBoard todoListId={todoListId} caseId={currentCase._id} />
       </div>
 
       {/* Dialogs */}
