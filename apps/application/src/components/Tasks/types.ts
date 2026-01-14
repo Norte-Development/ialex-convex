@@ -1,5 +1,7 @@
 import { Id, Doc } from "../../../convex/_generated/dataModel";
 
+export type { Id };
+
 export type TaskStatus = "pending" | "in_progress" | "completed";
 
 export interface TaskItem extends Doc<"todoItems"> {

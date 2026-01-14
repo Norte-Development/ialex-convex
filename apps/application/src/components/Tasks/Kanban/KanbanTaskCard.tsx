@@ -1,8 +1,9 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { GripVertical, X, MessageSquare } from "lucide-react";
 import { TaskItem } from "../types";
 import { useDraggableTask } from "../hooks/useDraggableTask";
+import { useDroppableTask } from "../hooks/useDroppableTask";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
 import { TaskDetailDialog } from "../TaskDetailDialog";
@@ -28,6 +29,22 @@ export function KanbanTaskCard({
     status: task.status,
     index,
   });
+  const { dropRef, isDraggedOver, dropPosition } = useDroppableTask({
+    taskId: task._id,
+    status: task.status,
+    index,
+  });
+
+  // Combine refs
+  const combinedRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (combinedRef.current) {
+      // @ts-ignore - manually setting refs
+      if (taskRef) taskRef.current = combinedRef.current;
+      // @ts-ignore
+      if (dropRef) dropRef.current = combinedRef.current;
+    }
+  }, [taskRef, dropRef]);
 
   // Get comment count
   const commentCount = useQuery(api.functions.comments.getCommentCount, {
@@ -64,64 +81,74 @@ export function KanbanTaskCard({
 
   return (
     <>
-      <div
-        ref={taskRef}
-        onClick={handleCardClick}
-        className={`group flex items-start gap-2 p-3 rounded-md border bg-white transition-all cursor-pointer ${
-          isDragging
-            ? "border-tertiary bg-tertiary/5 shadow-sm"
-            : "border-gray-100 hover:border-gray-200"
-        }`}
-      >
-        {/* Drag Handle */}
-        <span
-          ref={dragHandleRef}
-          data-drag-handle
-          className="flex items-center text-gray-300 cursor-grab active:cursor-grabbing shrink-0 mt-0.5 opacity-0 group-hover:opacity-100 transition-opacity"
+      <div className="relative">
+        {/* Drop indicator - top */}
+        {isDraggedOver && dropPosition === "top" && (
+          <div className="absolute top-0 left-0 right-0 h-0.5 bg-tertiary -translate-y-1 rounded-full" />
+        )}
+        <div
+          ref={combinedRef}
+          onClick={handleCardClick}
+          className={`group flex items-start gap-2 p-3 rounded-md border bg-white transition-all cursor-pointer ${
+            isDragging
+              ? "border-tertiary bg-tertiary/5 shadow-sm opacity-50"
+              : "border-gray-100 hover:border-gray-200"
+          }`}
         >
-          <GripVertical size={14} />
-        </span>
-
-        {/* Checkbox */}
-        <Checkbox
-          checked={task.status === "completed"}
-          onCheckedChange={handleStatusToggle}
-          onClick={(e) => e.stopPropagation()}
-          className="shrink-0 mt-0.5 border-gray-300 data-[state=checked]:bg-tertiary data-[state=checked]:border-tertiary"
-        />
-
-        {/* Task Content */}
-        <div className="flex-1 min-w-0">
-          <p
-            className={`text-sm ${
-              task.status === "completed"
-                ? "line-through text-gray-400"
-                : "text-gray-700"
-            }`}
+          {/* Drag Handle */}
+          <span
+            ref={dragHandleRef}
+            data-drag-handle
+            className="flex items-center text-gray-300 cursor-grab active:cursor-grabbing shrink-0 mt-0.5 opacity-0 group-hover:opacity-100 transition-opacity"
           >
-            {task.title}
-          </p>
-          {task.description && (
-            <p className="text-xs text-gray-400 mt-0.5 line-clamp-1">
-              {task.description}
-            </p>
-          )}
-          {/* Comment count indicator */}
-          {commentCount !== undefined && commentCount > 0 && (
-            <div className="flex items-center gap-1 mt-1.5 text-gray-400">
-              <MessageSquare size={12} />
-              <span className="text-xs">{commentCount}</span>
-            </div>
-          )}
-        </div>
+            <GripVertical size={14} />
+          </span>
 
-        {/* Delete Button */}
-        <button
-          onClick={handleDelete}
-          className="text-gray-300 hover:text-gray-500 transition-colors shrink-0 opacity-0 group-hover:opacity-100"
-        >
-          <X size={14} />
-        </button>
+          {/* Checkbox */}
+          <Checkbox
+            checked={task.status === "completed"}
+            onCheckedChange={handleStatusToggle}
+            onClick={(e) => e.stopPropagation()}
+            className="shrink-0 mt-0.5 border-gray-300 data-[state=checked]:bg-tertiary data-[state=checked]:border-tertiary"
+          />
+
+          {/* Task Content */}
+          <div className="flex-1 min-w-0">
+            <p
+              className={`text-sm ${
+                task.status === "completed"
+                  ? "line-through text-gray-400"
+                  : "text-gray-700"
+              }`}
+            >
+              {task.title}
+            </p>
+            {task.description && (
+              <p className="text-xs text-gray-400 mt-0.5 line-clamp-1">
+                {task.description}
+              </p>
+            )}
+            {/* Comment count indicator */}
+            {commentCount !== undefined && commentCount > 0 && (
+              <div className="flex items-center gap-1 mt-1.5 text-gray-400">
+                <MessageSquare size={12} />
+                <span className="text-xs">{commentCount}</span>
+              </div>
+            )}
+          </div>
+
+          {/* Delete Button */}
+          <button
+            onClick={handleDelete}
+            className="text-gray-300 hover:text-gray-500 transition-colors shrink-0 opacity-0 group-hover:opacity-100"
+          >
+            <X size={14} />
+          </button>
+        </div>
+        {/* Drop indicator - bottom */}
+        {isDraggedOver && dropPosition === "bottom" && (
+          <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-tertiary translate-y-1 rounded-full" />
+        )}
       </div>
 
       {/* Task Detail Dialog */}
