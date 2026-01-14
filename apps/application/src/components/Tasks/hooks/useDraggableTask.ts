@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import { draggable } from "@atlaskit/pragmatic-drag-and-drop/element/adapter";
 import { Id, TaskStatus } from "../types";
 
@@ -15,16 +15,24 @@ export function useDraggableTask({
   index,
   isDragDisabled = false,
 }: UseDraggableTaskProps) {
-  const taskRef = useRef<HTMLDivElement>(null);
-  const dragHandleRef = useRef<HTMLDivElement>(null);
   const [isDragging, setIsDragging] = useState(false);
+  const elementRef = useRef<HTMLElement | null>(null);
+  const dragHandleElementRef = useRef<HTMLElement | null>(null);
+  const cleanupRef = useRef<(() => void) | null>(null);
 
-  useEffect(() => {
-    if (isDragDisabled || !taskRef.current) return;
+  // Función para registrar el draggable
+  const registerDraggable = useCallback(() => {
+    // Limpiar registro anterior
+    if (cleanupRef.current) {
+      cleanupRef.current();
+      cleanupRef.current = null;
+    }
 
-    return draggable({
-      element: taskRef.current,
-      dragHandle: dragHandleRef.current ?? undefined,
+    if (isDragDisabled || !elementRef.current) return;
+
+    cleanupRef.current = draggable({
+      element: elementRef.current,
+      dragHandle: dragHandleElementRef.current ?? undefined,
       getInitialData: () => ({
         taskId,
         status,
@@ -36,5 +44,42 @@ export function useDraggableTask({
     });
   }, [taskId, status, index, isDragDisabled]);
 
-  return { taskRef, dragHandleRef, isDragging };
+  // Callback ref para el elemento principal
+  const setElementRef = useCallback(
+    (element: HTMLElement | null) => {
+      elementRef.current = element;
+      // Re-registrar cuando el elemento cambia
+      registerDraggable();
+    },
+    [registerDraggable],
+  );
+
+  // Callback ref para el drag handle
+  const setDragHandleRef = useCallback(
+    (element: HTMLElement | null) => {
+      dragHandleElementRef.current = element;
+      // Re-registrar cuando el handle cambia
+      if (elementRef.current) {
+        registerDraggable();
+      }
+    },
+    [registerDraggable],
+  );
+
+  // Re-registrar cuando cambian las props
+  useEffect(() => {
+    registerDraggable();
+    return () => {
+      if (cleanupRef.current) {
+        cleanupRef.current();
+        cleanupRef.current = null;
+      }
+    };
+  }, [registerDraggable]);
+
+  return {
+    setElementRef,
+    setDragHandleRef,
+    isDragging,
+  };
 }

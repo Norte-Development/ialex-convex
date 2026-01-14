@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState, useCallback, useEffect } from "react";
 import { dropTargetForElements } from "@atlaskit/pragmatic-drag-and-drop/element/adapter";
 import { Id, TaskStatus } from "../types";
 
@@ -13,19 +13,27 @@ export function useDroppableTask({
   status,
   index,
 }: UseDroppableTaskProps) {
-  const dropRef = useRef<HTMLDivElement>(null);
   const [isDraggedOver, setIsDraggedOver] = useState(false);
   const [dropPosition, setDropPosition] = useState<"top" | "bottom" | null>(
     null,
   );
+  const elementRef = useRef<HTMLElement | null>(null);
+  const cleanupRef = useRef<(() => void) | null>(null);
 
-  useEffect(() => {
-    if (!dropRef.current) return;
+  // Función para registrar el drop target
+  const registerDropTarget = useCallback(() => {
+    // Limpiar registro anterior
+    if (cleanupRef.current) {
+      cleanupRef.current();
+      cleanupRef.current = null;
+    }
 
-    return dropTargetForElements({
-      element: dropRef.current,
+    if (!elementRef.current) return;
+
+    cleanupRef.current = dropTargetForElements({
+      element: elementRef.current,
       getData: ({ input }) => {
-        const element = dropRef.current;
+        const element = elementRef.current;
         if (!element) return { taskId, status, index, type: "TASK_CARD_DROP" };
 
         const rect = element.getBoundingClientRect();
@@ -62,5 +70,25 @@ export function useDroppableTask({
     });
   }, [taskId, status, index]);
 
-  return { dropRef, isDraggedOver, dropPosition };
+  // Callback ref para el elemento
+  const setElementRef = useCallback(
+    (element: HTMLElement | null) => {
+      elementRef.current = element;
+      registerDropTarget();
+    },
+    [registerDropTarget],
+  );
+
+  // Re-registrar cuando cambian las props
+  useEffect(() => {
+    registerDropTarget();
+    return () => {
+      if (cleanupRef.current) {
+        cleanupRef.current();
+        cleanupRef.current = null;
+      }
+    };
+  }, [registerDropTarget]);
+
+  return { setElementRef, isDraggedOver, dropPosition };
 }

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useCallback } from "react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { GripVertical, X, MessageSquare } from "lucide-react";
 import { TaskItem } from "../types";
@@ -28,27 +28,35 @@ export function KanbanTaskCard({
   caseId,
 }: KanbanTaskCardProps) {
   const [isDetailOpen, setIsDetailOpen] = useState(false);
-  const { taskRef, dragHandleRef, isDragging } = useDraggableTask({
-    taskId: task._id,
-    status: task.status,
-    index,
-  });
-  const { dropRef, isDraggedOver, dropPosition } = useDroppableTask({
+
+  const {
+    setElementRef: setDragElementRef,
+    setDragHandleRef,
+    isDragging,
+  } = useDraggableTask({
     taskId: task._id,
     status: task.status,
     index,
   });
 
-  // Combine refs
-  const combinedRef = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    if (combinedRef.current) {
-      // @ts-ignore - manually setting refs
-      if (taskRef) taskRef.current = combinedRef.current;
-      // @ts-ignore
-      if (dropRef) dropRef.current = combinedRef.current;
-    }
-  }, [taskRef, dropRef]);
+  const {
+    setElementRef: setDropElementRef,
+    isDraggedOver,
+    dropPosition,
+  } = useDroppableTask({
+    taskId: task._id,
+    status: task.status,
+    index,
+  });
+
+  // Combinar los callback refs
+  const setCombinedRef = useCallback(
+    (element: HTMLDivElement | null) => {
+      setDragElementRef(element);
+      setDropElementRef(element);
+    },
+    [setDragElementRef, setDropElementRef],
+  );
 
   // Get comment count
   const commentCount = useQuery(api.functions.comments.getCommentCount, {
@@ -90,7 +98,7 @@ export function KanbanTaskCard({
           <div className="absolute top-0 left-0 right-0 h-0.5 bg-tertiary -translate-y-1 rounded-full" />
         )}
         <div
-          ref={combinedRef}
+          ref={setCombinedRef}
           onClick={handleCardClick}
           className={`group flex items-start gap-2 p-3 rounded-md border bg-white transition-all cursor-pointer ${
             isDragging
@@ -100,7 +108,7 @@ export function KanbanTaskCard({
         >
           {/* Drag Handle */}
           <span
-            ref={dragHandleRef}
+            ref={setDragHandleRef}
             data-drag-handle
             className="flex items-center text-gray-300 cursor-grab active:cursor-grabbing shrink-0 mt-0.5 opacity-0 group-hover:opacity-100 transition-opacity"
           >
