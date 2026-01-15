@@ -71,82 +71,81 @@ export function TemplateTable({
   }
 
   return (
-    <>
-    <Table>
-      <TableHeader className="bg-[#F5F5F5] ">
-        <TableRow>
-          <TableHead className="text-left">Título</TableHead>
-          <TableHead className="text-left">Etiquetas</TableHead>
-          <TableHead className="text-left">Categoría</TableHead>
-
-          <TableHead className="text-left">Estado</TableHead>
-          <TableHead className="text-left">Descripción</TableHead>
-          <TableHead className="w-[100px] text-left">Acciones</TableHead>
-        </TableRow>
-      </TableHeader>
-      <TableBody>
-        {templates.map((template) => (
-          <TableRow key={template._id}>
-            <TableCell>{template.name}</TableCell>
-            <TableCell>
-              {template.tags?.length ? (
-                <div className="flex flex-wrap gap-2">
-                  {template.tags.map((tag) => (
+    <div className="space-y-4">
+      <div className="overflow-x-auto border border-gray-200 rounded-lg">
+        <Table>
+          <TableHeader className="bg-[#F5F5F5]">
+            <TableRow>
+              <TableHead className="text-left min-w-[180px]">Título</TableHead>
+              <TableHead className="text-left min-w-[140px]">Etiquetas</TableHead>
+              <TableHead className="text-left min-w-[120px]">Categoría</TableHead>
+              <TableHead className="text-left min-w-[90px]">Estado</TableHead>
+              <TableHead className="text-left min-w-[180px] max-w-[200px]">Descripción</TableHead>
+              <TableHead className="text-right min-w-[100px]">Acciones</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {templates.map((template) => (
+              <TableRow key={template._id}>
+                <TableCell>{template.name}</TableCell>
+                <TableCell>
+                  {template.tags?.length ? (
+                    <div className="flex flex-wrap gap-1">
+                      {template.tags.map((tag) => (
+                        <Badge
+                          key={tag}
+                          variant="secondary"
+                          className="flex items-center gap-1 text-xs"
+                        >
+                          <Tag size={10} />
+                          {tag}
+                        </Badge>
+                      ))}
+                    </div>
+                  ) : (
+                    <span className="text-sm text-muted-foreground">
+                      Sin etiquetas
+                    </span>
+                  )}
+                </TableCell>
+                <TableCell>{template.category}</TableCell>
+                <TableCell>
+                  {template.isPublic ? (
                     <Badge
-                      key={tag}
-                      variant="secondary"
-                      className="flex items-center gap-1 "
+                      variant="outline"
+                      className="flex items-center gap-1 text-[#1868DB] bg-[#E9F2FE] border-[#1868DB] text-xs"
                     >
-                      <Tag size={12} />
-                      {tag}
+                      <FilePlus size={10} /> Público
                     </Badge>
-                  ))}
-                </div>
-              ) : (
-                <span className="text-sm text-muted-foreground">
-                  Sin etiquetas
-                </span>
-              )}
-            </TableCell>
-            <TableCell>{template.category}</TableCell>
-            <TableCell>
-              {template.isPublic ? (
-                <Badge
-                  variant="outline"
-                  className="flex items-center gap-1 text-[#1868DB] bg-[#E9F2FE] border-[#1868DB]"
-                >
-                  <FilePlus size={12} /> Público
-                </Badge>
-              ) : (
-                <Badge
-                  variant="outline"
-                  className="flex items-center gap-1 text-[#1868DB] bg-[#E9F2FE] border-[#1868DB]"
-                >
-                  <Lock size={12} /> Privado
-                </Badge>
-              )}
-            </TableCell>
-            <TableCell className="max-w-[320px] truncate">
-              {template.description ?? "Sin descripción"}
-            </TableCell>
-
-            <TableCell className="text-right">
-              <TemplateActions
-                templateId={template._id}
-                templateName={template.name}
-                onPreview={onPreview}
-                onCreateFromTemplate={onCreateFromTemplate}
-                canCreate={canCreate}
-              />
-            </TableCell>
-          </TableRow>
-        ))}
-      </TableBody>
-    </Table>
-    
-    {/* Pagination controls */}
-    {templates.length > 0 && onPageChange && (
-      <div className="mt-4">
+                  ) : (
+                    <Badge
+                      variant="outline"
+                      className="flex items-center gap-1 text-[#1868DB] bg-[#E9F2FE] border-[#1868DB] text-xs"
+                    >
+                      <Lock size={10} /> Privado
+                    </Badge>
+                  )}
+                </TableCell>
+                <TableCell className="min-w-[180px] max-w-[200px] truncate text-sm">
+                  {template.description ?? "Sin descripción"}
+                </TableCell>
+                <TableCell className="text-right min-w-[100px]">
+                  <TemplateActions
+                    templateId={template._id}
+                    templateName={template.name}
+                    onPreview={onPreview}
+                    onCreateFromTemplate={onCreateFromTemplate}
+                    canCreate={canCreate}
+                  />
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </div>
+      
+      {/* Pagination controls */}
+      {templates.length > 0 && onPageChange && totalCount > pageSize && (
         <PaginationControls
           totalResults={totalCount}
           currentPage={currentPage}
@@ -156,8 +155,7 @@ export function TemplateTable({
           searchQuery={searchQuery}
           onPageChange={onPageChange}
         />
-      </div>
-    )}
-  </>
+      )}
+    </div>
   );
 }
