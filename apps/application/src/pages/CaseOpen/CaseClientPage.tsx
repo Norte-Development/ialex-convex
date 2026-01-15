@@ -71,20 +71,22 @@ export default function CaseClientsPage() {
 
   return (
     <CaseLayout>
-      <section className=" w-full h-full flex flex-col px-5  gap-2">
+      <section className="w-full h-full flex flex-col px-5 gap-2">
         <div className="flex justify-between items-center">
           <h1 className="text-2xl font-bold">Clientes </h1>
           <Button onClick={handleAddClient}>
             <Plus size={15} />
           </Button>
         </div>
-        <ClientsTable
-          clientsResult={transformedClientsResult}
-          caseId={caseId!}
-          currentPage={currentPage}
-          pageSize={pageSize}
-          onPageChange={setCurrentPage}
-        />
+        <div className="flex-1 min-h-0 overflow-y-auto">
+          <ClientsTable
+            clientsResult={transformedClientsResult}
+            caseId={caseId!}
+            currentPage={currentPage}
+            pageSize={pageSize}
+            onPageChange={setCurrentPage}
+          />
+        </div>
         <SyncNewClientDialog
           open={isSyncNewClientDialogOpen}
           onOpenChange={setIsSyncNewClientDialogOpen}

@@ -17,6 +17,7 @@ import { Doc } from "../_generated/dataModel";
 import { _checkLimit, _getBillingEntity } from "../billing/features";
 import { Id } from "../_generated/dataModel";
 import { caseUpdateTemplate } from "../services/emailTemplates";
+import { clientValidator, normalizeClient } from "./clientManagement";
 
 // ========================================
 // CASE MANAGEMENT
@@ -903,15 +904,18 @@ export const getClientsForCasePaginated = query({
     caseId: v.id("cases"),
     paginationOpts: v.optional(paginationOptsValidator),
   },
-  handler: async (
-    ctx,
-    args,
-  ): Promise<{
-    page: Array<Doc<"clients"> & { role?: string }>;
-    isDone: boolean;
-    continueCursor: string | null;
-    totalCount: number;
-  }> => {
+  returns: v.object({
+    page: v.array(
+      v.object({
+        ...clientValidator.fields,
+        role: v.optional(v.string()),
+      }),
+    ),
+    isDone: v.boolean(),
+    continueCursor: v.union(v.string(), v.null()),
+    totalCount: v.number(),
+  }),
+  handler: async (ctx, args) => {
     const currentUser = await getCurrentUserFromAuth(ctx);
     await requireNewCaseAccess(ctx, currentUser._id, args.caseId, "basic");
 
@@ -951,8 +955,14 @@ export const getClientsForCasePaginated = query({
     const isDone = endIndex >= clientsWithRoles.length;
     const continueCursor = isDone ? null : endIndex.toString();
 
+    // Normalize clients to ensure they match the validator (displayName, naturalezaJuridica)
+    const normalizedPage = page.map((client) => ({
+      ...normalizeClient(client),
+      role: client.role,
+    }));
+
     return {
-      page,
+      page: normalizedPage,
       isDone,
       continueCursor,
       totalCount: clientsWithRoles.length,
