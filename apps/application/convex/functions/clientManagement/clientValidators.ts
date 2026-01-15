@@ -116,6 +116,7 @@ export const clientCaseValidator = v.object({
       expedientNumber: v.optional(v.string()),
       fre: v.optional(v.string()),
       lastActivityAt: v.optional(v.number()),
+      lastPjnHistorySyncAt: v.optional(v.number()),
     }),
     v.null(),
   ),

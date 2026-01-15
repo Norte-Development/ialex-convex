@@ -1,6 +1,6 @@
 import { v } from "convex/values";
 import { query, mutation, internalMutation } from "../_generated/server";
-import { internal } from "../_generated/api";
+import { internal, api } from "../_generated/api";
 import { getCurrentUserFromAuth } from "../auth_utils";
 
 // ========================================
@@ -1434,7 +1434,6 @@ export const moveLibraryFolderToRoot = mutation({
     if (!folder) throw new Error("Library folder not found");
 
     // Ensure Root exists and migrate existing items (idempotent)
-    const { internal } = await import("../_generated/api");
     const rootFolder = await ctx.runMutation(
       internal.functions.libraryFolders.getOrCreateLibraryRootFolder,
       {
@@ -1444,7 +1443,6 @@ export const moveLibraryFolderToRoot = mutation({
     );
 
     // Use existing move function via API
-    const { api } = await import("../_generated/api");
     await ctx.runMutation(api.functions.libraryFolders.moveLibraryFolder, {
       folderId: args.folderId,
       newParentFolderId: rootFolder._id,

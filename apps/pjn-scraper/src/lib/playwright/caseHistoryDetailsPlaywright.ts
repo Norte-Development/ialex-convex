@@ -390,11 +390,12 @@ export async function scrapeCaseHistoryDetailsPlaywright(
     const docDigitales: NormalizedDigitalDocument[] = [];
 
     // Step 5: Load and parse Intervinientes tab
-    logger.debug("Step 5: Loading Intervinientes tab", { fre });
+    logger.debug("Step 5: Loading Intervinientes tab", { fre, cid });
     const intervinientesHtml = await loadIntervinientesHtml(
       page,
       debugStorage,
       fre,
+      cid,
     );
     const intervinientes = parseIntervinientesHtml(intervinientesHtml);
     debugStorage?.saveJson(`${safeFre}_04_intervinientes`, intervinientes, {
@@ -406,8 +407,8 @@ export async function scrapeCaseHistoryDetailsPlaywright(
     const recursos: NormalizedAppeal[] = [];
 
     // Step 7: Load and parse Vinculados tab
-    logger.debug("Step 7: Loading Vinculados tab", { fre });
-    const vinculadosHtml = await loadVinculadosHtml(page, debugStorage, fre);
+    logger.debug("Step 7: Loading Vinculados tab", { fre, cid });
+    const vinculadosHtml = await loadVinculadosHtml(page, debugStorage, fre, cid);
     const vinculados = parseVinculadosHtml(vinculadosHtml);
     debugStorage?.saveJson(`${safeFre}_06_vinculados`, vinculados, {
       fre,

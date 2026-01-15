@@ -1,4 +1,5 @@
 import * as cheerio from "cheerio";
+import type { Cheerio, CheerioAPI } from "cheerio";
 import { createHash } from "crypto";
 import type {
   NormalizedCaseCandidate,
@@ -616,6 +617,93 @@ export interface NormalizedParticipant {
 }
 
 /**
+ * Strip common PJN column label prefixes from cell values.
+ * E.g. "TIPO: DEMANDADO" -> "DEMANDADO", "NOMBRE: JUAN" -> "JUAN".
+ */
+function stripColumnLabel(value: string): string {
+  const trimmed = value.trim();
+  return trimmed.replace(/^(TIPO|NOMBRE)\s*:?\s*/i, "").trim();
+}
+
+function buildDetailsFromCells(
+  cells: Cheerio<any>,
+  startIndex: number
+): string | undefined {
+  const extraParts: string[] = [];
+  for (let i = startIndex; i < cells.length; i++) {
+    const cellText = cells.eq(i).text().trim();
+    if (cellText) {
+      extraParts.push(cellText);
+    }
+  }
+  return extraParts.length > 0 ? extraParts.join(" | ") : undefined;
+}
+
+function parseFiscalesTable($: CheerioAPI): NormalizedParticipant[] {
+  const participants: NormalizedParticipant[] = [];
+  const tableSelectors = [
+    "#expediente\\:fiscalesTable",
+    'table[id*="fiscalesTable" i]',
+    'div[id*="fiscales" i] table',
+  ];
+
+  let table = $();
+  for (const selector of tableSelectors) {
+    table = $(selector).first();
+    if (table.length > 0) break;
+  }
+
+  if (table.length === 0) return participants;
+
+  const headerTexts = table
+    .find("thead th")
+    .map((_, el) => $(el).text().trim().toUpperCase())
+    .get();
+
+  const fiscalIndex = headerTexts.findIndex((text) => text.includes("FISCAL"));
+  const iejIndex = headerTexts.findIndex(
+    (text) => text.includes("I.E.J") || text.includes("IEJ")
+  );
+  const oficinaIndex = headerTexts.findIndex(
+    (text) => text.includes("OFICINA") || text.includes("FISCALIA")
+  );
+
+  const rows = table.find("tbody tr, tr");
+  rows.each((_, element) => {
+    const $row = $(element);
+    const $cells = $row.find("td");
+    if ($cells.length === 0) return;
+
+    const nameCellIndex = fiscalIndex >= 0 ? fiscalIndex : 0;
+    const fiscalName = stripColumnLabel($cells.eq(nameCellIndex).text().trim());
+    if (!fiscalName) return;
+
+    const detailParts: string[] = [];
+    if (oficinaIndex >= 0) {
+      const oficina = $cells.eq(oficinaIndex).text().trim();
+      if (oficina) detailParts.push(oficina);
+    }
+    if (iejIndex >= 0) {
+      const iej = $cells.eq(iejIndex).text().trim();
+      if (iej) detailParts.push(iej);
+    }
+
+    const details = detailParts.length > 0 ? detailParts.join(" | ") : undefined;
+    const participantId = generateHashId(
+      `FISCAL|${fiscalName}|${details ?? ""}`
+    );
+    participants.push({
+      participantId,
+      role: "FISCAL",
+      name: fiscalName,
+      details,
+    });
+  });
+
+  return participants;
+}
+
+/**
  * Parse the Intervinientes tab HTML into normalized participants.
  */
 export function parseIntervinientesHtml(html: string): NormalizedParticipant[] {
@@ -641,40 +729,89 @@ export function parseIntervinientesHtml(html: string): NormalizedParticipant[] {
 
   if (table.length === 0) return [];
 
-  // Prefer RichFaces data rows (PARTES) and avoid nested detail rows where possible.
-  // The main party rows live in <tbody class="rf-dt-b">; nested detail/collapsible rows
-  // use <tbody class="rf-cst">.
-  let rows = table.find("tbody.rf-dt-b tr");
-  if (rows.length === 0) {
+  const mainBodies = table.find("tbody.rf-dt-b");
+  if (mainBodies.length > 0) {
+    mainBodies.each((_, body) => {
+      const $body = $(body);
+      const bodyRows = $body.find("tr");
+
+      bodyRows.each((__, row) => {
+        const $row = $(row);
+        const $cells = $row.find("td");
+        if ($cells.length < 2) return;
+
+        const rawRole = $cells.eq(0).text().trim();
+        const rawName = $cells.eq(1).text().trim();
+        const role = stripColumnLabel(rawRole);
+        const name = stripColumnLabel(rawName);
+        const details = buildDetailsFromCells($cells, 2);
+
+        if (!role || !name) return;
+
+        const participantId = generateHashId(`${role}|${name}|${details ?? ""}`);
+        participants.push({
+          participantId,
+          role,
+          name,
+          details: details || undefined,
+        });
+      });
+
+      const detailBody = $body.next("tbody.rf-cst").first();
+      if (detailBody.length > 0) {
+        const detailRows = detailBody.find("tr.rf-cst-r, tr");
+        detailRows.each((__, detailRow) => {
+          const $detailRow = $(detailRow);
+          const $cells = $detailRow.find("td");
+          if ($cells.length < 2) return;
+
+          const rawRole = $cells.eq(0).text().trim();
+          const rawName = $cells.eq(1).text().trim();
+          const role = stripColumnLabel(rawRole);
+          const name = stripColumnLabel(rawName);
+          const details = buildDetailsFromCells($cells, 2);
+
+          if (!role || !name) return;
+
+          const participantId = generateHashId(
+            `${role}|${name}|${details ?? ""}`
+          );
+          participants.push({
+            participantId,
+            role,
+            name,
+            details: details || undefined,
+          });
+        });
+      }
+    });
+  } else {
     // Fallback to generic tbody rows if the expected class isn't present.
-    rows = table.find("tbody tr, tr");
+    const rows = table.find("tbody tr, tr");
+    rows.each((_, element) => {
+      const $row = $(element);
+      const $cells = $row.find("td");
+      if ($cells.length < 2) return;
+
+      const rawRole = $cells.eq(0).text().trim();
+      const rawName = $cells.eq(1).text().trim();
+      const role = stripColumnLabel(rawRole);
+      const name = stripColumnLabel(rawName);
+      const details = buildDetailsFromCells($cells, 2);
+
+      if (!role || !name) return;
+
+      const participantId = generateHashId(`${role}|${name}|${details ?? ""}`);
+      participants.push({
+        participantId,
+        role,
+        name,
+        details: details || undefined,
+      });
+    });
   }
 
-  rows.each((_, element) => {
-    const $row = $(element);
-    const $cells = $row.find("td");
-    if ($cells.length < 2) return;
-
-    const role = $cells.eq(0).text().trim();
-    const name = $cells.eq(1).text().trim();
-
-    // Combine TOMO/FOLIO + I.E.J. (or any extra columns) into a single optional details string.
-    const extraParts: string[] = [];
-    if ($cells.length > 2) {
-      const tomoFolio = $cells.eq(2).text().trim();
-      if (tomoFolio) extraParts.push(tomoFolio);
-    }
-    if ($cells.length > 3) {
-      const iej = $cells.eq(3).text().trim();
-      if (iej) extraParts.push(iej);
-    }
-    const details = extraParts.length > 0 ? extraParts.join(" | ") : undefined;
-
-    if (!role || !name) return;
-
-    const participantId = generateHashId(`${role}|${name}|${details ?? ""}`);
-    participants.push({ participantId, role, name, details: details || undefined });
-  });
+  participants.push(...parseFiscalesTable($));
 
   return participants;
 }

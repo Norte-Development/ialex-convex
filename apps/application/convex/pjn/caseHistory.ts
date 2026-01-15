@@ -762,10 +762,18 @@ export const syncCaseHistoryForCase = action({
       // Ingest participants
       const intervinientes = detailsResult.intervinientes ?? [];
       for (const participant of intervinientes) {
-        await ctx.runMutation(internal.pjn.sync.createParticipantEntry, {
+        const result = await ctx.runMutation(internal.pjn.sync.createParticipantEntry, {
           caseId: args.caseId,
           participant,
         });
+        
+        // Trigger matching for new participants
+        if (result.isNew && result.participantId) {
+          await ctx.runMutation(internal.pjn.sync.triggerParticipantMatching, {
+            participantId: result.participantId,
+            caseId: args.caseId,
+          });
+        }
       }
 
       // Ingest appeals
@@ -1179,10 +1187,18 @@ export const syncCaseHistoryForCaseInternal = internalAction({
       // Ingest participants
       const intervinientes = detailsResult.intervinientes ?? [];
       for (const participant of intervinientes) {
-        await ctx.runMutation(internal.pjn.sync.createParticipantEntry, {
+        const result = await ctx.runMutation(internal.pjn.sync.createParticipantEntry, {
           caseId,
           participant,
         });
+        
+        // Trigger matching for new participants
+        if (result.isNew && result.participantId) {
+          await ctx.runMutation(internal.pjn.sync.triggerParticipantMatching, {
+            participantId: result.participantId,
+            caseId,
+          });
+        }
       }
 
       // Ingest appeals

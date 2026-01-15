@@ -1,10 +1,9 @@
 import ClientsTable from "@/components/Clients/ClientsTable";
 import { useQuery } from "convex/react";
 import { api } from "../../../convex/_generated/api";
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useCase } from "@/context/CaseContext";
 import SyncNewClientDialog from "@/components/Cases/SyncNewClientDialog";
-import { useState } from "react";
 import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import CaseLayout from "@/components/Cases/CaseLayout";
@@ -14,6 +13,8 @@ import { PermissionToasts } from "@/lib/permissionToasts";
 export default function CaseClientsPage() {
   const { currentCase, isLoading, error, caseId } = useCase();
   const { can } = usePermissions();
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 20;
   const [isSyncNewClientDialogOpen, setIsSyncNewClientDialogOpen] =
     useState(false);
 
@@ -26,19 +27,26 @@ export default function CaseClientsPage() {
   };
 
   const clientsResult = useQuery(
-    api.functions.cases.getClientsForCase,
-    caseId ? { caseId } : "skip",
+    api.functions.cases.getClientsForCasePaginated,
+    caseId
+      ? {
+          caseId,
+          paginationOpts: {
+            numItems: pageSize,
+            cursor: ((currentPage - 1) * pageSize).toString(),
+          },
+        }
+      : "skip",
   );
 
-  const transformedClientsResult = useMemo(() => {
-    if (!clientsResult) return null;
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [caseId]);
 
-    return {
-      page: clientsResult,
-      isDone: true,
-      continueCursor: undefined,
-    };
-  }, [clientsResult]);
+  const transformedClientsResult = useMemo(
+    () => clientsResult ?? null,
+    [clientsResult],
+  );
 
   if (isLoading) {
     return (
@@ -73,6 +81,9 @@ export default function CaseClientsPage() {
         <ClientsTable
           clientsResult={transformedClientsResult}
           caseId={caseId!}
+          currentPage={currentPage}
+          pageSize={pageSize}
+          onPageChange={setCurrentPage}
         />
         <SyncNewClientDialog
           open={isSyncNewClientDialogOpen}

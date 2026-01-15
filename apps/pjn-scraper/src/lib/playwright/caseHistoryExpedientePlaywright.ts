@@ -237,21 +237,74 @@ export async function loadDocDigitalesHtml(
 
 /**
  * Load the "Intervinientes" tab.
+ * If the page has navigated away from expediente.seam, re-navigate using the cid.
  */
 export async function loadIntervinientesHtml(
   page: Page,
   debugStorage?: DebugStorage,
-  fre?: string
+  fre?: string,
+  cid?: string
 ): Promise<string> {
   const safeFre = fre ? fre.replace(/[/\\:]/g, "_") : "unknown";
 
-  logger.debug("Clicking Intervinientes tab", { fre });
+  logger.debug("Loading Intervinientes tab", { fre, currentUrl: page.url() });
+
+  // Check if we're still on expediente.seam, if not re-navigate
+  const currentUrl = page.url();
+  if (!currentUrl.includes("expediente.seam")) {
+    if (!cid) {
+      logger.warn("Page navigated away from expediente.seam and no cid available", {
+        fre,
+        currentUrl,
+      });
+      // Return current page HTML for debugging
+      const html = await page.content();
+      if (debugStorage) {
+        debugStorage.saveHtml(`${safeFre}_04_intervinientes`, html, {
+          fre,
+          tabName: "Intervinientes",
+          error: "Not on expediente.seam, no cid",
+        });
+      }
+      return html;
+    }
+
+    logger.info("Re-navigating to expediente.seam", { fre, cid });
+    await page.goto(`${EXPEDIENTE_URL}?cid=${cid}`, {
+      waitUntil: "networkidle",
+      timeout: 30000,
+    });
+
+    // Verify we're now on expediente.seam
+    const newUrl = page.url();
+    if (!newUrl.includes("expediente.seam")) {
+      logger.warn("Failed to re-navigate to expediente.seam", {
+        fre,
+        cid,
+        newUrl,
+      });
+    }
+  }
 
   // Locate the Intervinientes tab header within the expediente tab panel.
   const tabHeader = page
     .locator('#expediente\\:expedienteTab td.rf-tab-hdr')
     .filter({ hasText: "Intervinientes" })
     .first();
+
+  const tabCount = await tabHeader.count();
+  if (tabCount === 0) {
+    logger.warn("Could not find Intervinientes tab header", { fre });
+    const html = await page.content();
+    if (debugStorage) {
+      debugStorage.saveHtml(`${safeFre}_04_intervinientes`, html, {
+        fre,
+        tabName: "Intervinientes",
+        error: "Tab header not found",
+      });
+    }
+    return html;
+  }
 
   await tabHeader.click();
 
@@ -262,11 +315,13 @@ export async function loadIntervinientesHtml(
         "expediente:expedienteTab-value",
       ) as HTMLInputElement | null;
       return input?.value === "intervinientes";
-    })
+    }, { timeout: 10000 })
     .catch(() => {
-      // If this fails, we'll still capture HTML for debugging.
-      return null;
+      logger.warn("Timeout waiting for Intervinientes tab to become active", { fre });
     });
+
+  // Small delay to ensure content is rendered
+  await page.waitForTimeout(500);
 
   const html = await page.content();
 
@@ -309,12 +364,26 @@ export async function loadRecursosHtml(
 
 /**
  * Load the "Vinculados" tab.
+ * If the page has navigated away from expediente.seam, re-navigate using the cid.
  */
 export async function loadVinculadosHtml(
   page: Page,
   debugStorage?: DebugStorage,
-  fre?: string
+  fre?: string,
+  cid?: string
 ): Promise<string> {
+  const safeFre = fre ? fre.replace(/[/\\:]/g, "_") : "unknown";
+
+  // Check if we're still on expediente.seam, if not re-navigate
+  const currentUrl = page.url();
+  if (!currentUrl.includes("expediente.seam") && cid) {
+    logger.info("Re-navigating to expediente.seam for Vinculados tab", { fre, cid });
+    await page.goto(`${EXPEDIENTE_URL}?cid=${cid}`, {
+      waitUntil: "networkidle",
+      timeout: 30000,
+    });
+  }
+
   const tabSelectors = [
     // RichFaces tab header cells for "Vinculados"
     'td.rf-tab-hdr:has-text("Vinculados")',
@@ -324,7 +393,6 @@ export async function loadVinculadosHtml(
     '#expediente\\:j_idt348\\:header\\:active',
   ];
 
-  const safeFre = fre ? fre.replace(/[/\\:]/g, "_") : "unknown";
   return loadTabPlaywright(
     page,
     "Vinculados",

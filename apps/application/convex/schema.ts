@@ -316,12 +316,23 @@ export default defineSchema({
     role: v.optional(v.string()), // e.g., "plaintiff", "defendant", "witness"
     addedBy: v.id("users"),
     isActive: v.boolean(),
+    // Source tracking for PJN sync
+    source: v.optional(
+      v.union(
+        v.literal("MANUAL"), // Manually added by user
+        v.literal("PJN"), // Added via PJN interviniente sync
+      ),
+    ),
+    // Reference back to the PJN interviniente if source is PJN
+    sourceParticipantId: v.optional(v.id("caseParticipants")),
   })
     .index("by_client", ["clientId"])
     .index("by_case", ["caseId"])
     .index("by_client_and_case", ["clientId", "caseId"])
     .index("by_added_by", ["addedBy"])
-    .index("by_active_status", ["isActive"]),
+    .index("by_active_status", ["isActive"])
+    .index("by_source", ["source"])
+    .index("by_source_participant", ["sourceParticipantId"]),
 
   // Folders table - organizational folders
   folders: defineTable({
@@ -1242,15 +1253,124 @@ export default defineSchema({
     caseId: v.id("cases"),
     role: v.string(), // "Juez", "Fiscal", "Abogado Querellante", "Defensor", "Perito", etc.
     name: v.string(),
-    details: v.optional(v.string()),
+    details: v.optional(v.string()), // Legacy: TOMO/FOLIO | I.E.J combined
+    // Parsed identifier fields from I.E.J.P column
+    iejp: v.optional(v.string()), // Raw I.E.J.P value as scraped from PJN
+    documentType: v.optional(
+      v.union(
+        v.literal("DNI"),
+        v.literal("CUIT"),
+        v.literal("CUIL"),
+        v.literal("PASSPORT"),
+        v.literal("OTHER"),
+        v.literal("UNKNOWN"),
+      ),
+    ),
+    documentNumber: v.optional(v.string()), // Parsed/normalized document number
     pjnParticipantId: v.optional(v.string()),
     syncedFrom: v.literal("pjn"),
     syncedAt: v.number(),
+    isActive: v.optional(v.boolean()), // For soft-delete when PJN removes participant
   })
     .index("by_case", ["caseId"])
     .index("by_role", ["role"])
     .index("by_case_and_role", ["caseId", "role"])
-    .index("by_pjn_id", ["pjnParticipantId"]),
+    .index("by_pjn_id", ["pjnParticipantId"])
+    .index("by_document_number", ["documentNumber"])
+    .index("by_iejp", ["iejp"]),
+
+  // ========================================
+  // INTERVINIENTE-CLIENT LINKING (PJN Sync)
+  // ========================================
+
+  // Links between PJN Intervinientes (caseParticipants) and local Clients
+  intervinienteClientLinks: defineTable({
+    // The PJN participant (interviniente) being linked
+    participantId: v.id("caseParticipants"),
+    // The local client being linked to
+    clientId: v.id("clients"),
+    // The case this link belongs to
+    caseId: v.id("cases"),
+    // The local role assigned (mapped from PJN role)
+    localRole: v.optional(v.string()),
+    // Link type indicating how the link was created
+    linkType: v.union(
+      v.literal("AUTO_HIGH_CONFIDENCE"), // Exact identifier match
+      v.literal("AUTO_LOW_CONFIDENCE"), // Fuzzy name match, needs confirmation
+      v.literal("CONFIRMED"), // User confirmed an auto-link
+      v.literal("MANUAL"), // User manually created the link
+      v.literal("IGNORED"), // User explicitly chose not to link
+    ),
+    // Confidence score from the matcher (0-1)
+    confidence: v.optional(v.number()),
+    // Match reason for display/debugging
+    matchReason: v.optional(v.string()), // e.g., "DNI match", "CUIT match", "Name similarity 0.95"
+    // User who confirmed or created the link
+    confirmedBy: v.optional(v.id("users")),
+    confirmedAt: v.optional(v.number()),
+    // Whether the user has overridden the auto-assigned role
+    roleOverride: v.optional(v.boolean()),
+    // Timestamps
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_participant", ["participantId"])
+    .index("by_client", ["clientId"])
+    .index("by_case", ["caseId"])
+    .index("by_participant_and_client", ["participantId", "clientId"])
+    .index("by_case_and_participant", ["caseId", "participantId"])
+    .index("by_link_type", ["linkType"])
+    .index("by_confirmed_by", ["confirmedBy"]),
+
+  // Audit log for interviniente-client link changes
+  intervinienteLinkAudit: defineTable({
+    participantId: v.id("caseParticipants"),
+    clientId: v.optional(v.id("clients")),
+    caseId: v.id("cases"),
+    action: v.union(
+      v.literal("AUTO_LINKED"),
+      v.literal("CONFIRMED"),
+      v.literal("MANUAL_LINKED"),
+      v.literal("UNLINKED"),
+      v.literal("IGNORED"),
+      v.literal("ROLE_CHANGED"),
+    ),
+    previousLinkType: v.optional(v.string()),
+    newLinkType: v.optional(v.string()),
+    previousRole: v.optional(v.string()),
+    newRole: v.optional(v.string()),
+    matchReason: v.optional(v.string()),
+    confidence: v.optional(v.number()),
+    performedBy: v.optional(v.id("users")),
+    performedAt: v.number(),
+    metadata: v.optional(v.any()),
+  })
+    .index("by_participant", ["participantId"])
+    .index("by_client", ["clientId"])
+    .index("by_case", ["caseId"])
+    .index("by_action", ["action"])
+    .index("by_performed_at", ["performedAt"]),
+
+  // Interviniente sync settings per user/team
+  intervinienteSyncSettings: defineTable({
+    // Either userId (personal) OR teamId (team setting)
+    userId: v.optional(v.id("users")),
+    teamId: v.optional(v.id("teams")),
+    // Auto-linking behavior
+    autoLinkHighConfidence: v.boolean(), // Auto-link when identifier matches (default: true)
+    autoLinkLowConfidence: v.boolean(), // Create suggestions for fuzzy matches (default: true)
+    requireConfirmationForAll: v.boolean(), // Require manual confirmation for all links (default: false)
+    // Matching thresholds
+    highConfidenceThreshold: v.number(), // 0-1, default 0.95
+    lowConfidenceThreshold: v.number(), // 0-1, default 0.85
+    // Notifications
+    notifyOnAutoLink: v.boolean(), // Notify user when auto-links are created (default: false)
+    // Timestamps
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_user", ["userId"])
+    .index("by_team", ["teamId"]),
 
   // Case Appeals (Recursos)
   caseAppeals: defineTable({

@@ -896,6 +896,71 @@ export const getClientsForCase = query({
 });
 
 /**
+ * Retrieves clients associated with a case with pagination.
+ */
+export const getClientsForCasePaginated = query({
+  args: {
+    caseId: v.id("cases"),
+    paginationOpts: v.optional(paginationOptsValidator),
+  },
+  handler: async (
+    ctx,
+    args,
+  ): Promise<{
+    page: Array<Doc<"clients"> & { role?: string }>;
+    isDone: boolean;
+    continueCursor: string | null;
+    totalCount: number;
+  }> => {
+    const currentUser = await getCurrentUserFromAuth(ctx);
+    await requireNewCaseAccess(ctx, currentUser._id, args.caseId, "basic");
+
+    const relationships = await ctx.db
+      .query("clientCases")
+      .withIndex("by_case", (q) => q.eq("caseId", args.caseId))
+      .filter((q) => q.eq(q.field("isActive"), true))
+      .collect();
+
+    const clientsWithRoles = (
+      await Promise.all(
+        relationships.map(async (rel) => {
+          const client = await ctx.db.get(rel.clientId);
+          if (!client) return null;
+          return { ...client, role: rel.role };
+        }),
+      )
+    ).filter((client): client is NonNullable<typeof client> => Boolean(client));
+
+    clientsWithRoles.sort((a, b) => {
+      const nameA = (a.displayName || a.name || "").toLowerCase();
+      const nameB = (b.displayName || b.name || "").toLowerCase();
+      if (nameA < nameB) return -1;
+      if (nameA > nameB) return 1;
+      return 0;
+    });
+
+    const numItems = args.paginationOpts?.numItems ?? 20;
+    const offset =
+      args.paginationOpts?.cursor && args.paginationOpts.cursor !== null
+        ? parseInt(args.paginationOpts.cursor, 10)
+        : 0;
+    const startIndex = offset;
+    const endIndex = offset + numItems;
+
+    const page = clientsWithRoles.slice(startIndex, endIndex);
+    const isDone = endIndex >= clientsWithRoles.length;
+    const continueCursor = isDone ? null : endIndex.toString();
+
+    return {
+      page,
+      isDone,
+      continueCursor,
+      totalCount: clientsWithRoles.length,
+    };
+  },
+});
+
+/**
  * Retrieves all cases associated with a specific client.
  *
  * @param {Object} args - The function arguments

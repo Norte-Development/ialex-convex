@@ -2,6 +2,7 @@ import { v } from "convex/values";
 import { internalAction, internalMutation } from "../_generated/server";
 import { internal } from "../_generated/api";
 import { Id, Doc } from "../_generated/dataModel";
+import { extractIejpFromDetails, parseIejpValue } from "../utils/identifierParser";
 
 /**
  * Sync notifications for a single user
@@ -757,6 +758,8 @@ export const createHistoricalDocumentEntry = internalMutation({
 
 /**
  * Create participant entry from PJN Intervinientes tab.
+ * Parses the I.E.J.P identifier from the details field and stores it in dedicated fields.
+ * Returns the created participant ID for triggering client matching.
  */
 export const createParticipantEntry = internalMutation({
   args: {
@@ -768,23 +771,54 @@ export const createParticipantEntry = internalMutation({
       details: v.optional(v.string()),
     }),
   },
-  handler: async (ctx, args): Promise<null> => {
+  handler: async (ctx, args): Promise<{ participantId: Id<"caseParticipants"> | null; isNew: boolean }> => {
     // Idempotency check
     const existing = await ctx.db
       .query("caseParticipants")
       .withIndex("by_pjn_id", (q) => q.eq("pjnParticipantId", args.participant.participantId))
       .first();
 
-    if (existing) return null;
+    if (existing) {
+      return { participantId: existing._id, isNew: false };
+    }
 
-    await ctx.db.insert("caseParticipants", {
+    // Parse I.E.J.P from details field
+    const iejpRaw = extractIejpFromDetails(args.participant.details);
+    const parsedIdentifier = parseIejpValue(iejpRaw);
+
+    const participantId = await ctx.db.insert("caseParticipants", {
       caseId: args.caseId,
       role: args.participant.role,
       name: args.participant.name,
       details: args.participant.details,
+      // New parsed identifier fields
+      iejp: iejpRaw ?? undefined,
+      documentType: parsedIdentifier.isValid ? parsedIdentifier.type : undefined,
+      documentNumber: parsedIdentifier.isValid ? parsedIdentifier.number : undefined,
       pjnParticipantId: args.participant.participantId,
       syncedFrom: "pjn",
       syncedAt: Date.now(),
+      isActive: true,
+    });
+
+    return { participantId, isNew: true };
+  },
+});
+
+/**
+ * Trigger client matching for a newly synced participant.
+ * Called after createParticipantEntry to attempt automatic linking.
+ */
+export const triggerParticipantMatching = internalMutation({
+  args: {
+    participantId: v.id("caseParticipants"),
+    caseId: v.id("cases"),
+  },
+  handler: async (ctx, args): Promise<null> => {
+    // Schedule the matching action to run asynchronously
+    await ctx.scheduler.runAfter(0, internal.intervinientes.matching.matchParticipantToClient, {
+      participantId: args.participantId,
+      caseId: args.caseId,
     });
     return null;
   },

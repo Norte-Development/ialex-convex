@@ -149,6 +149,9 @@ import type * as functions_users from "../functions/users.js";
 import type * as google_drive from "../google/drive.js";
 import type * as google_driveActions from "../google/driveActions.js";
 import type * as http from "../http.js";
+import type * as intervinientes_matching from "../intervinientes/matching.js";
+import type * as intervinientes_queries from "../intervinientes/queries.js";
+import type * as intervinientes_settings from "../intervinientes/settings.js";
 import type * as migrations_addEventPreferences from "../migrations/addEventPreferences.js";
 import type * as migrations_bulkUserMigration from "../migrations/bulkUserMigration.js";
 import type * as migrations_clerkHelpers from "../migrations/clerkHelpers.js";
@@ -198,6 +201,8 @@ import type * as services_teamInviteTemplates from "../services/teamInviteTempla
 import type * as stripe from "../stripe.js";
 import type * as utils_fallosService from "../utils/fallosService.js";
 import type * as utils_gcs from "../utils/gcs.js";
+import type * as utils_identifierParser from "../utils/identifierParser.js";
+import type * as utils_intervinienteRoleMapping from "../utils/intervinienteRoleMapping.js";
 import type * as utils_legislationService from "../utils/legislationService.js";
 import type * as utils_pjnConstants from "../utils/pjnConstants.js";
 import type * as utils_resend from "../utils/resend.js";
@@ -353,6 +358,9 @@ declare const fullApi: ApiFromModules<{
   "google/drive": typeof google_drive;
   "google/driveActions": typeof google_driveActions;
   http: typeof http;
+  "intervinientes/matching": typeof intervinientes_matching;
+  "intervinientes/queries": typeof intervinientes_queries;
+  "intervinientes/settings": typeof intervinientes_settings;
   "migrations/addEventPreferences": typeof migrations_addEventPreferences;
   "migrations/bulkUserMigration": typeof migrations_bulkUserMigration;
   "migrations/clerkHelpers": typeof migrations_clerkHelpers;
@@ -402,6 +410,8 @@ declare const fullApi: ApiFromModules<{
   stripe: typeof stripe;
   "utils/fallosService": typeof utils_fallosService;
   "utils/gcs": typeof utils_gcs;
+  "utils/identifierParser": typeof utils_identifierParser;
+  "utils/intervinienteRoleMapping": typeof utils_intervinienteRoleMapping;
   "utils/legislationService": typeof utils_legislationService;
   "utils/pjnConstants": typeof utils_pjnConstants;
   "utils/resend": typeof utils_resend;

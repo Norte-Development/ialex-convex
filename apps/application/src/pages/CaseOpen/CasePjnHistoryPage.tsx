@@ -26,6 +26,7 @@ import {
 import { toast } from "sonner"
 import { Skeleton } from "@/components/ui/skeleton"
 import { CaseHistorySyncProgress } from "@/components/Cases/CaseHistorySyncProgress"
+import { IntervinientesPanel } from "@/components/Cases/IntervinientesPanel"
 
 export default function CasePjnHistoryPage() {
   const { currentCase } = useCase()
@@ -250,36 +251,9 @@ export default function CasePjnHistoryPage() {
 
           {/* Documentos tab disabled */}
 
-          {/* Intervinientes Tab */}
+          {/* Intervinientes Tab - Enhanced with client linking */}
           <TabsContent value="intervinientes" className="mt-4">
-            {participants === undefined ? (
-              <TableSkeleton />
-            ) : participants.length === 0 ? (
-              <EmptyState message="No hay intervinientes sincronizados" />
-            ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Rol</TableHead>
-                    <TableHead>Nombre</TableHead>
-                    <TableHead>Detalles</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {participants.map((p) => (
-                    <TableRow key={p._id}>
-                      <TableCell>
-                        <Badge>{p.role}</Badge>
-                      </TableCell>
-                      <TableCell className="font-medium">{p.name}</TableCell>
-                      <TableCell className="text-gray-500">
-                        {p.details || "-"}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            )}
+            <IntervinientesPanel caseId={currentCase._id} />
           </TabsContent>
 
           {/* Recursos tab disabled */}
