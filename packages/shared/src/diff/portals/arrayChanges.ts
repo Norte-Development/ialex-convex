@@ -3,7 +3,7 @@ import { createChangeNode } from './nodeChanges';
 import { createTextDiff, handleTextDelta } from './textDiff';
 import { normalizeText } from '../utils';
 import { detectFormattingChanges, createFormattingDiff } from './formattingChanges';
-import { applyJsonDelta } from './deltaUtils';
+import { applyJsonDelta } from './deltaApplier';
 
 function normalizeTextForComparison(text: string): string {
   return text.replace(/\s+/g, ' ').trim().toLowerCase();
@@ -529,7 +529,8 @@ export function processNestedArrayChange(
       oldItem,
       nestedChange,
       `${baseChangeId}-mod-${index}`,
-      [...path, arrayKey, index.toString()]
+      [...path, arrayKey, index.toString()],
+      handleArrayDelta
     );
     return modifiedItem;
   } else if (newItem) {
