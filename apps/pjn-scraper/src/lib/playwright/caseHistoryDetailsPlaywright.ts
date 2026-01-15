@@ -8,9 +8,7 @@ import type {
 } from "../../types/api";
 import {
   parseActuacionesHtmlImproved,
-  parseDocDigitalesHtml,
   parseIntervinientesHtml,
-  parseRecursosHtml,
   parseVinculadosHtml,
   type NormalizedParticipant,
   type NormalizedAppeal,
@@ -22,9 +20,7 @@ import { getPjnPageForUser, closePjnPage } from "./pjnPlaywrightSession";
 import { performCaseHistorySearchPlaywright } from "./caseHistorySearchPlaywright";
 import {
   navigateToExpedientePlaywright,
-  loadDocDigitalesHtml,
   loadIntervinientesHtml,
-  loadRecursosHtml,
   loadVinculadosHtml,
 } from "./caseHistoryExpedientePlaywright";
 import type { SessionState } from "../sessionStore";
@@ -390,33 +386,8 @@ export async function scrapeCaseHistoryDetailsPlaywright(
       });
     }
 
-    // Step 4: Load and parse Doc. digitales tab
-    let docDigitales: NormalizedDigitalDocument[] = [];
-    if (includeDocuments) {
-      logger.debug("Step 4: Loading Doc. digitales tab", { fre });
-      const docDigitalesHtml = await loadDocDigitalesHtml(
-        page,
-        debugStorage,
-        fre,
-      );
-
-      logger.debug("Step 4: Parsing Doc. digitales", { fre });
-      docDigitales = parseDocDigitalesHtml(docDigitalesHtml, fre);
-
-      debugStorage?.saveJson(`${safeFre}_03_doc_digitales`, docDigitales, {
-        fre,
-        totalCount: docDigitales.length,
-      });
-
-      if (maxDocuments && docDigitales.length > maxDocuments) {
-        docDigitales = docDigitales.slice(0, maxDocuments);
-        logger.info("Limited docDigitales to maxDocuments", {
-          fre,
-          maxDocuments,
-          totalFound: docDigitales.length,
-        });
-      }
-    }
+    // Step 4: Doc. digitales scraping disabled (returning empty array)
+    const docDigitales: NormalizedDigitalDocument[] = [];
 
     // Step 5: Load and parse Intervinientes tab
     logger.debug("Step 5: Loading Intervinientes tab", { fre });
@@ -431,14 +402,8 @@ export async function scrapeCaseHistoryDetailsPlaywright(
       totalCount: intervinientes.length,
     });
 
-    // Step 6: Load and parse Recursos tab
-    logger.debug("Step 6: Loading Recursos tab", { fre });
-    const recursosHtml = await loadRecursosHtml(page, debugStorage, fre);
-    const recursos = parseRecursosHtml(recursosHtml);
-    debugStorage?.saveJson(`${safeFre}_05_recursos`, recursos, {
-      fre,
-      totalCount: recursos.length,
-    });
+    // Step 6: Recursos scraping disabled (returning empty array)
+    const recursos: NormalizedAppeal[] = [];
 
     // Step 7: Load and parse Vinculados tab
     logger.debug("Step 7: Loading Vinculados tab", { fre });

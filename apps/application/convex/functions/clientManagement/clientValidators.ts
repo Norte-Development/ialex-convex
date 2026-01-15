@@ -114,6 +114,7 @@ export const clientCaseValidator = v.object({
       estimatedHours: v.optional(v.number()),
       actualHours: v.optional(v.number()),
       expedientNumber: v.optional(v.string()),
+      fre: v.optional(v.string()),
       lastActivityAt: v.optional(v.number()),
     }),
     v.null(),

@@ -18,12 +18,10 @@ import {
   RefreshCw,
   Users,
   FileText,
-  Scale,
   Link2,
   AlertCircle,
   CheckCircle,
   Loader2,
-  ExternalLink,
 } from "lucide-react"
 import { toast } from "sonner"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -46,18 +44,8 @@ export default function CasePjnHistoryPage() {
     currentCase ? { caseId: currentCase._id } : "skip"
   )
 
-  const activityLog = useQuery(
-    api.functions.pjnHistory.getPjnActivityLog,
-    currentCase ? { caseId: currentCase._id } : "skip"
-  )
-
   const participants = useQuery(
     api.functions.pjnHistory.getCaseParticipants,
-    currentCase ? { caseId: currentCase._id } : "skip"
-  )
-
-  const appeals = useQuery(
-    api.functions.pjnHistory.getCaseAppeals,
     currentCase ? { caseId: currentCase._id } : "skip"
   )
 
@@ -88,13 +76,15 @@ export default function CasePjnHistoryPage() {
   }
 
   // Check if there's an active sync job (queued or running)
-  const hasActiveSync = syncJob && (syncJob.status === "queued" || syncJob.status === "running")
+  const hasActiveSync = !!(syncJob && (syncJob.status === "queued" || syncJob.status === "running"))
   
   // Show completed job briefly (for 10 seconds after completion)
-  const showCompletedJob = syncJob && 
+  const showCompletedJob = !!(
+    syncJob && 
     syncJob.status === "completed" && 
     syncJob.finishedAt && 
     Date.now() - syncJob.finishedAt < 10000
+  )
 
   const formatDate = (timestamp: number) => {
     return new Date(timestamp).toLocaleDateString("es-AR", {
@@ -107,9 +97,6 @@ export default function CasePjnHistoryPage() {
   }
 
   const movements = actuaciones || []
-  const documents = activityLog?.filter(
-    (log) => log.action === "pjn_historical_document"
-  )
 
   if (!currentCase) {
     return (
@@ -181,7 +168,7 @@ export default function CasePjnHistoryPage() {
 
         {/* Tabs */}
         <Tabs defaultValue="movimientos" className="w-full">
-          <TabsList className="grid w-full grid-cols-5">
+          <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="movimientos" className="gap-2">
               <FileText size={14} />
               Actuaciones
@@ -191,30 +178,12 @@ export default function CasePjnHistoryPage() {
                 </Badge>
               )}
             </TabsTrigger>
-            <TabsTrigger value="documentos" className="gap-2">
-              <FileText size={14} />
-              Documentos
-              {documents && (
-                <Badge variant="secondary" className="ml-1">
-                  {documents.length}
-                </Badge>
-              )}
-            </TabsTrigger>
             <TabsTrigger value="intervinientes" className="gap-2">
               <Users size={14} />
               Intervinientes
               {participants && (
                 <Badge variant="secondary" className="ml-1">
                   {participants.length}
-                </Badge>
-              )}
-            </TabsTrigger>
-            <TabsTrigger value="recursos" className="gap-2">
-              <Scale size={14} />
-              Recursos
-              {appeals && (
-                <Badge variant="secondary" className="ml-1">
-                  {appeals.length}
                 </Badge>
               )}
             </TabsTrigger>
@@ -279,56 +248,7 @@ export default function CasePjnHistoryPage() {
             )}
           </TabsContent>
 
-          {/* Documentos Tab */}
-          <TabsContent value="documentos" className="mt-4">
-            {documents === undefined ? (
-              <TableSkeleton />
-            ) : documents.length === 0 ? (
-              <EmptyState message="No hay documentos sincronizados" />
-            ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Fecha</TableHead>
-                    <TableHead>Descripción</TableHead>
-                    <TableHead>Fuente</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {documents.map((log) => {
-                    const metadata = log.metadata as Record<string, any>;
-                    return (
-                      <TableRow key={log._id}>
-                        <TableCell className="whitespace-nowrap">
-                          {formatDate(log.timestamp)}
-                        </TableCell>
-                        <TableCell>
-                          {String(metadata?.description ?? "-")}
-                        </TableCell>
-                        <TableCell className="flex items-center gap-2">
-                          <Badge variant="outline">
-                            {String(metadata?.source ?? "PJN")}
-                          </Badge>
-                          {metadata?.documentId && (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="h-8 w-8 p-0"
-                              onClick={() => {
-                                window.open(`/caso/${currentCase._id}/documentos/${metadata.documentId}`, "_blank")
-                              }}
-                            >
-                              <FileText size={16} className="text-blue-500" />
-                            </Button>
-                          )}
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
-            )}
-          </TabsContent>
+          {/* Documentos tab disabled */}
 
           {/* Intervinientes Tab */}
           <TabsContent value="intervinientes" className="mt-4">
@@ -362,43 +282,7 @@ export default function CasePjnHistoryPage() {
             )}
           </TabsContent>
 
-          {/* Recursos Tab */}
-          <TabsContent value="recursos" className="mt-4">
-            {appeals === undefined ? (
-              <TableSkeleton />
-            ) : appeals.length === 0 ? (
-              <EmptyState message="No hay recursos sincronizados" />
-            ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Tipo</TableHead>
-                    <TableHead>Fecha</TableHead>
-                    <TableHead>Estado</TableHead>
-                    <TableHead>Tribunal</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {appeals.map((a) => (
-                    <TableRow key={a._id}>
-                      <TableCell className="font-medium">
-                        {a.appealType}
-                      </TableCell>
-                      <TableCell>{a.filedDate || "-"}</TableCell>
-                      <TableCell>
-                        {a.status ? (
-                          <Badge variant="outline">{a.status}</Badge>
-                        ) : (
-                          "-"
-                        )}
-                      </TableCell>
-                      <TableCell>{a.court || "-"}</TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            )}
-          </TabsContent>
+          {/* Recursos tab disabled */}
 
           {/* Vinculados Tab */}
           <TabsContent value="vinculados" className="mt-4">

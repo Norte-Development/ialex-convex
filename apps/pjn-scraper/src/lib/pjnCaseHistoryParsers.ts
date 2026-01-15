@@ -772,26 +772,65 @@ export function parseVinculadosHtml(html: string): NormalizedRelatedCase[] {
 
   if (table.length === 0) return [];
 
+  // Inspect headers to detect the PJN Vinculados table shape:
+  // EXPEDIENTE | DEPENDENCIA | SITUACION | CARATULA | ULT. ACT. | [action]
+  const headerTexts = table
+    .find("thead th")
+    .map((_, el) => $(el).text().trim().toUpperCase())
+    .get();
+
+  const looksLikePjnVinculados =
+    headerTexts.includes("EXPEDIENTE") &&
+    headerTexts.includes("DEPENDENCIA") &&
+    headerTexts.includes("SITUACION");
+
   const rows = table.find("tbody tr, tr");
   rows.each((_, element) => {
     const $row = $(element);
     const $cells = $row.find("td");
     if ($cells.length < 2) return;
 
-    const relatedFre = $cells.eq(0).text().trim();
-    const relationshipType = $cells.eq(1).text().trim();
-    const relatedCaratula = $cells.length > 2 ? $cells.eq(2).text().trim() : undefined;
-    const relatedCourt = $cells.length > 3 ? $cells.eq(3).text().trim() : undefined;
+    let relatedFre: string;
+    let relationshipType: string;
+    let relatedCaratula: string | undefined;
+    let relatedCourt: string | undefined;
 
-    if (!relatedFre || !relationshipType) return;
+    if (looksLikePjnVinculados && $cells.length >= 4) {
+      // Map columns to:
+      // 0: EXPEDIENTE       -> relatedFre
+      // 1: DEPENDENCIA      -> relatedCourt
+      // 2: SITUACION        -> relationshipType
+      // 3: CARATULA         -> relatedCaratula
+      const expediente = $cells.eq(0).text().trim();
+      const dependencia = $cells.eq(1).text().trim();
+      const situacion = $cells.eq(2).text().trim();
+      const caratula = $cells.eq(3).text().trim();
+
+      if (!expediente) return;
+
+      relatedFre = expediente;
+      relationshipType = situacion || "Vinculado";
+      relatedCaratula = caratula || undefined;
+      relatedCourt = dependencia || undefined;
+    } else {
+      // Fallback to the previous generic mapping for other table shapes
+      relatedFre = $cells.eq(0).text().trim();
+      relationshipType = $cells.eq(1).text().trim();
+      relatedCaratula =
+        $cells.length > 2 ? $cells.eq(2).text().trim() || undefined : undefined;
+      relatedCourt =
+        $cells.length > 3 ? $cells.eq(3).text().trim() || undefined : undefined;
+
+      if (!relatedFre || !relationshipType) return;
+    }
 
     const relationId = generateHashId(`${relatedFre}|${relationshipType}`);
     relatedCases.push({
       relationId,
       relatedFre,
       relationshipType,
-      relatedCaratula: relatedCaratula || undefined,
-      relatedCourt: relatedCourt || undefined,
+      relatedCaratula,
+      relatedCourt,
     });
   });
 

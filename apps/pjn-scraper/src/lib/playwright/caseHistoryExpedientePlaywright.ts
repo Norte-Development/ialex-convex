@@ -145,13 +145,17 @@ export async function navigateToExpedientePlaywright(
 /**
  * Load a tab by clicking it and waiting for content to render.
  * Returns the HTML after the tab is loaded.
+ *
+ * If readySelector is provided, waits for that selector to become visible
+ * after clicking the tab; otherwise falls back to waiting for "networkidle".
  */
 async function loadTabPlaywright(
   page: Page,
   tabName: string,
   tabSelectors: string[],
   debugStorage?: DebugStorage,
-  debugFilename?: string
+  debugFilename?: string,
+  readySelector?: string,
 ): Promise<string> {
   logger.debug(`Loading ${tabName} tab`, {});
 
@@ -161,14 +165,7 @@ async function loadTabPlaywright(
     try {
       const tab = page.locator(selector).first();
       if (await tab.count() > 0) {
-        // Click and wait for content to update
         await tab.click();
-        
-        // Wait for network activity to settle or for a specific container to update
-        await page.waitForLoadState("networkidle", { timeout: 10000 }).catch(() => {
-          // Ignore timeout, continue anyway
-        });
-        
         tabClicked = true;
         break;
       }
@@ -179,6 +176,21 @@ async function loadTabPlaywright(
 
   if (!tabClicked) {
     logger.warn(`Could not find ${tabName} tab, returning current page HTML`, {});
+  } else if (readySelector) {
+    // Wait for the specific tab content to be visible
+    await page
+      .waitForSelector(readySelector, { state: "visible", timeout: 15000 })
+      .catch(() => {
+        logger.warn(
+          `Timed out waiting for ${tabName} tab content selector: ${readySelector}`,
+          {},
+        );
+      });
+  } else {
+    // Fallback: wait for network activity to settle
+    await page.waitForLoadState("networkidle", { timeout: 10000 }).catch(() => {
+      // Ignore timeout, continue anyway
+    });
   }
 
   // Capture the HTML
@@ -219,7 +231,7 @@ export async function loadDocDigitalesHtml(
     "Doc. digitales",
     tabSelectors,
     debugStorage,
-    `${safeFre}_03_doc_digitales`
+    `${safeFre}_03_doc_digitales`,
   );
 }
 
@@ -291,7 +303,7 @@ export async function loadRecursosHtml(
     "Recursos",
     tabSelectors,
     debugStorage,
-    `${safeFre}_05_recursos`
+    `${safeFre}_05_recursos`,
   );
 }
 
@@ -305,11 +317,11 @@ export async function loadVinculadosHtml(
 ): Promise<string> {
   const tabSelectors = [
     // RichFaces tab header cells for "Vinculados"
-    'td.rf-tab-hdr-inact:has-text("Vinculados")',
     'td.rf-tab-hdr:has-text("Vinculados")',
+    'td.rf-tab-hdr-inact:has-text("Vinculados")',
     // Fallbacks by exact id based on observed markup
-    '#expediente\\:j_idt479\\:header\\:inactive',
-    '#expediente\\:j_idt479\\:header\\:active',
+    '#expediente\\:j_idt348\\:header\\:inactive',
+    '#expediente\\:j_idt348\\:header\\:active',
   ];
 
   const safeFre = fre ? fre.replace(/[/\\:]/g, "_") : "unknown";
@@ -318,6 +330,8 @@ export async function loadVinculadosHtml(
     "Vinculados",
     tabSelectors,
     debugStorage,
-    `${safeFre}_06_vinculados`
+    `${safeFre}_06_vinculados`,
+    // Wait specifically for the Vinculados content table to be visible
+    '#expediente\\:vinculadosTab table#expediente\\:connectedTable',
   );
 }
