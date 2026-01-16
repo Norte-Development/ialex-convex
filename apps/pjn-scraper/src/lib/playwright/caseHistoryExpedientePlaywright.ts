@@ -1,7 +1,9 @@
 import { Page } from "playwright";
 import { logger } from "../../middleware/logging";
 import type { NormalizedCaseCandidate } from "../../types/api";
+import type { NormalizedRelatedCase } from "../../types/api";
 import type { DebugStorage } from "../debugStorage";
+import { parseVinculadosHtml } from "../pjnCaseHistoryParsers";
 
 const EXPEDIENTE_URL = "https://scw.pjn.gov.ar/scw/expediente.seam";
 
@@ -402,4 +404,230 @@ export async function loadVinculadosHtml(
     // Wait specifically for the Vinculados content table to be visible
     '#expediente\\:vinculadosTab table#expediente\\:connectedTable',
   );
+}
+
+function getSafeFre(fre?: string): string {
+  return fre ? fre.replace(/[/\\:]/g, "_") : "unknown";
+}
+
+/**
+ * Find the Vinculados pagination container within the Vinculados tab.
+ * The paginator is a div containing `ul.pagination` with numbered page links.
+ */
+async function getVinculadosPaginatorUl(page: Page) {
+  // The pagination ul is inside #expediente:vinculadosTab
+  const root = page.locator("#expediente\\:vinculadosTab").first();
+
+  // Find the ul.pagination inside the vinculados tab
+  const paginator = root.locator("ul.pagination").first();
+  if ((await paginator.count()) > 0) {
+    return paginator;
+  }
+
+  // Fallback: try to find any ul.pagination in the page (in case structure varies)
+  const globalPaginator = page.locator("#expediente\\:j_idt348 ul.pagination").first();
+  if ((await globalPaginator.count()) > 0) {
+    return globalPaginator;
+  }
+
+  return null;
+}
+
+/**
+ * Get the current active page number from the Vinculados pagination.
+ * Active page is marked with `li.active`.
+ */
+async function getVinculadosActivePageNumber(paginator: import("playwright").Locator): Promise<number | null> {
+  const activeLi = paginator.locator("li.active").first();
+  if ((await activeLi.count()) === 0) {
+    return null;
+  }
+
+  // The page number is inside a span within the li
+  const text = await activeLi.textContent().catch(() => null);
+  const trimmed = text?.trim() ?? "";
+  const pageNum = parseInt(trimmed, 10);
+  
+  return isNaN(pageNum) ? null : pageNum;
+}
+
+/**
+ * Get all available page numbers from the Vinculados pagination.
+ */
+async function getVinculadosAllPageNumbers(paginator: import("playwright").Locator): Promise<number[]> {
+  const pageNumbers: number[] = [];
+  const allLis = paginator.locator("li");
+  const count = await allLis.count();
+
+  for (let i = 0; i < count; i++) {
+    const li = allLis.nth(i);
+    const text = await li.textContent().catch(() => "");
+    const trimmed = text?.trim() ?? "";
+    const num = parseInt(trimmed, 10);
+    if (!isNaN(num)) {
+      pageNumbers.push(num);
+    }
+  }
+
+  return pageNumbers;
+}
+
+/**
+ * Click on a specific page number in the Vinculados pagination.
+ * Returns the locator for the link if found, null otherwise.
+ */
+async function getVinculadosPageLink(
+  paginator: import("playwright").Locator,
+  pageNumber: number,
+) {
+  // Find the li that contains this page number and is NOT active (i.e., has an <a> link)
+  const allLis = paginator.locator("li:not(.active)");
+  const count = await allLis.count();
+
+  for (let i = 0; i < count; i++) {
+    const li = allLis.nth(i);
+    const text = await li.textContent().catch(() => "");
+    const trimmed = text?.trim() ?? "";
+    const num = parseInt(trimmed, 10);
+    
+    if (num === pageNumber) {
+      // Return the <a> link inside this li
+      const link = li.locator("a").first();
+      if ((await link.count()) > 0) {
+        return link;
+      }
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Scrape all pages of the Vinculados table by interacting with the pagination controls.
+ *
+ * This function:
+ * - Ensures the Vinculados tab is active
+ * - Parses the current page's Vinculados table
+ * - Clicks through pagination links sequentially (page 1 → 2 → 3 → ...)
+ * - Aggregates all related cases across pages
+ * - De-duplicates by relationId to guard against overlapping pagination
+ * 
+ * Note: The Vinculados pagination does NOT have "Next/Previous" buttons like Actuaciones.
+ * Instead, it only shows numbered page links (1, 2, 3...). We must click on specific
+ * page numbers to navigate.
+ */
+export async function scrapeAllVinculadosPages(
+  page: Page,
+  fre: string,
+  debugStorage?: DebugStorage,
+  cid?: string,
+): Promise<NormalizedRelatedCase[]> {
+  const safeFre = getSafeFre(fre);
+  const allRelatedCases: NormalizedRelatedCase[] = [];
+
+  // Ensure the tab is active / content loaded.
+  await loadVinculadosHtml(page, debugStorage, fre, cid);
+
+  const maxPages = 50; // Safety limit
+  let currentPage = 1;
+
+  while (currentPage <= maxPages) {
+    // Capture and parse current page
+    const html = await page.content();
+
+    debugStorage?.saveHtml(`${safeFre}_06_vinculados_page${currentPage}`, html, {
+      fre,
+      page: currentPage,
+    });
+
+    const pageRelated = parseVinculadosHtml(html);
+    allRelatedCases.push(...pageRelated);
+
+    logger.debug("Parsed Vinculados page", {
+      fre,
+      page: currentPage,
+      foundOnPage: pageRelated.length,
+      totalSoFar: allRelatedCases.length,
+    });
+
+    // Find the pagination container
+    const paginator = await getVinculadosPaginatorUl(page);
+    if (!paginator) {
+      logger.debug("No pagination found for Vinculados, single page only", { fre });
+      break;
+    }
+
+    // Get all available page numbers
+    const allPageNumbers = await getVinculadosAllPageNumbers(paginator);
+    const maxAvailablePage = Math.max(...allPageNumbers, 0);
+
+    logger.debug("Vinculados pagination info", {
+      fre,
+      currentPage,
+      availablePages: allPageNumbers,
+      maxAvailablePage,
+    });
+
+    // Check if there's a next page
+    const nextPageNum = currentPage + 1;
+    if (nextPageNum > maxAvailablePage || !allPageNumbers.includes(nextPageNum)) {
+      logger.debug("No more Vinculados pages available", { fre, currentPage, maxAvailablePage });
+      break;
+    }
+
+    // Find and click the next page link
+    const nextPageLink = await getVinculadosPageLink(paginator, nextPageNum);
+    if (!nextPageLink) {
+      logger.warn("Could not find link for next Vinculados page", { fre, nextPageNum });
+      break;
+    }
+
+    try {
+      // Wait for the active page to change after clicking
+      const waitForPageChange = page.waitForFunction(
+        (state: { expectedPage: number }) => {
+          const activeLi = document.querySelector(
+            "#expediente\\:vinculadosTab ul.pagination li.active, " +
+            "#expediente\\:j_idt348 ul.pagination li.active"
+          );
+          if (!activeLi) return false;
+          const text = activeLi.textContent?.trim() ?? "";
+          const num = parseInt(text, 10);
+          return num === state.expectedPage;
+        },
+        { expectedPage: nextPageNum },
+        { timeout: 15000 },
+      );
+
+      await Promise.all([nextPageLink.click(), waitForPageChange]);
+
+      // Small delay to ensure content is fully rendered
+      await page.waitForTimeout(500);
+      currentPage = nextPageNum;
+    } catch (err) {
+      logger.warn("Failed to navigate to next Vinculados page", {
+        fre,
+        currentPage,
+        nextPageNum,
+        error: err instanceof Error ? err.message : String(err),
+      });
+      break;
+    }
+  }
+
+  // De-duplicate by relationId
+  const uniqueById = new Map<string, NormalizedRelatedCase>();
+  for (const item of allRelatedCases) {
+    if (!uniqueById.has(item.relationId)) {
+      uniqueById.set(item.relationId, item);
+    }
+  }
+
+  logger.info("Completed Vinculados scraping", {
+    fre,
+    pagesScraped: currentPage,
+    totalUnique: uniqueById.size,
+  });
+
+  return Array.from(uniqueById.values());
 }

@@ -5,6 +5,7 @@ import type {
   NormalizedCaseCandidate,
   NormalizedMovement,
   NormalizedDigitalDocument,
+  NormalizedRelatedCase,
 } from "../types/api";
 import { parseClaveExpediente } from "../constants";
 
@@ -878,17 +879,6 @@ export function parseRecursosHtml(html: string): NormalizedAppeal[] {
 }
 
 /**
- * Normalized related case entry from the Vinculados tab.
- */
-export interface NormalizedRelatedCase {
-  relationId: string;
-  relatedFre: string;
-  relationshipType: string;
-  relatedCaratula?: string;
-  relatedCourt?: string;
-}
-
-/**
  * Parse the Vinculados tab HTML into normalized related cases.
  */
 export function parseVinculadosHtml(html: string): NormalizedRelatedCase[] {
@@ -927,14 +917,14 @@ export function parseVinculadosHtml(html: string): NormalizedRelatedCase[] {
     const $cells = $row.find("td");
     if ($cells.length < 2) return;
 
-    let relatedFre: string;
+    let rawExpediente: string;
     let relationshipType: string;
     let relatedCaratula: string | undefined;
     let relatedCourt: string | undefined;
 
     if (looksLikePjnVinculados && $cells.length >= 4) {
       // Map columns to:
-      // 0: EXPEDIENTE       -> relatedFre
+      // 0: EXPEDIENTE       -> rawExpediente
       // 1: DEPENDENCIA      -> relatedCourt
       // 2: SITUACION        -> relationshipType
       // 3: CARATULA         -> relatedCaratula
@@ -945,26 +935,43 @@ export function parseVinculadosHtml(html: string): NormalizedRelatedCase[] {
 
       if (!expediente) return;
 
-      relatedFre = expediente;
+      rawExpediente = expediente;
       relationshipType = situacion || "Vinculado";
       relatedCaratula = caratula || undefined;
       relatedCourt = dependencia || undefined;
     } else {
       // Fallback to the previous generic mapping for other table shapes
-      relatedFre = $cells.eq(0).text().trim();
+      rawExpediente = $cells.eq(0).text().trim();
       relationshipType = $cells.eq(1).text().trim();
       relatedCaratula =
         $cells.length > 2 ? $cells.eq(2).text().trim() || undefined : undefined;
       relatedCourt =
         $cells.length > 3 ? $cells.eq(3).text().trim() || undefined : undefined;
 
-      if (!relatedFre || !relationshipType) return;
+      if (!rawExpediente || !relationshipType) return;
     }
 
-    const relationId = generateHashId(`${relatedFre}|${relationshipType}`);
+    const parsed = parseClaveExpediente(rawExpediente);
+
+    const expedienteKey = parsed
+      ? parsed.fullIdentifier
+      : rawExpediente.trim();
+    const rawNumber = parsed ? parsed.caseNumber : rawExpediente.trim();
+    const courtCode = parsed ? parsed.jurisdiction : "";
+    const fuero = courtCode;
+
+    const yearMatch = rawNumber.match(/\b(\d{4})\b/);
+    const year = yearMatch ? parseInt(yearMatch[1], 10) : new Date().getFullYear();
+
+    const relationId = generateHashId(`${expedienteKey}|${relationshipType}`);
     relatedCases.push({
       relationId,
-      relatedFre,
+      expedienteKey,
+      rawExpediente,
+      rawNumber,
+      courtCode,
+      fuero,
+      year,
       relationshipType,
       relatedCaratula,
       relatedCourt,

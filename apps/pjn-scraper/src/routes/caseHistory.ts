@@ -273,6 +273,8 @@ router.post(
         fre,
         includeMovements,
         includeDocuments,
+        includeIntervinientes,
+        includeVinculados,
         maxMovements,
         maxDocuments,
       } = parsed.data;
@@ -319,9 +321,12 @@ router.post(
           userId,
           includeMovements,
           includeDocuments,
+          includeIntervinientes,
+          includeVinculados,
           maxMovements,
           maxDocuments,
           requestId,
+          debugStorage: false,
         });
 
         const response = toCaseHistoryDetailsResponsePlaywright(result);

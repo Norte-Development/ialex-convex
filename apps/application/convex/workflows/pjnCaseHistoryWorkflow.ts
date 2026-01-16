@@ -37,9 +37,16 @@ export const startPjnCaseHistorySync = workflow.define({
     caseId: v.id("cases"),
     userId: v.id("users"),
     jobId: v.id("pjnCaseHistorySyncJobs"),
+    syncProfile: v.optional(
+      v.object({
+        maxMovements: v.optional(v.number()),
+        includeIntervinientes: v.optional(v.boolean()),
+        includeVinculados: v.optional(v.boolean()),
+      }),
+    ),
   },
   handler: async (step, args): Promise<SyncResult> => {
-    const { caseId, userId, jobId } = args;
+    const { caseId, userId, jobId, syncProfile } = args;
 
     try {
       // Update job status to "running" and set phase to "connecting"
@@ -65,6 +72,7 @@ export const startPjnCaseHistorySync = workflow.define({
           caseId,
           userId,
           jobId,
+          syncProfile,
         }
       );
 
@@ -172,6 +180,13 @@ export const startWorkflow = internalAction({
     caseId: v.id("cases"),
     userId: v.id("users"),
     jobId: v.id("pjnCaseHistorySyncJobs"),
+    syncProfile: v.optional(
+      v.object({
+        maxMovements: v.optional(v.number()),
+        includeIntervinientes: v.optional(v.boolean()),
+        includeVinculados: v.optional(v.boolean()),
+      }),
+    ),
   },
   handler: async (ctx, args): Promise<null> => {
     await workflow.start(
@@ -181,6 +196,7 @@ export const startWorkflow = internalAction({
         caseId: args.caseId,
         userId: args.userId,
         jobId: args.jobId,
+        syncProfile: args.syncProfile,
       }
     );
     return null;

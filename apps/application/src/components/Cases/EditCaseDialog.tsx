@@ -26,6 +26,8 @@ import { toast } from "sonner";
 import { Case } from "types/cases";
 import { closeFloatingLayers } from "@/lib/closeFloatingLayers";
 import { JURISDICTIONS } from "./constants";
+import { PjnFreSearchDialog } from "./PjnFreSearchDialog";
+import { Search } from "lucide-react";
 
 interface EditCaseDialogProps {
   case_: Case | null;
@@ -39,6 +41,7 @@ export default function EditCaseDialog({
   onOpenChange,
 }: EditCaseDialogProps) {
   const [isLoading, setIsLoading] = useState(false);
+  const [isPjnSearchOpen, setIsPjnSearchOpen] = useState(false);
   const updateCase = useMutation(api.functions.cases.updateCase);
 
   const [formData, setFormData] = useState({
@@ -220,6 +223,15 @@ export default function EditCaseDialog({
                     onChange={(e) => handleInputChange("pjnNumber", e.target.value)}
                     className="flex-1"
                   />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon"
+                    onClick={() => setIsPjnSearchOpen(true)}
+                    title="Buscar en PJN"
+                  >
+                    <Search className="h-4 w-4" />
+                  </Button>
                 </div>
               </div>
             </div>
@@ -304,6 +316,17 @@ export default function EditCaseDialog({
           </DialogFooter>
         </form>
       </DialogContent>
+
+      <PjnFreSearchDialog
+        open={isPjnSearchOpen}
+        onOpenChange={setIsPjnSearchOpen}
+        pjnJurisdiction={formData.pjnJurisdiction}
+        pjnNumber={formData.pjnNumber}
+        onPickFre={({ jurisdiction, pjnNumber }) => {
+          handleInputChange("pjnJurisdiction", jurisdiction);
+          handleInputChange("pjnNumber", pjnNumber);
+        }}
+      />
     </Dialog>
   );
 }

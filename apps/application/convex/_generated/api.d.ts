@@ -183,6 +183,7 @@ import type * as pjn_cron from "../pjn/cron.js";
 import type * as pjn_cronHandlers from "../pjn/cronHandlers.js";
 import type * as pjn_sync from "../pjn/sync.js";
 import type * as pjn_trigger from "../pjn/trigger.js";
+import type * as pjn_vinculados from "../pjn/vinculados.js";
 import type * as prosemirror from "../prosemirror.js";
 import type * as rag_qdrantUtils_caseDocuments from "../rag/qdrantUtils/caseDocuments.js";
 import type * as rag_qdrantUtils_client from "../rag/qdrantUtils/client.js";
@@ -392,6 +393,7 @@ declare const fullApi: ApiFromModules<{
   "pjn/cronHandlers": typeof pjn_cronHandlers;
   "pjn/sync": typeof pjn_sync;
   "pjn/trigger": typeof pjn_trigger;
+  "pjn/vinculados": typeof pjn_vinculados;
   prosemirror: typeof prosemirror;
   "rag/qdrantUtils/caseDocuments": typeof rag_qdrantUtils_caseDocuments;
   "rag/qdrantUtils/client": typeof rag_qdrantUtils_client;

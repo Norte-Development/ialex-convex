@@ -121,7 +121,6 @@ export default function CaseSidebar() {
     if (path.includes("/prompts"))
       return { name: "Prompts", icon: MessageCircle };
     if (path.includes("/eventos")) return { name: "Eventos", icon: Calendar };
-    if (path.includes("/pjn-historial")) return { name: "Historial PJN", icon: Scale };
 
     // Buscar en navigationItems
     for (const item of navigationItems) {
@@ -387,18 +386,6 @@ export default function CaseSidebar() {
                   >
                     <MessageCircle size={16} />
                     <span>Prompts</span>
-                  </Link>
-                </DropdownMenuItem>
-              )}
-              {can.viewCase && (
-                <DropdownMenuItem asChild>
-                  <Link
-                    to={`${basePath}/pjn-historial`}
-                    onClick={handleNavigationFromCase}
-                    className="flex items-center gap-2 cursor-pointer"
-                  >
-                    <Scale size={16} />
-                    <span>Historial PJN</span>
                   </Link>
                 </DropdownMenuItem>
               )}

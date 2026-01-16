@@ -77,7 +77,12 @@ type NormalizedAppeal = {
 
 type NormalizedRelatedCase = {
   relationId: string;
-  relatedFre: string;
+  expedienteKey: string;
+  rawExpediente: string;
+  rawNumber: string;
+  courtCode: string;
+  fuero: string;
+  year: number;
   relationshipType: string;
   relatedCaratula?: string;
   relatedCourt?: string;
@@ -494,6 +499,10 @@ export const syncCaseHistoryForCase = action({
     }
 
     const fre: string = caseDoc.fre;
+    const incrementalMovementsLimit = 5;
+    const maxMovements = caseDoc.lastPjnHistorySyncAt
+      ? incrementalMovementsLimit
+      : undefined;
 
     // Helper function to attempt automatic reauth using stored credentials
     const attemptAutomaticReauth = async (): Promise<
@@ -640,12 +649,19 @@ export const syncCaseHistoryForCase = action({
       fre: string;
       includeMovements?: boolean;
       includeDocuments?: boolean;
+      includeIntervinientes?: boolean;
+      includeVinculados?: boolean;
       maxMovements?: number;
       maxDocuments?: number;
     } = {
       userId: userId as string,
       fre,
+      includeMovements: true,
+      includeDocuments: true,
     };
+    if (maxMovements !== undefined) {
+      requestBody.maxMovements = maxMovements;
+    }
 
     try {
       // Helper function to perform the details request
@@ -794,6 +810,11 @@ export const syncCaseHistoryForCase = action({
         });
       }
 
+      // Auto-link PJN vinculados to existing workspace cases using FRE
+      await ctx.runMutation(internal.pjn.vinculados.processForCase, {
+        caseId: args.caseId,
+      });
+
       const lastSyncAt = Date.now();
       await ctx.runMutation(
         internal.pjn.caseHistory.setLastPjnHistorySyncAt,
@@ -847,6 +868,13 @@ export const syncCaseHistoryForCaseInternal = internalAction({
     caseId: v.id("cases"),
     userId: v.id("users"),
     jobId: v.id("pjnCaseHistorySyncJobs"),
+    syncProfile: v.optional(
+      v.object({
+        maxMovements: v.optional(v.number()),
+        includeIntervinientes: v.optional(v.boolean()),
+        includeVinculados: v.optional(v.boolean()),
+      }),
+    ),
   },
   handler: async (
     ctx,
@@ -913,6 +941,10 @@ export const syncCaseHistoryForCaseInternal = internalAction({
     }
 
     const fre: string = caseDoc.fre;
+    const incrementalMovementsLimit = 5;
+    const maxMovements =
+      args.syncProfile?.maxMovements ??
+      (caseDoc.lastPjnHistorySyncAt ? incrementalMovementsLimit : undefined);
 
     // Helper function to attempt automatic reauth using stored credentials
     const attemptAutomaticReauth = async (): Promise<
@@ -1054,12 +1086,25 @@ export const syncCaseHistoryForCaseInternal = internalAction({
       fre: string;
       includeMovements?: boolean;
       includeDocuments?: boolean;
+      includeIntervinientes?: boolean;
+      includeVinculados?: boolean;
       maxMovements?: number;
       maxDocuments?: number;
     } = {
       userId: userId as string,
       fre,
+      includeMovements: true,
+      includeDocuments: true,
     };
+    if (maxMovements !== undefined) {
+      requestBody.maxMovements = maxMovements;
+    }
+    if (args.syncProfile?.includeIntervinientes !== undefined) {
+      requestBody.includeIntervinientes = args.syncProfile.includeIntervinientes;
+    }
+    if (args.syncProfile?.includeVinculados !== undefined) {
+      requestBody.includeVinculados = args.syncProfile.includeVinculados;
+    }
 
     try {
       // Update progress: fetching history (10-30%)
@@ -1218,6 +1263,11 @@ export const syncCaseHistoryForCaseInternal = internalAction({
           relatedCase,
         });
       }
+
+      // Auto-link PJN vinculados to existing workspace cases using FRE
+      await ctx.runMutation(internal.pjn.vinculados.processForCase, {
+        caseId,
+      });
 
       const lastSyncAt = Date.now();
       await ctx.runMutation(internal.pjn.caseHistory.setLastPjnHistorySyncAt, {

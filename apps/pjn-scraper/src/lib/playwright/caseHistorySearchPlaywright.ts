@@ -4,11 +4,17 @@ import type { NormalizedCaseCandidate } from "../../types/api";
 import { parseCaseSearchResultsHtml } from "../pjnCaseHistoryParsers";
 import type { DebugStorage } from "../debugStorage";
 import { navigateToCaseSearch } from "./pjnNavigation";
+import { selectCaseHistoryCandidate } from "../caseHistorySearchSelection";
 
 export interface CaseHistorySearchOptions {
   jurisdiction: string;
   caseNumber: string;
   year: number;
+  /**
+   * Optional full FRE in storage format (e.g. "FRE-3852/2020/TO2").
+   * When provided, candidate auto-selection will prefer exact matches to this.
+   */
+  targetFre?: string;
   requestId?: string;
   debugStorage?: DebugStorage;
 }
@@ -62,60 +68,6 @@ export interface CaseHistorySearchResult {
 }
 
 /**
- * Normalize a case number string for comparison by removing leading zeros
- * and extracting the numeric part before the year.
- */
-function normalizeCaseNumberForMatching(
-  caseNumber: string,
-  year: number
-): string {
-  const parts = caseNumber.split("/");
-  if (parts.length > 0) {
-    const numericPart = parts[0].replace(/^0+/, "") || "0";
-    const yearPart = parts[1] || String(year);
-    return `${numericPart}/${yearPart}`;
-  }
-  return caseNumber;
-}
-
-/**
- * Check if a candidate matches the search criteria.
- */
-function candidateMatches(
-  candidate: NormalizedCaseCandidate,
-  searchJurisdiction: string,
-  searchCaseNumber: string,
-  searchYear: number
-): boolean {
-  // Match jurisdiction (case-insensitive)
-  if (
-    !candidate.jurisdiction ||
-    candidate.jurisdiction.toUpperCase() !== searchJurisdiction.toUpperCase()
-  ) {
-    return false;
-  }
-
-  // Match case number and year
-  if (!candidate.caseNumber) {
-    return false;
-  }
-
-  const normalizedCandidate = normalizeCaseNumberForMatching(
-    candidate.caseNumber,
-    searchYear
-  );
-  const normalizedSearch = normalizeCaseNumberForMatching(
-    `${searchCaseNumber}/${searchYear}`,
-    searchYear
-  );
-
-  const candidateBase = normalizedCandidate.split("/").slice(0, 2).join("/");
-  const searchBase = normalizedSearch.split("/").slice(0, 2).join("/");
-
-  return candidateBase === searchBase;
-}
-
-/**
  * Perform a case history search using Playwright to interact with the UI.
  * 
  * This function:
@@ -132,7 +84,7 @@ export async function performCaseHistorySearchPlaywright(
   options: CaseHistorySearchOptions
 ): Promise<CaseHistorySearchResult> {
   const { jurisdiction, caseNumber, year, requestId, debugStorage } = options;
-  const fre = `${jurisdiction}-${caseNumber}/${year}`;
+  const fre = `${jurisdiction.toUpperCase()}-${caseNumber}/${year}`;
 
   logger.info("Starting Playwright case history search", {
     fre,
@@ -284,43 +236,40 @@ export async function performCaseHistorySearchPlaywright(
   });
 
   // Apply selection logic to find the best matching candidate
-  let selectedCandidate: NormalizedCaseCandidate | null = null;
-  const matchingCandidates = candidates.filter((candidate) =>
-    candidateMatches(
-      candidate,
-      jurisdiction,
-      caseNumber,
-      year
-    )
-  );
+  const targetFre = options.targetFre ?? fre;
+  const selection = selectCaseHistoryCandidate({
+    targetFre,
+    candidates,
+    jurisdiction,
+    caseNumber,
+    year,
+  });
 
-  if (matchingCandidates.length === 1) {
-    selectedCandidate = matchingCandidates[0];
-    logger.info("Selected unique matching candidate", {
+  const selectedCandidate: NormalizedCaseCandidate | null =
+    selection.selectedCandidate;
+
+  if (selectedCandidate) {
+    logger.info("Selected unambiguous candidate", {
       fre,
+      targetFre,
       selectedFre: selectedCandidate.fre,
       rowIndex: selectedCandidate.rowIndex,
-    });
-  } else if (matchingCandidates.length > 1) {
-    selectedCandidate = matchingCandidates[0];
-    logger.warn("Multiple matching candidates found, selected first", {
-      fre,
-      matchCount: matchingCandidates.length,
-      selectedFre: selectedCandidate.fre,
-      rowIndex: selectedCandidate.rowIndex,
+      exactFreMatchesCount: selection.exactFreMatchesCount,
+      baseMatchesCount: selection.baseMatchesCount,
     });
   } else if (candidates.length > 0) {
-    logger.warn("No exact match found, but candidates available", {
+    logger.warn("Ambiguous or no match; no candidate auto-selected", {
       fre,
+      targetFre,
       candidateCount: candidates.length,
+      exactFreMatchesCount: selection.exactFreMatchesCount,
+      baseMatchesCount: selection.baseMatchesCount,
       searchJurisdiction: jurisdiction,
       searchCaseNumber: caseNumber,
       searchYear: year,
     });
   } else {
-    logger.info("No candidates found in search results", {
-      fre,
-    });
+    logger.info("No candidates found in search results", { fre, targetFre });
   }
 
   // Save parsed results to debug storage if provided
@@ -337,7 +286,9 @@ export async function performCaseHistorySearchPlaywright(
     debugStorage.saveJson(`${safeFre}_01_search_results`, {
       candidates,
       selectedCandidate,
-      matchingCandidatesCount: matchingCandidates.length,
+      targetFre,
+      exactFreMatchesCount: selection.exactFreMatchesCount,
+      baseMatchesCount: selection.baseMatchesCount,
     }, {
       fre,
       searchOptions: {

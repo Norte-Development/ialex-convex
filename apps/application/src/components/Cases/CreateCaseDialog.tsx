@@ -24,7 +24,7 @@ import {
   SelectValue,
 } from "../ui/select";
 import { Checkbox } from "../ui/checkbox";
-import { Plus, Users, X, Calendar } from "lucide-react";
+import { Plus, Users, X, Calendar, Search } from "lucide-react";
 import { Badge } from "../ui/badge";
 import {
   useBillingLimit,
@@ -37,6 +37,7 @@ import { tracking } from "@/lib/tracking";
 import { closeFloatingLayers } from "@/lib/closeFloatingLayers";
 import { LocalErrorBoundary } from "../LocalErrorBoundary";
 import { NewClientSection } from "./NewClientSection";
+import { PjnFreSearchDialog } from "./PjnFreSearchDialog";
 
 import { JURISDICTIONS } from "./constants";
 
@@ -48,6 +49,7 @@ export default function CreateCaseDialog() {
   const [open, setOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+  const [isPjnSearchOpen, setIsPjnSearchOpen] = useState(false);
   const [selectedClients, setSelectedClients] = useState<
     {
       id: Id<"clients">;
@@ -440,6 +442,15 @@ export default function CreateCaseDialog() {
                     onChange={(e) => handleInputChange("pjnNumber", e.target.value)}
                     className="flex-1"
                   />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon"
+                    onClick={() => setIsPjnSearchOpen(true)}
+                    title="Buscar en PJN"
+                  >
+                    <Search className="h-4 w-4" />
+                  </Button>
                 </div>
               </div>
             </div>
@@ -818,6 +829,17 @@ export default function CreateCaseDialog() {
           />
         </LocalErrorBoundary>
       </DialogContent>
+
+      <PjnFreSearchDialog
+        open={isPjnSearchOpen}
+        onOpenChange={setIsPjnSearchOpen}
+        pjnJurisdiction={formData.pjnJurisdiction}
+        pjnNumber={formData.pjnNumber}
+        onPickFre={({ jurisdiction, pjnNumber }) => {
+          handleInputChange("pjnJurisdiction", jurisdiction);
+          handleInputChange("pjnNumber", pjnNumber);
+        }}
+      />
     </Dialog>
   );
 }

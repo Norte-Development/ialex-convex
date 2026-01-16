@@ -45,7 +45,6 @@ import CaseDataBasePage from "./pages/CaseOpen/CaseDataBase";
 import CaseSettingsRulesPage from "./pages/CaseOpen/CaseSettingsRulesPage";
 import CasePromptsPage from "./pages/CaseOpen/CasePromptsPage";
 import CaseEventsPage from "./pages/CaseOpen/CaseEventsPage";
-import CasePjnHistoryPage from "./pages/CaseOpen/CasePjnHistoryPage";
 import ComponentsShowcasePage from "./pages/ComponentsShowcasePage";
 import LibraryPage from "./pages/LibraryPage";
 import UserPreferencesPage from "./pages/UserPreferencesPage";
@@ -102,7 +101,6 @@ const CaseRoutesWrapper: React.FC = () => {
                     path="configuracion/reglas"
                     element={<CaseSettingsRulesPage />}
                   />
-                  <Route path="pjn-historial" element={<CasePjnHistoryPage />} />
                 </Routes>
               </HighlightProvider>
             </AgentReviewSessionProvider>

@@ -15,6 +15,13 @@ export const queueCaseHistorySyncForCase = internalMutation({
   args: {
     caseId: v.id("cases"),
     userId: v.id("users"),
+    syncProfile: v.optional(
+      v.object({
+        maxMovements: v.optional(v.number()),
+        includeIntervinientes: v.optional(v.boolean()),
+        includeVinculados: v.optional(v.boolean()),
+      }),
+    ),
   },
   handler: async (
     ctx,
@@ -61,6 +68,7 @@ export const queueCaseHistorySyncForCase = internalMutation({
         caseId: args.caseId,
         userId: args.userId,
         jobId,
+        syncProfile: args.syncProfile,
       }
     );
 

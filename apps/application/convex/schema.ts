@@ -426,6 +426,7 @@ export default defineSchema({
     .index("by_created_by", ["createdBy"])
     .index("by_file_id", ["fileId"])
     .index("by_gcs_object", ["gcsObject"])
+    .index("by_case_and_gcs_object", ["caseId", "gcsObject"])
     .index("by_processing_status", ["processingStatus"])
     .searchIndex("search_documents", {
       searchField: "title",
@@ -1276,6 +1277,8 @@ export default defineSchema({
     .index("by_role", ["role"])
     .index("by_case_and_role", ["caseId", "role"])
     .index("by_pjn_id", ["pjnParticipantId"])
+    // Scoped idempotency: ensure we can uniquely look up participants per case + PJN id
+    .index("by_case_and_pjn_id", ["caseId", "pjnParticipantId"])
     .index("by_document_number", ["documentNumber"])
     .index("by_iejp", ["iejp"]),
 
@@ -1388,6 +1391,38 @@ export default defineSchema({
     .index("by_status", ["status"])
     .index("by_pjn_id", ["pjnAppealId"]),
 
+  // PJN Vinculados - normalized linked expedientes per case with workflow state
+  pjnVinculados: defineTable({
+    caseId: v.id("cases"),
+    // Canonical PJN expediente key (normalized FRE), e.g. "FRE-3852/2020/TO2"
+    vinculadoKey: v.string(),
+    // Small metadata object for display and case creation
+    vinculadoMeta: v.object({
+      expedienteKey: v.string(),
+      rawExpediente: v.string(),
+      rawNumber: v.string(),
+      courtCode: v.string(),
+      fuero: v.string(),
+      year: v.number(),
+      relationshipType: v.optional(v.string()),
+      caratula: v.optional(v.string()),
+      court: v.optional(v.string()),
+    }),
+    // When set, points to the local case representing this vinculado expediente
+    linkedCaseId: v.optional(v.id("cases")),
+    // Source of this vinculado: PJN sync or manually created
+    source: v.union(v.literal("pjn"), v.literal("manual")),
+    // Simple workflow status for UI
+    status: v.union(
+      v.literal("pending"),
+      v.literal("linked"),
+      v.literal("ignored"),
+    ),
+  })
+    .index("by_case", ["caseId"])
+    .index("by_vinculadoKey", ["vinculadoKey"])
+    .index("by_case_and_vinculadoKey", ["caseId", "vinculadoKey"]),
+
   // Related Cases (Vinculados)
   relatedCases: defineTable({
     caseId: v.id("cases"),
@@ -1401,6 +1436,7 @@ export default defineSchema({
     syncedAt: v.number(),
   })
     .index("by_case", ["caseId"])
+    .index("by_case_and_related_fre", ["caseId", "relatedFre"])
     .index("by_related_fre", ["relatedFre"])
     .index("by_relationship_type", ["relationshipType"])
     .index("by_pjn_id", ["pjnRelationId"]),

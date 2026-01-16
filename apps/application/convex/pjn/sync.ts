@@ -208,6 +208,7 @@ export const syncNotificationsForUser = internalAction({
           // Process events
           const events = result.events || [];
           let lastEventId: string | undefined;
+          const caseIdsToSync = new Set<Id<"cases">>();
 
           for (const event of events) {
             // Create activity log entry
@@ -228,7 +229,7 @@ export const syncNotificationsForUser = internalAction({
             }
 
             // Create user-facing notification for this PJN event
-            await ctx.runMutation(internal.notifications.createForUser, {
+            const notificationId = await ctx.runMutation(internal.notifications.createForUser, {
               userId: args.userId,
               kind: "pjn_notification",
               title: event.fre
@@ -245,6 +246,9 @@ export const syncNotificationsForUser = internalAction({
                 ? `/cases/${activityLogResult.caseId}`
                 : undefined,
             });
+            if (notificationId && activityLogResult?.caseId) {
+              caseIdsToSync.add(activityLogResult.caseId);
+            }
 
             lastEventId = event.pjnEventId;
           }
@@ -255,6 +259,18 @@ export const syncNotificationsForUser = internalAction({
             lastEventId,
             lastSyncedAt: Date.now(),
           });
+          
+          for (const caseId of caseIdsToSync) {
+            await ctx.runMutation(internal.pjn.trigger.queueCaseHistorySyncForCase, {
+              caseId,
+              userId: args.userId,
+              syncProfile: {
+                maxMovements: 5,
+                includeIntervinientes: false,
+                includeVinculados: false,
+              },
+            });
+          }
 
           return {
             kind: "ok",
@@ -387,14 +403,18 @@ async function createOrGetPjnDocument(
 
   const [, bucket, objectPath] = gcsMatch;
 
-  // Check if document already exists (idempotency)
+  // Check if document already exists for THIS case (idempotency per case)
+  // This allows the same GCS object to be referenced by multiple cases,
+  // each with their own document row, while avoiding duplicates within a case.
   const existing = await ctx.db
     .query("documents")
-    .withIndex("by_gcs_object", (q: any) => q.eq("gcsObject", objectPath))
+    .withIndex("by_case_and_gcs_object", (q: any) =>
+      q.eq("caseId", params.caseId).eq("gcsObject", objectPath)
+    )
     .first();
 
   if (existing) {
-    // Document already exists, return existing ID
+    // Document already exists for this case, return existing ID
     return existing._id;
   }
 
@@ -775,7 +795,9 @@ export const createParticipantEntry = internalMutation({
     // Idempotency check
     const existing = await ctx.db
       .query("caseParticipants")
-      .withIndex("by_pjn_id", (q) => q.eq("pjnParticipantId", args.participant.participantId))
+      .withIndex("by_case_and_pjn_id", (q) =>
+        q.eq("caseId", args.caseId).eq("pjnParticipantId", args.participant.participantId),
+      )
       .first();
 
     if (existing) {
@@ -871,34 +893,99 @@ export const createRelatedCaseEntry = internalMutation({
     caseId: v.id("cases"),
     relatedCase: v.object({
       relationId: v.string(),
-      relatedFre: v.string(),
+      expedienteKey: v.string(),
+      rawExpediente: v.string(),
+      rawNumber: v.string(),
+      courtCode: v.string(),
+      fuero: v.string(),
+      year: v.number(),
       relationshipType: v.string(),
       relatedCaratula: v.optional(v.string()),
       relatedCourt: v.optional(v.string()),
     }),
   },
   handler: async (ctx, args): Promise<null> => {
-    // Idempotency check
-    const existing = await ctx.db
-      .query("relatedCases")
-      .withIndex("by_pjn_id", (q) => q.eq("pjnRelationId", args.relatedCase.relationId))
-      .first();
+    const { relatedCase } = args;
 
-    if (existing) return null;
+    const vinculadoKey = relatedCase.expedienteKey;
 
-    // Try to find linked case in our DB
+    const vinculadoMeta = {
+      expedienteKey: relatedCase.expedienteKey,
+      rawExpediente: relatedCase.rawExpediente,
+      rawNumber: relatedCase.rawNumber,
+      courtCode: relatedCase.courtCode,
+      fuero: relatedCase.fuero,
+      year: relatedCase.year,
+      relationshipType: relatedCase.relationshipType,
+      caratula: relatedCase.relatedCaratula,
+      court: relatedCase.relatedCourt,
+    } as const;
+
+    // Try to find linked case in our DB by canonical expediente key (FRE)
     const linkedCase = await ctx.db
       .query("cases")
-      .withIndex("by_fre", (q) => q.eq("fre", args.relatedCase.relatedFre))
+      .withIndex("by_fre", (q) => q.eq("fre", vinculadoKey))
       .first();
+
+    // Upsert pjnVinculados entry for this related case
+    const existingVinculado = await ctx.db
+      .query("pjnVinculados")
+      .withIndex("by_case_and_vinculadoKey", (q) =>
+        q.eq("caseId", args.caseId).eq("vinculadoKey", vinculadoKey),
+      )
+      .first();
+
+    if (existingVinculado) {
+      const patch: Partial<Doc<"pjnVinculados">> = {
+        vinculadoMeta,
+        source: "pjn",
+      };
+
+      // Respect ignored status: never resurrect ignored vinculados
+      if (existingVinculado.status !== "ignored") {
+        if (linkedCase && !existingVinculado.linkedCaseId) {
+          patch.linkedCaseId = linkedCase._id;
+          patch.status = "linked";
+        }
+      }
+
+      await ctx.db.patch(existingVinculado._id, patch);
+    } else {
+      await ctx.db.insert("pjnVinculados", {
+        caseId: args.caseId,
+        vinculadoKey,
+        vinculadoMeta,
+        linkedCaseId: linkedCase?._id,
+        source: "pjn",
+        status: linkedCase ? "linked" : "pending",
+      });
+    }
+
+    // Idempotent insert/update into relatedCases table based on PJN relation id
+    const existingRelated = await ctx.db
+      .query("relatedCases")
+      .withIndex("by_pjn_id", (q) =>
+        q.eq("pjnRelationId", relatedCase.relationId),
+      )
+      .first();
+
+    if (existingRelated) {
+      // If we now have a linked case, propagate it to the existing relatedCases row
+      if (linkedCase && !existingRelated.relatedCaseId) {
+        await ctx.db.patch(existingRelated._id, {
+          relatedCaseId: linkedCase._id,
+        });
+      }
+      return null;
+    }
 
     await ctx.db.insert("relatedCases", {
       caseId: args.caseId,
-      relatedFre: args.relatedCase.relatedFre,
-      relationshipType: args.relatedCase.relationshipType,
-      relatedCaratula: args.relatedCase.relatedCaratula,
-      relatedCourt: args.relatedCase.relatedCourt,
-      pjnRelationId: args.relatedCase.relationId,
+      relatedFre: vinculadoKey,
+      relationshipType: relatedCase.relationshipType,
+      relatedCaratula: relatedCase.relatedCaratula,
+      relatedCourt: relatedCase.relatedCourt,
+      pjnRelationId: relatedCase.relationId,
       relatedCaseId: linkedCase?._id,
       syncedFrom: "pjn",
       syncedAt: Date.now(),

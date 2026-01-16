@@ -3,16 +3,15 @@ import { logger } from "../../middleware/logging";
 import type {
   NormalizedMovement,
   NormalizedDigitalDocument,
+  NormalizedRelatedCase,
   CaseHistoryStats,
   CaseHistoryDetailsResponse,
 } from "../../types/api";
 import {
   parseActuacionesHtmlImproved,
   parseIntervinientesHtml,
-  parseVinculadosHtml,
   type NormalizedParticipant,
   type NormalizedAppeal,
-  type NormalizedRelatedCase,
 } from "../pjnCaseHistoryParsers";
 import { DebugStorage, createDebugSession } from "../debugStorage";
 import { GcsStorage } from "../storage";
@@ -21,7 +20,7 @@ import { performCaseHistorySearchPlaywright } from "./caseHistorySearchPlaywrigh
 import {
   navigateToExpedientePlaywright,
   loadIntervinientesHtml,
-  loadVinculadosHtml,
+  scrapeAllVinculadosPages,
 } from "./caseHistoryExpedientePlaywright";
 import type { SessionState } from "../sessionStore";
 import fetch from "node-fetch";
@@ -35,6 +34,8 @@ export interface CaseHistoryDetailsOptions {
   userId: string;
   includeMovements?: boolean;
   includeDocuments?: boolean;
+  includeIntervinientes?: boolean;
+  includeVinculados?: boolean;
   maxMovements?: number;
   maxDocuments?: number;
   requestId?: string;
@@ -196,6 +197,9 @@ async function scrapeAllActuacionesPages(
 
     const pageMovements = parseActuacionesHtmlImproved(html, fre);
     allMovements.push(...pageMovements);
+    if (maxMovements && allMovements.length >= maxMovements) {
+      break;
+    }
 
     const paginationContainer = page.locator(
       "#expediente\\:j_idt217\\:divPagesAct",
@@ -284,18 +288,16 @@ export async function scrapeCaseHistoryDetailsPlaywright(
     userId,
     includeMovements = true,
     includeDocuments = true,
+    includeIntervinientes = true,
+    includeVinculados = true,
     maxMovements,
     maxDocuments,
     requestId,
   } = options;
 
-  // Default to 20 movimientos per run when not explicitly provided,
-  // to keep scraper runs bounded during testing.
-  const effectiveMaxMovements = maxMovements ?? 20;
-
   // Initialize debug storage
   let debugStorage: DebugStorage | undefined;
-  if (options.debugStorage === true || options.debugStorage === undefined) {
+  if (options.debugStorage === true) {
     debugStorage = createDebugSession();
   } else if (options.debugStorage instanceof DebugStorage) {
     debugStorage = options.debugStorage;
@@ -309,6 +311,8 @@ export async function scrapeCaseHistoryDetailsPlaywright(
     requestId,
     includeMovements,
     includeDocuments,
+    includeIntervinientes,
+    includeVinculados,
     debugSessionId: debugStorage?.getSessionId(),
     debugSessionDir: debugStorage?.getSessionDir(),
   });
@@ -338,6 +342,7 @@ export async function scrapeCaseHistoryDetailsPlaywright(
       jurisdiction,
       caseNumber,
       year,
+      targetFre: fre,
       requestId,
       debugStorage,
     });
@@ -375,7 +380,7 @@ export async function scrapeCaseHistoryDetailsPlaywright(
       movimientos = await scrapeAllActuacionesPages(
         page,
         fre,
-        effectiveMaxMovements,
+        maxMovements,
         debugStorage,
         safeFre,
       );
@@ -390,30 +395,35 @@ export async function scrapeCaseHistoryDetailsPlaywright(
     const docDigitales: NormalizedDigitalDocument[] = [];
 
     // Step 5: Load and parse Intervinientes tab
-    logger.debug("Step 5: Loading Intervinientes tab", { fre, cid });
-    const intervinientesHtml = await loadIntervinientesHtml(
-      page,
-      debugStorage,
-      fre,
-      cid,
-    );
-    const intervinientes = parseIntervinientesHtml(intervinientesHtml);
-    debugStorage?.saveJson(`${safeFre}_04_intervinientes`, intervinientes, {
-      fre,
-      totalCount: intervinientes.length,
-    });
+    let intervinientes: NormalizedParticipant[] = [];
+    if (includeIntervinientes) {
+      logger.debug("Step 5: Loading Intervinientes tab", { fre, cid });
+      const intervinientesHtml = await loadIntervinientesHtml(
+        page,
+        debugStorage,
+        fre,
+        cid,
+      );
+      intervinientes = parseIntervinientesHtml(intervinientesHtml);
+      debugStorage?.saveJson(`${safeFre}_04_intervinientes`, intervinientes, {
+        fre,
+        totalCount: intervinientes.length,
+      });
+    }
 
     // Step 6: Recursos scraping disabled (returning empty array)
     const recursos: NormalizedAppeal[] = [];
 
     // Step 7: Load and parse Vinculados tab
-    logger.debug("Step 7: Loading Vinculados tab", { fre, cid });
-    const vinculadosHtml = await loadVinculadosHtml(page, debugStorage, fre, cid);
-    const vinculados = parseVinculadosHtml(vinculadosHtml);
-    debugStorage?.saveJson(`${safeFre}_06_vinculados`, vinculados, {
-      fre,
-      totalCount: vinculados.length,
-    });
+    let vinculados: NormalizedRelatedCase[] = [];
+    if (includeVinculados) {
+      logger.debug("Step 7: Loading Vinculados tab", { fre, cid });
+      vinculados = await scrapeAllVinculadosPages(page, fre, debugStorage, cid);
+      debugStorage?.saveJson(`${safeFre}_06_vinculados`, vinculados, {
+        fre,
+        totalCount: vinculados.length,
+      });
+    }
 
     // Step 8: Download PDFs and upload to GCS
     let downloadErrors = 0;

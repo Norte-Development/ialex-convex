@@ -40,6 +40,8 @@ export const scrapeCaseHistoryDetailsRequestSchema = z.object({
   fre: z.string(),
   includeMovements: z.boolean().optional(),
   includeDocuments: z.boolean().optional(),
+  includeIntervinientes: z.boolean().optional(),
+  includeVinculados: z.boolean().optional(),
   maxMovements: z.number().int().positive().optional(),
   maxDocuments: z.number().int().positive().optional(),
 });
@@ -269,9 +271,42 @@ export interface NormalizedAppeal {
  */
 export interface NormalizedRelatedCase {
   relationId: string;
-  relatedFre: string;
+  /**
+   * Canonical expediente key used for matching with local cases.
+   * Typically the normalized FRE in storage format, e.g. "FRE-3852/2020/TO2".
+   */
+  expedienteKey: string;
+  /**
+   * Raw expediente text as shown in the PJN UI (e.g. "FRE 3852/2020/TO2").
+   */
+  rawExpediente: string;
+  /**
+   * Parsed case number portion (e.g. "3852/2020/TO2").
+   */
+  rawNumber: string;
+  /**
+   * Jurisdiction / court code parsed from the expediente (e.g. "FRE").
+   */
+  courtCode: string;
+  /**
+   * Fuero / jurisdiction family. For now this mirrors the courtCode.
+   */
+  fuero: string;
+  /**
+   * Parsed year component from the expediente.
+   */
+  year: number;
+  /**
+   * High-level relationship label from PJN (e.g. "ACUMULADO", "VINCULADO").
+   */
   relationshipType: string;
+  /**
+   * Human-readable description or carátula of the related case.
+   */
   relatedCaratula?: string;
+  /**
+   * Court / dependency name shown in the Vinculados table.
+   */
   relatedCourt?: string;
 }
 
