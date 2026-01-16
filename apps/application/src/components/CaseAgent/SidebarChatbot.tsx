@@ -8,6 +8,10 @@ import type { SidebarChatbotProps } from "./types";
 import { useCase } from "@/context/CaseContext";
 import { useThread } from "@/context/ThreadContext";
 
+// Track the last caseId we've seen across mounts so we only reset
+// the thread when the user actually switches to a different case.
+let lastCaseId: string | null = null;
+
 export default function SidebarChatbot({
   isOpen,
   onToggle,
@@ -20,6 +24,31 @@ export default function SidebarChatbot({
   const sidebarRef = useRef<HTMLDivElement>(null);
   const { caseId } = useCase();
   const { threadId, setThreadId } = useThread();
+
+  // Reset the current thread only when the active case actually changes
+  // (A -> B). Navigating inside the same case (between subpages) should
+  // NOT clear the current conversation.
+  useEffect(() => {
+    if (!caseId) return;
+
+    // If we're still on the same case as last time, keep the thread.
+    if (lastCaseId === caseId) {
+      return;
+    }
+
+    // Clear thread state in context
+    setThreadId(undefined);
+
+    // Clear chatbot-specific hash so UI reflects no active thread
+    if (typeof window !== "undefined") {
+      if (window.location.hash.startsWith("#chatbot-")) {
+        window.location.hash = "";
+      }
+    }
+
+    // Remember this case as the last one we reset for
+    lastCaseId = caseId as string;
+  }, [caseId, setThreadId]);
 
   // Resize functionality
   const handleMouseDown = useCallback(

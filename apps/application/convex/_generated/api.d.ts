@@ -27,6 +27,7 @@ import type * as agents_home_prompt from "../agents/home/prompt.js";
 import type * as agents_home_streaming from "../agents/home/streaming.js";
 import type * as agents_home_workflow from "../agents/home/workflow.js";
 import type * as agents_index from "../agents/index.js";
+import type * as agents_openRouterModels from "../agents/openRouterModels.js";
 import type * as agents_threads from "../agents/threads.js";
 import type * as agents_tools_cases_index from "../agents/tools/cases/index.js";
 import type * as agents_tools_cases_searchCasesTool from "../agents/tools/cases/searchCasesTool.js";
@@ -219,6 +220,7 @@ declare const fullApi: ApiFromModules<{
   "agents/home/streaming": typeof agents_home_streaming;
   "agents/home/workflow": typeof agents_home_workflow;
   "agents/index": typeof agents_index;
+  "agents/openRouterModels": typeof agents_openRouterModels;
   "agents/threads": typeof agents_threads;
   "agents/tools/cases/index": typeof agents_tools_cases_index;
   "agents/tools/cases/searchCasesTool": typeof agents_tools_cases_searchCasesTool;

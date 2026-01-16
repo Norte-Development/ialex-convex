@@ -58,6 +58,7 @@ console.log(STRIPE_PRICE_IDS);
 
 /**
  * Plan display names for UI
+ * 
  */
 export const PLAN_NAMES = {
   free: "Gratuito",

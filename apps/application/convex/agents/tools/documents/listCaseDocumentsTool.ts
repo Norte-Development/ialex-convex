@@ -41,12 +41,20 @@ import { Id } from "../../../_generated/dataModel";
  * //   ]
  * // }
  */
+/**
+ * Schema for listCaseDocumentsTool arguments.
+ * All fields have defaults to satisfy OpenAI's JSON schema requirements.
+ */
+const listCaseDocumentsToolArgs = z.object({
+  caseId: z.string().default("").describe("Optional case ID. If provided, will use this case instead of extracting from context. Used for WhatsApp agent. Empty string to omit.")
+});
+
+type ListCaseDocumentsToolArgs = z.infer<typeof listCaseDocumentsToolArgs>;
+
 export const listCaseDocumentsTool = createTool({
   description: "List all documents in the current case with their processing status and chunk counts. Use this to see what documents are available for reading.",
-  args: z.object({
-    caseId: z.any().optional().describe("Optional case ID. If provided, will use this case instead of extracting from context. Used for WhatsApp agent.")
-  }),
-  handler: async (ctx: ToolCtx, args: any) => {
+  args: listCaseDocumentsToolArgs,
+  handler: async (ctx: ToolCtx, args: ListCaseDocumentsToolArgs) => {
     try {
       // Get userId first
       const userAndCase = getUserAndCaseIds(ctx.userId as string);
@@ -68,8 +76,8 @@ export const listCaseDocumentsTool = createTool({
         }
       }
 
-      // If no caseId from context, use the one from args (for WhatsApp agent)
-      if (!caseId && args.caseId) {
+      // If no caseId from context, use the one from args (for WhatsApp agent) - empty string means not provided
+      if (!caseId && args.caseId && args.caseId.trim() !== "") {
         caseId = args.caseId;
       }
 

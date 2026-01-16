@@ -63,11 +63,6 @@ export default function ModelsPage() {
     setPreviewTemplateId(null);
   };
 
-  const handleAddTemplate = () => {
-    // TODO: Implement add template functionality
-    toast.info("Función de agregar plantilla próximamente");
-  };
-
   return (
     <section className="w-[70%] h-full mt-20 min-h-screen flex">
       <Tabs
@@ -87,27 +82,30 @@ export default function ModelsPage() {
         <TemplateSearchBar
           searchValue={searchValue}
           onSearchChange={setSearchValue}
-          onAddTemplate={handleAddTemplate}
         />
-        <TabsContent value="Modelos" className="min-w-[90%]">
-          <TemplateTableContainer
-            searchQuery={searchValue}
-            pageSize={20}
-            onPreview={handlePreviewTemplate}
-            onCreateFromTemplate={handleCreateFromTemplate}
-            canCreate={can.escritos.write}
-            showPublicOnly={true}
-          />
+        <TabsContent value="Modelos" className="w-full">
+          <div className="max-w-6xl">
+            <TemplateTableContainer
+              searchQuery={searchValue}
+              pageSize={5}
+              onPreview={handlePreviewTemplate}
+              onCreateFromTemplate={handleCreateFromTemplate}
+              canCreate={false}
+              showPublicOnly={true}
+            />
+          </div>
         </TabsContent>
-        <TabsContent value="Mis Modelos" className="min-w-[90%]">
-          <TemplateTableContainer
-            searchQuery={searchValue}
-            pageSize={20}
-            onPreview={handlePreviewTemplate}
-            onCreateFromTemplate={handleCreateFromTemplate}
-            canCreate={can.escritos.write}
-            showPublicOnly={false}
-          />
+        <TabsContent value="Mis Modelos" className="w-full">
+          <div className="max-w-6xl">
+            <TemplateTableContainer
+              searchQuery={searchValue}
+              pageSize={5}
+              onPreview={handlePreviewTemplate}
+              onCreateFromTemplate={handleCreateFromTemplate}
+              canCreate={false}
+              showPublicOnly={false}
+            />
+          </div>
         </TabsContent>
       </Tabs>
 

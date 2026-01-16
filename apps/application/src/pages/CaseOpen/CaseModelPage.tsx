@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useQuery, useMutation } from "convex/react";
+import { useMutation } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import type { Id } from "../../../convex/_generated/dataModel";
 import { useNavigate } from "react-router-dom";
@@ -8,11 +8,8 @@ import { usePermissions } from "@/context/CasePermissionsContext";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import CaseLayout from "@/components/Cases/CaseLayout";
 import { toast } from "sonner";
-import { 
-  TemplateTable, 
-  TemplatePreviewDialog, 
-  TemplateSearchBar 
-} from "@/components/Modelos";
+import { TemplatePreviewDialog, TemplateSearchBar } from "@/components/Modelos";
+import TemplateTableContainer from "@/components/Modelos/TemplateTableContainer";
 
 export default function CaseModelPage() {
   const navigate = useNavigate();
@@ -22,32 +19,6 @@ export default function CaseModelPage() {
     null,
   );
   const [searchValue, setSearchValue] = useState("");
-
-  // Use search when there's a search term, otherwise use regular list
-  const hasSearchTerm = searchValue.trim().length > 0;
-
-  const searchResults = useQuery(
-    api.functions.templates.searchModelos,
-    hasSearchTerm
-      ? {
-          searchTerm: searchValue.trim(),
-          paginationOpts: { numItems: 100, cursor: null }
-        }
-      : "skip",
-  );
-
-  const listResults = useQuery(
-    api.functions.templates.getModelos,
-    !hasSearchTerm
-      ? {
-          paginationOpts: { numItems: 100, cursor: null }
-        }
-      : "skip",
-  );
-
-  const templates = hasSearchTerm ? searchResults : listResults;
-  const isLoadingTemplates = templates === undefined;
-  const modelos = templates?.page ?? [];
 
   const createEscrito = useMutation(api.functions.documents.createEscrito);
 
@@ -91,11 +62,6 @@ export default function CaseModelPage() {
     setPreviewTemplateId(null);
   };
 
-  const handleAddTemplate = () => {
-    // TODO: Implement add template functionality
-    toast.info("Función de agregar plantilla próximamente");
-  };
-
   return (
     <CaseLayout>
       <section className="w-full h-full flex pt-5">
@@ -115,25 +81,30 @@ export default function CaseModelPage() {
           <TemplateSearchBar
             searchValue={searchValue}
             onSearchChange={setSearchValue}
-            onAddTemplate={handleAddTemplate}
           />
-          <TabsContent value="Modelos" className="min-w-[90%]">
-            <TemplateTable
-              templates={modelos}
-              isLoading={isLoadingTemplates}
-              onPreview={handlePreviewTemplate}
-              onCreateFromTemplate={handleCreateFromTemplate}
-              canCreate={can.escritos.write}
-            />
+          <TabsContent value="Modelos" className="w-full">
+            <div className="max-w-6xl">
+              <TemplateTableContainer
+                searchQuery={searchValue}
+                pageSize={5}
+                onPreview={handlePreviewTemplate}
+                onCreateFromTemplate={handleCreateFromTemplate}
+                canCreate={can.escritos.write}
+                showPublicOnly={true}
+              />
+            </div>
           </TabsContent>
-          <TabsContent value="Mis Modelos" className="min-w-[90%]">
-            <TemplateTable
-              templates={modelos.filter(t => !t.isPublic)}
-              isLoading={isLoadingTemplates}
-              onPreview={handlePreviewTemplate}
-              onCreateFromTemplate={handleCreateFromTemplate}
-              canCreate={can.escritos.write}
-            />
+          <TabsContent value="Mis Modelos" className="w-full">
+            <div className="max-w-6xl">
+              <TemplateTableContainer
+                searchQuery={searchValue}
+                pageSize={5}
+                onPreview={handlePreviewTemplate}
+                onCreateFromTemplate={handleCreateFromTemplate}
+                canCreate={can.escritos.write}
+                showPublicOnly={false}
+              />
+            </div>
           </TabsContent>
         </Tabs>
       </section>

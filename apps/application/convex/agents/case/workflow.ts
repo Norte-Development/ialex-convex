@@ -1,6 +1,6 @@
 import { WorkflowManager } from "@convex-dev/workflow";
 import { components, internal, api } from "../../_generated/api";
-import { v } from "convex/values";
+import { v, ConvexError } from "convex/values";
 import { saveMessage } from "@convex-dev/agent";
 import { agent } from "./agent";
 import { internalAction, internalMutation, mutation } from "../../_generated/server";
@@ -13,7 +13,11 @@ import { buildServerSchema } from "../../../../../packages/shared/src/tiptap/sch
 import { _getUserPlan, _getOrCreateUsageLimits, _getModelForUserInCase } from "../../billing/features";
 import { PLAN_LIMITS } from "../../billing/planLimits";
 import { openai } from "@ai-sdk/openai";
-import { createOpenRouter } from '@openrouter/ai-sdk-provider';
+import { createOpenRouter } from "@openrouter/ai-sdk-provider";
+import {
+  buildOpenRouterModelChain,
+  FORCE_PRIMARY_FALLBACK_TEST,
+} from "../openRouterModels";
 
 const openrouter = createOpenRouter({
   apiKey: process.env.OPENROUTER_API_KEY,
@@ -82,6 +86,7 @@ const vContextBundle = v.object({
       status: v.string(),
       priority: v.string(),
       category: v.optional(v.string()),
+      expedientNumber: v.optional(v.string()),
       startDate: v.number(),
       endDate: v.optional(v.number()),
       assignedLawyer: v.id("users"),
@@ -93,12 +98,12 @@ const vContextBundle = v.object({
   clients: v.array(
     v.object({
       id: v.id("clients"),
-      name: v.string(),
+      name: v.optional(v.string()),
       email: v.optional(v.string()),
       phone: v.optional(v.string()),
       dni: v.optional(v.string()),
       cuit: v.optional(v.string()),
-      clientType: v.union(v.literal("individual"), v.literal("company")),
+      clientType: v.optional(v.union(v.literal("individual"), v.literal("company"))),
       isActive: v.boolean(),
       role: v.optional(v.string()),
     }),
@@ -311,111 +316,158 @@ ${schemaSummary}
 
     const { thread } = await agent.continueThread(ctx, { threadId });
 
-    let openRouterModel = modelToUse === 'gpt-5' ? 'openai/gpt-5.1' : 'openai/gpt-5-mini';
-    const config = { reasoning: modelToUse === 'gpt-5' ? {enabled: true, effort: "low" as const, exclude: false } : undefined};
+    const modelsToTry = buildOpenRouterModelChain(modelToUse, webSearch);
+    console.log(
+      "openRouter modelsToTry",
+      modelsToTry.map((m) => m.id),
+    );
 
-    if (webSearch) {
-      openRouterModel = openRouterModel + ':online';
-    }
-    console.log('openRouterModel', openRouterModel);
+    for (let i = 0; i < modelsToTry.length; i++) {
+      const { id, config } = modelsToTry[i];
+      const isLast = i === modelsToTry.length - 1;
 
-    try {
-      await thread.streamText(
-        {
-          system: systemMessage,
-          promptMessageId,
-          model: openrouter(openRouterModel, config),
-          onAbort: () => {
-            console.log(`[Stream Abort Callback] Thread ${threadId}: Stream abort callback triggered`);
+      console.log(`[Stream Start] Thread ${threadId}: trying model ${id}`);
+
+      try {
+        // Testing hook: when FORCE_PRIMARY_FALLBACK_TEST is true, simulate a
+        // failure for the first (primary) model so we can verify that the
+        // fallback model streams correctly without misconfiguring providers.
+        if (
+          FORCE_PRIMARY_FALLBACK_TEST &&
+          i === 0 &&
+          modelToUse === "gpt-5"
+        ) {
+          console.warn(
+            `[Model Fallback Test] Thread ${threadId}: Forcing simulated failure for primary model ${id}`,
+          );
+          throw new Error(
+            "Simulated primary model failure for fallback testing",
+          );
+        }
+
+        await thread.streamText(
+          {
+            system: systemMessage,
+            promptMessageId,
+            model: openrouter(id, config),
+            onAbort: () => {
+              console.log(
+                `[Stream Abort Callback] Thread ${threadId}: Stream abort callback triggered (model ${id})`,
+              );
+            },
+            onError: (event) => {
+              const error = event.error as Error;
+              const errorName = error?.name || "Unknown";
+              const errorMessage = error?.message || String(error) || "No message";
+              const errorString = String(error).toLowerCase();
+
+              // Treat abort as a non-error (user cancelled) and don't trigger fallback
+              if (
+                errorName === "AbortError" ||
+                errorMessage === "AbortError" ||
+                errorMessage.toLowerCase().includes("abort") ||
+                errorString.includes("abort")
+              ) {
+                console.log(
+                  `[Stream Abort in onError] Thread ${threadId}: Abort detected in error handler (model ${id})`,
+                );
+                return;
+              }
+
+              // For all other errors, log and rethrow so the outer catch can decide
+              console.error(`[Stream Error] Thread ${threadId} (model ${id}):`, {
+                name: errorName,
+                message: errorMessage,
+                stack: error?.stack,
+              });
+
+              throw error;
+            },
           },
-          onError: (event) => {
-            const error = event.error as Error;
-            const errorName = error?.name || 'Unknown';
-            const errorMessage = error?.message || String(error) || 'No message';
-            const errorString = String(error).toLowerCase();
-            
-            // Check if this is an abort error (user cancelled the stream)
-            if (
-              errorName === "AbortError" || 
-              errorMessage === "AbortError" ||
-              errorMessage.toLowerCase().includes("abort") || 
-              errorString.includes("abort")
-            ) {
-              console.log(`[Stream Abort in onError] Thread ${threadId}: Abort detected in error handler`);
-              return; // Don't throw for user-initiated aborts
-            }
+          {
+            saveStreamDeltas: {
+              chunking: "word",
+              throttleMs: 50, // Balanced for performance and responsiveness
+            },
+            contextOptions: {
+              searchOtherThreads: false,
+            },
+          },
+        );
 
-            // Check for timeout errors
-            if (errorMessage.includes("timeout") || errorMessage.includes("timed out")) {
-              console.error(`[Stream Timeout] Thread ${threadId}:`, errorMessage);
-              return; // Don't throw for timeouts, let the catch handle it
-            }
+        console.log(
+          `[Stream Complete] Thread ${threadId}: Stream completed successfully with model ${id}`,
+        );
+        break; // success, don't try further models
+      } catch (error) {
+        const err = error as Error;
+        const errorName = err?.name || "Unknown";
+        const errorMessage = err?.message || "No message";
+        const errorString = String(error).toLowerCase();
 
-            // Check for network errors
-            if (errorMessage.includes("network") || errorMessage.includes("ECONNRESET") || errorMessage.includes("ETIMEDOUT")) {
-              console.error(`[Stream Network Error] Thread ${threadId}:`, errorMessage);
-              return; // Don't throw for network errors, let the catch handle it
-            }
+        // Handle abort errors gracefully (user cancelled)
+        if (
+          errorName === "AbortError" ||
+          errorMessage === "AbortError" ||
+          errorMessage.toLowerCase().includes("abort") ||
+          errorString.includes("abort")
+        ) {
+          console.log(
+            `[Stream Abort Caught] Thread ${threadId}: Stream was successfully aborted by user (model ${id})`,
+          );
+          return null;
+        }
 
-            // Log other errors but don't throw (let the catch block handle them)
-            console.error(`[Stream Error] Thread ${threadId}:`, {
+        // Handle timeout errors
+        if (errorMessage.includes("timeout") || errorMessage.includes("timed out")) {
+          console.error(
+            `[Stream Timeout Caught] Thread ${threadId} (model ${id}): Stream timed out - ${errorMessage}`,
+          );
+          // If this was the last model, return gracefully; otherwise try next
+          if (isLast) {
+            return null;
+          }
+          continue;
+        }
+
+        // Handle network errors
+        if (
+          errorMessage.includes("network") ||
+          errorMessage.includes("ECONNRESET") ||
+          errorMessage.includes("ETIMEDOUT")
+        ) {
+          console.error(
+            `[Stream Network Error Caught] Thread ${threadId} (model ${id}): Network error - ${errorMessage}`,
+          );
+          // If this was the last model, return gracefully; otherwise try next
+          if (isLast) {
+            return null;
+          }
+          continue;
+        }
+
+        // For all other errors, either re-throw on the last model or fall back
+        if (isLast) {
+          console.error(
+            `[Stream Fatal Error] Thread ${threadId} (model ${id}):`,
+            {
               name: errorName,
               message: errorMessage,
-              stack: error?.stack,
-            });
-          },
-        },
-        {
-          saveStreamDeltas: {
-            chunking: "word",
-            throttleMs: 50, // Balanced for performance and responsiveness
-          },
-          contextOptions: {
-            searchOtherThreads: false,
-          },
-        },
-      );
-      
-      console.log(`[Stream Complete] Thread ${threadId}: Stream completed successfully`);
-    } catch (error) {
-      const err = error as Error;
-      const errorName = err?.name || 'Unknown';
-      const errorMessage = err?.message || 'No message';
-      const errorString = String(error).toLowerCase();
-      
-      // Handle abort errors gracefully (user cancelled)
-      // Check name, message, and string representation for abort-related keywords
-      if (
-        errorName === "AbortError" || 
-        errorMessage === "AbortError" ||
-        errorMessage.toLowerCase().includes("abort") || 
-        errorString.includes("abort")
-      ) {
-        console.log(`[Stream Abort Caught] Thread ${threadId}: Stream was successfully aborted by user`);
-        return null;
-      }
+              stack: err?.stack,
+            },
+          );
+          throw error;
+        }
 
-      // Handle timeout errors
-      if (errorMessage.includes("timeout") || errorMessage.includes("timed out")) {
-        console.error(`[Stream Timeout Caught] Thread ${threadId}: Stream timed out - ${errorMessage}`);
-        // Don't re-throw timeout errors, return gracefully
-        return null;
+        console.error(
+          `[Model Fallback] Thread ${threadId}: model ${id} failed, trying next model`,
+          {
+            name: errorName,
+            message: errorMessage,
+            stack: err?.stack,
+          },
+        );
       }
-
-      // Handle network errors
-      if (errorMessage.includes("network") || errorMessage.includes("ECONNRESET") || errorMessage.includes("ETIMEDOUT")) {
-        console.error(`[Stream Network Error Caught] Thread ${threadId}: Network error - ${errorMessage}`);
-        // Don't re-throw network errors, return gracefully
-        return null;
-      }
-
-      // For all other errors, log and re-throw
-      console.error(`[Stream Fatal Error] Thread ${threadId}:`, {
-        name: errorName,
-        message: errorMessage,
-        stack: err?.stack,
-      });
-      throw error;
     }
 
     return null;
@@ -461,9 +513,11 @@ export const initiateWorkflowStreaming = mutation({
     const totalAvailable = availableMessages + availableCredits;
 
     if (totalAvailable <= 0) {
-      throw new Error(
-        "Has alcanzado el límite de mensajes de IA. Compra créditos o actualiza a Premium para mensajes ilimitados."
-      );
+      throw new ConvexError({
+        code: "AI_LIMIT_EXCEEDED",
+        message: "Has alcanzado el límite de mensajes de IA. Compra créditos o actualiza a Premium para mensajes ilimitados.",
+        isTeamLimit: false,
+      });
     }
 
     let threadId = args.threadId;

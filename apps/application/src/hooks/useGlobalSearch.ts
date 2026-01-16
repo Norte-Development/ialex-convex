@@ -30,8 +30,8 @@ export interface GroupedSearchResults {
   }>;
   clients: Array<{
     _id: Id<"clients">;
-    name: string;
-    clientType: string;
+    displayName: string;
+    naturalezaJuridica?: string;
     email?: string;
   }>;
   documents: Array<{
