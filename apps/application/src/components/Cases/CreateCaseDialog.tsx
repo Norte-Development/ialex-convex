@@ -89,6 +89,8 @@ export default function CreateCaseDialog() {
       priority: "medium",
       category: "",
       estimatedHours: "",
+      pjnJurisdiction: "FRE",
+      pjnNumber: "",
     });
     setSelectedClients([]);
     setDeadlines([]);
@@ -390,264 +392,238 @@ export default function CreateCaseDialog() {
             />
           )}
 
-          <form onSubmit={handleSubmit} className="space-y-4">
-            {/* Título */}
-            <div className="space-y-2">
-              <Label htmlFor="title">Título del Caso *</Label>
-              <Input
-                id="title"
-                data-tutorial="case-form-title"
-                placeholder="Ej: Divorcio Consensuado - García vs García"
-                value={formData.title}
-                onChange={(e) => handleInputChange("title", e.target.value)}
-                required
-              />
-            </div>
-
-            {/* Descripción */}
-            <div className="space-y-2">
-              <Label htmlFor="description">Descripción</Label>
-              <Textarea
-                id="description"
-                placeholder="Descripción detallada del caso..."
-                value={formData.description}
-                onChange={(e) =>
-                  handleInputChange("description", e.target.value)
-                }
-                rows={3}
-              />
-            </div>
-
-            {/* Número de Expediente */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="expedientNumber">Número de Expediente</Label>
-                <Input
-                  id="expedientNumber"
-                  placeholder="Ej: EXP-2024-12345 o 12345/2024"
-                  value={formData.expedientNumber}
-                  onChange={(e) =>
-                    handleInputChange("expedientNumber", e.target.value)
-                  }
-                />
-              </div>
-
-              {/* Identificación PJN (FRE) */}
-              <div className="space-y-2">
-                <Label htmlFor="pjnNumber">Identificación PJN</Label>
-                <div className="flex gap-2">
-                  <Select
-                    value={formData.pjnJurisdiction}
-                    onValueChange={(value) =>
-                      handleInputChange("pjnJurisdiction", value)
-                    }
-                  >
-                    <SelectTrigger className="w-[140px]">
-                      <SelectValue placeholder="Jurisdicción" />
-                    </SelectTrigger>
-                    <SelectContent className="max-h-[300px]">
-                      {JURISDICTIONS.map((jurisdiction) => (
-                        <SelectItem key={jurisdiction.code} value={jurisdiction.code}>
-                          <span className="font-medium mr-2">{jurisdiction.code}</span>
-                          <span className="text-muted-foreground truncate max-w-[200px]">
-                             - {jurisdiction.name}
-                          </span>
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+          <form onSubmit={handleSubmit} className="space-y-6">
+            <div className="space-y-6">
+              {/* Sección 1: Información Básica */}
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="title">Título del Caso *</Label>
                   <Input
-                    id="pjnNumber"
-                    placeholder="Ej: 4715/2025"
-                    value={formData.pjnNumber}
-                    onChange={(e) => handleInputChange("pjnNumber", e.target.value)}
-                    className="flex-1"
+                    id="title"
+                    data-tutorial="case-form-title"
+                    placeholder="Ej: Divorcio Consensuado - García vs García"
+                    value={formData.title}
+                    onChange={(e) => handleInputChange("title", e.target.value)}
+                    required
                   />
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="icon"
-                    onClick={() => setIsPjnSearchOpen(true)}
-                    title="Buscar en PJN"
-                  >
-                    <Search className="h-4 w-4" />
-                  </Button>
                 </div>
-              </div>
-            </div>
 
-            {/* Prioridad y Categoría */}
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="title">Título del Caso *</Label>
-                <Input
-                  id="title"
-                  data-tutorial="case-form-title"
-                  placeholder="Ej: Divorcio Consensuado - García vs García"
-                  value={formData.title}
-                  onChange={(e) => handleInputChange("title", e.target.value)}
-                  required
-                />
-              </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>Categoría</Label>
+                    <Select
+                      value={formData.category}
+                      onValueChange={(value) =>
+                        handleInputChange("category", value)
+                      }
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Seleccionar categoría" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {categories.map((category) => (
+                          <SelectItem key={category} value={category}>
+                            {category}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
 
-              {/* Descripción */}
-              <div className="space-y-2">
-                <Label htmlFor="description">Descripción</Label>
-                <Textarea
-                  id="description"
-                  placeholder="Descripción detallada del caso..."
-                  value={formData.description}
-                  onChange={(e) =>
-                    handleInputChange("description", e.target.value)
-                  }
-                  rows={3}
-                />
-              </div>
-
-              {/* Número de Expediente */}
-              <div className="space-y-2">
-                <Label htmlFor="expedientNumber">Número de Expediente</Label>
-                <Input
-                  id="expedientNumber"
-                  placeholder="Ej: EXP-2024-12345 o 12345/2024"
-                  value={formData.expedientNumber}
-                  onChange={(e) =>
-                    handleInputChange("expedientNumber", e.target.value)
-                  }
-                />
-              </div>
-
-              {/* Prioridad y Categoría */}
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>Prioridad</Label>
-                  <Select
-                    value={formData.priority}
-                    onValueChange={(value) =>
-                      handleInputChange("priority", value)
-                    }
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Seleccionar prioridad" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="low">Baja</SelectItem>
-                      <SelectItem value="medium">Media</SelectItem>
-                      <SelectItem value="high">Alta</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  <div className="space-y-2">
+                    <Label>Prioridad</Label>
+                    <Select
+                      value={formData.priority}
+                      onValueChange={(value) =>
+                        handleInputChange("priority", value)
+                      }
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Seleccionar prioridad" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="low">Baja</SelectItem>
+                        <SelectItem value="medium">Media</SelectItem>
+                        <SelectItem value="high">Alta</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
 
                 <div className="space-y-2">
-                  <Label>Categoría</Label>
-                  <Select
-                    value={formData.category}
-                    onValueChange={(value) =>
-                      handleInputChange("category", value)
+                  <Label htmlFor="description">Descripción</Label>
+                  <Textarea
+                    id="description"
+                    placeholder="Descripción detallada del caso..."
+                    value={formData.description}
+                    onChange={(e) =>
+                      handleInputChange("description", e.target.value)
                     }
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Seleccionar categoría" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {categories.map((category) => (
-                        <SelectItem key={category} value={category}>
-                          {category}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                    rows={2}
+                  />
                 </div>
               </div>
 
-              {/* Horas estimadas */}
-              <div className="space-y-2">
-                <Label htmlFor="estimatedHours">Horas Estimadas</Label>
-                <Input
-                  id="estimatedHours"
-                  type="number"
-                  placeholder="Ej: 40"
-                  value={formData.estimatedHours}
-                  onChange={(e) =>
-                    handleInputChange("estimatedHours", e.target.value)
-                  }
-                  min="1"
-                />
+              <Separator />
+
+              {/* Sección 2: Identificadores y PJN */}
+              <div className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="expedientNumber">Número de Expediente</Label>
+                    <Input
+                      id="expedientNumber"
+                      placeholder="Ej: EXP-2024-12345 o 12345/2024"
+                      value={formData.expedientNumber}
+                      onChange={(e) =>
+                        handleInputChange("expedientNumber", e.target.value)
+                      }
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="pjnNumber">Identificación PJN</Label>
+                    <div className="flex gap-2">
+                      <Select
+                        value={formData.pjnJurisdiction}
+                        onValueChange={(value) =>
+                          handleInputChange("pjnJurisdiction", value)
+                        }
+                      >
+                        <SelectTrigger className="w-[100px] shrink-0">
+                          <SelectValue placeholder="Jur." />
+                        </SelectTrigger>
+                        <SelectContent className="max-h-[300px]">
+                          {JURISDICTIONS.map((jurisdiction) => (
+                            <SelectItem
+                              key={jurisdiction.code}
+                              value={jurisdiction.code}
+                            >
+                              <span className="font-medium mr-2">
+                                {jurisdiction.code}
+                              </span>
+                              <span className="text-muted-foreground truncate max-w-[150px]">
+                                - {jurisdiction.name}
+                              </span>
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <Input
+                        id="pjnNumber"
+                        placeholder="Ej: 4715/2025"
+                        value={formData.pjnNumber}
+                        onChange={(e) =>
+                          handleInputChange("pjnNumber", e.target.value)
+                        }
+                        className="flex-1"
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="icon"
+                        onClick={() => setIsPjnSearchOpen(true)}
+                        title="Buscar en PJN"
+                        className="shrink-0"
+                      >
+                        <Search className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="estimatedHours">Horas Estimadas</Label>
+                    <Input
+                      id="estimatedHours"
+                      type="number"
+                      placeholder="Ej: 40"
+                      value={formData.estimatedHours}
+                      onChange={(e) =>
+                        handleInputChange("estimatedHours", e.target.value)
+                      }
+                      min="1"
+                    />
+                  </div>
+                </div>
               </div>
 
-              {/* Clientes */}
-              <div className="space-y-3 ">
-                <div className="flex flex-col items-center justify-between w-full">
-                  <div className="flex items-center gap-2 w-full">
-                    <Users className="h-4 w-4" />
-                    <Label>Clientes Vinculados</Label>
-                    <span className="text-sm text-muted-foreground">
-                      ({selectedClients.length} seleccionados)
-                    </span>
+              <Separator />
+
+              {/* Sección 3: Clientes */}
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Users className="h-4 w-4 text-muted-foreground" />
+                    <Label className="text-base font-semibold">
+                      Clientes Vinculados
+                    </Label>
+                    <Badge variant="secondary" className="ml-2">
+                      {selectedClients.length}
+                    </Badge>
                   </div>
                   <NewClientSection onClientCreated={handleClientCreated} />
                 </div>
 
                 {/* Clientes seleccionados */}
                 {selectedClients.length > 0 && (
-                  <div className="space-y-2">
-                    <Label className="text-sm font-medium">
-                      Clientes Seleccionados:
-                    </Label>
-                    <div className="space-y-2">
-                      {selectedClients.map((client) => (
-                        <div
-                          key={client.id}
-                          className="flex items-center gap-2 p-2 border rounded-md bg-muted/50"
-                        >
-                          <Badge variant="secondary" className="flex-shrink-0">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    {selectedClients.map((client) => (
+                      <div
+                        key={client.id}
+                        className="flex items-center gap-2 p-2 border rounded-md bg-muted/30"
+                      >
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium truncate">
                             {client.name}
-                          </Badge>
-                          <Select
-                            value={client.role || ""}
-                            onValueChange={(value) =>
-                              handleClientRoleChange(client.id, value)
-                            }
-                          >
-                            <SelectTrigger className="h-8 text-xs">
-                              <SelectValue placeholder="Rol" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {clientRoles.map((role) => (
-                                <SelectItem key={role} value={role}>
-                                  {role}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => removeClient(client.id)}
-                            className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive"
-                          >
-                            <X className="h-3 w-3" />
-                          </Button>
+                          </p>
                         </div>
-                      ))}
-                    </div>
+                        <Select
+                          value={client.role || ""}
+                          onValueChange={(value) =>
+                            handleClientRoleChange(client.id, value)
+                          }
+                        >
+                          <SelectTrigger className="h-8 w-[120px] text-xs">
+                            <SelectValue placeholder="Asignar rol" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {clientRoles.map((role) => (
+                              <SelectItem key={role} value={role}>
+                                {role}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => removeClient(client.id)}
+                          className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    ))}
                   </div>
                 )}
 
-                {/* Lista de clientes disponibles */}
-                {clients && clients.length > 0 && (
-                  <div className="space-y-2">
+                {/* Buscador de clientes */}
+                <div className="space-y-2">
+                  <div className="relative">
+                    <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
                     <Input
-                      placeholder="Buscar cliente"
+                      placeholder="Buscar cliente para vincular..."
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
+                      className="pl-9"
                     />
+                  </div>
 
-                    <Label className="text-sm font-medium">
-                      Seleccionar Clientes:
-                    </Label>
-                    <div className="max-h-32 overflow-y-auto border rounded-md p-2 space-y-1">
+                  {clients && clients.length > 0 ? (
+                    <div className="max-h-[160px] overflow-y-auto border rounded-md p-1 space-y-0.5">
                       {filteredClients.map((client) => {
                         const isSelected = selectedClients.some(
                           (c) => c.id === client._id,
@@ -655,7 +631,7 @@ export default function CreateCaseDialog() {
                         return (
                           <div
                             key={client._id}
-                            className="flex items-center space-x-2 p-1 hover:bg-muted/50 rounded"
+                            className="flex items-center space-x-2 p-1.5 hover:bg-muted/50 rounded-sm"
                           >
                             <Checkbox
                               id={client._id}
@@ -664,48 +640,51 @@ export default function CreateCaseDialog() {
                             />
                             <Label
                               htmlFor={client._id}
-                              className="text-sm cursor-pointer flex-1"
+                              className="text-sm cursor-pointer flex-1 flex flex-wrap gap-x-2 items-baseline"
                             >
-                              {client.displayName}
-                              {client.dni && (
-                                <span className="text-muted-foreground ml-2">
-                                  DNI: {client.dni}
-                                </span>
-                              )}
-                              {client.cuit && (
-                                <span className="text-muted-foreground ml-2">
-                                  CUIT: {client.cuit}
+                              <span>{client.displayName}</span>
+                              {(client.dni || client.cuit) && (
+                                <span className="text-xs text-muted-foreground">
+                                  {client.dni ? `DNI: ${client.dni}` : ""}
+                                  {client.dni && client.cuit ? " | " : ""}
+                                  {client.cuit ? `CUIT: ${client.cuit}` : ""}
                                 </span>
                               )}
                             </Label>
                           </div>
                         );
                       })}
+                      {filteredClients.length === 0 && (
+                        <p className="text-xs text-center py-4 text-muted-foreground">
+                          No se encontraron clientes que coincidan con la
+                          búsqueda.
+                        </p>
+                      )}
                     </div>
-                  </div>
-                )}
-
-                {clients && clients.length === 0 && (
-                  <p className="text-sm text-muted-foreground">
-                    No hay clientes disponibles. Cree clientes primero para
-                    vincularlos al caso.
-                  </p>
-                )}
+                  ) : (
+                    <p className="text-sm text-center py-4 text-muted-foreground bg-muted/20 rounded-md border border-dashed">
+                      No hay clientes disponibles. Cree un cliente para
+                      vincularlo.
+                    </p>
+                  )}
+                </div>
               </div>
 
-              {/* Separador */}
-              <Separator className="my-4" />
+              <Separator />
 
-              {/* Fechas Límite / Eventos */}
-              <div className="space-y-3">
+              {/* Sección 4: Fechas Límite */}
+              <div className="space-y-4">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <Calendar className="h-4 w-4" />
-                    <Label>Fechas Límite (Opcional)</Label>
-                    <span className="text-sm text-muted-foreground">
-                      ({deadlines.length} fecha
-                      {deadlines.length !== 1 ? "s" : ""})
-                    </span>
+                    <Calendar className="h-4 w-4 text-muted-foreground" />
+                    <Label className="text-base font-semibold">
+                      Fechas Límite
+                    </Label>
+                    {deadlines.length > 0 && (
+                      <Badge variant="outline" className="ml-2">
+                        {deadlines.length}
+                      </Badge>
+                    )}
                   </div>
                   <Button
                     type="button"
@@ -718,110 +697,119 @@ export default function CreateCaseDialog() {
                   </Button>
                 </div>
 
-                <p className="text-xs text-muted-foreground">
-                  Las fechas límite se crearán automáticamente como eventos
-                  vinculados al caso
-                </p>
-
-                {/* Lista de fechas límite */}
-                {deadlines.length > 0 && (
+                {deadlines.length > 0 ? (
                   <div className="space-y-3">
                     {deadlines.map((deadline) => (
                       <div
                         key={deadline.id}
-                        className="p-3 border rounded-md bg-muted/30 space-y-2"
+                        className="p-3 border rounded-md bg-muted/10 space-y-3 relative"
                       >
-                        <div className="flex items-center justify-between">
-                          <Label className="text-sm font-medium">Evento</Label>
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => removeDeadline(deadline.id)}
-                            className="h-6 w-6 p-0 text-muted-foreground hover:text-destructive"
-                          >
-                            <X className="h-3 w-3" />
-                          </Button>
-                        </div>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => removeDeadline(deadline.id)}
+                          className="absolute right-2 top-2 h-7 w-7 text-muted-foreground hover:text-destructive"
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
 
-                        <div className="grid grid-cols-1 gap-2">
-                          {/* Título del evento */}
-                          <Input
-                            placeholder="Ej: Presentación de demanda"
-                            value={deadline.title}
-                            onChange={(e) =>
-                              updateDeadline(
-                                deadline.id,
-                                "title",
-                                e.target.value,
-                              )
-                            }
-                            className="text-sm"
-                          />
-
-                          {/* Tipo de evento */}
-                          <Select
-                            value={deadline.type}
-                            onValueChange={(value) =>
-                              updateDeadline(deadline.id, "type", value)
-                            }
-                          >
-                            <SelectTrigger className="text-sm">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="audiencia">
-                                🏛️ Audiencia
-                              </SelectItem>
-                              <SelectItem value="plazo">
-                                ⏰ Plazo Legal
-                              </SelectItem>
-                              <SelectItem value="presentacion">
-                                📄 Presentación
-                              </SelectItem>
-                              <SelectItem value="otro">📌 Otro</SelectItem>
-                            </SelectContent>
-                          </Select>
-
-                          {/* Fecha y hora */}
-                          <div className="grid grid-cols-2 gap-2">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pr-8">
+                          <div className="sm:col-span-2">
+                            <Label className="text-xs mb-1 block">
+                              Título del Evento
+                            </Label>
                             <Input
-                              type="date"
-                              value={deadline.date}
+                              placeholder="Ej: Presentación de demanda"
+                              value={deadline.title}
                               onChange={(e) =>
                                 updateDeadline(
                                   deadline.id,
-                                  "date",
+                                  "title",
                                   e.target.value,
                                 )
                               }
-                              className="text-sm"
+                              className="h-8 text-sm"
                             />
-                            <Input
-                              type="time"
-                              value={deadline.time}
-                              onChange={(e) =>
-                                updateDeadline(
-                                  deadline.id,
-                                  "time",
-                                  e.target.value,
-                                )
+                          </div>
+
+                          <div>
+                            <Label className="text-xs mb-1 block">Tipo</Label>
+                            <Select
+                              value={deadline.type}
+                              onValueChange={(value) =>
+                                updateDeadline(deadline.id, "type", value)
                               }
-                              className="text-sm"
-                            />
+                            >
+                              <SelectTrigger className="h-8 text-sm">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="audiencia">
+                                  🏛️ Audiencia
+                                </SelectItem>
+                                <SelectItem value="plazo">
+                                  ⏰ Plazo Legal
+                                </SelectItem>
+                                <SelectItem value="presentacion">
+                                  📄 Presentación
+                                </SelectItem>
+                                <SelectItem value="otro">📌 Otro</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+
+                          <div className="flex gap-2">
+                            <div className="flex-1">
+                              <Label className="text-xs mb-1 block">
+                                Fecha
+                              </Label>
+                              <Input
+                                type="date"
+                                value={deadline.date}
+                                onChange={(e) =>
+                                  updateDeadline(
+                                    deadline.id,
+                                    "date",
+                                    e.target.value,
+                                  )
+                                }
+                                className="h-8 text-sm p-1"
+                              />
+                            </div>
+                            <div className="w-[100px]">
+                              <Label className="text-xs mb-1 block">Hora</Label>
+                              <Input
+                                type="time"
+                                value={deadline.time}
+                                onChange={(e) =>
+                                  updateDeadline(
+                                    deadline.id,
+                                    "time",
+                                    e.target.value,
+                                  )
+                                }
+                                className="h-8 text-sm p-1"
+                              />
+                            </div>
                           </div>
                         </div>
                       </div>
                     ))}
                   </div>
+                ) : (
+                  <p className="text-xs text-muted-foreground italic px-1">
+                    Las fechas límite se crearán como eventos vinculados al
+                    caso. No se han agregado fechas.
+                  </p>
                 )}
               </div>
             </div>
 
-            <DialogFooter>
+            <DialogFooter className="pt-4 border-t">
               <Button
                 type="button"
-                variant="outline"
+                variant="ghost"
                 onClick={() => {
                   closeFloatingLayers();
                   resetForm();
@@ -835,6 +823,7 @@ export default function CreateCaseDialog() {
                 type="submit"
                 disabled={isLoading}
                 data-tutorial="case-form-submit"
+                className="px-8"
               >
                 {isLoading ? "Creando..." : "Crear Caso"}
               </Button>

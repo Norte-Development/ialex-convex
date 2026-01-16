@@ -15,6 +15,7 @@ import {
 } from "../pjnCaseHistoryParsers";
 import { DebugStorage, createDebugSession } from "../debugStorage";
 import { GcsStorage } from "../storage";
+import { config } from "../../config";
 import { getPjnPageForUser, closePjnPage } from "./pjnPlaywrightSession";
 import { performCaseHistorySearchPlaywright } from "./caseHistorySearchPlaywright";
 import {
@@ -91,6 +92,18 @@ async function downloadAndUploadPdf(
   }
 
   try {
+    // If the PDF is already stored in GCS, reuse it instead of re-downloading/re-uploading.
+    const alreadyExists = await storage.pdfExists(userId, docId);
+    if (alreadyExists) {
+      const gcsPath = `gs://${config.gcsDocumentsBucket}/pjn/${userId}/${docId}.pdf`;
+      logger.debug("PDF already exists in GCS (case history), skipping download", {
+        userId,
+        docId,
+        gcsPath,
+      });
+      return gcsPath;
+    }
+
     // Get cookies from the page context
     const cookies = await page.context().cookies();
     const cookieHeader = cookies.map((c) => `${c.name}=${c.value}`).join("; ");

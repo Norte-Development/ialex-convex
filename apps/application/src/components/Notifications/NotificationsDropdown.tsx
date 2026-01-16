@@ -16,10 +16,21 @@ import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 export function NotificationsDropdown() {
   const navigate = useNavigate();
   const [isOpen, setIsOpen] = useState(false);
+  const [selectedPjnNotification, setSelectedPjnNotification] = useState<any | null>(null);
+  const [isCreateCaseDialogOpen, setIsCreateCaseDialogOpen] = useState(false);
+  const [isCreatingCase, setIsCreatingCase] = useState(false);
   
   // Queries
   const notifications = useQuery(api.notifications.listForCurrentUser, { 
@@ -32,17 +43,101 @@ export function NotificationsDropdown() {
   // Mutations
   const markAsRead = useMutation(api.notifications.markAsRead);
   const markAllAsRead = useMutation(api.notifications.markAllAsReadForCurrentUser);
+  const createCase = useMutation(api.functions.cases.createCase);
+
+  const extractFreFromPjnNotification = (notification: any): string | null => {
+    if (notification.source !== "PJN-Portal" || notification.kind !== "pjn_notification") {
+      return null;
+    }
+
+    // Current PJN notifications use the format:
+    // "Nueva notificación PJN - {FRE}"
+    const parts = typeof notification.title === "string"
+      ? notification.title.split(" - ")
+      : [];
+
+    if (parts.length < 2) {
+      return null;
+    }
+
+    const candidate = parts[parts.length - 1]?.trim();
+    return candidate && candidate.length > 0 ? candidate : null;
+  };
 
   const handleNotificationClick = async (notification: any) => {
     // Mark as read if needed
     if (!notification.readAt) {
       await markAsRead({ notificationId: notification._id });
     }
-    
+
+    // Special handling for PJN notifications that are not yet linked to a case.
+    // If we have a FRE but no caseId/linkTarget, offer to create a new case from this expediente.
+    if (
+      notification.kind === "pjn_notification" &&
+      notification.source === "PJN-Portal" &&
+      !notification.caseId &&
+      !notification.linkTarget
+    ) {
+      const fre = extractFreFromPjnNotification(notification);
+      if (fre) {
+        setSelectedPjnNotification({ ...notification, fre });
+        setIsCreateCaseDialogOpen(true);
+        return;
+      }
+    }
+
     // Navigate if target exists
     if (notification.linkTarget) {
       setIsOpen(false);
       navigate(notification.linkTarget);
+    }
+  };
+
+  const handleCreateCaseFromPjnNotification = async () => {
+    if (!selectedPjnNotification) {
+      return;
+    }
+
+    const fre: string | undefined = selectedPjnNotification.fre;
+    if (!fre) {
+      setIsCreateCaseDialogOpen(false);
+      setSelectedPjnNotification(null);
+      return;
+    }
+
+    setIsCreatingCase(true);
+    try {
+      const baseTitle: string | undefined =
+        typeof selectedPjnNotification.bodyPreview === "string" &&
+        selectedPjnNotification.bodyPreview.trim().length > 0
+          ? selectedPjnNotification.bodyPreview.trim()
+          : typeof selectedPjnNotification.title === "string"
+          ? selectedPjnNotification.title
+          : undefined;
+
+      const title = baseTitle ?? `Caso PJN ${fre}`;
+
+      const caseId = await createCase({
+        title,
+        description:
+          typeof selectedPjnNotification.bodyPreview === "string"
+            ? selectedPjnNotification.bodyPreview
+            : undefined,
+        expedientNumber: undefined,
+        assignedLawyer: undefined,
+        priority: "medium",
+        category: undefined,
+        estimatedHours: undefined,
+        fre,
+        teamId: undefined,
+      });
+
+      setIsCreateCaseDialogOpen(false);
+      setSelectedPjnNotification(null);
+      setIsOpen(false);
+      navigate(`/cases/${caseId}`);
+    } finally {
+      setIsCreatingCase(false);
     }
   };
 
@@ -188,6 +283,53 @@ export function NotificationsDropdown() {
           </Button>
         </div>
       </DropdownMenuContent>
+      <Dialog
+        open={isCreateCaseDialogOpen && !!selectedPjnNotification}
+        onOpenChange={(open) => {
+          if (!open) {
+            setIsCreateCaseDialogOpen(false);
+            setSelectedPjnNotification(null);
+          }
+        }}
+      >
+        <DialogContent className="sm:max-w-[480px]">
+          <DialogHeader>
+            <DialogTitle>No hay un caso para este expediente</DialogTitle>
+            <DialogDescription>
+              Esta notificación de PJN corresponde a un expediente que todavía no tiene un caso en iAlex.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="mt-3 space-y-2">
+            {selectedPjnNotification?.fre && (
+              <p className="text-sm">
+                <span className="font-medium">Expediente (FRE): </span>
+                <span className="font-mono">{selectedPjnNotification.fre}</span>
+              </p>
+            )}
+            {selectedPjnNotification?.bodyPreview && (
+              <p className="text-xs text-slate-600">
+                {selectedPjnNotification.bodyPreview}
+              </p>
+            )}
+          </div>
+
+          <DialogFooter className="mt-4">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setIsCreateCaseDialogOpen(false);
+                setSelectedPjnNotification(null);
+              }}
+            >
+              Cancelar
+            </Button>
+            <Button onClick={handleCreateCaseFromPjnNotification} disabled={isCreatingCase}>
+              {isCreatingCase ? "Creando caso..." : "Crear caso desde este expediente"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </DropdownMenu>
   );
 }
