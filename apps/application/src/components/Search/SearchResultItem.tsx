@@ -11,7 +11,7 @@ import { cn } from "@/lib/utils";
 
 interface SearchResultItemProps {
   type: SearchResultType;
-  title: string;
+  title?: string;
   metadata?: {
     status?: string;
     category?: string;
@@ -58,7 +58,8 @@ const getTypeLabel = (type: SearchResultType): string => {
   }
 };
 
-const highlightMatch = (text: string, query: string) => {
+const highlightMatch = (text: string | undefined | null, query: string) => {
+  if (!text) return null;
   if (!query.trim()) return text;
 
   const regex = new RegExp(`(${query})`, "gi");
@@ -101,7 +102,7 @@ export default function SearchResultItem({
           </span>
         </div>
         <div className="text-sm mt-0.5 text-foreground truncate">
-          {highlightMatch(title, searchQuery)}
+          {title ? highlightMatch(title, searchQuery) : "Sin título"}
         </div>
         {metadata && (
           <div className="flex items-center gap-2 mt-1 text-xs text-muted-foreground">

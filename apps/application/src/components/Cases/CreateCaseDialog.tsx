@@ -80,9 +80,30 @@ export default function CreateCaseDialog() {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [showDeadlineForm, setShowDeadlineForm] = useState(false);
 
-  // Prevent dialog closing while submitting
+  // Reset form to initial state
+  const resetForm = () => {
+    setFormData({
+      title: "",
+      description: "",
+      expedientNumber: "",
+      priority: "medium",
+      category: "",
+      estimatedHours: "",
+    });
+    setSelectedClients([]);
+    setDeadlines([]);
+    setShowDeadlineForm(false);
+    setSearchQuery("");
+  };
+
+  // Prevent dialog closing while submitting, reset form when closing
   const handleOpenChange = (newOpen: boolean) => {
-    if (!isLoading) setOpen(newOpen);
+    if (!isLoading) {
+      if (!newOpen) {
+        resetForm();
+      }
+      setOpen(newOpen);
+    }
   };
 
   // Then all mutations
@@ -803,6 +824,7 @@ export default function CreateCaseDialog() {
                 variant="outline"
                 onClick={() => {
                   closeFloatingLayers();
+                  resetForm();
                   setOpen(false);
                 }}
                 disabled={isLoading}

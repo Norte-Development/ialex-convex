@@ -483,6 +483,7 @@ export default defineSchema({
     tags: v.optional(v.array(v.string())),
     usageCount: v.number(), // Number of times this template has been used
     isActive: v.boolean(),
+    updatedAt: v.optional(v.number()), // Timestamp of last update
   })
     .index("by_category", ["category"])
     .index("by_type", ["templateType"])

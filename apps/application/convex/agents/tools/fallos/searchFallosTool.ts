@@ -1,7 +1,7 @@
 import { createTool, ToolCtx } from "@convex-dev/agent";
 import { api, internal } from "../../../_generated/api";
 import { z } from "zod";
-import { createErrorResponse, validateStringParam } from "../shared/utils";
+import { createErrorResponse } from "../shared/utils";
 
 
 // Cache for jurisdiccion values
@@ -80,6 +80,73 @@ function isNoOpDateFilterValue(value: string | undefined | null): boolean {
  * - facets: Mongo facet counts for UI/filters
  * - metadata: Single document metadata (no large content fields)
  */
+/**
+ * Schema for searchFallosTool arguments.
+ * NOTE: All fields have defaults so the generated JSON Schema
+ * has complete `required` arrays, avoiding provider schema errors.
+ */
+const searchFallosToolArgs = z.object({
+  operation: z
+    .enum(["search", "browse", "facets", "metadata"])
+    .describe("Which operation to perform"),
+  // Controls to reduce over-filtering by the model
+  strictFilters: z
+    .boolean()
+    .default(false)
+    .describe("Only set true when the user explicitly requested strict filters (tribunal/materia)."),
+  dateFiltersExplicit: z
+    .boolean()
+    .default(false)
+    .describe("Only set true when the user explicitly requested date constraints."),
+  // Common filters (all fields have safe defaults; empty values mean 'no filter')
+  filters: z.object({
+    jurisdiccion: z
+      .string()
+      .default("")
+      .describe("Jurisdiction code or empty string to omit"),
+    tribunal: z
+      .string()
+      .default("")
+      .describe("Court name or empty string to omit"),
+    materia: z
+      .string()
+      .default("")
+      .describe("Subject matter or empty string to omit"),
+    promulgacion_from: z
+      .string()
+      .default("")
+      .describe("Promulgation date from (ISO date string) or empty string to omit"),
+    promulgacion_to: z
+      .string()
+      .default("")
+      .describe("Promulgation date to (ISO date string) or empty string to omit"),
+    publicacion_from: z
+      .string()
+      .default("")
+      .describe("Publication date from (ISO date string) or empty string to omit"),
+    publicacion_to: z
+      .string()
+      .default("")
+      .describe("Publication date to (ISO date string) or empty string to omit"),
+    document_id: z
+      .string()
+      .default("")
+      .describe("Document ID for exact match or empty string to omit"),
+  }),
+  // Search-specific (optional when filtering by document_id) - empty string means "not provided"
+  query: z
+    .string()
+    .default("")
+    .describe("Search query text - optional when using document_id filter"),
+  // Metadata
+  documentId: z
+    .string()
+    .default("")
+    .describe("Document ID for metadata operations"),
+});
+
+type SearchFallosToolArgs = z.infer<typeof searchFallosToolArgs>;
+
 export const searchFallosTool = createTool({
   description: async (ctx: ToolCtx) => {
     const now = Date.now();
@@ -129,43 +196,16 @@ FILTERS:
 - publicacion_from/to (DATES): Publication date range (ISO date strings, converted to timestamps)
 - document_id: Document ID for exact match`;
   },
-  args: z
-    .object({
-      operation: z
-        .enum(["search", "browse", "facets", "metadata"]).describe(
-          "Which operation to perform"
-        ),
-      // Controls to reduce over-filtering by the model
-      strictFilters: z.boolean().optional().describe("Only set true when the user explicitly requested strict filters (tribunal/materia)."),
-      dateFiltersExplicit: z.boolean().optional().describe("Only set true when the user explicitly requested date constraints."),
-      // Common filters
-      filters: z
-        .object({
-          jurisdiccion: z.string().optional(),
-          tribunal: z.string().optional(),
-          materia: z.string().optional(),
-          promulgacion_from: z.string().optional(),
-          promulgacion_to: z.string().optional(),
-          publicacion_from: z.string().optional(),
-          publicacion_to: z.string().optional(),
-          document_id: z.string().optional().describe("Document ID for exact match"),
-        })
-        .optional(),
-      // Search-specific (optional when filtering by document_id)
-      query: z.string().optional().describe("Search query text - optional when using document_id filter"),
-      // Metadata
-      documentId: z.string().optional(),
-    })
-    .required({ operation: true }),
-  handler: async (ctx: ToolCtx, args: any) => {
+  args: searchFallosToolArgs,
+  handler: async (ctx: ToolCtx, args: SearchFallosToolArgs) => {
     try {
       const operation = args.operation as string;
 
       switch (operation) {
         case "search": {
         // Build filters for Qdrant search
-        const filters = args.filters || {};
-        const qdrantFilters: any = {};
+        const filters = args.filters;
+        const qdrantFilters: Record<string, string> = {};
         const strictFilters = args.strictFilters === true;
         const dateFiltersExplicit = args.dateFiltersExplicit === true;
         
@@ -174,19 +214,25 @@ FILTERS:
         if (normalizedJurisdiccion) {
           qdrantFilters.jurisdiccion = normalizedJurisdiccion;
           console.log(`🔧 [Jurisdiction] Fallos: Normalized "${filters.jurisdiccion}" -> "${normalizedJurisdiccion}"`);
-        } else if (filters.jurisdiccion !== undefined && filters.jurisdiccion !== null) {
+        } else if (filters.jurisdiccion && filters.jurisdiccion.trim() !== "") {
           console.log(`⚠️  [Jurisdiction] Fallos: Empty jurisdiction filter provided, omitting: "${filters.jurisdiccion}"`);
         }
 
-        // Always-allowed filters
-        if (filters.document_id) qdrantFilters.document_id = filters.document_id;
+        // Always-allowed filters (empty string means no filter)
+        if (filters.document_id && filters.document_id.trim() !== "") {
+          qdrantFilters.document_id = filters.document_id.trim();
+        }
 
         // Strict filters (only when explicitly requested)
         if (strictFilters) {
-          if (filters.tribunal) qdrantFilters.tribunal = filters.tribunal;
-          if (filters.materia) qdrantFilters.materia = filters.materia;
+          if (filters.tribunal && filters.tribunal.trim() !== "") {
+            qdrantFilters.tribunal = filters.tribunal.trim();
+          }
+          if (filters.materia && filters.materia.trim() !== "") {
+            qdrantFilters.materia = filters.materia.trim();
+          }
         } else {
-          if (filters.tribunal || filters.materia) {
+          if ((filters.tribunal && filters.tribunal.trim() !== "") || (filters.materia && filters.materia.trim() !== "")) {
             console.log("ℹ️ [Filters] Ignoring strict filters (tribunal/materia) because strictFilters is not true");
           }
         }
@@ -210,7 +256,11 @@ FILTERS:
               qdrantFilters.publication_date_to = isoToTimestamp(filters.publicacion_to);
             }
           } else {
-            if (filters.promulgacion_from || filters.promulgacion_to || filters.publicacion_from || filters.publicacion_to) {
+            const hasDateFilters = (filters.promulgacion_from && filters.promulgacion_from.trim() !== "") || 
+                                   (filters.promulgacion_to && filters.promulgacion_to.trim() !== "") || 
+                                   (filters.publicacion_from && filters.publicacion_from.trim() !== "") || 
+                                   (filters.publicacion_to && filters.publicacion_to.trim() !== "");
+            if (hasDateFilters) {
               console.log("ℹ️ [Filters] Ignoring date filters because dateFiltersExplicit is not true");
             }
           }
@@ -218,18 +268,16 @@ FILTERS:
           return createErrorResponse(`Error en formato de fecha: ${dateError instanceof Error ? dateError.message : 'Formato de fecha inválido'}`);
         }
 
-        // Query is optional when filtering by document_id
+        // Query is optional when filtering by document_id (empty string means not provided)
         let query = "";
-        if (args.query && typeof args.query === 'string') {
+        if (args.query && args.query.trim() !== "") {
           query = args.query.trim();
         } else if (qdrantFilters.document_id) {
           // Use document_id as query when no query is provided
           query = qdrantFilters.document_id;
         } else {
           // Require query if no document_id filter is provided
-          const queryError = validateStringParam(args.query, "query");
-          if (queryError) return queryError;
-          query = args.query.trim();
+          return createErrorResponse("Se requiere un término de búsqueda (query) o un document_id para realizar la búsqueda.");
         }
         
         // Use hybrid Qdrant search with filters
@@ -339,23 +387,33 @@ ${r.url ? `- **URL**: ${r.url}` : ''}
         // Keep browse simple for agents: fixed pagination.
         const limit = 20;
         const offset = 0;
-        const sortBy = undefined;
         const sortOrder = "desc";
-        const filters = args.filters || {};
+        const filters = args.filters;
 
-        // Normalize jurisdiccion filter for browse operation
-        const normalizedFilters = { ...filters };
+        // Build normalized filters object (only include non-empty values)
+        const normalizedFilters: Record<string, string> = {};
+        
         const normalizedJurisdiccion = normalizeJurisdiccion(filters.jurisdiccion);
         if (normalizedJurisdiccion) {
           normalizedFilters.jurisdiccion = normalizedJurisdiccion;
           console.log(`🔧 [Jurisdiction] Fallos browse: Normalized "${filters.jurisdiccion}" -> "${normalizedJurisdiccion}"`);
-        } else if (filters.jurisdiccion !== undefined && filters.jurisdiccion !== null) {
-          delete normalizedFilters.jurisdiccion;
+        } else if (filters.jurisdiccion && filters.jurisdiccion.trim() !== "") {
           console.log(`⚠️  [Jurisdiction] Fallos browse: Empty jurisdiction filter provided, omitting: "${filters.jurisdiccion}"`);
         }
 
+        // Add other non-empty filters
+        if (filters.tribunal && filters.tribunal.trim() !== "") {
+          normalizedFilters.tribunal = filters.tribunal.trim();
+        }
+        if (filters.materia && filters.materia.trim() !== "") {
+          normalizedFilters.materia = filters.materia.trim();
+        }
+        if (filters.document_id && filters.document_id.trim() !== "") {
+          normalizedFilters.document_id = filters.document_id.trim();
+        }
+
         const result = await ctx.runAction(api.functions.fallos.listFallos, {
-          filters: normalizedFilters,
+          filters: Object.keys(normalizedFilters).length > 0 ? normalizedFilters : undefined,
           limit,
           offset,
         });
@@ -410,20 +468,30 @@ ${lightweightItems.length === 0 ? 'No se encontraron elementos que coincidan con
       }
 
       case "facets": {
-        const filters = args.filters || {};
+        const filters = args.filters;
 
-        // Normalize jurisdiccion filter for facets operation
-        const normalizedFilters = { ...filters };
+        // Build normalized filters object (only include non-empty values)
+        const normalizedFilters: Record<string, string> = {};
+        
         const normalizedJurisdiccion = normalizeJurisdiccion(filters.jurisdiccion);
         if (normalizedJurisdiccion) {
           normalizedFilters.jurisdiccion = normalizedJurisdiccion;
           console.log(`🔧 [Jurisdiction] Fallos facets: Normalized "${filters.jurisdiccion}" -> "${normalizedJurisdiccion}"`);
-        } else if (filters.jurisdiccion !== undefined && filters.jurisdiccion !== null) {
-          delete normalizedFilters.jurisdiccion;
+        } else if (filters.jurisdiccion && filters.jurisdiccion.trim() !== "") {
           console.log(`⚠️  [Jurisdiction] Fallos facets: Empty jurisdiction filter provided, omitting: "${filters.jurisdiccion}"`);
         }
 
-        const facets = await ctx.runAction(api.functions.fallos.getFallosFacets, { filters: normalizedFilters });
+        // Add other non-empty filters
+        if (filters.tribunal && filters.tribunal.trim() !== "") {
+          normalizedFilters.tribunal = filters.tribunal.trim();
+        }
+        if (filters.materia && filters.materia.trim() !== "") {
+          normalizedFilters.materia = filters.materia.trim();
+        }
+
+        const facets = await ctx.runAction(api.functions.fallos.getFallosFacets, { 
+          filters: Object.keys(normalizedFilters).length > 0 ? normalizedFilters : undefined 
+        });
         return `# 📊 Facetas de Fallos
 
 ## Filtros Aplicados
@@ -440,8 +508,10 @@ ${Array.isArray(facetData) ? facetData.map(item => `- **${item.value}**: ${item.
       }
 
         case "metadata": {
-          const documentIdError = validateStringParam(args.documentId, "documentId");
-          if (documentIdError) return documentIdError;
+          // Empty string means not provided
+          if (!args.documentId || args.documentId.trim() === "") {
+            return createErrorResponse("Se requiere un documentId para obtener los metadatos del fallo.");
+          }
           const documentId = args.documentId.trim();
 
         const fallo = await ctx.runAction(api.functions.fallos.getFallo, {

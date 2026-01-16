@@ -4,6 +4,8 @@ import { z } from "zod";
 import { validateMarkType } from "../shared/validation";
 import { getUserAndCaseIds, createErrorResponse, validateStringParam, validateAndCorrectEscritoId } from "../shared/utils";
 import { Id } from "../../../_generated/dataModel";
+import { Infer } from "convex/values";
+import { textBasedEditValidator } from "../../../functions/escritosTransforms/types";
 
 /**
  * Tool for applying diffs to existing Escrito content.
@@ -69,7 +71,10 @@ import { Id } from "../../../_generated/dataModel";
  *   ]
  * });
  */
-// Define the diff item schema for reuse
+/**
+ * Schema for diff item operations.
+ * All fields have defaults to satisfy OpenAI's JSON schema requirements.
+ */
 const diffItemSchema = z.union([
   // Replace operation
   z.object({
@@ -86,28 +91,32 @@ const diffItemSchema = z.union([
       ),
     contextBefore: z
       .string()
-      .optional()
+      .default("")
       .describe(
-        "ACTUAL TEXT that appears IMMEDIATELY before the target (within 80 characters distance). Must be text from the SAME or ADJACENT paragraph, NOT distant section titles. NO \\n characters."
+        "ACTUAL TEXT that appears IMMEDIATELY before the target (within 80 characters distance). Must be text from the SAME or ADJACENT paragraph, NOT distant section titles. NO \\n characters. Empty string to omit."
       ),
     contextAfter: z
       .string()
-      .optional()
+      .default("")
       .describe(
-        "ACTUAL TEXT that appears IMMEDIATELY after the target (within 80 characters distance). Must be text from the SAME or NEXT paragraph, NOT distant titles. NO \\n characters."
+        "ACTUAL TEXT that appears IMMEDIATELY after the target (within 80 characters distance). Must be text from the SAME or NEXT paragraph, NOT distant titles. NO \\n characters. Empty string to omit."
       ),
     occurrenceIndex: z
       .number()
-      .optional()
-      .describe("Target specific occurrence (1-based): 'change the 3rd occurrence'"),
+      .int()
+      .min(0)
+      .default(0)
+      .describe("Target specific occurrence (1-based): 'change the 3rd occurrence'. 0 to omit."),
     maxOccurrences: z
       .number()
-      .optional()
-      .describe("Maximum number of occurrences to change: 'change first 2 occurrences'"),
+      .int()
+      .min(0)
+      .default(0)
+      .describe("Maximum number of occurrences to change: 'change first 2 occurrences'. 0 to omit."),
     replaceAll: z
       .boolean()
-      .optional()
-      .describe("Replace all occurrences (for replace operations)"),
+      .default(false)
+      .describe("Replace all occurrences (for replace operations). Default: false."),
   }),
   // Format operation - Add mark
   z.object({
@@ -119,24 +128,28 @@ const diffItemSchema = z.union([
       .describe("Mark type to add"),
     contextBefore: z
       .string()
-      .optional()
+      .default("")
       .describe(
-        "ACTUAL TEXT that appears IMMEDIATELY before the target (within 80 characters distance). NO \\n characters."
+        "ACTUAL TEXT that appears IMMEDIATELY before the target (within 80 characters distance). NO \\n characters. Empty string to omit."
       ),
     contextAfter: z
       .string()
-      .optional()
+      .default("")
       .describe(
-        "ACTUAL TEXT that appears IMMEDIATELY after the target (within 80 characters distance). NO \\n characters."
+        "ACTUAL TEXT that appears IMMEDIATELY after the target (within 80 characters distance). NO \\n characters. Empty string to omit."
       ),
     occurrenceIndex: z
       .number()
-      .optional()
-      .describe("Target specific occurrence (1-based)"),
+      .int()
+      .min(0)
+      .default(0)
+      .describe("Target specific occurrence (1-based). 0 to omit."),
     maxOccurrences: z
       .number()
-      .optional()
-      .describe("Maximum number of occurrences to change"),
+      .int()
+      .min(0)
+      .default(0)
+      .describe("Maximum number of occurrences to change. 0 to omit."),
   }),
   // Format operation - Remove mark
   z.object({
@@ -148,18 +161,18 @@ const diffItemSchema = z.union([
       .describe("Mark type to remove"),
     contextBefore: z
       .string()
-      .optional()
+      .default("")
       .describe(
-        "ACTUAL TEXT that appears IMMEDIATELY before the target (within 80 characters distance). NO \\n characters."
+        "ACTUAL TEXT that appears IMMEDIATELY before the target (within 80 characters distance). NO \\n characters. Empty string to omit."
       ),
     contextAfter: z
       .string()
-      .optional()
+      .default("")
       .describe(
-        "ACTUAL TEXT that appears IMMEDIATELY after the target (within 80 characters distance). NO \\n characters."
+        "ACTUAL TEXT that appears IMMEDIATELY after the target (within 80 characters distance). NO \\n characters. Empty string to omit."
       ),
-    occurrenceIndex: z.number().optional().describe("Target specific occurrence (1-based)"),
-    maxOccurrences: z.number().optional().describe("Maximum number of occurrences to change"),
+    occurrenceIndex: z.number().int().min(0).default(0).describe("Target specific occurrence (1-based). 0 to omit."),
+    maxOccurrences: z.number().int().min(0).default(0).describe("Maximum number of occurrences to change. 0 to omit."),
   }),
   // Format operation - Replace mark
   z.object({
@@ -174,20 +187,26 @@ const diffItemSchema = z.union([
       .describe("New mark type"),
     contextBefore: z
       .string()
-      .optional()
+      .default("")
       .describe(
-        "ACTUAL TEXT that appears IMMEDIATELY before the target (within 80 characters distance). NO \\n characters."
+        "ACTUAL TEXT that appears IMMEDIATELY before the target (within 80 characters distance). NO \\n characters. Empty string to omit."
       ),
     contextAfter: z
       .string()
-      .optional()
+      .default("")
       .describe(
-        "ACTUAL TEXT that appears IMMEDIATELY after the target (within 80 characters distance). NO \\n characters."
+        "ACTUAL TEXT that appears IMMEDIATELY after the target (within 80 characters distance). NO \\n characters. Empty string to omit."
       ),
-    occurrenceIndex: z.number().optional().describe("Target specific occurrence (1-based)"),
-    maxOccurrences: z.number().optional().describe("Maximum number of occurrences to change"),
+    occurrenceIndex: z.number().int().min(0).default(0).describe("Target specific occurrence (1-based). 0 to omit."),
+    maxOccurrences: z.number().int().min(0).default(0).describe("Maximum number of occurrences to change. 0 to omit."),
   }),
 ]);
+
+// Type for individual diff items from the tool's Zod schema
+type DiffItem = z.infer<typeof diffItemSchema>;
+
+// Type for edits that the mutation expects (different structure)
+type MutationEdit = Infer<typeof textBasedEditValidator>;
 
 // Preprocess diffs to handle stringified JSON and single objects
 const diffsCoercedSchema = z.preprocess(
@@ -336,8 +355,8 @@ export const applyDiffsTool = createTool({
       }
 
       // Validate and convert diffs to mutation format
-      const validEdits = [];
-      const validationErrors = [];
+      const validEdits: MutationEdit[] = [];
+      const validationErrors: string[] = [];
 
       for (let i = 0; i < parsedDiffs.length; i++) {
         const diff = parsedDiffs[i];
@@ -365,53 +384,42 @@ export const applyDiffsTool = createTool({
             continue;
           }
 
-          // Validate context
-          const contextBeforeCheck = isValidContextText(diff.contextBefore);
-          if (!contextBeforeCheck.valid) {
-            validationErrors.push(`Diff ${i + 1}: ${contextBeforeCheck.reason}`);
+          // Validate context (empty string means "not provided")
+          if (diff.contextBefore && diff.contextBefore !== "") {
+            const contextBeforeCheck = isValidContextText(diff.contextBefore);
+            if (!contextBeforeCheck.valid) {
+              validationErrors.push(`Diff ${i + 1}: ${contextBeforeCheck.reason}`);
+            }
           }
-          const contextAfterCheck = isValidContextText(diff.contextAfter);
-          if (!contextAfterCheck.valid) {
-            validationErrors.push(`Diff ${i + 1}: ${contextAfterCheck.reason}`);
-          }
-
-          // Validate occurrence control
-          if (diff.occurrenceIndex !== undefined) {
-            if (typeof diff.occurrenceIndex !== "number" || diff.occurrenceIndex < 1) {
-              console.log(`Diff ${i + 1}: occurrenceIndex is invalid (${diff.occurrenceIndex}), defaulting to 1`);
-              diff.occurrenceIndex = 1;
+          if (diff.contextAfter && diff.contextAfter !== "") {
+            const contextAfterCheck = isValidContextText(diff.contextAfter);
+            if (!contextAfterCheck.valid) {
+              validationErrors.push(`Diff ${i + 1}: ${contextAfterCheck.reason}`);
             }
           }
 
-          if (diff.maxOccurrences !== undefined) {
-            if (typeof diff.maxOccurrences !== "number" || diff.maxOccurrences < 1) {
-              validationErrors.push(`Diff ${i + 1}: maxOccurrences must be a positive number`);
-              continue;
-            }
-          }
+          // Validate occurrence control (0 means "not provided" due to defaults)
+          const hasOccurrenceIndex = diff.occurrenceIndex !== undefined && diff.occurrenceIndex > 0;
+          const hasMaxOccurrences = diff.maxOccurrences !== undefined && diff.maxOccurrences > 0;
 
           // Warn about conflicts
-          if (diff.occurrenceIndex !== undefined && diff.maxOccurrences !== undefined) {
+          if (hasOccurrenceIndex && hasMaxOccurrences) {
             console.log(
               `Warning: Diff ${i + 1} has both occurrenceIndex and maxOccurrences specified. occurrenceIndex takes precedence.`
             );
           }
 
-          // Add to valid edits
-          const sanitized: any = {
-            type: "replace",
-            findText: diff.findText,
-            replaceText: diff.replaceText,
-          };
-          if (diff.contextBefore !== undefined && diff.contextBefore !== "")
-            sanitized.contextBefore = diff.contextBefore;
-          if (diff.contextAfter !== undefined && diff.contextAfter !== "")
-            sanitized.contextAfter = diff.contextAfter;
-          if (diff.replaceAll !== undefined) sanitized.replaceAll = diff.replaceAll;
-          if (diff.occurrenceIndex !== undefined) sanitized.occurrenceIndex = diff.occurrenceIndex;
-          if (diff.maxOccurrences !== undefined) sanitized.maxOccurrences = diff.maxOccurrences;
-
-          validEdits.push(sanitized);
+          // Add to valid edits - construct with all fields to match MutationEdit type
+          validEdits.push({
+            type: "replace" as const,
+            findText: diff.findText as string,
+            replaceText: diff.replaceText as string,
+            contextBefore: (diff.contextBefore && diff.contextBefore !== "") ? diff.contextBefore : undefined,
+            contextAfter: (diff.contextAfter && diff.contextAfter !== "") ? diff.contextAfter : undefined,
+            occurrenceIndex: hasOccurrenceIndex ? diff.occurrenceIndex : undefined,
+            maxOccurrences: hasMaxOccurrences ? diff.maxOccurrences : undefined,
+            replaceAll: diff.replaceAll === true ? true : undefined,
+          });
         }
 
         // Validate format operation
@@ -459,57 +467,62 @@ export const applyDiffsTool = createTool({
             }
           }
 
-          // Validate context
-          const contextBeforeCheck = isValidContextText(diff.contextBefore);
-          if (!contextBeforeCheck.valid) {
-            validationErrors.push(`Diff ${i + 1}: ${contextBeforeCheck.reason}`);
+          // Validate context (empty string means "not provided")
+          if (diff.contextBefore && diff.contextBefore !== "") {
+            const contextBeforeCheck = isValidContextText(diff.contextBefore);
+            if (!contextBeforeCheck.valid) {
+              validationErrors.push(`Diff ${i + 1}: ${contextBeforeCheck.reason}`);
+            }
           }
-          const contextAfterCheck = isValidContextText(diff.contextAfter);
-          if (!contextAfterCheck.valid) {
-            validationErrors.push(`Diff ${i + 1}: ${contextAfterCheck.reason}`);
-          }
-
-          // Validate occurrence control
-          if (diff.occurrenceIndex !== undefined) {
-            if (typeof diff.occurrenceIndex !== "number" || diff.occurrenceIndex < 1) {
-              console.log(`Diff ${i + 1}: occurrenceIndex is invalid (${diff.occurrenceIndex}), defaulting to 1`);
-              diff.occurrenceIndex = 1;
+          if (diff.contextAfter && diff.contextAfter !== "") {
+            const contextAfterCheck = isValidContextText(diff.contextAfter);
+            if (!contextAfterCheck.valid) {
+              validationErrors.push(`Diff ${i + 1}: ${contextAfterCheck.reason}`);
             }
           }
 
-          if (diff.maxOccurrences !== undefined) {
-            if (typeof diff.maxOccurrences !== "number" || diff.maxOccurrences < 1) {
-              validationErrors.push(`Diff ${i + 1}: maxOccurrences must be a positive number`);
-              continue;
-            }
-          }
+          // Validate occurrence control (0 means "not provided" due to defaults)
+          const formatHasOccurrenceIndex = diff.occurrenceIndex !== undefined && diff.occurrenceIndex > 0;
+          const formatHasMaxOccurrences = diff.maxOccurrences !== undefined && diff.maxOccurrences > 0;
 
           // Convert format operation to mutation format
-          const sanitized: any = {
-            type:
-              diff.operation === "add"
-                ? "add_mark"
-                : diff.operation === "remove"
-                  ? "remove_mark"
-                  : "replace_mark",
-            text: diff.text,
-          };
+          const contextBefore = (diff.contextBefore && diff.contextBefore !== "") ? diff.contextBefore : undefined;
+          const contextAfter = (diff.contextAfter && diff.contextAfter !== "") ? diff.contextAfter : undefined;
+          const occurrenceIndex = formatHasOccurrenceIndex ? diff.occurrenceIndex : undefined;
+          const maxOccurrences = formatHasMaxOccurrences ? diff.maxOccurrences : undefined;
 
-          if (diff.operation === "add" || diff.operation === "remove") {
-            sanitized.markType = diff.markType;
+          if (diff.operation === "add") {
+            validEdits.push({
+              type: "add_mark" as const,
+              text: diff.text as string,
+              markType: diff.markType as "bold" | "italic" | "code" | "strike" | "underline",
+              contextBefore,
+              contextAfter,
+              occurrenceIndex,
+              maxOccurrences,
+            });
+          } else if (diff.operation === "remove") {
+            validEdits.push({
+              type: "remove_mark" as const,
+              text: diff.text as string,
+              markType: diff.markType as "bold" | "italic" | "code" | "strike" | "underline",
+              contextBefore,
+              contextAfter,
+              occurrenceIndex,
+              maxOccurrences,
+            });
           } else {
-            sanitized.oldMarkType = diff.oldMarkType;
-            sanitized.newMarkType = diff.newMarkType;
+            validEdits.push({
+              type: "replace_mark" as const,
+              text: diff.text as string,
+              oldMarkType: diff.oldMarkType as "bold" | "italic" | "code" | "strike" | "underline",
+              newMarkType: diff.newMarkType as "bold" | "italic" | "code" | "strike" | "underline",
+              contextBefore,
+              contextAfter,
+              occurrenceIndex,
+              maxOccurrences,
+            });
           }
-
-          if (diff.contextBefore !== undefined && diff.contextBefore !== "")
-            sanitized.contextBefore = diff.contextBefore;
-          if (diff.contextAfter !== undefined && diff.contextAfter !== "")
-            sanitized.contextAfter = diff.contextAfter;
-          if (diff.occurrenceIndex !== undefined) sanitized.occurrenceIndex = diff.occurrenceIndex;
-          if (diff.maxOccurrences !== undefined) sanitized.maxOccurrences = diff.maxOccurrences;
-
-          validEdits.push(sanitized);
         }
       }
 

@@ -71,6 +71,165 @@ function isNoOpDateFilterValue(value: string | undefined | null): boolean {
  * - facets: Mongo facet counts for UI/filters
  * - metadata: Single document metadata (no large content fields)
  */
+
+/**
+ * Schema for legislationFindTool arguments.
+ * NOTE: All fields have defaults so the generated JSON Schema
+ * has complete `required` arrays, avoiding provider schema errors.
+ */
+const legislationFindToolArgs = z.object({
+  operation: z
+    .enum(["search", "browse", "facets", "metadata"])
+    .describe("Which operation to perform"),
+  // Controls to reduce over-filtering by the model
+  strictFilters: z
+    .boolean()
+    .default(false)
+    .describe("Only set true when the user explicitly requested strict filters (estado/tipo_general)."),
+  dateFiltersExplicit: z
+    .boolean()
+    .default(false)
+    .describe("Only set true when the user explicitly requested date constraints."),
+  // Browse/pagination controls
+  limit: z
+    .number()
+    .int()
+    .min(1)
+    .max(100)
+    .default(20)
+    .describe("Maximum number of documents to return for browse (default: 20)"),
+  offset: z
+    .number()
+    .int()
+    .min(0)
+    .default(0)
+    .describe("Offset for pagination in browse (default: 0)"),
+  sortBy: z
+    .enum(["sanction_date", "updated_at", "created_at", "relevancia"])
+    .default("sanction_date")
+    .describe("Sort field for browse (sanction_date, updated_at, created_at, relevancia)"),
+  sortOrder: z
+    .enum(["asc", "desc"])
+    .default("desc")
+    .describe("Sort order for browse (asc/desc)"),
+  // Common filters (all fields have safe defaults; empty values mean 'no filter')
+  filters: z
+    .object({
+      jurisdiccion: z
+        .string()
+        .default("nac")
+        .describe("Jurisdiction code or empty string to omit"),
+      tipo_general: z
+        .string()
+        .default("")
+        .describe("Tipo general or empty string to omit"),
+      estado: z
+        .enum([
+          "vigente",
+          "derogada",
+          "caduca",
+          "anulada",
+          "suspendida",
+          "abrogada",
+          "sin_registro_oficial",
+        ])
+        .default("vigente")
+        .describe("Estado de la norma; default 'vigente'"),
+      sanction_date_from: z.string().default(""),
+      sanction_date_to: z.string().default(""),
+      publication_date_from: z.string().default(""),
+      publication_date_to: z.string().default(""),
+      number: z
+        .union([z.number(), z.string()])
+        .nullable()
+        .default(null)
+        .describe("Law number (use only numeric part, e.g., 7302 for law 7302/2024)"),
+    }),
+  // Search-specific (optional when filtering by number) - empty string means "not provided"
+  query: z
+    .string()
+    .default("")
+    .describe("Search query text - optional when using number filter"),
+  // Metadata
+  documentId: z
+    .string()
+    .default("")
+    .describe("Document ID for metadata operations"),
+});
+
+type LegislationFindToolArgs = z.infer<typeof legislationFindToolArgs>;
+
+/**
+ * Filters object shape expected by getNormatives/getNormativesFacets.
+ * This matches the server-side filtersValidator but only includes
+ * the fields we actually use from the tool.
+ */
+type NormativesFiltersInput = {
+  jurisdiccion?: string;
+  tipo_general?: string;
+  estado?:
+    | "vigente"
+    | "derogada"
+    | "caduca"
+    | "anulada"
+    | "suspendida"
+    | "abrogada"
+    | "sin_registro_oficial";
+  sanction_date_from?: string;
+  sanction_date_to?: string;
+  publication_date_from?: string;
+  publication_date_to?: string;
+  number?: number;
+};
+
+function buildNormativesFiltersFromArgsFilters(
+  filters: LegislationFindToolArgs["filters"],
+): NormativesFiltersInput {
+  const result: NormativesFiltersInput = {};
+
+  const normalizedJurisdiccion = normalizeJurisdiccion(filters.jurisdiccion);
+  if (normalizedJurisdiccion) {
+    result.jurisdiccion = normalizedJurisdiccion;
+  }
+
+  if (filters.tipo_general && filters.tipo_general.trim() !== "") {
+    result.tipo_general = filters.tipo_general.trim();
+  }
+
+  if (filters.estado) {
+    result.estado = filters.estado;
+  }
+
+  if (filters.sanction_date_from) {
+    result.sanction_date_from = filters.sanction_date_from;
+  }
+
+  if (filters.sanction_date_to) {
+    result.sanction_date_to = filters.sanction_date_to;
+  }
+
+  if (filters.publication_date_from) {
+    result.publication_date_from = filters.publication_date_from;
+  }
+
+  if (filters.publication_date_to) {
+    result.publication_date_to = filters.publication_date_to;
+  }
+
+  if (filters.number != null) {
+    const raw = String(filters.number);
+    const match = raw.match(/^\d+/);
+    if (match) {
+      const parsed = parseInt(match[0], 10);
+      if (!Number.isNaN(parsed)) {
+        result.number = parsed;
+      }
+    }
+  }
+
+  return result;
+}
+
 export const legislationFindTool = createTool({
   description: async (ctx: ToolCtx) => {
     const now = Date.now();
@@ -120,45 +279,8 @@ FILTERS:
 - sanction_date_from/to (DATES): Sanction date range (ISO date strings)
 - publication_date_from/to (DATES): Publication date range (ISO date strings)`;
   },
-  args: z
-    .object({
-      operation: z
-        .enum(["search", "browse", "facets", "metadata"]).describe(
-          "Which operation to perform"
-        ),
-      // Controls to reduce over-filtering by the model
-      strictFilters: z.boolean().optional().describe("Only set true when the user explicitly requested strict filters (estado/tipo_general)."),
-      dateFiltersExplicit: z.boolean().optional().describe("Only set true when the user explicitly requested date constraints."),
-      // Common filters
-      filters: z
-        .object({
-          jurisdiccion: z.string().optional(),
-          tipo_general: z.string().optional(),
-          estado: z
-            .enum([
-              "vigente",
-              "derogada",
-              "caduca",
-              "anulada",
-              "suspendida",
-              "abrogada",
-              "sin_registro_oficial",
-            ])
-            .optional(),
-          sanction_date_from: z.string().optional(),
-          sanction_date_to: z.string().optional(),
-          publication_date_from: z.string().optional(),
-          publication_date_to: z.string().optional(),
-          number: z.union([z.number(), z.string()]).optional().describe("Law number (use only numeric part, e.g., 7302 for law 7302/2024)"),
-        })
-        .optional(),
-      // Search-specific (optional when filtering by number)
-      query: z.string().optional().describe("Search query text - optional when using number filter"),
-      // Metadata
-      documentId: z.string().optional(),
-    })
-    .required({ operation: true }),
-  handler: async (ctx: ToolCtx, args: any) => {
+  args: legislationFindToolArgs,
+  handler: async (ctx: ToolCtx, args: LegislationFindToolArgs) => {
     try {
 
       console.log("args", args);
@@ -335,20 +457,13 @@ ${r.url ? `- **URL**: ${r.url}` : ''}
       case "browse": {
         const limit = typeof args.limit === "number" ? Math.min(Math.max(1, args.limit), 100) : 20;
         const offset = typeof args.offset === "number" ? Math.max(0, args.offset) : 0;
-        const sortBy = args.sortBy;
+        const sortBy = args.sortBy as "sanction_date" | "updated_at" | "created_at" | "relevancia";
         const sortOrder = args.sortOrder ?? "desc";
-        const filters = args.filters || {};
+        const filters = args.filters;
         
         // Normalize jurisdiccion filter for browse operation
-        const normalizedFilters = { ...filters };
-        const normalizedJurisdiccion = normalizeJurisdiccion(filters.jurisdiccion);
-        if (normalizedJurisdiccion) {
-          normalizedFilters.jurisdiccion = normalizedJurisdiccion;
-          console.log(`🔧 [Jurisdiction] Browse: Normalized "${filters.jurisdiccion}" -> "${normalizedJurisdiccion}"`);
-        } else if (filters.jurisdiccion !== undefined && filters.jurisdiccion !== null) {
-          delete normalizedFilters.jurisdiccion; // Remove empty jurisdiction filter
-          console.log(`⚠️  [Jurisdiction] Browse: Empty jurisdiction filter provided, omitting: "${filters.jurisdiccion}"`);
-        }
+        const normalizedFilters: NormativesFiltersInput =
+          buildNormativesFiltersFromArgsFilters(filters);
 
         const result = await ctx.runAction(api.functions.legislation.getNormatives, {
           filters: normalizedFilters,
@@ -404,8 +519,12 @@ ${item.url ? `- **URL**: ${item.url}` : ''}
       }
 
       case "facets": {
-        const filters = args.filters || {};
-        const facets = await ctx.runAction(api.functions.legislation.getNormativesFacets, { filters });
+        const filters = args.filters;
+        const normalizedFilters: NormativesFiltersInput =
+          buildNormativesFiltersFromArgsFilters(filters);
+        const facets = await ctx.runAction(api.functions.legislation.getNormativesFacets, {
+          filters: normalizedFilters,
+        });
         return `# 📊 Facetas de Legislación
 
 ## Filtros Aplicados

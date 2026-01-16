@@ -48,6 +48,7 @@ import type { ToolUIPart } from "ai";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { extractCitationsFromToolOutputs } from "../ai-elements/citations";
 import { toast } from "sonner";
+import { parseAiLimitError } from "@/lib/aiLimitError";
 
 // Extended message type that includes status property from Convex agent
 type AgentMessage = {
@@ -331,10 +332,33 @@ export function ChatContent({ threadId }: { threadId: string | undefined }) {
       } catch (error) {
         console.error("Failed to initiate workflow", error);
         const errorThreadId = threadId || "unknown";
-        tracking.aiError({
-          errorType: error instanceof Error ? error.message : "unknown",
-          threadId: errorThreadId,
-        });
+        const { isAiLimit, isTeamLimit, message: parsedMessage } =
+          parseAiLimitError(error);
+
+        if (isAiLimit) {
+          const friendlyMessage = isTeamLimit
+            ? "Tu equipo ha alcanzado el límite mensual de mensajes de IA."
+            : "Has alcanzado tu límite mensual de mensajes de IA.";
+          toast.error("Límite de mensajes de IA alcanzado", {
+            description: friendlyMessage,
+          });
+          tracking.aiError({
+            errorType: "ai_message_limit_reached",
+            threadId: errorThreadId,
+          });
+        } else {
+          const fallbackMessage =
+            error instanceof Error
+              ? error.message
+              : parsedMessage || "Error al iniciar el flujo de IA";
+          toast.error("Error al enviar mensaje", {
+            description: fallbackMessage,
+          });
+          tracking.aiError({
+            errorType: fallbackMessage,
+            threadId: errorThreadId,
+          });
+        }
       }
     },
     [
