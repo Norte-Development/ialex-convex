@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "../../../convex/_generated/api";
-import { Bell, Check, Clock, Info } from "lucide-react";
+import { Bell, Check, Clock, Info, Loader2, PlusCircle } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { es } from "date-fns/locale";
 import { useNavigate } from "react-router-dom";
@@ -80,6 +80,7 @@ export function NotificationsDropdown() {
     ) {
       const fre = extractFreFromPjnNotification(notification);
       if (fre) {
+        setIsOpen(false);
         setSelectedPjnNotification({ ...notification, fre });
         setIsCreateCaseDialogOpen(true);
         return;
@@ -135,7 +136,7 @@ export function NotificationsDropdown() {
       setIsCreateCaseDialogOpen(false);
       setSelectedPjnNotification(null);
       setIsOpen(false);
-      navigate(`/cases/${caseId}`);
+      navigate(`/caso/${caseId}`);
     } finally {
       setIsCreatingCase(false);
     }
@@ -292,31 +293,39 @@ export function NotificationsDropdown() {
           }
         }}
       >
-        <DialogContent className="sm:max-w-[480px]">
-          <DialogHeader>
-            <DialogTitle>No hay un caso para este expediente</DialogTitle>
-            <DialogDescription>
-              Esta notificación de PJN corresponde a un expediente que todavía no tiene un caso en iAlex.
+        <DialogContent className="sm:max-w-[500px] border-slate-200">
+          <DialogHeader className="gap-2">
+            <div className="h-10 w-10 rounded-full bg-blue-50 flex items-center justify-center mb-1">
+              <PlusCircle className="h-6 w-6 text-blue-600" />
+            </div>
+            <DialogTitle className="text-xl">Crear caso desde notificación</DialogTitle>
+            <DialogDescription className="text-slate-500 leading-relaxed">
+              Esta notificación pertenece a un expediente que aún no está registrado en tu cuenta de iAlex.
             </DialogDescription>
           </DialogHeader>
 
-          <div className="mt-3 space-y-2">
-            {selectedPjnNotification?.fre && (
-              <p className="text-sm">
-                <span className="font-medium">Expediente (FRE): </span>
-                <span className="font-mono">{selectedPjnNotification.fre}</span>
-              </p>
-            )}
+          <div className="my-4 p-4 rounded-lg bg-slate-50 border border-slate-100 space-y-4">
+            <div className="flex flex-col gap-1.5">
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Número de Expediente</span>
+              <span className="font-mono text-sm font-semibold text-blue-700 bg-blue-50/50 px-2.5 py-1.5 rounded w-fit border border-blue-100 shadow-sm">
+                {selectedPjnNotification?.fre}
+              </span>
+            </div>
+            
             {selectedPjnNotification?.bodyPreview && (
-              <p className="text-xs text-slate-600">
-                {selectedPjnNotification.bodyPreview}
-              </p>
+              <div className="flex flex-col gap-1.5 pt-2 border-t border-slate-100">
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Detalle detectado</span>
+                <p className="text-sm text-slate-700 leading-relaxed italic border-l-2 border-blue-200 pl-3">
+                  "{selectedPjnNotification.bodyPreview}"
+                </p>
+              </div>
             )}
           </div>
 
-          <DialogFooter className="mt-4">
+          <DialogFooter className="gap-2 sm:gap-0 pt-2">
             <Button
-              variant="outline"
+              variant="ghost"
+              className="text-slate-500 hover:text-slate-700 hover:bg-slate-100"
               onClick={() => {
                 setIsCreateCaseDialogOpen(false);
                 setSelectedPjnNotification(null);
@@ -324,8 +333,22 @@ export function NotificationsDropdown() {
             >
               Cancelar
             </Button>
-            <Button onClick={handleCreateCaseFromPjnNotification} disabled={isCreatingCase}>
-              {isCreatingCase ? "Creando caso..." : "Crear caso desde este expediente"}
+            <Button 
+              onClick={handleCreateCaseFromPjnNotification} 
+              disabled={isCreatingCase}
+              className="bg-blue-600 hover:bg-blue-700 shadow-sm transition-all"
+            >
+              {isCreatingCase ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Creando caso...
+                </>
+              ) : (
+                <>
+                  <PlusCircle className="h-4 w-4 mr-2" />
+                  Crear caso y ver detalles
+                </>
+              )}
             </Button>
           </DialogFooter>
         </DialogContent>

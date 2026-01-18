@@ -1,10 +1,26 @@
 import type { NormalizedCaseCandidate } from "../types/api";
 
 export function normalizeFreForComparison(fre: string): string {
-  return fre
+  const cleaned = fre
     .trim()
     .replace(/\s+/g, " ")
     .toUpperCase();
+
+  // Normalize expediente numbers like "FRE-007767/2025" or "FRE 0007767/2025/TO2"
+  // so that leading zeros in the numeric part don't affect comparisons.
+  const match = cleaned.match(/^([A-Z]+)[\s-]+(0*\d+)\/(\d{4})(.*)$/);
+  if (!match) {
+    // Fallback to the simple normalization when the format is unexpected
+    return cleaned;
+  }
+
+  const jurisdiction = match[1];
+  const numericPart = match[2].replace(/^0+/, "") || "0";
+  const year = match[3];
+  const suffix = match[4] || "";
+
+  // Canonical form: JUR-<number-without-leading-zeros>/<year><suffix>
+  return `${jurisdiction}-${numericPart}/${year}${suffix}`;
 }
 
 function normalizeCaseNumberForMatching(caseNumber: string, year: number): string {
