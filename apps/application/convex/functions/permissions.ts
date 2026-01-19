@@ -1,5 +1,6 @@
 import { v } from "convex/values";
 import { query, mutation } from "../_generated/server";
+import { Id } from "../_generated/dataModel";
 import {
   getCurrentUserFromAuth,
   checkNewCaseAccess,
@@ -378,5 +379,95 @@ export const grantNewUserCaseAccess = mutation({
     });
 
     return accessId;
+  },
+});
+
+/**
+ * Get case members for @mention suggestions
+ * Returns users with access to the case filtered by optional query string
+ */
+export const getCaseMembersSuggestions = query({
+  args: {
+    caseId: v.id("cases"),
+    query: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const currentUser = await getCurrentUserFromAuth(ctx);
+
+    const caseData = await ctx.db.get(args.caseId);
+    if (!caseData) {
+      return [];
+    }
+
+    const userIds = new Set<string>();
+
+    // 1. Add direct access users (assigned lawyer and creator)
+    if (caseData.assignedLawyer) {
+      userIds.add(caseData.assignedLawyer);
+    }
+    if (caseData.createdBy) {
+      userIds.add(caseData.createdBy);
+    }
+
+    // 2. Get all access records from caseAccess table
+    const allAccesses = await ctx.db
+      .query("caseAccess")
+      .withIndex("by_case", (q) => q.eq("caseId", args.caseId))
+      .filter((q) => q.eq(q.field("isActive"), true))
+      .filter((q) =>
+        q.or(
+          q.eq(q.field("expiresAt"), undefined),
+          q.gt(q.field("expiresAt"), Date.now()),
+        ),
+      )
+      .collect();
+
+    // 3. Add users with direct access
+    for (const access of allAccesses) {
+      if (access.userId) {
+        userIds.add(access.userId);
+      }
+    }
+
+    // 4. Add users with team access
+    for (const access of allAccesses) {
+      if (access.teamId) {
+        const teamMembers = await ctx.db
+          .query("teamMemberships")
+          .withIndex("by_team", (q) => q.eq("teamId", access.teamId!))
+          .filter((q) => q.eq(q.field("isActive"), true))
+          .collect();
+
+        for (const member of teamMembers) {
+          userIds.add(member.userId);
+        }
+      }
+    }
+
+    // 5. Fetch user details and filter by query
+    const users = [];
+    const queryLower = args.query?.toLowerCase() || "";
+
+    for (const userId of userIds) {
+      const user = await ctx.db.get(userId as Id<"users">);
+      if (user && "name" in user && "email" in user) {
+        // Filter by query if provided
+        if (
+          !queryLower ||
+          user.name.toLowerCase().includes(queryLower) ||
+          user.email.toLowerCase().includes(queryLower)
+        ) {
+          users.push({
+            id: user._id,
+            name: user.name,
+            email: user.email,
+            profileImage: user.profileImage,
+          });
+        }
+      }
+    }
+
+    // Sort alphabetically by name
+    return users.sort((a, b) => a.name.localeCompare(b.name));
   },
 });
