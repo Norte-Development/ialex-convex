@@ -108,7 +108,66 @@ export const startPjnCaseHistorySync = workflow.define({
 
       // Sync succeeded
       if (syncResult.status === "OK") {
-        // Phase 5: Finalizing (90-100%)
+        // Phase 5: Download PDFs (80-90%)
+        await step.runMutation(internal.pjn.caseHistoryJobs.updateJobProgress, {
+          jobId,
+          phase: "downloading_pdfs",
+          progressPercent: 80,
+        });
+
+        // Download PDFs in batches
+        const PDF_BATCH_SIZE = 5;
+        const MAX_PDF_BATCHES = 10; // Limit to prevent infinite loops
+        let pdfsDownloaded = 0;
+        let pdfsFailed = 0;
+        let batchCount = 0;
+        
+        // eslint-disable-next-line no-constant-condition
+        while (batchCount < MAX_PDF_BATCHES) {
+          batchCount++;
+          
+          const pdfResult = await step.runAction(
+            internal.pjn.caseHistory.syncPdfsForCaseInternal,
+            {
+              caseId,
+              userId,
+              batchSize: PDF_BATCH_SIZE,
+            }
+          );
+
+          if (pdfResult.status === "OK") {
+            pdfsDownloaded += pdfResult.downloaded;
+            pdfsFailed += pdfResult.failed;
+
+            // If no more PDFs to download, we're done
+            if (pdfResult.remaining === 0) {
+              break;
+            }
+
+            // Update progress based on remaining PDFs
+            const progressIncrement = Math.min(
+              (pdfResult.downloaded / (pdfResult.downloaded + pdfResult.remaining)) * 10,
+              10
+            );
+            await step.runMutation(internal.pjn.caseHistoryJobs.updateJobProgress, {
+              jobId,
+              progressPercent: Math.min(80 + progressIncrement, 90),
+            });
+          } else {
+            // PDF sync failed or needs auth - log but don't fail the entire workflow
+            console.warn(
+              `PDF sync batch ${batchCount} failed for case ${String(caseId)}:`,
+              pdfResult.status === "ERROR" ? pdfResult.error : pdfResult.reason
+            );
+            break;
+          }
+        }
+
+        console.log(
+          `PDF sync completed for case ${String(caseId)}: ${pdfsDownloaded} downloaded, ${pdfsFailed} failed, ${batchCount} batches`
+        );
+
+        // Phase 6: Finalizing (90-100%)
         await step.runMutation(internal.pjn.caseHistoryJobs.updateJobProgress, {
           jobId,
           phase: "finalizing",
@@ -121,7 +180,7 @@ export const startPjnCaseHistorySync = workflow.define({
           status: "completed",
           progressPercent: 100,
           movimientosProcessed: syncResult.movimientosSynced,
-          documentsProcessed: syncResult.documentsSynced,
+          documentsProcessed: syncResult.documentsSynced + pdfsDownloaded,
           participantsProcessed: syncResult.participantsSynced,
           appealsProcessed: syncResult.appealsSynced,
           relatedCasesProcessed: syncResult.relatedCasesSynced,
@@ -135,6 +194,8 @@ export const startPjnCaseHistorySync = workflow.define({
           metadata: {
             movimientosSynced: syncResult.movimientosSynced,
             documentsSynced: syncResult.documentsSynced,
+            pdfsDownloaded,
+            pdfsFailed,
             participantsSynced: syncResult.participantsSynced,
             appealsSynced: syncResult.appealsSynced,
             relatedCasesSynced: syncResult.relatedCasesSynced,
@@ -145,7 +206,7 @@ export const startPjnCaseHistorySync = workflow.define({
         return {
           status: "completed" as const,
           movimientosSynced: syncResult.movimientosSynced,
-          documentsSynced: syncResult.documentsSynced,
+          documentsSynced: syncResult.documentsSynced + pdfsDownloaded,
           participantsSynced: syncResult.participantsSynced,
           appealsSynced: syncResult.appealsSynced,
           relatedCasesSynced: syncResult.relatedCasesSynced,

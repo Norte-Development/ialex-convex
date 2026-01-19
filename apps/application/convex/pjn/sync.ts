@@ -632,6 +632,53 @@ export const upsertActuacion = internalMutation({
 });
 
 /**
+ * Update an actuacion's gcsPath and create the associated document.
+ * This is used when PDFs are downloaded in a separate step after the initial sync.
+ * Returns the created documentId if successful.
+ */
+export const updateActuacionWithDocument = internalMutation({
+  args: {
+    actuacionId: v.id("caseActuaciones"),
+    userId: v.id("users"),
+    gcsPath: v.string(),
+  },
+  handler: async (ctx, args): Promise<{ documentId: Id<"documents"> | null }> => {
+    const actuacion = await ctx.db.get(args.actuacionId);
+    if (!actuacion) {
+      console.error("Actuacion not found:", args.actuacionId);
+      return { documentId: null };
+    }
+
+    // If already has a document, just update gcsPath
+    if (actuacion.documentId) {
+      await ctx.db.patch(args.actuacionId, {
+        gcsPath: args.gcsPath,
+      });
+      return { documentId: actuacion.documentId };
+    }
+
+    // Create the document using the shared helper
+    const documentId = await createOrGetPjnDocument(ctx as any, {
+      gcsPath: args.gcsPath,
+      caseId: actuacion.caseId,
+      userId: args.userId,
+      title: actuacion.description || `PJN Movement - ${actuacion.pjnMovementId}`,
+      description: actuacion.description,
+      originalFileName: `pjn-movement-${actuacion.pjnMovementId}.pdf`,
+      tags: ["PJN-Portal", "historical", actuacion.documentSource || "actuaciones"],
+    });
+
+    // Update the actuacion with both gcsPath and documentId
+    await ctx.db.patch(args.actuacionId, {
+      gcsPath: args.gcsPath,
+      documentId: documentId ?? undefined,
+    });
+
+    return { documentId };
+  },
+});
+
+/**
  * Create or update a document entry for a PJN historical docket PDF and
  * record the corresponding activity log entry.
  * This ensures all PJN history documents become first-class documents

@@ -41,6 +41,11 @@ export interface CaseHistoryDetailsOptions {
   maxDocuments?: number;
   requestId?: string;
   debugStorage?: boolean | DebugStorage;
+  /**
+   * Whether to download PDFs during the scrape. Defaults to true.
+   * Set to false to skip PDF downloads and only return metadata with docRef.
+   */
+  downloadPdfs?: boolean;
 }
 
 /**
@@ -79,8 +84,10 @@ function parseFre(fre: string): {
 /**
  * Download a PDF from a document reference and upload to GCS.
  * Uses cookies from the Playwright context.
+ * 
+ * Exported for use by the download-pdfs endpoint.
  */
-async function downloadAndUploadPdf(
+export async function downloadAndUploadPdf(
   docRef: string | null,
   docId: string,
   userId: string,
@@ -306,6 +313,7 @@ export async function scrapeCaseHistoryDetailsPlaywright(
     maxMovements,
     maxDocuments,
     requestId,
+    downloadPdfs = true,
   } = options;
 
   // Initialize debug storage
@@ -438,59 +446,63 @@ export async function scrapeCaseHistoryDetailsPlaywright(
       });
     }
 
-    // Step 8: Download PDFs and upload to GCS
+    // Step 8: Download PDFs and upload to GCS (only if downloadPdfs is true)
     let downloadErrors = 0;
 
-    // Download PDFs for documents with docRef
-    for (const doc of docDigitales) {
-      if (doc.docRef && !doc.gcsPath) {
-        try {
-          const gcsPath = await downloadAndUploadPdf(
-            doc.docRef,
-            doc.docId,
-            userId,
-            page,
-            storage,
-          );
-          if (gcsPath) {
-            doc.gcsPath = gcsPath;
-          } else {
+    if (downloadPdfs) {
+      // Download PDFs for documents with docRef
+      for (const doc of docDigitales) {
+        if (doc.docRef && !doc.gcsPath) {
+          try {
+            const gcsPath = await downloadAndUploadPdf(
+              doc.docRef,
+              doc.docId,
+              userId,
+              page,
+              storage,
+            );
+            if (gcsPath) {
+              doc.gcsPath = gcsPath;
+            } else {
+              downloadErrors++;
+            }
+          } catch (error) {
+            logger.error("Error processing document PDF", {
+              docId: doc.docId,
+              error: error instanceof Error ? error.message : String(error),
+            });
             downloadErrors++;
           }
-        } catch (error) {
-          logger.error("Error processing document PDF", {
-            docId: doc.docId,
-            error: error instanceof Error ? error.message : String(error),
-          });
-          downloadErrors++;
         }
       }
-    }
 
-    // Download PDFs for movements with docRef
-    for (const movement of movimientos) {
-      if (movement.docRef && movement.hasDocument && !movement.gcsPath) {
-        try {
-          const gcsPath = await downloadAndUploadPdf(
-            movement.docRef,
-            movement.movementId,
-            userId,
-            page,
-            storage,
-          );
-          if (gcsPath) {
-            movement.gcsPath = gcsPath;
-          } else {
+      // Download PDFs for movements with docRef
+      for (const movement of movimientos) {
+        if (movement.docRef && movement.hasDocument && !movement.gcsPath) {
+          try {
+            const gcsPath = await downloadAndUploadPdf(
+              movement.docRef,
+              movement.movementId,
+              userId,
+              page,
+              storage,
+            );
+            if (gcsPath) {
+              movement.gcsPath = gcsPath;
+            } else {
+              downloadErrors++;
+            }
+          } catch (error) {
+            logger.error("Error processing movement PDF", {
+              movementId: movement.movementId,
+              error: error instanceof Error ? error.message : String(error),
+            });
             downloadErrors++;
           }
-        } catch (error) {
-          logger.error("Error processing movement PDF", {
-            movementId: movement.movementId,
-            error: error instanceof Error ? error.message : String(error),
-          });
-          downloadErrors++;
         }
       }
+    } else {
+      logger.debug("Skipping PDF downloads (downloadPdfs=false)", { fre });
     }
 
     const durationMs = Date.now() - startTime;

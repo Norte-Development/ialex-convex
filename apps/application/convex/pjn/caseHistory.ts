@@ -500,9 +500,10 @@ export const syncCaseHistoryForCase = action({
 
     const fre: string = caseDoc.fre;
     const incrementalMovementsLimit = 5;
+    const initialSyncMovementsLimit = 50;
     const maxMovements = caseDoc.lastPjnHistorySyncAt
       ? incrementalMovementsLimit
-      : undefined;
+      : initialSyncMovementsLimit;
 
     // Helper function to attempt automatic reauth using stored credentials
     const attemptAutomaticReauth = async (): Promise<
@@ -653,11 +654,14 @@ export const syncCaseHistoryForCase = action({
       includeVinculados?: boolean;
       maxMovements?: number;
       maxDocuments?: number;
+      downloadPdfs?: boolean;
     } = {
       userId: userId as string,
       fre,
       includeMovements: true,
       includeDocuments: true,
+      // Skip PDF downloads during history sync - PDFs are synced separately
+      downloadPdfs: false,
     };
     if (maxMovements !== undefined) {
       requestBody.maxMovements = maxMovements;
@@ -942,9 +946,10 @@ export const syncCaseHistoryForCaseInternal = internalAction({
 
     const fre: string = caseDoc.fre;
     const incrementalMovementsLimit = 5;
+    const initialSyncMovementsLimit = 50;
     const maxMovements =
       args.syncProfile?.maxMovements ??
-      (caseDoc.lastPjnHistorySyncAt ? incrementalMovementsLimit : undefined);
+      (caseDoc.lastPjnHistorySyncAt ? incrementalMovementsLimit : initialSyncMovementsLimit);
 
     // Helper function to attempt automatic reauth using stored credentials
     const attemptAutomaticReauth = async (): Promise<
@@ -1090,11 +1095,14 @@ export const syncCaseHistoryForCaseInternal = internalAction({
       includeVinculados?: boolean;
       maxMovements?: number;
       maxDocuments?: number;
+      downloadPdfs?: boolean;
     } = {
       userId: userId as string,
       fre,
       includeMovements: true,
       includeDocuments: true,
+      // Skip PDF downloads during history sync - PDFs are synced separately
+      downloadPdfs: false,
     };
     if (maxMovements !== undefined) {
       requestBody.maxMovements = maxMovements;
@@ -1357,3 +1365,266 @@ export const listActuacionesForCase = internalQuery({
     return actuaciones.sort((a, b) => b.movementDate - a.movementDate);
   },
 });
+
+/**
+ * Internal query to list actuaciones with pending PDF downloads.
+ * Returns actuaciones that have a docRef but no gcsPath.
+ */
+export const listActuacionesPendingPdfDownload = internalQuery({
+  args: {
+    caseId: v.id("cases"),
+    limit: v.optional(v.number()),
+  },
+  handler: async (ctx, args): Promise<Array<{
+    _id: Id<"caseActuaciones">;
+    pjnMovementId: string;
+    docRef: string;
+  }>> => {
+    const actuaciones = await ctx.db
+      .query("caseActuaciones")
+      .withIndex("by_case_and_date", (q) => q.eq("caseId", args.caseId))
+      .collect();
+
+    // Filter to only those with docRef but no gcsPath
+    const pending = actuaciones
+      .filter((a) => a.docRef && !a.gcsPath && a.hasDocument)
+      .map((a) => ({
+        _id: a._id,
+        pjnMovementId: a.pjnMovementId,
+        docRef: a.docRef!,
+      }));
+
+    if (args.limit && pending.length > args.limit) {
+      return pending.slice(0, args.limit);
+    }
+    return pending;
+  },
+});
+
+/**
+ * Response type from the scraper's download-pdfs endpoint.
+ */
+type CaseHistoryDownloadPdfsResponse =
+  | {
+      status: "OK";
+      fre: string;
+      results: Array<{
+        kind: "movement" | "doc";
+        id: string;
+        success: boolean;
+        gcsPath?: string;
+        error?: string;
+      }>;
+      stats: {
+        total: number;
+        succeeded: number;
+        failed: number;
+        durationMs: number;
+      };
+    }
+  | {
+      status: "AUTH_REQUIRED";
+      reason: string;
+      details?: Record<string, unknown>;
+    }
+  | {
+      status: "ERROR";
+      error: string;
+      code?: string;
+    };
+
+/**
+ * Internal action to sync PDFs for a case.
+ * 
+ * This downloads PDFs for actuaciones that have a docRef but no gcsPath,
+ * updating the records with the resulting GCS paths.
+ */
+export const syncPdfsForCaseInternal = internalAction({
+  args: {
+    caseId: v.id("cases"),
+    userId: v.id("users"),
+    /** Maximum number of PDFs to download in this batch */
+    batchSize: v.optional(v.number()),
+  },
+  handler: async (
+    ctx,
+    args
+  ): Promise<
+    | {
+        status: "OK";
+        downloaded: number;
+        failed: number;
+        remaining: number;
+        durationMs: number;
+      }
+    | {
+        status: "AUTH_REQUIRED";
+        reason: string;
+      }
+    | {
+        status: "ERROR";
+        error: string;
+        code?: string;
+      }
+  > => {
+    const scraperUrl = process.env.PJN_SCRAPER_URL;
+    if (!scraperUrl) {
+      throw new Error("PJN_SCRAPER_URL environment variable is not set");
+    }
+
+    const serviceAuthSecret = process.env.EXPEDIENTES_SCRAPER_SECRET;
+    if (!serviceAuthSecret) {
+      throw new Error("EXPEDIENTES_SCRAPER_SECRET environment variable is not set");
+    }
+
+    const { caseId, userId, batchSize = 10 } = args;
+
+    // Get the case to get its FRE
+    const caseDoc = await ctx.runQuery(internal.functions.cases.getCaseByIdInternal, {
+      caseId,
+    });
+
+    if (!caseDoc) {
+      return {
+        status: "ERROR" as const,
+        error: "Case not found",
+        code: "CASE_NOT_FOUND",
+      };
+    }
+
+    if (!caseDoc.fre) {
+      return {
+        status: "ERROR" as const,
+        error: "Case has no FRE configured",
+        code: "MISSING_FRE",
+      };
+    }
+
+    const fre: string = caseDoc.fre;
+
+    // Get actuaciones pending PDF download
+    const pendingActuaciones = await ctx.runQuery(
+      internal.pjn.caseHistory.listActuacionesPendingPdfDownload,
+      {
+        caseId,
+        limit: batchSize,
+      }
+    );
+
+    if (pendingActuaciones.length === 0) {
+      return {
+        status: "OK" as const,
+        downloaded: 0,
+        failed: 0,
+        remaining: 0,
+        durationMs: 0,
+      };
+    }
+
+    // Build request items
+    const items = pendingActuaciones.map((a) => ({
+      kind: "movement" as const,
+      id: a.pjnMovementId,
+      docRef: a.docRef,
+    }));
+
+    const requestBody = {
+      userId: userId as string,
+      fre,
+      items,
+    };
+
+    const startTime = Date.now();
+
+    try {
+      const response = await fetch(`${scraperUrl}/scrape/case-history/download-pdfs`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-Service-Auth": serviceAuthSecret,
+        },
+        body: JSON.stringify(requestBody),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Scraper returned ${response.status}: ${errorText}`);
+      }
+
+      const result = (await response.json()) as CaseHistoryDownloadPdfsResponse;
+
+      if (result.status === "AUTH_REQUIRED") {
+        await ctx.runMutation(internal.pjn.accounts.markNeedsReauth, {
+          userId,
+          reason: result.reason,
+        });
+        return {
+          status: "AUTH_REQUIRED" as const,
+          reason: result.reason,
+        };
+      }
+
+      if (result.status === "ERROR") {
+        return {
+          status: "ERROR" as const,
+          error: result.error,
+          code: result.code,
+        };
+      }
+
+      // Update actuaciones with the gcsPath results and create documents
+      let downloaded = 0;
+      let failed = 0;
+
+      for (const item of result.results) {
+        if (item.kind === "movement" && item.success && item.gcsPath) {
+          // Find the actuacion by pjnMovementId
+          const actuacion = pendingActuaciones.find(
+            (a) => a.pjnMovementId === item.id
+          );
+          if (actuacion) {
+            // Update actuacion and create document entry
+            await ctx.runMutation(internal.pjn.sync.updateActuacionWithDocument, {
+              actuacionId: actuacion._id,
+              userId,
+              gcsPath: item.gcsPath,
+            });
+            downloaded++;
+          }
+        } else if (!item.success) {
+          failed++;
+        }
+      }
+
+      // Get remaining count
+      const allPending = await ctx.runQuery(
+        internal.pjn.caseHistory.listActuacionesPendingPdfDownload,
+        {
+          caseId,
+        }
+      );
+      const remaining = allPending.length;
+
+      const durationMs = Date.now() - startTime;
+
+      return {
+        status: "OK" as const,
+        downloaded,
+        failed,
+        remaining,
+        durationMs,
+      };
+    } catch (error) {
+      console.error(
+        `PDF sync failed for user ${String(userId)} and case ${String(caseId)}:`,
+        error
+      );
+      return {
+        status: "ERROR" as const,
+        error: error instanceof Error ? error.message : "Unknown error",
+        code: "SCRAPE_ERROR",
+      };
+    }
+  },
+});
+

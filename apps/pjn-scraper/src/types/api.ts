@@ -44,6 +44,33 @@ export const scrapeCaseHistoryDetailsRequestSchema = z.object({
   includeVinculados: z.boolean().optional(),
   maxMovements: z.number().int().positive().optional(),
   maxDocuments: z.number().int().positive().optional(),
+  /**
+   * Whether to download PDFs during the scrape. Defaults to true.
+   * Set to false to skip PDF downloads and only return metadata.
+   */
+  downloadPdfs: z.boolean().optional(),
+});
+
+/**
+ * Individual PDF download request item.
+ */
+export const pdfDownloadItemSchema = z.object({
+  /** Type of the item: movement or document */
+  kind: z.enum(["movement", "doc"]),
+  /** The ID of the movement or document */
+  id: z.string(),
+  /** The docRef URL to download from */
+  docRef: z.string(),
+});
+
+/**
+ * Request schema for downloading PDFs for specific movements/documents.
+ */
+export const scrapeCaseHistoryDownloadPdfsRequestSchema = z.object({
+  userId: z.string(),
+  fre: z.string(),
+  /** List of items to download PDFs for */
+  items: z.array(pdfDownloadItemSchema),
 });
 
 // Response types
@@ -346,3 +373,44 @@ export interface PdfProcessingResult {
   error?: string;
 }
 
+/**
+ * Individual PDF download result item.
+ */
+export interface PdfDownloadResultItem {
+  /** Type of the item: movement or doc */
+  kind: "movement" | "doc";
+  /** The ID of the movement or document */
+  id: string;
+  /** Whether the download was successful */
+  success: boolean;
+  /** GCS path where the PDF was uploaded, if successful */
+  gcsPath?: string;
+  /** Error message if the download failed */
+  error?: string;
+}
+
+/**
+ * Response payload for /scrape/case-history/download-pdfs.
+ */
+export type CaseHistoryDownloadPdfsResponse =
+  | {
+      status: "OK";
+      fre: string;
+      results: PdfDownloadResultItem[];
+      stats: {
+        total: number;
+        succeeded: number;
+        failed: number;
+        durationMs: number;
+      };
+    }
+  | {
+      status: "AUTH_REQUIRED";
+      reason: string;
+      details?: Record<string, unknown>;
+    }
+  | {
+      status: "ERROR";
+      error: string;
+      code?: string;
+    };

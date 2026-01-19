@@ -65,6 +65,7 @@ export const updateJobProgress = internalMutation({
         v.literal("fetching_history"),
         v.literal("ingesting_movements"),
         v.literal("ingesting_documents"),
+        v.literal("downloading_pdfs"),
         v.literal("finalizing")
       )
     ),
@@ -147,7 +148,7 @@ export const getLatestJobForCase = internalQuery({
     caseId: Id<"cases">;
     userId: Id<"users">;
     status: "queued" | "running" | "completed" | "failed" | "auth_required";
-    phase?: "connecting" | "fetching_history" | "ingesting_movements" | "ingesting_documents" | "finalizing";
+    phase?: "connecting" | "fetching_history" | "ingesting_movements" | "ingesting_documents" | "downloading_pdfs" | "finalizing";
     progressPercent?: number;
     errorMessage?: string;
     movimientosProcessed?: number;

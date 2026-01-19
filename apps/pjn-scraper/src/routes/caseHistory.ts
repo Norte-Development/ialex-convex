@@ -3,8 +3,11 @@ import { SessionStore, SessionState } from "../lib/sessionStore";
 import {
   scrapeCaseHistorySearchRequestSchema,
   scrapeCaseHistoryDetailsRequestSchema,
+  scrapeCaseHistoryDownloadPdfsRequestSchema,
   type CaseHistorySearchResponse,
   type CaseHistoryDetailsResponse,
+  type CaseHistoryDownloadPdfsResponse,
+  type PdfDownloadResultItem,
 } from "../types/api";
 import { logger } from "../middleware/logging";
 import {
@@ -13,7 +16,9 @@ import {
 import {
   scrapeCaseHistoryDetailsPlaywright,
   toCaseHistoryDetailsResponsePlaywright,
+  downloadAndUploadPdf,
 } from "../lib/playwright/caseHistoryDetailsPlaywright";
+import { GcsStorage } from "../lib/storage";
 import { getPjnPageForUser, closePjnPage } from "../lib/playwright/pjnPlaywrightSession";
 import { toCaseHistorySearchResponse } from "../lib/caseHistorySearch";
 import { refreshPjnTokens, isTokenExpired } from "../lib/pjnTokens";
@@ -277,12 +282,14 @@ router.post(
         includeVinculados,
         maxMovements,
         maxDocuments,
+        downloadPdfs,
       } = parsed.data;
 
       logger.info("Starting case history details scrape", {
         requestId,
         userId,
         fre,
+        downloadPdfs: downloadPdfs ?? true,
       });
 
       let session = await sessionStore.loadSession(userId);
@@ -327,6 +334,7 @@ router.post(
           maxDocuments,
           requestId,
           debugStorage: false,
+          downloadPdfs,
         });
 
         const response = toCaseHistoryDetailsResponsePlaywright(result);
@@ -377,6 +385,191 @@ router.post(
         error: "Internal server error",
         code: "INTERNAL_ERROR",
       } satisfies CaseHistoryDetailsResponse);
+    }
+  }
+);
+
+/**
+ * POST /scrape/case-history/download-pdfs
+ *
+ * Endpoint to download specific PDFs for movements/documents.
+ * This allows callers to defer PDF downloads to a separate step,
+ * making the main history sync faster.
+ */
+router.post(
+  "/scrape/case-history/download-pdfs",
+  async (req: Request, res: Response) => {
+    const requestId = `req-${Date.now()}-${Math.random()
+      .toString(36)
+      .substr(2, 9)}`;
+
+    try {
+      const parsed = scrapeCaseHistoryDownloadPdfsRequestSchema.safeParse(req.body);
+      if (!parsed.success) {
+        logger.warn("Invalid download PDFs request", {
+          requestId,
+          errors: parsed.error.issues,
+        });
+        return res.status(400).json({
+          status: "ERROR",
+          error: "Invalid request",
+          code: "VALIDATION_ERROR",
+        } satisfies CaseHistoryDownloadPdfsResponse);
+      }
+
+      const { userId, fre, items } = parsed.data;
+
+      logger.info("Starting PDF downloads", {
+        requestId,
+        userId,
+        fre,
+        itemCount: items.length,
+      });
+
+      let session = await sessionStore.loadSession(userId);
+      if (!session) {
+        logger.warn("No session found for user (download PDFs)", {
+          requestId,
+          userId,
+        });
+        return res.json({
+          status: "AUTH_REQUIRED",
+          reason: "No session found. Please authenticate first.",
+        } satisfies CaseHistoryDownloadPdfsResponse);
+      }
+
+      // Ensure we have a valid access token
+      session = await ensureValidToken(userId, session);
+      if (!session) {
+        logger.warn("Failed to ensure valid token for user (download PDFs)", {
+          requestId,
+          userId,
+        });
+        return res.json({
+          status: "AUTH_REQUIRED",
+          reason:
+            "Session expired and could not be refreshed. Please re-authenticate.",
+        } satisfies CaseHistoryDownloadPdfsResponse);
+      }
+
+      try {
+        const startTime = Date.now();
+        const { page, handle } = await getPjnPageForUser(session);
+        const storage = new GcsStorage();
+
+        const results: PdfDownloadResultItem[] = [];
+        let succeeded = 0;
+        let failed = 0;
+
+        try {
+          for (const item of items) {
+            try {
+              const gcsPath = await downloadAndUploadPdf(
+                item.docRef,
+                item.id,
+                userId,
+                page,
+                storage,
+              );
+
+              if (gcsPath) {
+                results.push({
+                  kind: item.kind,
+                  id: item.id,
+                  success: true,
+                  gcsPath,
+                });
+                succeeded++;
+              } else {
+                results.push({
+                  kind: item.kind,
+                  id: item.id,
+                  success: false,
+                  error: "Failed to download or upload PDF",
+                });
+                failed++;
+              }
+            } catch (error) {
+              logger.error("Error downloading PDF", {
+                requestId,
+                kind: item.kind,
+                id: item.id,
+                error: error instanceof Error ? error.message : String(error),
+              });
+              results.push({
+                kind: item.kind,
+                id: item.id,
+                success: false,
+                error: error instanceof Error ? error.message : "Unknown error",
+              });
+              failed++;
+            }
+          }
+        } finally {
+          await closePjnPage(page, handle);
+        }
+
+        const durationMs = Date.now() - startTime;
+
+        logger.info("PDF downloads completed", {
+          requestId,
+          userId,
+          fre,
+          total: items.length,
+          succeeded,
+          failed,
+          durationMs,
+        });
+
+        return res.json({
+          status: "OK",
+          fre,
+          results,
+          stats: {
+            total: items.length,
+            succeeded,
+            failed,
+            durationMs,
+          },
+        } satisfies CaseHistoryDownloadPdfsResponse);
+      } catch (error) {
+        if (error instanceof Error && error.message === "AUTH_REQUIRED") {
+          logger.warn("Auth required during PDF downloads", {
+            requestId,
+            userId,
+          });
+          return res.json({
+            status: "AUTH_REQUIRED",
+            reason: "Session expired or invalid",
+          } satisfies CaseHistoryDownloadPdfsResponse);
+        }
+
+        logger.error("PDF downloads failed", {
+          requestId,
+          userId,
+          fre,
+          error: error instanceof Error ? error.message : String(error),
+          stack: error instanceof Error ? error.stack : undefined,
+        });
+
+        return res.status(500).json({
+          status: "ERROR",
+          error: error instanceof Error ? error.message : "Unknown error",
+          code: "SCRAPE_ERROR",
+        } satisfies CaseHistoryDownloadPdfsResponse);
+      }
+    } catch (error) {
+      logger.error("Unhandled error in download PDFs route", {
+        requestId,
+        error: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : undefined,
+      });
+
+      return res.status(500).json({
+        status: "ERROR",
+        error: "Internal server error",
+        code: "INTERNAL_ERROR",
+      } satisfies CaseHistoryDownloadPdfsResponse);
     }
   }
 );

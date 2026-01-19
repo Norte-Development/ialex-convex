@@ -19,7 +19,7 @@ export const getCaseHistorySyncStatus = query({
     caseId: Id<"cases">;
     userId: Id<"users">;
     status: "queued" | "running" | "completed" | "failed" | "auth_required";
-    phase?: "connecting" | "fetching_history" | "ingesting_movements" | "ingesting_documents" | "finalizing";
+    phase?: "connecting" | "fetching_history" | "ingesting_movements" | "ingesting_documents" | "downloading_pdfs" | "finalizing";
     progressPercent?: number;
     errorMessage?: string;
     movimientosProcessed?: number;

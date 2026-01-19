@@ -1150,6 +1150,7 @@ export default defineSchema({
         v.literal("fetching_history"),
         v.literal("ingesting_movements"),
         v.literal("ingesting_documents"),
+        v.literal("downloading_pdfs"),
         v.literal("finalizing"),
       ),
     ),
