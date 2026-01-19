@@ -7,6 +7,7 @@ import {
 } from "../_generated/server";
 import { internal, api } from "../_generated/api";
 import Stripe from "stripe";
+import { subscriptionThankYouTemplate } from "../services/emailTemplates";
 
 const stripeSDK = new Stripe(process.env.STRIPE_SECRET_KEY!);
 
@@ -574,10 +575,6 @@ export const sendSubscriptionThankYou = internalAction({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const { subscriptionThankYouTemplate } = await import(
-      "../services/emailTemplates"
-    );
-
     // Define features based on plan type
     let features: string[] = [];
     let displayPlanName = args.planName;

@@ -726,7 +726,6 @@ export const moveLibraryDocumentToRoot = mutation({
     if (!document) throw new Error("Library document not found");
 
     // Ensure Root exists and migrate existing items (idempotent)
-    const { internal } = await import("../_generated/api");
     const rootFolder = await ctx.runMutation(
       internal.functions.libraryFolders.getOrCreateLibraryRootFolder,
       {

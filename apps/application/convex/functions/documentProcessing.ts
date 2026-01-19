@@ -425,6 +425,24 @@ export const updateDocumentProcessingStatus = internalMutation({
           subject: `Documento procesado: ${docTitle}`,
           htmlBody: documentProcessedTemplate(docTitle, userName, args.status === "completed" ? "success" : "failure"),
         });
+
+        // Create in-app notification
+        await ctx.runMutation(internal.notifications.createForUser, {
+          userId: document.createdBy,
+          kind: "document_processed",
+          title: args.status === "completed" 
+            ? `Documento procesado: ${docTitle}`
+            : `Error al procesar documento: ${docTitle}`,
+          bodyPreview: args.status === "completed"
+            ? "El documento ha sido procesado correctamente y está listo para usar."
+            : `Error: ${args.processingError || "Error desconocido"}`,
+          source: "system",
+          documentId: args.documentId,
+          caseId: document.caseId,
+          linkTarget: document.caseId 
+            ? `/cases/${document.caseId}/documents/${args.documentId}`
+            : `/documents/${args.documentId}`,
+        });
       }
   },
 });

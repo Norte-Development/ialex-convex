@@ -93,6 +93,7 @@ import type * as billing_webhookHandlers from "../billing/webhookHandlers.js";
 import type * as context_context from "../context/context.js";
 import type * as context_contextService from "../context/contextService.js";
 import type * as context_parseReferences from "../context/parseReferences.js";
+import type * as crons from "../crons.js";
 import type * as firebaseAdmin from "../firebaseAdmin.js";
 import type * as functions_agentRules from "../functions/agentRules.js";
 import type * as functions_cases from "../functions/cases.js";
@@ -133,6 +134,8 @@ import type * as functions_libraryFolders from "../functions/libraryFolders.js";
 import type * as functions_mercadopagoAdmin from "../functions/mercadopagoAdmin.js";
 import type * as functions_mercadopagoImport from "../functions/mercadopagoImport.js";
 import type * as functions_permissions from "../functions/permissions.js";
+import type * as functions_pjnCaseHistory from "../functions/pjnCaseHistory.js";
+import type * as functions_pjnHistory from "../functions/pjnHistory.js";
 import type * as functions_popups from "../functions/popups.js";
 import type * as functions_prompts from "../functions/prompts.js";
 import type * as functions_search from "../functions/search.js";
@@ -148,6 +151,9 @@ import type * as functions_users from "../functions/users.js";
 import type * as google_drive from "../google/drive.js";
 import type * as google_driveActions from "../google/driveActions.js";
 import type * as http from "../http.js";
+import type * as intervinientes_matching from "../intervinientes/matching.js";
+import type * as intervinientes_queries from "../intervinientes/queries.js";
+import type * as intervinientes_settings from "../intervinientes/settings.js";
 import type * as migrations_addEventPreferences from "../migrations/addEventPreferences.js";
 import type * as migrations_bulkUserMigration from "../migrations/bulkUserMigration.js";
 import type * as migrations_clerkHelpers from "../migrations/clerkHelpers.js";
@@ -171,6 +177,14 @@ import type * as migrations_processingHelpers from "../migrations/processingHelp
 import type * as migrations_sendAnnouncement from "../migrations/sendAnnouncement.js";
 import type * as migrations_tutorial_init from "../migrations/tutorial_init.js";
 import type * as migrations_types from "../migrations/types.js";
+import type * as notifications from "../notifications.js";
+import type * as pjn_accounts from "../pjn/accounts.js";
+import type * as pjn_caseHistory from "../pjn/caseHistory.js";
+import type * as pjn_caseHistoryJobs from "../pjn/caseHistoryJobs.js";
+import type * as pjn_cronHandlers from "../pjn/cronHandlers.js";
+import type * as pjn_sync from "../pjn/sync.js";
+import type * as pjn_trigger from "../pjn/trigger.js";
+import type * as pjn_vinculados from "../pjn/vinculados.js";
 import type * as prosemirror from "../prosemirror.js";
 import type * as rag_qdrantUtils_caseDocuments from "../rag/qdrantUtils/caseDocuments.js";
 import type * as rag_qdrantUtils_client from "../rag/qdrantUtils/client.js";
@@ -189,10 +203,14 @@ import type * as services_teamInviteTemplates from "../services/teamInviteTempla
 import type * as stripe from "../stripe.js";
 import type * as utils_fallosService from "../utils/fallosService.js";
 import type * as utils_gcs from "../utils/gcs.js";
+import type * as utils_identifierParser from "../utils/identifierParser.js";
+import type * as utils_intervinienteRoleMapping from "../utils/intervinienteRoleMapping.js";
 import type * as utils_legislationService from "../utils/legislationService.js";
+import type * as utils_pjnConstants from "../utils/pjnConstants.js";
 import type * as utils_resend from "../utils/resend.js";
 import type * as whatsapp_twilio from "../whatsapp/twilio.js";
 import type * as whatsapp_whatsapp from "../whatsapp/whatsapp.js";
+import type * as workflows_pjnCaseHistoryWorkflow from "../workflows/pjnCaseHistoryWorkflow.js";
 
 import type {
   ApiFromModules,
@@ -286,6 +304,7 @@ declare const fullApi: ApiFromModules<{
   "context/context": typeof context_context;
   "context/contextService": typeof context_contextService;
   "context/parseReferences": typeof context_parseReferences;
+  crons: typeof crons;
   firebaseAdmin: typeof firebaseAdmin;
   "functions/agentRules": typeof functions_agentRules;
   "functions/cases": typeof functions_cases;
@@ -326,6 +345,8 @@ declare const fullApi: ApiFromModules<{
   "functions/mercadopagoAdmin": typeof functions_mercadopagoAdmin;
   "functions/mercadopagoImport": typeof functions_mercadopagoImport;
   "functions/permissions": typeof functions_permissions;
+  "functions/pjnCaseHistory": typeof functions_pjnCaseHistory;
+  "functions/pjnHistory": typeof functions_pjnHistory;
   "functions/popups": typeof functions_popups;
   "functions/prompts": typeof functions_prompts;
   "functions/search": typeof functions_search;
@@ -341,6 +362,9 @@ declare const fullApi: ApiFromModules<{
   "google/drive": typeof google_drive;
   "google/driveActions": typeof google_driveActions;
   http: typeof http;
+  "intervinientes/matching": typeof intervinientes_matching;
+  "intervinientes/queries": typeof intervinientes_queries;
+  "intervinientes/settings": typeof intervinientes_settings;
   "migrations/addEventPreferences": typeof migrations_addEventPreferences;
   "migrations/bulkUserMigration": typeof migrations_bulkUserMigration;
   "migrations/clerkHelpers": typeof migrations_clerkHelpers;
@@ -364,6 +388,14 @@ declare const fullApi: ApiFromModules<{
   "migrations/sendAnnouncement": typeof migrations_sendAnnouncement;
   "migrations/tutorial_init": typeof migrations_tutorial_init;
   "migrations/types": typeof migrations_types;
+  notifications: typeof notifications;
+  "pjn/accounts": typeof pjn_accounts;
+  "pjn/caseHistory": typeof pjn_caseHistory;
+  "pjn/caseHistoryJobs": typeof pjn_caseHistoryJobs;
+  "pjn/cronHandlers": typeof pjn_cronHandlers;
+  "pjn/sync": typeof pjn_sync;
+  "pjn/trigger": typeof pjn_trigger;
+  "pjn/vinculados": typeof pjn_vinculados;
   prosemirror: typeof prosemirror;
   "rag/qdrantUtils/caseDocuments": typeof rag_qdrantUtils_caseDocuments;
   "rag/qdrantUtils/client": typeof rag_qdrantUtils_client;
@@ -382,10 +414,14 @@ declare const fullApi: ApiFromModules<{
   stripe: typeof stripe;
   "utils/fallosService": typeof utils_fallosService;
   "utils/gcs": typeof utils_gcs;
+  "utils/identifierParser": typeof utils_identifierParser;
+  "utils/intervinienteRoleMapping": typeof utils_intervinienteRoleMapping;
   "utils/legislationService": typeof utils_legislationService;
+  "utils/pjnConstants": typeof utils_pjnConstants;
   "utils/resend": typeof utils_resend;
   "whatsapp/twilio": typeof whatsapp_twilio;
   "whatsapp/whatsapp": typeof whatsapp_whatsapp;
+  "workflows/pjnCaseHistoryWorkflow": typeof workflows_pjnCaseHistoryWorkflow;
 }>;
 
 /**

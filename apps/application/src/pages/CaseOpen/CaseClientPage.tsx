@@ -1,10 +1,9 @@
 import ClientsTable from "@/components/Clients/ClientsTable";
 import { useQuery } from "convex/react";
 import { api } from "../../../convex/_generated/api";
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useCase } from "@/context/CaseContext";
 import SyncNewClientDialog from "@/components/Cases/SyncNewClientDialog";
-import { useState } from "react";
 import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import CaseLayout from "@/components/Cases/CaseLayout";
@@ -14,6 +13,8 @@ import { PermissionToasts } from "@/lib/permissionToasts";
 export default function CaseClientsPage() {
   const { currentCase, isLoading, error, caseId } = useCase();
   const { can } = usePermissions();
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 20;
   const [isSyncNewClientDialogOpen, setIsSyncNewClientDialogOpen] =
     useState(false);
 
@@ -26,19 +27,26 @@ export default function CaseClientsPage() {
   };
 
   const clientsResult = useQuery(
-    api.functions.cases.getClientsForCase,
-    caseId ? { caseId } : "skip",
+    api.functions.cases.getClientsForCasePaginated,
+    caseId
+      ? {
+          caseId,
+          paginationOpts: {
+            numItems: pageSize,
+            cursor: ((currentPage - 1) * pageSize).toString(),
+          },
+        }
+      : "skip",
   );
 
-  const transformedClientsResult = useMemo(() => {
-    if (!clientsResult) return null;
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [caseId]);
 
-    return {
-      page: clientsResult,
-      isDone: true,
-      continueCursor: undefined,
-    };
-  }, [clientsResult]);
+  const transformedClientsResult = useMemo(
+    () => clientsResult ?? null,
+    [clientsResult],
+  );
 
   if (isLoading) {
     return (
@@ -63,17 +71,22 @@ export default function CaseClientsPage() {
 
   return (
     <CaseLayout>
-      <section className=" w-full h-full flex flex-col px-5  gap-2">
+      <section className="w-full h-full flex flex-col px-5 gap-2">
         <div className="flex justify-between items-center">
           <h1 className="text-2xl font-bold">Clientes </h1>
           <Button onClick={handleAddClient}>
             <Plus size={15} />
           </Button>
         </div>
-        <ClientsTable
-          clientsResult={transformedClientsResult}
-          caseId={caseId!}
-        />
+        <div className="flex-1 min-h-0 overflow-y-auto">
+          <ClientsTable
+            clientsResult={transformedClientsResult}
+            caseId={caseId!}
+            currentPage={currentPage}
+            pageSize={pageSize}
+            onPageChange={setCurrentPage}
+          />
+        </div>
         <SyncNewClientDialog
           open={isSyncNewClientDialogOpen}
           onOpenChange={setIsSyncNewClientDialogOpen}

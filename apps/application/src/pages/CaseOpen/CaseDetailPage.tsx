@@ -12,6 +12,7 @@ import {
   FileType2,
   Settings,
   Calendar,
+  Link2,
 } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { useQuery } from "convex/react";
@@ -25,11 +26,21 @@ import {
 } from "../../components/ui/dialog";
 import { useState } from "react";
 import CaseStatusSelector from "@/components/Cases/CaseStatusSelector";
+import { 
+  PjnSyncStatus, 
+  PjnMovementsCard, 
+  PjnIntervinientesSummary, 
+  PjnVinculadosSummary 
+} from "@/components/Cases/PjnHistory";
+import { IntervinientesPanel } from "@/components/Cases/IntervinientesPanel";
+import { CaseVinculadosPanel } from "@/components/Cases/CaseVinculadosPanel";
 
 export default function CaseDetailPage() {
   const { currentCase } = useCase();
   const [isDocumentsDialogOpen, setIsDocumentsDialogOpen] = useState(false);
   const [isEscritosDialogOpen, setIsEscritosDialogOpen] = useState(false);
+  const [isIntervinientesDialogOpen, setIsIntervinientesDialogOpen] = useState(false);
+  const [isVinculadosDialogOpen, setIsVinculadosDialogOpen] = useState(false);
   const navigate = useNavigate();
 
   // Queries para métricas
@@ -56,6 +67,10 @@ export default function CaseDetailPage() {
   );
   const caseEvents = useQuery(
     api.functions.events.getCaseEvents,
+    currentCase ? { caseId: currentCase._id } : "skip",
+  );
+  const vinculados = useQuery(
+    api.pjn.vinculados.listForCase,
     currentCase ? { caseId: currentCase._id } : "skip",
   );
 
@@ -244,6 +259,28 @@ export default function CaseDetailPage() {
               </div>
             </div>
           </Link>
+        </div>
+
+        {/* PJN History Section */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="lg:col-span-2">
+            <PjnMovementsCard caseId={currentCase._id} />
+          </div>
+          <div className="space-y-6">
+            <PjnSyncStatus 
+              caseId={currentCase._id} 
+              fre={currentCase.fre} 
+              lastSyncAt={currentCase.lastPjnHistorySyncAt}
+            />
+            <PjnIntervinientesSummary 
+              caseId={currentCase._id} 
+              onViewDetail={() => setIsIntervinientesDialogOpen(true)}
+            />
+            <PjnVinculadosSummary 
+              caseId={currentCase._id} 
+              onViewDetail={() => setIsVinculadosDialogOpen(true)}
+            />
+          </div>
         </div>
 
         {/* Información del Caso */}
@@ -498,6 +535,53 @@ export default function CaseDetailPage() {
               </div>
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog de Intervinientes */}
+      <Dialog
+        open={isIntervinientesDialogOpen}
+        onOpenChange={setIsIntervinientesDialogOpen}
+      >
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-xl">
+              <Users className="h-5 w-5 text-tertiary" />
+              Intervinientes (PJN)
+            </DialogTitle>
+            <DialogDescription>
+              Gestiona la vinculación de intervinientes del PJN con clientes en iAlex.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            {currentCase && <IntervinientesPanel caseId={currentCase._id} />}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog de Vinculados */}
+      <Dialog
+        open={isVinculadosDialogOpen}
+        onOpenChange={setIsVinculadosDialogOpen}
+      >
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-xl">
+              <Link2 className="h-5 w-5 text-tertiary" />
+              Expedientes Vinculados
+            </DialogTitle>
+            <DialogDescription>
+              Expedientes relacionados reportados por el PJN.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            {currentCase && (
+              <CaseVinculadosPanel
+                caseId={currentCase._id}
+                vinculados={vinculados}
+              />
+            )}
+          </div>
         </DialogContent>
       </Dialog>
     </CaseLayout>
