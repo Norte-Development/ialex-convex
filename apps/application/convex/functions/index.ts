@@ -69,6 +69,8 @@ export {
   getModelos,
   getModelo,
   searchModelos,
+  updateModelo,
+  deleteModelo,
   incrementModeloUsage,
   internalGetModelo,
   internalSearchModelos,

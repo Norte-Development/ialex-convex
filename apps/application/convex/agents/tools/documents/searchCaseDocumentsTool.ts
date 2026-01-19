@@ -2,7 +2,7 @@ import { createTool, ToolCtx, getThreadMetadata } from "@convex-dev/agent";
 import { components } from "../../../_generated/api";
 import { api, internal } from "../../../_generated/api";
 import { z } from "zod";
-import { getUserAndCaseIds, createErrorResponse, validateStringParam, validateNumberParam } from "../shared/utils";
+import { getUserAndCaseIds, createErrorResponse } from "../shared/utils";
 import { Id } from "../../../_generated/dataModel";
 import { createCaseDocumentsSearchTemplate, createCaseDocumentsNoResultsTemplate } from "./templates";
 
@@ -26,15 +26,23 @@ import { createCaseDocumentsSearchTemplate, createCaseDocumentsNoResultsTemplate
  *   contextWindow: 6
  * });
  */
+/**
+ * Schema for searchCaseDocumentsTool arguments.
+ * All fields have defaults to satisfy OpenAI's JSON schema requirements.
+ */
+const searchCaseDocumentsToolArgs = z.object({
+  query: z.string().describe("The search query text to find relevant case documents"),
+  limit: z.number().int().min(1).max(50).default(10).describe("Maximum number of initial results to return (default: 10)"),
+  contextWindow: z.number().int().min(1).max(20).default(4).describe("Number of adjacent chunks to include for context expansion (default: 4)"),
+  caseId: z.string().default("").describe("Optional case ID. If provided, will use this case instead of extracting from context. Used for WhatsApp agent. Empty string to omit.")
+});
+
+type SearchCaseDocumentsToolArgs = z.infer<typeof searchCaseDocumentsToolArgs>;
+
 export const searchCaseDocumentsTool = createTool({
   description: "Search case documents using dense embeddings with semantic chunk clustering. Provides coherent context by grouping related chunks and expanding context windows.",
-  args: z.object({
-    query: z.any().describe("The search query text to find relevant case documents"),
-    limit: z.any().optional().describe("Maximum number of initial results to return (default: 10)"),
-    contextWindow: z.any().optional().describe("Number of adjacent chunks to include for context expansion (default: 4)"),
-    caseId: z.any().optional().describe("Optional case ID. If provided, will use this case instead of extracting from context. Used for WhatsApp agent.")
-  }).required({query: true}),
-  handler: async (ctx: ToolCtx, args: any) => {
+  args: searchCaseDocumentsToolArgs,
+  handler: async (ctx: ToolCtx, args: SearchCaseDocumentsToolArgs) => {
     try {
       // Get userId first
       const userAndCase = getUserAndCaseIds(ctx.userId as string);
@@ -61,8 +69,8 @@ export const searchCaseDocumentsTool = createTool({
         }
       }
 
-      // If no caseId from context, use the one from args (for WhatsApp agent)
-      if (!caseId && args.caseId) {
+      // If no caseId from context, use the one from args (for WhatsApp agent) - empty string means not provided
+      if (!caseId && args.caseId && args.caseId.trim() !== "") {
         caseId = args.caseId;
       }
 
@@ -81,18 +89,13 @@ export const searchCaseDocumentsTool = createTool({
         requiredLevel: "basic"
       } )
 
-      // Validate inputs in handler
-      const queryError = validateStringParam(args.query, "query");
-      if (queryError) return queryError;
+      // Validate query is not empty
+      if (!args.query || args.query.trim() === "") {
+        return createErrorResponse("Se requiere un término de búsqueda (query)");
+      }
 
-      const limitError = validateNumberParam(args.limit, "limit", 1, 50, 10);
-      if (limitError) return limitError;
-
-      const contextWindowError = validateNumberParam(args.contextWindow, "contextWindow", 1, 20, 4);
-      if (contextWindowError) return contextWindowError;
-
-      const limit = args.limit !== undefined ? args.limit : 10;
-      const contextWindow = args.contextWindow !== undefined ? args.contextWindow : 4;
+      const limit = args.limit;
+      const contextWindow = args.contextWindow;
 
       // Call the action to perform the search with clustering
       const searchResult = await ctx.runAction(api.rag.qdrantUtils.caseDocuments.searchCaseDocumentsWithClustering, {

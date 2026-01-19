@@ -13,6 +13,7 @@ import {
   FileType2,
   Settings,
   Calendar,
+  CheckSquare,
 } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { useQuery } from "convex/react";
@@ -26,6 +27,7 @@ import {
 } from "../../components/ui/dialog";
 import { useState } from "react";
 import CaseStatusSelector from "@/components/Cases/CaseStatusSelector";
+import { WorkPlanQuickAccess } from "@/components/Cases/WorkPlan/WorkPlanQuickAccess";
 
 export default function CaseDetailPage() {
   const { currentCase } = useCase();
@@ -58,6 +60,17 @@ export default function CaseDetailPage() {
   const caseEvents = useQuery(
     api.functions.events.getCaseEvents,
     currentCase ? { caseId: currentCase._id } : "skip",
+  );
+
+  // Query para tareas del caso
+  const todoLists = useQuery(
+    api.functions.todos.listTodoListsByCase,
+    currentCase ? { caseId: currentCase._id } : "skip",
+  );
+  const primaryTodoList = todoLists?.[0];
+  const tasks = useQuery(
+    api.functions.todos.listTodoItemsByList,
+    primaryTodoList ? { listId: primaryTodoList._id } : "skip",
   );
 
   const formatDate = (timestamp: number) => {
@@ -189,6 +202,25 @@ export default function CaseDetailPage() {
           </Link>
 
           <Link
+            to={`/caso/${currentCase._id}/tareas`}
+            className="group cursor-pointer"
+          >
+            <div className="space-y-2 p-6 rounded-lg border border-tertiary hover:border-tertiary/80 transition-colors min-h-[140px]">
+              <div className="flex items-center justify-between">
+                <CheckSquare className="h-5 w-5 text-tertiary group-hover:text-tertiary/80 transition-colors" />
+                <ArrowRight className="h-4 w-4 text-tertiary group-hover:text-tertiary/80 transition-colors" />
+              </div>
+              <div>
+                <div className="text-3xl font-light text-gray-900">
+                  {tasks?.length || 0}
+                </div>
+                <div className="text-sm font-medium text-gray-900">Tareas</div>
+                <div className="text-xs text-gray-500">Plan de trabajo</div>
+              </div>
+            </div>
+          </Link>
+
+          <Link
             to={`/caso/${currentCase._id}/clientes`}
             className="group cursor-pointer"
           >
@@ -244,6 +276,8 @@ export default function CaseDetailPage() {
             manuallyEdited={currentCase.caseSummaryManuallyEdited}
           />
         </div>
+        {/* Plan de Trabajo - Acceso Rápido */}
+        <WorkPlanQuickAccess caseId={currentCase._id} />
 
         {/* Información del Caso */}
         <div className="space-y-6" data-tutorial="case-info">

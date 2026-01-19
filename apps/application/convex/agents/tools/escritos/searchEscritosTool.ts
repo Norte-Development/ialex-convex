@@ -26,22 +26,29 @@ import { Id } from "../../../_generated/dataModel";
  * });
  * ```
  */
+/**
+ * Schema for searchEscritosTool arguments.
+ * All fields have defaults to satisfy OpenAI's JSON schema requirements.
+ */
+const searchEscritosToolArgs = z.object({
+  query: z.string().default("").describe("The search query text to find relevant escritos. Empty to get all escritos."),
+  limit: z.number().int().min(1).max(100).default(20).describe("The maximum number of escritos to return. Default is 20."),
+  caseId: z.string().default("").describe("Optional case ID. If provided, will use this case instead of extracting from context. Used for WhatsApp agent. Empty string to omit."),
+});
+
+type SearchEscritosToolArgs = z.infer<typeof searchEscritosToolArgs>;
+
 export const searchEscritosTool = createTool({
   description: "Search for escritos in the current case by title. If query is empty, lists all escritos (within limit).",
-  args: z.object({
-    query: z.string().describe("The search query text to find relevant escritos. Empty to get all escritos."),
-    limit: z.number().optional().describe("The maximum number of escritos to return. Default is 20."),
-    caseId: z.any().optional().describe("Optional case ID. If provided, will use this case instead of extracting from context. Used for WhatsApp agent."),
-  }).required({query: true}),
-  handler: async (ctx: ToolCtx, args: any) => {
+  args: searchEscritosToolArgs,
+  handler: async (ctx: ToolCtx, args: SearchEscritosToolArgs) => {
     try {
-      const { query, limit } = args;
       const userAndCase = getUserAndCaseIds(ctx.userId as string);
       let userId = userAndCase.userId;
       let caseId: string | null = null;
 
-      // If caseId is provided in args, use it (for WhatsApp agent)
-      if (args.caseId) {
+      // If caseId is provided in args, use it (for WhatsApp agent) - empty string means not provided
+      if (args.caseId && args.caseId.trim() !== "") {
         caseId = args.caseId;
       } else {
         // Otherwise, try to get it from context
@@ -62,8 +69,8 @@ export const searchEscritosTool = createTool({
         requiredLevel: "basic"
       });
 
-      const searchLimit = limit || 20;
-      const searchQuery = query.trim();
+      const searchLimit = args.limit;
+      const searchQuery = args.query.trim();
 
       // Get all escritos for the case
       const allEscritos = await ctx.runQuery(internal.functions.documents.getEscritosForAgent, {

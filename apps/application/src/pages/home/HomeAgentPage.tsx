@@ -27,6 +27,8 @@ import { toast } from "sonner";
 import { HomeAgentAttachmentPreview } from "@/components/HomeAgent/HomeAgentAttachmentPreview";
 import type { HomeAgentMediaRef } from "@/components/HomeAgent/types";
 import { HOME_AGENT_MAX_MEDIA_BYTES } from "@/components/HomeAgent/types";
+import { AlertCircle } from "lucide-react";
+import { parseAiLimitError } from "@/lib/aiLimitError";
 
 export default function HomeAgentPage() {
   const navigate = useNavigate();
@@ -34,6 +36,7 @@ export default function HomeAgentPage() {
   const [isCreating, setIsCreating] = useState(false);
   const [mediaAttachments, setMediaAttachments] = useState<HomeAgentMediaRef[]>([]);
   const [isUploadingMedia, setIsUploadingMedia] = useState(false);
+  const [sendError, setSendError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const getUploadUrl = useAction(api.agents.home.media.getHomeMediaUploadUrl);
@@ -165,6 +168,7 @@ export default function HomeAgentPage() {
     if (!inputValue.trim() || isCreating || isUploadingMedia) return;
 
     const message = inputValue.trim();
+    setSendError(null);
     setIsCreating(true);
 
     try {
@@ -177,6 +181,27 @@ export default function HomeAgentPage() {
       }
     } catch (error) {
       console.error("Error creating thread:", error);
+      const { isAiLimit, isTeamLimit, message: parsedMessage } =
+        parseAiLimitError(error);
+
+      if (isAiLimit) {
+        const friendlyMessage = isTeamLimit
+          ? "Tu equipo ha alcanzado el límite mensual de mensajes de IA."
+          : "Has alcanzado tu límite mensual de mensajes de IA.";
+        setSendError(friendlyMessage);
+        toast.error("Límite de mensajes de IA alcanzado", {
+          description: friendlyMessage,
+        });
+      } else {
+        const fallbackMessage =
+          error instanceof Error
+            ? error.message
+            : parsedMessage || "Error al enviar el mensaje";
+        setSendError(fallbackMessage);
+        toast.error("Error al enviar mensaje", {
+          description: fallbackMessage,
+        });
+      }
     } finally {
       setIsCreating(false);
     }
@@ -233,6 +258,13 @@ export default function HomeAgentPage() {
                     Las respuestas con búsqueda web son más propensas a alucinaciones. Verifica siempre la información con fuentes confiables antes de usarla en tu caso.
                   </AlertDescription>
                 </Alert>
+              </div>
+            )}
+
+            {sendError && (
+              <div className="mb-2 flex items-center gap-2 rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
+                <AlertCircle className="h-4 w-4" />
+                <span>{sendError}</span>
               </div>
             )}
 

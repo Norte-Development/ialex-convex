@@ -5,6 +5,21 @@ import { createErrorResponse, validateStringParam, validateNumberParam, getUserA
 import { Id } from "../../../_generated/dataModel";
 
 /**
+ * Citation type for library document citations
+ */
+interface LibraryDocumentCitation {
+  id: string;
+  type: "doc";
+  title: string;
+}
+
+/**
+ * Return type for searchLibraryDocumentsTool handler.
+ * Returns either a markdown string or an object with markdown and citations.
+ */
+export type SearchLibraryDocumentsToolResult = string | { markdown: string; citations: LibraryDocumentCitation[] };
+
+/**
  * Tool for searching library documents using dense embeddings with semantic chunk clustering.
  * Searches across user's personal library and all accessible team libraries.
  *
@@ -24,14 +39,24 @@ import { Id } from "../../../_generated/dataModel";
  *   contextWindow: 6
  * });
  */
+/**
+ * Schema for searchLibraryDocumentsTool arguments
+ */
+const searchLibraryDocumentsToolArgs = z.object({
+  query: z.string().describe("The search query text to find relevant library documents"),
+  limit: z.number().int().min(1).max(50).default(10).describe("Maximum number of initial results to return (default: 10)"),
+  contextWindow: z.number().int().min(1).max(20).default(4).describe("Number of adjacent chunks to include for context expansion (default: 4)")
+});
+
+/**
+ * Type for searchLibraryDocumentsTool arguments
+ */
+type SearchLibraryDocumentsToolArgs = z.infer<typeof searchLibraryDocumentsToolArgs>;
+
 export const searchLibraryDocumentsTool = createTool({
   description: "Search library documents using dense embeddings with semantic chunk clustering. Searches across your personal library and all team libraries you have access to. Use this to find relevant reference documents, templates, legal precedents, and knowledge base articles.",
-  args: z.object({
-    query: z.any().describe("The search query text to find relevant library documents"),
-    limit: z.any().optional().describe("Maximum number of initial results to return (default: 10)"),
-    contextWindow: z.any().optional().describe("Number of adjacent chunks to include for context expansion (default: 4)")
-  }).required({query: true}),
-  handler: async (ctx: ToolCtx, args: any) => {
+  args: searchLibraryDocumentsToolArgs,
+  handler: async (ctx: ToolCtx, args: SearchLibraryDocumentsToolArgs): Promise<SearchLibraryDocumentsToolResult> => {
     try {
       // Verify authentication using agent context
       if (!ctx.userId) {
@@ -48,8 +73,8 @@ export const searchLibraryDocumentsTool = createTool({
       const contextWindowError = validateNumberParam(args.contextWindow, "contextWindow", 1, 20, 4);
       if (contextWindowError) return contextWindowError;
 
-      const limit = args.limit !== undefined ? args.limit : 10;
-      const contextWindow = args.contextWindow !== undefined ? args.contextWindow : 4;
+      const limit = args.limit ?? 10;
+      const contextWindow = args.contextWindow ?? 4;
 
       // Extract userId from agent context using shared utility
       const {caseId, userId} = getUserAndCaseIds(ctx.userId as string);
@@ -59,7 +84,7 @@ export const searchLibraryDocumentsTool = createTool({
         userId: userId as Id<"users">
       });
 
-      const teamIds = teamMemberships.map(m => String(m.teamId));
+      const teamIds = teamMemberships.map((m: { teamId: Id<"teams"> }) => String(m.teamId));
 
       console.log("Searching library documents:", { userId, teamIds, query: args.query, limit, contextWindow });
 
@@ -73,8 +98,8 @@ export const searchLibraryDocumentsTool = createTool({
       });
 
       // Handle both old (string) and new (object) return formats for backward compatibility
-      const resultsText = typeof searchResult === 'string' ? searchResult : searchResult.text;
-      const libraryDocumentIds = typeof searchResult === 'string' ? [] : (searchResult.documentIds || []);
+      const resultsText: string = typeof searchResult === 'string' ? searchResult : searchResult.text;
+      const libraryDocumentIds: string[] = typeof searchResult === 'string' ? [] : (searchResult.documentIds || []);
 
       if (!resultsText || resultsText.length === 0) {
         return `# 🔍 Búsqueda en Biblioteca
@@ -98,7 +123,7 @@ No se encontraron documentos en tu biblioteca que coincidan con esta búsqueda.
 *Búsqueda completada sin resultados.*`;
       }
 
-      const markdown = `# 🔍 Búsqueda en Biblioteca
+      const markdown: string = `# 🔍 Búsqueda en Biblioteca
 
 ## Consulta
 "${args.query.trim()}"
@@ -124,20 +149,23 @@ ${resultsText}
           limit: 200,
           offset: 0,
         });
-        const docs = accessible.documents;
+        const docs: Array<{ _id: string; title?: string; description?: string }> = accessible.documents;
 
-        const citations = libraryDocumentIds
-          .map((id: string) => docs.find((d: any) => d._id === id))
-          .filter(Boolean)
-          .map((doc: any) => ({
-            id: doc._id,
-            type: "doc" as const,
-            title: doc.title || doc.description || "Documento de biblioteca",
-          }));
+        const citations: LibraryDocumentCitation[] = libraryDocumentIds
+          .map((id: string): LibraryDocumentCitation | null => {
+            const doc = docs.find((d) => d._id === id);
+            if (!doc) return null;
+            return {
+              id: doc._id,
+              type: "doc" as const,
+              title: doc.title || doc.description || "Documento de biblioteca",
+            };
+          })
+          .filter((citation): citation is LibraryDocumentCitation => citation !== null);
 
         if (citations.length > 0) {
           console.log(`📚 [Citations] Creating citations from ${citations.length} library document search results`);
-          citations.forEach((c) => console.log(`  📖 Citation created:`, c));
+          citations.forEach((c: LibraryDocumentCitation) => console.log(`  📖 Citation created:`, c));
           console.log(`✅ [Citations] Total citations created: ${citations.length}`);
           console.log(`📤 [Citations] Returning tool output with ${citations.length} citations`);
           return { markdown, citations };
@@ -150,5 +178,5 @@ ${resultsText}
       return createErrorResponse(`Error inesperado: ${error instanceof Error ? error.message : 'Error desconocido'}`);
     }
   }
-} as any);
+});
 
