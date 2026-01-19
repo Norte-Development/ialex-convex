@@ -143,7 +143,7 @@ export function PjnCaseHistorySearch() {
                 <AlertDescription className="text-emerald-800 dark:text-emerald-300">
                   <div className="space-y-1">
                     <p className="font-semibold">Búsqueda exitosa</p>
-                    <p>FRE: <span className="font-mono">{result.fre}</span></p>
+                    <p><span className="font-mono">{result.fre}</span></p>
                     {result.cid && (
                       <p>CID seleccionado: <span className="font-mono">{result.cid}</span></p>
                     )}

@@ -185,125 +185,126 @@ export function IntervinientesPanel({ caseId }: IntervinientesPanelProps) {
         </Button>
       </div>
 
-      {/* Participants Table */}
+      {/* Participants List */}
       {participants.length === 0 ? (
         <EmptyState />
       ) : (
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Rol</TableHead>
-              <TableHead>Nombre</TableHead>
-              <TableHead>Identificador</TableHead>
-              <TableHead>Cliente vinculado</TableHead>
-              <TableHead className="w-[100px]">Acciones</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {participants.map((p) => (
-              <TableRow key={p._id}>
-                <TableCell>
-                  <TooltipProvider>
-                    <Tooltip>
-                      <TooltipTrigger>
-                        <Badge
-                          variant={getBadgeVariant(p.mappedRole.side)}
-                          className="whitespace-nowrap"
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {participants.map((p) => (
+            <div
+              key={p._id}
+              className="relative flex flex-col p-4 bg-white rounded-xl border border-gray-100 shadow-sm hover:border-blue-100 hover:shadow-md transition-all duration-200"
+            >
+              <div className="flex items-start justify-between mb-3">
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger>
+                      <Badge
+                        variant={getBadgeVariant(p.mappedRole.side)}
+                        className="whitespace-nowrap px-2.5 py-0.5 font-medium"
+                      >
+                        {p.role}
+                      </Badge>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>Rol local: {p.mappedRole.displayNameEs}</p>
+                      <p className="text-xs text-gray-400">
+                        Parte: {getSideLabel(p.mappedRole.side)}
+                      </p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-8 w-8 p-0 rounded-full hover:bg-gray-50"
+                    >
+                      <MoreHorizontal className="h-4 w-4 text-gray-400" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-56">
+                    {p.link ? (
+                      <>
+                        {(p.link.linkType === "AUTO_LOW_CONFIDENCE" ||
+                          p.link.linkType === "AUTO_HIGH_CONFIDENCE") && (
+                          <DropdownMenuItem
+                            onClick={() => handleConfirmLink(p.link!._id)}
+                            className="text-green-600 focus:text-green-700 focus:bg-green-50"
+                          >
+                            <CheckCircle className="mr-2 h-4 w-4" />
+                            Confirmar vínculo
+                          </DropdownMenuItem>
+                        )}
+                        <DropdownMenuItem onClick={() => openLinkDialog(p._id)}>
+                          <Link2 className="mr-2 h-4 w-4" />
+                          Cambiar cliente
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem
+                          onClick={() => handleUnlink(p.link!._id)}
+                          className="text-red-600 focus:text-red-700 focus:bg-red-50"
                         >
-                          {p.role}
-                        </Badge>
-                      </TooltipTrigger>
-                      <TooltipContent>
-                        <p>Rol local: {p.mappedRole.displayNameEs}</p>
-                        <p className="text-xs text-gray-400">
-                          Parte: {getSideLabel(p.mappedRole.side)}
-                        </p>
-                      </TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
-                </TableCell>
-                <TableCell className="font-medium">{p.name}</TableCell>
-                <TableCell>
-                  {p.iejp ? (
-                    <TooltipProvider>
-                      <Tooltip>
-                        <TooltipTrigger>
-                          <span className="font-mono text-sm text-gray-600">
-                            {p.documentType && p.documentType !== "UNKNOWN"
-                              ? `${p.documentType}: ${p.documentNumber}`
-                              : p.iejp}
-                          </span>
-                        </TooltipTrigger>
-                        <TooltipContent>
-                          <p>I.E.J: {p.iejp}</p>
-                          {p.documentType && <p>Tipo: {p.documentType}</p>}
-                        </TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
-                  ) : (
-                    <span className="text-gray-400">-</span>
-                  )}
-                </TableCell>
-                <TableCell>
+                          <Unlink className="mr-2 h-4 w-4" />
+                          Desvincular
+                        </DropdownMenuItem>
+                      </>
+                    ) : (
+                      <>
+                        <DropdownMenuItem onClick={() => openLinkDialog(p._id)}>
+                          <Link2 className="mr-2 h-4 w-4" />
+                          Vincular a cliente existente
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => openCreateClientDialog(p._id)}>
+                          <UserPlus className="mr-2 h-4 w-4" />
+                          Crear cliente
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem
+                          onClick={() => handleIgnore(p._id)}
+                          className="text-gray-600"
+                        >
+                          <XCircle className="mr-2 h-4 w-4 text-gray-400" />
+                          Ignorar
+                        </DropdownMenuItem>
+                      </>
+                    )}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
+
+              <div className="space-y-1 mb-4 flex-1">
+                <h4 className="font-semibold text-gray-900 line-clamp-1">{p.name}</h4>
+                {p.iejp ? (
+                  <div className="flex items-center gap-1.5 text-xs text-gray-500 font-mono">
+                    <span className="opacity-70">
+                      {p.documentType && p.documentType !== "UNKNOWN"
+                        ? `${p.documentType}:`
+                        : "IEJ:"}
+                    </span>
+                    <span>{p.documentNumber || p.iejp}</span>
+                  </div>
+                ) : (
+                  <span className="text-xs text-gray-400">Sin identificador</span>
+                )}
+              </div>
+
+              <div className="mt-auto pt-3 border-t border-gray-50">
+                <div className="flex flex-col gap-2">
+                  <span className="text-[10px] uppercase tracking-wider font-semibold text-gray-400">
+                    Estado de vinculación
+                  </span>
                   <LinkStatusCell
                     link={p.link}
                     onConfirm={() => p.link && handleConfirmLink(p.link._id)}
                   />
-                </TableCell>
-                <TableCell>
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                        <MoreHorizontal className="h-4 w-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      {p.link ? (
-                        <>
-                          {(p.link.linkType === "AUTO_LOW_CONFIDENCE" ||
-                            p.link.linkType === "AUTO_HIGH_CONFIDENCE") && (
-                            <DropdownMenuItem onClick={() => handleConfirmLink(p.link!._id)}>
-                              <CheckCircle className="mr-2 h-4 w-4 text-green-500" />
-                              Confirmar vínculo
-                            </DropdownMenuItem>
-                          )}
-                          <DropdownMenuItem onClick={() => openLinkDialog(p._id)}>
-                            <Link2 className="mr-2 h-4 w-4" />
-                            Cambiar cliente
-                          </DropdownMenuItem>
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem
-                            onClick={() => handleUnlink(p.link!._id)}
-                            className="text-red-600"
-                          >
-                            <Unlink className="mr-2 h-4 w-4" />
-                            Desvincular
-                          </DropdownMenuItem>
-                        </>
-                      ) : (
-                        <>
-                          <DropdownMenuItem onClick={() => openLinkDialog(p._id)}>
-                            <Link2 className="mr-2 h-4 w-4" />
-                            Vincular a cliente existente
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => openCreateClientDialog(p._id)}>
-                            <UserPlus className="mr-2 h-4 w-4" />
-                            Crear cliente
-                          </DropdownMenuItem>
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem onClick={() => handleIgnore(p._id)}>
-                            <XCircle className="mr-2 h-4 w-4 text-gray-400" />
-                            Ignorar
-                          </DropdownMenuItem>
-                        </>
-                      )}
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
       )}
 
       {/* Link to Existing Client Dialog */}

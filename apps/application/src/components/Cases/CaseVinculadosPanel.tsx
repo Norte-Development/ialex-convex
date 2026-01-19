@@ -158,79 +158,99 @@ export function CaseVinculadosPanel({
         <section className="space-y-3">
           <div className="flex items-center justify-between">
             <div>
-              <h2 className="text-sm font-medium text-gray-900">
+              <h2 className="text-sm font-semibold text-gray-900">
                 Casos vinculados en iAlex
               </h2>
               <p className="text-xs text-muted-foreground">
                 Expedientes que ya tienen un caso asociado en iAlex.
               </p>
             </div>
-            <Badge variant="outline">{linked.length}</Badge>
+            <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-100">
+              {linked.length}
+            </Badge>
           </div>
 
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="w-[160px]">Expediente</TableHead>
-                <TableHead>Carátula PJN</TableHead>
-                <TableHead>Tribunal</TableHead>
-                <TableHead>Caso en iAlex</TableHead>
-                <TableHead className="w-[120px] text-right">Acciones</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {linked.map((v) => (
-                <TableRow key={v._id}>
-                  <TableCell className="font-mono text-xs font-medium">
-                    {formatExpediente(v.vinculadoMeta)}
-                  </TableCell>
-                  <TableCell className="max-w-xs truncate text-sm">
-                    {v.vinculadoMeta.caratula || "Sin carátula"}
-                  </TableCell>
-                  <TableCell className="text-sm">
-                    {v.vinculadoMeta.court || "-"}
-                  </TableCell>
-                  <TableCell>
-                    {v.linkedCase ? (
-                      <div className="space-y-1">
-                        <div className="flex items-center gap-2">
-                          <CheckCircle2 className="h-4 w-4 text-emerald-500" />
-                          <span className="text-sm font-medium">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {linked.map((v) => (
+              <div
+                key={v._id}
+                className="flex flex-col p-4 bg-white rounded-xl border border-gray-100 shadow-sm hover:border-emerald-100 hover:shadow-md transition-all duration-200"
+              >
+                <div className="flex items-start justify-between mb-3">
+                  <div className="flex flex-col gap-1">
+                    <span className="font-mono text-[10px] font-bold text-gray-400 uppercase tracking-wider">
+                      Expediente
+                    </span>
+                    <span className="font-mono text-sm font-semibold text-gray-700">
+                      {formatExpediente(v.vinculadoMeta)}
+                    </span>
+                  </div>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="h-8 w-8 p-0 rounded-full hover:bg-emerald-50 hover:text-emerald-600"
+                    onClick={() => handleOpenCase(v.linkedCase!.caseId)}
+                  >
+                    <ExternalLink className="h-4 w-4" />
+                  </Button>
+                </div>
+
+                <div className="space-y-2 mb-4 flex-1">
+                  <div>
+                    <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">
+                      Carátula PJN
+                    </span>
+                    <p className="text-sm text-gray-900 font-medium line-clamp-2">
+                      {v.vinculadoMeta.caratula || "Sin carátula"}
+                    </p>
+                  </div>
+                  <div>
+                    <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">
+                      Tribunal
+                    </span>
+                    <p className="text-xs text-gray-600 truncate">
+                      {v.vinculadoMeta.court || "-"}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="mt-auto pt-3 border-t border-gray-50 bg-emerald-50/30 -mx-4 -mb-4 p-4 rounded-b-xl">
+                  {v.linkedCase ? (
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <CheckCircle2 className="h-4 w-4 text-emerald-500 shrink-0" />
+                        <div className="min-w-0">
+                          <p className="text-sm font-semibold text-gray-900 truncate">
                             {v.linkedCase.title}
-                          </span>
-                        </div>
-                        <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                          {v.linkedCase.fre && (
-                            <span className="font-mono">
-                              FRE: {v.linkedCase.fre}
+                          </p>
+                          <div className="flex items-center gap-2 text-[10px] text-gray-500">
+                            {v.linkedCase.fre && (
+                              <span className="font-mono">FRE: {v.linkedCase.fre}</span>
+                            )}
+                            <span className="capitalize px-1.5 py-0.5 rounded-full bg-white border border-gray-100">
+                              {v.linkedCase.status}
                             </span>
-                          )}
-                          <Badge variant="outline">{v.linkedCase.status}</Badge>
+                          </div>
                         </div>
                       </div>
-                    ) : (
-                      <span className="text-xs text-muted-foreground">
-                        El caso vinculado ya no existe en iAlex.
-                      </span>
-                    )}
-                  </TableCell>
-                  <TableCell className="text-right">
-                    {v.linkedCase && (
                       <Button
                         size="sm"
-                        variant="outline"
-                        className="gap-1"
+                        variant="secondary"
+                        className="bg-white hover:bg-white/80 text-xs h-7 shadow-sm border-gray-100"
                         onClick={() => handleOpenCase(v.linkedCase!.caseId)}
                       >
-                        <ExternalLink className="h-3 w-3" />
                         Abrir
                       </Button>
-                    )}
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+                    </div>
+                  ) : (
+                    <span className="text-xs text-muted-foreground">
+                      El caso vinculado ya no existe en iAlex.
+                    </span>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
         </section>
       )}
 
@@ -238,78 +258,87 @@ export function CaseVinculadosPanel({
         <section className="space-y-3">
           <div className="flex items-center justify-between">
             <div>
-              <h2 className="text-sm font-medium text-gray-900">
+              <h2 className="text-sm font-semibold text-gray-900">
                 Pendientes de crear en iAlex
               </h2>
               <p className="text-xs text-muted-foreground">
-                Expedientes que el PJN marca como vinculados pero todavía no
-                tienen un caso en iAlex.
+                Expedientes vinculados por PJN sin caso en iAlex.
               </p>
             </div>
-            <Badge variant="outline">{pending.length}</Badge>
+            <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-100">
+              {pending.length}
+            </Badge>
           </div>
 
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="w-[160px]">Expediente</TableHead>
-                <TableHead>Relación</TableHead>
-                <TableHead>Carátula PJN</TableHead>
-                <TableHead>Tribunal</TableHead>
-                <TableHead className="w-[220px] text-right">Acciones</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {pending.map((v) => (
-                <TableRow key={v._id}>
-                  <TableCell className="font-mono text-xs font-medium">
-                    {formatExpediente(v.vinculadoMeta)}
-                  </TableCell>
-                  <TableCell className="text-sm">
-                    {v.vinculadoMeta.relationshipType ? (
-                      <Badge variant="outline">
-                        {v.vinculadoMeta.relationshipType}
-                      </Badge>
-                    ) : (
-                      <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
-                        <Slash className="h-3 w-3" />
-                        Sin relación especificada
-                      </span>
-                    )}
-                  </TableCell>
-                  <TableCell className="max-w-xs truncate text-sm">
-                    {v.vinculadoMeta.caratula || "Sin carátula"}
-                  </TableCell>
-                  <TableCell className="text-sm">
-                    {v.vinculadoMeta.court || "-"}
-                  </TableCell>
-                  <TableCell className="space-x-2 text-right">
-                    <Button
-                      size="sm"
-                      className="gap-1"
-                      onClick={() => handleCreateCase(v._id)}
-                      disabled={creatingId === v._id}
-                    >
-                      <PlusCircle className="h-3 w-3" />
-                      {creatingId === v._id
-                        ? "Creando..."
-                        : "Crear caso en iAlex"}
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="gap-1"
-                      onClick={() => handleIgnore(v._id)}
-                      disabled={ignoringId === v._id}
-                    >
-                      <Slash className="h-3 w-3" />
-                      {ignoringId === v._id ? "Ignorando..." : "Ignorar"}
-                    </Button>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {pending.map((v) => (
+              <div
+                key={v._id}
+                className="flex flex-col p-4 bg-white rounded-xl border border-gray-100 shadow-sm hover:border-blue-100 hover:shadow-md transition-all duration-200"
+              >
+                <div className="flex items-start justify-between mb-3">
+                  <div className="flex flex-col gap-1">
+                    <span className="font-mono text-[10px] font-bold text-gray-400 uppercase tracking-wider">
+                      Expediente
+                    </span>
+                    <span className="font-mono text-sm font-semibold text-gray-700">
+                      {formatExpediente(v.vinculadoMeta)}
+                    </span>
+                  </div>
+                  {v.vinculadoMeta.relationshipType ? (
+                    <Badge variant="secondary" className="text-[10px] py-0 px-2 font-medium bg-blue-50 text-blue-700 border-blue-100">
+                      {v.vinculadoMeta.relationshipType}
+                    </Badge>
+                  ) : (
+                    <Badge variant="outline" className="text-[10px] py-0 px-2 font-medium text-gray-400 border-gray-100">
+                      Sin relación
+                    </Badge>
+                  )}
+                </div>
+
+                <div className="space-y-2 mb-4 flex-1">
+                  <div>
+                    <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">
+                      Carátula PJN
+                    </span>
+                    <p className="text-sm text-gray-900 font-medium line-clamp-2">
+                      {v.vinculadoMeta.caratula || "Sin carátula"}
+                    </p>
+                  </div>
+                  <div>
+                    <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">
+                      Tribunal
+                    </span>
+                    <p className="text-xs text-gray-600 truncate">
+                      {v.vinculadoMeta.court || "-"}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="mt-auto pt-3 border-t border-gray-50 flex gap-2">
+                  <Button
+                    size="sm"
+                    className="flex-1 gap-1.5 h-9 bg-blue-600 hover:bg-blue-700 text-white shadow-sm"
+                    onClick={() => handleCreateCase(v._id)}
+                    disabled={creatingId === v._id}
+                  >
+                    <PlusCircle className="h-4 w-4" />
+                    {creatingId === v._id ? "Creando..." : "Crear caso"}
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="gap-1.5 h-9 border-gray-200 hover:bg-gray-50 text-gray-600"
+                    onClick={() => handleIgnore(v._id)}
+                    disabled={ignoringId === v._id}
+                  >
+                    <Slash className="h-4 w-4" />
+                    {ignoringId === v._id ? "..." : "Ignorar"}
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </div>
         </section>
       )}
     </div>

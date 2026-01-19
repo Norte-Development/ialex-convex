@@ -3,7 +3,7 @@ import { api } from "@/../convex/_generated/api";
 import { Id } from "@/../convex/_generated/dataModel";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { RefreshCw, Loader2, AlertCircle, CheckCircle2, Clock } from "lucide-react";
+import { RefreshCw, Loader2, CheckCircle2, Clock } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { CaseHistorySyncProgress } from "../CaseHistorySyncProgress";
@@ -80,7 +80,7 @@ export function PjnSyncStatus({ caseId, fre, lastSyncAt }: PjnSyncStatusProps) {
                 : "Nunca sincronizado"}
             </p>
             {fre && (
-              <p className="text-xs font-mono text-gray-400">FRE: {fre}</p>
+              <p className="text-xs font-mono text-gray-400">{fre}</p>
             )}
           </div>
         </div>

@@ -4,7 +4,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 
 type SyncStatus = "queued" | "running" | "completed" | "failed" | "auth_required";
-type SyncPhase = "connecting" | "fetching_history" | "ingesting_movements" | "ingesting_documents" | "finalizing";
+type SyncPhase = "connecting" | "fetching_history" | "ingesting_movements" | "ingesting_documents" | "downloading_pdfs" | "finalizing";
 
 interface CaseHistorySyncProgressProps {
   status: SyncStatus;
@@ -43,6 +43,8 @@ export function CaseHistorySyncProgress({
         return "Procesando movimientos";
       case "ingesting_documents":
         return "Descargando documentos";
+      case "downloading_pdfs":
+        return "Descargando PDFs";
       case "finalizing":
         return "Finalizando sincronización";
       default:
@@ -60,6 +62,8 @@ export function CaseHistorySyncProgress({
         return "Importando movimientos del expediente";
       case "ingesting_documents":
         return "Obteniendo documentos digitalizados";
+      case "downloading_pdfs":
+        return "Descargando archivos PDF del expediente";
       case "finalizing":
         return "Completando la sincronización";
       default:
