@@ -1,5 +1,6 @@
 import { useCase } from "@/context/CaseContext";
 import CaseLayout from "@/components/Cases/CaseLayout";
+import { CaseSummaryPanel } from "@/components/Cases/CaseSummary";
 import { Badge } from "../../components/ui/badge";
 import { Button } from "../../components/ui/button";
 import {
@@ -80,20 +81,6 @@ export default function CaseDetailPage() {
     });
   };
 
-  const getStatusBadge = (status: string) => {
-    const variants: Record<
-      string,
-      { variant: "default" | "secondary" | "outline"; label: string }
-    > = {
-      pendiente: { variant: "secondary", label: "Pendiente" },
-      "en progreso": { variant: "default", label: "En Progreso" },
-      completado: { variant: "outline", label: "Completado" },
-      archivado: { variant: "outline", label: "Archivado" },
-      cancelado: { variant: "outline", label: "Cancelado" },
-    };
-    return variants[status] || { variant: "secondary", label: status };
-  };
-
   const getPriorityBadge = (priority: string) => {
     const variants: Record<string, { className: string; label: string }> = {
       high: { className: "bg-red-100 text-red-700", label: "Alta" },
@@ -113,7 +100,6 @@ export default function CaseDetailPage() {
     );
   }
 
-  const statusBadge = getStatusBadge(currentCase.status);
   const priorityBadge = getPriorityBadge(currentCase.priority);
 
   return (
@@ -278,6 +264,18 @@ export default function CaseDetailPage() {
           </Link>
         </div>
 
+        {/* Resumen del Caso */}
+        <div className="space-y-6" data-tutorial="case-summary">
+          <h2 className="text-lg font-medium text-gray-900">
+            Resumen Inteligente
+          </h2>
+          <CaseSummaryPanel
+            caseId={currentCase._id}
+            existingSummary={currentCase.caseSummary}
+            summaryUpdatedAt={currentCase.caseSummaryUpdatedAt}
+            manuallyEdited={currentCase.caseSummaryManuallyEdited}
+          />
+        </div>
         {/* Plan de Trabajo - Acceso Rápido */}
         <WorkPlanQuickAccess caseId={currentCase._id} />
 

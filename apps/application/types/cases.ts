@@ -25,4 +25,8 @@ export interface Case {
   // Access control fields (added by getCases query)
   accessLevel?: "basic" | "advanced" | "admin";
   source?: "user" | "team";
+  // AI-generated case summary fields
+  caseSummary?: string;
+  caseSummaryUpdatedAt?: number;
+  caseSummaryManuallyEdited?: boolean;
 }
