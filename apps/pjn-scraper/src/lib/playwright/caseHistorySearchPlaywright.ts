@@ -17,6 +17,11 @@ export interface CaseHistorySearchOptions {
   targetFre?: string;
   requestId?: string;
   debugStorage?: DebugStorage;
+  /**
+   * Optional safety limit for how many search result pages to paginate.
+   * Defaults to 10 pages when not provided.
+   */
+  maxPages?: number;
 }
 
 /**
@@ -65,6 +70,79 @@ export interface CaseHistorySearchResult {
   selectedCandidate: NormalizedCaseCandidate | null;
   searchHtml: string;
   cookies: string[];
+}
+
+/**
+ * Locate the paginator <ul> element associated with the case search results.
+ * Uses selectors scoped to the main results form and falls back to a global
+ * search if needed for robustness.
+ */
+async function getSearchResultsPaginatorUl(page: Page) {
+  // Primary: paginator inside the main results form
+  const formRoot = page
+    .locator('#tablaConsultaLista\\:tablaConsultaForm')
+    .first();
+  let paginator = formRoot.locator("ul.pagination").first();
+  if ((await paginator.count()) > 0) {
+    return paginator;
+  }
+
+  // Fallback: any paginator on the page (in case structure changes slightly)
+  paginator = page.locator("ul.pagination").first();
+  if ((await paginator.count()) > 0) {
+    return paginator;
+  }
+
+  return null;
+}
+
+/**
+ * Extract all numeric page labels from a paginator.
+ */
+async function getSearchResultsAllPageNumbers(
+  paginator: import("playwright").Locator,
+): Promise<number[]> {
+  const pageNumbers: number[] = [];
+  const lis = paginator.locator("li");
+  const count = await lis.count();
+
+  for (let i = 0; i < count; i++) {
+    const li = lis.nth(i);
+    const text = (await li.textContent())?.trim() ?? "";
+    const num = parseInt(text, 10);
+    if (!Number.isNaN(num)) {
+      pageNumbers.push(num);
+    }
+  }
+
+  return pageNumbers;
+}
+
+/**
+ * Find the clickable link for a specific page number in the paginator.
+ * Skips the currently active page (li.active) and returns the <a> element
+ * inside the matching <li>, if any.
+ */
+async function getSearchResultsPageLink(
+  paginator: import("playwright").Locator,
+  pageNumber: number,
+) {
+  const lis = paginator.locator("li:not(.active)");
+  const count = await lis.count();
+
+  for (let i = 0; i < count; i++) {
+    const li = lis.nth(i);
+    const text = (await li.textContent())?.trim() ?? "";
+    const num = parseInt(text, 10);
+    if (num === pageNumber) {
+      const link = li.locator("a").first();
+      if ((await link.count()) > 0) {
+        return link;
+      }
+    }
+  }
+
+  return null;
 }
 
 /**
@@ -219,23 +297,87 @@ export async function performCaseHistorySearchPlaywright(
     logger.debug("Results table not found with specific selectors, continuing anyway", { fre });
   }
 
-  // Capture the HTML
-  const searchHtml = await page.content();
+  // Step 8: Paginate over all result pages, aggregating candidates
+  const allCandidates: NormalizedCaseCandidate[] = [];
+  const candidatePages: number[] = [];
+  let currentPage = 1;
+  const maxPages = options.maxPages ?? 10;
+  let latestHtml = "";
 
-  logger.debug("Search results HTML captured", {
-    fre,
-    htmlLength: searchHtml.length,
-  });
+  while (currentPage <= maxPages) {
+    const searchHtml = await page.content();
+    latestHtml = searchHtml;
 
-  // Parse the HTML using the existing parser
-  const candidates = parseCaseSearchResultsHtml(searchHtml);
+    logger.debug("Search results HTML captured", {
+      fre,
+      page: currentPage,
+      htmlLength: searchHtml.length,
+    });
 
-  logger.info("Parsed case history search results", {
-    fre,
-    candidateCount: candidates.length,
-  });
+    const pageCandidates = parseCaseSearchResultsHtml(searchHtml);
 
-  // Apply selection logic to find the best matching candidate
+    logger.info("Parsed case history search results page", {
+      fre,
+      page: currentPage,
+      pageCandidateCount: pageCandidates.length,
+      totalCandidateCount: allCandidates.length + pageCandidates.length,
+    });
+
+    for (const candidate of pageCandidates) {
+      allCandidates.push(candidate);
+      candidatePages.push(currentPage);
+    }
+
+    // Try to move to the next page if a paginator exists
+    const paginator = await getSearchResultsPaginatorUl(page);
+    if (!paginator) {
+      break;
+    }
+
+    const allPageNumbers = await getSearchResultsAllPageNumbers(paginator);
+    const maxAvailablePage = Math.max(...allPageNumbers, 0);
+    const nextPage = currentPage + 1;
+
+    if (
+      nextPage > maxAvailablePage ||
+      !allPageNumbers.includes(nextPage)
+    ) {
+      // No additional pages to load
+      break;
+    }
+
+    const nextLink = await getSearchResultsPageLink(paginator, nextPage);
+    if (!nextLink) {
+      logger.warn("Could not find link for next search results page", {
+        fre,
+        currentPage,
+        nextPage,
+      });
+      break;
+    }
+
+    try {
+      await Promise.all([
+        nextLink.click(),
+        page.waitForLoadState("networkidle", { timeout: 15000 }),
+      ]);
+      // Small delay to allow table content to settle
+      await page.waitForTimeout(500);
+      currentPage = nextPage;
+    } catch (err) {
+      logger.warn("Failed to navigate to next search results page", {
+        fre,
+        currentPage,
+        nextPage,
+        error: err instanceof Error ? err.message : String(err),
+      });
+      break;
+    }
+  }
+
+  const candidates = allCandidates;
+
+  // Apply selection logic to find the best matching candidate across all pages
   const targetFre = options.targetFre ?? fre;
   const selection = selectCaseHistoryCandidate({
     targetFre,
@@ -249,6 +391,38 @@ export async function performCaseHistorySearchPlaywright(
     selection.selectedCandidate;
 
   if (selectedCandidate) {
+    // Ensure the Playwright page is positioned on the selected candidate's page
+    const selectedIndex = candidates.indexOf(selectedCandidate);
+    if (selectedIndex >= 0) {
+      const selectedPage = candidatePages[selectedIndex];
+      if (selectedPage && selectedPage !== currentPage) {
+        const paginator = await getSearchResultsPaginatorUl(page);
+        if (paginator) {
+          const targetLink = await getSearchResultsPageLink(
+            paginator,
+            selectedPage,
+          );
+          if (targetLink) {
+            try {
+              await Promise.all([
+                targetLink.click(),
+                page.waitForLoadState("networkidle", { timeout: 15000 }),
+              ]);
+              await page.waitForTimeout(500);
+              currentPage = selectedPage;
+              latestHtml = await page.content();
+            } catch (err) {
+              logger.warn("Failed to navigate back to selected candidate page", {
+                fre,
+                selectedPage,
+                error: err instanceof Error ? err.message : String(err),
+              });
+            }
+          }
+        }
+      }
+    }
+
     logger.info("Selected unambiguous candidate", {
       fre,
       targetFre,
@@ -275,7 +449,7 @@ export async function performCaseHistorySearchPlaywright(
   // Save parsed results to debug storage if provided
   if (debugStorage) {
     const safeFre = fre.replace(/[/\\:]/g, "_");
-    debugStorage.saveHtml(`${safeFre}_01_search`, searchHtml, {
+    debugStorage.saveHtml(`${safeFre}_01_search`, latestHtml, {
       fre,
       searchOptions: {
         jurisdiction,
@@ -307,7 +481,7 @@ export async function performCaseHistorySearchPlaywright(
     fre,
     candidates,
     selectedCandidate,
-    searchHtml,
+    searchHtml: latestHtml,
     cookies,
   };
 }
