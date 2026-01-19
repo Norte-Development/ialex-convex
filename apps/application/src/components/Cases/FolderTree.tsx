@@ -548,6 +548,7 @@ function FolderItem({
               : "No se pudo subir el documento",
           )
         }
+        accept="application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.openxmlformats-officedocument.presentationml.presentation,text/plain,text/csv,application/csv,application/vnd.ms-excel"
       />
       {open && (
         <div className="ml-4">
