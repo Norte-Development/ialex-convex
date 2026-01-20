@@ -13,14 +13,15 @@ COPY packages/shared/package.json ./packages/shared/
 COPY apps/pjn-scraper/package.json ./apps/pjn-scraper/
 
 # Install dependencies ONLY for pjn-scraper and its deps (shared)
+# This skips application and other unneeded packages
 RUN pnpm install --frozen-lockfile --filter pjn-scraper...
 
-# Copy source code for shared packages (if needed)
+# Copy source code for shared packages
 COPY packages/shared/src ./packages/shared/src/
 COPY packages/shared/tsconfig.json ./packages/shared/
 
-# Build shared packages first (if they have build scripts)
-# RUN pnpm --filter "@ialex/shared" build || true
+# Build shared packages first
+RUN pnpm --filter "@ialex/shared" build
 
 # Copy service source
 COPY apps/pjn-scraper ./apps/pjn-scraper
@@ -69,10 +70,12 @@ COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY packages/shared/package.json ./packages/shared/
 COPY apps/pjn-scraper/package.json ./apps/pjn-scraper/
 
-# Copy built artifacts from builder (shared dist files if they exist)
+# Copy built artifacts from builder (shared dist files)
+COPY --from=builder /app/packages/shared/dist ./packages/shared/dist
 COPY --from=builder /app/packages/shared/package.json ./packages/shared/
 
 # Install ONLY production dependencies for pjn-scraper
+# Using pnpm deploy creates a production-ready deployment
 WORKDIR /app
 RUN pnpm install --frozen-lockfile --prod --filter pjn-scraper...
 
@@ -82,8 +85,8 @@ WORKDIR /app/apps/pjn-scraper
 RUN pnpm exec playwright install chromium
 
 # Copy built pjn-scraper
-COPY --from=builder /app/apps/pjn-scraper/dist ./dist
-COPY --from=builder /app/apps/pjn-scraper/package.json ./
+COPY --from=builder /app/apps/pjn-scraper/dist ./apps/pjn-scraper/dist
+COPY --from=builder /app/apps/pjn-scraper/package.json ./apps/pjn-scraper/
 
 # Set working directory to the service
 WORKDIR /app/apps/pjn-scraper
@@ -92,7 +95,6 @@ WORKDIR /app/apps/pjn-scraper
 # Default to 4002 for local development
 ENV PORT=4002
 ENV NODE_ENV=production
-
 EXPOSE ${PORT}
 
 # Start the application
