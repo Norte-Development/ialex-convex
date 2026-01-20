@@ -289,7 +289,7 @@ export default function CaseDetailPage() {
             variant="ghost"
             size="sm"
             className="text-sm font-normal text-gray-700 hover:text-tertiary"
-            onClick={() => navigate(`/caso/${currentCase._id}/eventos/nuevo`)}
+            onClick={() => navigate(`/caso/${currentCase._id}/eventos`)}
           >
             <CalendarPlus className="h-4 w-4 mr-1.5" />
             Crear Evento
@@ -331,26 +331,31 @@ export default function CaseDetailPage() {
                   {/* Mostrar acciones relevantes */}
                   {parsedSummary.relevantActions.length > 0 && (
                     <div className="space-y-2">
-                      {parsedSummary.relevantActions.slice(0, 3).map((action, i) => (
-                        <div key={i} className="flex items-start gap-2 text-sm">
-                          {action.status === "completed" ? (
-                            <Check className="h-4 w-4 text-tertiary mt-0.5 shrink-0" />
-                          ) : action.status === "in_progress" ? (
-                            <Clock className="h-4 w-4 text-blue-500 mt-0.5 shrink-0" />
-                          ) : (
-                            <Circle className="h-4 w-4 text-gray-300 mt-0.5 shrink-0" />
-                          )}
-                          <span
-                            className={
-                              action.status === "completed"
-                                ? "text-tertiary"
-                                : "text-gray-600"
-                            }
+                      {parsedSummary.relevantActions
+                        .slice(0, 3)
+                        .map((action, i) => (
+                          <div
+                            key={i}
+                            className="flex items-start gap-2 text-sm"
                           >
-                            {action.action}
-                          </span>
-                        </div>
-                      ))}
+                            {action.status === "completed" ? (
+                              <Check className="h-4 w-4 text-tertiary mt-0.5 shrink-0" />
+                            ) : action.status === "in_progress" ? (
+                              <Clock className="h-4 w-4 text-blue-500 mt-0.5 shrink-0" />
+                            ) : (
+                              <Circle className="h-4 w-4 text-gray-300 mt-0.5 shrink-0" />
+                            )}
+                            <span
+                              className={
+                                action.status === "completed"
+                                  ? "text-tertiary"
+                                  : "text-gray-600"
+                              }
+                            >
+                              {action.action}
+                            </span>
+                          </div>
+                        ))}
                     </div>
                   )}
 
@@ -361,10 +366,7 @@ export default function CaseDetailPage() {
                         Próximos pasos:
                       </p>
                       {parsedSummary.nextSteps.slice(0, 2).map((step, i) => (
-                        <div
-                          key={i}
-                          className="flex items-start gap-2 text-sm"
-                        >
+                        <div key={i} className="flex items-start gap-2 text-sm">
                           <Circle className="h-3 w-3 text-tertiary/50 mt-1 shrink-0" />
                           <span className="text-gray-600">{step.step}</span>
                         </div>
@@ -385,12 +387,14 @@ export default function CaseDetailPage() {
                         ? match[1].trim()
                         : currentCase.caseSummary;
                     // Limpiar markdown headers y bullets para mostrar texto plano
-                    return content
-                      .replace(/^## .+$/gm, "")
-                      .replace(/^• /gm, "- ")
-                      .replace(/^\d+\. /gm, "")
-                      .trim()
-                      .slice(0, 300) + (content.length > 300 ? "..." : "");
+                    return (
+                      content
+                        .replace(/^## .+$/gm, "")
+                        .replace(/^• /gm, "- ")
+                        .replace(/^\d+\. /gm, "")
+                        .trim()
+                        .slice(0, 300) + (content.length > 300 ? "..." : "")
+                    );
                   })()}
                 </div>
               ) : (
