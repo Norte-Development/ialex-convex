@@ -134,6 +134,22 @@ export function NotificationsSection({ preferences, onUpdate }: NotificationsSec
               onCheckedChange={(value) => onUpdate("eventUpdates", value)}
             />
           </div>
+
+          <div className="flex items-start justify-between gap-4">
+            <div className="space-y-0.5 flex-1">
+              <Label htmlFor="pjnNotifications" className="text-sm font-medium">
+                Notificaciones PJN
+              </Label>
+              <p className="text-sm text-muted-foreground text-pretty">
+                Notificaciones del Portal Judicial de Notificaciones
+              </p>
+            </div>
+            <Switch 
+              id="pjnNotifications" 
+              checked={preferences.pjnNotifications}
+              onCheckedChange={(value) => onUpdate("pjnNotifications", value)}
+            />
+          </div>
         </CardContent>
       </Card>
     </section>

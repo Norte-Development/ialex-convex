@@ -26,6 +26,7 @@ const DEFAULT_PREFERENCES = {
   agentResponses: true,
   eventReminders: true,
   eventUpdates: true,
+  pjnNotifications: true,
   agentResponseStyle: "formal",
   defaultJurisdiction: "argentina",
   autoIncludeContext: true,
