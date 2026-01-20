@@ -93,6 +93,7 @@ export default defineSchema({
         agentResponses: v.optional(v.boolean()),
         eventReminders: v.optional(v.boolean()),
         eventUpdates: v.optional(v.boolean()),
+        pjnNotifications: v.optional(v.boolean()),
 
         // Agent Preferences
         agentResponseStyle: v.optional(v.string()),

@@ -583,6 +583,28 @@ export const getUserById = query({
 });
 
 /**
+ * Internal query to get user by ID (for internal use)
+ */
+export const getUserByIdInternal = internalQuery({
+  args: { userId: v.id("users") },
+  handler: async (ctx, args) => {
+    const user = await ctx.db.get(args.userId);
+
+    if (!user) {
+      return null;
+    }
+
+    // Return only necessary fields
+    return {
+      _id: user._id,
+      email: user.email,
+      name: user.name,
+      preferences: user.preferences,
+    };
+  },
+});
+
+/**
  * Update user preferences
  */
 export const updateUserPreferences = mutation({
@@ -600,6 +622,7 @@ export const updateUserPreferences = mutation({
       agentResponses: v.optional(v.boolean()),
       eventReminders: v.optional(v.boolean()),
       eventUpdates: v.optional(v.boolean()),
+      pjnNotifications: v.optional(v.boolean()),
 
       // Agent Preferences
       agentResponseStyle: v.optional(v.string()),

@@ -1539,3 +1539,202 @@ export function subscriptionThankYouTemplate(
 </html>
   `.trim();
 }
+
+export function pjnNotificationTemplate(
+  fre: string | null,
+  category: string,
+  description: string,
+  userName: string,
+  caseLink?: string,
+): string {
+  const baseUrl = process.env.VITE_APP_URL || "https://app.ialex.com.ar";
+  const linkUrl = caseLink ? `${baseUrl}${caseLink}` : `${baseUrl}/cases`;
+
+  return `
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <title>Nueva Notificación PJN - iAlex</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { 
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; 
+      line-height: 1.6; 
+      color: #1f2937; 
+      background-color: #f3f4f6;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+    .email-wrapper { width: 100%; background-color: #f3f4f6; padding: 40px 20px; }
+    .email-container { 
+      max-width: 600px; 
+      margin: 0 auto; 
+      background: #ffffff; 
+      border-radius: 16px; 
+      overflow: hidden;
+      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+    }
+    .header { 
+      background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%); 
+      color: white; 
+      padding: 40px 32px; 
+      text-align: center; 
+    }
+    .header h1 { 
+      font-size: 28px; 
+      font-weight: 700; 
+      margin: 0; 
+      letter-spacing: -0.5px;
+    }
+    .header p { 
+      margin: 8px 0 0 0; 
+      opacity: 0.9; 
+      font-size: 14px; 
+    }
+    .content { 
+      padding: 40px 32px; 
+    }
+    .greeting { 
+      font-size: 18px; 
+      color: #1f2937; 
+      margin-bottom: 24px; 
+      font-weight: 500;
+    }
+    .notification-card { 
+      background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%); 
+      border-radius: 12px; 
+      padding: 28px; 
+      margin: 24px 0;
+      border-left: 4px solid #2563eb;
+    }
+    .notification-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: #2563eb;
+      color: white;
+      padding: 8px 16px;
+      border-radius: 6px;
+      font-size: 14px;
+      font-weight: 600;
+      margin-bottom: 16px;
+    }
+    .fre-label {
+      font-size: 13px;
+      color: #6b7280;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      font-weight: 600;
+      margin-bottom: 8px;
+    }
+    .fre-value {
+      font-size: 20px;
+      font-weight: 700;
+      color: #1f2937;
+      margin-bottom: 20px;
+      font-family: 'Courier New', monospace;
+    }
+    .category-label {
+      font-size: 13px;
+      color: #6b7280;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      font-weight: 600;
+      margin-bottom: 8px;
+      margin-top: 16px;
+    }
+    .category-value {
+      font-size: 16px;
+      font-weight: 600;
+      color: #2563eb;
+      margin-bottom: 12px;
+    }
+    .description {
+      font-size: 15px;
+      color: #374151;
+      line-height: 1.6;
+      margin-top: 12px;
+    }
+    .button { 
+      display: inline-block; 
+      padding: 14px 32px; 
+      background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%); 
+      color: white; 
+      text-decoration: none; 
+      border-radius: 8px; 
+      margin-top: 24px; 
+      font-weight: 600;
+      font-size: 15px;
+      transition: transform 0.2s;
+      box-shadow: 0 4px 6px -1px rgba(37, 99, 235, 0.3);
+    }
+    .button:hover { transform: translateY(-1px); }
+    .footer { 
+      text-align: center; 
+      color: #6b7280; 
+      font-size: 13px; 
+      padding: 32px; 
+      background: #f9fafb;
+      border-top: 1px solid #e5e7eb;
+    }
+    .footer-brand { 
+      font-weight: 600; 
+      color: #1f2937; 
+      margin-bottom: 8px;
+      font-size: 14px;
+    }
+    .footer-note { 
+      margin-top: 8px; 
+      opacity: 0.8; 
+    }
+    @media only screen and (max-width: 600px) {
+      .email-wrapper { padding: 20px 10px; }
+      .header { padding: 32px 24px; }
+      .header h1 { font-size: 24px; }
+      .content { padding: 32px 24px; }
+      .notification-card { padding: 20px; }
+      .fre-value { font-size: 18px; }
+      .button { display: block; text-align: center; }
+    }
+  </style>
+</head>
+<body>
+  <div class="email-wrapper">
+    <div class="email-container">
+      <div class="header">
+        <h1>⚖️ Nueva Notificación PJN</h1>
+        <p>Portal Judicial de Notificaciones</p>
+      </div>
+      <div class="content">
+        <p class="greeting">Hola ${userName},</p>
+        <p style="color: #4b5563; margin-bottom: 24px;">Has recibido una nueva notificación del Portal Judicial de Notificaciones:</p>
+        <div class="notification-card">
+          <div class="notification-badge">
+            <span>📋</span>
+            <span>Notificación PJN</span>
+          </div>
+          ${fre ? `
+          <div class="fre-label">Expediente (FRE)</div>
+          <div class="fre-value">${fre}</div>
+          ` : ''}
+          <div class="category-label">Categoría</div>
+          <div class="category-value">${category}</div>
+          <div class="description">${description}</div>
+        </div>
+        <div style="text-align: center;">
+          <a href="${linkUrl}" class="button">${caseLink ? 'Ver Caso' : 'Ver Notificaciones'}</a>
+        </div>
+      </div>
+      <div class="footer">
+        <div class="footer-brand">iAlex - Tu asistente legal inteligente</div>
+        <div class="footer-note">Este es un mensaje automático, por favor no responder a este correo.</div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>
+  `.trim();
+}

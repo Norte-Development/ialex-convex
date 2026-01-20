@@ -11,7 +11,8 @@ export const sendNotificationIfEnabled = internalMutation({
       v.literal("teamInvitation"),
       v.literal("agentResponse"),
       v.literal("eventReminder"),
-      v.literal("eventUpdate")
+      v.literal("eventUpdate"),
+      v.literal("pjnNotification")
     ),
     subject: v.string(),
     htmlBody: v.string(),
@@ -40,6 +41,7 @@ export const sendNotificationIfEnabled = internalMutation({
       agentResponse: prefs.agentResponses,
       eventReminder: prefs.eventReminders,
       eventUpdate: prefs.eventUpdates,
+      pjnNotification: prefs.pjnNotifications,
     };
 
     if (typeMap[args.notificationType] === false) {
