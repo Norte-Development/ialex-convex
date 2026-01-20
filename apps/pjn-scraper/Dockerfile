@@ -84,7 +84,8 @@ RUN pnpm install --frozen-lockfile --prod --filter pjn-scraper...
 WORKDIR /app/apps/pjn-scraper
 RUN pnpm exec playwright install chromium
 
-# Copy built pjn-scraper
+# Copy built pjn-scraper (need to be in /app for correct path)
+WORKDIR /app
 COPY --from=builder /app/apps/pjn-scraper/dist ./apps/pjn-scraper/dist
 COPY --from=builder /app/apps/pjn-scraper/package.json ./apps/pjn-scraper/
 
