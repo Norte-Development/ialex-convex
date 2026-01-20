@@ -272,6 +272,10 @@ export default defineSchema({
     title: v.string(),
     description: v.optional(v.string()),
     expedientNumber: v.optional(v.string()), // Número de expediente judicial
+    // PJN identifier for linking cases to portal notifications.
+    // Format: "JURISDICTION-NUMBER" (e.g., "FRE-3852/2020/TO2", "CSJ-1234/2021")
+    // Note: Portal uses space separator, we normalize to hyphen for storage.
+    fre: v.optional(v.string()),
     status: v.union(
       v.literal("pendiente"),
       v.literal("en progreso"),
@@ -290,6 +294,8 @@ export default defineSchema({
     estimatedHours: v.optional(v.number()),
     actualHours: v.optional(v.number()),
     lastActivityAt: v.optional(v.number()),
+    lastPjnNotificationSync: v.optional(v.number()), // Last sync timestamp for PJN notifications
+    lastPjnHistorySyncAt: v.optional(v.number()), // Last sync timestamp for PJN case history (docket)
   })
     .index("by_status", ["status"])
     .index("by_assigned_lawyer", ["assignedLawyer"])
@@ -297,6 +303,7 @@ export default defineSchema({
     .index("by_archived_status", ["isArchived"])
     .index("by_priority", ["priority"])
     .index("by_last_activity", ["lastActivityAt"])
+    .index("by_fre", ["fre"])
     .searchIndex("search_cases", {
       searchField: "title",
       filterFields: ["isArchived"],
@@ -309,12 +316,23 @@ export default defineSchema({
     role: v.optional(v.string()), // e.g., "plaintiff", "defendant", "witness"
     addedBy: v.id("users"),
     isActive: v.boolean(),
+    // Source tracking for PJN sync
+    source: v.optional(
+      v.union(
+        v.literal("MANUAL"), // Manually added by user
+        v.literal("PJN"), // Added via PJN interviniente sync
+      ),
+    ),
+    // Reference back to the PJN interviniente if source is PJN
+    sourceParticipantId: v.optional(v.id("caseParticipants")),
   })
     .index("by_client", ["clientId"])
     .index("by_case", ["caseId"])
     .index("by_client_and_case", ["clientId", "caseId"])
     .index("by_added_by", ["addedBy"])
-    .index("by_active_status", ["isActive"]),
+    .index("by_active_status", ["isActive"])
+    .index("by_source", ["source"])
+    .index("by_source_participant", ["sourceParticipantId"]),
 
   // Folders table - organizational folders
   folders: defineTable({
@@ -408,6 +426,7 @@ export default defineSchema({
     .index("by_created_by", ["createdBy"])
     .index("by_file_id", ["fileId"])
     .index("by_gcs_object", ["gcsObject"])
+    .index("by_case_and_gcs_object", ["caseId", "gcsObject"])
     .index("by_processing_status", ["processingStatus"])
     .searchIndex("search_documents", {
       searchField: "title",
@@ -464,6 +483,7 @@ export default defineSchema({
     tags: v.optional(v.array(v.string())),
     usageCount: v.number(), // Number of times this template has been used
     isActive: v.boolean(),
+    updatedAt: v.optional(v.number()), // Timestamp of last update
   })
     .index("by_category", ["category"])
     .index("by_type", ["templateType"])
@@ -1110,6 +1130,57 @@ export default defineSchema({
     .index("by_sent_date", ["sentAt"]),
 
   // ========================================
+  // PJN CASE HISTORY SYNC JOBS
+  // ========================================
+
+  // PJN Case History Sync Jobs - tracks long-running sync operations
+  pjnCaseHistorySyncJobs: defineTable({
+    caseId: v.id("cases"),
+    userId: v.id("users"),
+    status: v.union(
+      v.literal("queued"),
+      v.literal("running"),
+      v.literal("completed"),
+      v.literal("failed"),
+      v.literal("auth_required"),
+    ),
+    phase: v.optional(
+      v.union(
+        v.literal("connecting"),
+        v.literal("fetching_history"),
+        v.literal("ingesting_movements"),
+        v.literal("ingesting_documents"),
+        v.literal("downloading_pdfs"),
+        v.literal("finalizing"),
+      ),
+    ),
+    progressPercent: v.optional(v.number()), // 0-100
+    errorMessage: v.optional(v.string()),
+    
+    // Stats
+    movimientosProcessed: v.optional(v.number()),
+    documentsProcessed: v.optional(v.number()),
+    participantsProcessed: v.optional(v.number()),
+    appealsProcessed: v.optional(v.number()),
+    relatedCasesProcessed: v.optional(v.number()),
+    durationMs: v.optional(v.number()),
+    
+    // Retry tracking
+    retryAttempt: v.optional(v.number()),
+    
+    // Timestamps
+    createdAt: v.number(),
+    startedAt: v.optional(v.number()),
+    finishedAt: v.optional(v.number()),
+    lastUpdatedAt: v.number(),
+  })
+    .index("by_case", ["caseId"])
+    .index("by_user", ["userId"])
+    .index("by_status", ["status"])
+    .index("by_case_and_status", ["caseId", "status"])
+    .index("by_created_at", ["createdAt"]),
+
+  // ========================================
   // GOOGLE DRIVE INTEGRATION
   // ========================================
 
@@ -1134,4 +1205,287 @@ export default defineSchema({
     createdAt: v.number(), // Timestamp when account was first connected
     updatedAt: v.number(), // Timestamp when tokens were last updated
   }).index("by_user", ["userId"]),
+
+  // PJN Account - stores encrypted PJN credentials
+  pjnAccounts: defineTable({
+    userId: v.id("users"),
+    username: v.string(),
+    encryptedPassword: v.string(), // AES-256-GCM encrypted password
+    iv: v.string(), // Initialization vector for decryption
+    lastAuthAt: v.optional(v.number()), // Last successful authentication timestamp
+    lastSyncedAt: v.optional(v.number()), // Last successful sync timestamp
+    lastEventId: v.optional(v.string()), // Last processed PJN event ID
+    sessionValid: v.optional(v.boolean()), // Whether session is currently valid
+    needsReauth: v.optional(v.boolean()), // Flag if re-authentication is required
+    syncErrors: v.optional(
+      v.object({
+        lastErrorAt: v.number(),
+        lastErrorReason: v.string(),
+        errorCount: v.number(),
+      })
+    ),
+    isActive: v.boolean(),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_user", ["userId"])
+    .index("by_active", ["isActive"])
+    .index("by_needs_reauth", ["needsReauth"]),
+
+  // PJN Activity Log - tracks PJN-specific activities and notifications
+  pjnActivityLog: defineTable({
+    userId: v.id("users"),
+    caseId: v.optional(v.id("cases")),
+    action: v.string(), // e.g., "pjn_notification_received", "pjn_docket_movement", etc.
+    source: v.optional(v.string()), // e.g., "PJN-Portal", "internal", etc.
+    pjnEventId: v.optional(v.string()), // PJN event ID if from PJN
+    pjnMovementId: v.optional(v.string()), // PJN movement ID if from docket sync
+    metadata: v.optional(v.any()), // Flexible metadata object
+    timestamp: v.number(),
+  })
+    .index("by_user", ["userId"])
+    .index("by_case", ["caseId"])
+    .index("by_action", ["action"])
+    .index("by_source", ["source"])
+    .index("by_timestamp", ["timestamp"])
+    .index("by_user_and_timestamp", ["userId", "timestamp"])
+    .index("by_case_and_timestamp", ["caseId", "timestamp"]),
+
+  // Case Participants (Intervinientes) - judges, lawyers, parties, prosecutors
+  caseParticipants: defineTable({
+    caseId: v.id("cases"),
+    role: v.string(), // "Juez", "Fiscal", "Abogado Querellante", "Defensor", "Perito", etc.
+    name: v.string(),
+    details: v.optional(v.string()), // Legacy: TOMO/FOLIO | I.E.J combined
+    // Parsed identifier fields from I.E.J.P column
+    iejp: v.optional(v.string()), // Raw I.E.J.P value as scraped from PJN
+    documentType: v.optional(
+      v.union(
+        v.literal("DNI"),
+        v.literal("CUIT"),
+        v.literal("CUIL"),
+        v.literal("PASSPORT"),
+        v.literal("OTHER"),
+        v.literal("UNKNOWN"),
+      ),
+    ),
+    documentNumber: v.optional(v.string()), // Parsed/normalized document number
+    pjnParticipantId: v.optional(v.string()),
+    syncedFrom: v.literal("pjn"),
+    syncedAt: v.number(),
+    isActive: v.optional(v.boolean()), // For soft-delete when PJN removes participant
+  })
+    .index("by_case", ["caseId"])
+    .index("by_role", ["role"])
+    .index("by_case_and_role", ["caseId", "role"])
+    .index("by_pjn_id", ["pjnParticipantId"])
+    // Scoped idempotency: ensure we can uniquely look up participants per case + PJN id
+    .index("by_case_and_pjn_id", ["caseId", "pjnParticipantId"])
+    .index("by_document_number", ["documentNumber"])
+    .index("by_iejp", ["iejp"]),
+
+  // ========================================
+  // INTERVINIENTE-CLIENT LINKING (PJN Sync)
+  // ========================================
+
+  // Links between PJN Intervinientes (caseParticipants) and local Clients
+  intervinienteClientLinks: defineTable({
+    // The PJN participant (interviniente) being linked
+    participantId: v.id("caseParticipants"),
+    // The local client being linked to
+    clientId: v.id("clients"),
+    // The case this link belongs to
+    caseId: v.id("cases"),
+    // The local role assigned (mapped from PJN role)
+    localRole: v.optional(v.string()),
+    // Link type indicating how the link was created
+    linkType: v.union(
+      v.literal("AUTO_HIGH_CONFIDENCE"), // Exact identifier match
+      v.literal("AUTO_LOW_CONFIDENCE"), // Fuzzy name match, needs confirmation
+      v.literal("CONFIRMED"), // User confirmed an auto-link
+      v.literal("MANUAL"), // User manually created the link
+      v.literal("IGNORED"), // User explicitly chose not to link
+    ),
+    // Confidence score from the matcher (0-1)
+    confidence: v.optional(v.number()),
+    // Match reason for display/debugging
+    matchReason: v.optional(v.string()), // e.g., "DNI match", "CUIT match", "Name similarity 0.95"
+    // User who confirmed or created the link
+    confirmedBy: v.optional(v.id("users")),
+    confirmedAt: v.optional(v.number()),
+    // Whether the user has overridden the auto-assigned role
+    roleOverride: v.optional(v.boolean()),
+    // Timestamps
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_participant", ["participantId"])
+    .index("by_client", ["clientId"])
+    .index("by_case", ["caseId"])
+    .index("by_participant_and_client", ["participantId", "clientId"])
+    .index("by_case_and_participant", ["caseId", "participantId"])
+    .index("by_link_type", ["linkType"])
+    .index("by_confirmed_by", ["confirmedBy"]),
+
+  // Audit log for interviniente-client link changes
+  intervinienteLinkAudit: defineTable({
+    participantId: v.id("caseParticipants"),
+    clientId: v.optional(v.id("clients")),
+    caseId: v.id("cases"),
+    action: v.union(
+      v.literal("AUTO_LINKED"),
+      v.literal("CONFIRMED"),
+      v.literal("MANUAL_LINKED"),
+      v.literal("UNLINKED"),
+      v.literal("IGNORED"),
+      v.literal("ROLE_CHANGED"),
+    ),
+    previousLinkType: v.optional(v.string()),
+    newLinkType: v.optional(v.string()),
+    previousRole: v.optional(v.string()),
+    newRole: v.optional(v.string()),
+    matchReason: v.optional(v.string()),
+    confidence: v.optional(v.number()),
+    performedBy: v.optional(v.id("users")),
+    performedAt: v.number(),
+    metadata: v.optional(v.any()),
+  })
+    .index("by_participant", ["participantId"])
+    .index("by_client", ["clientId"])
+    .index("by_case", ["caseId"])
+    .index("by_action", ["action"])
+    .index("by_performed_at", ["performedAt"]),
+
+  // Interviniente sync settings per user/team
+  intervinienteSyncSettings: defineTable({
+    // Either userId (personal) OR teamId (team setting)
+    userId: v.optional(v.id("users")),
+    teamId: v.optional(v.id("teams")),
+    // Auto-linking behavior
+    autoLinkHighConfidence: v.boolean(), // Auto-link when identifier matches (default: true)
+    autoLinkLowConfidence: v.boolean(), // Create suggestions for fuzzy matches (default: true)
+    requireConfirmationForAll: v.boolean(), // Require manual confirmation for all links (default: false)
+    // Matching thresholds
+    highConfidenceThreshold: v.number(), // 0-1, default 0.95
+    lowConfidenceThreshold: v.number(), // 0-1, default 0.85
+    // Notifications
+    notifyOnAutoLink: v.boolean(), // Notify user when auto-links are created (default: false)
+    // Timestamps
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_user", ["userId"])
+    .index("by_team", ["teamId"]),
+
+  // Case Appeals (Recursos)
+  caseAppeals: defineTable({
+    caseId: v.id("cases"),
+    appealType: v.string(),
+    filedDate: v.optional(v.string()),
+    status: v.optional(v.string()),
+    court: v.optional(v.string()),
+    description: v.optional(v.string()),
+    pjnAppealId: v.optional(v.string()),
+    syncedFrom: v.literal("pjn"),
+    syncedAt: v.number(),
+  })
+    .index("by_case", ["caseId"])
+    .index("by_status", ["status"])
+    .index("by_pjn_id", ["pjnAppealId"]),
+
+  // PJN Vinculados - normalized linked expedientes per case with workflow state
+  pjnVinculados: defineTable({
+    caseId: v.id("cases"),
+    // Canonical PJN expediente key (normalized FRE), e.g. "FRE-3852/2020/TO2"
+    vinculadoKey: v.string(),
+    // Small metadata object for display and case creation
+    vinculadoMeta: v.object({
+      expedienteKey: v.string(),
+      rawExpediente: v.string(),
+      rawNumber: v.string(),
+      courtCode: v.string(),
+      fuero: v.string(),
+      year: v.number(),
+      relationshipType: v.optional(v.string()),
+      caratula: v.optional(v.string()),
+      court: v.optional(v.string()),
+    }),
+    // When set, points to the local case representing this vinculado expediente
+    linkedCaseId: v.optional(v.id("cases")),
+    // Source of this vinculado: PJN sync or manually created
+    source: v.union(v.literal("pjn"), v.literal("manual")),
+    // Simple workflow status for UI
+    status: v.union(
+      v.literal("pending"),
+      v.literal("linked"),
+      v.literal("ignored"),
+    ),
+  })
+    .index("by_case", ["caseId"])
+    .index("by_vinculadoKey", ["vinculadoKey"])
+    .index("by_case_and_vinculadoKey", ["caseId", "vinculadoKey"]),
+
+  // Related Cases (Vinculados)
+  relatedCases: defineTable({
+    caseId: v.id("cases"),
+    relatedFre: v.string(),
+    relationshipType: v.string(),
+    relatedCaratula: v.optional(v.string()),
+    relatedCourt: v.optional(v.string()),
+    pjnRelationId: v.optional(v.string()),
+    relatedCaseId: v.optional(v.id("cases")),
+    syncedFrom: v.literal("pjn"),
+    syncedAt: v.number(),
+  })
+    .index("by_case", ["caseId"])
+    .index("by_case_and_related_fre", ["caseId", "relatedFre"])
+    .index("by_related_fre", ["relatedFre"])
+    .index("by_relationship_type", ["relationshipType"])
+    .index("by_pjn_id", ["pjnRelationId"]),
+
+  // Case Actuaciones - normalized case history/docket entries per case
+  caseActuaciones: defineTable({
+    caseId: v.id("cases"),
+    fre: v.optional(v.string()),
+    pjnMovementId: v.string(),
+    movementDate: v.number(),
+    rawDate: v.optional(v.string()),
+    description: v.string(),
+    hasDocument: v.boolean(),
+    documentSource: v.optional(
+      v.union(v.literal("actuaciones"), v.literal("doc_digitales"))
+    ),
+    docRef: v.optional(v.string()),
+    gcsPath: v.optional(v.string()),
+    documentId: v.optional(v.id("documents")),
+    origin: v.union(v.literal("history_sync"), v.literal("notification")),
+    syncedFrom: v.literal("pjn"),
+    syncedAt: v.number(),
+  })
+    .index("by_case_and_date", ["caseId", "movementDate"])
+    .index("by_case_and_pjn_id", ["caseId", "pjnMovementId"])
+    .index("by_documentId", ["documentId"]),
+
+  // Notifications - user-facing notifications from PJN and system events
+  notifications: defineTable({
+    userId: v.id("users"),
+    kind: v.string(),
+    title: v.string(),
+    bodyPreview: v.string(), // Short preview text for the notification
+    source: v.string(),
+    readAt: v.optional(v.number()), // Timestamp when notification was read
+    // Optional references to related entities
+    caseId: v.optional(v.id("cases")),
+    documentId: v.optional(v.id("documents")),
+    pjnEventId: v.optional(v.string()), // For PJN notifications
+    // Link target for navigation (e.g., "/cases/123" or "/documents/456")
+    linkTarget: v.optional(v.string()),
+    createdAt: v.number(),
+  })
+    .index("by_user", ["userId"])
+    .index("by_user_and_createdAt", ["userId", "createdAt"])
+    .index("by_user_and_readAt", ["userId", "readAt"])
+    .index("by_user_and_kind", ["userId", "kind"])
+    .index("by_case", ["caseId"])
+    .index("by_pjnEventId", ["pjnEventId"]), // For idempotency checks
 });

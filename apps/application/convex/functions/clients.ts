@@ -218,9 +218,19 @@ export const createClient = mutation({
  * ```
  */
 
+// Custom pagination validator with optional cursor for first page requests
+const optionalCursorPaginationValidator = v.object({
+  numItems: v.number(),
+  cursor: v.optional(v.union(v.string(), v.null())),
+  endCursor: v.optional(v.union(v.string(), v.null())),
+  id: v.optional(v.float64()),
+  maximumBytesRead: v.optional(v.float64()),
+  maximumRowsRead: v.optional(v.float64()),
+});
+
 export const getClients = query({
   args: {
-    paginationOpts: v.optional(paginationOptsValidator),
+    paginationOpts: v.optional(optionalCursorPaginationValidator),
     search: v.optional(v.string()),
     naturalezaJuridica: v.optional(
       v.union(v.literal("humana"), v.literal("juridica")),
@@ -396,7 +406,7 @@ export const getClients = query({
 
     // Apply pagination
     const numItems = args.paginationOpts?.numItems ?? 10;
-    const offset = args.paginationOpts?.cursor
+    const offset = args.paginationOpts?.cursor && args.paginationOpts.cursor !== null
       ? parseInt(args.paginationOpts.cursor)
       : 0;
     const startIndex = offset;

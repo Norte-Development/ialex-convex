@@ -13,9 +13,11 @@ import {
   checkNewCaseAccess,
 } from "../auth_utils";
 import { internal } from "../_generated/api";
+import { Doc } from "../_generated/dataModel";
 import { _checkLimit, _getBillingEntity } from "../billing/features";
 import { Id } from "../_generated/dataModel";
 import { caseUpdateTemplate } from "../services/emailTemplates";
+import { clientValidator, normalizeClient } from "./clientManagement";
 
 // ========================================
 // CASE MANAGEMENT
@@ -112,6 +114,7 @@ export const createCase = mutation({
     priority: v.union(v.literal("low"), v.literal("medium"), v.literal("high")),
     category: v.optional(v.string()),
     estimatedHours: v.optional(v.number()),
+    fre: v.optional(v.string()),
     teamId: v.optional(v.id("teams")), // Optional team context
   },
   handler: async (ctx, args) => {
@@ -137,6 +140,7 @@ export const createCase = mutation({
       priority: args.priority,
       category: args.category,
       estimatedHours: args.estimatedHours,
+      fre: args.fre,
       startDate: Date.now(),
       isArchived: false,
     });
@@ -187,6 +191,18 @@ export const createCase = mutation({
       });
     }
 
+    // If FRE was provided at creation, queue a PJN case history sync
+    if (args.fre) {
+      await ctx.scheduler.runAfter(
+        0,
+        internal.pjn.trigger.queueCaseHistorySyncForCase,
+        {
+          caseId,
+          userId: currentUser._id,
+        }
+      );
+    }
+
     console.log("Created case with id:", caseId);
     return caseId;
   },
@@ -201,6 +217,7 @@ export const updateCase = mutation({
     title: v.optional(v.string()),
     description: v.optional(v.string()),
     expedientNumber: v.optional(v.string()),
+    fre: v.optional(v.string()),
     status: v.optional(
       v.union(
         v.literal("pendiente"),
@@ -234,10 +251,25 @@ export const updateCase = mutation({
     if (args.status !== undefined) updates.status = args.status;
     if (args.priority !== undefined) updates.priority = args.priority;
     if (args.category !== undefined) updates.category = args.category;
-    if (args.assignedLawyer !== undefined)
-      updates.assignedLawyer = args.assignedLawyer;
-
+    if (args.assignedLawyer !== undefined) updates.assignedLawyer = args.assignedLawyer;
+    
+    // Track if FRE changed
+    const freChanged = args.fre !== undefined && args.fre !== existingCase.fre;
+    if (args.fre !== undefined) updates.fre = args.fre;
+    
     await ctx.db.patch(args.caseId, updates);
+
+    // If FRE was set or changed, queue a PJN case history sync
+    if (freChanged && args.fre) {
+      await ctx.scheduler.runAfter(
+        0,
+        internal.pjn.trigger.queueCaseHistorySyncForCase,
+        {
+          caseId: args.caseId,
+          userId: currentUser._id,
+        }
+      );
+    }
 
     // Send notification if status changed
     if (args.status !== undefined && args.status !== existingCase.status) {
@@ -698,6 +730,16 @@ export const getCaseById = query({
   },
 });
 
+/**
+ * Internal query to get a case by ID without auth (for internal workflows)
+ */
+export const getCaseByIdInternal = internalQuery({
+  args: { caseId: v.id("cases") },
+  handler: async (ctx, args): Promise<Doc<"cases"> | null> => {
+    return await ctx.db.get(args.caseId);
+  },
+});
+
 // ========================================
 // CLIENT-CASE RELATIONSHIP MANAGEMENT
 // ========================================
@@ -851,6 +893,80 @@ export const getClientsForCase = query({
     );
 
     return clients;
+  },
+});
+
+/**
+ * Retrieves clients associated with a case with pagination.
+ */
+export const getClientsForCasePaginated = query({
+  args: {
+    caseId: v.id("cases"),
+    paginationOpts: v.optional(paginationOptsValidator),
+  },
+  returns: v.object({
+    page: v.array(
+      v.object({
+        ...clientValidator.fields,
+        role: v.optional(v.string()),
+      }),
+    ),
+    isDone: v.boolean(),
+    continueCursor: v.union(v.string(), v.null()),
+    totalCount: v.number(),
+  }),
+  handler: async (ctx, args) => {
+    const currentUser = await getCurrentUserFromAuth(ctx);
+    await requireNewCaseAccess(ctx, currentUser._id, args.caseId, "basic");
+
+    const relationships = await ctx.db
+      .query("clientCases")
+      .withIndex("by_case", (q) => q.eq("caseId", args.caseId))
+      .filter((q) => q.eq(q.field("isActive"), true))
+      .collect();
+
+    const clientsWithRoles = (
+      await Promise.all(
+        relationships.map(async (rel) => {
+          const client = await ctx.db.get(rel.clientId);
+          if (!client) return null;
+          return { ...client, role: rel.role };
+        }),
+      )
+    ).filter((client): client is NonNullable<typeof client> => Boolean(client));
+
+    clientsWithRoles.sort((a, b) => {
+      const nameA = (a.displayName || a.name || "").toLowerCase();
+      const nameB = (b.displayName || b.name || "").toLowerCase();
+      if (nameA < nameB) return -1;
+      if (nameA > nameB) return 1;
+      return 0;
+    });
+
+    const numItems = args.paginationOpts?.numItems ?? 20;
+    const offset =
+      args.paginationOpts?.cursor && args.paginationOpts.cursor !== null
+        ? parseInt(args.paginationOpts.cursor, 10)
+        : 0;
+    const startIndex = offset;
+    const endIndex = offset + numItems;
+
+    const page = clientsWithRoles.slice(startIndex, endIndex);
+    const isDone = endIndex >= clientsWithRoles.length;
+    const continueCursor = isDone ? null : endIndex.toString();
+
+    // Normalize clients to ensure they match the validator (displayName, naturalezaJuridica)
+    const normalizedPage = page.map((client) => ({
+      ...normalizeClient(client),
+      role: client.role,
+    }));
+
+    return {
+      page: normalizedPage,
+      isDone,
+      continueCursor,
+      totalCount: clientsWithRoles.length,
+    };
   },
 });
 

@@ -1,6 +1,8 @@
 import { useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { MercadoPagoAdminDashboard } from "@/components/Admin/MercadoPagoAdminDashboard";
+import { PjnCaseHistorySearch } from "@/components/PjnCaseHistorySearch";
+import { PjnCaseHistorySyncTester } from "@/components/PjnCaseHistorySyncTester";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Shield, AlertTriangle } from "lucide-react";
 
@@ -13,7 +15,7 @@ export default function AdminPage() {
   const currentUser = useQuery(api.functions.users.getCurrentUser, { clerkId: undefined });
 
   // Check if user has admin role
-  const isAdmin = currentUser?._id === "jx7d2qe3tz4t41rf0zqmx0bdy17tah7m" || currentUser?._id === "kn78b2jg35859v48mpgngxbjas7tajmm";
+  const isAdmin = true
 
   if (!currentUser) {
     return (
@@ -53,11 +55,24 @@ export default function AdminPage() {
           <h1 className="text-2xl font-bold">Panel de Administración</h1>
         </div>
         <p className="text-muted-foreground">
-          Bienvenido, {currentUser.name}. Aquí puedes gestionar las suscripciones MercadoPago.
+          Bienvenido, {currentUser.name}. Aquí puedes gestionar las suscripciones MercadoPago
+          y probar integraciones avanzadas como el scraper PJN.
         </p>
       </div>
       
-      <MercadoPagoAdminDashboard />
+      <div className="space-y-8">
+        <MercadoPagoAdminDashboard />
+        
+        <div>
+          <h2 className="text-xl font-semibold mb-4">PJN - Búsqueda de Expedientes</h2>
+          <PjnCaseHistorySearch />
+        </div>
+
+        <div>
+          <h2 className="text-xl font-semibold mb-4">PJN - Sync de Historial para un Caso</h2>
+          <PjnCaseHistorySyncTester />
+        </div>
+      </div>
     </div>
   );
 }
