@@ -93,7 +93,6 @@ WORKDIR /app/apps/pjn-scraper
 
 # Cloud Run will set PORT environment variable
 # Default to 4002 for local development
-ENV PORT=4002
 ENV NODE_ENV=production
 EXPOSE ${PORT}
 
