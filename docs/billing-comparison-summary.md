@@ -11,7 +11,7 @@ Este documento compara las **tres estrategias** de implementación para el siste
 ### Plan Gratuito - $0/mes
 - 2 casos activos
 - 10 documentos por caso
-- 50 mensajes IA por mes
+- 20 mensajes IA por mes
 - Opción de comprar packs adicionales (50 mensajes por $3 USD)
 - IA básica (GPT-4o-mini)
 - Solo uso personal

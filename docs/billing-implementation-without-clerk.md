@@ -693,7 +693,7 @@ export default function PricingPage() {
           <ul className="space-y-3 mb-6">
             <li>✓ 2 casos activos</li>
             <li>✓ 10 documentos por caso</li>
-            <li>✓ 50 mensajes IA/mes</li>
+          <li>✓ 20 mensajes IA/mes</li>
             <li>✓ GPT-4o-mini</li>
             <li>✓ 500 MB almacenamiento</li>
           </ul>

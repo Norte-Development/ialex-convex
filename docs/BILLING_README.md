@@ -82,7 +82,7 @@ Plan detallado para implementación **full custom** con Stripe directo.
 ### Gratuito - $0/mes
 - 2 casos activos
 - 10 documentos por caso
-- 50 mensajes IA/mes
+- 20 mensajes IA/mes
 - GPT-4o-mini
 - 500 MB storage
 

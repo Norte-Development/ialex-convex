@@ -943,7 +943,7 @@ export default function PricingPage() {
             </li>
             <li className="flex items-start gap-2">
               <Check className="w-5 h-5 text-green-500 mt-0.5" />
-              <span>50 mensajes IA/mes</span>
+              <span>20 mensajes IA/mes</span>
             </li>
             <li className="flex items-start gap-2">
               <Check className="w-5 h-5 text-green-500 mt-0.5" />
