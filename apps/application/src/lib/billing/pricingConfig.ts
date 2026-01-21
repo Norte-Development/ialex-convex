@@ -16,7 +16,7 @@
 export const STRIPE_PRICE_IDS = {
   /**
    * Premium Individual Plan - Monthly
-   * - $30.000/month
+   * - $45.000/month
    * - Unlimited cases, documents, escritos
    * - GPT-5 access for owner
    * - Can create teams (up to 3 members each)
@@ -25,7 +25,7 @@ export const STRIPE_PRICE_IDS = {
   
   /**
    * Premium Individual Plan - Annual
-   * - $300.000/year
+   * - $450.000/year
    * - All monthly features
    * - Save compared to monthly billing
    */
@@ -33,7 +33,7 @@ export const STRIPE_PRICE_IDS = {
   
   /**
    * Premium Team Plan - Monthly
-   * - $200.000/month per team
+   * - $350.000/month per team
    * - All Premium Individual features
    * - Up to 6 team members
    * - GPT-5 access for ALL team members
@@ -76,12 +76,12 @@ export const PLAN_PRICING = {
     period: "siempre",
   },
   premium_individual: {
-    price: 30000,
+    price: 45000,
     currency: "ARS",
     period: "mes",
   },
   premium_team: {
-    price: 200000,
+    price: 350000,
     currency: "ARS",
     period: "mes",
   },

@@ -35,7 +35,7 @@ export function FreemiumUpgradePopup() {
               "Escritos ilimitados",
               "iAlex para WhatsApp",
             ]}
-            price={"30.000"}
+            price={"45.000"}
             title="Usuario"
             description="Ideal si sos un abogado independiente exigente con los resultados"
             isFeatured
@@ -50,7 +50,7 @@ export function FreemiumUpgradePopup() {
               "Gestión avanzada de casos",
               "Roles y permisos custom",
             ]}
-            price={"200.000"}
+            price={"350.000"}
             title="Equipo"
             description="Ideal si sos un abogado independiente exigente con los resultados"
             onSuccess={() => close()}
@@ -87,7 +87,7 @@ export function FreemiumUpgradePopup() {
                   "Escritos ilimitados",
                   "iAlex para WhatsApp",
                 ]}
-                price={"30.000"}
+                price={"45.000"}
                 title="Usuario"
                 description="Ideal si sos un abogado independiente exigente con los resultados"
                 isFeatured
@@ -107,7 +107,7 @@ export function FreemiumUpgradePopup() {
                   "Gestión avanzada de casos",
                   "Roles y permisos custom",
                 ]}
-                price={"200.000"}
+                price={"350.000"}
                 title="Equipo"
                 description="Ideal si sos un abogado independiente exigente con los resultados"
                 onSuccess={() => close()}
