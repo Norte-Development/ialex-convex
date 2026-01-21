@@ -15,7 +15,7 @@ import { IntegrationsSection } from "@/components/UserSettings/Integrations";
 import { Loader2 } from "lucide-react";
 import { useSearchParams } from "react-router-dom";
 
-// Default preferences
+
 const DEFAULT_PREFERENCES = {
   language: "es-AR",
   timezone: "America/Argentina/Buenos_Aires",
