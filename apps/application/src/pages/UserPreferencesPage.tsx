@@ -4,13 +4,14 @@ import { api } from "../../convex/_generated/api";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { AgentRulesSection } from "@/components/UserSettings/AgentRules";
-import { PreferencesNav } from "@/components/preferences-nav";
-import { GeneralSection } from "@/components/appearance-section";
-import { NotificationsSection } from "@/components/notifications-section";
-import { AgentSection } from "@/components/agent-section";
-import { PrivacySection } from "@/components/privacy-section";
+import { PreferencesNav } from "@/components/UserSettings/preferences-nav";
+import { GeneralSection } from "@/components/UserSettings/appearance-section";
+import { NotificationsSection } from "@/components/UserSettings/notifications-section";
+import { AgentSection } from "@/components/UserSettings/agent-section";
+import { PrivacySection } from "@/components/UserSettings/privacy-section";
 import { BillingSection } from "@/components/Billing";
 import { WhatsAppSection } from "@/components/UserSettings/WhatsAppSection";
+import { IntegrationsSection } from "@/components/UserSettings/Integrations";
 import { Loader2 } from "lucide-react";
 import { useSearchParams } from "react-router-dom";
 
@@ -184,9 +185,9 @@ export default function UserPreferencesPage() {
             />
           )}
 
-          {activeSection === "whatsapp" && (
-            <WhatsAppSection />
-          )}
+          {activeSection === "whatsapp" && <WhatsAppSection />}
+
+          {(activeSection === "integrations" || activeSection === "pjn") && <IntegrationsSection />}
 
           {activeSection === "billing" && <BillingSection />}
 

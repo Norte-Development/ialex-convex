@@ -16,6 +16,7 @@ import {
   FilePen,
   FileDown,
   Calendar,
+  Scale,
 } from "lucide-react";
 import {
   Collapsible,
