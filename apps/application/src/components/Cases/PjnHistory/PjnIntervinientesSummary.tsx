@@ -16,7 +16,7 @@ export function PjnIntervinientesSummary({ caseId, onViewDetail }: PjnIntervinie
 
   if (data === undefined) {
     return (
-      <div className="p-5 bg-white rounded-xl border border-gray-100 shadow-sm space-y-3">
+      <div className="p-4 bg-white rounded-lg border border-gray-100 space-y-3">
         <Skeleton className="h-5 w-32" />
         <Skeleton className="h-10 w-full" />
       </div>
@@ -27,13 +27,13 @@ export function PjnIntervinientesSummary({ caseId, onViewDetail }: PjnIntervinie
   const pendingConfirmation = summary.suggested;
 
   return (
-    <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden flex flex-col">
+    <div className="bg-white rounded-lg border border-gray-100 hover:border-tertiary/30 transition-colors overflow-hidden flex flex-col">
       <div className="p-4 flex items-center justify-between border-b border-gray-50 bg-white">
         <div className="flex items-center gap-2">
-          <div className="p-1.5 bg-orange-50 rounded-lg">
-            <Users className="h-4 w-4 text-orange-600" />
+          <div className="p-1.5 bg-sky-50 rounded-lg">
+            <Users className="h-4 w-4 text-tertiary" />
           </div>
-          <h3 className="text-sm font-semibold text-gray-900">Intervinientes (PJN)</h3>
+          <h3 className="text-sm font-medium text-gray-700">Intervinientes (PJN)</h3>
         </div>
       </div>
 
@@ -49,11 +49,11 @@ export function PjnIntervinientesSummary({ caseId, onViewDetail }: PjnIntervinie
           </div>
           
           <div className="flex flex-col gap-2">
-            <div className="flex items-center gap-1.5 px-2 py-1 bg-green-50 rounded-md border border-green-100">
-              <CheckCircle2 className="h-3 w-3 text-green-600" />
-              <span className="text-xs font-medium text-green-700">{summary.linked} vinculados</span>
+            <div className="flex items-center gap-1.5 px-2 py-1 bg-sky-50 rounded-md border border-sky-100">
+              <CheckCircle2 className="h-3 w-3 text-tertiary" />
+              <span className="text-xs font-medium text-tertiary">{summary.linked} vinculados</span>
             </div>
-            
+
             {pendingConfirmation > 0 && (
               <div className="flex items-center gap-1.5 px-2 py-1 bg-amber-50 rounded-md border border-amber-100">
                 <AlertCircle className="h-3 w-3 text-amber-600" />

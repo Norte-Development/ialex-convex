@@ -135,6 +135,12 @@ export default function CaseDetailPage() {
     currentCase ? { caseId: currentCase._id } : "skip",
   );
 
+  // Query para actuaciones del PJN (línea de tiempo)
+  const actuaciones = useQuery(
+    api.functions.pjnHistory.getCaseActuaciones,
+    currentCase ? { caseId: currentCase._id } : "skip",
+  );
+
   const formatDate = (timestamp: number) => {
     return new Date(timestamp).toLocaleDateString("es-ES", {
       day: "2-digit",
@@ -540,6 +546,21 @@ export default function CaseDetailPage() {
 
           {/* Columna derecha - más ancha */}
           <div className="lg:col-span-7 space-y-6">
+            {/* PJN Sync Status */}{" "}
+            <PjnVinculadosSummary
+              caseId={currentCase._id}
+              onViewDetail={() => setIsVinculadosDialogOpen(true)}
+            />
+            <PjnSyncStatus
+              caseId={currentCase._id}
+              fre={currentCase.fre}
+              lastSyncAt={currentCase.lastPjnHistorySyncAt}
+            />
+            {/* Intervinientes (PJN) */}
+            <PjnIntervinientesSummary
+              caseId={currentCase._id}
+              onViewDetail={() => setIsIntervinientesDialogOpen(true)}
+            />
             {/* Próximo evento destacado */}
             {upcomingEvent && (
               <Link
