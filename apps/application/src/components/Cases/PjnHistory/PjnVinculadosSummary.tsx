@@ -17,7 +17,7 @@ export function PjnVinculadosSummary({ caseId, onViewDetail }: PjnVinculadosSumm
 
   if (vinculados === undefined) {
     return (
-      <div className="p-5 bg-white rounded-xl border border-gray-100 shadow-sm space-y-3">
+      <div className="p-4 bg-white rounded-lg border border-gray-100 space-y-3">
         <Skeleton className="h-5 w-32" />
         <Skeleton className="h-10 w-full" />
       </div>
@@ -28,13 +28,13 @@ export function PjnVinculadosSummary({ caseId, onViewDetail }: PjnVinculadosSumm
   const pending = vinculados.filter((v) => v.status === "pending");
 
   return (
-    <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden flex flex-col">
+    <div className="bg-white rounded-lg border border-gray-100 hover:border-tertiary/30 transition-colors overflow-hidden flex flex-col">
       <div className="p-4 flex items-center justify-between border-b border-gray-50 bg-white">
         <div className="flex items-center gap-2">
-          <div className="p-1.5 bg-purple-50 rounded-lg">
-            <Link2 className="h-4 w-4 text-purple-600" />
+          <div className="p-1.5 bg-sky-50 rounded-lg">
+            <Link2 className="h-4 w-4 text-tertiary" />
           </div>
-          <h3 className="text-sm font-semibold text-gray-900">Expedientes Vinculados</h3>
+          <h3 className="text-sm font-medium text-gray-700">Expedientes Vinculados</h3>
         </div>
       </div>
 
@@ -71,11 +71,11 @@ export function PjnVinculadosSummary({ caseId, onViewDetail }: PjnVinculadosSumm
             )}
             
             {pending.length > 0 && (
-              <div className="p-2 bg-purple-50/50 rounded-lg border border-purple-100/50">
-                <p className="text-[10px] font-medium text-purple-700 flex items-center gap-1.5">
+              <div className="p-2 bg-sky-50/50 rounded-lg border border-sky-100/50">
+                <p className="text-[10px] font-medium text-tertiary flex items-center gap-1.5">
                   <span className="relative flex h-2 w-2">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-purple-400 opacity-75"></span>
-                    <span className="relative inline-flex rounded-full h-2 w-2 bg-purple-500"></span>
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-sky-400 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-tertiary"></span>
                   </span>
                   {pending.length} posible{pending.length > 1 ? "s" : ""} vínculo{pending.length > 1 ? "s" : ""} por revisar
                 </p>

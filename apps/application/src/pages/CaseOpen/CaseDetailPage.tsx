@@ -39,7 +39,6 @@ import { parseSummaryContent } from "@/components/Cases/CaseSummary/helpers";
 import { toast } from "sonner";
 import {
   PjnSyncStatus,
-  PjnMovementsCard,
   PjnIntervinientesSummary,
   PjnVinculadosSummary,
 } from "@/components/Cases/PjnHistory";
@@ -129,6 +128,12 @@ export default function CaseDetailPage() {
   }, [currentCase?.caseSummary]);
   const vinculados = useQuery(
     api.pjn.vinculados.listForCase,
+    currentCase ? { caseId: currentCase._id } : "skip",
+  );
+
+  // Query para actuaciones del PJN (línea de tiempo)
+  const actuaciones = useQuery(
+    api.functions.pjnHistory.getCaseActuaciones,
     currentCase ? { caseId: currentCase._id } : "skip",
   );
 
@@ -241,13 +246,6 @@ export default function CaseDetailPage() {
       count: caseRules?.length || 0,
       href: `/caso/${currentCase._id}/configuracion/reglas`,
     },
-  ];
-
-  // Mock data para línea de tiempo
-  const mockTimelineEvents = [
-    { id: 1, title: "Presentación de demanda", date: "15/01/2024" },
-    { id: 2, title: "Notificación al demandado", date: "20/01/2024" },
-    { id: 3, title: "Contestación recibida", date: "05/02/2024" },
   ];
 
   return (
@@ -524,6 +522,21 @@ export default function CaseDetailPage() {
 
           {/* Columna derecha - más ancha */}
           <div className="lg:col-span-7 space-y-6">
+            {/* PJN Sync Status */}{" "}
+            <PjnVinculadosSummary
+              caseId={currentCase._id}
+              onViewDetail={() => setIsVinculadosDialogOpen(true)}
+            />
+            <PjnSyncStatus
+              caseId={currentCase._id}
+              fre={currentCase.fre}
+              lastSyncAt={currentCase.lastPjnHistorySyncAt}
+            />
+            {/* Intervinientes (PJN) */}
+            <PjnIntervinientesSummary
+              caseId={currentCase._id}
+              onViewDetail={() => setIsIntervinientesDialogOpen(true)}
+            />
             {/* Próximo evento destacado */}
             {upcomingEvent && (
               <Link
@@ -562,7 +575,6 @@ export default function CaseDetailPage() {
                 </div>
               </Link>
             )}
-
             {/* Próximas tareas */}
             <div className="space-y-4">
               <div className="flex items-center justify-between">
@@ -614,80 +626,78 @@ export default function CaseDetailPage() {
                 )}
               </div>
             </div>
-
-            {/* Línea de Tiempo (Mocked) */}
+            {/* Línea de Tiempo - Movimientos PJN */}
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <h3 className="text-sm font-semibold text-tertiary">
                   Línea de Tiempo
                 </h3>
-                <Link
-                  to={`/caso/${currentCase._id}/eventos`}
-                  className="text-xs text-gray-500 hover:text-tertiary flex items-center gap-1"
-                >
-                  Ver todos
-                  <ArrowRight className="h-3 w-3" />
-                </Link>
+                {actuaciones && actuaciones.length > 5 && (
+                  <span className="text-xs text-gray-500">
+                    Últimos 5 de {actuaciones.length}
+                  </span>
+                )}
               </div>
-              <div className="space-y-1">
-                {mockTimelineEvents.map((event, index) => (
-                  <div key={event.id} className="flex items-start gap-4">
-                    <div className="flex flex-col items-center">
-                      <div
-                        className={`w-10 h-10 rounded-full flex items-center justify-center ${
-                          index === 0
-                            ? "bg-sky-100"
-                            : index === 1
-                              ? "bg-sky-50"
-                              : "bg-gray-50"
-                        }`}
-                      >
-                        <Calendar
-                          className={`h-4 w-4 ${
-                            index === 0
-                              ? "text-tertiary"
-                              : index === 1
-                                ? "text-tertiary/70"
-                                : "text-gray-400"
-                          }`}
-                        />
-                      </div>
-                      {index < mockTimelineEvents.length - 1 && (
-                        <div className="w-px h-8 bg-gray-200 my-1" />
-                      )}
-                    </div>
-                    <div className="flex-1 pt-2">
-                      <p className="text-sm font-medium text-gray-900">
-                        {event.title}
-                      </p>
-                      <p className="text-xs text-gray-500">{event.date}</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        </div>
 
-        {/* PJN History Section */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-2">
-            <PjnMovementsCard caseId={currentCase._id} />
-          </div>
-          <div className="space-y-6">
-            <PjnSyncStatus
-              caseId={currentCase._id}
-              fre={currentCase.fre}
-              lastSyncAt={currentCase.lastPjnHistorySyncAt}
-            />
-            <PjnIntervinientesSummary
-              caseId={currentCase._id}
-              onViewDetail={() => setIsIntervinientesDialogOpen(true)}
-            />
-            <PjnVinculadosSummary
-              caseId={currentCase._id}
-              onViewDetail={() => setIsVinculadosDialogOpen(true)}
-            />
+              {actuaciones && actuaciones.length > 0 ? (
+                <div className="space-y-1">
+                  {actuaciones.slice(0, 5).map((mov, index) => (
+                    <div key={mov._id} className="flex items-start gap-4">
+                      <div className="flex flex-col items-center">
+                        <div
+                          className={`w-10 h-10 rounded-full flex items-center justify-center ${
+                            index === 0
+                              ? "bg-sky-100"
+                              : index === 1
+                                ? "bg-sky-50"
+                                : "bg-gray-50"
+                          }`}
+                        >
+                          <Calendar
+                            className={`h-4 w-4 ${
+                              index === 0
+                                ? "text-tertiary"
+                                : index === 1
+                                  ? "text-tertiary/70"
+                                  : "text-gray-400"
+                            }`}
+                          />
+                        </div>
+                        {index < Math.min(actuaciones.length, 5) - 1 && (
+                          <div className="w-px h-8 bg-gray-200 my-1" />
+                        )}
+                      </div>
+                      <div className="flex-1 pt-2">
+                        <p className="text-sm font-medium text-gray-900 line-clamp-2">
+                          {mov.description}
+                        </p>
+                        <div className="flex items-center gap-2 mt-1">
+                          <p className="text-xs text-gray-500">
+                            {formatDate(mov.movementDate)}
+                          </p>
+                          {mov.hasDocument && (
+                            <Badge
+                              variant="outline"
+                              className="text-xs bg-blue-50 text-blue-600 border-blue-200"
+                            >
+                              Documento
+                            </Badge>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-6 text-gray-500">
+                  <Calendar className="h-8 w-8 mx-auto mb-2 text-gray-300" />
+                  <p className="text-sm">No hay movimientos registrados</p>
+                  <p className="text-xs text-gray-400 mt-1">
+                    Sincroniza el caso para obtener el historial del PJN
+                  </p>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </div>

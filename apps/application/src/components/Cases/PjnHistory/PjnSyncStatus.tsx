@@ -52,13 +52,13 @@ export function PjnSyncStatus({ caseId, fre, lastSyncAt }: PjnSyncStatusProps) {
   };
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between bg-white p-4 rounded-xl border shadow-sm">
+    <div className="space-y-3">
+      <div className="flex items-center justify-between p-4 rounded-lg border border-gray-100 hover:border-tertiary/30 transition-colors bg-white">
         <div className="space-y-1">
           <div className="flex items-center gap-2">
-            <h3 className="text-sm font-semibold text-gray-900">Estado de Sincronización PJN</h3>
+            <h3 className="text-sm font-medium text-gray-700">Sincronización PJN</h3>
             {hasActiveSync ? (
-              <Badge variant="secondary" className="bg-blue-50 text-blue-700 border-blue-100 animate-pulse">
+              <Badge variant="secondary" className="bg-sky-50 text-tertiary border-sky-100 animate-pulse">
                 Sincronizando
               </Badge>
             ) : isFailed ? (
@@ -66,7 +66,7 @@ export function PjnSyncStatus({ caseId, fre, lastSyncAt }: PjnSyncStatusProps) {
                 Error
               </Badge>
             ) : (
-              <Badge variant="outline" className="bg-green-50 text-green-700 border-green-100">
+              <Badge variant="outline" className="bg-sky-50 text-tertiary border-sky-100">
                 <CheckCircle2 className="h-3 w-3 mr-1" />
                 Al día
               </Badge>
@@ -102,7 +102,7 @@ export function PjnSyncStatus({ caseId, fre, lastSyncAt }: PjnSyncStatusProps) {
       </div>
 
       {(hasActiveSync || isFailed) && syncJob && (
-        <div className="bg-white rounded-xl border shadow-sm overflow-hidden">
+        <div className="bg-white rounded-lg border border-gray-100 overflow-hidden">
           <CaseHistorySyncProgress
             status={syncJob.status}
             phase={syncJob.phase}
