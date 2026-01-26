@@ -88,7 +88,7 @@ export function SaveTemplateModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[500px]">
+      <DialogContent className="sm:max-w-[500px] overflow-y-auto ">
         <DialogHeader>
           <DialogTitle className="text-2xl">Guardar como modelo</DialogTitle>
           <DialogDescription className="text-base">
