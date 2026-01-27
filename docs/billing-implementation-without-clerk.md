@@ -225,13 +225,13 @@ aiCreditPurchases: defineTable({
 
 **Premium Individual**
 - Producto: "iAlex Premium Individual"
-- Precio: $30,000 ARS/mes (o USD equivalente)
+- Precio: $45,000 ARS/mes (o USD equivalente)
 - ID: `price_premium_individual_monthly`
 - Facturación: Recurrente mensual
 
 **Premium Team**
 - Producto: "iAlex Premium Equipo"
-- Precio: $200,000 ARS/mes
+- Precio: $350,000 ARS/mes
 - ID: `price_premium_team_monthly`
 - Facturación: Recurrente mensual
 
@@ -693,7 +693,7 @@ export default function PricingPage() {
           <ul className="space-y-3 mb-6">
             <li>✓ 2 casos activos</li>
             <li>✓ 10 documentos por caso</li>
-            <li>✓ 50 mensajes IA/mes</li>
+          <li>✓ 20 mensajes IA/mes</li>
             <li>✓ GPT-4o-mini</li>
             <li>✓ 500 MB almacenamiento</li>
           </ul>

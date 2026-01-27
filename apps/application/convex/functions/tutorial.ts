@@ -308,6 +308,51 @@ export const dismissTutorial = mutation({
 });
 
 /**
+ * Unskip a page in the tutorial (remove it from skipped pages)
+ */
+export const unskipPage = mutation({
+  args: {
+    page: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new Error("Not authenticated");
+    }
+
+    // Get user from database
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
+      .first();
+
+    if (!user) {
+      throw new Error("User not found");
+    }
+
+    // Get tutorial progress
+    const progress = await ctx.db
+      .query("tutorialProgress")
+      .withIndex("by_user", (q) => q.eq("userId", user._id))
+      .first();
+
+    if (!progress) {
+      throw new Error("Tutorial progress not found");
+    }
+
+    // Remove page from skipped pages
+    const updatedSkippedPages = progress.skippedPages.filter(
+      (p) => p !== args.page,
+    );
+
+    await ctx.db.patch(progress._id, {
+      skippedPages: updatedSkippedPages,
+      lastUpdatedAt: Date.now(),
+    });
+  },
+});
+
+/**
  * Reactivate the tutorial
  */
 export const reactivateTutorial = mutation({

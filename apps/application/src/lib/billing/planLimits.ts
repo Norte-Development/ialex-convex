@@ -19,7 +19,7 @@ export const PLAN_LIMITS = {
   free: {
     cases: 2,
     documentsPerCase: 10,
-    aiMessagesPerMonth: 50,
+    aiMessagesPerMonth: 20,
     escritosPerCase: 3,
     libraryDocuments: 5,
     storageGB: 0.5,

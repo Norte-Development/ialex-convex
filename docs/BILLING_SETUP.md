@@ -10,7 +10,7 @@ Go to your [Stripe Dashboard](https://dashboard.stripe.com/products) and create 
 
 #### Premium Individual Plan
 - **Name**: Premium Individual
-- **Price**: $30,000 ARS / month (recurring)
+- **Price**: $45,000 ARS / month (recurring)
 - **Features**: 
   - Unlimited cases, documents, and escritos
   - GPT-5 access
@@ -20,7 +20,7 @@ Go to your [Stripe Dashboard](https://dashboard.stripe.com/products) and create 
 
 #### Premium Team Plan  
 - **Name**: Premium Team
-- **Price**: $200,000 ARS / month (recurring)
+- **Price**: $350,000 ARS / month (recurring)
 - **Features**:
   - All Premium Individual features
   - Up to 6 team members

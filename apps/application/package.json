@@ -91,7 +91,7 @@
     "node-fetch": "^3.3.2",
     "npm": "^11.6.2",
     "picomatch": "^4.0.3",
-    "posthog-js": "^1.285.1",
+    "posthog-js": "^1.333.0",
     "prosemirror-state": "^1.4.4",
     "qrcode.react": "^4.2.0",
     "react-beautiful-dnd": "^13.1.1",

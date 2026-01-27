@@ -86,7 +86,23 @@ export function UploadDocumentDialog({
 
   const handleFilesAdded = useCallback((newFiles: FileList | File[]) => {
     const fileArray = Array.from(newFiles);
-    const uploadItems: FileUploadItem[] = fileArray.map((file) => ({
+
+    const allowedFiles: File[] = [];
+    for (const file of fileArray) {
+      if (file.type?.startsWith("image/")) {
+        toast.error("Formato no soportado", {
+          description: `${file.name} es una imagen. Por ahora solo se pueden subir documentos (PDF, Word, etc.).`,
+        });
+        continue;
+      }
+      allowedFiles.push(file);
+    }
+
+    if (allowedFiles.length === 0) {
+      return;
+    }
+
+    const uploadItems: FileUploadItem[] = allowedFiles.map((file) => ({
       file,
       title: file.name.replace(/\.[^/.]+$/, ""),
       description: "",
@@ -94,7 +110,7 @@ export function UploadDocumentDialog({
       status: "pending" as const,
       progress: 0,
     }));
-    
+
     setFiles((prev) => [...prev, ...uploadItems]);
   }, []);
 
@@ -360,6 +376,7 @@ export function UploadDocumentDialog({
                 multiple
                 onChange={handleFileInputChange}
                 className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                accept="application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.openxmlformats-officedocument.presentationml.presentation,text/plain,text/csv,application/csv,application/vnd.ms-excel"
               />
             </div>
           )}
@@ -389,6 +406,7 @@ export function UploadDocumentDialog({
                     multiple
                     onChange={handleFileInputChange}
                     className="hidden"
+                    accept="application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.openxmlformats-officedocument.presentationml.presentation,text/plain,text/csv,application/csv,application/vnd.ms-excel"
                   />
                 </div>
                 <ScrollArea className="h-[300px]">

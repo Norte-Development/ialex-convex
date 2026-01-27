@@ -76,7 +76,7 @@ npm install @raideno/convex-stripe stripe
 
 **Producto: Premium Individual**
 - Name: "iAlex Premium Individual"
-- Precio: $30,000 ARS/mes (recurring)
+- Precio: $45,000 ARS/mes (recurring)
 - Price ID: `price_premium_individual_monthly`
 - Metadata:
   ```json
@@ -88,7 +88,7 @@ npm install @raideno/convex-stripe stripe
 
 **Producto: Premium Equipo**
 - Name: "iAlex Premium Equipo"
-- Precio: $200,000 ARS/mes (recurring)
+- Precio: $350,000 ARS/mes (recurring)
 - Price ID: `price_premium_team_monthly`
 - Metadata:
   ```json
@@ -943,7 +943,7 @@ export default function PricingPage() {
             </li>
             <li className="flex items-start gap-2">
               <Check className="w-5 h-5 text-green-500 mt-0.5" />
-              <span>50 mensajes IA/mes</span>
+              <span>20 mensajes IA/mes</span>
             </li>
             <li className="flex items-start gap-2">
               <Check className="w-5 h-5 text-green-500 mt-0.5" />

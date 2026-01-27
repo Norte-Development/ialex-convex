@@ -11,13 +11,13 @@ Este documento compara las **tres estrategias** de implementación para el siste
 ### Plan Gratuito - $0/mes
 - 2 casos activos
 - 10 documentos por caso
-- 50 mensajes IA por mes
+- 20 mensajes IA por mes
 - Opción de comprar packs adicionales (50 mensajes por $3 USD)
 - IA básica (GPT-4o-mini)
 - Solo uso personal
 - 500 MB almacenamiento
 
-### Premium Individual - $30.000/mes
+### Premium Individual - $45.000/mes
 - Casos ilimitados
 - Documentos ilimitados
 - IA avanzada (GPT-5 para dueño, GPT-4o-mini para invitados)
@@ -31,7 +31,7 @@ Este documento compara las **tres estrategias** de implementación para el siste
 - Crear 1 equipo pequeño (hasta 3 personas)
 - Invitar usuario externo a caso
 
-### Premium Equipo - $200.000/mes
+### Premium Equipo - $350.000/mes
 - Todo lo de Premium Individual
 - GPT-5 para todos los miembros
 - Hasta 6 miembros del equipo

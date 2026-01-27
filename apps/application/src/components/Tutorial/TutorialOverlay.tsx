@@ -2,6 +2,11 @@ import React, { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useTutorial } from "@/context/TutorialContext";
 import { Button } from "@/components/ui/button";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { X, ChevronLeft, ChevronRight, SkipForward } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -25,6 +30,7 @@ export const TutorialOverlay: React.FC = () => {
     skipPage,
     canGoNext,
     canGoPrevious,
+    previousStepBlockedReason,
   } = useTutorial();
 
   const [highlightRect, setHighlightRect] = useState<DOMRect | null>(null);
@@ -187,6 +193,7 @@ export const TutorialOverlay: React.FC = () => {
         onDismiss={skipPage}
         canGoNext={canGoNext}
         canGoPrevious={canGoPrevious}
+        previousStepBlockedReason={previousStepBlockedReason}
       />
     </div>,
     document.body,
@@ -345,6 +352,7 @@ interface TutorialCardProps {
   onDismiss: () => void;
   canGoNext: boolean;
   canGoPrevious: boolean;
+  previousStepBlockedReason: string | null;
 }
 
 const TutorialCard: React.FC<TutorialCardProps> = ({
@@ -359,6 +367,7 @@ const TutorialCard: React.FC<TutorialCardProps> = ({
   onDismiss,
   canGoNext,
   canGoPrevious,
+  previousStepBlockedReason,
 }) => {
   if (!position) return null;
 
@@ -441,16 +450,40 @@ const TutorialCard: React.FC<TutorialCardProps> = ({
         </Button>
 
         <div className="flex gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={onPrevious}
-            disabled={!canGoPrevious}
-            className={cn(!canGoPrevious && "opacity-50 cursor-not-allowed")}
-          >
-            <ChevronLeft className="w-4 h-4 mr-1" />
-            Anterior
-          </Button>
+          {previousStepBlockedReason ? (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled
+                    className="opacity-50 cursor-not-allowed"
+                  >
+                    <ChevronLeft className="w-4 h-4 mr-1" />
+                    Anterior
+                  </Button>
+                </span>
+              </TooltipTrigger>
+              <TooltipContent
+                side="top"
+                className="max-w-[250px] bg-gray-900 text-white z-[10002]"
+              >
+                {previousStepBlockedReason}
+              </TooltipContent>
+            </Tooltip>
+          ) : (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={onPrevious}
+              disabled={!canGoPrevious}
+              className={cn(!canGoPrevious && "opacity-50 cursor-not-allowed")}
+            >
+              <ChevronLeft className="w-4 h-4 mr-1" />
+              Anterior
+            </Button>
+          )}
 
           <Button
             size="sm"

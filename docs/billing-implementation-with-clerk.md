@@ -141,7 +141,7 @@ Navegar a: Clerk Dashboard → Billing → Plans → Plans for Users
 **Plan: Premium Individual**
 - Name: "Premium Individual"
 - Description: "Para abogados profesionales"
-- Price: $30,000 ARS/month (o USD equivalente)
+- Price: $45,000 ARS/month (o USD equivalente)
 - Publicly available: Yes
 - Features: Agregar todas las 12 features creadas arriba
 
