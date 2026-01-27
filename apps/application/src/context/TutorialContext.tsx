@@ -49,6 +49,10 @@ interface TutorialContextType {
   isStepCompleted: (stepId: string) => boolean;
   canGoNext: boolean;
   canGoPrevious: boolean;
+  previousStepBlockedReason: string | null; // Reason why previous step is blocked, null if not blocked
+  hasCurrentPageTutorial: boolean; // Whether the current page has tutorial steps
+  isCurrentPageSkipped: boolean; // Whether the current page was skipped
+  unskipCurrentPage: () => void; // Remove current page from skipped pages
 }
 
 const TutorialContext = createContext<TutorialContextType | undefined>(
@@ -88,6 +92,7 @@ export const TutorialProvider: React.FC<TutorialProviderProps> = ({
   const reactivateTutorialMutation = useMutation(
     api.functions.tutorial.reactivateTutorial,
   );
+  const unskipPageMutation = useMutation(api.functions.tutorial.unskipPage);
 
   // Local state for current step
   const [currentStep, setCurrentStep] = useState<TutorialStep | null>(null);
@@ -359,6 +364,17 @@ export const TutorialProvider: React.FC<TutorialProviderProps> = ({
     }
   }, [reactivateTutorialMutation]);
 
+  // Unskip current page (remove it from skipped pages)
+  const unskipCurrentPage = useCallback(async () => {
+    if (!currentPage) return;
+
+    try {
+      await unskipPageMutation({ page: currentPage });
+    } catch (error) {
+      console.error("Failed to unskip page:", error);
+    }
+  }, [currentPage, unskipPageMutation]);
+
   // Check if a step is completed
   const isStepCompleted = useCallback(
     (stepId: string): boolean => {
@@ -437,7 +453,37 @@ export const TutorialProvider: React.FC<TutorialProviderProps> = ({
   };
 
   const canGoNext = !!getNextStep(currentStep?.id || "");
-  const canGoPrevious = !!getPreviousStep(currentStep?.id || "");
+
+  // Check if we can go to previous step (must exist AND be navigable)
+  const previousStepInfo = getPreviousStep(currentStep?.id || "");
+  const canGoPrevious = previousStepInfo
+    ? previousStepInfo.page.page === currentPage || // Same page
+      getRouteForPage(previousStepInfo.page.page) !== null // Or has accessible route
+    : false;
+
+  // Calculate reason why previous step is blocked (if any)
+  const previousStepBlockedReason: string | null = (() => {
+    if (!previousStepInfo) return null; // No previous step exists
+    if (canGoPrevious) return null; // Can go, not blocked
+
+    // Has previous step but can't navigate to it
+    if (previousStepInfo.page.page === "caso/:id") {
+      return "El paso anterior está en la vista del caso. Volvé al caso para continuar el tutorial desde ahí.";
+    }
+    return "No se puede volver al paso anterior porque está en otra página.";
+  })();
+
+  // Check if current page has tutorial steps
+  const hasCurrentPageTutorial = currentPage
+    ? hasPageTutorial(currentPage)
+    : false;
+  console.log("hasCurrentPageTutorial:", hasCurrentPageTutorial);
+  console.log("currentPage:", currentPage);
+  // Check if current page was skipped
+  const isCurrentPageSkipped = currentPage
+    ? tutorialProgress?.skippedPages?.includes(currentPage) || false
+    : false;
+  console.log("isCurrentPageSkipped:", isCurrentPageSkipped);
 
   const value: TutorialContextType = {
     isActive: tutorialProgress?.isActive || false,
@@ -459,6 +505,10 @@ export const TutorialProvider: React.FC<TutorialProviderProps> = ({
     isStepCompleted,
     canGoNext,
     canGoPrevious,
+    previousStepBlockedReason,
+    hasCurrentPageTutorial,
+    isCurrentPageSkipped,
+    unskipCurrentPage,
   };
 
   return (

@@ -11,12 +11,28 @@ import {
   Landmark,
   FilePen,
   FolderOpen,
+  HelpCircle,
 } from "lucide-react";
-import { useLocation } from "react-router-dom";
+import { Navigate, useLocation } from "react-router-dom";
 import { useEffect, useState } from "react";
 import Breadcrumbs from "./BreadCrumbs";
 import { UserButton } from "@clerk/clerk-react";
 import { Input } from "@/components/ui/input";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import CollapsibleMenuButton from "./CollapsibleMenuButton";
 import { useGlobalSearch } from "@/hooks/useGlobalSearch";
 import SearchDropdown from "@/components/Search/SearchDropdown";
@@ -26,7 +42,16 @@ import { useTutorial } from "@/context/TutorialContext";
 
 export default function NavBar() {
   const location = useLocation();
-  const { isActive, currentStepNumber } = useTutorial();
+  const {
+    isActive,
+    currentStepNumber,
+    hasCurrentPageTutorial,
+    isCurrentPageSkipped,
+    reactivateTutorial,
+    unskipCurrentPage,
+    startTutorial,
+  } = useTutorial();
+  const [showRestartDialog, setShowRestartDialog] = useState(false);
   const {
     searchQuery,
     results,
@@ -61,6 +86,46 @@ export default function NavBar() {
     { label: "Preferencias", path: "/preferencias", icon: Settings },
   ];
 
+  // Handle help button click
+  const handleHelpClick = () => {
+    // If tutorial is active and this page was skipped, unskip it
+    if (isActive && isCurrentPageSkipped && hasCurrentPageTutorial) {
+      unskipCurrentPage();
+      return;
+    }
+
+    // If tutorial is active, page not skipped, AND page has tutorial -> do nothing (already showing)
+    if (isActive && !isCurrentPageSkipped && hasCurrentPageTutorial) {
+      return;
+    }
+
+    // If tutorial is active but page has NO tutorial -> show restart dialog
+    if (isActive && !hasCurrentPageTutorial) {
+      setShowRestartDialog(true);
+      return;
+    }
+
+    // Tutorial is not active
+    if (hasCurrentPageTutorial) {
+      // Current page has tutorial, reactivate it on this page
+      reactivateTutorial();
+    } else {
+      // No tutorial for this page, ask if they want to restart from beginning
+      setShowRestartDialog(true);
+    }
+  };
+
+  // Determine if help button should be disabled
+  // Only disabled if tutorial is active, page is not skipped, AND page has tutorial
+  // If page has no tutorial, button should be enabled to allow restarting
+  const isHelpButtonDisabled =
+    isActive && !isCurrentPageSkipped && hasCurrentPageTutorial;
+
+  const handleRestartTutorial = () => {
+    setShowRestartDialog(false);
+    startTutorial("home");
+  };
+
   return (
     <>
       <nav
@@ -76,10 +141,34 @@ export default function NavBar() {
               >
                 <Search size={20} className="text-gray-600" />
               </button>
-{/*               
-              <div className="mr-1">
-                <NotificationsDropdown />
-              </div> */}
+
+              {/* Help/Tutorial Button */}
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    onClick={handleHelpClick}
+                    disabled={isHelpButtonDisabled}
+                    className={`p-2 cursor-pointer rounded-full transition-colors ${
+                      isHelpButtonDisabled
+                        ? "text-blue-500 bg-transparent cursor-default"
+                        : "text-gray-600 hover:bg-transparent hover:text-blue-600"
+                    }`}
+                  >
+                    <HelpCircle size={20} />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom">
+                  {isActive && isCurrentPageSkipped && hasCurrentPageTutorial
+                    ? "Ver tutorial de esta página"
+                    : isActive && hasCurrentPageTutorial
+                      ? "Tutorial en progreso"
+                      : isActive && !hasCurrentPageTutorial
+                        ? "Reiniciar tutorial"
+                        : hasCurrentPageTutorial
+                          ? "Ver tutorial de esta página"
+                          : "Iniciar tutorial"}
+                </TooltipContent>
+              </Tooltip>
 
               <UserButton
                 appearance={{
@@ -163,6 +252,25 @@ export default function NavBar() {
         isOpen={isSearchPopupOpen}
         onClose={() => setIsSearchPopupOpen(false)}
       />
+
+      {/* Restart Tutorial Dialog */}
+      <AlertDialog open={showRestartDialog} onOpenChange={setShowRestartDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Iniciar Tutorial</AlertDialogTitle>
+            <AlertDialogDescription>
+              Esta página no tiene tutorial específico. ¿Querés realizar el
+              tutorial completo desde el principio?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={handleRestartTutorial}>
+              Iniciar Tutorial
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }
