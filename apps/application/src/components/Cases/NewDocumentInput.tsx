@@ -58,6 +58,15 @@ const NewDocumentInput = forwardRef<NewDocumentInputHandle, Props>(
           const file = e.target.files?.[0];
           if (!file) return;
 
+          // Reject images on the frontend – the document processor doesn't support them yet
+          if (file.type?.startsWith("image/")) {
+            toast.error("Formato no soportado", {
+              description: `${file.name} es una imagen. Por ahora solo se pueden subir documentos (PDF, Word, etc.).`,
+            });
+            if (inputRef.current) inputRef.current.value = "";
+            return;
+          }
+
           // Check document per case limit
           if (!documentsPerCaseCheck.allowed) {
             toast.error("Límite alcanzado", {

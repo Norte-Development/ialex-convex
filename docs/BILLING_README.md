@@ -82,17 +82,17 @@ Plan detallado para implementación **full custom** con Stripe directo.
 ### Gratuito - $0/mes
 - 2 casos activos
 - 10 documentos por caso
-- 50 mensajes IA/mes
+- 20 mensajes IA/mes
 - GPT-4o-mini
 - 500 MB storage
 
-### Premium Individual - $30.000/mes
+### Premium Individual - $45.000/mes
 - Todo ilimitado
 - GPT-5
 - Crear equipo (3 personas)
 - 50 GB storage
 
-### Premium Equipo - $200.000/mes
+### Premium Equipo - $350.000/mes
 - Todo ilimitado
 - GPT-5 para todos
 - 6 miembros

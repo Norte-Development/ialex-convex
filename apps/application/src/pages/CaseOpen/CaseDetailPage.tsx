@@ -3,54 +3,52 @@ import CaseLayout from "@/components/Cases/CaseLayout";
 import { Badge } from "../../components/ui/badge";
 import { Button } from "../../components/ui/button";
 import {
+  FileText,
+  Users,
+  FolderOpen,
+  FileArchive,
+  ArrowRight,
+  Settings,
+  Calendar,
+  Link2,
+  CheckSquare,
+  Plus,
+  Upload,
+  CalendarPlus,
+  UserPlus,
+  Check,
+  Clock,
+  Circle,
+  RefreshCw,
+  MapPin,
+} from "lucide-react";
+import { Link, useNavigate } from "react-router-dom";
+import { useQuery, useAction } from "convex/react";
+import { api } from "../../../convex/_generated/api";
+import {
   Dialog,
   DialogContent,
   DialogDescription,
   DialogHeader,
   DialogTitle,
 } from "../../components/ui/dialog";
-import {
-  FileText,
-  Users,
-  FolderOpen,
-  FileArchive,
-  ArrowRight,
-  Calendar,
-  CheckSquare,
-  Settings,
-  Plus,
-  Upload,
-  UserPlus,
-  CalendarPlus,
-  MapPin,
-  Clock,
-  Circle,
-  Sparkles,
-  RefreshCw,
-  Check,
-  Link2,
-} from "lucide-react";
-import { Link, useNavigate } from "react-router-dom";
-import { useQuery, useAction } from "convex/react";
-import { api } from "../../../convex/_generated/api";
+
 import { useMemo, useState } from "react";
 import CaseStatusSelector from "@/components/Cases/CaseStatusSelector";
-import { parseSummaryContent } from "@/components/Cases/CaseSummary/helpers";
+import { IntervinientesPanel } from "@/components/Cases/IntervinientesPanel";
+import { CaseVinculadosPanel } from "@/components/Cases/CaseVinculadosPanel";
 import { toast } from "sonner";
+import { parseSummaryContent } from "@/components/Cases/CaseSummary/helpers";
 import {
+  PjnMovementsCard,
   PjnSyncStatus,
   PjnIntervinientesSummary,
   PjnVinculadosSummary,
 } from "@/components/Cases/PjnHistory";
-import { IntervinientesPanel } from "@/components/Cases/IntervinientesPanel";
-import { CaseVinculadosPanel } from "@/components/Cases/CaseVinculadosPanel";
 
 export default function CaseDetailPage() {
   const { currentCase } = useCase();
-  const [isDocumentsDialogOpen, setIsDocumentsDialogOpen] = useState(false);
-  const [isEscritosDialogOpen, setIsEscritosDialogOpen] = useState(false);
-  const [isIntervinientesDialogOpen, setIsIntervinientesDialogOpen] =
-    useState(false);
+  const [isIntervinientesDialogOpen, setIsIntervinientesDialogOpen] = useState(false);
   const [isVinculadosDialogOpen, setIsVinculadosDialogOpen] = useState(false);
   const navigate = useNavigate();
   const [isGeneratingSummary, setIsGeneratingSummary] = useState(false);
@@ -79,6 +77,10 @@ export default function CaseDetailPage() {
   );
   const caseEvents = useQuery(
     api.functions.events.getCaseEvents,
+    currentCase ? { caseId: currentCase._id } : "skip",
+  );
+  const vinculados = useQuery(
+    api.pjn.vinculados.listForCase,
     currentCase ? { caseId: currentCase._id } : "skip",
   );
 
@@ -126,10 +128,6 @@ export default function CaseDetailPage() {
     if (!currentCase?.caseSummary) return null;
     return parseSummaryContent(currentCase.caseSummary);
   }, [currentCase?.caseSummary]);
-  const vinculados = useQuery(
-    api.pjn.vinculados.listForCase,
-    currentCase ? { caseId: currentCase._id } : "skip",
-  );
 
   // Query para actuaciones del PJN (línea de tiempo)
   const actuaciones = useQuery(
@@ -328,17 +326,37 @@ export default function CaseDetailPage() {
           </Button>
         </div>
 
-        {/* Layout de dos columnas */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-          {/* Columna izquierda - más angosta */}
-          <div className="lg:col-span-5 space-y-6">
-            {/* Resumen IA del caso */}
-            <div className="rounded-lg bg-gradient-to-br from-sky-50 to-sky-100/50 border border-sky-200/60 p-5">
-              <div className="flex items-center gap-2 mb-4">
-                <Sparkles className="h-4 w-4 text-tertiary" />
-                <h3 className="font-semibold text-tertiary">
-                  Resumen IA del caso
-                </h3>
+        {/* PJN History Section */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="lg:col-span-2">
+            <PjnMovementsCard caseId={currentCase._id} />
+          </div>
+          <div className="space-y-6">
+            <PjnSyncStatus 
+              caseId={currentCase._id} 
+              fre={currentCase.fre} 
+              lastSyncAt={currentCase.lastPjnHistorySyncAt}
+            />
+            <PjnIntervinientesSummary 
+              caseId={currentCase._id} 
+              onViewDetail={() => setIsIntervinientesDialogOpen(true)}
+            />
+            <PjnVinculadosSummary 
+              caseId={currentCase._id} 
+              onViewDetail={() => setIsVinculadosDialogOpen(true)}
+            />
+          </div>
+        </div>
+
+        {/* Información del Caso */}
+        <div className="space-y-6" data-tutorial="case-info">
+          <h2 className="text-lg font-medium text-gray-900">
+            Información del Caso
+          </h2>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-x-8 gap-y-6">
+            <div className="space-y-1">
+              <div className="text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Creado
               </div>
 
               {parsedSummary ? (
@@ -522,21 +540,6 @@ export default function CaseDetailPage() {
 
           {/* Columna derecha - más ancha */}
           <div className="lg:col-span-7 space-y-6">
-            {/* PJN Sync Status */}{" "}
-            <PjnVinculadosSummary
-              caseId={currentCase._id}
-              onViewDetail={() => setIsVinculadosDialogOpen(true)}
-            />
-            <PjnSyncStatus
-              caseId={currentCase._id}
-              fre={currentCase.fre}
-              lastSyncAt={currentCase.lastPjnHistorySyncAt}
-            />
-            {/* Intervinientes (PJN) */}
-            <PjnIntervinientesSummary
-              caseId={currentCase._id}
-              onViewDetail={() => setIsIntervinientesDialogOpen(true)}
-            />
             {/* Próximo evento destacado */}
             {upcomingEvent && (
               <Link

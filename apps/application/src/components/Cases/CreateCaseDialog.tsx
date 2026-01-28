@@ -470,7 +470,9 @@ export default function CreateCaseDialog() {
               <div className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="expedientNumber">Número de Expediente</Label>
+                    <Label htmlFor="expedientNumber">
+                      Número de Expediente
+                    </Label>
                     <Input
                       id="expedientNumber"
                       placeholder="Ej: EXP-2024-12345 o 12345/2024"

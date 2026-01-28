@@ -583,6 +583,28 @@ export const getUserById = query({
 });
 
 /**
+ * Internal query to get user by ID (for internal use)
+ */
+export const getUserByIdInternal = internalQuery({
+  args: { userId: v.id("users") },
+  handler: async (ctx, args) => {
+    const user = await ctx.db.get(args.userId);
+
+    if (!user) {
+      return null;
+    }
+
+    // Return only necessary fields
+    return {
+      _id: user._id,
+      email: user.email,
+      name: user.name,
+      preferences: user.preferences,
+    };
+  },
+});
+
+/**
  * Update user preferences
  */
 export const updateUserPreferences = mutation({
@@ -600,6 +622,7 @@ export const updateUserPreferences = mutation({
       agentResponses: v.optional(v.boolean()),
       eventReminders: v.optional(v.boolean()),
       eventUpdates: v.optional(v.boolean()),
+      pjnNotifications: v.optional(v.boolean()),
 
       // Agent Preferences
       agentResponseStyle: v.optional(v.string()),
@@ -851,14 +874,111 @@ export const getWhatsappNumber = action({
     // Get the WhatsApp number from environment variable
     // This is the number users will message to start chatting
     const whatsappNumber = process.env.TWILIO_WHATSAPP_NUMBER;
-    
+
     if (!whatsappNumber) {
       throw new Error('WhatsApp number not configured');
     }
 
     // Remove whatsapp: prefix if present and return clean number
-    return { 
+    return {
       number: whatsappNumber.replace('whatsapp:', '').replace(/^\+/, '')
+    };
+  },
+});
+
+// ========================================
+// ADMIN FUNCTIONS - USE WITH CAUTION
+// ========================================
+
+/**
+ * ADMIN: Manually activate trial for a user by email
+ *
+ * Usage from CLI (production):
+ *
+ * DRY RUN (no modifica nada, solo muestra qué haría):
+ * npx convex run functions/users:adminActivateTrial --prod '{"email": "cliente@email.com", "dryRun": true}'
+ *
+ * EJECUTAR DE VERDAD:
+ * npx convex run functions/users:adminActivateTrial --prod '{"email": "cliente@email.com"}'
+ *
+ * Con días específicos:
+ * npx convex run functions/users:adminActivateTrial --prod '{"email": "cliente@email.com", "trialDays": 14}'
+ */
+export const adminActivateTrial = internalMutation({
+  args: {
+    email: v.string(),
+    trialDays: v.optional(v.number()), // Default 14 days
+    dryRun: v.optional(v.boolean()), // Si es true, no modifica nada
+  },
+  handler: async (ctx, args) => {
+    const trialDays = args.trialDays ?? 14;
+    const dryRun = args.dryRun ?? false;
+
+    // Find user by email
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_email", (q) => q.eq("email", args.email))
+      .first();
+
+    if (!user) {
+      throw new Error(`Usuario no encontrado con email: ${args.email}`);
+    }
+
+    const now = Date.now();
+    const trialEndDate = now + trialDays * 24 * 60 * 60 * 1000;
+
+    if (dryRun) {
+      console.log(`🔍 DRY RUN - No se modificará nada`);
+      console.log(`   Usuario encontrado:`);
+      console.log(`   - ID: ${user._id}`);
+      console.log(`   - Nombre: ${user.name}`);
+      console.log(`   - Email: ${user.email}`);
+      console.log(`   - Trial Status actual: ${user.trialStatus ?? "none"}`);
+      console.log(`   - Has Used Trial: ${user.hasUsedTrial ?? false}`);
+      console.log(`   ---`);
+      console.log(`   Se aplicaría:`);
+      console.log(`   - Trial Status: active`);
+      console.log(`   - Trial Start: ${new Date(now).toISOString()}`);
+      console.log(`   - Trial End: ${new Date(trialEndDate).toISOString()}`);
+      console.log(`   - Days: ${trialDays}`);
+
+      return {
+        dryRun: true,
+        wouldModify: true,
+        userId: user._id,
+        userName: user.name,
+        email: args.email,
+        currentTrialStatus: user.trialStatus ?? "none",
+        newTrialStatus: "active",
+        trialStartDate: now,
+        trialEndDate: trialEndDate,
+        trialDays: trialDays,
+      };
+    }
+
+    // Activate trial (only if not dry run)
+    await ctx.db.patch(user._id, {
+      trialStatus: "active",
+      trialStartDate: now,
+      trialEndDate: trialEndDate,
+      trialPlan: "premium_individual",
+      hasUsedTrial: true,
+    });
+
+    console.log(`✅ Trial activado para ${args.email}`);
+    console.log(`   - User ID: ${user._id}`);
+    console.log(`   - Trial Start: ${new Date(now).toISOString()}`);
+    console.log(`   - Trial End: ${new Date(trialEndDate).toISOString()}`);
+    console.log(`   - Days: ${trialDays}`);
+
+    return {
+      dryRun: false,
+      success: true,
+      userId: user._id,
+      email: args.email,
+      trialStartDate: now,
+      trialEndDate: trialEndDate,
+      trialDays: trialDays,
     };
   },
 });

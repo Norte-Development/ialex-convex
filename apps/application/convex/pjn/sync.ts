@@ -3,6 +3,7 @@ import { internalAction, internalMutation } from "../_generated/server";
 import { internal } from "../_generated/api";
 import { Id, Doc } from "../_generated/dataModel";
 import { extractIejpFromDetails, parseIejpValue } from "../utils/identifierParser";
+import { pjnNotificationTemplate } from "../services/emailTemplates";
 
 /**
  * Sync notifications for a single user
@@ -246,6 +247,36 @@ export const syncNotificationsForUser = internalAction({
                 ? `/cases/${activityLogResult.caseId}`
                 : undefined,
             });
+            
+            // Send email notification if enabled
+            if (notificationId) {
+              const user = await ctx.runQuery(internal.functions.users.getUserByIdInternal, {
+                userId: args.userId,
+              });
+              
+              if (user) {
+                const htmlBody = pjnNotificationTemplate(
+                  event.fre,
+                  event.category,
+                  event.description || event.category || "Nueva notificación del portal PJN",
+                  user.name,
+                  activityLogResult?.caseId ? `/cases/${activityLogResult.caseId}` : undefined,
+                );
+                
+                await ctx.runMutation(
+                  internal.services.notificationService.sendNotificationIfEnabled,
+                  {
+                    userId: args.userId,
+                    notificationType: "pjnNotification",
+                    subject: event.fre
+                      ? `Nueva notificación PJN - ${event.fre}`
+                      : "Nueva notificación PJN",
+                    htmlBody,
+                  },
+                );
+              }
+            }
+            
             if (notificationId && activityLogResult?.caseId) {
               caseIdsToSync.add(activityLogResult.caseId);
             }

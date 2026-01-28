@@ -69,15 +69,16 @@ export function useUpgrade(options: UseUpgradeOptions = {}) {
     setIsUpgrading(true);
     try {
       // Select the correct price ID based on plan and period
+      // Nota: Premium Equipo solo se ofrece en modalidad mensual
       let priceId: string;
       if (planSelection.plan === "premium_individual") {
-        priceId = planSelection.period === "annual"
-          ? STRIPE_PRICE_IDS.premium_individual_annual
-          : STRIPE_PRICE_IDS.premium_individual_monthly;
+        priceId =
+          planSelection.period === "annual"
+            ? STRIPE_PRICE_IDS.premium_individual_annual
+            : STRIPE_PRICE_IDS.premium_individual_monthly;
       } else {
-        priceId = planSelection.period === "annual"
-          ? STRIPE_PRICE_IDS.premium_team_annual
-          : STRIPE_PRICE_IDS.premium_team_monthly;
+        // premium_team: ignoramos cualquier periodo "annual" y usamos siempre el precio mensual
+        priceId = STRIPE_PRICE_IDS.premium_team_monthly;
       }
 
       const result = await createCheckoutSession({

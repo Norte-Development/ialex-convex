@@ -93,6 +93,7 @@ export default defineSchema({
         agentResponses: v.optional(v.boolean()),
         eventReminders: v.optional(v.boolean()),
         eventUpdates: v.optional(v.boolean()),
+        pjnNotifications: v.optional(v.boolean()),
 
         // Agent Preferences
         agentResponseStyle: v.optional(v.string()),
@@ -1173,7 +1174,6 @@ export default defineSchema({
     ),
     progressPercent: v.optional(v.number()), // 0-100
     errorMessage: v.optional(v.string()),
-
     // Stats
     movimientosProcessed: v.optional(v.number()),
     documentsProcessed: v.optional(v.number()),

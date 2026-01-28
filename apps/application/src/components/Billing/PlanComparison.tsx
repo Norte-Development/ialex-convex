@@ -106,9 +106,8 @@ const PLAN_HEADERS = {
 };
 
 const ANNUAL_PRICING = {
-  premium_individual: 300000,
-  premium_team: 980000,
-};
+  premium_individual: 450000,
+} as const;
 
 /**
  * Comparison table showing features across all billing plans
@@ -135,7 +134,8 @@ export function PlanComparison({
     const pricing = PLAN_PRICING[plan];
     if (pricing.price === 0) return "Gratis";
     
-    if (isAnnual && (plan === "premium_individual" || plan === "premium_team")) {
+    // Solo Premium Individual tiene opción anual; Premium Equipo es siempre mensual
+    if (isAnnual && plan === "premium_individual") {
       const annualPrice = ANNUAL_PRICING[plan];
       return `$${annualPrice.toLocaleString()} ARS/año`;
     }
@@ -351,7 +351,8 @@ export function PlanComparison({
                         if (onSelectPlan) {
                           onSelectPlan({
                             plan: "premium_team",
-                            period: isAnnual ? "annual" : "monthly",
+                            // Premium Equipo solo puede contratarse de forma mensual
+                            period: "monthly",
                           });
                         }
                       }}
