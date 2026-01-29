@@ -21,6 +21,7 @@ import {
   Circle,
   RefreshCw,
   MapPin,
+  Sparkles,
 } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { useQuery, useAction } from "convex/react";
@@ -40,7 +41,6 @@ import { CaseVinculadosPanel } from "@/components/Cases/CaseVinculadosPanel";
 import { toast } from "sonner";
 import { parseSummaryContent } from "@/components/Cases/CaseSummary/helpers";
 import {
-  PjnMovementsCard,
   PjnSyncStatus,
   PjnIntervinientesSummary,
   PjnVinculadosSummary,
@@ -48,7 +48,8 @@ import {
 
 export default function CaseDetailPage() {
   const { currentCase } = useCase();
-  const [isIntervinientesDialogOpen, setIsIntervinientesDialogOpen] = useState(false);
+  const [isIntervinientesDialogOpen, setIsIntervinientesDialogOpen] =
+    useState(false);
   const [isVinculadosDialogOpen, setIsVinculadosDialogOpen] = useState(false);
   const navigate = useNavigate();
   const [isGeneratingSummary, setIsGeneratingSummary] = useState(false);
@@ -128,12 +129,6 @@ export default function CaseDetailPage() {
     if (!currentCase?.caseSummary) return null;
     return parseSummaryContent(currentCase.caseSummary);
   }, [currentCase?.caseSummary]);
-
-  // Query para actuaciones del PJN (línea de tiempo)
-  const actuaciones = useQuery(
-    api.functions.pjnHistory.getCaseActuaciones,
-    currentCase ? { caseId: currentCase._id } : "skip",
-  );
 
   // Query para actuaciones del PJN (línea de tiempo)
   const actuaciones = useQuery(
@@ -332,50 +327,26 @@ export default function CaseDetailPage() {
           </Button>
         </div>
 
-        {/* PJN History Section */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-2">
-            <PjnMovementsCard caseId={currentCase._id} />
-          </div>
-          <div className="space-y-6">
-            <PjnSyncStatus 
-              caseId={currentCase._id} 
-              fre={currentCase.fre} 
-              lastSyncAt={currentCase.lastPjnHistorySyncAt}
-            />
-            <PjnIntervinientesSummary 
-              caseId={currentCase._id} 
-              onViewDetail={() => setIsIntervinientesDialogOpen(true)}
-            />
-            <PjnVinculadosSummary 
-              caseId={currentCase._id} 
-              onViewDetail={() => setIsVinculadosDialogOpen(true)}
-            />
-          </div>
-        </div>
-
-        {/* Información del Caso */}
-        <div className="space-y-6" data-tutorial="case-info">
-          <h2 className="text-lg font-medium text-gray-900">
-            Información del Caso
-          </h2>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-x-8 gap-y-6">
-            <div className="space-y-1">
-              <div className="text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Creado
+        {/* Contenido principal - 2 columnas */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8" data-tutorial="case-info">
+          {/* Columna izquierda */}
+          <div className="lg:col-span-5 space-y-6">
+            {/* Resumen IA del caso */}
+            <div className="rounded-lg bg-gradient-to-br from-sky-50 to-sky-100/50 border border-sky-200/60 p-5">
+              <div className="flex items-center gap-2 mb-4">
+                <Sparkles className="h-4 w-4 text-tertiary" />
+                <h3 className="font-semibold text-tertiary">
+                  Resumen IA del caso
+                </h3>
               </div>
-
               {parsedSummary ? (
-                // Formato estructurado (JSON)
                 <div className="space-y-4">
-                  {/* Mostrar estado actual del caso */}
                   {parsedSummary.currentStatus?.summary && (
                     <p className="text-sm text-gray-700 leading-relaxed">
                       {parsedSummary.currentStatus.summary}
                     </p>
                   )}
 
-                  {/* Mostrar acciones relevantes */}
                   {parsedSummary.relevantActions.length > 0 && (
                     <div className="space-y-2">
                       {parsedSummary.relevantActions
@@ -406,7 +377,6 @@ export default function CaseDetailPage() {
                     </div>
                   )}
 
-                  {/* Mostrar próximos pasos */}
                   {parsedSummary.nextSteps.length > 0 && (
                     <div className="pt-2 border-t border-sky-200/50 space-y-2">
                       <p className="text-xs font-medium text-tertiary/70">
@@ -422,10 +392,8 @@ export default function CaseDetailPage() {
                   )}
                 </div>
               ) : currentCase.caseSummary ? (
-                // Formato legacy (texto plano)
                 <div className="text-sm text-gray-700 leading-relaxed line-clamp-6">
                   {(() => {
-                    // Extraer contenido de tags <summary> si existen
                     const match = currentCase.caseSummary.match(
                       /<summary>([\s\S]*)<\/summary>/,
                     );
@@ -433,7 +401,6 @@ export default function CaseDetailPage() {
                       match && match[1]
                         ? match[1].trim()
                         : currentCase.caseSummary;
-                    // Limpiar markdown headers y bullets para mostrar texto plano
                     return (
                       content
                         .replace(/^## .+$/gm, "")
@@ -453,7 +420,7 @@ export default function CaseDetailPage() {
               <button
                 onClick={handleGenerateSummary}
                 disabled={isGeneratingSummary}
-                className="flex items-center gap-2 mt-4 text-sm text-tertiary hover:text-tertiary/80 transition-colors disabled:opacity-50"
+                className="flex items-center gap-2 text-sm text-tertiary hover:text-tertiary/80 transition-colors disabled:opacity-50"
               >
                 <RefreshCw
                   className={`h-4 w-4 ${isGeneratingSummary ? "animate-spin" : ""}`}
@@ -546,21 +513,24 @@ export default function CaseDetailPage() {
 
           {/* Columna derecha - más ancha */}
           <div className="lg:col-span-7 space-y-6">
-            {/* PJN Sync Status */}{" "}
-            <PjnVinculadosSummary
-              caseId={currentCase._id}
-              onViewDetail={() => setIsVinculadosDialogOpen(true)}
-            />
-            <PjnSyncStatus
-              caseId={currentCase._id}
-              fre={currentCase.fre}
-              lastSyncAt={currentCase.lastPjnHistorySyncAt}
-            />
-            {/* Intervinientes (PJN) */}
-            <PjnIntervinientesSummary
-              caseId={currentCase._id}
-              onViewDetail={() => setIsIntervinientesDialogOpen(true)}
-            />
+            {/* PJN Section */}
+            <div className="space-y-4">
+              <PjnSyncStatus
+                caseId={currentCase._id}
+                fre={currentCase.fre}
+                lastSyncAt={currentCase.lastPjnHistorySyncAt}
+              />
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <PjnIntervinientesSummary
+                  caseId={currentCase._id}
+                  onViewDetail={() => setIsIntervinientesDialogOpen(true)}
+                />
+                <PjnVinculadosSummary
+                  caseId={currentCase._id}
+                  onViewDetail={() => setIsVinculadosDialogOpen(true)}
+                />
+              </div>
+            </div>
             {/* Próximo evento destacado */}
             {upcomingEvent && (
               <Link
