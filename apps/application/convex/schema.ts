@@ -295,6 +295,10 @@ export default defineSchema({
     estimatedHours: v.optional(v.number()),
     actualHours: v.optional(v.number()),
     lastActivityAt: v.optional(v.number()),
+    // AI-generated case summary
+    caseSummary: v.optional(v.string()), // Resumen en formato <summary>...</summary>
+    caseSummaryUpdatedAt: v.optional(v.number()), // Timestamp última actualización
+    caseSummaryManuallyEdited: v.optional(v.boolean()), // true si fue editado manualmente
     lastPjnNotificationSync: v.optional(v.number()), // Last sync timestamp for PJN notifications
     lastPjnHistorySyncAt: v.optional(v.number()), // Last sync timestamp for PJN case history (docket)
   })
@@ -670,18 +674,31 @@ export default defineSchema({
       v.literal("pending"),
       v.literal("in_progress"),
       v.literal("completed"),
-      v.literal("blocked"),
     ),
     order: v.number(),
     assignedTo: v.optional(v.id("users")),
     dueDate: v.optional(v.number()),
-    blockedReason: v.optional(v.string()),
     createdBy: v.id("users"),
   })
     .index("by_list", ["listId"])
     .index("by_status", ["status"])
     .index("by_list_and_status", ["listId", "status"])
-    .index("by_assigned_to", ["assignedTo"]),
+    .index("by_assigned_to", ["assignedTo"])
+    .index("by_list_status_order", ["listId", "status", "order"]),
+
+  // Task Comments: Comments on individual todo items with @mentions support
+  taskComments: defineTable({
+    taskId: v.id("todoItems"),
+    authorId: v.id("users"),
+    content: v.string(), // Text content with mentions as @[userId]
+    mentions: v.optional(v.array(v.id("users"))), // Array of mentioned user IDs
+    createdAt: v.number(),
+    updatedAt: v.optional(v.number()),
+    isEdited: v.boolean(),
+  })
+    .index("by_task", ["taskId"])
+    .index("by_author", ["authorId"])
+    .index("by_task_and_created", ["taskId", "createdAt"]),
 
   // ========================================
   // NEW UNIFIED PERMISSIONS SYSTEM
@@ -1157,7 +1174,6 @@ export default defineSchema({
     ),
     progressPercent: v.optional(v.number()), // 0-100
     errorMessage: v.optional(v.string()),
-    
     // Stats
     movimientosProcessed: v.optional(v.number()),
     documentsProcessed: v.optional(v.number()),
@@ -1165,10 +1181,10 @@ export default defineSchema({
     appealsProcessed: v.optional(v.number()),
     relatedCasesProcessed: v.optional(v.number()),
     durationMs: v.optional(v.number()),
-    
+
     // Retry tracking
     retryAttempt: v.optional(v.number()),
-    
+
     // Timestamps
     createdAt: v.number(),
     startedAt: v.optional(v.number()),
@@ -1223,7 +1239,7 @@ export default defineSchema({
         lastErrorAt: v.number(),
         lastErrorReason: v.string(),
         errorCount: v.number(),
-      })
+      }),
     ),
     isActive: v.boolean(),
     createdAt: v.number(),
@@ -1454,7 +1470,7 @@ export default defineSchema({
     description: v.string(),
     hasDocument: v.boolean(),
     documentSource: v.optional(
-      v.union(v.literal("actuaciones"), v.literal("doc_digitales"))
+      v.union(v.literal("actuaciones"), v.literal("doc_digitales")),
     ),
     docRef: v.optional(v.string()),
     gcsPath: v.optional(v.string()),

@@ -8,14 +8,23 @@ import {
   FolderOpen,
   FileArchive,
   ArrowRight,
-  Folder,
-  FileType2,
   Settings,
   Calendar,
   Link2,
+  CheckSquare,
+  Plus,
+  Upload,
+  CalendarPlus,
+  UserPlus,
+  Check,
+  Clock,
+  Circle,
+  RefreshCw,
+  MapPin,
+  Sparkles,
 } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
-import { useQuery } from "convex/react";
+import { useQuery, useAction } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import {
   Dialog,
@@ -24,26 +33,28 @@ import {
   DialogHeader,
   DialogTitle,
 } from "../../components/ui/dialog";
-import { useState } from "react";
+
+import { useMemo, useState } from "react";
 import CaseStatusSelector from "@/components/Cases/CaseStatusSelector";
-import { 
-  PjnSyncStatus, 
-  PjnMovementsCard, 
-  PjnIntervinientesSummary, 
-  PjnVinculadosSummary 
-} from "@/components/Cases/PjnHistory";
 import { IntervinientesPanel } from "@/components/Cases/IntervinientesPanel";
 import { CaseVinculadosPanel } from "@/components/Cases/CaseVinculadosPanel";
+import { toast } from "sonner";
+import { parseSummaryContent } from "@/components/Cases/CaseSummary/helpers";
+import {
+  PjnSyncStatus,
+  PjnIntervinientesSummary,
+  PjnVinculadosSummary,
+} from "@/components/Cases/PjnHistory";
 
 export default function CaseDetailPage() {
   const { currentCase } = useCase();
-  const [isDocumentsDialogOpen, setIsDocumentsDialogOpen] = useState(false);
-  const [isEscritosDialogOpen, setIsEscritosDialogOpen] = useState(false);
-  const [isIntervinientesDialogOpen, setIsIntervinientesDialogOpen] = useState(false);
+  const [isIntervinientesDialogOpen, setIsIntervinientesDialogOpen] =
+    useState(false);
   const [isVinculadosDialogOpen, setIsVinculadosDialogOpen] = useState(false);
   const navigate = useNavigate();
+  const [isGeneratingSummary, setIsGeneratingSummary] = useState(false);
 
-  // Queries para métricas
+  // Queries para datos
   const documents = useQuery(
     api.functions.documents.getDocuments,
     currentCase ? { caseId: currentCase._id } : "skip",
@@ -74,6 +85,57 @@ export default function CaseDetailPage() {
     currentCase ? { caseId: currentCase._id } : "skip",
   );
 
+  // Query para tareas del caso
+  const todoLists = useQuery(
+    api.functions.todos.listTodoListsByCase,
+    currentCase ? { caseId: currentCase._id } : "skip",
+  );
+  const primaryTodoList = todoLists?.[0];
+  const tasks = useQuery(
+    api.functions.todos.listTodoItemsByList,
+    primaryTodoList ? { listId: primaryTodoList._id } : "skip",
+  );
+
+  // Action para generar resumen
+  const generateSummary = useAction(
+    api.functions.caseSummary.generateCaseSummary,
+  );
+
+  // Calcular próximo evento
+  const upcomingEvent = useMemo(() => {
+    if (!caseEvents || caseEvents.length === 0) return null;
+    const now = Date.now();
+    const futureEvents = caseEvents
+      .filter((e) => e.startDate >= now && e.status === "programado")
+      .sort((a, b) => a.startDate - b.startDate);
+    return futureEvents[0] || null;
+  }, [caseEvents]);
+
+  // Calcular tareas pendientes
+  const pendingTasks = useMemo(() => {
+    if (!tasks) return [];
+    return tasks
+      .filter((t) => t.status === "pending" || t.status === "in_progress")
+      .sort((a, b) => {
+        if (a.status === "in_progress" && b.status !== "in_progress") return -1;
+        if (a.status !== "in_progress" && b.status === "in_progress") return 1;
+        return a.order - b.order;
+      })
+      .slice(0, 4);
+  }, [tasks]);
+
+  // Parsear resumen
+  const parsedSummary = useMemo(() => {
+    if (!currentCase?.caseSummary) return null;
+    return parseSummaryContent(currentCase.caseSummary);
+  }, [currentCase?.caseSummary]);
+
+  // Query para actuaciones del PJN (línea de tiempo)
+  const actuaciones = useQuery(
+    api.functions.pjnHistory.getCaseActuaciones,
+    currentCase ? { caseId: currentCase._id } : "skip",
+  );
+
   const formatDate = (timestamp: number) => {
     return new Date(timestamp).toLocaleDateString("es-ES", {
       day: "2-digit",
@@ -82,18 +144,28 @@ export default function CaseDetailPage() {
     });
   };
 
-  const getStatusBadge = (status: string) => {
-    const variants: Record<
-      string,
-      { variant: "default" | "secondary" | "outline"; label: string }
-    > = {
-      pendiente: { variant: "secondary", label: "Pendiente" },
-      "en progreso": { variant: "default", label: "En Progreso" },
-      completado: { variant: "outline", label: "Completado" },
-      archivado: { variant: "outline", label: "Archivado" },
-      cancelado: { variant: "outline", label: "Cancelado" },
+  const formatEventDate = (timestamp: number) => {
+    const date = new Date(timestamp);
+    return {
+      day: date.getDate().toString().padStart(2, "0"),
+      month: date.toLocaleDateString("es-ES", { month: "short" }).toUpperCase(),
     };
-    return variants[status] || { variant: "secondary", label: status };
+  };
+
+  const formatEventTime = (timestamp: number) => {
+    return new Date(timestamp).toLocaleTimeString("es-ES", {
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  };
+
+  const getDaysUntil = (timestamp: number) => {
+    const now = Date.now();
+    const diff = timestamp - now;
+    const days = Math.ceil(diff / (1000 * 60 * 60 * 24));
+    if (days === 0) return "Hoy";
+    if (days === 1) return "Mañana";
+    return `Faltan ${days} días`;
   };
 
   const getPriorityBadge = (priority: string) => {
@@ -103,6 +175,24 @@ export default function CaseDetailPage() {
       low: { className: "bg-green-100 text-green-700", label: "Baja" },
     };
     return variants[priority] || { className: "", label: priority };
+  };
+
+  const handleGenerateSummary = async () => {
+    if (!currentCase) return;
+    setIsGeneratingSummary(true);
+    try {
+      const result = await generateSummary({ caseId: currentCase._id });
+      if (result.success) {
+        toast.success("Resumen generado exitosamente");
+      } else {
+        toast.error(result.message || "Error al generar resumen");
+      }
+    } catch (error) {
+      console.error("Error generating summary:", error);
+      toast.error("Error al generar resumen");
+    } finally {
+      setIsGeneratingSummary(false);
+    }
   };
 
   if (!currentCase) {
@@ -115,12 +205,52 @@ export default function CaseDetailPage() {
     );
   }
 
-  const statusBadge = getStatusBadge(currentCase.status);
   const priorityBadge = getPriorityBadge(currentCase.priority);
+
+  // Accesos directos config
+  const quickAccessItems = [
+    {
+      icon: FolderOpen,
+      label: "Documentos",
+      count: documents?.length || 0,
+      href: `/caso/${currentCase._id}/documentos`,
+    },
+    {
+      icon: FileText,
+      label: "Escritos",
+      count: escritos?.page?.length || 0,
+      href: `/caso/${currentCase._id}/escritos`,
+    },
+    {
+      icon: Calendar,
+      label: "Eventos",
+      count: caseEvents?.length || 0,
+      href: `/caso/${currentCase._id}/eventos`,
+    },
+    {
+      icon: CheckSquare,
+      label: "Tareas",
+      count: tasks?.length || 0,
+      href: `/caso/${currentCase._id}/tareas`,
+    },
+    {
+      icon: Users,
+      label: "Clientes",
+      count: clients?.length || 0,
+      href: `/caso/${currentCase._id}/clientes`,
+    },
+    {
+      icon: Settings,
+      label: "Reglas",
+      count: caseRules?.length || 0,
+      href: `/caso/${currentCase._id}/configuracion/reglas`,
+    },
+  ];
 
   return (
     <CaseLayout>
-      <div className="max-w-7xl px-5 mx-auto bg-white space-y-12 pb-16">
+      <div className="max-w-7xl px-5 mx-auto bg-white space-y-8 pb-16">
+        {/* Header del caso */}
         <div className="space-y-4">
           <div className="flex items-start justify-between">
             <div className="space-y-3 flex-1">
@@ -157,386 +287,414 @@ export default function CaseDetailPage() {
           </div>
         </div>
 
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-6">
-          <div
-            onClick={() =>
-              currentCase && navigate(`/caso/${currentCase._id}/documentos`)
-            }
-            className="space-y-2 p-6 rounded-lg border border-tertiary hover:border-tertiary/80 transition-colors cursor-pointer group min-h-[140px]"
+        {/* Barra de navegación rápida */}
+        <div className="flex items-center gap-3 p-4 bg-gray-50 rounded-lg border">
+          <Button
+            variant="ghost"
+            size="sm"
+            className="text-sm font-normal text-gray-700 hover:text-tertiary"
+            onClick={() => navigate(`/caso/${currentCase._id}/escritos/nuevo`)}
           >
-            <div className="flex items-center justify-between">
-              <FolderOpen className="h-5 w-5 text-tertiary group-hover:text-tertiary/80 transition-colors" />
-              <ArrowRight className="h-4 w-4 text-tertiary group-hover:text-tertiary/80 transition-colors" />
-            </div>
-            <div>
-              <div className="text-3xl font-light text-gray-900">
-                {documents?.length || 0}
-              </div>
-              <div className="text-sm font-medium text-gray-900">
-                Documentos
-              </div>
-              <div className="text-xs text-gray-500">Archivos del caso</div>
-            </div>
-          </div>
-
-          <div
-            onClick={() =>
-              currentCase && navigate(`/caso/${currentCase._id}/escritos`)
-            }
-            className="space-y-2 p-6 rounded-lg border border-tertiary hover:border-tertiary/80 transition-colors cursor-pointer group min-h-[140px]"
+            <Plus className="h-4 w-4 mr-1.5" />
+            Nuevo Escrito
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="text-sm font-normal text-gray-700 hover:text-tertiary"
+            onClick={() => navigate(`/caso/${currentCase._id}/documentos`)}
           >
-            <div className="flex items-center justify-between">
-              <FileText className="h-5 w-5 text-tertiary group-hover:text-tertiary/80 transition-colors" />
-              <ArrowRight className="h-4 w-4 text-tertiary group-hover:text-tertiary/80 transition-colors" />
-            </div>
-            <div>
-              <div className="text-3xl font-light text-gray-900">
-                {escritos?.page?.length || 0}
-              </div>
-              <div className="text-sm font-medium text-gray-900">Escritos</div>
-              <div className="text-xs text-gray-500">Documentos legales</div>
-            </div>
-          </div>
-
-          <Link
-            to={`/caso/${currentCase._id}/eventos`}
-            className="group cursor-pointer"
+            <Upload className="h-4 w-4 mr-1.5" />
+            Subir Documento
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="text-sm font-normal text-gray-700 hover:text-tertiary"
+            onClick={() => navigate(`/caso/${currentCase._id}/eventos`)}
           >
-            <div className="space-y-2 p-6 rounded-lg border border-tertiary hover:border-tertiary/80 transition-colors min-h-[140px]">
-              <div className="flex items-center justify-between">
-                <Calendar className="h-5 w-5 text-tertiary group-hover:text-tertiary/80 transition-colors" />
-                <ArrowRight className="h-4 w-4 text-tertiary group-hover:text-tertiary/80 transition-colors" />
-              </div>
-              <div>
-                <div className="text-3xl font-light text-gray-900">
-                  {caseEvents?.length || 0}
-                </div>
-                <div className="text-sm font-medium text-gray-900">Eventos</div>
-                <div className="text-xs text-gray-500">Audiencias y plazos</div>
-              </div>
-            </div>
-          </Link>
-
-          <Link
-            to={`/caso/${currentCase._id}/clientes`}
-            className="group cursor-pointer"
+            <CalendarPlus className="h-4 w-4 mr-1.5" />
+            Crear Evento
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="text-sm font-normal text-gray-700 hover:text-tertiary"
+            onClick={() => navigate(`/caso/${currentCase._id}/clientes`)}
           >
-            <div className="space-y-2 p-6 rounded-lg border border-tertiary hover:border-tertiary/80 transition-colors min-h-[140px]">
-              <div className="flex items-center justify-between">
-                <Users className="h-5 w-5 text-tertiary group-hover:text-tertiary/80 transition-colors" />
-                <ArrowRight className="h-4 w-4 text-tertiary group-hover:text-tertiary/80 transition-colors" />
-              </div>
-              <div>
-                <div className="text-3xl font-light text-gray-900">
-                  {clients?.length || 0}
-                </div>
-                <div className="text-sm font-medium text-gray-900">
-                  Clientes
-                </div>
-                <div className="text-xs text-gray-500">Partes involucradas</div>
-              </div>
-            </div>
-          </Link>
-          <Link
-            to={`/caso/${currentCase._id}/configuracion/reglas`}
-            className="group cursor-pointer"
-          >
-            <div className="space-y-2 p-6 rounded-lg border border-tertiary hover:border-tertiary/80 transition-colors min-h-[140px]">
-              <div className="flex items-center justify-between">
-                <Settings className="h-5 w-5 text-tertiary group-hover:text-tertiary/80 transition-colors" />
-                <ArrowRight className="h-4 w-4 text-tertiary group-hover:text-tertiary/80 transition-colors" />
-              </div>
-              <div>
-                <div className="text-3xl font-light text-gray-900">
-                  {caseRules?.length || 0}
-                </div>
-                <div className="text-sm font-medium text-gray-900">
-                  Reglas del Agente
-                </div>
-                <div className="text-xs text-gray-500">
-                  Configura el comportamiento de iAlex
-                </div>
-              </div>
-            </div>
-          </Link>
+            <UserPlus className="h-4 w-4 mr-1.5" />
+            Agregar Cliente
+          </Button>
         </div>
 
-        {/* PJN History Section */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-2">
-            <PjnMovementsCard caseId={currentCase._id} />
-          </div>
-          <div className="space-y-6">
-            <PjnSyncStatus 
-              caseId={currentCase._id} 
-              fre={currentCase.fre} 
-              lastSyncAt={currentCase.lastPjnHistorySyncAt}
-            />
-            <PjnIntervinientesSummary 
-              caseId={currentCase._id} 
-              onViewDetail={() => setIsIntervinientesDialogOpen(true)}
-            />
-            <PjnVinculadosSummary 
-              caseId={currentCase._id} 
-              onViewDetail={() => setIsVinculadosDialogOpen(true)}
-            />
-          </div>
-        </div>
+        {/* Contenido principal - 2 columnas */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8" data-tutorial="case-info">
+          {/* Columna izquierda */}
+          <div className="lg:col-span-5 space-y-6">
+            {/* Resumen IA del caso */}
+            <div className="rounded-lg bg-gradient-to-br from-sky-50 to-sky-100/50 border border-sky-200/60 p-5">
+              <div className="flex items-center gap-2 mb-4">
+                <Sparkles className="h-4 w-4 text-tertiary" />
+                <h3 className="font-semibold text-tertiary">
+                  Resumen IA del caso
+                </h3>
+              </div>
+              {parsedSummary ? (
+                <div className="space-y-4">
+                  {parsedSummary.currentStatus?.summary && (
+                    <p className="text-sm text-gray-700 leading-relaxed">
+                      {parsedSummary.currentStatus.summary}
+                    </p>
+                  )}
 
-        {/* Información del Caso */}
-        <div className="space-y-6" data-tutorial="case-info">
-          <h2 className="text-lg font-medium text-gray-900">
-            Información del Caso
-          </h2>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-x-8 gap-y-6">
-            <div className="space-y-1">
-              <div className="text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Creado
-              </div>
-              <div className="text-sm text-gray-900">
-                {formatDate(currentCase._creationTime)}
-              </div>
+                  {parsedSummary.relevantActions.length > 0 && (
+                    <div className="space-y-2">
+                      {parsedSummary.relevantActions
+                        .slice(0, 3)
+                        .map((action, i) => (
+                          <div
+                            key={i}
+                            className="flex items-start gap-2 text-sm"
+                          >
+                            {action.status === "completed" ? (
+                              <Check className="h-4 w-4 text-tertiary mt-0.5 shrink-0" />
+                            ) : action.status === "in_progress" ? (
+                              <Clock className="h-4 w-4 text-blue-500 mt-0.5 shrink-0" />
+                            ) : (
+                              <Circle className="h-4 w-4 text-gray-300 mt-0.5 shrink-0" />
+                            )}
+                            <span
+                              className={
+                                action.status === "completed"
+                                  ? "text-tertiary"
+                                  : "text-gray-600"
+                              }
+                            >
+                              {action.action}
+                            </span>
+                          </div>
+                        ))}
+                    </div>
+                  )}
+
+                  {parsedSummary.nextSteps.length > 0 && (
+                    <div className="pt-2 border-t border-sky-200/50 space-y-2">
+                      <p className="text-xs font-medium text-tertiary/70">
+                        Próximos pasos:
+                      </p>
+                      {parsedSummary.nextSteps.slice(0, 2).map((step, i) => (
+                        <div key={i} className="flex items-start gap-2 text-sm">
+                          <Circle className="h-3 w-3 text-tertiary/50 mt-1 shrink-0" />
+                          <span className="text-gray-600">{step.step}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ) : currentCase.caseSummary ? (
+                <div className="text-sm text-gray-700 leading-relaxed line-clamp-6">
+                  {(() => {
+                    const match = currentCase.caseSummary.match(
+                      /<summary>([\s\S]*)<\/summary>/,
+                    );
+                    const content =
+                      match && match[1]
+                        ? match[1].trim()
+                        : currentCase.caseSummary;
+                    return (
+                      content
+                        .replace(/^## .+$/gm, "")
+                        .replace(/^• /gm, "- ")
+                        .replace(/^\d+\. /gm, "")
+                        .trim()
+                        .slice(0, 300) + (content.length > 300 ? "..." : "")
+                    );
+                  })()}
+                </div>
+              ) : (
+                <p className="text-sm text-gray-500">
+                  Genera un resumen para ver el estado del caso
+                </p>
+              )}
+
+              <button
+                onClick={handleGenerateSummary}
+                disabled={isGeneratingSummary}
+                className="flex items-center gap-2 text-sm text-tertiary hover:text-tertiary/80 transition-colors disabled:opacity-50"
+              >
+                <RefreshCw
+                  className={`h-4 w-4 ${isGeneratingSummary ? "animate-spin" : ""}`}
+                />
+                {isGeneratingSummary ? "Generando..." : "Regenerar resumen"}
+              </button>
             </div>
-            {currentCase.startDate && (
-              <div className="space-y-1">
-                <div className="text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Inicio
-                </div>
-                <div className="text-sm text-gray-900">
-                  {formatDate(currentCase.startDate)}
-                </div>
-              </div>
-            )}
-            {currentCase.endDate && (
-              <div className="space-y-1">
-                <div className="text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Fin
-                </div>
-                <div className="text-sm text-gray-900">
-                  {formatDate(currentCase.endDate)}
-                </div>
-              </div>
-            )}
-            {currentCase.estimatedHours && (
-              <div className="space-y-1">
-                <div className="text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Horas Estimadas
-                </div>
-                <div className="text-sm text-gray-900">
-                  {currentCase.estimatedHours}h
-                </div>
-              </div>
-            )}
-          </div>
 
-          {currentCase.tags && currentCase.tags.length > 0 && (
-            <div className="pt-4 border-t">
-              <div className="flex flex-wrap gap-2">
-                {currentCase.tags.map((tag: string, index: number) => (
-                  <Badge
-                    key={index}
-                    variant="secondary"
-                    className="font-normal"
+            {/* Accesos directos */}
+            <div className="space-y-3">
+              <h3 className="text-sm font-medium text-gray-700">
+                Accesos directos
+              </h3>
+              <div className="grid grid-cols-2 gap-3">
+                {quickAccessItems.map((item) => (
+                  <Link
+                    key={item.label}
+                    to={item.href}
+                    className="flex items-center gap-3 p-3 rounded-lg border border-gray-100 hover:border-tertiary/30 hover:bg-gray-50 transition-colors group"
                   >
-                    {tag}
-                  </Badge>
+                    <div className="w-10 h-10 rounded-lg bg-sky-50 flex items-center justify-center group-hover:bg-sky-100 transition-colors">
+                      <item.icon className="h-5 w-5 text-tertiary" />
+                    </div>
+                    <div>
+                      <div className="text-sm font-medium text-gray-900">
+                        {item.label}
+                      </div>
+                      <div className="text-xs text-gray-500">{item.count}</div>
+                    </div>
+                  </Link>
                 ))}
               </div>
             </div>
-          )}
-        </div>
 
-        {/* Acciones Rápidas */}
-        <div className="space-y-6">
-          <h2 className="text-lg font-medium text-gray-900">Acciones</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            <Link to={`/caso/${currentCase._id}/clientes`}>
-              <Button className="w-full justify-between h-auto py-4 px-6 bg-tertiary text-white hover:bg-tertiary/80">
-                <div className="flex items-center gap-3">
-                  <Users className="h-4 w-4" />
-                  <span className="font-normal">Gestionar Clientes</span>
+            {/* Información del Caso */}
+            <div className="space-y-4">
+              <h3 className="text-sm font-medium text-gray-700">
+                Información del Caso
+              </h3>
+              <div className="space-y-3">
+                <div className="flex justify-between py-2 border-b border-gray-100">
+                  <span className="text-sm text-gray-500">Creado</span>
+                  <span className="text-sm text-gray-900">
+                    {formatDate(currentCase._creationTime)}
+                  </span>
                 </div>
-                <ArrowRight className="h-4 w-4 text-gray-400" />
-              </Button>
-            </Link>
-            <Link to={`/caso/${currentCase._id}/equipos`}>
-              <Button className="w-full  justify-between h-auto py-4 px-6 bg-tertiary text-white hover:bg-tertiary/80">
-                <div className="flex items-center gap-3">
-                  <Users className="h-4 w-4" />
-                  <span className="font-normal">Gestionar Equipos</span>
+                {currentCase.startDate && (
+                  <div className="flex justify-between py-2 border-b border-gray-100">
+                    <span className="text-sm text-gray-500">Inicio</span>
+                    <span className="text-sm text-gray-900">
+                      {formatDate(currentCase.startDate)}
+                    </span>
+                  </div>
+                )}
+                {currentCase.endDate && (
+                  <div className="flex justify-between py-2 border-b border-gray-100">
+                    <span className="text-sm text-gray-500">Fin</span>
+                    <span className="text-sm text-gray-900">
+                      {formatDate(currentCase.endDate)}
+                    </span>
+                  </div>
+                )}
+                {currentCase.estimatedHours && (
+                  <div className="flex justify-between py-2 border-b border-gray-100">
+                    <span className="text-sm text-gray-500">
+                      Horas Estimadas
+                    </span>
+                    <span className="text-sm text-gray-900">
+                      {currentCase.estimatedHours}h
+                    </span>
+                  </div>
+                )}
+              </div>
+
+              {currentCase.tags && currentCase.tags.length > 0 && (
+                <div className="flex flex-wrap gap-2 pt-2">
+                  {currentCase.tags.map((tag: string, index: number) => (
+                    <Badge
+                      key={index}
+                      variant="secondary"
+                      className="font-normal text-xs"
+                    >
+                      {tag}
+                    </Badge>
+                  ))}
                 </div>
-                <ArrowRight className="h-4 w-4 text-gray-400" />
-              </Button>
-            </Link>
-            <Link to={`/caso/${currentCase._id}/modelos`}>
-              <Button className="w-full justify-between h-auto py-4 px-6 bg-tertiary text-white hover:bg-tertiary/80">
-                <div className="flex items-center gap-3">
-                  <FileText className="h-4 w-4" />
-                  <span className="font-normal">Usar Modelos</span>
-                </div>
-                <ArrowRight className="h-4 w-4 text-gray-400" />
-              </Button>
-            </Link>
-            <Link to={`/caso/${currentCase._id}/base-de-datos`}>
-              <Button className="w-full justify-between h-auto py-4 px-6 bg-tertiary text-white hover:bg-tertiary/80">
-                <div className="flex items-center gap-3">
-                  <FileText className="h-4 w-4" />
-                  <span className="font-normal">Base de Datos Legal</span>
-                </div>
-                <ArrowRight className="h-4 w-4 text-gray-400" />
-              </Button>
-            </Link>
+              )}
+            </div>
           </div>
-        </div>
-      </div>
 
-      {/* Dialog de Documentos */}
-      <Dialog
-        open={isDocumentsDialogOpen}
-        onOpenChange={setIsDocumentsDialogOpen}
-      >
-        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <FolderOpen className="h-5 w-5 text-tertiary" />
-              Documentos del Caso
-            </DialogTitle>
-            <DialogDescription>
-              {documents && documents.length > 0
-                ? "Haz clic en un documento para abrirlo"
-                : "Aún no hay documentos en este caso"}
-            </DialogDescription>
-          </DialogHeader>
-
-          {documents && documents.length > 0 ? (
-            <div className="space-y-2">
-              {documents.map((doc) => (
-                <Link
-                  key={doc._id}
-                  to={`/caso/${currentCase._id}/documentos/${doc._id}`}
-                  onClick={() => setIsDocumentsDialogOpen(false)}
-                  className="flex items-center justify-between p-3 rounded-lg border hover:bg-gray-50 transition-colors group"
-                >
-                  <div className="flex items-center gap-3 flex-1">
-                    <Folder className="h-4 w-4 text-tertiary group-hover:text-tertiary/80" />
-                    <div className="flex-1">
-                      <p className="text-sm font-medium group-hover:text-tertiary">
-                        {doc.title}
-                      </p>
-                      {doc.description && (
-                        <p className="text-xs text-gray-500">
-                          {doc.description}
-                        </p>
+          {/* Columna derecha - más ancha */}
+          <div className="lg:col-span-7 space-y-6">
+            {/* PJN Section */}
+            <div className="space-y-4">
+              <PjnSyncStatus
+                caseId={currentCase._id}
+                fre={currentCase.fre}
+                lastSyncAt={currentCase.lastPjnHistorySyncAt}
+              />
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <PjnIntervinientesSummary
+                  caseId={currentCase._id}
+                  onViewDetail={() => setIsIntervinientesDialogOpen(true)}
+                />
+                <PjnVinculadosSummary
+                  caseId={currentCase._id}
+                  onViewDetail={() => setIsVinculadosDialogOpen(true)}
+                />
+              </div>
+            </div>
+            {/* Próximo evento destacado */}
+            {upcomingEvent && (
+              <Link
+                to={`/caso/${currentCase._id}/eventos`}
+                className="block rounded-lg border border-gray-100 hover:border-tertiary/30 p-5 transition-colors group"
+              >
+                <div className="flex items-start gap-5">
+                  <div className="text-center">
+                    <div className="text-3xl font-light text-gray-900">
+                      {formatEventDate(upcomingEvent.startDate).day}
+                    </div>
+                    <div className="text-sm font-medium text-gray-500">
+                      {formatEventDate(upcomingEvent.startDate).month}
+                    </div>
+                  </div>
+                  <div className="h-full w-px bg-tertiary/30" />
+                  <div className="flex-1">
+                    <h4 className="font-semibold text-gray-900 group-hover:text-tertiary transition-colors">
+                      {upcomingEvent.title}
+                    </h4>
+                    <div className="flex items-center gap-2 mt-1 text-sm text-gray-500">
+                      <Clock className="h-3.5 w-3.5" />
+                      <span>{formatEventTime(upcomingEvent.startDate)}</span>
+                      {upcomingEvent.location && (
+                        <>
+                          <span>-</span>
+                          <MapPin className="h-3.5 w-3.5" />
+                          <span>{upcomingEvent.location}</span>
+                        </>
                       )}
                     </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <Badge variant="secondary" className="text-xs">
-                      {doc.documentType || "Documento"}
-                    </Badge>
-                    <ArrowRight className="h-4 w-4 text-gray-400 group-hover:text-tertiary" />
-                  </div>
-                </Link>
-              ))}
-            </div>
-          ) : (
-            <div className="flex flex-col items-center justify-center py-8 text-center space-y-4">
-              <div className="rounded-full bg-gray-100 p-4">
-                <FolderOpen className="h-8 w-8 text-gray-400" />
-              </div>
-              <div className="space-y-2">
-                <p className="text-sm font-medium text-gray-900">
-                  No hay documentos todavía
-                </p>
-                <p className="text-sm text-gray-500 max-w-sm">
-                  Puedes agregar nuevos documentos desde el menú lateral
-                  izquierdo. Haz clic en el ícono <strong>Documentos</strong> y
-                  luego en el botón <strong>+</strong> para crear carpetas.
-                </p>
-              </div>
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
-
-      {/* Dialog de Escritos */}
-      <Dialog
-        open={isEscritosDialogOpen}
-        onOpenChange={setIsEscritosDialogOpen}
-      >
-        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <FileText className="h-5 w-5 text-tertiary" />
-              Escritos del Caso
-            </DialogTitle>
-            <DialogDescription>
-              {escritos && escritos.page && escritos.page.length > 0
-                ? "Haz clic en un escrito para abrirlo"
-                : "Aún no hay escritos en este caso"}
-            </DialogDescription>
-          </DialogHeader>
-
-          {escritos && escritos.page && escritos.page.length > 0 ? (
-            <div className="space-y-2">
-              {escritos.page.map((escrito) => (
+                  <Badge variant="outline" className="shrink-0">
+                    {getDaysUntil(upcomingEvent.startDate)}
+                  </Badge>
+                </div>
+              </Link>
+            )}
+            {/* Próximas tareas */}
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm font-semibold text-tertiary">
+                  Próximas tareas
+                </h3>
                 <Link
-                  key={escrito._id}
-                  to={`/caso/${currentCase._id}/escritos/${escrito._id}`}
-                  onClick={() => setIsEscritosDialogOpen(false)}
-                  className="flex items-center justify-between p-3 rounded-lg border hover:bg-gray-50 transition-colors group"
+                  to={`/caso/${currentCase._id}/tareas`}
+                  className="text-xs text-gray-500 hover:text-tertiary flex items-center gap-1"
                 >
-                  <div className="flex items-center gap-3 flex-1">
-                    <FileType2 className="h-4 w-4 text-tertiary group-hover:text-tertiary/80" />
-                    <div className="flex-1">
-                      <p className="text-sm font-medium group-hover:text-tertiary">
-                        {escrito.title}
-                      </p>
-                      <p className="text-xs text-gray-500">
-                        Última edición:{" "}
-                        {new Date(escrito.lastEditedAt).toLocaleDateString(
-                          "es-ES",
-                        )}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Badge
-                      variant="secondary"
-                      className={`text-xs ${
-                        escrito.status === "terminado"
-                          ? "bg-green-100 text-green-800"
-                          : "bg-yellow-100 text-yellow-800"
-                      }`}
-                    >
-                      {escrito.status === "terminado"
-                        ? "Terminado"
-                        : "Borrador"}
-                    </Badge>
-                    <ArrowRight className="h-4 w-4 text-gray-400 group-hover:text-tertiary" />
-                  </div>
+                  Ver todas
+                  <ArrowRight className="h-3 w-3" />
                 </Link>
-              ))}
-            </div>
-          ) : (
-            <div className="flex flex-col items-center justify-center py-8 text-center space-y-4">
-              <div className="rounded-full bg-gray-100 p-4">
-                <FileText className="h-8 w-8 text-gray-400" />
               </div>
               <div className="space-y-2">
-                <p className="text-sm font-medium text-gray-900">
-                  No hay escritos todavía
-                </p>
-                <p className="text-sm text-gray-500 max-w-sm">
-                  Puedes crear nuevos escritos desde el menú lateral izquierdo.
-                  Haz clic en el ícono <strong>Escritos</strong> y luego en el
-                  botón <strong>+</strong> para comenzar.
-                </p>
+                {pendingTasks.length > 0 ? (
+                  pendingTasks.map((task) => (
+                    <Link
+                      key={task._id}
+                      to={`/caso/${currentCase._id}/tareas`}
+                      className="flex items-center gap-3 py-3 px-1 hover:bg-gray-50 rounded transition-colors group"
+                    >
+                      {task.status === "in_progress" ? (
+                        <Clock className="h-4 w-4 text-blue-500 shrink-0" />
+                      ) : (
+                        <Circle className="h-4 w-4 text-gray-300 shrink-0" />
+                      )}
+                      <span className="text-sm text-gray-700 group-hover:text-gray-900 flex-1">
+                        {task.title}
+                      </span>
+                      {tasks && (
+                        <span className="text-xs text-gray-400">
+                          {pendingTasks.indexOf(task) + 1} de{" "}
+                          {
+                            tasks.filter(
+                              (t) =>
+                                t.status === "pending" ||
+                                t.status === "in_progress",
+                            ).length
+                          }
+                        </span>
+                      )}
+                    </Link>
+                  ))
+                ) : (
+                  <p className="text-sm text-gray-500 py-4">
+                    No hay tareas pendientes
+                  </p>
+                )}
               </div>
             </div>
-          )}
-        </DialogContent>
-      </Dialog>
+            {/* Línea de Tiempo - Movimientos PJN */}
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm font-semibold text-tertiary">
+                  Línea de Tiempo
+                </h3>
+                {actuaciones && actuaciones.length > 5 && (
+                  <span className="text-xs text-gray-500">
+                    Últimos 5 de {actuaciones.length}
+                  </span>
+                )}
+              </div>
+
+              {actuaciones && actuaciones.length > 0 ? (
+                <div className="space-y-1">
+                  {actuaciones.slice(0, 5).map((mov, index) => (
+                    <div key={mov._id} className="flex items-start gap-4">
+                      <div className="flex flex-col items-center">
+                        <div
+                          className={`w-10 h-10 rounded-full flex items-center justify-center ${
+                            index === 0
+                              ? "bg-sky-100"
+                              : index === 1
+                                ? "bg-sky-50"
+                                : "bg-gray-50"
+                          }`}
+                        >
+                          <Calendar
+                            className={`h-4 w-4 ${
+                              index === 0
+                                ? "text-tertiary"
+                                : index === 1
+                                  ? "text-tertiary/70"
+                                  : "text-gray-400"
+                            }`}
+                          />
+                        </div>
+                        {index < Math.min(actuaciones.length, 5) - 1 && (
+                          <div className="w-px h-8 bg-gray-200 my-1" />
+                        )}
+                      </div>
+                      <div className="flex-1 pt-2">
+                        <p className="text-sm font-medium text-gray-900 line-clamp-2">
+                          {mov.description}
+                        </p>
+                        <div className="flex items-center gap-2 mt-1">
+                          <p className="text-xs text-gray-500">
+                            {formatDate(mov.movementDate)}
+                          </p>
+                          {mov.hasDocument && (
+                            <Badge
+                              variant="outline"
+                              className="text-xs bg-blue-50 text-blue-600 border-blue-200"
+                            >
+                              Documento
+                            </Badge>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-6 text-gray-500">
+                  <Calendar className="h-8 w-8 mx-auto mb-2 text-gray-300" />
+                  <p className="text-sm">No hay movimientos registrados</p>
+                  <p className="text-xs text-gray-400 mt-1">
+                    Sincroniza el caso para obtener el historial del PJN
+                  </p>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
 
       {/* Dialog de Intervinientes */}
       <Dialog
@@ -550,7 +708,8 @@ export default function CaseDetailPage() {
               Intervinientes (PJN)
             </DialogTitle>
             <DialogDescription>
-              Gestiona la vinculación de intervinientes del PJN con clientes en iAlex.
+              Gestiona la vinculación de intervinientes del PJN con clientes en
+              iAlex.
             </DialogDescription>
           </DialogHeader>
           <div className="py-4">
