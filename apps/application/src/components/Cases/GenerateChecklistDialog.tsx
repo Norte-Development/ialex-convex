@@ -173,7 +173,7 @@ export function GenerateChecklistDialog({
                     </SelectItem>
                   ))}
                   {(!threads?.page || threads.page.length === 0) && (
-                    <SelectItem value="" disabled>
+                    <SelectItem value="no-threads" disabled>
                       No hay conversaciones en este caso
                     </SelectItem>
                   )}
